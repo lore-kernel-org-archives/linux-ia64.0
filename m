@@ -1,126 +1,233 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Fri, 18 Jun 2021 07:05:40 +0000
-Subject: [PATCH -tip v8 02/13] kprobes: treewide: Replace arch_deref_entry_point() with dereference_symbol_de
-Message-Id: <162399994018.506599.10332627573727646767.stgit@devnote2>
+From: David Hildenbrand <david@redhat.com>
+Date: Mon, 07 Jun 2021 19:54:22 +0000
+Subject: [PATCH v1 04/12] mm/memory_hotplug: remove nid parameter from arch_remove_memory()
+Message-Id: <20210607195430.48228-5-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162399992186.506599.8457763707951687195.stgit@devnote2>
-In-Reply-To: <162399992186.506599.8457763707951687195.stgit@devnote2>
+References: <20210607195430.48228-1-david@redhat.com>
+In-Reply-To: <20210607195430.48228-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: linux-kernel@vger.kernel.org
+Cc: David Hildenbrand <david@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, Vitaly Kuznetsov <vkuznets@redhat.com>, "Michael S. Tsirkin" <mst@redhat.com>, Jason Wang <jasowang@redhat.com>, Marek Kedzierski <mkedzier@redhat.com>, Hui Zhu <teawater@gmail.com>, Pankaj Gupta <pankaj.gupta.linux@gmail.com>, Wei Yang <richard.weiyang@linux.alibaba.com>, Oscar Salvador <osalvador@suse.de>, Michal Hocko <mhocko@kernel.org>, Dan Williams <dan.j.williams@intel.com>, Anshuman Khandual <anshuman.khandual@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, Vlastimil Babka <vbabka@suse.cz>, Mike Rapoport <rppt@kernel.org>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Pavel Tatashin <pasha.tatashin@soleen.com>, virtualization@lists.linux-foundation.org, linux-mm@kvack.org, linux-acpi@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Andy Lutomirski <luto@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Ard Biesheuvel <ardb@kernel.org>, Nicholas Piggin <npiggin@gmail.com>, Baoquan He <bhe@redhat.com>, Laurent Dufour <ldufour@linux.ibm.com>, Sergei Trofimovich <slyfox@gentoo.org>, Kefeng Wang <wangkefeng.wang@huawei.com>, Michel Lespinasse <michel@lespinasse.org>, Christophe Leroy <christophe.leroy@c-s.fr>, "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>, Thiago Jung Bauermann <bauerman@linux.ibm.com>, Joe Perches <joe@perches.com>, Pierre Morel <pmorel@linux.ibm.com>, Jia He <justin.he@arm.com>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org
 
-Replace arch_deref_entry_point() with dereference_symbol_descriptor()
-because those are doing same thing.
+The parameter is unused, let's remove it.
 
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-Tested-by: Andrii Nakryik <andrii@kernel.org>
+Cc: Catalin Marinas <catalin.marinas@arm.com>
+Cc: Will Deacon <will@kernel.org>
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Heiko Carstens <hca@linux.ibm.com>
+Cc: Vasily Gorbik <gor@linux.ibm.com>
+Cc: Christian Borntraeger <borntraeger@de.ibm.com>
+Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
+Cc: Rich Felker <dalias@libc.org>
+Cc: Dave Hansen <dave.hansen@linux.intel.com>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: x86@kernel.org
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Anshuman Khandual <anshuman.khandual@arm.com>
+Cc: Ard Biesheuvel <ardb@kernel.org>
+Cc: Mike Rapoport <rppt@kernel.org>
+Cc: Nicholas Piggin <npiggin@gmail.com>
+Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
+Cc: Baoquan He <bhe@redhat.com>
+Cc: Laurent Dufour <ldufour@linux.ibm.com>
+Cc: Sergei Trofimovich <slyfox@gentoo.org>
+Cc: Kefeng Wang <wangkefeng.wang@huawei.com>
+Cc: Michel Lespinasse <michel@lespinasse.org>
+Cc: Christophe Leroy <christophe.leroy@c-s.fr>
+Cc: "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>
+Cc: Thiago Jung Bauermann <bauerman@linux.ibm.com>
+Cc: Joe Perches <joe@perches.com>
+Cc: Pierre Morel <pmorel@linux.ibm.com>
+Cc: Jia He <justin.he@arm.com>
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linux-ia64@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-s390@vger.kernel.org
+Cc: linux-sh@vger.kernel.org
+Signed-off-by: David Hildenbrand <david@redhat.com>
 ---
- Changes in v6:
-  - Use dereference_symbol_descriptor() so that it can handle address in
-    modules correctly.
----
- arch/ia64/kernel/kprobes.c    |    5 -----
- arch/powerpc/kernel/kprobes.c |   11 -----------
- include/linux/kprobes.h       |    1 -
- kernel/kprobes.c              |    7 +------
- lib/error-inject.c            |    3 ++-
- 5 files changed, 3 insertions(+), 24 deletions(-)
+ arch/arm64/mm/mmu.c            | 3 +--
+ arch/ia64/mm/init.c            | 3 +--
+ arch/powerpc/mm/mem.c          | 3 +--
+ arch/s390/mm/init.c            | 3 +--
+ arch/sh/mm/init.c              | 3 +--
+ arch/x86/mm/init_32.c          | 3 +--
+ arch/x86/mm/init_64.c          | 3 +--
+ include/linux/memory_hotplug.h | 3 +--
+ mm/memory_hotplug.c            | 4 ++--
+ mm/memremap.c                  | 5 +----
+ 10 files changed, 11 insertions(+), 22 deletions(-)
 
-diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
-index d4048518a1d7..0f8573bbf520 100644
---- a/arch/ia64/kernel/kprobes.c
-+++ b/arch/ia64/kernel/kprobes.c
-@@ -891,11 +891,6 @@ int __kprobes kprobe_exceptions_notify(struct notifier_block *self,
+diff --git a/arch/arm64/mm/mmu.c b/arch/arm64/mm/mmu.c
+index 89b66ef43a0f..c7821013f551 100644
+--- a/arch/arm64/mm/mmu.c
++++ b/arch/arm64/mm/mmu.c
+@@ -1502,8 +1502,7 @@ int arch_add_memory(int nid, u64 start, u64 size,
  	return ret;
  }
  
--unsigned long arch_deref_entry_point(void *entry)
--{
--	return ((struct fnptr *)entry)->ip;
--}
--
- static struct kprobe trampoline_p = {
- 	.pre_handler = trampoline_probe_handler
- };
-diff --git a/arch/powerpc/kernel/kprobes.c b/arch/powerpc/kernel/kprobes.c
-index c64a5feaebbe..24472f2c2cfc 100644
---- a/arch/powerpc/kernel/kprobes.c
-+++ b/arch/powerpc/kernel/kprobes.c
-@@ -522,17 +522,6 @@ int kprobe_fault_handler(struct pt_regs *regs, int trapnr)
+-void arch_remove_memory(int nid, u64 start, u64 size,
+-			struct vmem_altmap *altmap)
++void arch_remove_memory(u64 start, u64 size, struct vmem_altmap *altmap)
+ {
+ 	unsigned long start_pfn = start >> PAGE_SHIFT;
+ 	unsigned long nr_pages = size >> PAGE_SHIFT;
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index 064a967a7b6e..5c6da8d83c1a 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -484,8 +484,7 @@ int arch_add_memory(int nid, u64 start, u64 size,
+ 	return ret;
  }
- NOKPROBE_SYMBOL(kprobe_fault_handler);
  
--unsigned long arch_deref_entry_point(void *entry)
--{
--#ifdef PPC64_ELF_ABI_v1
--	if (!kernel_text_address((unsigned long)entry))
--		return ppc_global_function_entry(entry);
--	else
--#endif
--		return (unsigned long)entry;
--}
--NOKPROBE_SYMBOL(arch_deref_entry_point);
+-void arch_remove_memory(int nid, u64 start, u64 size,
+-			struct vmem_altmap *altmap)
++void arch_remove_memory(u64 start, u64 size, struct vmem_altmap *altmap)
+ {
+ 	unsigned long start_pfn = start >> PAGE_SHIFT;
+ 	unsigned long nr_pages = size >> PAGE_SHIFT;
+diff --git a/arch/powerpc/mm/mem.c b/arch/powerpc/mm/mem.c
+index 043bbeaf407c..fc5c36189c26 100644
+--- a/arch/powerpc/mm/mem.c
++++ b/arch/powerpc/mm/mem.c
+@@ -115,8 +115,7 @@ int __ref arch_add_memory(int nid, u64 start, u64 size,
+ 	return rc;
+ }
+ 
+-void __ref arch_remove_memory(int nid, u64 start, u64 size,
+-			      struct vmem_altmap *altmap)
++void __ref arch_remove_memory(u64 start, u64 size, struct vmem_altmap *altmap)
+ {
+ 	unsigned long start_pfn = start >> PAGE_SHIFT;
+ 	unsigned long nr_pages = size >> PAGE_SHIFT;
+diff --git a/arch/s390/mm/init.c b/arch/s390/mm/init.c
+index 8ac710de1ab1..d85bd7f5d8dc 100644
+--- a/arch/s390/mm/init.c
++++ b/arch/s390/mm/init.c
+@@ -306,8 +306,7 @@ int arch_add_memory(int nid, u64 start, u64 size,
+ 	return rc;
+ }
+ 
+-void arch_remove_memory(int nid, u64 start, u64 size,
+-			struct vmem_altmap *altmap)
++void arch_remove_memory(u64 start, u64 size, struct vmem_altmap *altmap)
+ {
+ 	unsigned long start_pfn = start >> PAGE_SHIFT;
+ 	unsigned long nr_pages = size >> PAGE_SHIFT;
+diff --git a/arch/sh/mm/init.c b/arch/sh/mm/init.c
+index 168d7d4dd735..d74daf68e59e 100644
+--- a/arch/sh/mm/init.c
++++ b/arch/sh/mm/init.c
+@@ -414,8 +414,7 @@ int arch_add_memory(int nid, u64 start, u64 size,
+ 	return ret;
+ }
+ 
+-void arch_remove_memory(int nid, u64 start, u64 size,
+-			struct vmem_altmap *altmap)
++void arch_remove_memory(u64 start, u64 size, struct vmem_altmap *altmap)
+ {
+ 	unsigned long start_pfn = PFN_DOWN(start);
+ 	unsigned long nr_pages = size >> PAGE_SHIFT;
+diff --git a/arch/x86/mm/init_32.c b/arch/x86/mm/init_32.c
+index 21ffb03f6c72..5e82aafb5b49 100644
+--- a/arch/x86/mm/init_32.c
++++ b/arch/x86/mm/init_32.c
+@@ -801,8 +801,7 @@ int arch_add_memory(int nid, u64 start, u64 size,
+ 	return __add_pages(nid, start_pfn, nr_pages, params);
+ }
+ 
+-void arch_remove_memory(int nid, u64 start, u64 size,
+-			struct vmem_altmap *altmap)
++void arch_remove_memory(u64 start, u64 size, struct vmem_altmap *altmap)
+ {
+ 	unsigned long start_pfn = start >> PAGE_SHIFT;
+ 	unsigned long nr_pages = size >> PAGE_SHIFT;
+diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
+index e527d829e1ed..d0296c081607 100644
+--- a/arch/x86/mm/init_64.c
++++ b/arch/x86/mm/init_64.c
+@@ -1254,8 +1254,7 @@ kernel_physical_mapping_remove(unsigned long start, unsigned long end)
+ 	remove_pagetable(start, end, true, NULL);
+ }
+ 
+-void __ref arch_remove_memory(int nid, u64 start, u64 size,
+-			      struct vmem_altmap *altmap)
++void __ref arch_remove_memory(u64 start, u64 size, struct vmem_altmap *altmap)
+ {
+ 	unsigned long start_pfn = start >> PAGE_SHIFT;
+ 	unsigned long nr_pages = size >> PAGE_SHIFT;
+diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
+index 571734fd95bd..1d8d09c029c9 100644
+--- a/include/linux/memory_hotplug.h
++++ b/include/linux/memory_hotplug.h
+@@ -142,8 +142,7 @@ static inline bool movable_node_is_enabled(void)
+ 	return movable_node_enabled;
+ }
+ 
+-extern void arch_remove_memory(int nid, u64 start, u64 size,
+-			       struct vmem_altmap *altmap);
++extern void arch_remove_memory(u64 start, u64 size, struct vmem_altmap *altmap);
+ extern void __remove_pages(unsigned long start_pfn, unsigned long nr_pages,
+ 			   struct vmem_altmap *altmap);
+ 
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 7206787ac5a9..f9be66bbd847 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -1431,7 +1431,7 @@ int __ref add_memory_resource(int nid, struct resource *res, mhp_t mhp_flags)
+ 	/* create memory block devices after memory was added */
+ 	ret = create_memory_block_devices(start, size, mhp_altmap.alloc);
+ 	if (ret) {
+-		arch_remove_memory(nid, start, size, NULL);
++		arch_remove_memory(start, size, NULL);
+ 		goto error;
+ 	}
+ 
+@@ -2211,7 +2211,7 @@ static int __ref try_remove_memory(int nid, u64 start, u64 size)
+ 
+ 	mem_hotplug_begin();
+ 
+-	arch_remove_memory(nid, start, size, altmap);
++	arch_remove_memory(start, size, altmap);
+ 
+ 	if (IS_ENABLED(CONFIG_ARCH_KEEP_MEMBLOCK)) {
+ 		memblock_free(start, size);
+diff --git a/mm/memremap.c b/mm/memremap.c
+index 15a074ffb8d7..ed593bf87109 100644
+--- a/mm/memremap.c
++++ b/mm/memremap.c
+@@ -140,14 +140,11 @@ static void pageunmap_range(struct dev_pagemap *pgmap, int range_id)
+ {
+ 	struct range *range = &pgmap->ranges[range_id];
+ 	struct page *first_page;
+-	int nid;
+ 
+ 	/* make sure to access a memmap that was actually initialized */
+ 	first_page = pfn_to_page(pfn_first(pgmap, range_id));
+ 
+ 	/* pages are dead and unused, undo the arch mapping */
+-	nid = page_to_nid(first_page);
 -
- static struct kprobe trampoline_p = {
- 	.addr = (kprobe_opcode_t *) &kretprobe_trampoline,
- 	.pre_handler = trampoline_probe_handler
-diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
-index 523ffc7bc3a8..713c3a683011 100644
---- a/include/linux/kprobes.h
-+++ b/include/linux/kprobes.h
-@@ -382,7 +382,6 @@ int register_kprobe(struct kprobe *p);
- void unregister_kprobe(struct kprobe *p);
- int register_kprobes(struct kprobe **kps, int num);
- void unregister_kprobes(struct kprobe **kps, int num);
--unsigned long arch_deref_entry_point(void *);
- 
- int register_kretprobe(struct kretprobe *rp);
- void unregister_kretprobe(struct kretprobe *rp);
-diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-index e41385afe79d..f8fe9d077b41 100644
---- a/kernel/kprobes.c
-+++ b/kernel/kprobes.c
-@@ -1838,11 +1838,6 @@ static struct notifier_block kprobe_exceptions_nb = {
- 	.priority = 0x7fffffff /* we need to be notified first */
- };
- 
--unsigned long __weak arch_deref_entry_point(void *entry)
--{
--	return (unsigned long)entry;
--}
--
- #ifdef CONFIG_KRETPROBES
- 
- unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
-@@ -2305,7 +2300,7 @@ static int __init populate_kprobe_blacklist(unsigned long *start,
- 	int ret;
- 
- 	for (iter = start; iter < end; iter++) {
--		entry = arch_deref_entry_point((void *)*iter);
-+		entry = (unsigned long)dereference_symbol_descriptor((void *)*iter);
- 		ret = kprobe_add_ksym_blacklist(entry);
- 		if (ret = -EINVAL)
- 			continue;
-diff --git a/lib/error-inject.c b/lib/error-inject.c
-index c73651b15b76..2ff5ef689d72 100644
---- a/lib/error-inject.c
-+++ b/lib/error-inject.c
-@@ -8,6 +8,7 @@
- #include <linux/mutex.h>
- #include <linux/list.h>
- #include <linux/slab.h>
-+#include <asm/sections.h>
- 
- /* Whitelist of symbols that can be overridden for error injection. */
- static LIST_HEAD(error_injection_list);
-@@ -64,7 +65,7 @@ static void populate_error_injection_list(struct error_injection_entry *start,
- 
- 	mutex_lock(&ei_mutex);
- 	for (iter = start; iter < end; iter++) {
--		entry = arch_deref_entry_point((void *)iter->addr);
-+		entry = (unsigned long)dereference_symbol_descriptor((void *)iter->addr);
- 
- 		if (!kernel_text_address(entry) ||
- 		    !kallsyms_lookup_size_offset(entry, &size, &offset)) {
+ 	mem_hotplug_begin();
+ 	remove_pfn_range_from_zone(page_zone(first_page), PHYS_PFN(range->start),
+ 				   PHYS_PFN(range_len(range)));
+@@ -155,7 +152,7 @@ static void pageunmap_range(struct dev_pagemap *pgmap, int range_id)
+ 		__remove_pages(PHYS_PFN(range->start),
+ 			       PHYS_PFN(range_len(range)), NULL);
+ 	} else {
+-		arch_remove_memory(nid, range->start, range_len(range),
++		arch_remove_memory(range->start, range_len(range),
+ 				pgmap_altmap(pgmap));
+ 		kasan_remove_zero_shadow(__va(range->start), range_len(range));
+ 	}
+-- 
+2.31.1
