@@ -1,10 +1,10 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Fri, 04 Jun 2021 06:49:12 +0000
-Subject: [PATCH v2 5/9] mm: remove CONFIG_DISCONTIGMEM
-Message-Id: <20210604064916.26580-6-rppt@kernel.org>
+Date: Tue, 08 Jun 2021 09:13:10 +0000
+Subject: [PATCH v3 3/9] arc: remove support for DISCONTIGMEM
+Message-Id: <20210608091316.3622-4-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210604064916.26580-1-rppt@kernel.org>
-In-Reply-To: <20210604064916.26580-1-rppt@kernel.org>
+References: <20210608091316.3622-1-rppt@kernel.org>
+In-Reply-To: <20210608091316.3622-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -13,190 +13,122 @@ Cc: Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Iv
 
 From: Mike Rapoport <rppt@linux.ibm.com>
 
-There are no architectures that support DISCONTIGMEM left.
+DISCONTIGMEM was replaced by FLATMEM with freeing of the unused memory map
+in v5.11.
 
-Remove the configuration option and the dead code it was guarding in the
-generic memory management code.
+Remove the support for DISCONTIGMEM entirely.
 
 Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+Acked-by: Vineet Gupta <vgupta@synopsys.com>
 ---
- include/asm-generic/memory_model.h | 37 ++++--------------------------
- include/linux/mmzone.h             |  8 ++++---
- mm/Kconfig                         | 25 +++-----------------
- mm/page_alloc.c                    | 13 -----------
- 4 files changed, 12 insertions(+), 71 deletions(-)
+ arch/arc/Kconfig              | 13 ------------
+ arch/arc/include/asm/mmzone.h | 40 -----------------------------------
+ arch/arc/mm/init.c            |  8 -------
+ 3 files changed, 61 deletions(-)
+ delete mode 100644 arch/arc/include/asm/mmzone.h
 
-diff --git a/include/asm-generic/memory_model.h b/include/asm-generic/memory_model.h
-index 7637fb46ba4f..a2c8ed60233a 100644
---- a/include/asm-generic/memory_model.h
-+++ b/include/asm-generic/memory_model.h
-@@ -6,47 +6,18 @@
+diff --git a/arch/arc/Kconfig b/arch/arc/Kconfig
+index 2d98501c0897..d8f51eb8963b 100644
+--- a/arch/arc/Kconfig
++++ b/arch/arc/Kconfig
+@@ -62,10 +62,6 @@ config SCHED_OMIT_FRAME_POINTER
+ config GENERIC_CSUM
+ 	def_bool y
  
- #ifndef __ASSEMBLY__
- 
-+/*
-+ * supports 3 memory models.
-+ */
- #if defined(CONFIG_FLATMEM)
- 
- #ifndef ARCH_PFN_OFFSET
- #define ARCH_PFN_OFFSET		(0UL)
- #endif
- 
--#elif defined(CONFIG_DISCONTIGMEM)
+-config ARCH_DISCONTIGMEM_ENABLE
+-	def_bool n
+-	depends on BROKEN
 -
--#ifndef arch_pfn_to_nid
--#define arch_pfn_to_nid(pfn)	pfn_to_nid(pfn)
--#endif
--
--#ifndef arch_local_page_offset
--#define arch_local_page_offset(pfn, nid)	\
--	((pfn) - NODE_DATA(nid)->node_start_pfn)
--#endif
--
--#endif /* CONFIG_DISCONTIGMEM */
--
--/*
-- * supports 3 memory models.
-- */
--#if defined(CONFIG_FLATMEM)
--
- #define __pfn_to_page(pfn)	(mem_map + ((pfn) - ARCH_PFN_OFFSET))
- #define __page_to_pfn(page)	((unsigned long)((page) - mem_map) + \
- 				 ARCH_PFN_OFFSET)
--#elif defined(CONFIG_DISCONTIGMEM)
--
--#define __pfn_to_page(pfn)			\
--({	unsigned long __pfn = (pfn);		\
--	unsigned long __nid = arch_pfn_to_nid(__pfn);  \
--	NODE_DATA(__nid)->node_mem_map + arch_local_page_offset(__pfn, __nid);\
--})
--
--#define __page_to_pfn(pg)						\
--({	const struct page *__pg = (pg);					\
--	struct pglist_data *__pgdat = NODE_DATA(page_to_nid(__pg));	\
--	(unsigned long)(__pg - __pgdat->node_mem_map) +			\
--	 __pgdat->node_start_pfn;					\
--})
+ config ARCH_FLATMEM_ENABLE
+ 	def_bool y
  
- #elif defined(CONFIG_SPARSEMEM_VMEMMAP)
- 
-@@ -70,7 +41,7 @@
- 	struct mem_section *__sec = __pfn_to_section(__pfn);	\
- 	__section_mem_map_addr(__sec) + __pfn;		\
- })
--#endif /* CONFIG_FLATMEM/DISCONTIGMEM/SPARSEMEM */
-+#endif /* CONFIG_FLATMEM/SPARSEMEM */
- 
- /*
-  * Convert a physical address to a Page Frame Number and back
-diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
-index 0d53eba1c383..700032e99419 100644
---- a/include/linux/mmzone.h
-+++ b/include/linux/mmzone.h
-@@ -738,10 +738,12 @@ struct zonelist {
- 	struct zoneref _zonerefs[MAX_ZONES_PER_ZONELIST + 1];
- };
- 
--#ifndef CONFIG_DISCONTIGMEM
--/* The array of struct pages - for discontigmem use pgdat->lmem_map */
-+/*
-+ * The array of struct pages for flatmem.
-+ * It must be declared for SPARSEMEM as well because there are configurations
-+ * that rely on that.
-+ */
- extern struct page *mem_map;
--#endif
- 
- #ifdef CONFIG_TRANSPARENT_HUGEPAGE
- struct deferred_split {
-diff --git a/mm/Kconfig b/mm/Kconfig
-index 02d44e3420f5..218b96ccc84a 100644
---- a/mm/Kconfig
-+++ b/mm/Kconfig
-@@ -19,7 +19,7 @@ choice
- 
- config FLATMEM_MANUAL
- 	bool "Flat Memory"
--	depends on !(ARCH_DISCONTIGMEM_ENABLE || ARCH_SPARSEMEM_ENABLE) || ARCH_FLATMEM_ENABLE
-+	depends on !ARCH_SPARSEMEM_ENABLE || ARCH_FLATMEM_ENABLE
- 	help
- 	  This option is best suited for non-NUMA systems with
- 	  flat address space. The FLATMEM is the most efficient
-@@ -32,21 +32,6 @@ config FLATMEM_MANUAL
- 
- 	  If unsure, choose this option (Flat Memory) over any other.
- 
--config DISCONTIGMEM_MANUAL
--	bool "Discontiguous Memory"
--	depends on ARCH_DISCONTIGMEM_ENABLE
--	help
--	  This option provides enhanced support for discontiguous
--	  memory systems, over FLATMEM.  These systems have holes
--	  in their physical address spaces, and this option provides
--	  more efficient handling of these holes.
--
--	  Although "Discontiguous Memory" is still used by several
--	  architectures, it is considered deprecated in favor of
--	  "Sparse Memory".
--
--	  If unsure, choose "Sparse Memory" over this option.
--
- config SPARSEMEM_MANUAL
- 	bool "Sparse Memory"
- 	depends on ARCH_SPARSEMEM_ENABLE
-@@ -62,17 +47,13 @@ config SPARSEMEM_MANUAL
+@@ -344,15 +340,6 @@ config ARC_HUGEPAGE_16M
  
  endchoice
  
--config DISCONTIGMEM
--	def_bool y
--	depends on (!SELECT_MEMORY_MODEL && ARCH_DISCONTIGMEM_ENABLE) || DISCONTIGMEM_MANUAL
+-config NODES_SHIFT
+-	int "Maximum NUMA Nodes (as a power of 2)"
+-	default "0" if !DISCONTIGMEM
+-	default "1" if DISCONTIGMEM
+-	depends on NEED_MULTIPLE_NODES
+-	help
+-	  Accessing memory beyond 1GB (with or w/o PAE) requires 2 memory
+-	  zones.
 -
- config SPARSEMEM
- 	def_bool y
- 	depends on (!SELECT_MEMORY_MODEL && ARCH_SPARSEMEM_ENABLE) || SPARSEMEM_MANUAL
- 
- config FLATMEM
- 	def_bool y
--	depends on (!DISCONTIGMEM && !SPARSEMEM) || FLATMEM_MANUAL
-+	depends on !SPARSEMEM || FLATMEM_MANUAL
- 
- config FLAT_NODE_MEM_MAP
- 	def_bool y
-@@ -85,7 +66,7 @@ config FLAT_NODE_MEM_MAP
- #
- config NEED_MULTIPLE_NODES
- 	def_bool y
--	depends on DISCONTIGMEM || NUMA
-+	depends on NUMA
- 
- #
- # SPARSEMEM_EXTREME (which is the default) does some bootmem
-diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index aaa1655cf682..6fc22482eaa8 100644
---- a/mm/page_alloc.c
-+++ b/mm/page_alloc.c
-@@ -331,20 +331,7 @@ compound_page_dtor * const compound_page_dtors[NR_COMPOUND_DTORS] = {
- 
- int min_free_kbytes = 1024;
- int user_min_free_kbytes = -1;
--#ifdef CONFIG_DISCONTIGMEM
+ config ARC_COMPACT_IRQ_LEVELS
+ 	depends on ISA_ARCOMPACT
+ 	bool "Setup Timer IRQ as high Priority"
+diff --git a/arch/arc/include/asm/mmzone.h b/arch/arc/include/asm/mmzone.h
+deleted file mode 100644
+index b86b9d1e54dc..000000000000
+--- a/arch/arc/include/asm/mmzone.h
++++ /dev/null
+@@ -1,40 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0-only */
 -/*
-- * DiscontigMem defines memory ranges as separate pg_data_t even if the ranges
-- * are not on separate NUMA nodes. Functionally this works but with
-- * watermark_boost_factor, it can reclaim prematurely as the ranges can be
-- * quite small. By default, do not boost watermarks on discontigmem as in
-- * many cases very high-order allocations like THP are likely to be
-- * unsupported and the premature reclaim offsets the advantage of long-term
-- * fragmentation avoidance.
+- * Copyright (C) 2016 Synopsys, Inc. (www.synopsys.com)
 - */
--int watermark_boost_factor __read_mostly;
--#else
- int watermark_boost_factor __read_mostly = 15000;
+-
+-#ifndef _ASM_ARC_MMZONE_H
+-#define _ASM_ARC_MMZONE_H
+-
+-#ifdef CONFIG_DISCONTIGMEM
+-
+-extern struct pglist_data node_data[];
+-#define NODE_DATA(nid) (&node_data[nid])
+-
+-static inline int pfn_to_nid(unsigned long pfn)
+-{
+-	int is_end_low = 1;
+-
+-	if (IS_ENABLED(CONFIG_ARC_HAS_PAE40))
+-		is_end_low = pfn <= virt_to_pfn(0xFFFFFFFFUL);
+-
+-	/*
+-	 * node 0: lowmem:             0x8000_0000   to 0xFFFF_FFFF
+-	 * node 1: HIGHMEM w/o  PAE40: 0x0           to 0x7FFF_FFFF
+-	 *         HIGHMEM with PAE40: 0x1_0000_0000 to ...
+-	 */
+-	if (pfn >= ARCH_PFN_OFFSET && is_end_low)
+-		return 0;
+-
+-	return 1;
+-}
+-
+-static inline int pfn_valid(unsigned long pfn)
+-{
+-	int nid = pfn_to_nid(pfn);
+-
+-	return (pfn <= node_end_pfn(nid));
+-}
+-#endif /* CONFIG_DISCONTIGMEM  */
+-
 -#endif
- int watermark_scale_factor = 10;
+diff --git a/arch/arc/mm/init.c b/arch/arc/mm/init.c
+index 397a201adfe3..abfeef7bf6f8 100644
+--- a/arch/arc/mm/init.c
++++ b/arch/arc/mm/init.c
+@@ -32,11 +32,6 @@ unsigned long arch_pfn_offset;
+ EXPORT_SYMBOL(arch_pfn_offset);
+ #endif
  
- static unsigned long nr_kernel_pages __initdata;
+-#ifdef CONFIG_DISCONTIGMEM
+-struct pglist_data node_data[MAX_NUMNODES] __read_mostly;
+-EXPORT_SYMBOL(node_data);
+-#endif
+-
+ long __init arc_get_mem_sz(void)
+ {
+ 	return low_mem_sz;
+@@ -147,9 +142,6 @@ void __init setup_arch_memory(void)
+ 	 * to the hole is freed and ARC specific version of pfn_valid()
+ 	 * handles the hole in the memory map.
+ 	 */
+-#ifdef CONFIG_DISCONTIGMEM
+-	node_set_online(1);
+-#endif
+ 
+ 	min_high_pfn = PFN_DOWN(high_mem_start);
+ 	max_high_pfn = PFN_DOWN(high_mem_start + high_mem_sz);
 -- 
 2.28.0
