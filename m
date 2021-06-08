@@ -1,7 +1,7 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Tue, 08 Jun 2021 09:13:10 +0000
-Subject: [PATCH v3 3/9] arc: remove support for DISCONTIGMEM
-Message-Id: <20210608091316.3622-4-rppt@kernel.org>
+Date: Tue, 08 Jun 2021 09:13:14 +0000
+Subject: [PATCH v3 7/9] docs: remove description of DISCONTIGMEM
+Message-Id: <20210608091316.3622-8-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20210608091316.3622-1-rppt@kernel.org>
 In-Reply-To: <20210608091316.3622-1-rppt@kernel.org>
@@ -13,122 +13,102 @@ Cc: Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Iv
 
 From: Mike Rapoport <rppt@linux.ibm.com>
 
-DISCONTIGMEM was replaced by FLATMEM with freeing of the unused memory map
-in v5.11.
-
-Remove the support for DISCONTIGMEM entirely.
+Remove description of DISCONTIGMEM from the "Memory Models" document and
+update VM sysctl description so that it won't mention DISCONIGMEM.
 
 Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
-Acked-by: Vineet Gupta <vgupta@synopsys.com>
 ---
- arch/arc/Kconfig              | 13 ------------
- arch/arc/include/asm/mmzone.h | 40 -----------------------------------
- arch/arc/mm/init.c            |  8 -------
- 3 files changed, 61 deletions(-)
- delete mode 100644 arch/arc/include/asm/mmzone.h
+ Documentation/admin-guide/sysctl/vm.rst | 12 +++----
+ Documentation/vm/memory-model.rst       | 45 ++-----------------------
+ 2 files changed, 8 insertions(+), 49 deletions(-)
 
-diff --git a/arch/arc/Kconfig b/arch/arc/Kconfig
-index 2d98501c0897..d8f51eb8963b 100644
---- a/arch/arc/Kconfig
-+++ b/arch/arc/Kconfig
-@@ -62,10 +62,6 @@ config SCHED_OMIT_FRAME_POINTER
- config GENERIC_CSUM
- 	def_bool y
+diff --git a/Documentation/admin-guide/sysctl/vm.rst b/Documentation/admin-guide/sysctl/vm.rst
+index 586cd4b86428..ddbd71d592e0 100644
+--- a/Documentation/admin-guide/sysctl/vm.rst
++++ b/Documentation/admin-guide/sysctl/vm.rst
+@@ -936,12 +936,12 @@ allocations, THP and hugetlbfs pages.
  
--config ARCH_DISCONTIGMEM_ENABLE
--	def_bool n
--	depends on BROKEN
--
- config ARCH_FLATMEM_ENABLE
- 	def_bool y
+ To make it sensible with respect to the watermark_scale_factor
+ parameter, the unit is in fractions of 10,000. The default value of
+-15,000 on !DISCONTIGMEM configurations means that up to 150% of the high
+-watermark will be reclaimed in the event of a pageblock being mixed due
+-to fragmentation. The level of reclaim is determined by the number of
+-fragmentation events that occurred in the recent past. If this value is
+-smaller than a pageblock then a pageblocks worth of pages will be reclaimed
+-(e.g.  2MB on 64-bit x86). A boost factor of 0 will disable the feature.
++15,000 means that up to 150% of the high watermark will be reclaimed in the
++event of a pageblock being mixed due to fragmentation. The level of reclaim
++is determined by the number of fragmentation events that occurred in the
++recent past. If this value is smaller than a pageblock then a pageblocks
++worth of pages will be reclaimed (e.g.  2MB on 64-bit x86). A boost factor
++of 0 will disable the feature.
  
-@@ -344,15 +340,6 @@ config ARC_HUGEPAGE_16M
  
- endchoice
+ watermark_scale_factor
+diff --git a/Documentation/vm/memory-model.rst b/Documentation/vm/memory-model.rst
+index ce398a7dc6cd..30e8fbed6914 100644
+--- a/Documentation/vm/memory-model.rst
++++ b/Documentation/vm/memory-model.rst
+@@ -14,15 +14,11 @@ for the CPU. Then there could be several contiguous ranges at
+ completely distinct addresses. And, don't forget about NUMA, where
+ different memory banks are attached to different CPUs.
  
--config NODES_SHIFT
--	int "Maximum NUMA Nodes (as a power of 2)"
--	default "0" if !DISCONTIGMEM
--	default "1" if DISCONTIGMEM
--	depends on NEED_MULTIPLE_NODES
--	help
--	  Accessing memory beyond 1GB (with or w/o PAE) requires 2 memory
--	  zones.
--
- config ARC_COMPACT_IRQ_LEVELS
- 	depends on ISA_ARCOMPACT
- 	bool "Setup Timer IRQ as high Priority"
-diff --git a/arch/arc/include/asm/mmzone.h b/arch/arc/include/asm/mmzone.h
-deleted file mode 100644
-index b86b9d1e54dc..000000000000
---- a/arch/arc/include/asm/mmzone.h
-+++ /dev/null
-@@ -1,40 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0-only */
--/*
-- * Copyright (C) 2016 Synopsys, Inc. (www.synopsys.com)
-- */
--
--#ifndef _ASM_ARC_MMZONE_H
--#define _ASM_ARC_MMZONE_H
--
--#ifdef CONFIG_DISCONTIGMEM
--
--extern struct pglist_data node_data[];
--#define NODE_DATA(nid) (&node_data[nid])
--
--static inline int pfn_to_nid(unsigned long pfn)
--{
--	int is_end_low = 1;
--
--	if (IS_ENABLED(CONFIG_ARC_HAS_PAE40))
--		is_end_low = pfn <= virt_to_pfn(0xFFFFFFFFUL);
--
--	/*
--	 * node 0: lowmem:             0x8000_0000   to 0xFFFF_FFFF
--	 * node 1: HIGHMEM w/o  PAE40: 0x0           to 0x7FFF_FFFF
--	 *         HIGHMEM with PAE40: 0x1_0000_0000 to ...
--	 */
--	if (pfn >= ARCH_PFN_OFFSET && is_end_low)
--		return 0;
--
--	return 1;
--}
--
--static inline int pfn_valid(unsigned long pfn)
--{
--	int nid = pfn_to_nid(pfn);
--
--	return (pfn <= node_end_pfn(nid));
--}
--#endif /* CONFIG_DISCONTIGMEM  */
--
--#endif
-diff --git a/arch/arc/mm/init.c b/arch/arc/mm/init.c
-index 397a201adfe3..abfeef7bf6f8 100644
---- a/arch/arc/mm/init.c
-+++ b/arch/arc/mm/init.c
-@@ -32,11 +32,6 @@ unsigned long arch_pfn_offset;
- EXPORT_SYMBOL(arch_pfn_offset);
- #endif
+-Linux abstracts this diversity using one of the three memory models:
+-FLATMEM, DISCONTIGMEM and SPARSEMEM. Each architecture defines what
++Linux abstracts this diversity using one of the two memory models:
++FLATMEM and SPARSEMEM. Each architecture defines what
+ memory models it supports, what the default memory model is and
+ whether it is possible to manually override that default.
  
--#ifdef CONFIG_DISCONTIGMEM
--struct pglist_data node_data[MAX_NUMNODES] __read_mostly;
--EXPORT_SYMBOL(node_data);
--#endif
+-.. note::
+-   At time of this writing, DISCONTIGMEM is considered deprecated,
+-   although it is still in use by several architectures.
 -
- long __init arc_get_mem_sz(void)
- {
- 	return low_mem_sz;
-@@ -147,9 +142,6 @@ void __init setup_arch_memory(void)
- 	 * to the hole is freed and ARC specific version of pfn_valid()
- 	 * handles the hole in the memory map.
- 	 */
--#ifdef CONFIG_DISCONTIGMEM
--	node_set_online(1);
--#endif
+ All the memory models track the status of physical page frames using
+ struct page arranged in one or more arrays.
  
- 	min_high_pfn = PFN_DOWN(high_mem_start);
- 	max_high_pfn = PFN_DOWN(high_mem_start + high_mem_sz);
+@@ -63,43 +59,6 @@ straightforward: `PFN - ARCH_PFN_OFFSET` is an index to the
+ The `ARCH_PFN_OFFSET` defines the first page frame number for
+ systems with physical memory starting at address different from 0.
+ 
+-DISCONTIGMEM
+-======
+-
+-The DISCONTIGMEM model treats the physical memory as a collection of
+-`nodes` similarly to how Linux NUMA support does. For each node Linux
+-constructs an independent memory management subsystem represented by
+-`struct pglist_data` (or `pg_data_t` for short). Among other
+-things, `pg_data_t` holds the `node_mem_map` array that maps
+-physical pages belonging to that node. The `node_start_pfn` field of
+-`pg_data_t` is the number of the first page frame belonging to that
+-node.
+-
+-The architecture setup code should call :c:func:`free_area_init_node` for
+-each node in the system to initialize the `pg_data_t` object and its
+-`node_mem_map`.
+-
+-Every `node_mem_map` behaves exactly as FLATMEM's `mem_map` -
+-every physical page frame in a node has a `struct page` entry in the
+-`node_mem_map` array. When DISCONTIGMEM is enabled, a portion of the
+-`flags` field of the `struct page` encodes the node number of the
+-node hosting that page.
+-
+-The conversion between a PFN and the `struct page` in the
+-DISCONTIGMEM model became slightly more complex as it has to determine
+-which node hosts the physical page and which `pg_data_t` object
+-holds the `struct page`.
+-
+-Architectures that support DISCONTIGMEM provide :c:func:`pfn_to_nid`
+-to convert PFN to the node number. The opposite conversion helper
+-:c:func:`page_to_nid` is generic as it uses the node number encoded in
+-page->flags.
+-
+-Once the node number is known, the PFN can be used to index
+-appropriate `node_mem_map` array to access the `struct page` and
+-the offset of the `struct page` from the `node_mem_map` plus
+-`node_start_pfn` is the PFN of that page.
+-
+ SPARSEMEM
+ ==== 
 -- 
 2.28.0
