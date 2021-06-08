@@ -1,8 +1,10 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Wed, 02 Jun 2021 10:53:39 +0000
-Subject: [PATCH 0/9] Remove DISCINTIGMEM memory model
-Message-Id: <20210602105348.13387-1-rppt@kernel.org>
+Date: Tue, 08 Jun 2021 09:13:09 +0000
+Subject: [PATCH v3 2/9] arc: update comment about HIGHMEM implementation
+Message-Id: <20210608091316.3622-3-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20210608091316.3622-1-rppt@kernel.org>
+In-Reply-To: <20210608091316.3622-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,107 +13,40 @@ Cc: Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Iv
 
 From: Mike Rapoport <rppt@linux.ibm.com>
 
-Hi,
+Arc does not use DISCONTIGMEM to implement high memory, update the comment
+describing how high memory works to reflect this.
 
-SPARSEMEM memory model was supposed to entirely replace DISCONTIGMEM a
-(long) while ago. The last architectures that used DISCONTIGMEM were
-updated to use other memory models in v5.11 and it is about the time to
-entirely remove DISCONTIGMEM from the kernel.
+Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+Acked-by: Vineet Gupta <vgupta@synopsys.com>
+---
+ arch/arc/mm/init.c | 13 +++++--------
+ 1 file changed, 5 insertions(+), 8 deletions(-)
 
-This set removes DISCONTIGMEM from alpha, arc and m68k, simplifies memory
-model selection in mm/Kconfig and replaces usage of redundant
-CONFIG_NEED_MULTIPLE_NODES and CONFIG_FLAT_NODE_MEM_MAP with CONFIG_NUMA
-and CONFIG_FLATMEM respectively. 
-
-I've also removed NUMA support on alpha that was BROKEN for more than 15
-years.
-
-There were also minor updates all over arch/ to remove mentions of
-DISCONTIGMEM in comments and #ifdefs.
-
-Mike Rapoport (9):
-  alpha: remove DISCONTIGMEM and NUMA
-  arc: update comment about HIGHMEM implementation
-  arc: remove support for DISCONTIGMEM
-  m68k: remove support for DISCONTIGMEM
-  mm: remove CONFIG_DISCONTIGMEM
-  arch, mm: remove stale mentions of DISCONIGMEM
-  docs: remove description of DISCONTIGMEM
-  mm: replace CONFIG_NEED_MULTIPLE_NODES with CONFIG_NUMA
-  mm: replace CONFIG_FLAT_NODE_MEM_MAP with CONFIG_FLATMEM
-
- Documentation/admin-guide/sysctl/vm.rst |  12 +-
- Documentation/vm/memory-model.rst       |  45 +----
- arch/alpha/Kconfig                      |  22 ---
- arch/alpha/include/asm/machvec.h        |   6 -
- arch/alpha/include/asm/mmzone.h         | 100 -----------
- arch/alpha/include/asm/pgtable.h        |   4 -
- arch/alpha/include/asm/topology.h       |  39 -----
- arch/alpha/kernel/core_marvel.c         |  53 +-----
- arch/alpha/kernel/core_wildfire.c       |  29 +--
- arch/alpha/kernel/pci_iommu.c           |  29 ---
- arch/alpha/kernel/proto.h               |   8 -
- arch/alpha/kernel/setup.c               |  16 --
- arch/alpha/kernel/sys_marvel.c          |   5 -
- arch/alpha/kernel/sys_wildfire.c        |   5 -
- arch/alpha/mm/Makefile                  |   2 -
- arch/alpha/mm/init.c                    |   3 -
- arch/alpha/mm/numa.c                    | 223 ------------------------
- arch/arc/Kconfig                        |  13 --
- arch/arc/include/asm/mmzone.h           |  40 -----
- arch/arc/mm/init.c                      |  21 +--
- arch/arm64/Kconfig                      |   2 +-
- arch/ia64/Kconfig                       |   2 +-
- arch/ia64/kernel/topology.c             |   5 +-
- arch/ia64/mm/numa.c                     |   5 +-
- arch/m68k/Kconfig.cpu                   |  10 --
- arch/m68k/include/asm/page.h            |   2 +-
- arch/m68k/include/asm/page_mm.h         |  33 ----
- arch/m68k/mm/init.c                     |  20 ---
- arch/mips/Kconfig                       |   2 +-
- arch/mips/include/asm/mmzone.h          |   8 +-
- arch/mips/include/asm/page.h            |   2 +-
- arch/mips/mm/init.c                     |   7 +-
- arch/nds32/include/asm/memory.h         |   6 -
- arch/powerpc/Kconfig                    |   2 +-
- arch/powerpc/include/asm/mmzone.h       |   4 +-
- arch/powerpc/kernel/setup_64.c          |   2 +-
- arch/powerpc/kernel/smp.c               |   2 +-
- arch/powerpc/kexec/core.c               |   4 +-
- arch/powerpc/mm/Makefile                |   2 +-
- arch/powerpc/mm/mem.c                   |   4 +-
- arch/riscv/Kconfig                      |   2 +-
- arch/s390/Kconfig                       |   2 +-
- arch/sh/include/asm/mmzone.h            |   4 +-
- arch/sh/kernel/topology.c               |   2 +-
- arch/sh/mm/Kconfig                      |   2 +-
- arch/sh/mm/init.c                       |   2 +-
- arch/sparc/Kconfig                      |   2 +-
- arch/sparc/include/asm/mmzone.h         |   4 +-
- arch/sparc/kernel/smp_64.c              |   2 +-
- arch/sparc/mm/init_64.c                 |  12 +-
- arch/x86/Kconfig                        |   2 +-
- arch/x86/kernel/setup_percpu.c          |   6 +-
- arch/x86/mm/init_32.c                   |   4 +-
- arch/xtensa/include/asm/page.h          |   4 -
- include/asm-generic/memory_model.h      |  37 +---
- include/asm-generic/topology.h          |   2 +-
- include/linux/gfp.h                     |   4 +-
- include/linux/memblock.h                |   6 +-
- include/linux/mm.h                      |   4 +-
- include/linux/mmzone.h                  |  16 +-
- kernel/crash_core.c                     |   4 +-
- mm/Kconfig                              |  36 +---
- mm/memblock.c                           |   8 +-
- mm/memory.c                             |   3 +-
- mm/page_alloc.c                         |  25 +--
- mm/page_ext.c                           |   2 +-
- 66 files changed, 98 insertions(+), 898 deletions(-)
- delete mode 100644 arch/alpha/include/asm/mmzone.h
- delete mode 100644 arch/alpha/mm/numa.c
- delete mode 100644 arch/arc/include/asm/mmzone.h
-
-
-base-commit: c4681547bcce777daf576925a966ffa824edd09d
+diff --git a/arch/arc/mm/init.c b/arch/arc/mm/init.c
+index e2ed355438c9..397a201adfe3 100644
+--- a/arch/arc/mm/init.c
++++ b/arch/arc/mm/init.c
+@@ -139,16 +139,13 @@ void __init setup_arch_memory(void)
+ 
+ #ifdef CONFIG_HIGHMEM
+ 	/*
+-	 * Populate a new node with highmem
+-	 *
+ 	 * On ARC (w/o PAE) HIGHMEM addresses are actually smaller (0 based)
+-	 * than addresses in normal ala low memory (0x8000_0000 based).
++	 * than addresses in normal aka low memory (0x8000_0000 based).
+ 	 * Even with PAE, the huge peripheral space hole would waste a lot of
+-	 * mem with single mem_map[]. This warrants a mem_map per region design.
+-	 * Thus HIGHMEM on ARC is imlemented with DISCONTIGMEM.
+-	 *
+-	 * DISCONTIGMEM in turns requires multiple nodes. node 0 above is
+-	 * populated with normal memory zone while node 1 only has highmem
++	 * mem with single contiguous mem_map[].
++	 * Thus when HIGHMEM on ARC is enabled the memory map corresponding
++	 * to the hole is freed and ARC specific version of pfn_valid()
++	 * handles the hole in the memory map.
+ 	 */
+ #ifdef CONFIG_DISCONTIGMEM
+ 	node_set_online(1);
 -- 
 2.28.0
