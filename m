@@ -1,57 +1,75 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Date: Tue, 01 Jun 2021 02:56:10 +0000
-Subject: Re: [PATCH v2] mm: generalize ZONE_[DMA|DMA32]
-Message-Id: <87k0negunp.fsf@mpe.ellerman.id.au>
+From: "Naveen N. Rao" <naveen.n.rao@linux.ibm.com>
+Date: Mon, 14 Jun 2021 15:58:26 +0000
+Subject: Re: [PATCH -tip v7 03/13] kprobes: treewide: Remove trampoline_address from kretprobe_trampoline_han
+Message-Id: <1623685371.y5qy4nxer2.naveen@linux.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210527143047.123611-1-wangkefeng.wang@huawei.com>
- <20210528074557.17768-1-wangkefeng.wang@huawei.com>
-In-Reply-To: <20210528074557.17768-1-wangkefeng.wang@huawei.com>
+References: <162209754288.436794.3904335049560916855.stgit@devnote2>
+        <162209757191.436794.12654958417415894884.stgit@devnote2>
+In-Reply-To: <162209757191.436794.12654958417415894884.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Kefeng Wang <wangkefeng.wang@huawei.com>, Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-mm@kvack.org, Kefeng Wang <wangkefeng.wang@huawei.com>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "David S. Miller" <davem@davemloft.net>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Palmer Dabbelt <palmer@dabbelt.com>, Richard Henderson <rth@twiddle.net>, Russell King <linux@armlinux.org.uk>, Mike Rapoport <rppt@linux.ibm.com>
+To: Masami Hiramatsu <mhiramat@kernel.org>, Ingo Molnar <mingo@kernel.org>, Steven Rostedt <rostedt@goodmis.org>
+Cc: Andrii Nakryiko <andrii.nakryiko@gmail.com>, ast@kernel.org, bpf@vger.kernel.org, Daniel Xu <dxu@dxuuu.xyz>, Josh Poimboeuf <jpoimboe@redhat.com>, kernel-team@fb.com, kuba@kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@redhat.com, Abhishek Sagar <sagar.abhishek@gmail.com>, tglx@linutronix.de, X86 ML <x86@kernel.org>, yhs@fb.com
 
-Kefeng Wang <wangkefeng.wang@huawei.com> writes:
-> ZONE_[DMA|DMA32] configs have duplicate definitions on platforms
-> that subscribe them. Instead, just make them generic options which
-> can be selected on applicable platforms.
->
-> Also only x86/arm64 architectures could enable both ZONE_DMA and
-> ZONE_DMA32 if EXPERT, add ARCH_HAS_ZONE_DMA_SET to make dma zone
-> configurable and visible on the two architectures.
->
-> Cc: Andrew Morton <akpm@linux-foundation.org>
-> Cc: Catalin Marinas <catalin.marinas@arm.com>
-> Cc: Will Deacon <will@kernel.org>
-> Cc: Geert Uytterhoeven <geert@linux-m68k.org>
-> Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Ingo Molnar <mingo@redhat.com>
-> Cc: Borislav Petkov <bp@alien8.de>
-> Cc: Palmer Dabbelt <palmer@dabbelt.com>
-> Cc: Richard Henderson <rth@twiddle.net>
-> Cc: Russell King <linux@armlinux.org.uk>
-> Acked-by: Catalin Marinas <catalin.marinas@arm.com> # for arm64
-> Acked-by: Geert Uytterhoeven <geert@linux-m68k.org> # for m68k
-> Acked-by: Mike Rapoport <rppt@linux.ibm.com>
-> Signed-off-by: Kefeng Wang <wangkefeng.wang@huawei.com>
+Hi Masami,
+
+Masami Hiramatsu wrote:
+> Remove trampoline_address from kretprobe_trampoline_handler().
+> Instead of passing the address, kretprobe_trampoline_handler()
+> can use new kretprobe_trampoline_addr().
+> 
+> Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+> Tested-by: Andrii Nakryik <andrii@kernel.org>
 > ---
-> v2:
-> -i386 can't enable ZONE_DMA32, fix it.
-> -make ZONE_DMA default y on X86 as before.
-> -collect ACKs
->
->  arch/alpha/Kconfig                     |  5 +----
->  arch/arm/Kconfig                       |  3 ---
->  arch/arm64/Kconfig                     |  9 +--------
->  arch/ia64/Kconfig                      |  4 +---
->  arch/m68k/Kconfig                      |  5 +----
->  arch/microblaze/Kconfig                |  4 +---
->  arch/mips/Kconfig                      |  7 -------
->  arch/powerpc/Kconfig                   |  4 ----
->  arch/powerpc/platforms/Kconfig.cputype |  1 +
+>  Changes in v3:
+>    - Remove wrong kretprobe_trampoline declaration from
+>      arch/x86/include/asm/kprobes.h.
+>  Changes in v2:
+>    - Remove arch_deref_entry_point() from comment.
+> ---
+>  arch/arc/kernel/kprobes.c          |    2 +-
+>  arch/arm/probes/kprobes/core.c     |    3 +--
+>  arch/arm64/kernel/probes/kprobes.c |    3 +--
+>  arch/csky/kernel/probes/kprobes.c  |    2 +-
+>  arch/ia64/kernel/kprobes.c         |    5 ++---
+>  arch/mips/kernel/kprobes.c         |    3 +--
+>  arch/parisc/kernel/kprobes.c       |    4 ++--
+>  arch/powerpc/kernel/kprobes.c      |    2 +-
+>  arch/riscv/kernel/probes/kprobes.c |    2 +-
+>  arch/s390/kernel/kprobes.c         |    2 +-
+>  arch/sh/kernel/kprobes.c           |    2 +-
+>  arch/sparc/kernel/kprobes.c        |    2 +-
+>  arch/x86/include/asm/kprobes.h     |    1 -
+>  arch/x86/kernel/kprobes/core.c     |    2 +-
+>  include/linux/kprobes.h            |   18 +++++++++++++-----
+>  kernel/kprobes.c                   |    3 +--
+>  16 files changed, 29 insertions(+), 27 deletions(-)
+> 
 
-Acked-by: Michael Ellerman <mpe@ellerman.id.au> (powerpc)
+<snip>
 
-cheers
+> diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
+> index d65c041b5c22..65dadd4238a2 100644
+> --- a/include/linux/kprobes.h
+> +++ b/include/linux/kprobes.h
+> @@ -205,15 +205,23 @@ extern void arch_prepare_kretprobe(struct kretprobe_instance *ri,
+>  				   struct pt_regs *regs);
+>  extern int arch_trampoline_kprobe(struct kprobe *p);
+>  
+> +void kretprobe_trampoline(void);
+> +/*
+> + * Since some architecture uses structured function pointer,
+> + * use dereference_function_descriptor() to get real function address.
+> + */
+> +static nokprobe_inline void *kretprobe_trampoline_addr(void)
+> +{
+> +	return dereference_function_descriptor(kretprobe_trampoline);
+
+I'm afraid this won't work correctly. For kernel functions, please use 
+dereference_kernel_function_descriptor() which checks if the function 
+has a descriptor before dereferencing it.
+
+
+Thanks,
+Naveen
