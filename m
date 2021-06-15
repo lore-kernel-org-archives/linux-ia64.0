@@ -1,125 +1,241 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Fri, 04 Jun 2021 06:49:16 +0000
-Subject: [PATCH v2 9/9] mm: replace CONFIG_FLAT_NODE_MEM_MAP with CONFIG_FLATMEM
-Message-Id: <20210604064916.26580-10-rppt@kernel.org>
+From: "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>
+Date: Tue, 15 Jun 2021 11:20:59 +0000
+Subject: [PATCH v2 2/2] mm: rename p4d_page_vaddr to p4d_pgtable and make it return pud_t *
+Message-Id: <20210615110859.320299-2-aneesh.kumar@linux.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210604064916.26580-1-rppt@kernel.org>
-In-Reply-To: <20210604064916.26580-1-rppt@kernel.org>
+References: <20210615110859.320299-1-aneesh.kumar@linux.ibm.com>
+In-Reply-To: <20210615110859.320299-1-aneesh.kumar@linux.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Jonathan Corbet <corbet@lwn.net>, Matt Turner <mattst88@gmail.com>, Mike Rapoport <rppt@kernel.org>, Mike Rapoport <rppt@linux.ibm.com>, Richard Henderson <rth@twiddle.net>, Vineet Gupta <vgupta@synopsys.com>, kexec@lists.infradead.org, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-mm@kvack.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
+To: linux-mm@kvack.org
+Cc: akpm@linux-foundation.org, Linus Torvalds <torvalds@linux-foundation.org>, "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-arch@vger.kernel.org
 
-From: Mike Rapoport <rppt@linux.ibm.com>
+No functional change in this patch.
 
-After removal of the DISCONTIGMEM memory model the FLAT_NODE_MEM_MAP
-configuration option is equivalent to FLATMEM.
+Cc: linux-alpha@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-m68k@lists.linux-m68k.org
+Cc: linux-mips@vger.kernel.org
+Cc: linux-parisc@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-riscv@lists.infradead.org
+Cc: linux-sh@vger.kernel.org
+Cc: sparclinux@vger.kernel.org
+Cc: linux-um@lists.infradead.org
+Cc: linux-arch@vger.kernel.org
 
-Drop CONFIG_FLAT_NODE_MEM_MAP and use CONFIG_FLATMEM instead.
-
-Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+Link: https://lore.kernel.org/linuxppc-dev/CAHk-=wi+J+iodze9FtjM3Zi4j4OeS+qqbKxME9QN4roxPEXH9Q@mail.gmail.com/
+Signed-off-by: Aneesh Kumar K.V <aneesh.kumar@linux.ibm.com>
 ---
- include/linux/mmzone.h | 4 ++--
- kernel/crash_core.c    | 2 +-
- mm/Kconfig             | 4 ----
- mm/page_alloc.c        | 6 +++---
- mm/page_ext.c          | 2 +-
- 5 files changed, 7 insertions(+), 11 deletions(-)
+ arch/arm64/include/asm/pgtable.h                | 4 ++--
+ arch/ia64/include/asm/pgtable.h                 | 2 +-
+ arch/mips/include/asm/pgtable-64.h              | 4 ++--
+ arch/powerpc/include/asm/book3s/64/pgtable.h    | 5 ++++-
+ arch/powerpc/include/asm/nohash/64/pgtable-4k.h | 6 +++++-
+ arch/powerpc/mm/book3s64/radix_pgtable.c        | 2 +-
+ arch/powerpc/mm/pgtable_64.c                    | 2 +-
+ arch/sparc/include/asm/pgtable_64.h             | 4 ++--
+ arch/x86/include/asm/pgtable.h                  | 4 ++--
+ arch/x86/mm/init_64.c                           | 4 ++--
+ include/asm-generic/pgtable-nop4d.h             | 2 +-
+ include/asm-generic/pgtable-nopud.h             | 2 +-
+ include/linux/pgtable.h                         | 2 +-
+ 13 files changed, 25 insertions(+), 18 deletions(-)
 
-diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
-index acdc51c7b259..1d5cafe5ccc3 100644
---- a/include/linux/mmzone.h
-+++ b/include/linux/mmzone.h
-@@ -777,7 +777,7 @@ typedef struct pglist_data {
- 	struct zonelist node_zonelists[MAX_ZONELISTS];
+diff --git a/arch/arm64/include/asm/pgtable.h b/arch/arm64/include/asm/pgtable.h
+index 53a415b329b0..fde06639fff8 100644
+--- a/arch/arm64/include/asm/pgtable.h
++++ b/arch/arm64/include/asm/pgtable.h
+@@ -697,9 +697,9 @@ static inline phys_addr_t p4d_page_paddr(p4d_t p4d)
+ 	return __p4d_to_phys(p4d);
+ }
  
- 	int nr_zones; /* number of populated zones in this node */
--#ifdef CONFIG_FLAT_NODE_MEM_MAP	/* means !SPARSEMEM */
-+#ifdef CONFIG_FLATMEM	/* means !SPARSEMEM */
- 	struct page *node_mem_map;
- #ifdef CONFIG_PAGE_EXTENSION
- 	struct page_ext *node_page_ext;
-@@ -867,7 +867,7 @@ typedef struct pglist_data {
+-static inline unsigned long p4d_page_vaddr(p4d_t p4d)
++static inline pud_t *p4d_pgtable(p4d_t p4d)
+ {
+-	return (unsigned long)__va(p4d_page_paddr(p4d));
++	return (pud_t *)__va(p4d_page_paddr(p4d));
+ }
  
- #define node_present_pages(nid)	(NODE_DATA(nid)->node_present_pages)
- #define node_spanned_pages(nid)	(NODE_DATA(nid)->node_spanned_pages)
--#ifdef CONFIG_FLAT_NODE_MEM_MAP
-+#ifdef CONFIG_FLATMEM
- #define pgdat_page_nr(pgdat, pagenr)	((pgdat)->node_mem_map + (pagenr))
- #else
- #define pgdat_page_nr(pgdat, pagenr)	pfn_to_page((pgdat)->node_start_pfn + (pagenr))
-diff --git a/kernel/crash_core.c b/kernel/crash_core.c
-index 53eb8bc6026d..2b8446ea7105 100644
---- a/kernel/crash_core.c
-+++ b/kernel/crash_core.c
-@@ -483,7 +483,7 @@ static int __init crash_save_vmcoreinfo_init(void)
- 	VMCOREINFO_OFFSET(page, compound_head);
- 	VMCOREINFO_OFFSET(pglist_data, node_zones);
- 	VMCOREINFO_OFFSET(pglist_data, nr_zones);
--#ifdef CONFIG_FLAT_NODE_MEM_MAP
-+#ifdef CONFIG_FLATMEM
- 	VMCOREINFO_OFFSET(pglist_data, node_mem_map);
+ /* Find an entry in the frst-level page table. */
+diff --git a/arch/ia64/include/asm/pgtable.h b/arch/ia64/include/asm/pgtable.h
+index b2ddfbe70365..a2d5098b299a 100644
+--- a/arch/ia64/include/asm/pgtable.h
++++ b/arch/ia64/include/asm/pgtable.h
+@@ -282,7 +282,7 @@ ia64_phys_addr_valid (unsigned long addr)
+ #define p4d_bad(p4d)			(!ia64_phys_addr_valid(p4d_val(p4d)))
+ #define p4d_present(p4d)		(p4d_val(p4d) != 0UL)
+ #define p4d_clear(p4dp)			(p4d_val(*(p4dp)) = 0UL)
+-#define p4d_page_vaddr(p4d)		((unsigned long) __va(p4d_val(p4d) & _PFN_MASK))
++#define p4d_pgtable(p4d)		((pud_t *) __va(p4d_val(p4d) & _PFN_MASK))
+ #define p4d_page(p4d)			virt_to_page((p4d_val(p4d) + PAGE_OFFSET))
  #endif
- 	VMCOREINFO_OFFSET(pglist_data, node_start_pfn);
-diff --git a/mm/Kconfig b/mm/Kconfig
-index bffe4bd859f3..ded98fb859ab 100644
---- a/mm/Kconfig
-+++ b/mm/Kconfig
-@@ -55,10 +55,6 @@ config FLATMEM
- 	def_bool y
- 	depends on !SPARSEMEM || FLATMEM_MANUAL
  
--config FLAT_NODE_MEM_MAP
--	def_bool y
--	depends on !SPARSEMEM
--
- #
- # SPARSEMEM_EXTREME (which is the default) does some bootmem
- # allocations when sparse_init() is called.  If this cannot
-diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 8f08135d3eb4..f039736541eb 100644
---- a/mm/page_alloc.c
-+++ b/mm/page_alloc.c
-@@ -6444,7 +6444,7 @@ static void __meminit zone_init_free_lists(struct zone *zone)
- 	}
+diff --git a/arch/mips/include/asm/pgtable-64.h b/arch/mips/include/asm/pgtable-64.h
+index ab305453e90f..b865edff2670 100644
+--- a/arch/mips/include/asm/pgtable-64.h
++++ b/arch/mips/include/asm/pgtable-64.h
+@@ -210,9 +210,9 @@ static inline void p4d_clear(p4d_t *p4dp)
+ 	p4d_val(*p4dp) = (unsigned long)invalid_pud_table;
  }
  
--#if !defined(CONFIG_FLAT_NODE_MEM_MAP)
-+#if !defined(CONFIG_FLATMEM)
+-static inline unsigned long p4d_page_vaddr(p4d_t p4d)
++static inline pud_t *p4d_pgtable(p4d_t p4d)
+ {
+-	return p4d_val(p4d);
++	return (pud_t *)p4d_val(p4d);
+ }
+ 
+ #define p4d_phys(p4d)		virt_to_phys((void *)p4d_val(p4d))
+diff --git a/arch/powerpc/include/asm/book3s/64/pgtable.h b/arch/powerpc/include/asm/book3s/64/pgtable.h
+index 40bafe1e80c9..cbedc7c8959d 100644
+--- a/arch/powerpc/include/asm/book3s/64/pgtable.h
++++ b/arch/powerpc/include/asm/book3s/64/pgtable.h
+@@ -1048,7 +1048,10 @@ extern struct page *p4d_page(p4d_t p4d);
+ /* Pointers in the page table tree are physical addresses */
+ #define __pgtable_ptr_val(ptr)	__pa(ptr)
+ 
+-#define p4d_page_vaddr(p4d)	__va(p4d_val(p4d) & ~P4D_MASKED_BITS)
++static inline pud_t *p4d_pgtable(p4d_t p4d)
++{
++	return (pud_t *)__va(p4d_val(p4d) & ~P4D_MASKED_BITS);
++}
+ 
+ static inline pmd_t *pud_pgtable(pud_t pud)
+ {
+diff --git a/arch/powerpc/include/asm/nohash/64/pgtable-4k.h b/arch/powerpc/include/asm/nohash/64/pgtable-4k.h
+index fe2f4c9acd9e..10f5cf444d72 100644
+--- a/arch/powerpc/include/asm/nohash/64/pgtable-4k.h
++++ b/arch/powerpc/include/asm/nohash/64/pgtable-4k.h
+@@ -56,10 +56,14 @@
+ #define p4d_none(p4d)		(!p4d_val(p4d))
+ #define p4d_bad(p4d)		(p4d_val(p4d) = 0)
+ #define p4d_present(p4d)	(p4d_val(p4d) != 0)
+-#define p4d_page_vaddr(p4d)	(p4d_val(p4d) & ~P4D_MASKED_BITS)
+ 
+ #ifndef __ASSEMBLY__
+ 
++static inline pud_t *p4d_pgtable(p4d_t p4d)
++{
++	return (pud_t *) (p4d_val(p4d) & ~P4D_MASKED_BITS);
++}
++
+ static inline void p4d_clear(p4d_t *p4dp)
+ {
+ 	*p4dp = __p4d(0);
+diff --git a/arch/powerpc/mm/book3s64/radix_pgtable.c b/arch/powerpc/mm/book3s64/radix_pgtable.c
+index b663d8f9f05c..1ba6d9291c10 100644
+--- a/arch/powerpc/mm/book3s64/radix_pgtable.c
++++ b/arch/powerpc/mm/book3s64/radix_pgtable.c
+@@ -859,7 +859,7 @@ static void __meminit remove_pagetable(unsigned long start, unsigned long end)
+ 			continue;
+ 		}
+ 
+-		pud_base = (pud_t *)p4d_page_vaddr(*p4d);
++		pud_base = p4d_pgtable(*p4d);
+ 		remove_pud_table(pud_base, addr, next);
+ 		free_pud_table(pud_base, p4d);
+ 	}
+diff --git a/arch/powerpc/mm/pgtable_64.c b/arch/powerpc/mm/pgtable_64.c
+index 4ba311808bdb..78c8cf01db5f 100644
+--- a/arch/powerpc/mm/pgtable_64.c
++++ b/arch/powerpc/mm/pgtable_64.c
+@@ -105,7 +105,7 @@ struct page *p4d_page(p4d_t p4d)
+ 		VM_WARN_ON(!p4d_huge(p4d));
+ 		return pte_page(p4d_pte(p4d));
+ 	}
+-	return virt_to_page(p4d_page_vaddr(p4d));
++	return virt_to_page(p4d_pgtable(p4d));
+ }
+ #endif
+ 
+diff --git a/arch/sparc/include/asm/pgtable_64.h b/arch/sparc/include/asm/pgtable_64.h
+index 534ec872fa2c..c0f56da1c205 100644
+--- a/arch/sparc/include/asm/pgtable_64.h
++++ b/arch/sparc/include/asm/pgtable_64.h
+@@ -860,8 +860,8 @@ static inline pmd_t *pud_pgtable(pud_t pud)
+ #define pmd_clear(pmdp)			(pmd_val(*(pmdp)) = 0UL)
+ #define pud_present(pud)		(pud_val(pud) != 0U)
+ #define pud_clear(pudp)			(pud_val(*(pudp)) = 0UL)
+-#define p4d_page_vaddr(p4d)		\
+-	((unsigned long) __va(p4d_val(p4d)))
++#define p4d_pgtable(p4d)		\
++	((pud_t *) __va(p4d_val(p4d)))
+ #define p4d_present(p4d)		(p4d_val(p4d) != 0U)
+ #define p4d_clear(p4dp)			(p4d_val(*(p4dp)) = 0UL)
+ 
+diff --git a/arch/x86/include/asm/pgtable.h b/arch/x86/include/asm/pgtable.h
+index 35a34ca6f2e9..b6c97b8f59ec 100644
+--- a/arch/x86/include/asm/pgtable.h
++++ b/arch/x86/include/asm/pgtable.h
+@@ -906,9 +906,9 @@ static inline int p4d_present(p4d_t p4d)
+ 	return p4d_flags(p4d) & _PAGE_PRESENT;
+ }
+ 
+-static inline unsigned long p4d_page_vaddr(p4d_t p4d)
++static inline pud_t *p4d_pgtable(p4d_t p4d)
+ {
+-	return (unsigned long)__va(p4d_val(p4d) & p4d_pfn_mask(p4d));
++	return (pud_t *)__va(p4d_val(p4d) & p4d_pfn_mask(p4d));
+ }
+ 
  /*
-  * Only struct pages that correspond to ranges defined by memblock.memory
-  * are zeroed and initialized by going through __init_single_page() during
-@@ -7241,7 +7241,7 @@ static void __init free_area_init_core(struct pglist_data *pgdat)
- 	}
- }
+diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
+index e527d829e1ed..ffb3da2cb038 100644
+--- a/arch/x86/mm/init_64.c
++++ b/arch/x86/mm/init_64.c
+@@ -193,8 +193,8 @@ static void sync_global_pgds_l4(unsigned long start, unsigned long end)
+ 			spin_lock(pgt_lock);
  
--#ifdef CONFIG_FLAT_NODE_MEM_MAP
-+#ifdef CONFIG_FLATMEM
- static void __ref alloc_node_mem_map(struct pglist_data *pgdat)
+ 			if (!p4d_none(*p4d_ref) && !p4d_none(*p4d))
+-				BUG_ON(p4d_page_vaddr(*p4d)
+-				       != p4d_page_vaddr(*p4d_ref));
++				BUG_ON(p4d_pgtable(*p4d)
++				       != p4d_pgtable(*p4d_ref));
+ 
+ 			if (p4d_none(*p4d))
+ 				set_p4d(p4d, *p4d_ref);
+diff --git a/include/asm-generic/pgtable-nop4d.h b/include/asm-generic/pgtable-nop4d.h
+index ce2cbb3c380f..982de5102fc1 100644
+--- a/include/asm-generic/pgtable-nop4d.h
++++ b/include/asm-generic/pgtable-nop4d.h
+@@ -42,7 +42,7 @@ static inline p4d_t *p4d_offset(pgd_t *pgd, unsigned long address)
+ #define __p4d(x)				((p4d_t) { __pgd(x) })
+ 
+ #define pgd_page(pgd)				(p4d_page((p4d_t){ pgd }))
+-#define pgd_page_vaddr(pgd)			(p4d_page_vaddr((p4d_t){ pgd }))
++#define pgd_page_vaddr(pgd)			(p4d_pgtable((p4d_t){ pgd }))
+ 
+ /*
+  * allocating and freeing a p4d is trivial: the 1-entry p4d is
+diff --git a/include/asm-generic/pgtable-nopud.h b/include/asm-generic/pgtable-nopud.h
+index 7cbd15f70bf5..eb70c6d7ceff 100644
+--- a/include/asm-generic/pgtable-nopud.h
++++ b/include/asm-generic/pgtable-nopud.h
+@@ -49,7 +49,7 @@ static inline pud_t *pud_offset(p4d_t *p4d, unsigned long address)
+ #define __pud(x)				((pud_t) { __p4d(x) })
+ 
+ #define p4d_page(p4d)				(pud_page((pud_t){ p4d }))
+-#define p4d_page_vaddr(p4d)			(pud_pgtable((pud_t){ p4d }))
++#define p4d_pgtable(p4d)			((pud_t *)(pud_pgtable((pud_t){ p4d })))
+ 
+ /*
+  * allocating and freeing a pud is trivial: the 1-entry pud is
+diff --git a/include/linux/pgtable.h b/include/linux/pgtable.h
+index 311984f87cf9..d355290bf70e 100644
+--- a/include/linux/pgtable.h
++++ b/include/linux/pgtable.h
+@@ -96,7 +96,7 @@ static inline pmd_t *pmd_offset(pud_t *pud, unsigned long address)
+ #ifndef pud_offset
+ static inline pud_t *pud_offset(p4d_t *p4d, unsigned long address)
  {
- 	unsigned long __maybe_unused start = 0;
-@@ -7289,7 +7289,7 @@ static void __ref alloc_node_mem_map(struct pglist_data *pgdat)
+-	return (pud_t *)p4d_page_vaddr(*p4d) + pud_index(address);
++	return p4d_pgtable(*p4d) + pud_index(address);
  }
- #else
- static void __ref alloc_node_mem_map(struct pglist_data *pgdat) { }
--#endif /* CONFIG_FLAT_NODE_MEM_MAP */
-+#endif /* CONFIG_FLATMEM */
- 
- #ifdef CONFIG_DEFERRED_STRUCT_PAGE_INIT
- static inline void pgdat_set_deferred_range(pg_data_t *pgdat)
-diff --git a/mm/page_ext.c b/mm/page_ext.c
-index df6f74aac8e1..293b2685fc48 100644
---- a/mm/page_ext.c
-+++ b/mm/page_ext.c
-@@ -191,7 +191,7 @@ void __init page_ext_init_flatmem(void)
- 	panic("Out of memory");
- }
- 
--#else /* CONFIG_FLAT_NODE_MEM_MAP */
-+#else /* CONFIG_FLATMEM */
- 
- struct page_ext *lookup_page_ext(const struct page *page)
- {
+ #define pud_offset pud_offset
+ #endif
 -- 
-2.28.0
+2.31.1
