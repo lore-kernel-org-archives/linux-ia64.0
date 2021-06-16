@@ -1,7 +1,7 @@
 From: akpm@linux-foundation.org
-Date: Tue, 15 Jun 2021 23:38:15 +0000
-Subject: + mm-rename-p4d_page_vaddr-to-p4d_pgtable-and-make-it-return-pud_t.patch
-Message-Id: <20210615233815.VObB7frXE%akpm@linux-foundation.org>
+Date: Wed, 16 Jun 2021 23:08:09 +0000
+Subject: [to-be-updated] mm-rename-p4d_page_vaddr-to-p4d_pgtable-and-make-it-return-pud_t.patch
+Message-Id: <20210616230809.aAS-HuAzz%akpm@linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -11,24 +11,10 @@ To: aneesh.kumar@linux.ibm.com, linux-alpha@vger.kernel.org, linux-arch@vger.ker
 
 The patch titled
      Subject: mm: rename p4d_page_vaddr to p4d_pgtable and make it return pud_t *
-has been added to the -mm tree.  Its filename is
+has been removed from the -mm tree.  Its filename was
      mm-rename-p4d_page_vaddr-to-p4d_pgtable-and-make-it-return-pud_t.patch
 
-This patch should soon appear at
-    https://ozlabs.org/~akpm/mmots/broken-out/mm-rename-p4d_page_vaddr-to-p4d_pgtable-and-make-it-return-pud_t.patch
-and later at
-    https://ozlabs.org/~akpm/mmotm/broken-out/mm-rename-p4d_page_vaddr-to-p4d_pgtable-and-make-it-return-pud_t.patch
-
-Before you just go and hit "reply", please:
-   a) Consider who else should be cc'ed
-   b) Prefer to cc a suitable mailing list as well
-   c) Ideally: find the original patch on the mailing list and do a
-      reply-to-all to that, adding suitable additional cc's
-
-*** Remember to use Documentation/process/submit-checklist.rst when testing your code ***
-
-The -mm tree is included into linux-next and is updated
-there every 3-4 working days
+This patch was dropped because an updated version will be merged
 
 ------------------------------------------------------
 From: "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>
@@ -240,5 +226,4 @@ _
 
 Patches currently in -mm which might be from aneesh.kumar@linux.ibm.com are
 
-mm-rename-pud_page_vaddr-to-pud_pgtable-and-make-it-return-pmd_t.patch
-mm-rename-p4d_page_vaddr-to-p4d_pgtable-and-make-it-return-pud_t.patch
+mm-rename-p4d_page_vaddr-to-p4d_pgtable-and-make-it-return-pud_t-fix.patch
