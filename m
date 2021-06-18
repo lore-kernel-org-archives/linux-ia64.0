@@ -1,33 +1,68 @@
-From: Heiko Carstens <hca@linux.ibm.com>
-Date: Wed, 09 Jun 2021 05:51:02 +0000
-Subject: Re: [PATCH v1 04/12] mm/memory_hotplug: remove nid parameter from arch_remove_memory()
-Message-Id: <YMBWxiUGBjJCz1+q@osiris>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Fri, 18 Jun 2021 07:05:31 +0000
+Subject: [PATCH -tip v8 01/13] ia64: kprobes: Fix to pass correct trampoline address to the handler
+Message-Id: <162399993125.506599.11062077324255866677.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210607195430.48228-1-david@redhat.com>
- <20210607195430.48228-5-david@redhat.com>
-In-Reply-To: <20210607195430.48228-5-david@redhat.com>
+References: <162399992186.506599.8457763707951687195.stgit@devnote2>
+In-Reply-To: <162399992186.506599.8457763707951687195.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>
-Cc: linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Vitaly Kuznetsov <vkuznets@redhat.com>, "Michael S. Tsirkin" <mst@redhat.com>, Jason Wang <jasowang@redhat.com>, Marek Kedzierski <mkedzier@redhat.com>, Hui Zhu <teawater@gmail.com>, Pankaj Gupta <pankaj.gupta.linux@gmail.com>, Wei Yang <richard.weiyang@linux.alibaba.com>, Oscar Salvador <osalvador@suse.de>, Michal Hocko <mhocko@kernel.org>, Dan Williams <dan.j.williams@intel.com>, Anshuman Khandual <anshuman.khandual@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, Vlastimil Babka <vbabka@suse.cz>, Mike Rapoport <rppt@kernel.org>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Pavel Tatashin <pasha.tatashin@soleen.com>, virtualization@lists.linux-foundation.org, linux-mm@kvack.org, linux-acpi@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Andy Lutomirski <luto@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Ard Biesheuvel <ardb@kernel.org>, Nicholas Piggin <npiggin@gmail.com>, Baoquan He <bhe@redhat.com>, Laurent Dufour <ldufour@linux.ibm.com>, Sergei Trofimovich <slyfox@gentoo.org>, Kefeng Wang <wangkefeng.wang@huawei.com>, Michel Lespinasse <michel@lespinasse.org>, Christophe Leroy <christophe.leroy@c-s.fr>, "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>, Thiago Jung Bauermann <bauerman@linux.ibm.com>, Joe Perches <joe@perches.com>, Pierre Morel <pmorel@linux.ibm.com>, Jia He <justin.he@arm.com>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-On Mon, Jun 07, 2021 at 09:54:22PM +0200, David Hildenbrand wrote:
-> The parameter is unused, let's remove it.
-> 
-> Signed-off-by: David Hildenbrand <david@redhat.com>
-> ---
->  arch/arm64/mm/mmu.c            | 3 +--
->  arch/ia64/mm/init.c            | 3 +--
->  arch/powerpc/mm/mem.c          | 3 +--
->  arch/s390/mm/init.c            | 3 +--
->  arch/sh/mm/init.c              | 3 +--
->  arch/x86/mm/init_32.c          | 3 +--
->  arch/x86/mm/init_64.c          | 3 +--
->  include/linux/memory_hotplug.h | 3 +--
->  mm/memory_hotplug.c            | 4 ++--
->  mm/memremap.c                  | 5 +----
->  10 files changed, 11 insertions(+), 22 deletions(-)
+Commit e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
+missed to pass the wrong trampoline address (it passes the descriptor address
+instead of function entry address).
+This fixes it to pass correct trampoline address to __kretprobe_trampoline_handler().
+This also changes to use correct symbol dereference function to get the
+function address from the kretprobe_trampoline.
 
-For s390:
-Acked-by: Heiko Carstens <hca@linux.ibm.com>
+Fixes: e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+---
+ Changes in v5:
+  - Fix a compile error typo.
+---
+ arch/ia64/kernel/kprobes.c |    9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
+index 441ed04b1037..d4048518a1d7 100644
+--- a/arch/ia64/kernel/kprobes.c
++++ b/arch/ia64/kernel/kprobes.c
+@@ -398,7 +398,8 @@ static void kretprobe_trampoline(void)
+ 
+ int __kprobes trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
+ {
+-	regs->cr_iip = __kretprobe_trampoline_handler(regs, kretprobe_trampoline, NULL);
++	regs->cr_iip = __kretprobe_trampoline_handler(regs,
++		dereference_function_descriptor(kretprobe_trampoline), NULL);
+ 	/*
+ 	 * By returning a non-zero value, we are telling
+ 	 * kprobe_handler() that we don't want the post_handler
+@@ -414,7 +415,7 @@ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
+ 	ri->fp = NULL;
+ 
+ 	/* Replace the return addr with trampoline addr */
+-	regs->b0 = ((struct fnptr *)kretprobe_trampoline)->ip;
++	regs->b0 = (unsigned long)dereference_function_descriptor(kretprobe_trampoline);
+ }
+ 
+ /* Check the instruction in the slot is break */
+@@ -902,14 +903,14 @@ static struct kprobe trampoline_p = {
+ int __init arch_init_kprobes(void)
+ {
+ 	trampoline_p.addr -		(kprobe_opcode_t *)((struct fnptr *)kretprobe_trampoline)->ip;
++		dereference_function_descriptor(kretprobe_trampoline);
+ 	return register_kprobe(&trampoline_p);
+ }
+ 
+ int __kprobes arch_trampoline_kprobe(struct kprobe *p)
+ {
+ 	if (p->addr =
+-		(kprobe_opcode_t *)((struct fnptr *)kretprobe_trampoline)->ip)
++		dereference_function_descriptor(kretprobe_trampoline))
+ 		return 1;
+ 
+ 	return 0;
