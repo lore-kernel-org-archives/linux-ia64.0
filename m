@@ -1,57 +1,134 @@
-From: Josh Poimboeuf <jpoimboe@redhat.com>
-Date: Fri, 18 Jun 2021 14:04:32 +0000
-Subject: Re: [PATCH -tip v8 09/13] kprobes: Enable stacktrace from pt_regs in kretprobe handler
-Message-Id: <20210618140432.icuopdgxt2urngmy@treble>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Fri, 18 Jun 2021 07:05:22 +0000
+Subject: [PATCH -tip v8 00/13] kprobes: Fix stacktrace with kretprobes on x86
+Message-Id: <162399992186.506599.8457763707951687195.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162399992186.506599.8457763707951687195.stgit@devnote2>
- <162400000592.506599.4695807810528866713.stgit@devnote2>
-In-Reply-To: <162400000592.506599.4695807810528866713.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Masami Hiramatsu <mhiramat@kernel.org>
-Cc: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-On Fri, Jun 18, 2021 at 04:06:46PM +0900, Masami Hiramatsu wrote:
-> Since the ORC unwinder from pt_regs requires setting up regs->ip
-> correctly, set the correct return address to the regs->ip before
-> calling user kretprobe handler.
-> 
-> This allows the kretrprobe handler to trace stack from the
-> kretprobe's pt_regs by stack_trace_save_regs() (eBPF will do
-> this), instead of stack tracing from the handler context by
-> stack_trace_save() (ftrace will do this).
-> 
-> Suggested-by: Josh Poimboeuf <jpoimboe@redhat.com>
-> Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-> Tested-by: Andrii Nakryik <andrii@kernel.org>
+Hello,
 
-Acked-by: Josh Poimboeuf <jpoimboe@redhat.com>
+Here is the 8th version of the series to fix the stacktrace with kretprobe on x86.
 
-> ---
->  Changes in v8:
->   - Update comment to clarify why this is needed.
->  Changes in v3:
->   - Cast the correct_ret_addr to unsigned long.
-> ---
->  kernel/kprobes.c |    3 +++
->  1 file changed, 3 insertions(+)
-> 
-> diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-> index 650cbe738666..ba729ed05cb3 100644
-> --- a/kernel/kprobes.c
-> +++ b/kernel/kprobes.c
-> @@ -1896,6 +1896,9 @@ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
->  		BUG_ON(1);
->  	}
->  
-> +	/* Set the instruction pointer to the correct address */
-> +	instruction_pointer_set(regs, (unsigned long)correct_ret_addr);
-> +
->  	/* Run them. */
->  	first = current->kretprobe_instances.first;
->  	while (first) {
-> 
+The previous version is;
 
--- 
-Josh
+ https://lore.kernel.org/bpf/162209754288.436794.3904335049560916855.stgit@devnote2/
+
+This version fixes to call appropriate function and drop some unneeded
+patches.
+
+
+Changes from v7:
+[03/13]: Call dereference_kernel_function_descriptor() for getting the
+  address of kretprobe_trampoline.
+[09/13]: Update the title and description to explain why it is needed.
+[10/13][11/13]: Add Josh's Acked-by.
+
+
+
+With this series, unwinder can unwind stack correctly from ftrace as below;
+
+  # cd /sys/kernel/debug/tracing
+  # echo > trace
+  # echo 1 > options/sym-offset
+  # echo r vfs_read >> kprobe_events
+  # echo r full_proxy_read >> kprobe_events
+  # echo traceoff:1 > events/kprobes/r_vfs_read_0/trigger
+  # echo stacktrace:1 > events/kprobes/r_full_proxy_read_0/trigger
+  # echo 1 > events/kprobes/enable
+  # cat /sys/kernel/debug/kprobes/list
+ffffffff8133b740  r  full_proxy_read+0x0    [FTRACE]
+ffffffff812560b0  r  vfs_read+0x0    [FTRACE]
+  # echo 0 > events/kprobes/enable
+  # cat trace
+# tracer: nop
+#
+# entries-in-buffer/entries-written: 3/3   #P:8
+#
+#                                _-----=> irqs-off
+#                               / _----=> need-resched
+#                              | / _---=> hardirq/softirq
+#                              || / _--=> preempt-depth
+#                              ||| /     delay
+#           TASK-PID     CPU#  ||||   TIMESTAMP  FUNCTION
+#              | |         |   ||||      |         |
+           <...>-134     [007] ...1    16.185877: r_full_proxy_read_0: (vfs_read+0x98/0x180 <- full_proxy_read)
+           <...>-134     [007] ...1    16.185901: <stack trace>
+ => kretprobe_trace_func+0x209/0x300
+ => kretprobe_dispatcher+0x4a/0x70
+ => __kretprobe_trampoline_handler+0xd4/0x170
+ => trampoline_handler+0x43/0x60
+ => kretprobe_trampoline+0x2a/0x50
+ => vfs_read+0x98/0x180
+ => ksys_read+0x5f/0xe0
+ => do_syscall_64+0x37/0x90
+ => entry_SYSCALL_64_after_hwframe+0x44/0xae
+           <...>-134     [007] ...1    16.185902: r_vfs_read_0: (ksys_read+0x5f/0xe0 <- vfs_read)
+
+This shows the double return probes (vfs_read and full_proxy_read) on the stack
+correctly unwinded. (vfs_read will return to ksys_read+0x5f and full_proxy_read
+will return to vfs_read+0x98)
+
+This actually changes the kretprobe behavisor a bit, now the instraction pointer in
+the pt_regs passed to kretprobe user handler is correctly set the real return
+address. So user handlers can get it via instruction_pointer() API, and can use
+stack_trace_save_regs().
+
+You can also get this series from 
+ git://git.kernel.org/pub/scm/linux/kernel/git/mhiramat/linux.git kprobes/kretprobe-stackfix-v8
+
+
+Thank you,
+
+---
+
+Josh Poimboeuf (1):
+      x86/kprobes: Add UNWIND_HINT_FUNC on kretprobe_trampoline code
+
+Masami Hiramatsu (12):
+      ia64: kprobes: Fix to pass correct trampoline address to the handler
+      kprobes: treewide: Replace arch_deref_entry_point() with dereference_symbol_descriptor()
+      kprobes: treewide: Remove trampoline_address from kretprobe_trampoline_handler()
+      kprobes: Add kretprobe_find_ret_addr() for searching return address
+      ARC: Add instruction_pointer_set() API
+      ia64: Add instruction_pointer_set() API
+      arm: kprobes: Make a space for regs->ARM_pc at kretprobe_trampoline
+      kprobes: Enable stacktrace from pt_regs in kretprobe handler
+      x86/kprobes: Push a fake return address at kretprobe_trampoline
+      x86/unwind: Recover kretprobe trampoline entry
+      tracing: Show kretprobe unknown indicator only for kretprobe_trampoline
+      x86/kprobes: Fixup return address in generic trampoline handler
+
+
+ arch/arc/include/asm/ptrace.h       |    5 ++
+ arch/arc/kernel/kprobes.c           |    2 -
+ arch/arm/probes/kprobes/core.c      |    5 +-
+ arch/arm64/kernel/probes/kprobes.c  |    3 -
+ arch/csky/kernel/probes/kprobes.c   |    2 -
+ arch/ia64/include/asm/ptrace.h      |    5 ++
+ arch/ia64/kernel/kprobes.c          |   15 ++---
+ arch/mips/kernel/kprobes.c          |    3 -
+ arch/parisc/kernel/kprobes.c        |    4 +
+ arch/powerpc/kernel/kprobes.c       |   13 ----
+ arch/riscv/kernel/probes/kprobes.c  |    2 -
+ arch/s390/kernel/kprobes.c          |    2 -
+ arch/sh/kernel/kprobes.c            |    2 -
+ arch/sparc/kernel/kprobes.c         |    2 -
+ arch/x86/include/asm/kprobes.h      |    1 
+ arch/x86/include/asm/unwind.h       |   23 +++++++
+ arch/x86/include/asm/unwind_hints.h |    5 ++
+ arch/x86/kernel/kprobes/core.c      |   53 +++++++++++++++--
+ arch/x86/kernel/unwind_frame.c      |    3 -
+ arch/x86/kernel/unwind_guess.c      |    3 -
+ arch/x86/kernel/unwind_orc.c        |   18 +++++-
+ include/linux/kprobes.h             |   44 ++++++++++++--
+ kernel/kprobes.c                    |  108 +++++++++++++++++++++++++----------
+ kernel/trace/trace_output.c         |   17 +-----
+ lib/error-inject.c                  |    3 +
+ 25 files changed, 238 insertions(+), 105 deletions(-)
+
+--
+Masami Hiramatsu (Linaro) <mhiramat@kernel.org>
