@@ -1,8 +1,10 @@
 From: "Mr.  Robert" <robertnellsona@citromail.hu>
-Date: Thu, 17 Jun 2021 05:49:30 +0000
+Date: Sun, 20 Jun 2021 08:05:26 +0000
 Subject: CAN YOU INVEST WITH ME?...6
-Message-Id: <E1ltkuI-00017z-K3@srv01.rpnnetprovedor.com.br>
+Message-Id: <E1lusSN-0005nz-Cl@srv01.rpnnetprovedor.com.br>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <E1ltkuI-00017z-K3@srv01.rpnnetprovedor.com.br>
+In-Reply-To: <E1ltkuI-00017z-K3@srv01.rpnnetprovedor.com.br>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
