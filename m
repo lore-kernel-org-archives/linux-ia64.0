@@ -1,7 +1,7 @@
-From: Andrii Nakryiko <andrii.nakryiko@gmail.com>
-Date: Fri, 18 Jun 2021 17:44:39 +0000
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Mon, 28 Jun 2021 13:50:13 +0000
 Subject: Re: [PATCH -tip v8 00/13] kprobes: Fix stacktrace with kretprobes on x86
-Message-Id: <CAEf4BzaoRZ4GOR7aP6G9NQmrgQ4VifStbieeEm=tcxiMsOb57A@mail.gmail.com>
+Message-Id: <20210628225013.17e14b4c530478e8cc545259@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <162399992186.506599.8457763707951687195.stgit@devnote2>
 In-Reply-To: <162399992186.506599.8457763707951687195.stgit@devnote2>
@@ -9,32 +9,43 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Masami Hiramatsu <mhiramat@kernel.org>
-Cc: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, open list <linux-kernel@vger.kernel.org>, bpf <bpf@vger.kernel.org>, Jakub Kicinski <kuba@kernel.org>, Ingo Molnar <mingo@redhat.com>, Alexei Starovoitov <ast@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, Kernel Team <kernel-team@fb.com>, Yonghong Song <yhs@fb.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>
+Cc: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>, Qiang Wang <wangqiang.wq.frank@bytedance.com>, Muchun Song <songmuchun@bytedance.com>
 
-On Fri, Jun 18, 2021 at 12:05 AM Masami Hiramatsu <mhiramat@kernel.org> wrote:
->
+Hi Ingo and Peter,
+
+Can you merge this series to tip tree?
+Josh reviewed the ORC unwinder parts, so I think it is a good time to pick it.
+(And recently I got same effort from Qiang, he thinks this can be a phishing risk *)
+
+* https://lore.kernel.org/bpf/CAMZfGtWPi4CuVOtmUpy2N9J_mvp+5=gSAFvqV1nmvDKP+CAvQA@mail.gmail.com/
+
+Thank you,
+
+On Fri, 18 Jun 2021 16:05:22 +0900
+Masami Hiramatsu <mhiramat@kernel.org> wrote:
+
 > Hello,
->
+> 
 > Here is the 8th version of the series to fix the stacktrace with kretprobe on x86.
->
+> 
 > The previous version is;
->
+> 
 >  https://lore.kernel.org/bpf/162209754288.436794.3904335049560916855.stgit@devnote2/
->
+> 
 > This version fixes to call appropriate function and drop some unneeded
 > patches.
->
->
+> 
+> 
 > Changes from v7:
 > [03/13]: Call dereference_kernel_function_descriptor() for getting the
 >   address of kretprobe_trampoline.
 > [09/13]: Update the title and description to explain why it is needed.
 > [10/13][11/13]: Add Josh's Acked-by.
->
->
->
+> 
+> 
+> 
 > With this series, unwinder can unwind stack correctly from ftrace as below;
->
+> 
 >   # cd /sys/kernel/debug/tracing
 >   # echo > trace
 >   # echo 1 > options/sym-offset
@@ -71,27 +82,27 @@ On Fri, Jun 18, 2021 at 12:05 AM Masami Hiramatsu <mhiramat@kernel.org> wrote:
 >  => do_syscall_64+0x37/0x90
 >  => entry_SYSCALL_64_after_hwframe+0x44/0xae
 >            <...>-134     [007] ...1    16.185902: r_vfs_read_0: (ksys_read+0x5f/0xe0 <- vfs_read)
->
+> 
 > This shows the double return probes (vfs_read and full_proxy_read) on the stack
 > correctly unwinded. (vfs_read will return to ksys_read+0x5f and full_proxy_read
 > will return to vfs_read+0x98)
->
+> 
 > This actually changes the kretprobe behavisor a bit, now the instraction pointer in
 > the pt_regs passed to kretprobe user handler is correctly set the real return
 > address. So user handlers can get it via instruction_pointer() API, and can use
 > stack_trace_save_regs().
->
-> You can also get this series from
+> 
+> You can also get this series from 
 >  git://git.kernel.org/pub/scm/linux/kernel/git/mhiramat/linux.git kprobes/kretprobe-stackfix-v8
->
->
+> 
+> 
 > Thank you,
->
+> 
 > ---
->
+> 
 > Josh Poimboeuf (1):
 >       x86/kprobes: Add UNWIND_HINT_FUNC on kretprobe_trampoline code
->
+> 
 > Masami Hiramatsu (12):
 >       ia64: kprobes: Fix to pass correct trampoline address to the handler
 >       kprobes: treewide: Replace arch_deref_entry_point() with dereference_symbol_descriptor()
@@ -105,14 +116,8 @@ On Fri, Jun 18, 2021 at 12:05 AM Masami Hiramatsu <mhiramat@kernel.org> wrote:
 >       x86/unwind: Recover kretprobe trampoline entry
 >       tracing: Show kretprobe unknown indicator only for kretprobe_trampoline
 >       x86/kprobes: Fixup return address in generic trampoline handler
->
-
-It works for BPF cases. Thanks!
-
-Tested-by: Andrii Nakryiko <andrii@kernel.org>
-
-
->
+> 
+> 
 >  arch/arc/include/asm/ptrace.h       |    5 ++
 >  arch/arc/kernel/kprobes.c           |    2 -
 >  arch/arm/probes/kprobes/core.c      |    5 +-
@@ -127,7 +132,7 @@ Tested-by: Andrii Nakryiko <andrii@kernel.org>
 >  arch/s390/kernel/kprobes.c          |    2 -
 >  arch/sh/kernel/kprobes.c            |    2 -
 >  arch/sparc/kernel/kprobes.c         |    2 -
->  arch/x86/include/asm/kprobes.h      |    1
+>  arch/x86/include/asm/kprobes.h      |    1 
 >  arch/x86/include/asm/unwind.h       |   23 +++++++
 >  arch/x86/include/asm/unwind_hints.h |    5 ++
 >  arch/x86/kernel/kprobes/core.c      |   53 +++++++++++++++--
@@ -139,6 +144,10 @@ Tested-by: Andrii Nakryiko <andrii@kernel.org>
 >  kernel/trace/trace_output.c         |   17 +-----
 >  lib/error-inject.c                  |    3 +
 >  25 files changed, 238 insertions(+), 105 deletions(-)
->
+> 
 > --
 > Masami Hiramatsu (Linaro) <mhiramat@kernel.org>
+
+
+-- 
+Masami Hiramatsu <mhiramat@kernel.org>
