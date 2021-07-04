@@ -1,319 +1,412 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Sun, 11 Jul 2021 13:35:10 +0000
-Subject: [PATCH -tip v9 03/14] kprobes: treewide: Remove trampoline_address from kretprobe_trampoline_handler
-Message-Id: <162601051063.1318837.8773002693937324222.stgit@devnote2>
+From: Sasha Levin <sashal@kernel.org>
+Date: Sun, 04 Jul 2021 23:07:12 +0000
+Subject: [PATCH AUTOSEL 5.10 19/70] sched/core: Initialize the idle task with preemption disabled
+Message-Id: <20210704230804.1490078-19-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162601048053.1318837.1550594515476777588.stgit@devnote2>
-In-Reply-To: <162601048053.1318837.1550594515476777588.stgit@devnote2>
+References: <20210704230804.1490078-1-sashal@kernel.org>
+In-Reply-To: <20210704230804.1490078-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Cc: Valentin Schneider <valentin.schneider@arm.com>, Ingo Molnar <mingo@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Sasha Levin <sashal@kernel.org>, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org
 
-The __kretprobe_trampoline_handler() callback, called from low level
-arch kprobes methods, has the 'trampoline_address' parameter, which is
-entirely superfluous as it basically just replicates:
+From: Valentin Schneider <valentin.schneider@arm.com>
 
-  dereference_kernel_function_descriptor(kretprobe_trampoline)
+[ Upstream commit f1a0a376ca0c4ef1fc3d24e3e502acbb5b795674 ]
 
-In fact we had bugs in arch code where it wasn't replicated correctly.
+As pointed out by commit
 
-So remove this superfluous parameter and use kretprobe_trampoline_addr()
-instead.
+  de9b8f5dcbd9 ("sched: Fix crash trying to dequeue/enqueue the idle thread")
 
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-Tested-by: Andrii Nakryiko <andrii@kernel.org>
+init_idle() can and will be invoked more than once on the same idle
+task. At boot time, it is invoked for the boot CPU thread by
+sched_init(). Then smp_init() creates the threads for all the secondary
+CPUs and invokes init_idle() on them.
+
+As the hotplug machinery brings the secondaries to life, it will issue
+calls to idle_thread_get(), which itself invokes init_idle() yet again.
+In this case it's invoked twice more per secondary: at _cpu_up(), and at
+bringup_cpu().
+
+Given smp_init() already initializes the idle tasks for all *possible*
+CPUs, no further initialization should be required. Now, removing
+init_idle() from idle_thread_get() exposes some interesting expectations
+with regards to the idle task's preempt_count: the secondary startup always
+issues a preempt_disable(), requiring some reset of the preempt count to 0
+between hot-unplug and hotplug, which is currently served by
+idle_thread_get() -> idle_init().
+
+Given the idle task is supposed to have preemption disabled once and never
+see it re-enabled, it seems that what we actually want is to initialize its
+preempt_count to PREEMPT_DISABLED and leave it there. Do that, and remove
+init_idle() from idle_thread_get().
+
+Secondary startups were patched via coccinelle:
+
+  @begone@
+  @@
+
+  -preempt_disable();
+  ...
+  cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);
+
+Signed-off-by: Valentin Schneider <valentin.schneider@arm.com>
+Signed-off-by: Ingo Molnar <mingo@kernel.org>
+Acked-by: Peter Zijlstra <peterz@infradead.org>
+Link: https://lore.kernel.org/r/20210512094636.2958515-1-valentin.schneider@arm.com
+Signed-off-by: Sasha Levin <sashal@kernel.org>
 ---
- Changes in v9:
-   - Update changelog according to Ingo's suggestion.
- Changes in v8:
-   - Use dereference_kernel_function_descriptor() to
-     get the kretprobe_trampoline address.
- Changes in v3:
-   - Remove wrong kretprobe_trampoline declaration from
-     arch/x86/include/asm/kprobes.h.
- Changes in v2:
-   - Remove arch_deref_entry_point() from comment.
----
- arch/arc/kernel/kprobes.c          |    2 +-
- arch/arm/probes/kprobes/core.c     |    3 +--
- arch/arm64/kernel/probes/kprobes.c |    3 +--
- arch/csky/kernel/probes/kprobes.c  |    2 +-
- arch/ia64/kernel/kprobes.c         |    5 ++---
- arch/mips/kernel/kprobes.c         |    3 +--
- arch/parisc/kernel/kprobes.c       |    4 ++--
- arch/powerpc/kernel/kprobes.c      |    2 +-
- arch/riscv/kernel/probes/kprobes.c |    2 +-
- arch/s390/kernel/kprobes.c         |    2 +-
- arch/sh/kernel/kprobes.c           |    2 +-
- arch/sparc/kernel/kprobes.c        |    2 +-
- arch/x86/include/asm/kprobes.h     |    1 -
- arch/x86/kernel/kprobes/core.c     |    2 +-
- include/linux/kprobes.h            |   18 +++++++++++++-----
- kernel/kprobes.c                   |    3 +--
- 16 files changed, 29 insertions(+), 27 deletions(-)
+ arch/alpha/kernel/smp.c          | 1 -
+ arch/arc/kernel/smp.c            | 1 -
+ arch/arm/kernel/smp.c            | 1 -
+ arch/arm64/include/asm/preempt.h | 2 +-
+ arch/arm64/kernel/smp.c          | 1 -
+ arch/csky/kernel/smp.c           | 1 -
+ arch/ia64/kernel/smpboot.c       | 1 -
+ arch/mips/kernel/smp.c           | 1 -
+ arch/openrisc/kernel/smp.c       | 2 --
+ arch/parisc/kernel/smp.c         | 1 -
+ arch/powerpc/kernel/smp.c        | 1 -
+ arch/riscv/kernel/smpboot.c      | 1 -
+ arch/s390/include/asm/preempt.h  | 4 ++--
+ arch/s390/kernel/smp.c           | 1 -
+ arch/sh/kernel/smp.c             | 2 --
+ arch/sparc/kernel/smp_32.c       | 1 -
+ arch/sparc/kernel/smp_64.c       | 3 ---
+ arch/x86/include/asm/preempt.h   | 2 +-
+ arch/x86/kernel/smpboot.c        | 1 -
+ arch/xtensa/kernel/smp.c         | 1 -
+ include/asm-generic/preempt.h    | 2 +-
+ init/main.c                      | 6 +-----
+ kernel/fork.c                    | 2 +-
+ kernel/sched/core.c              | 2 +-
+ kernel/smpboot.c                 | 1 -
+ 25 files changed, 8 insertions(+), 34 deletions(-)
 
-diff --git a/arch/arc/kernel/kprobes.c b/arch/arc/kernel/kprobes.c
-index 5f0415fc7328..3cee75c87f97 100644
---- a/arch/arc/kernel/kprobes.c
-+++ b/arch/arc/kernel/kprobes.c
-@@ -381,7 +381,7 @@ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
- static int __kprobes trampoline_probe_handler(struct kprobe *p,
- 					      struct pt_regs *regs)
- {
--	regs->ret = __kretprobe_trampoline_handler(regs, &kretprobe_trampoline, NULL);
-+	regs->ret = __kretprobe_trampoline_handler(regs, NULL);
+diff --git a/arch/alpha/kernel/smp.c b/arch/alpha/kernel/smp.c
+index f4dd9f3f3001..4b2575f936d4 100644
+--- a/arch/alpha/kernel/smp.c
++++ b/arch/alpha/kernel/smp.c
+@@ -166,7 +166,6 @@ smp_callin(void)
+ 	DBGS(("smp_callin: commencing CPU %d current %p active_mm %p\n",
+ 	      cpuid, current, current->active_mm));
  
- 	/* By returning a non zero value, we are telling the kprobe handler
- 	 * that we don't want the post_handler to run
-diff --git a/arch/arm/probes/kprobes/core.c b/arch/arm/probes/kprobes/core.c
-index a59e38de4a03..08098ed6f035 100644
---- a/arch/arm/probes/kprobes/core.c
-+++ b/arch/arm/probes/kprobes/core.c
-@@ -392,8 +392,7 @@ void __naked __kprobes kretprobe_trampoline(void)
- /* Called from kretprobe_trampoline */
- static __used __kprobes void *trampoline_handler(struct pt_regs *regs)
- {
--	return (void *)kretprobe_trampoline_handler(regs, &kretprobe_trampoline,
--						    (void *)regs->ARM_fp);
-+	return (void *)kretprobe_trampoline_handler(regs, (void *)regs->ARM_fp);
+-	preempt_disable();
+ 	cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);
  }
  
- void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
-diff --git a/arch/arm64/kernel/probes/kprobes.c b/arch/arm64/kernel/probes/kprobes.c
-index ce429cbacd35..f627a12984a8 100644
---- a/arch/arm64/kernel/probes/kprobes.c
-+++ b/arch/arm64/kernel/probes/kprobes.c
-@@ -401,8 +401,7 @@ int __init arch_populate_kprobe_blacklist(void)
+diff --git a/arch/arc/kernel/smp.c b/arch/arc/kernel/smp.c
+index 52906d314537..db0e104d6835 100644
+--- a/arch/arc/kernel/smp.c
++++ b/arch/arc/kernel/smp.c
+@@ -189,7 +189,6 @@ void start_kernel_secondary(void)
+ 	pr_info("## CPU%u LIVE ##: Executing Code...\n", cpu);
  
- void __kprobes __used *trampoline_probe_handler(struct pt_regs *regs)
- {
--	return (void *)kretprobe_trampoline_handler(regs, &kretprobe_trampoline,
--					(void *)kernel_stack_pointer(regs));
-+	return (void *)kretprobe_trampoline_handler(regs, (void *)kernel_stack_pointer(regs));
+ 	local_irq_enable();
+-	preempt_disable();
+ 	cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);
  }
  
- void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
-diff --git a/arch/csky/kernel/probes/kprobes.c b/arch/csky/kernel/probes/kprobes.c
-index e823c3051b24..bf1e6c7094fc 100644
---- a/arch/csky/kernel/probes/kprobes.c
-+++ b/arch/csky/kernel/probes/kprobes.c
-@@ -387,7 +387,7 @@ int __init arch_populate_kprobe_blacklist(void)
+diff --git a/arch/arm/kernel/smp.c b/arch/arm/kernel/smp.c
+index 48099c6e1e4a..8aa7fa949c23 100644
+--- a/arch/arm/kernel/smp.c
++++ b/arch/arm/kernel/smp.c
+@@ -432,7 +432,6 @@ asmlinkage void secondary_start_kernel(void)
+ #endif
+ 	pr_debug("CPU%u: Booted secondary processor\n", cpu);
  
- void __kprobes __used *trampoline_probe_handler(struct pt_regs *regs)
- {
--	return (void *)kretprobe_trampoline_handler(regs, &kretprobe_trampoline, NULL);
-+	return (void *)kretprobe_trampoline_handler(regs, NULL);
- }
+-	preempt_disable();
+ 	trace_hardirqs_off();
  
- void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
-diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
-index 0f8573bbf520..44c84c20b626 100644
---- a/arch/ia64/kernel/kprobes.c
-+++ b/arch/ia64/kernel/kprobes.c
-@@ -392,14 +392,13 @@ static void __kprobes set_current_kprobe(struct kprobe *p,
- 	__this_cpu_write(current_kprobe, p);
- }
- 
--static void kretprobe_trampoline(void)
-+void kretprobe_trampoline(void)
- {
- }
- 
- int __kprobes trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
- {
--	regs->cr_iip = __kretprobe_trampoline_handler(regs,
--		dereference_function_descriptor(kretprobe_trampoline), NULL);
-+	regs->cr_iip = __kretprobe_trampoline_handler(regs, NULL);
  	/*
- 	 * By returning a non-zero value, we are telling
- 	 * kprobe_handler() that we don't want the post_handler
-diff --git a/arch/mips/kernel/kprobes.c b/arch/mips/kernel/kprobes.c
-index b0934a0d7aed..b33bd2498651 100644
---- a/arch/mips/kernel/kprobes.c
-+++ b/arch/mips/kernel/kprobes.c
-@@ -485,8 +485,7 @@ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
- static int __kprobes trampoline_probe_handler(struct kprobe *p,
- 						struct pt_regs *regs)
- {
--	instruction_pointer(regs) = __kretprobe_trampoline_handler(regs,
--						kretprobe_trampoline, NULL);
-+	instruction_pointer(regs) = __kretprobe_trampoline_handler(regs, NULL);
+diff --git a/arch/arm64/include/asm/preempt.h b/arch/arm64/include/asm/preempt.h
+index 80e946b2abee..e83f0982b99c 100644
+--- a/arch/arm64/include/asm/preempt.h
++++ b/arch/arm64/include/asm/preempt.h
+@@ -23,7 +23,7 @@ static inline void preempt_count_set(u64 pc)
+ } while (0)
+ 
+ #define init_idle_preempt_count(p, cpu) do { \
+-	task_thread_info(p)->preempt_count = PREEMPT_ENABLED; \
++	task_thread_info(p)->preempt_count = PREEMPT_DISABLED; \
+ } while (0)
+ 
+ static inline void set_preempt_need_resched(void)
+diff --git a/arch/arm64/kernel/smp.c b/arch/arm64/kernel/smp.c
+index 18e9727d3f64..feee5a3cd128 100644
+--- a/arch/arm64/kernel/smp.c
++++ b/arch/arm64/kernel/smp.c
+@@ -223,7 +223,6 @@ asmlinkage notrace void secondary_start_kernel(void)
+ 		init_gic_priority_masking();
+ 
+ 	rcu_cpu_starting(cpu);
+-	preempt_disable();
+ 	trace_hardirqs_off();
+ 
  	/*
- 	 * By returning a non-zero value, we are telling
- 	 * kprobe_handler() that we don't want the post_handler
-diff --git a/arch/parisc/kernel/kprobes.c b/arch/parisc/kernel/kprobes.c
-index 6d21a515eea5..4a35ac6e2ca2 100644
---- a/arch/parisc/kernel/kprobes.c
-+++ b/arch/parisc/kernel/kprobes.c
-@@ -175,7 +175,7 @@ int __kprobes parisc_kprobe_ss_handler(struct pt_regs *regs)
- 	return 1;
+diff --git a/arch/csky/kernel/smp.c b/arch/csky/kernel/smp.c
+index 041d0de6a1b6..1a8d7eaf1ff7 100644
+--- a/arch/csky/kernel/smp.c
++++ b/arch/csky/kernel/smp.c
+@@ -282,7 +282,6 @@ void csky_start_secondary(void)
+ 	pr_info("CPU%u Online: %s...\n", cpu, __func__);
+ 
+ 	local_irq_enable();
+-	preempt_disable();
+ 	cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);
  }
  
--static inline void kretprobe_trampoline(void)
-+void kretprobe_trampoline(void)
- {
- 	asm volatile("nop");
- 	asm volatile("nop");
-@@ -193,7 +193,7 @@ static int __kprobes trampoline_probe_handler(struct kprobe *p,
- {
- 	unsigned long orig_ret_address;
+diff --git a/arch/ia64/kernel/smpboot.c b/arch/ia64/kernel/smpboot.c
+index 093040f7e626..0cad990385c0 100644
+--- a/arch/ia64/kernel/smpboot.c
++++ b/arch/ia64/kernel/smpboot.c
+@@ -440,7 +440,6 @@ start_secondary (void *unused)
+ #endif
+ 	efi_map_pal_code();
+ 	cpu_init();
+-	preempt_disable();
+ 	smp_callin();
  
--	orig_ret_address = __kretprobe_trampoline_handler(regs, trampoline_p.addr, NULL);
-+	orig_ret_address = __kretprobe_trampoline_handler(regs, NULL);
- 	instruction_pointer_set(regs, orig_ret_address);
- 
- 	return 1;
-diff --git a/arch/powerpc/kernel/kprobes.c b/arch/powerpc/kernel/kprobes.c
-index 077ab73e6e56..0764e8a0de69 100644
---- a/arch/powerpc/kernel/kprobes.c
-+++ b/arch/powerpc/kernel/kprobes.c
-@@ -416,7 +416,7 @@ static int trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
- {
- 	unsigned long orig_ret_address;
- 
--	orig_ret_address = __kretprobe_trampoline_handler(regs, &kretprobe_trampoline, NULL);
-+	orig_ret_address = __kretprobe_trampoline_handler(regs, NULL);
- 	/*
- 	 * We get here through one of two paths:
- 	 * 1. by taking a trap -> kprobe_handler() -> here
-diff --git a/arch/riscv/kernel/probes/kprobes.c b/arch/riscv/kernel/probes/kprobes.c
-index dcf7c1f6d136..26a47870a237 100644
---- a/arch/riscv/kernel/probes/kprobes.c
-+++ b/arch/riscv/kernel/probes/kprobes.c
-@@ -369,7 +369,7 @@ int __init arch_populate_kprobe_blacklist(void)
- 
- void __kprobes __used *trampoline_probe_handler(struct pt_regs *regs)
- {
--	return (void *)kretprobe_trampoline_handler(regs, &kretprobe_trampoline, NULL);
-+	return (void *)kretprobe_trampoline_handler(regs, NULL);
- }
- 
- void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
-diff --git a/arch/s390/kernel/kprobes.c b/arch/s390/kernel/kprobes.c
-index 9bca57fe6b6a..71d86922dd51 100644
---- a/arch/s390/kernel/kprobes.c
-+++ b/arch/s390/kernel/kprobes.c
-@@ -348,7 +348,7 @@ static void __used kretprobe_trampoline_holder(void)
-  */
- static int trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
- {
--	regs->psw.addr = __kretprobe_trampoline_handler(regs, &kretprobe_trampoline, NULL);
-+	regs->psw.addr = __kretprobe_trampoline_handler(regs, NULL);
- 	/*
- 	 * By returning a non-zero value, we are telling
- 	 * kprobe_handler() that we don't want the post_handler
-diff --git a/arch/sh/kernel/kprobes.c b/arch/sh/kernel/kprobes.c
-index 1c7f358ef0be..8e76a35e6e33 100644
---- a/arch/sh/kernel/kprobes.c
-+++ b/arch/sh/kernel/kprobes.c
-@@ -303,7 +303,7 @@ static void __used kretprobe_trampoline_holder(void)
-  */
- int __kprobes trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
- {
--	regs->pc = __kretprobe_trampoline_handler(regs, &kretprobe_trampoline, NULL);
-+	regs->pc = __kretprobe_trampoline_handler(regs, NULL);
- 
- 	return 1;
- }
-diff --git a/arch/sparc/kernel/kprobes.c b/arch/sparc/kernel/kprobes.c
-index 4c05a4ee6a0e..401534236c2e 100644
---- a/arch/sparc/kernel/kprobes.c
-+++ b/arch/sparc/kernel/kprobes.c
-@@ -451,7 +451,7 @@ static int __kprobes trampoline_probe_handler(struct kprobe *p,
- {
- 	unsigned long orig_ret_address = 0;
- 
--	orig_ret_address = __kretprobe_trampoline_handler(regs, &kretprobe_trampoline, NULL);
-+	orig_ret_address = __kretprobe_trampoline_handler(regs, NULL);
- 	regs->tpc = orig_ret_address;
- 	regs->tnpc = orig_ret_address + 4;
- 
-diff --git a/arch/x86/include/asm/kprobes.h b/arch/x86/include/asm/kprobes.h
-index bd7f5886a789..71ea2eab43d5 100644
---- a/arch/x86/include/asm/kprobes.h
-+++ b/arch/x86/include/asm/kprobes.h
-@@ -49,7 +49,6 @@ extern __visible kprobe_opcode_t optprobe_template_end[];
- extern const int kretprobe_blacklist_size;
- 
- void arch_remove_kprobe(struct kprobe *p);
--asmlinkage void kretprobe_trampoline(void);
- 
- extern void arch_kprobe_override_function(struct pt_regs *regs);
- 
-diff --git a/arch/x86/kernel/kprobes/core.c b/arch/x86/kernel/kprobes/core.c
-index b6e046e4b289..0c59ef5971de 100644
---- a/arch/x86/kernel/kprobes/core.c
-+++ b/arch/x86/kernel/kprobes/core.c
-@@ -1064,7 +1064,7 @@ __used __visible void *trampoline_handler(struct pt_regs *regs)
- 	regs->ip = (unsigned long)&kretprobe_trampoline;
- 	regs->orig_ax = ~0UL;
- 
--	return (void *)kretprobe_trampoline_handler(regs, &kretprobe_trampoline, &regs->sp);
-+	return (void *)kretprobe_trampoline_handler(regs, &regs->sp);
- }
- NOKPROBE_SYMBOL(trampoline_handler);
- 
-diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
-index c9e0c13db84a..31cb9a929ac3 100644
---- a/include/linux/kprobes.h
-+++ b/include/linux/kprobes.h
-@@ -188,15 +188,23 @@ extern void arch_prepare_kretprobe(struct kretprobe_instance *ri,
- 				   struct pt_regs *regs);
- extern int arch_trampoline_kprobe(struct kprobe *p);
- 
-+void kretprobe_trampoline(void);
-+/*
-+ * Since some architecture uses structured function pointer,
-+ * use dereference_function_descriptor() to get real function address.
-+ */
-+static nokprobe_inline void *kretprobe_trampoline_addr(void)
-+{
-+	return dereference_kernel_function_descriptor(kretprobe_trampoline);
-+}
-+
- /* If the trampoline handler called from a kprobe, use this version */
- unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
--				void *trampoline_address,
--				void *frame_pointer);
-+					     void *frame_pointer);
- 
- static nokprobe_inline
- unsigned long kretprobe_trampoline_handler(struct pt_regs *regs,
--				void *trampoline_address,
--				void *frame_pointer)
-+					   void *frame_pointer)
- {
- 	unsigned long ret;
- 	/*
-@@ -205,7 +213,7 @@ unsigned long kretprobe_trampoline_handler(struct pt_regs *regs,
- 	 * be running at this point.
+ 	cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);
+diff --git a/arch/mips/kernel/smp.c b/arch/mips/kernel/smp.c
+index 48d84d5fcc36..ff25926c5458 100644
+--- a/arch/mips/kernel/smp.c
++++ b/arch/mips/kernel/smp.c
+@@ -348,7 +348,6 @@ asmlinkage void start_secondary(void)
  	 */
- 	kprobe_busy_begin();
--	ret = __kretprobe_trampoline_handler(regs, trampoline_address, frame_pointer);
-+	ret = __kretprobe_trampoline_handler(regs, frame_pointer);
- 	kprobe_busy_end();
  
- 	return ret;
-diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-index 2540cd56fa81..f9a075374522 100644
---- a/kernel/kprobes.c
-+++ b/kernel/kprobes.c
-@@ -1869,7 +1869,6 @@ static struct notifier_block kprobe_exceptions_nb = {
- #ifdef CONFIG_KRETPROBES
+ 	calibrate_delay();
+-	preempt_disable();
+ 	cpu = smp_processor_id();
+ 	cpu_data[cpu].udelay_val = loops_per_jiffy;
  
- unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
--					     void *trampoline_address,
- 					     void *frame_pointer)
+diff --git a/arch/openrisc/kernel/smp.c b/arch/openrisc/kernel/smp.c
+index 29c82ef2e207..e4dad76066ae 100644
+--- a/arch/openrisc/kernel/smp.c
++++ b/arch/openrisc/kernel/smp.c
+@@ -134,8 +134,6 @@ asmlinkage __init void secondary_start_kernel(void)
+ 	set_cpu_online(cpu, true);
+ 
+ 	local_irq_enable();
+-
+-	preempt_disable();
+ 	/*
+ 	 * OK, it's off to the idle thread for us
+ 	 */
+diff --git a/arch/parisc/kernel/smp.c b/arch/parisc/kernel/smp.c
+index 10227f667c8a..1405b603b91b 100644
+--- a/arch/parisc/kernel/smp.c
++++ b/arch/parisc/kernel/smp.c
+@@ -302,7 +302,6 @@ void __init smp_callin(unsigned long pdce_proc)
+ #endif
+ 
+ 	smp_cpu_init(slave_id);
+-	preempt_disable();
+ 
+ 	flush_cache_all_local(); /* start with known state */
+ 	flush_tlb_all_local(NULL);
+diff --git a/arch/powerpc/kernel/smp.c b/arch/powerpc/kernel/smp.c
+index db7ac77bea3a..0760230be56f 100644
+--- a/arch/powerpc/kernel/smp.c
++++ b/arch/powerpc/kernel/smp.c
+@@ -1426,7 +1426,6 @@ void start_secondary(void *unused)
+ 	smp_store_cpu_info(cpu);
+ 	set_dec(tb_ticks_per_jiffy);
+ 	rcu_cpu_starting(cpu);
+-	preempt_disable();
+ 	cpu_callin_map[cpu] = 1;
+ 
+ 	if (smp_ops->setup_cpu)
+diff --git a/arch/riscv/kernel/smpboot.c b/arch/riscv/kernel/smpboot.c
+index 96167d55ed98..0b04e0eae3ab 100644
+--- a/arch/riscv/kernel/smpboot.c
++++ b/arch/riscv/kernel/smpboot.c
+@@ -166,7 +166,6 @@ asmlinkage __visible void smp_callin(void)
+ 	 * Disable preemption before enabling interrupts, so we don't try to
+ 	 * schedule a CPU that hasn't actually started yet.
+ 	 */
+-	preempt_disable();
+ 	local_irq_enable();
+ 	cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);
+ }
+diff --git a/arch/s390/include/asm/preempt.h b/arch/s390/include/asm/preempt.h
+index 6ede29907fbf..e38480eb58fa 100644
+--- a/arch/s390/include/asm/preempt.h
++++ b/arch/s390/include/asm/preempt.h
+@@ -32,7 +32,7 @@ static inline void preempt_count_set(int pc)
+ #define init_task_preempt_count(p)	do { } while (0)
+ 
+ #define init_idle_preempt_count(p, cpu)	do { \
+-	S390_lowcore.preempt_count = PREEMPT_ENABLED; \
++	S390_lowcore.preempt_count = PREEMPT_DISABLED; \
+ } while (0)
+ 
+ static inline void set_preempt_need_resched(void)
+@@ -91,7 +91,7 @@ static inline void preempt_count_set(int pc)
+ #define init_task_preempt_count(p)	do { } while (0)
+ 
+ #define init_idle_preempt_count(p, cpu)	do { \
+-	S390_lowcore.preempt_count = PREEMPT_ENABLED; \
++	S390_lowcore.preempt_count = PREEMPT_DISABLED; \
+ } while (0)
+ 
+ static inline void set_preempt_need_resched(void)
+diff --git a/arch/s390/kernel/smp.c b/arch/s390/kernel/smp.c
+index 791bc373418b..7db5460553b7 100644
+--- a/arch/s390/kernel/smp.c
++++ b/arch/s390/kernel/smp.c
+@@ -863,7 +863,6 @@ static void smp_init_secondary(void)
+ 	set_cpu_flag(CIF_ASCE_SECONDARY);
+ 	cpu_init();
+ 	rcu_cpu_starting(cpu);
+-	preempt_disable();
+ 	init_cpu_timer();
+ 	vtime_init();
+ 	pfault_init();
+diff --git a/arch/sh/kernel/smp.c b/arch/sh/kernel/smp.c
+index 372acdc9033e..65924d9ec245 100644
+--- a/arch/sh/kernel/smp.c
++++ b/arch/sh/kernel/smp.c
+@@ -186,8 +186,6 @@ asmlinkage void start_secondary(void)
+ 
+ 	per_cpu_trap_init();
+ 
+-	preempt_disable();
+-
+ 	notify_cpu_starting(cpu);
+ 
+ 	local_irq_enable();
+diff --git a/arch/sparc/kernel/smp_32.c b/arch/sparc/kernel/smp_32.c
+index 50c127ab46d5..22b148e5a5f8 100644
+--- a/arch/sparc/kernel/smp_32.c
++++ b/arch/sparc/kernel/smp_32.c
+@@ -348,7 +348,6 @@ static void sparc_start_secondary(void *arg)
+ 	 */
+ 	arch_cpu_pre_starting(arg);
+ 
+-	preempt_disable();
+ 	cpu = smp_processor_id();
+ 
+ 	notify_cpu_starting(cpu);
+diff --git a/arch/sparc/kernel/smp_64.c b/arch/sparc/kernel/smp_64.c
+index e38d8bf454e8..ae5faa1d989d 100644
+--- a/arch/sparc/kernel/smp_64.c
++++ b/arch/sparc/kernel/smp_64.c
+@@ -138,9 +138,6 @@ void smp_callin(void)
+ 
+ 	set_cpu_online(cpuid, true);
+ 
+-	/* idle thread is expected to have preempt disabled */
+-	preempt_disable();
+-
+ 	local_irq_enable();
+ 
+ 	cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);
+diff --git a/arch/x86/include/asm/preempt.h b/arch/x86/include/asm/preempt.h
+index 69485ca13665..a334dd0d7c42 100644
+--- a/arch/x86/include/asm/preempt.h
++++ b/arch/x86/include/asm/preempt.h
+@@ -43,7 +43,7 @@ static __always_inline void preempt_count_set(int pc)
+ #define init_task_preempt_count(p) do { } while (0)
+ 
+ #define init_idle_preempt_count(p, cpu) do { \
+-	per_cpu(__preempt_count, (cpu)) = PREEMPT_ENABLED; \
++	per_cpu(__preempt_count, (cpu)) = PREEMPT_DISABLED; \
+ } while (0)
+ 
+ /*
+diff --git a/arch/x86/kernel/smpboot.c b/arch/x86/kernel/smpboot.c
+index 582387fc939f..8baff500914e 100644
+--- a/arch/x86/kernel/smpboot.c
++++ b/arch/x86/kernel/smpboot.c
+@@ -230,7 +230,6 @@ static void notrace start_secondary(void *unused)
+ 	cpu_init_exception_handling();
+ 	cpu_init();
+ 	x86_cpuinit.early_percpu_clock_init();
+-	preempt_disable();
+ 	smp_callin();
+ 
+ 	enable_start_cpu0 = 0;
+diff --git a/arch/xtensa/kernel/smp.c b/arch/xtensa/kernel/smp.c
+index cd85a7a2722b..1254da07ead1 100644
+--- a/arch/xtensa/kernel/smp.c
++++ b/arch/xtensa/kernel/smp.c
+@@ -145,7 +145,6 @@ void secondary_start_kernel(void)
+ 	cpumask_set_cpu(cpu, mm_cpumask(mm));
+ 	enter_lazy_tlb(mm, current);
+ 
+-	preempt_disable();
+ 	trace_hardirqs_off();
+ 
+ 	calibrate_delay();
+diff --git a/include/asm-generic/preempt.h b/include/asm-generic/preempt.h
+index d683f5e6d791..b4d43a4af5f7 100644
+--- a/include/asm-generic/preempt.h
++++ b/include/asm-generic/preempt.h
+@@ -29,7 +29,7 @@ static __always_inline void preempt_count_set(int pc)
+ } while (0)
+ 
+ #define init_idle_preempt_count(p, cpu) do { \
+-	task_thread_info(p)->preempt_count = PREEMPT_ENABLED; \
++	task_thread_info(p)->preempt_count = PREEMPT_DISABLED; \
+ } while (0)
+ 
+ static __always_inline void set_preempt_need_resched(void)
+diff --git a/init/main.c b/init/main.c
+index b4449544390c..dd26a42e80a8 100644
+--- a/init/main.c
++++ b/init/main.c
+@@ -914,11 +914,7 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
+ 	 * time - but meanwhile we still have a functioning scheduler.
+ 	 */
+ 	sched_init();
+-	/*
+-	 * Disable preemption - early bootup scheduling is extremely
+-	 * fragile until we cpu_idle() for the first time.
+-	 */
+-	preempt_disable();
++
+ 	if (WARN(!irqs_disabled(),
+ 		 "Interrupts were enabled *very* early, fixing it\n"))
+ 		local_irq_disable();
+diff --git a/kernel/fork.c b/kernel/fork.c
+index 281addb694df..096945ef49ad 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -2392,7 +2392,7 @@ static inline void init_idle_pids(struct task_struct *idle)
+ 	}
+ }
+ 
+-struct task_struct *fork_idle(int cpu)
++struct task_struct * __init fork_idle(int cpu)
  {
- 	kprobe_opcode_t *correct_ret_addr = NULL;
-@@ -1884,7 +1883,7 @@ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
+ 	struct task_struct *task;
+ 	struct kernel_clone_args args = {
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 57b236251884..bd3fa14fda1f 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -6512,7 +6512,7 @@ void show_state_filter(unsigned long state_filter)
+  * NOTE: this function does not set the idle thread's NEED_RESCHED
+  * flag, to make booting more robust.
+  */
+-void init_idle(struct task_struct *idle, int cpu)
++void __init init_idle(struct task_struct *idle, int cpu)
+ {
+ 	struct rq *rq = cpu_rq(cpu);
+ 	unsigned long flags;
+diff --git a/kernel/smpboot.c b/kernel/smpboot.c
+index f25208e8df83..e4163042c4d6 100644
+--- a/kernel/smpboot.c
++++ b/kernel/smpboot.c
+@@ -33,7 +33,6 @@ struct task_struct *idle_thread_get(unsigned int cpu)
  
- 		BUG_ON(ri->fp != frame_pointer);
+ 	if (!tsk)
+ 		return ERR_PTR(-ENOMEM);
+-	init_idle(tsk, cpu);
+ 	return tsk;
+ }
  
--		if (ri->ret_addr != trampoline_address) {
-+		if (ri->ret_addr != kretprobe_trampoline_addr()) {
- 			correct_ret_addr = ri->ret_addr;
- 			/*
- 			 * This is the real return address. Any other
+-- 
+2.30.2
