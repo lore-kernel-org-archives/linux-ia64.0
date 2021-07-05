@@ -1,50 +1,106 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Date: Thu, 15 Jul 2021 16:56:09 +0000
-Subject: Re: [PATCH v1 00/16] .map_sg() error cleanup
-Message-Id: <aa33d2bf-8324-5647-b800-3a2e3e774e80@deltatee.com>
+From: Ingo Molnar <mingo@kernel.org>
+Date: Mon, 05 Jul 2021 08:02:47 +0000
+Subject: Re: [PATCH -tip v8 05/13] x86/kprobes: Add UNWIND_HINT_FUNC on kretprobe_trampoline code
+Message-Id: <YOK8pzp8B2V+1EaU@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210715164544.6827-1-logang@deltatee.com>
- <20210715165309.GO22278@shell.armlinux.org.uk>
-In-Reply-To: <20210715165309.GO22278@shell.armlinux.org.uk>
+References: <162399992186.506599.8457763707951687195.stgit@devnote2>
+ <162399996966.506599.810050095040575221.stgit@devnote2>
+In-Reply-To: <162399996966.506599.810050095040575221.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Russell King (Oracle)" <linux@armlinux.org.uk>
-Cc: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org, Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>
+To: Masami Hiramatsu <mhiramat@kernel.org>
+Cc: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
 
+* Masami Hiramatsu <mhiramat@kernel.org> wrote:
 
-
-On 2021-07-15 10:53 a.m., Russell King (Oracle) wrote:
-> On Thu, Jul 15, 2021 at 10:45:28AM -0600, Logan Gunthorpe wrote:
->> Hi,
->>
->> This series is spun out and expanded from my work to add P2PDMA support
->> to DMA map operations[1].
->>
->> The P2PDMA work requires distinguishing different error conditions in
->> a map_sg operation. dma_map_sgtable() already allows for returning an
->> error code (where as dma_map_sg() is only allowed to return zero)
->> however, it currently only returns -EINVAL when a .map_sg() call returns
->> zero.
->>
->> This series cleans up all .map_sg() implementations to return appropriate
->> error codes. After the cleanup, dma_map_sg() will still return zero,
->> however dma_map_sgtable() will pass the error code from the .map_sg()
->> call. Thanks go to Martn Oliveira for doing a lot of the cleanup of the
->> obscure implementations.
->>
->> The patch set is based off of v5.14-rc1 and a git repo can be found
->> here:
+> From: Josh Poimboeuf <jpoimboe@redhat.com>
 > 
-> Have all the callers for dma_map_sg() been updated to check for error
-> codes? If not, isn't that a pre-requisit to this patch set?
+> Add UNWIND_HINT_FUNC on kretporbe_trampoline code so that ORC
+> information is generated on the kretprobe_trampoline correctly.
 
-No. Perhaps I wasn't clear enough: This series is changing only
-impelemntations of .map_sg(). It does *not* change the return code of
-dma_map_sg(). dma_map_sg() will continue to return zero on error for the
-foreseeable future. The dma_map_sgtable() call already allows returning
-error codes and it will pass the new error code through. This is what
-will be used in the P2PDMA work.
+What is a 'kretporbe'?
 
-Logan
+> Note that when the CONFIG_FRAME_POINTER=y, since the
+> kretprobe_trampoline skips updating frame pointer, the stack frame
+> of the kretprobe_trampoline seems non-standard. So this marks it
+> is STACK_FRAME_NON_STANDARD() and undefine UNWIND_HINT_FUNC.
+
+What does 'marks it is' mean?
+
+'undefine' UNWIND_HINT_FUNC?
+
+Doesn't the patch do the exact opposite:
+
+  > +#define UNWIND_HINT_FUNC \
+  > +	UNWIND_HINT(ORC_REG_SP, 8, UNWIND_HINT_TYPE_FUNC, 0)
+
+But it does undefine it in a specific spot:
+
+
+
+> Anyway, with the frame pointer, FP unwinder can unwind the stack
+> frame correctly without that hint.
+> 
+> Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
+> Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+> Tested-by: Andrii Nakryik <andrii@kernel.org>
+
+I have to say these changelogs are very careless.
+
+> +#else
+> +
+
+In headers, in longer CPP blocks, please always mark the '#else' branch 
+with what it is the else branch of.
+
+See the output of:
+
+   kepler:~/tip> git grep '#else' arch/x86/include/asm/ | head
+
+> +#ifdef CONFIG_FRAME_POINTER
+> +/*
+> + * kretprobe_trampoline skips updating frame pointer. The frame pointer
+> + * saved in trampoline_handler points to the real caller function's
+> + * frame pointer. Thus the kretprobe_trampoline doesn't seems to have a
+> + * standard stack frame with CONFIG_FRAME_POINTER=y.
+> + * Let's mark it non-standard function. Anyway, FP unwinder can correctly
+> + * unwind without the hint.
+
+s/doesn't seems to have a standard stack frame
+ /doesn't have a standard stack frame
+
+There's nothing 'seems' about the situation - it's a non-standard function 
+entry and stack frame situation, and the unwinder needs to know about it.
+
+> +STACK_FRAME_NON_STANDARD(kretprobe_trampoline);
+> +#undef UNWIND_HINT_FUNC
+> +#define UNWIND_HINT_FUNC
+> +#endif
+>  /*
+>   * When a retprobed function returns, this code saves registers and
+>   * calls trampoline_handler() runs, which calls the kretprobe's handler.
+> @@ -1031,6 +1044,7 @@ asm(
+>  	/* We don't bother saving the ss register */
+>  #ifdef CONFIG_X86_64
+>  	"	pushq %rsp\n"
+> +	UNWIND_HINT_FUNC
+>  	"	pushfq\n"
+>  	SAVE_REGS_STRING
+>  	"	movq %rsp, %rdi\n"
+> @@ -1041,6 +1055,7 @@ asm(
+>  	"	popfq\n"
+>  #else
+>  	"	pushl %esp\n"
+> +	UNWIND_HINT_FUNC
+>  	"	pushfl\n"
+>  	SAVE_REGS_STRING
+>  	"	movl %esp, %eax\n"
+
+Why not provide an appropriate annotation method in <asm/unwind_hints.h>, 
+so that other future code can use it too instead of reinventing the wheel?
+
+Thanks,
+
+	Ingo
