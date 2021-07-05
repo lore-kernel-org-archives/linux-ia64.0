@@ -1,32 +1,37 @@
-From: Helge Deller <deller@gmx.de>
-Date: Mon, 26 Jul 2021 08:55:17 +0000
-Subject: Re: [PATCH v3 9/9] asm-generic: reverse GENERIC_{STRNCPY_FROM,STRNLEN}_USER symbols
-Message-Id: <b89d9932-7498-edd2-0369-227ce17bcba6@gmx.de>
+From: Ingo Molnar <mingo@kernel.org>
+Date: Mon, 05 Jul 2021 07:48:09 +0000
+Subject: Re: [PATCH -tip v8 02/13] kprobes: treewide: Replace arch_deref_entry_point() with dereference_symbo
+Message-Id: <YOK5OV0zdjvrsqju@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210722124814.778059-1-arnd@kernel.org>
- <20210722124814.778059-10-arnd@kernel.org>
-In-Reply-To: <20210722124814.778059-10-arnd@kernel.org>
+References: <162399992186.506599.8457763707951687195.stgit@devnote2>
+ <162399994018.506599.10332627573727646767.stgit@devnote2>
+In-Reply-To: <162399994018.506599.10332627573727646767.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@kernel.org>, linux-arch@vger.kernel.org
-Cc: Arnd Bergmann <arnd@arndb.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Al Viro <viro@zeniv.linux.org.uk>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Brian Cain <bcain@codeaurora.org>, Chris Zankel <chris@zankel.net>, Christian Borntraeger <borntraeger@de.ibm.com>, Christoph Hellwig <hch@lst.de>, Guo Ren <guoren@kernel.org>, Heiko Carstens <hca@linux.ibm.com>, Jeff Dike <jdike@addtoit.com>, Linus Walleij <linus.walleij@linaro.org>, Max Filippov <jcmvbkbc@gmail.com>, Michal Simek <monstr@monstr.eu>, Richard Weinberger <richard@nod.at>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Vasily Gorbik <gor@linux.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-s390@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, uclinux-h8-devel@lists.sourceforge.jp
+To: Masami Hiramatsu <mhiramat@kernel.org>
+Cc: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-On 7/22/21 2:48 PM, Arnd Bergmann wrote:
-> From: Arnd Bergmann <arnd@arndb.de>
->
-> Most architectures do not need a custom implementation, and in most
-> cases the generic implementation is preferred, so change the polariy
-> on these Kconfig symbols to require architectures to select them when
-> they provide their own version.
->
-> The new name is CONFIG_ARCH_HAS_{STRNCPY_FROM,STRNLEN}_USER.
->
-> The remaining architectures at the moment are: ia64, mips, parisc,
-> s390, um and xtensa. We should probably convert these as well, but
-> I was not sure how far to take this series.
 
-Acked-by: Helge Deller <deller@gmx.de> # parisc
+* Masami Hiramatsu <mhiramat@kernel.org> wrote:
 
-Thanks!
-Helge
+> Replace arch_deref_entry_point() with dereference_symbol_descriptor()
+> because those are doing same thing.
+> 
+> Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+> Tested-by: Andrii Nakryik <andrii@kernel.org>
+
+A better changelog:
+
+  ~15 years ago kprobes grew the 'arch_deref_entry_point()' __weak function:
+
+    3d7e33825d87: ("jprobes: make jprobes a little safer for users")
+
+  But this is just open-coded dereference_symbol_descriptor() in essence, and
+  its obscure nature was causing bugs.
+
+  Just use the real thing.
+
+Thanks,
+
+	Ingo
