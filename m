@@ -1,28 +1,32 @@
-From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Date: Mon, 19 Jul 2021 20:22:04 +0000
-Subject: Re: [PATCH v1 13/16] xen: swiotlb: return error code from xen_swiotlb_map_sg()
-Message-Id: <8cccf120-0b4b-4d66-0b96-4114af27a3d1@oracle.com>
+From: Ingo Molnar <mingo@kernel.org>
+Date: Mon, 05 Jul 2021 08:04:41 +0000
+Subject: Re: [PATCH -tip v8 08/13] arm: kprobes: Make a space for regs->ARM_pc at kretprobe_trampoline
+Message-Id: <YOK9Gbcd63QkU5LB@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210715164544.6827-1-logang@deltatee.com>
- <20210715164544.6827-14-logang@deltatee.com>
-In-Reply-To: <20210715164544.6827-14-logang@deltatee.com>
+References: <162399992186.506599.8457763707951687195.stgit@devnote2>
+ <162399999702.506599.16339931387573094059.stgit@devnote2>
+In-Reply-To: <162399999702.506599.16339931387573094059.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Logan Gunthorpe <logang@deltatee.com>, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
-Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>
+To: Masami Hiramatsu <mhiramat@kernel.org>
+Cc: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
 
-On 7/15/21 12:45 PM, Logan Gunthorpe wrote:
-> From: Martin Oliveira <martin.oliveira@eideticom.com>
->
-> The .map_sg() op now expects an error code instead of zero on failure.
->
-> xen_swiotlb_map_sg() may only fail if xen_swiotlb_map_page() fails, but
-> xen_swiotlb_map_page() only supports returning errors as
-> DMA_MAPPING_ERROR. So coalesce all errors into EINVAL.
+* Masami Hiramatsu <mhiramat@kernel.org> wrote:
 
+> Change kretprobe_trampoline to make a space for regs->ARM_pc so that
+> kretprobe_trampoline_handler can call instruction_pointer_set()
+> safely.
 
-Reviewed-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+The idiom is "make space", but in any case, what does this mean?
 
+Was the stack frame set up in kretprobe_trampoline() and calling 
+trampoline_handler() buggy?
 
+If yes, then explain the bad effects of the bug, and make all of this clear 
+in the title & changelog.
+
+Thanks,
+
+	Ingo
