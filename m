@@ -1,59 +1,55 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Date: Fri, 23 Jul 2021 17:49:55 +0000
-Subject: [PATCH v2 08/21] ia64/sba_iommu: return error code from sba_map_sg_attrs()
-Message-Id: <20210723175008.22410-9-logang@deltatee.com>
+From: Sasha Levin <sashal@kernel.org>
+Date: Mon, 05 Jul 2021 15:32:07 +0000
+Subject: [PATCH AUTOSEL 4.4 7/7] ia64: mca_drv: fix incorrect array size calculation
+Message-Id: <20210705153208.1522553-7-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210723175008.22410-1-logang@deltatee.com>
-In-Reply-To: <20210723175008.22410-1-logang@deltatee.com>
+References: <20210705153208.1522553-1-sashal@kernel.org>
+In-Reply-To: <20210705153208.1522553-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
-Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, Michael Ellerman <mpe@ellerman.id.au>, Niklas Schnelle <schnelle@linux.ibm.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Cc: Arnd Bergmann <arnd@arndb.de>, Masahiro Yamada <masahiroy@kernel.org>, Randy Dunlap <rdunlap@infradead.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
 
-From: Martin Oliveira <martin.oliveira@eideticom.com>
+From: Arnd Bergmann <arnd@arndb.de>
 
-The .map_sg() op now expects an error code instead of zero on failure.
+[ Upstream commit c5f320ff8a79501bb59338278336ec43acb9d7e2 ]
 
-In the case of a dma_mapping_error() return -EIO as the actual cause
-is opaque here.
+gcc points out a mistake in the mca driver that goes back to before the
+git history:
 
-sba_coalesce_chunks() may only presently fail if sba_alloc_range()
-fails, which in turn only fails if the iommu is out of mapping
-resources, hence a -ENOMEM is used in that case.
+arch/ia64/kernel/mca_drv.c: In function 'init_record_index_pools':
+arch/ia64/kernel/mca_drv.c:346:54: error: expression does not compute the number of elements in this array; element typ
+e is 'int', not 'size_t' {aka 'long unsigned int'} [-Werror=sizeof-array-div]
+  346 |         for (i = 1; i < sizeof sal_log_sect_min_sizes/sizeof(size_t); i++)
+      |                                                      ^
 
-Signed-off-by: Martin Oliveira <martin.oliveira@eideticom.com>
-Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
-Cc: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Niklas Schnelle <schnelle@linux.ibm.com>
-Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+This is the same as sizeof(size_t), which is two shorter than the actual
+array.  Use the ARRAY_SIZE() macro to get the correct calculation instead.
+
+Link: https://lkml.kernel.org/r/20210514214123.875971-1-arnd@kernel.org
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Cc: Masahiro Yamada <masahiroy@kernel.org>
+Cc: Randy Dunlap <rdunlap@infradead.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
 ---
- arch/ia64/hp/common/sba_iommu.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ arch/ia64/kernel/mca_drv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
-index 9148ddbf02e5..430c166b68cd 100644
---- a/arch/ia64/hp/common/sba_iommu.c
-+++ b/arch/ia64/hp/common/sba_iommu.c
-@@ -1458,8 +1458,8 @@ static int sba_map_sg_attrs(struct device *dev, struct scatterlist *sglist,
- 		sglist->dma_length = sglist->length;
- 		sglist->dma_address = sba_map_page(dev, sg_page(sglist),
- 				sglist->offset, sglist->length, dir, attrs);
--		if (dma_mapping_error(dev, sglist->dma_address))
--			return 0;
-+		if(dma_mapping_error(dev, sglist->dma_address))
-+			return -EIO;
- 		return 1;
- 	}
+diff --git a/arch/ia64/kernel/mca_drv.c b/arch/ia64/kernel/mca_drv.c
+index 94f8bf777afa..3503d488e9b3 100644
+--- a/arch/ia64/kernel/mca_drv.c
++++ b/arch/ia64/kernel/mca_drv.c
+@@ -343,7 +343,7 @@ init_record_index_pools(void)
  
-@@ -1486,7 +1486,7 @@ static int sba_map_sg_attrs(struct device *dev, struct scatterlist *sglist,
- 	coalesced = sba_coalesce_chunks(ioc, dev, sglist, nents);
- 	if (coalesced < 0) {
- 		sba_unmap_sg_attrs(dev, sglist, nents, dir, attrs);
--		return 0;
-+		return -ENOMEM;
- 	}
+ 	/* - 2 - */
+ 	sect_min_size = sal_log_sect_min_sizes[0];
+-	for (i = 1; i < sizeof sal_log_sect_min_sizes/sizeof(size_t); i++)
++	for (i = 1; i < ARRAY_SIZE(sal_log_sect_min_sizes); i++)
+ 		if (sect_min_size > sal_log_sect_min_sizes[i])
+ 			sect_min_size = sal_log_sect_min_sizes[i];
  
- 	/*
 -- 
-2.20.1
+2.30.2
