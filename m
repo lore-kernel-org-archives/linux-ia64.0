@@ -1,47 +1,45 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Fri, 09 Jul 2021 14:55:31 +0000
-Subject: Re: [PATCH -tip v8 10/13] x86/kprobes: Push a fake return address at kretprobe_trampoline
-Message-Id: <20210709235531.527d5cbb59c5669eed885b32@kernel.org>
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Mon, 05 Jul 2021 11:36:14 +0000
+Subject: Re: [PATCH -tip v8 11/13] x86/unwind: Recover kretprobe trampoline entry
+Message-Id: <YOLurg5mGHdBc+fz@hirez.programming.kicks-ass.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <162399992186.506599.8457763707951687195.stgit@devnote2>
-        <162400001661.506599.5153975410607447958.stgit@devnote2>
-        <YOLAFswnvyNReMmI@gmail.com>
-In-Reply-To: <YOLAFswnvyNReMmI@gmail.com>
+ <162400002631.506599.2413605639666466945.stgit@devnote2>
+In-Reply-To: <162400002631.506599.2413605639666466945.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@kernel.org>
-Cc: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: Masami Hiramatsu <mhiramat@kernel.org>
+Cc: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-On Mon, 5 Jul 2021 10:17:26 +0200
-Ingo Molnar <mingo@kernel.org> wrote:
+On Fri, Jun 18, 2021 at 04:07:06PM +0900, Masami Hiramatsu wrote:
+> @@ -549,7 +548,15 @@ bool unwind_next_frame(struct unwind_state *state)
+>  					 (void *)orig_ip);
+>  			goto err;
+>  		}
+> -
+> +		/*
+> +		 * There is a small chance to interrupt at the entry of
+> +		 * kretprobe_trampoline where the ORC info doesn't exist.
+> +		 * That point is right after the RET to kretprobe_trampoline
+> +		 * which was modified return address. So the @addr_p must
+> +		 * be right before the regs->sp.
+> +		 */
+> +		state->ip = unwind_recover_kretprobe(state, state->ip,
+> +				(unsigned long *)(state->sp - sizeof(long)));
+>  		state->regs = (struct pt_regs *)sp;
+>  		state->prev_regs = NULL;
+>  		state->full_regs = true;
+> @@ -562,6 +569,9 @@ bool unwind_next_frame(struct unwind_state *state)
+>  					 (void *)orig_ip);
+>  			goto err;
+>  		}
+> +		/* See UNWIND_HINT_TYPE_REGS case comment. */
+> +		state->ip = unwind_recover_kretprobe(state, state->ip,
+> +				(unsigned long *)(state->sp - sizeof(long)));
+>  
+>  		if (state->full_regs)
+>  			state->prev_regs = state->regs;
 
-> 
-> * Masami Hiramatsu <mhiramat@kernel.org> wrote:
-> 
-> > +	/* Replace fake return address with real one. */
-> > +	*frame_pointer = kretprobe_trampoline_handler(regs, frame_pointer);
-> > +	/*
-> > +	 * Move flags to sp so that kretprobe_trapmoline can return
-> > +	 * right after popf.
-> 
-> What is a trapmoline?
-
-This means kretprobe_trampoline() code.
-
-> 
-> Also, in the x86 code we capitalize register and instruction names so that 
-> they are more distinctive and easier to read in the flow of English text.
-
-OK, let me update it.
-
-Thank you,
-
-> 
-> Thanks,
-> 
-> 	Ingo
-
-
--- 
-Masami Hiramatsu <mhiramat@kernel.org>
+Why doesn't the ftrace case have this? That is, why aren't both return
+trampolines having the same general shape?
