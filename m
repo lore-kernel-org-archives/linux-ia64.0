@@ -1,54 +1,47 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Thu, 08 Jul 2021 04:08:56 +0000
-Subject: Re: [PATCH -tip v8 02/13] kprobes: treewide: Replace arch_deref_entry_point() with dereference_symbo
-Message-Id: <20210708130856.ccb7cfb4f92e5896d597906a@kernel.org>
+From: Ingo Molnar <mingo@kernel.org>
+Date: Mon, 05 Jul 2021 07:46:33 +0000
+Subject: Re: [PATCH -tip v8 01/13] ia64: kprobes: Fix to pass correct trampoline address to the handler
+Message-Id: <YOK42eM70kb9fd6r@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <162399992186.506599.8457763707951687195.stgit@devnote2>
-        <162399994018.506599.10332627573727646767.stgit@devnote2>
-        <CAEf4BzY1D7NsrBwt3nLFRbaESb7b5pR9arLhrg8OmOAfxi+kaw@mail.gmail.com>
-In-Reply-To: <CAEf4BzY1D7NsrBwt3nLFRbaESb7b5pR9arLhrg8OmOAfxi+kaw@mail.gmail.com>
+ <162399993125.506599.11062077324255866677.stgit@devnote2>
+In-Reply-To: <162399993125.506599.11062077324255866677.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrii Nakryiko <andrii.nakryiko@gmail.com>
-Cc: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, open list <linux-kernel@vger.kernel.org>, bpf <bpf@vger.kernel.org>, Jakub Kicinski <kuba@kernel.org>, Ingo Molnar <mingo@redhat.com>, Alexei Starovoitov <ast@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, Kernel Team <kernel-team@fb.com>, Yonghong Song <yhs@fb.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>
+To: Masami Hiramatsu <mhiramat@kernel.org>
+Cc: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-On Wed, 7 Jul 2021 11:28:10 -0700
-Andrii Nakryiko <andrii.nakryiko@gmail.com> wrote:
 
-> On Fri, Jun 18, 2021 at 12:05 AM Masami Hiramatsu <mhiramat@kernel.org> wrote:
-> >
-> > Replace arch_deref_entry_point() with dereference_symbol_descriptor()
-> > because those are doing same thing.
-> >
-> > Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-> > Tested-by: Andrii Nakryik <andrii@kernel.org>
+* Masami Hiramatsu <mhiramat@kernel.org> wrote:
+
+> Commit e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
+> missed to pass the wrong trampoline address (it passes the descriptor address
+> instead of function entry address).
+> This fixes it to pass correct trampoline address to __kretprobe_trampoline_handler().
+> This also changes to use correct symbol dereference function to get the
+> function address from the kretprobe_trampoline.
 > 
-> Hi Masami,
-> 
-> If you are going to post v9 anyway, can you please fix up my name, it
-> should be "Andrii Nakryiko", thanks!
+> Fixes: e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
+> Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
 
-Oops, sorry. OK, I'll fix it.
+A better changelog:
 
-Thank you,
+  The following commit:
 
-> 
-> > ---
-> >  Changes in v6:
-> >   - Use dereference_symbol_descriptor() so that it can handle address in
-> >     modules correctly.
-> > ---
-> >  arch/ia64/kernel/kprobes.c    |    5 -----
-> >  arch/powerpc/kernel/kprobes.c |   11 -----------
-> >  include/linux/kprobes.h       |    1 -
-> >  kernel/kprobes.c              |    7 +------
-> >  lib/error-inject.c            |    3 ++-
-> >  5 files changed, 3 insertions(+), 24 deletions(-)
-> >
-> 
-> [...]
+     Commit e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
 
+  Passed the wrong trampoline address to __kretprobe_trampoline_handler(): it
+  passes the descriptor address instead of function entry address.
 
--- 
-Masami Hiramatsu <mhiramat@kernel.org>
+  Pass the right parameter.
+
+  Also use correct symbol dereference function to get the function address
+  from 'kretprobe_trampoline' - an IA64 special.
+
+(Although I realize that much of this goes away just a couple of patches 
+later.)
+
+Thanks,
+
+	Ingo
