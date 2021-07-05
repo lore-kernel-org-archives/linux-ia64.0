@@ -1,29 +1,31 @@
-From: ''Michael Weirsky'' <maria.coronel@07d05.mspz7.gob.ec>
-Date: Sun, 11 Jul 2021 22:45:12 +0000
-Subject: spende von 2,000,000 euro
-Message-Id: <20210711224527.5E93C19219C5@mail.07d05.mspz7.gob.ec>
+From: Ingo Molnar <mingo@kernel.org>
+Date: Mon, 05 Jul 2021 08:17:26 +0000
+Subject: Re: [PATCH -tip v8 10/13] x86/kprobes: Push a fake return address at kretprobe_trampoline
+Message-Id: <YOLAFswnvyNReMmI@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210708064746.B857C62E01E0@mail4.turbodal.cl>
-In-Reply-To: <20210708064746.B857C62E01E0@mail4.turbodal.cl>
+References: <162399992186.506599.8457763707951687195.stgit@devnote2>
+ <162400001661.506599.5153975410607447958.stgit@devnote2>
+In-Reply-To: <162400001661.506599.5153975410607447958.stgit@devnote2>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: linux-ia64@vger.kernel.org
-
-Lieber Freund,
-
-Ich bin Herr Mike Weirsky, New Jersey, Vereinigte Staaten von Amerika, der Mega-Gewinner von $ 273million In Mega Millions Jackpot, spende ich an 5 zufällige Personen, wenn Sie diese E-Mail erhalten, dann wurde Ihre E-Mail nach einem Spinball ausgewählt.Ich habe den größten Teil meines Vermögens auf eine Reihe von Wohltätigkeitsorganisationen und Organisationen verteilt.Ich habe mich freiwillig dazu entschieden, die Summe von € 2.000.000,00 an Sie als eine der ausgewählten 5 zu spenden, um meine Gewinne zu überprüfen.
-Das ist dein Spendencode: [MW530342019]
-
-www.youtube.com/watch?v=un8yRTmrYMY
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Masami Hiramatsu <mhiramat@kernel.org>
+Cc: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
 
-Antworten Sie mit dem SPENDE-CODE an diese 
+* Masami Hiramatsu <mhiramat@kernel.org> wrote:
 
-E-Mail:mikeweirskyspende@gmail.com
+> +	/* Replace fake return address with real one. */
+> +	*frame_pointer = kretprobe_trampoline_handler(regs, frame_pointer);
+> +	/*
+> +	 * Move flags to sp so that kretprobe_trapmoline can return
+> +	 * right after popf.
 
+What is a trapmoline?
 
-Ich hoffe, Sie und Ihre Familie glücklich zu machen.
+Also, in the x86 code we capitalize register and instruction names so that 
+they are more distinctive and easier to read in the flow of English text.
 
-Grüße
-Herr Mike Weirsky
+Thanks,
+
+	Ingo
