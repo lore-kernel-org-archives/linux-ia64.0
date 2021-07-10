@@ -1,77 +1,116 @@
 From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Thu, 29 Jul 2021 14:06:05 +0000
-Subject: [PATCH -tip v10 01/16] ia64: kprobes: Fix to pass correct trampoline address to the handler
-Message-Id: <162756756529.301564.4355800871953996544.stgit@devnote2>
+Date: Sat, 10 Jul 2021 14:55:56 +0000
+Subject: [PATCH -tip 4/6] kprobes: Add assertions for required lock
+Message-Id: <162592895578.1158485.13184803960968132997.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162756755600.301564.4957591913842010341.stgit@devnote2>
-In-Reply-To: <162756755600.301564.4957591913842010341.stgit@devnote2>
+References: <162592891873.1158485.768824457210707916.stgit@devnote2>
+In-Reply-To: <162592891873.1158485.768824457210707916.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: X86 ML <x86@kernel.org>, Ingo Molnar <mingo@kernel.org>
+Cc: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-The following commit:
+Add assertions for required locks instead of comment it
+so that the lockdep can inspect locks automatically.
 
-   Commit e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
-
-Passed the wrong trampoline address to __kretprobe_trampoline_handler(): it
-passes the descriptor address instead of function entry address.
-
-Pass the right parameter.
-
-Also use correct symbol dereference function to get the function address
-from 'kretprobe_trampoline' - an IA64 special.
-
-Fixes: e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
-Cc: stable@vger.kernel.org
 Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
 ---
- Changes in v9:
-  - Update changelog according to Ingo's suggestion.
-  - Add Cc: stable tag.
- Changes in v5:
-  - Fix a compile error typo.
----
- arch/ia64/kernel/kprobes.c |    9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ kernel/kprobes.c |   19 ++++++++++++-------
+ 1 file changed, 12 insertions(+), 7 deletions(-)
 
-diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
-index 441ed04b1037..d4048518a1d7 100644
---- a/arch/ia64/kernel/kprobes.c
-+++ b/arch/ia64/kernel/kprobes.c
-@@ -398,7 +398,8 @@ static void kretprobe_trampoline(void)
+diff --git a/kernel/kprobes.c b/kernel/kprobes.c
+index e5e1400072c8..a99fd840b5c9 100644
+--- a/kernel/kprobes.c
++++ b/kernel/kprobes.c
+@@ -959,11 +959,13 @@ int proc_kprobes_optimization_handler(struct ctl_table *table, int write,
+ }
+ #endif /* CONFIG_SYSCTL */
  
- int __kprobes trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
+-/* Put a breakpoint for a probe. Must be called with 'text_mutex' locked. */
++/* Put a breakpoint for a probe. */
+ static void __arm_kprobe(struct kprobe *p)
  {
--	regs->cr_iip = __kretprobe_trampoline_handler(regs, kretprobe_trampoline, NULL);
-+	regs->cr_iip = __kretprobe_trampoline_handler(regs,
-+		dereference_function_descriptor(kretprobe_trampoline), NULL);
- 	/*
- 	 * By returning a non-zero value, we are telling
- 	 * kprobe_handler() that we don't want the post_handler
-@@ -414,7 +415,7 @@ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
- 	ri->fp = NULL;
+ 	struct kprobe *_p;
  
- 	/* Replace the return addr with trampoline addr */
--	regs->b0 = ((struct fnptr *)kretprobe_trampoline)->ip;
-+	regs->b0 = (unsigned long)dereference_function_descriptor(kretprobe_trampoline);
++	lockdep_assert_held(&text_mutex);
++
+ 	/* Find the overlapping optimized kprobes. */
+ 	_p = get_optimized_kprobe((unsigned long)p->addr);
+ 	if (unlikely(_p))
+@@ -974,11 +976,13 @@ static void __arm_kprobe(struct kprobe *p)
+ 	optimize_kprobe(p);	/* Try to optimize (add kprobe to a list) */
  }
  
- /* Check the instruction in the slot is break */
-@@ -902,14 +903,14 @@ static struct kprobe trampoline_p = {
- int __init arch_init_kprobes(void)
+-/* Remove the breakpoint of a probe. Must be called with 'text_mutex' locked. */
++/* Remove the breakpoint of a probe. */
+ static void __disarm_kprobe(struct kprobe *p, bool reopt)
  {
- 	trampoline_p.addr -		(kprobe_opcode_t *)((struct fnptr *)kretprobe_trampoline)->ip;
-+		dereference_function_descriptor(kretprobe_trampoline);
- 	return register_kprobe(&trampoline_p);
+ 	struct kprobe *_p;
+ 
++	lockdep_assert_held(&text_mutex);
++
+ 	/* Try to unoptimize */
+ 	unoptimize_kprobe(p, kprobes_all_disarmed);
+ 
+@@ -1056,12 +1060,13 @@ static int prepare_kprobe(struct kprobe *p)
+ 	return arch_prepare_kprobe_ftrace(p);
  }
  
- int __kprobes arch_trampoline_kprobe(struct kprobe *p)
+-/* Caller must lock 'kprobe_mutex' */
+ static int __arm_kprobe_ftrace(struct kprobe *p, struct ftrace_ops *ops,
+ 			       int *cnt)
  {
- 	if (p->addr =
--		(kprobe_opcode_t *)((struct fnptr *)kretprobe_trampoline)->ip)
-+		dereference_function_descriptor(kretprobe_trampoline))
- 		return 1;
+ 	int ret = 0;
  
++	lockdep_assert_held(&kprobe_mutex);
++
+ 	ret = ftrace_set_filter_ip(ops, (unsigned long)p->addr, 0, 0);
+ 	if (WARN_ONCE(ret < 0, "Failed to arm kprobe-ftrace at %pS (error %d)\n", p->addr, ret))
+ 		return ret;
+@@ -1093,12 +1098,13 @@ static int arm_kprobe_ftrace(struct kprobe *p)
+ 		ipmodify ? &kprobe_ipmodify_enabled : &kprobe_ftrace_enabled);
+ }
+ 
+-/* Caller must lock 'kprobe_mutex'. */
+ static int __disarm_kprobe_ftrace(struct kprobe *p, struct ftrace_ops *ops,
+ 				  int *cnt)
+ {
+ 	int ret = 0;
+ 
++	lockdep_assert_held(&kprobe_mutex);
++
+ 	if (*cnt = 1) {
+ 		ret = unregister_ftrace_function(ops);
+ 		if (WARN(ret < 0, "Failed to unregister kprobe-ftrace (error %d)\n", ret))
+@@ -1138,7 +1144,6 @@ static inline int disarm_kprobe_ftrace(struct kprobe *p)
+ }
+ #endif
+ 
+-/* Arm a kprobe with 'text_mutex'. */
+ static int arm_kprobe(struct kprobe *kp)
+ {
+ 	if (unlikely(kprobe_ftrace(kp)))
+@@ -1153,7 +1158,6 @@ static int arm_kprobe(struct kprobe *kp)
  	return 0;
+ }
+ 
+-/* Disarm a kprobe with 'text_mutex'. */
+ static int disarm_kprobe(struct kprobe *kp, bool reopt)
+ {
+ 	if (unlikely(kprobe_ftrace(kp)))
+@@ -1696,12 +1700,13 @@ static int aggr_kprobe_disabled(struct kprobe *ap)
+ 	return 1;
+ }
+ 
+-/* Disable one kprobe: Make sure called under 'kprobe_mutex' is locked. */
+ static struct kprobe *__disable_kprobe(struct kprobe *p)
+ {
+ 	struct kprobe *orig_p;
+ 	int ret;
+ 
++	lockdep_assert_held(&kprobe_mutex);
++
+ 	/* Get an original kprobe for return */
+ 	orig_p = __get_valid_kprobe(p);
+ 	if (unlikely(orig_p = NULL))
