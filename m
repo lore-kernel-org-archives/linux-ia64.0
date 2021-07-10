@@ -1,55 +1,140 @@
-From: Sasha Levin <sashal@kernel.org>
-Date: Mon, 05 Jul 2021 15:31:55 +0000
-Subject: [PATCH AUTOSEL 4.9 9/9] ia64: mca_drv: fix incorrect array size calculation
-Message-Id: <20210705153155.1522423-9-sashal@kernel.org>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Sat, 10 Jul 2021 14:56:04 +0000
+Subject: [PATCH -tip 5/6] kprobes: treewide: Use 'kprobe_opcode_t *' for the code address in get_optimized_kp
+Message-Id: <162592896455.1158485.17010884693268621190.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210705153155.1522423-1-sashal@kernel.org>
-In-Reply-To: <20210705153155.1522423-1-sashal@kernel.org>
+References: <162592891873.1158485.768824457210707916.stgit@devnote2>
+In-Reply-To: <162592891873.1158485.768824457210707916.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
-Cc: Arnd Bergmann <arnd@arndb.de>, Masahiro Yamada <masahiroy@kernel.org>, Randy Dunlap <rdunlap@infradead.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
+To: X86 ML <x86@kernel.org>, Ingo Molnar <mingo@kernel.org>
+Cc: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-From: Arnd Bergmann <arnd@arndb.de>
+Since get_optimized_kprobe() is only used inside kprobes,
+it doesn't need to use 'unsigned long' type for 'addr' parameter.
+Make it use 'kprobe_opcode_t *' for the 'addr' parameter and
+subsequent call of arch_within_optimized_kprobe() also should use
+'kprobe_opcode_t *'.
 
-[ Upstream commit c5f320ff8a79501bb59338278336ec43acb9d7e2 ]
+Note that MAX_OPTIMIZED_LENGTH and RELATIVEJUMP_SIZE are defined
+by byte-size, but the size of 'kprobe_opcode_t' depends on the
+architecture. Therefore, we must be careful when calculating
+addresses using those macros.
 
-gcc points out a mistake in the mca driver that goes back to before the
-git history:
-
-arch/ia64/kernel/mca_drv.c: In function 'init_record_index_pools':
-arch/ia64/kernel/mca_drv.c:346:54: error: expression does not compute the number of elements in this array; element typ
-e is 'int', not 'size_t' {aka 'long unsigned int'} [-Werror=sizeof-array-div]
-  346 |         for (i = 1; i < sizeof sal_log_sect_min_sizes/sizeof(size_t); i++)
-      |                                                      ^
-
-This is the same as sizeof(size_t), which is two shorter than the actual
-array.  Use the ARRAY_SIZE() macro to get the correct calculation instead.
-
-Link: https://lkml.kernel.org/r/20210514214123.875971-1-arnd@kernel.org
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Cc: Masahiro Yamada <masahiroy@kernel.org>
-Cc: Randy Dunlap <rdunlap@infradead.org>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Sasha Levin <sashal@kernel.org>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
 ---
- arch/ia64/kernel/mca_drv.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/arm/probes/kprobes/opt-arm.c |    7 ++++---
+ arch/powerpc/kernel/optprobes.c   |    6 +++---
+ arch/x86/kernel/kprobes/opt.c     |    6 +++---
+ include/linux/kprobes.h           |    2 +-
+ kernel/kprobes.c                  |   10 +++++-----
+ 5 files changed, 16 insertions(+), 15 deletions(-)
 
-diff --git a/arch/ia64/kernel/mca_drv.c b/arch/ia64/kernel/mca_drv.c
-index 94f8bf777afa..3503d488e9b3 100644
---- a/arch/ia64/kernel/mca_drv.c
-+++ b/arch/ia64/kernel/mca_drv.c
-@@ -343,7 +343,7 @@ init_record_index_pools(void)
+diff --git a/arch/arm/probes/kprobes/opt-arm.c b/arch/arm/probes/kprobes/opt-arm.c
+index c78180172120..dbef34ed933f 100644
+--- a/arch/arm/probes/kprobes/opt-arm.c
++++ b/arch/arm/probes/kprobes/opt-arm.c
+@@ -347,10 +347,11 @@ void arch_unoptimize_kprobes(struct list_head *oplist,
+ }
  
- 	/* - 2 - */
- 	sect_min_size = sal_log_sect_min_sizes[0];
--	for (i = 1; i < sizeof sal_log_sect_min_sizes/sizeof(size_t); i++)
-+	for (i = 1; i < ARRAY_SIZE(sal_log_sect_min_sizes); i++)
- 		if (sect_min_size > sal_log_sect_min_sizes[i])
- 			sect_min_size = sal_log_sect_min_sizes[i];
+ int arch_within_optimized_kprobe(struct optimized_kprobe *op,
+-				unsigned long addr)
++				 kprobe_opcode_t *addr)
+ {
+-	return ((unsigned long)op->kp.addr <= addr &&
+-		(unsigned long)op->kp.addr + RELATIVEJUMP_SIZE > addr);
++	return (op->kp.addr <= addr &&
++		op->kp.addr + (RELATIVEJUMP_SIZE / sizeof(kprobe_opcode_t)) > addr);
++
+ }
  
--- 
-2.30.2
+ void arch_remove_optimized_kprobe(struct optimized_kprobe *op)
+diff --git a/arch/powerpc/kernel/optprobes.c b/arch/powerpc/kernel/optprobes.c
+index c79899abcec8..325ba544883c 100644
+--- a/arch/powerpc/kernel/optprobes.c
++++ b/arch/powerpc/kernel/optprobes.c
+@@ -301,8 +301,8 @@ void arch_unoptimize_kprobes(struct list_head *oplist, struct list_head *done_li
+ 	}
+ }
+ 
+-int arch_within_optimized_kprobe(struct optimized_kprobe *op, unsigned long addr)
++int arch_within_optimized_kprobe(struct optimized_kprobe *op, kprobe_opcode_t *addr)
+ {
+-	return ((unsigned long)op->kp.addr <= addr &&
+-		(unsigned long)op->kp.addr + RELATIVEJUMP_SIZE > addr);
++	return (op->kp.addr <= addr &&
++		op->kp.addr + (RELATIVEJUMP_SIZE / sizeof(kprobe_opcode_t)) > addr);
+ }
+diff --git a/arch/x86/kernel/kprobes/opt.c b/arch/x86/kernel/kprobes/opt.c
+index 71425ebba98a..b4a54a52aa59 100644
+--- a/arch/x86/kernel/kprobes/opt.c
++++ b/arch/x86/kernel/kprobes/opt.c
+@@ -367,10 +367,10 @@ int arch_check_optimized_kprobe(struct optimized_kprobe *op)
+ 
+ /* Check the addr is within the optimized instructions. */
+ int arch_within_optimized_kprobe(struct optimized_kprobe *op,
+-				 unsigned long addr)
++				 kprobe_opcode_t *addr)
+ {
+-	return ((unsigned long)op->kp.addr <= addr &&
+-		(unsigned long)op->kp.addr + op->optinsn.size > addr);
++	return (op->kp.addr <= addr &&
++		op->kp.addr + op->optinsn.size > addr);
+ }
+ 
+ /* Free optimized instruction slot */
+diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
+index 3d02917c837b..bb6d1e72a943 100644
+--- a/include/linux/kprobes.h
++++ b/include/linux/kprobes.h
+@@ -329,7 +329,7 @@ extern void arch_unoptimize_kprobes(struct list_head *oplist,
+ 				    struct list_head *done_list);
+ extern void arch_unoptimize_kprobe(struct optimized_kprobe *op);
+ extern int arch_within_optimized_kprobe(struct optimized_kprobe *op,
+-					unsigned long addr);
++					kprobe_opcode_t *addr);
+ 
+ extern void opt_pre_handler(struct kprobe *p, struct pt_regs *regs);
+ 
+diff --git a/kernel/kprobes.c b/kernel/kprobes.c
+index a99fd840b5c9..e30c639fe2cc 100644
+--- a/kernel/kprobes.c
++++ b/kernel/kprobes.c
+@@ -485,15 +485,15 @@ static int kprobe_queued(struct kprobe *p)
+  * Return an optimized kprobe whose optimizing code replaces
+  * instructions including 'addr' (exclude breakpoint).
+  */
+-static struct kprobe *get_optimized_kprobe(unsigned long addr)
++static struct kprobe *get_optimized_kprobe(kprobe_opcode_t *addr)
+ {
+ 	int i;
+ 	struct kprobe *p = NULL;
+ 	struct optimized_kprobe *op;
+ 
+ 	/* Don't check i = 0, since that is a breakpoint case. */
+-	for (i = 1; !p && i < MAX_OPTIMIZED_LENGTH; i++)
+-		p = get_kprobe((void *)(addr - i));
++	for (i = 1; !p && i < MAX_OPTIMIZED_LENGTH / sizeof(kprobe_opcode_t); i++)
++		p = get_kprobe(addr - i);
+ 
+ 	if (p && kprobe_optready(p)) {
+ 		op = container_of(p, struct optimized_kprobe, kp);
+@@ -967,7 +967,7 @@ static void __arm_kprobe(struct kprobe *p)
+ 	lockdep_assert_held(&text_mutex);
+ 
+ 	/* Find the overlapping optimized kprobes. */
+-	_p = get_optimized_kprobe((unsigned long)p->addr);
++	_p = get_optimized_kprobe(p->addr);
+ 	if (unlikely(_p))
+ 		/* Fallback to unoptimized kprobe */
+ 		unoptimize_kprobe(_p, true);
+@@ -989,7 +989,7 @@ static void __disarm_kprobe(struct kprobe *p, bool reopt)
+ 	if (!kprobe_queued(p)) {
+ 		arch_disarm_kprobe(p);
+ 		/* If another kprobe was blocked, re-optimize it. */
+-		_p = get_optimized_kprobe((unsigned long)p->addr);
++		_p = get_optimized_kprobe(p->addr);
+ 		if (unlikely(_p) && reopt)
+ 			optimize_kprobe(_p);
+ 	}
