@@ -1,108 +1,42 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Mon, 12 Jul 2021 04:57:15 +0000
-Subject: Re: [PATCH -tip v8 11/13] x86/unwind: Recover kretprobe trampoline entry
-Message-Id: <20210712135715.756a60a1c9bee17689cf3f30@kernel.org>
+From: Josh Poimboeuf <jpoimboe@redhat.com>
+Date: Sat, 10 Jul 2021 19:25:14 +0000
+Subject: [PATCH 2/2] objtool: Ignore unwind hints for ignored functions
+Message-Id: <20210710192514.ghvksi3ozhez4lvb@treble>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <162399992186.506599.8457763707951687195.stgit@devnote2>
-        <162400002631.506599.2413605639666466945.stgit@devnote2>
-        <YOLurg5mGHdBc+fz@hirez.programming.kicks-ass.net>
-        <20210706004257.9e282b98f447251a380f658f@kernel.org>
-        <YOQMV8uE/2bVkPOY@hirez.programming.kicks-ass.net>
-        <20210706111136.7c5e9843@oasis.local.home>
-        <YOVj2VoyrcOvJfEB@hirez.programming.kicks-ass.net>
-        <20210707191510.cb48ca4a20f0502ce6c46508@kernel.org>
-        <YOWACec65qVdTD1y@hirez.programming.kicks-ass.net>
-        <20210707194530.766a9c8364f3b2d7714ca590@kernel.org>
-        <20210707222925.87ecc1391d0ab61db3d8398e@kernel.org>
-        <3fc578e0-5b26-6067-d026-5b5d230d6720@bytedance.com>
-        <20210711230909.dac1ff010a94831d5e9c25cd@kernel.org>
-        <9c160404-ad6d-816a-93ed-91bb6e7c26a9@bytedance.com>
-In-Reply-To: <9c160404-ad6d-816a-93ed-91bb6e7c26a9@bytedance.com>
+ <162399996966.506599.810050095040575221.stgit@devnote2>
+ <YOK8pzp8B2V+1EaU@gmail.com>
+ <20210710003140.8e561ad33d42f9ac78de6a15@kernel.org>
+ <20210710104104.3a270168811ac38420093276@kernel.org>
+ <20210710190143.lrcsyal2ggubv43v@treble>
+In-Reply-To: <20210710190143.lrcsyal2ggubv43v@treble>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matt Wu <wuqiang.matt@bytedance.com>
-Cc: Peter Zijlstra <peterz@infradead.org>, Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: Masami Hiramatsu <mhiramat@kernel.org>
+Cc: Ingo Molnar <mingo@kernel.org>, Steven Rostedt <rostedt@goodmis.org>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-On Sun, 11 Jul 2021 23:28:49 +0800
-Matt Wu <wuqiang.matt@bytedance.com> wrote:
+If a function is ignored, also ignore its hints.  This is useful for the
+case where the function ignore is conditional on frame pointers, e.g.
+STACK_FRAME_NON_STANDARD_FP().
 
-> On 2021/7/11 PM10:09, Masami Hiramatsu wrote:
-> > On Wed, 7 Jul 2021 22:42:47 +0800
-> > Matt Wu <wuqiang.matt@bytedance.com> wrote:
-> > 
-> >> On 2021/7/7 PM9:29, Masami Hiramatsu wrote:
-> >>> On Wed, 7 Jul 2021 19:45:30 +0900
-> >>> Masami Hiramatsu <mhiramat@kernel.org> wrote:
-> >>>
-> >>>> On Wed, 7 Jul 2021 12:20:57 +0200
-> >>>> Peter Zijlstra <peterz@infradead.org> wrote:
-> >>>>
-> >>>>> On Wed, Jul 07, 2021 at 07:15:10PM +0900, Masami Hiramatsu wrote:
-> >>>>>
-> >>>>>> I actually don't want to keep this feature because no one use it.
-> >>>>>> (only systemtap needs it?)
-> >>>>>
-> >>>>> Yeah, you mentioned systemtap, but since that's out-of-tree I don't
-> >>>>> care. Their problem.
-> >>>
-> >>> Yeah, maybe it is not hard to update.
-> >>>
-> >>>>>
-> >>>>>> Anyway, if we keep the idea-level compatibility (not code level),
-> >>>>>> what we need is 'void *data' in the struct kretprobe_instance.
-> >>>>>> User who needs it can allocate their own instance data for their
-> >>>>>> kretprobes when initialising it and sets in their entry handler.
-> >>>>>>
-> >>>>>> Then we can have a simple kretprobe_instance.
-> >>>>>
-> >>>>> When would you do the alloc? When installing the retprobe, but that
-> >>>>> might be inside the allocator, which means you can't call the allocator
-> >>>>> etc.. :-)
-> >>>>
-> >>>> Yes, so the user may need to allocate a pool right before register_kretprobe().
-> >>>> (whether per-kretprobe or per-task or global pool, that is user's choice.)
-> >>>>
-> >>>>>
-> >>>>> If we look at struct ftrace_ret_stack, it has a few fixed function
-> >>>>> fields. The calltime one is all that is needed for the kretprobe
-> >>>>> example code.
-> >>>>
-> >>>> kretprobe consumes 3 fields, a pointer to 'struct kretprobe' (which
-> >>>> stores callee function address in 'kretprobe::kp.addr'), a return
-> >>>> address and a frame pointer (*).
-> >>>   > Oops, I forgot to add "void *data" for storing user data.
-> >>>
-> >>
-> >> Should use "struct kretprobe_holder *rph", since "struct kretprobe" belongs
-> >> to 3rd-party module (which might be unloaded any time).
-> > 
-> > Good catch. Yes, instead of 'struct kretprobe', we need to use the holder.
-> > 
-> >> User's own pool might not work if the module can be unloaded. Better manage
-> >> the pool in kretprobe_holder, which needs no changes from user side.
-> > 
-> > No, since the 'data' will be only refered from user handler. If the kretprobe
-> > is released, then the kretprobe_holder will clear the refernce to the 'struct
-> > kretprobe'. Then, the user handler is never called. No one access the 'data'.
-> 
-> Indeed, there is no race of "data" accessing, since unregister_kretprobes()
-> is taking care of it.
-> 
-> This implementation just increases the complexity of caller to keep track
-> of all allocated instances and release them after unregistration.
+Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
+---
+ tools/objtool/check.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Yes, but user can manage it with an array of pointers (or directly allocate
-an array of their desired data). Not hard to track it in that case.
-
-> But guys are likely to use kmalloc in pre-handler and kfree in post-handler,
-> which will lead to memory leaks.
-
-I will note "do not allocate memory inside kprobe handler" on manual.
-I think that's all what we need. We cannot stop someone shooting their feet
-especially in the kernel...
-
-Thank you,
-
+diff --git a/tools/objtool/check.c b/tools/objtool/check.c
+index e5947fbb9e7a..67cbdcfcabae 100644
+--- a/tools/objtool/check.c
++++ b/tools/objtool/check.c
+@@ -2909,7 +2909,7 @@ static int validate_unwind_hints(struct objtool_file *file, struct section *sec)
+ 	}
+ 
+ 	while (&insn->list != &file->insn_list && (!sec || insn->sec = sec)) {
+-		if (insn->hint && !insn->visited) {
++		if (insn->hint && !insn->visited && !insn->ignore) {
+ 			ret = validate_branch(file, insn->func, insn, state);
+ 			if (ret && backtrace)
+ 				BT_FUNC("<== (hint)", insn);
 -- 
-Masami Hiramatsu <mhiramat@kernel.org>
+2.31.1
