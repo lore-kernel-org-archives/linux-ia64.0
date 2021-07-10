@@ -1,68 +1,58 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Date: Thu, 15 Jul 2021 16:45:35 +0000
-Subject: [PATCH v1 07/16] ia64/sba_iommu: return error code from sba_map_sg_attrs()
-Message-Id: <20210715164544.6827-8-logang@deltatee.com>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Sat, 10 Jul 2021 14:55:19 +0000
+Subject: [PATCH -tip 0/6] kprobes: treewide: Clean up kprobe code
+Message-Id: <162592891873.1158485.768824457210707916.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210715164544.6827-1-logang@deltatee.com>
-In-Reply-To: <20210715164544.6827-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
-Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, Michael Ellerman <mpe@ellerman.id.au>, Niklas Schnelle <schnelle@linux.ibm.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+To: X86 ML <x86@kernel.org>, Ingo Molnar <mingo@kernel.org>
+Cc: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-From: Martin Oliveira <martin.oliveira@eideticom.com>
+Hi Ingo,
 
-The .map_sg() op now expects an error code instead of zero on failure.
+Here is a series of patches to cleanup the kprobes code. I tried to fix
+error message issues, comments, checkpatch.pl issues and so on. Some
+of those are what you suggested and pointed in the x86 stacktrace series.
 
-Propagate the return of dma_mapping_error() up, if it is an errno.
+ https://lore.kernel.org/bpf/YOK39GTuueIDeaJL@gmail.com/
 
-sba_coalesce_chunks() may only presently fail if sba_alloc_range()
-fails, which in turn only fails if the iommu is out of mapping
-resources, hence a -ENOMEM is used in that case.
+I decided to split this seires from the x86 stacktrace fix series because
+there still be some on going discussions on that thread. The stacktrace
+fix series will be rebased on this series (and I've almost done, except
+for some discussion items).
 
-Signed-off-by: Martin Oliveira <martin.oliveira@eideticom.com>
-Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
-Cc: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Niklas Schnelle <schnelle@linux.ibm.com>
-Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+Since this is a cleanup series, this does not change any functionality
+(of course some error messages, warnings, lock assertions are chaneged)
+but the coding styles are improved. I will continue this cleanup activities
+for each architecture port, and rethink the internal coding design and
+interfaces too.
+
+Thank you,
+
 ---
- arch/ia64/hp/common/sba_iommu.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
-index 9148ddbf02e5..09dbe07a18c1 100644
---- a/arch/ia64/hp/common/sba_iommu.c
-+++ b/arch/ia64/hp/common/sba_iommu.c
-@@ -1431,7 +1431,7 @@ static int sba_map_sg_attrs(struct device *dev, struct scatterlist *sglist,
- 			    unsigned long attrs)
- {
- 	struct ioc *ioc;
--	int coalesced, filled = 0;
-+	int coalesced, filled = 0, ret;
- #ifdef ASSERT_PDIR_SANITY
- 	unsigned long flags;
- #endif
-@@ -1458,8 +1458,9 @@ static int sba_map_sg_attrs(struct device *dev, struct scatterlist *sglist,
- 		sglist->dma_length = sglist->length;
- 		sglist->dma_address = sba_map_page(dev, sg_page(sglist),
- 				sglist->offset, sglist->length, dir, attrs);
--		if (dma_mapping_error(dev, sglist->dma_address))
--			return 0;
-+		ret = dma_mapping_error(dev, sglist->dma_address);
-+		if (ret)
-+			return ret;
- 		return 1;
- 	}
- 
-@@ -1486,7 +1487,7 @@ static int sba_map_sg_attrs(struct device *dev, struct scatterlist *sglist,
- 	coalesced = sba_coalesce_chunks(ioc, dev, sglist, nents);
- 	if (coalesced < 0) {
- 		sba_unmap_sg_attrs(dev, sglist, nents, dir, attrs);
--		return 0;
-+		return -ENOMEM;
- 	}
- 
- 	/*
--- 
-2.20.1
+Masami Hiramatsu (6):
+      kprobes: treewide: Cleanup the error messages for kprobes
+      kprobes: Fix coding style issues
+      kprobes: Use IS_ENABLED() instead of kprobes_built_in()
+      kprobes: Add assertions for required lock
+      kprobes: treewide: Use 'kprobe_opcode_t *' for the code address in get_optimized_kprobe()
+      kprobes: Use bool type for functions which returns boolean value
+
+
+ arch/arm/probes/kprobes/core.c     |    4 
+ arch/arm/probes/kprobes/opt-arm.c  |    7 -
+ arch/arm64/kernel/probes/kprobes.c |    5 -
+ arch/csky/kernel/probes/kprobes.c  |   10 +
+ arch/mips/kernel/kprobes.c         |   11 +
+ arch/powerpc/kernel/optprobes.c    |    6 -
+ arch/riscv/kernel/probes/kprobes.c |   11 +
+ arch/s390/kernel/kprobes.c         |    4 
+ arch/x86/kernel/kprobes/opt.c      |    6 -
+ include/linux/kprobes.h            |   64 +++----
+ kernel/kprobes.c                   |  315 +++++++++++++++++++-----------------
+ 11 files changed, 226 insertions(+), 217 deletions(-)
+
+--
+Masami Hiramatsu (Linaro) <mhiramat@kernel.org>
