@@ -1,70 +1,75 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Fri, 18 Jun 2021 07:07:17 +0000
-Subject: [PATCH -tip v8 12/13] tracing: Show kretprobe unknown indicator only for kretprobe_trampoline
-Message-Id: <162400003685.506599.13956516484858326490.stgit@devnote2>
+From: Josh Poimboeuf <jpoimboe@redhat.com>
+Date: Sat, 10 Jul 2021 19:24:33 +0000
+Subject: [PATCH 1/2] objtool: Add frame-pointer-specific function ignore
+Message-Id: <20210710192433.x5cgjsq2ksvaqnss@treble>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <162399992186.506599.8457763707951687195.stgit@devnote2>
-In-Reply-To: <162399992186.506599.8457763707951687195.stgit@devnote2>
+ <162399996966.506599.810050095040575221.stgit@devnote2>
+ <YOK8pzp8B2V+1EaU@gmail.com>
+ <20210710003140.8e561ad33d42f9ac78de6a15@kernel.org>
+ <20210710104104.3a270168811ac38420093276@kernel.org>
+ <20210710190143.lrcsyal2ggubv43v@treble>
+In-Reply-To: <20210710190143.lrcsyal2ggubv43v@treble>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: Masami Hiramatsu <mhiramat@kernel.org>
+Cc: Ingo Molnar <mingo@kernel.org>, Steven Rostedt <rostedt@goodmis.org>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-ftrace shows "[unknown/kretprobe'd]" indicator all addresses in the
-kretprobe_trampoline, but the modified address by kretprobe should
-be only kretprobe_trampoline+0.
+Add a CONFIG_FRAME_POINTER-specific version of
+STACK_FRAME_NON_STANDARD() for the case where a function is
+intentionally missing frame pointer setup, but otherwise needs
+objtool/ORC coverage when frame pointers are disabled.
 
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-Acked-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
-Tested-by: Andrii Nakryik <andrii@kernel.org>
+Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
 ---
- kernel/trace/trace_output.c |   17 ++++-------------
- 1 file changed, 4 insertions(+), 13 deletions(-)
+ include/linux/objtool.h       | 11 +++++++++++
+ tools/include/linux/objtool.h | 11 +++++++++++
+ 2 files changed, 22 insertions(+)
 
-diff --git a/kernel/trace/trace_output.c b/kernel/trace/trace_output.c
-index d0368a569bfa..e46780670742 100644
---- a/kernel/trace/trace_output.c
-+++ b/kernel/trace/trace_output.c
-@@ -8,6 +8,7 @@
- #include <linux/module.h>
- #include <linux/mutex.h>
- #include <linux/ftrace.h>
-+#include <linux/kprobes.h>
- #include <linux/sched/clock.h>
- #include <linux/sched/mm.h>
+diff --git a/include/linux/objtool.h b/include/linux/objtool.h
+index 7e72d975cb76..c9575ed91052 100644
+--- a/include/linux/objtool.h
++++ b/include/linux/objtool.h
+@@ -66,6 +66,17 @@ struct unwind_hint {
+ 	static void __used __section(".discard.func_stack_frame_non_standard") \
+ 		*__func_stack_frame_non_standard_##func = func
  
-@@ -346,22 +347,12 @@ int trace_output_call(struct trace_iterator *iter, char *name, char *fmt, ...)
- }
- EXPORT_SYMBOL_GPL(trace_output_call);
++/*
++ * STACK_FRAME_NON_STANDARD_FP() is a frame-pointer-specific function ignore
++ * for the case where a function is intentionally missing frame pointer setup,
++ * but otherwise needs objtool/ORC coverage when frame pointers are disabled.
++ */
++#ifdef CONFIG_FRAME_POINTER
++#define STACK_FRAME_NON_STANDARD_FP(func) STACK_FRAME_NON_STANDARD(func)
++#else
++#define STACK_FRAME_NON_STANDARD_FP(func)
++#endif
++
+ #else /* __ASSEMBLY__ */
  
--#ifdef CONFIG_KRETPROBES
--static inline const char *kretprobed(const char *name)
-+static inline const char *kretprobed(const char *name, unsigned long addr)
- {
--	static const char tramp_name[] = "kretprobe_trampoline";
--	int size = sizeof(tramp_name);
--
--	if (strncmp(tramp_name, name, size) = 0)
-+	if (is_kretprobe_trampoline(addr))
- 		return "[unknown/kretprobe'd]";
- 	return name;
- }
--#else
--static inline const char *kretprobed(const char *name)
--{
--	return name;
--}
--#endif /* CONFIG_KRETPROBES */
+ /*
+diff --git a/tools/include/linux/objtool.h b/tools/include/linux/objtool.h
+index 7e72d975cb76..c9575ed91052 100644
+--- a/tools/include/linux/objtool.h
++++ b/tools/include/linux/objtool.h
+@@ -66,6 +66,17 @@ struct unwind_hint {
+ 	static void __used __section(".discard.func_stack_frame_non_standard") \
+ 		*__func_stack_frame_non_standard_##func = func
  
- void
- trace_seq_print_sym(struct trace_seq *s, unsigned long address, bool offset)
-@@ -374,7 +365,7 @@ trace_seq_print_sym(struct trace_seq *s, unsigned long address, bool offset)
- 		sprint_symbol(str, address);
- 	else
- 		kallsyms_lookup(address, NULL, NULL, NULL, str);
--	name = kretprobed(str);
-+	name = kretprobed(str, address);
++/*
++ * STACK_FRAME_NON_STANDARD_FP() is a frame-pointer-specific function ignore
++ * for the case where a function is intentionally missing frame pointer setup,
++ * but otherwise needs objtool/ORC coverage when frame pointers are disabled.
++ */
++#ifdef CONFIG_FRAME_POINTER
++#define STACK_FRAME_NON_STANDARD_FP(func) STACK_FRAME_NON_STANDARD(func)
++#else
++#define STACK_FRAME_NON_STANDARD_FP(func)
++#endif
++
+ #else /* __ASSEMBLY__ */
  
- 	if (name && strlen(name)) {
- 		trace_seq_puts(s, name);
+ /*
+-- 
+2.31.1
