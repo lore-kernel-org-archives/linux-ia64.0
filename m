@@ -1,103 +1,61 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Date: Thu, 15 Jul 2021 16:45:34 +0000
-Subject: [PATCH v1 06/16] ARM/dma-mapping: return error code from .map_sg() ops
-Message-Id: <20210715164544.6827-7-logang@deltatee.com>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Sun, 11 Jul 2021 07:34:26 +0000
+Subject: [PATCH -tip v2 3/6] kprobes: Use IS_ENABLED() instead of kprobes_built_in()
+Message-Id: <162598886597.1222130.9754098713625837824.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210715164544.6827-1-logang@deltatee.com>
-In-Reply-To: <20210715164544.6827-1-logang@deltatee.com>
+References: <162598881438.1222130.11530594038964049135.stgit@devnote2>
+In-Reply-To: <162598881438.1222130.11530594038964049135.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
-Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, Russell King <linux@armlinux.org.uk>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+To: X86 ML <x86@kernel.org>, Ingo Molnar <mingo@kernel.org>
+Cc: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>, Joe Perches <joe@perches.com>
 
-From: Martin Oliveira <martin.oliveira@eideticom.com>
+Use IS_ENABLED(CONFIG_KPROBES) instead of kprobes_built_in().
+This inline function is introduced only for avoiding #ifdef.
+But since now we have IS_ENABLED(), it is no longer needed.
 
-The .map_sg() op now expects an error code instead of zero on failure,
-so propagate any errors that may happen all the way up.
-
-Signed-off-by: Martin Oliveira <martin.oliveira@eideticom.com>
-Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
-Cc: Russell King <linux@armlinux.org.uk>
-Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
 ---
- arch/arm/mm/dma-mapping.c | 22 +++++++++++++---------
- 1 file changed, 13 insertions(+), 9 deletions(-)
+ include/linux/kprobes.h |   14 +-------------
+ 1 file changed, 1 insertion(+), 13 deletions(-)
 
-diff --git a/arch/arm/mm/dma-mapping.c b/arch/arm/mm/dma-mapping.c
-index c4b8df2ad328..8c286e690756 100644
---- a/arch/arm/mm/dma-mapping.c
-+++ b/arch/arm/mm/dma-mapping.c
-@@ -980,7 +980,7 @@ int arm_dma_map_sg(struct device *dev, struct scatterlist *sg, int nents,
- {
- 	const struct dma_map_ops *ops = get_dma_ops(dev);
- 	struct scatterlist *s;
--	int i, j;
-+	int i, j, ret;
+diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
+index 28c04f1f2b73..3d02917c837b 100644
+--- a/include/linux/kprobes.h
++++ b/include/linux/kprobes.h
+@@ -180,14 +180,6 @@ struct kprobe_blacklist_entry {
+ DECLARE_PER_CPU(struct kprobe *, current_kprobe);
+ DECLARE_PER_CPU(struct kprobe_ctlblk, kprobe_ctlblk);
  
- 	for_each_sg(sg, s, nents, i) {
- #ifdef CONFIG_NEED_SG_DMA_LENGTH
-@@ -988,7 +988,8 @@ int arm_dma_map_sg(struct device *dev, struct scatterlist *sg, int nents,
- #endif
- 		s->dma_address = ops->map_page(dev, sg_page(s), s->offset,
- 						s->length, dir, attrs);
--		if (dma_mapping_error(dev, s->dma_address))
-+		ret = dma_mapping_error(dev, s->dma_address);
-+		if (ret)
- 			goto bad_mapping;
- 	}
- 	return nents;
-@@ -996,7 +997,7 @@ int arm_dma_map_sg(struct device *dev, struct scatterlist *sg, int nents,
-  bad_mapping:
- 	for_each_sg(sg, s, i, j)
- 		ops->unmap_page(dev, sg_dma_address(s), sg_dma_len(s), dir, attrs);
+-/*
+- * For #ifdef avoidance:
+- */
+-static inline int kprobes_built_in(void)
+-{
+-	return 1;
+-}
+-
+ extern void kprobe_busy_begin(void);
+ extern void kprobe_busy_end(void);
+ 
+@@ -414,10 +406,6 @@ int arch_kprobe_get_kallsym(unsigned int *symnum, unsigned long *value,
+ 			    char *type, char *sym);
+ #else /* !CONFIG_KPROBES: */
+ 
+-static inline int kprobes_built_in(void)
+-{
 -	return 0;
-+	return ret;
- }
- 
- /**
-@@ -1622,7 +1623,7 @@ static int __iommu_map_sg(struct device *dev, struct scatterlist *sg, int nents,
- 		     bool is_coherent)
+-}
+ static inline int kprobe_fault_handler(struct pt_regs *regs, int trapnr)
  {
- 	struct scatterlist *s = sg, *dma = sg, *start = sg;
--	int i, count = 0;
-+	int i, count = 0, ret;
- 	unsigned int offset = s->offset;
- 	unsigned int size = s->offset + s->length;
- 	unsigned int max = dma_get_max_seg_size(dev);
-@@ -1634,8 +1635,10 @@ static int __iommu_map_sg(struct device *dev, struct scatterlist *sg, int nents,
- 		s->dma_length = 0;
- 
- 		if (s->offset || (size & ~PAGE_MASK) || size + s->length > max) {
--			if (__map_sg_chunk(dev, start, size, &dma->dma_address,
--			    dir, attrs, is_coherent) < 0)
-+			ret = __map_sg_chunk(dev, start, size,
-+					     &dma->dma_address, dir, attrs,
-+					     is_coherent);
-+			if (ret < 0)
- 				goto bad_mapping;
- 
- 			dma->dma_address += offset;
-@@ -1648,8 +1651,9 @@ static int __iommu_map_sg(struct device *dev, struct scatterlist *sg, int nents,
- 		}
- 		size += s->length;
- 	}
--	if (__map_sg_chunk(dev, start, size, &dma->dma_address, dir, attrs,
--		is_coherent) < 0)
-+	ret = __map_sg_chunk(dev, start, size, &dma->dma_address, dir, attrs,
-+			     is_coherent);
-+	if (ret < 0)
- 		goto bad_mapping;
- 
- 	dma->dma_address += offset;
-@@ -1660,7 +1664,7 @@ static int __iommu_map_sg(struct device *dev, struct scatterlist *sg, int nents,
- bad_mapping:
- 	for_each_sg(sg, s, count, i)
- 		__iommu_remove_mapping(dev, sg_dma_address(s), sg_dma_len(s));
--	return 0;
-+	return ret;
- }
- 
- /**
--- 
-2.20.1
+ 	return 0;
+@@ -511,7 +499,7 @@ static inline bool is_kprobe_optinsn_slot(unsigned long addr)
+ static nokprobe_inline bool kprobe_page_fault(struct pt_regs *regs,
+ 					      unsigned int trap)
+ {
+-	if (!kprobes_built_in())
++	if (!IS_ENABLED(CONFIG_KPROBES))
+ 		return false;
+ 	if (user_mode(regs))
+ 		return false;
