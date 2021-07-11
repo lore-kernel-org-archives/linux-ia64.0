@@ -1,108 +1,70 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Date: Fri, 23 Jul 2021 17:49:53 +0000
-Subject: [PATCH v2 06/21] ARM/dma-mapping: return error code from .map_sg() ops
-Message-Id: <20210723175008.22410-7-logang@deltatee.com>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Sun, 11 Jul 2021 13:36:54 +0000
+Subject: [PATCH -tip v9 13/14] tracing: Show kretprobe unknown indicator only for kretprobe_trampoline
+Message-Id: <162601061456.1318837.7158565595387058955.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210723175008.22410-1-logang@deltatee.com>
-In-Reply-To: <20210723175008.22410-1-logang@deltatee.com>
+References: <162601048053.1318837.1550594515476777588.stgit@devnote2>
+In-Reply-To: <162601048053.1318837.1550594515476777588.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
-Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, Russell King <linux@armlinux.org.uk>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-From: Martin Oliveira <martin.oliveira@eideticom.com>
+ftrace shows "[unknown/kretprobe'd]" indicator all addresses in the
+kretprobe_trampoline, but the modified address by kretprobe should
+be only kretprobe_trampoline+0.
 
-The .map_sg() op now expects an error code instead of zero on failure.
-In the case of a DMA_MAPPING_ERROR, -EIO is returned. Otherwise,
--ENOMEM or -EINVAL is returned depending on the error from
-__map_sg_chunk().
-
-Signed-off-by: Martin Oliveira <martin.oliveira@eideticom.com>
-Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
-Cc: Russell King <linux@armlinux.org.uk>
-Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+Acked-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
+Tested-by: Andrii Nakryiko <andrii@kernel.org>
 ---
- arch/arm/mm/dma-mapping.c | 25 ++++++++++++++++---------
- 1 file changed, 16 insertions(+), 9 deletions(-)
+ kernel/trace/trace_output.c |   17 ++++-------------
+ 1 file changed, 4 insertions(+), 13 deletions(-)
 
-diff --git a/arch/arm/mm/dma-mapping.c b/arch/arm/mm/dma-mapping.c
-index c4b8df2ad328..113b9cb3701b 100644
---- a/arch/arm/mm/dma-mapping.c
-+++ b/arch/arm/mm/dma-mapping.c
-@@ -980,7 +980,7 @@ int arm_dma_map_sg(struct device *dev, struct scatterlist *sg, int nents,
- {
- 	const struct dma_map_ops *ops = get_dma_ops(dev);
- 	struct scatterlist *s;
--	int i, j;
-+	int i, j, ret;
+diff --git a/kernel/trace/trace_output.c b/kernel/trace/trace_output.c
+index 9b2e69619057..bdadcc8cee75 100644
+--- a/kernel/trace/trace_output.c
++++ b/kernel/trace/trace_output.c
+@@ -8,6 +8,7 @@
+ #include <linux/module.h>
+ #include <linux/mutex.h>
+ #include <linux/ftrace.h>
++#include <linux/kprobes.h>
+ #include <linux/sched/clock.h>
+ #include <linux/sched/mm.h>
  
- 	for_each_sg(sg, s, nents, i) {
- #ifdef CONFIG_NEED_SG_DMA_LENGTH
-@@ -988,15 +988,17 @@ int arm_dma_map_sg(struct device *dev, struct scatterlist *sg, int nents,
- #endif
- 		s->dma_address = ops->map_page(dev, sg_page(s), s->offset,
- 						s->length, dir, attrs);
--		if (dma_mapping_error(dev, s->dma_address))
-+		if (dma_mapping_error(dev, s->dma_address)) {
-+			ret = -EIO;
- 			goto bad_mapping;
-+		}
- 	}
- 	return nents;
- 
-  bad_mapping:
- 	for_each_sg(sg, s, i, j)
- 		ops->unmap_page(dev, sg_dma_address(s), sg_dma_len(s), dir, attrs);
--	return 0;
-+	return ret;
+@@ -346,22 +347,12 @@ int trace_output_call(struct trace_iterator *iter, char *name, char *fmt, ...)
  }
+ EXPORT_SYMBOL_GPL(trace_output_call);
  
- /**
-@@ -1622,7 +1624,7 @@ static int __iommu_map_sg(struct device *dev, struct scatterlist *sg, int nents,
- 		     bool is_coherent)
+-#ifdef CONFIG_KRETPROBES
+-static inline const char *kretprobed(const char *name)
++static inline const char *kretprobed(const char *name, unsigned long addr)
  {
- 	struct scatterlist *s = sg, *dma = sg, *start = sg;
--	int i, count = 0;
-+	int i, count = 0, ret;
- 	unsigned int offset = s->offset;
- 	unsigned int size = s->offset + s->length;
- 	unsigned int max = dma_get_max_seg_size(dev);
-@@ -1634,8 +1636,10 @@ static int __iommu_map_sg(struct device *dev, struct scatterlist *sg, int nents,
- 		s->dma_length = 0;
- 
- 		if (s->offset || (size & ~PAGE_MASK) || size + s->length > max) {
--			if (__map_sg_chunk(dev, start, size, &dma->dma_address,
--			    dir, attrs, is_coherent) < 0)
-+			ret = __map_sg_chunk(dev, start, size,
-+					     &dma->dma_address, dir, attrs,
-+					     is_coherent);
-+			if (ret < 0)
- 				goto bad_mapping;
- 
- 			dma->dma_address += offset;
-@@ -1648,8 +1652,9 @@ static int __iommu_map_sg(struct device *dev, struct scatterlist *sg, int nents,
- 		}
- 		size += s->length;
- 	}
--	if (__map_sg_chunk(dev, start, size, &dma->dma_address, dir, attrs,
--		is_coherent) < 0)
-+	ret = __map_sg_chunk(dev, start, size, &dma->dma_address, dir, attrs,
-+			     is_coherent);
-+	if (ret < 0)
- 		goto bad_mapping;
- 
- 	dma->dma_address += offset;
-@@ -1660,7 +1665,9 @@ static int __iommu_map_sg(struct device *dev, struct scatterlist *sg, int nents,
- bad_mapping:
- 	for_each_sg(sg, s, count, i)
- 		__iommu_remove_mapping(dev, sg_dma_address(s), sg_dma_len(s));
--	return 0;
-+	if (ret = -ENOMEM)
-+		return ret;
-+	return -EINVAL;
+-	static const char tramp_name[] = "__kretprobe_trampoline";
+-	int size = sizeof(tramp_name);
+-
+-	if (strncmp(tramp_name, name, size) = 0)
++	if (is_kretprobe_trampoline(addr))
+ 		return "[unknown/kretprobe'd]";
+ 	return name;
  }
+-#else
+-static inline const char *kretprobed(const char *name)
+-{
+-	return name;
+-}
+-#endif /* CONFIG_KRETPROBES */
  
- /**
--- 
-2.20.1
+ void
+ trace_seq_print_sym(struct trace_seq *s, unsigned long address, bool offset)
+@@ -374,7 +365,7 @@ trace_seq_print_sym(struct trace_seq *s, unsigned long address, bool offset)
+ 		sprint_symbol(str, address);
+ 	else
+ 		kallsyms_lookup(address, NULL, NULL, NULL, str);
+-	name = kretprobed(str);
++	name = kretprobed(str, address);
+ 
+ 	if (name && strlen(name)) {
+ 		trace_seq_puts(s, name);
