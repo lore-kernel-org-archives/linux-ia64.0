@@ -1,116 +1,319 @@
 From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Wed, 28 Jul 2021 15:29:57 +0000
-Subject: [PATCH -tip v3 4/6] kprobes: Add assertions for required lock
-Message-Id: <162748619699.59465.2846200321698832302.stgit@devnote2>
+Date: Sun, 11 Jul 2021 13:35:10 +0000
+Subject: [PATCH -tip v9 03/14] kprobes: treewide: Remove trampoline_address from kretprobe_trampoline_handler
+Message-Id: <162601051063.1318837.8773002693937324222.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162748615977.59465.13262421617578791515.stgit@devnote2>
-In-Reply-To: <162748615977.59465.13262421617578791515.stgit@devnote2>
+References: <162601048053.1318837.1550594515476777588.stgit@devnote2>
+In-Reply-To: <162601048053.1318837.1550594515476777588.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: X86 ML <x86@kernel.org>, Ingo Molnar <mingo@kernel.org>
-Cc: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>, Joe Perches <joe@perches.com>
+To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-Add assertions for required locks instead of comment it
-so that the lockdep can inspect locks automatically.
+The __kretprobe_trampoline_handler() callback, called from low level
+arch kprobes methods, has the 'trampoline_address' parameter, which is
+entirely superfluous as it basically just replicates:
+
+  dereference_kernel_function_descriptor(kretprobe_trampoline)
+
+In fact we had bugs in arch code where it wasn't replicated correctly.
+
+So remove this superfluous parameter and use kretprobe_trampoline_addr()
+instead.
 
 Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+Tested-by: Andrii Nakryiko <andrii@kernel.org>
 ---
- kernel/kprobes.c |   19 ++++++++++++-------
- 1 file changed, 12 insertions(+), 7 deletions(-)
+ Changes in v9:
+   - Update changelog according to Ingo's suggestion.
+ Changes in v8:
+   - Use dereference_kernel_function_descriptor() to
+     get the kretprobe_trampoline address.
+ Changes in v3:
+   - Remove wrong kretprobe_trampoline declaration from
+     arch/x86/include/asm/kprobes.h.
+ Changes in v2:
+   - Remove arch_deref_entry_point() from comment.
+---
+ arch/arc/kernel/kprobes.c          |    2 +-
+ arch/arm/probes/kprobes/core.c     |    3 +--
+ arch/arm64/kernel/probes/kprobes.c |    3 +--
+ arch/csky/kernel/probes/kprobes.c  |    2 +-
+ arch/ia64/kernel/kprobes.c         |    5 ++---
+ arch/mips/kernel/kprobes.c         |    3 +--
+ arch/parisc/kernel/kprobes.c       |    4 ++--
+ arch/powerpc/kernel/kprobes.c      |    2 +-
+ arch/riscv/kernel/probes/kprobes.c |    2 +-
+ arch/s390/kernel/kprobes.c         |    2 +-
+ arch/sh/kernel/kprobes.c           |    2 +-
+ arch/sparc/kernel/kprobes.c        |    2 +-
+ arch/x86/include/asm/kprobes.h     |    1 -
+ arch/x86/kernel/kprobes/core.c     |    2 +-
+ include/linux/kprobes.h            |   18 +++++++++++++-----
+ kernel/kprobes.c                   |    3 +--
+ 16 files changed, 29 insertions(+), 27 deletions(-)
 
-diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-index ad39eeaa4371..ec3d97fd8c6b 100644
---- a/kernel/kprobes.c
-+++ b/kernel/kprobes.c
-@@ -959,11 +959,13 @@ int proc_kprobes_optimization_handler(struct ctl_table *table, int write,
- }
- #endif /* CONFIG_SYSCTL */
- 
--/* Put a breakpoint for a probe. Must be called with 'text_mutex' locked. */
-+/* Put a breakpoint for a probe. */
- static void __arm_kprobe(struct kprobe *p)
+diff --git a/arch/arc/kernel/kprobes.c b/arch/arc/kernel/kprobes.c
+index 5f0415fc7328..3cee75c87f97 100644
+--- a/arch/arc/kernel/kprobes.c
++++ b/arch/arc/kernel/kprobes.c
+@@ -381,7 +381,7 @@ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
+ static int __kprobes trampoline_probe_handler(struct kprobe *p,
+ 					      struct pt_regs *regs)
  {
- 	struct kprobe *_p;
+-	regs->ret = __kretprobe_trampoline_handler(regs, &kretprobe_trampoline, NULL);
++	regs->ret = __kretprobe_trampoline_handler(regs, NULL);
  
-+	lockdep_assert_held(&text_mutex);
-+
- 	/* Find the overlapping optimized kprobes. */
- 	_p = get_optimized_kprobe((unsigned long)p->addr);
- 	if (unlikely(_p))
-@@ -974,11 +976,13 @@ static void __arm_kprobe(struct kprobe *p)
- 	optimize_kprobe(p);	/* Try to optimize (add kprobe to a list) */
- }
- 
--/* Remove the breakpoint of a probe. Must be called with 'text_mutex' locked. */
-+/* Remove the breakpoint of a probe. */
- static void __disarm_kprobe(struct kprobe *p, bool reopt)
+ 	/* By returning a non zero value, we are telling the kprobe handler
+ 	 * that we don't want the post_handler to run
+diff --git a/arch/arm/probes/kprobes/core.c b/arch/arm/probes/kprobes/core.c
+index a59e38de4a03..08098ed6f035 100644
+--- a/arch/arm/probes/kprobes/core.c
++++ b/arch/arm/probes/kprobes/core.c
+@@ -392,8 +392,7 @@ void __naked __kprobes kretprobe_trampoline(void)
+ /* Called from kretprobe_trampoline */
+ static __used __kprobes void *trampoline_handler(struct pt_regs *regs)
  {
- 	struct kprobe *_p;
- 
-+	lockdep_assert_held(&text_mutex);
-+
- 	/* Try to unoptimize */
- 	unoptimize_kprobe(p, kprobes_all_disarmed);
- 
-@@ -1047,12 +1051,13 @@ static struct ftrace_ops kprobe_ipmodify_ops __read_mostly = {
- static int kprobe_ipmodify_enabled;
- static int kprobe_ftrace_enabled;
- 
--/* Caller must lock 'kprobe_mutex' */
- static int __arm_kprobe_ftrace(struct kprobe *p, struct ftrace_ops *ops,
- 			       int *cnt)
- {
- 	int ret = 0;
- 
-+	lockdep_assert_held(&kprobe_mutex);
-+
- 	ret = ftrace_set_filter_ip(ops, (unsigned long)p->addr, 0, 0);
- 	if (WARN_ONCE(ret < 0, "Failed to arm kprobe-ftrace at %pS (error %d)\n", p->addr, ret))
- 		return ret;
-@@ -1084,12 +1089,13 @@ static int arm_kprobe_ftrace(struct kprobe *p)
- 		ipmodify ? &kprobe_ipmodify_enabled : &kprobe_ftrace_enabled);
+-	return (void *)kretprobe_trampoline_handler(regs, &kretprobe_trampoline,
+-						    (void *)regs->ARM_fp);
++	return (void *)kretprobe_trampoline_handler(regs, (void *)regs->ARM_fp);
  }
  
--/* Caller must lock 'kprobe_mutex'. */
- static int __disarm_kprobe_ftrace(struct kprobe *p, struct ftrace_ops *ops,
- 				  int *cnt)
- {
- 	int ret = 0;
+ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
+diff --git a/arch/arm64/kernel/probes/kprobes.c b/arch/arm64/kernel/probes/kprobes.c
+index ce429cbacd35..f627a12984a8 100644
+--- a/arch/arm64/kernel/probes/kprobes.c
++++ b/arch/arm64/kernel/probes/kprobes.c
+@@ -401,8 +401,7 @@ int __init arch_populate_kprobe_blacklist(void)
  
-+	lockdep_assert_held(&kprobe_mutex);
-+
- 	if (*cnt = 1) {
- 		ret = unregister_ftrace_function(ops);
- 		if (WARN(ret < 0, "Failed to unregister kprobe-ftrace (error %d)\n", ret))
-@@ -1133,7 +1139,6 @@ static int prepare_kprobe(struct kprobe *p)
- 	return arch_prepare_kprobe(p);
+ void __kprobes __used *trampoline_probe_handler(struct pt_regs *regs)
+ {
+-	return (void *)kretprobe_trampoline_handler(regs, &kretprobe_trampoline,
+-					(void *)kernel_stack_pointer(regs));
++	return (void *)kretprobe_trampoline_handler(regs, (void *)kernel_stack_pointer(regs));
  }
  
--/* Arm a kprobe with 'text_mutex'. */
- static int arm_kprobe(struct kprobe *kp)
+ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
+diff --git a/arch/csky/kernel/probes/kprobes.c b/arch/csky/kernel/probes/kprobes.c
+index e823c3051b24..bf1e6c7094fc 100644
+--- a/arch/csky/kernel/probes/kprobes.c
++++ b/arch/csky/kernel/probes/kprobes.c
+@@ -387,7 +387,7 @@ int __init arch_populate_kprobe_blacklist(void)
+ 
+ void __kprobes __used *trampoline_probe_handler(struct pt_regs *regs)
  {
- 	if (unlikely(kprobe_ftrace(kp)))
-@@ -1148,7 +1153,6 @@ static int arm_kprobe(struct kprobe *kp)
- 	return 0;
+-	return (void *)kretprobe_trampoline_handler(regs, &kretprobe_trampoline, NULL);
++	return (void *)kretprobe_trampoline_handler(regs, NULL);
  }
  
--/* Disarm a kprobe with 'text_mutex'. */
- static int disarm_kprobe(struct kprobe *kp, bool reopt)
+ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
+diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
+index 0f8573bbf520..44c84c20b626 100644
+--- a/arch/ia64/kernel/kprobes.c
++++ b/arch/ia64/kernel/kprobes.c
+@@ -392,14 +392,13 @@ static void __kprobes set_current_kprobe(struct kprobe *p,
+ 	__this_cpu_write(current_kprobe, p);
+ }
+ 
+-static void kretprobe_trampoline(void)
++void kretprobe_trampoline(void)
  {
- 	if (unlikely(kprobe_ftrace(kp)))
-@@ -1691,12 +1695,13 @@ static int aggr_kprobe_disabled(struct kprobe *ap)
+ }
+ 
+ int __kprobes trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
+ {
+-	regs->cr_iip = __kretprobe_trampoline_handler(regs,
+-		dereference_function_descriptor(kretprobe_trampoline), NULL);
++	regs->cr_iip = __kretprobe_trampoline_handler(regs, NULL);
+ 	/*
+ 	 * By returning a non-zero value, we are telling
+ 	 * kprobe_handler() that we don't want the post_handler
+diff --git a/arch/mips/kernel/kprobes.c b/arch/mips/kernel/kprobes.c
+index b0934a0d7aed..b33bd2498651 100644
+--- a/arch/mips/kernel/kprobes.c
++++ b/arch/mips/kernel/kprobes.c
+@@ -485,8 +485,7 @@ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
+ static int __kprobes trampoline_probe_handler(struct kprobe *p,
+ 						struct pt_regs *regs)
+ {
+-	instruction_pointer(regs) = __kretprobe_trampoline_handler(regs,
+-						kretprobe_trampoline, NULL);
++	instruction_pointer(regs) = __kretprobe_trampoline_handler(regs, NULL);
+ 	/*
+ 	 * By returning a non-zero value, we are telling
+ 	 * kprobe_handler() that we don't want the post_handler
+diff --git a/arch/parisc/kernel/kprobes.c b/arch/parisc/kernel/kprobes.c
+index 6d21a515eea5..4a35ac6e2ca2 100644
+--- a/arch/parisc/kernel/kprobes.c
++++ b/arch/parisc/kernel/kprobes.c
+@@ -175,7 +175,7 @@ int __kprobes parisc_kprobe_ss_handler(struct pt_regs *regs)
  	return 1;
  }
  
--/* Disable one kprobe: Make sure called under 'kprobe_mutex' is locked. */
- static struct kprobe *__disable_kprobe(struct kprobe *p)
+-static inline void kretprobe_trampoline(void)
++void kretprobe_trampoline(void)
  {
- 	struct kprobe *orig_p;
- 	int ret;
+ 	asm volatile("nop");
+ 	asm volatile("nop");
+@@ -193,7 +193,7 @@ static int __kprobes trampoline_probe_handler(struct kprobe *p,
+ {
+ 	unsigned long orig_ret_address;
  
-+	lockdep_assert_held(&kprobe_mutex);
+-	orig_ret_address = __kretprobe_trampoline_handler(regs, trampoline_p.addr, NULL);
++	orig_ret_address = __kretprobe_trampoline_handler(regs, NULL);
+ 	instruction_pointer_set(regs, orig_ret_address);
+ 
+ 	return 1;
+diff --git a/arch/powerpc/kernel/kprobes.c b/arch/powerpc/kernel/kprobes.c
+index 077ab73e6e56..0764e8a0de69 100644
+--- a/arch/powerpc/kernel/kprobes.c
++++ b/arch/powerpc/kernel/kprobes.c
+@@ -416,7 +416,7 @@ static int trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
+ {
+ 	unsigned long orig_ret_address;
+ 
+-	orig_ret_address = __kretprobe_trampoline_handler(regs, &kretprobe_trampoline, NULL);
++	orig_ret_address = __kretprobe_trampoline_handler(regs, NULL);
+ 	/*
+ 	 * We get here through one of two paths:
+ 	 * 1. by taking a trap -> kprobe_handler() -> here
+diff --git a/arch/riscv/kernel/probes/kprobes.c b/arch/riscv/kernel/probes/kprobes.c
+index dcf7c1f6d136..26a47870a237 100644
+--- a/arch/riscv/kernel/probes/kprobes.c
++++ b/arch/riscv/kernel/probes/kprobes.c
+@@ -369,7 +369,7 @@ int __init arch_populate_kprobe_blacklist(void)
+ 
+ void __kprobes __used *trampoline_probe_handler(struct pt_regs *regs)
+ {
+-	return (void *)kretprobe_trampoline_handler(regs, &kretprobe_trampoline, NULL);
++	return (void *)kretprobe_trampoline_handler(regs, NULL);
+ }
+ 
+ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
+diff --git a/arch/s390/kernel/kprobes.c b/arch/s390/kernel/kprobes.c
+index 9bca57fe6b6a..71d86922dd51 100644
+--- a/arch/s390/kernel/kprobes.c
++++ b/arch/s390/kernel/kprobes.c
+@@ -348,7 +348,7 @@ static void __used kretprobe_trampoline_holder(void)
+  */
+ static int trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
+ {
+-	regs->psw.addr = __kretprobe_trampoline_handler(regs, &kretprobe_trampoline, NULL);
++	regs->psw.addr = __kretprobe_trampoline_handler(regs, NULL);
+ 	/*
+ 	 * By returning a non-zero value, we are telling
+ 	 * kprobe_handler() that we don't want the post_handler
+diff --git a/arch/sh/kernel/kprobes.c b/arch/sh/kernel/kprobes.c
+index 1c7f358ef0be..8e76a35e6e33 100644
+--- a/arch/sh/kernel/kprobes.c
++++ b/arch/sh/kernel/kprobes.c
+@@ -303,7 +303,7 @@ static void __used kretprobe_trampoline_holder(void)
+  */
+ int __kprobes trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
+ {
+-	regs->pc = __kretprobe_trampoline_handler(regs, &kretprobe_trampoline, NULL);
++	regs->pc = __kretprobe_trampoline_handler(regs, NULL);
+ 
+ 	return 1;
+ }
+diff --git a/arch/sparc/kernel/kprobes.c b/arch/sparc/kernel/kprobes.c
+index 4c05a4ee6a0e..401534236c2e 100644
+--- a/arch/sparc/kernel/kprobes.c
++++ b/arch/sparc/kernel/kprobes.c
+@@ -451,7 +451,7 @@ static int __kprobes trampoline_probe_handler(struct kprobe *p,
+ {
+ 	unsigned long orig_ret_address = 0;
+ 
+-	orig_ret_address = __kretprobe_trampoline_handler(regs, &kretprobe_trampoline, NULL);
++	orig_ret_address = __kretprobe_trampoline_handler(regs, NULL);
+ 	regs->tpc = orig_ret_address;
+ 	regs->tnpc = orig_ret_address + 4;
+ 
+diff --git a/arch/x86/include/asm/kprobes.h b/arch/x86/include/asm/kprobes.h
+index bd7f5886a789..71ea2eab43d5 100644
+--- a/arch/x86/include/asm/kprobes.h
++++ b/arch/x86/include/asm/kprobes.h
+@@ -49,7 +49,6 @@ extern __visible kprobe_opcode_t optprobe_template_end[];
+ extern const int kretprobe_blacklist_size;
+ 
+ void arch_remove_kprobe(struct kprobe *p);
+-asmlinkage void kretprobe_trampoline(void);
+ 
+ extern void arch_kprobe_override_function(struct pt_regs *regs);
+ 
+diff --git a/arch/x86/kernel/kprobes/core.c b/arch/x86/kernel/kprobes/core.c
+index b6e046e4b289..0c59ef5971de 100644
+--- a/arch/x86/kernel/kprobes/core.c
++++ b/arch/x86/kernel/kprobes/core.c
+@@ -1064,7 +1064,7 @@ __used __visible void *trampoline_handler(struct pt_regs *regs)
+ 	regs->ip = (unsigned long)&kretprobe_trampoline;
+ 	regs->orig_ax = ~0UL;
+ 
+-	return (void *)kretprobe_trampoline_handler(regs, &kretprobe_trampoline, &regs->sp);
++	return (void *)kretprobe_trampoline_handler(regs, &regs->sp);
+ }
+ NOKPROBE_SYMBOL(trampoline_handler);
+ 
+diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
+index c9e0c13db84a..31cb9a929ac3 100644
+--- a/include/linux/kprobes.h
++++ b/include/linux/kprobes.h
+@@ -188,15 +188,23 @@ extern void arch_prepare_kretprobe(struct kretprobe_instance *ri,
+ 				   struct pt_regs *regs);
+ extern int arch_trampoline_kprobe(struct kprobe *p);
+ 
++void kretprobe_trampoline(void);
++/*
++ * Since some architecture uses structured function pointer,
++ * use dereference_function_descriptor() to get real function address.
++ */
++static nokprobe_inline void *kretprobe_trampoline_addr(void)
++{
++	return dereference_kernel_function_descriptor(kretprobe_trampoline);
++}
 +
- 	/* Get an original kprobe for return */
- 	orig_p = __get_valid_kprobe(p);
- 	if (unlikely(orig_p = NULL))
+ /* If the trampoline handler called from a kprobe, use this version */
+ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
+-				void *trampoline_address,
+-				void *frame_pointer);
++					     void *frame_pointer);
+ 
+ static nokprobe_inline
+ unsigned long kretprobe_trampoline_handler(struct pt_regs *regs,
+-				void *trampoline_address,
+-				void *frame_pointer)
++					   void *frame_pointer)
+ {
+ 	unsigned long ret;
+ 	/*
+@@ -205,7 +213,7 @@ unsigned long kretprobe_trampoline_handler(struct pt_regs *regs,
+ 	 * be running at this point.
+ 	 */
+ 	kprobe_busy_begin();
+-	ret = __kretprobe_trampoline_handler(regs, trampoline_address, frame_pointer);
++	ret = __kretprobe_trampoline_handler(regs, frame_pointer);
+ 	kprobe_busy_end();
+ 
+ 	return ret;
+diff --git a/kernel/kprobes.c b/kernel/kprobes.c
+index 2540cd56fa81..f9a075374522 100644
+--- a/kernel/kprobes.c
++++ b/kernel/kprobes.c
+@@ -1869,7 +1869,6 @@ static struct notifier_block kprobe_exceptions_nb = {
+ #ifdef CONFIG_KRETPROBES
+ 
+ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
+-					     void *trampoline_address,
+ 					     void *frame_pointer)
+ {
+ 	kprobe_opcode_t *correct_ret_addr = NULL;
+@@ -1884,7 +1883,7 @@ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
+ 
+ 		BUG_ON(ri->fp != frame_pointer);
+ 
+-		if (ri->ret_addr != trampoline_address) {
++		if (ri->ret_addr != kretprobe_trampoline_addr()) {
+ 			correct_ret_addr = ri->ret_addr;
+ 			/*
+ 			 * This is the real return address. Any other
