@@ -1,55 +1,197 @@
-From: Sasha Levin <sashal@kernel.org>
-Date: Mon, 05 Jul 2021 15:30:38 +0000
-Subject: [PATCH AUTOSEL 5.4 25/26] ia64: mca_drv: fix incorrect array size calculation
-Message-Id: <20210705153039.1521781-25-sashal@kernel.org>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Sun, 11 Jul 2021 13:35:31 +0000
+Subject: [PATCH -tip v9 05/14] kprobes: Add kretprobe_find_ret_addr() for searching return address
+Message-Id: <162601053091.1318837.12853354526881294955.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210705153039.1521781-1-sashal@kernel.org>
-In-Reply-To: <20210705153039.1521781-1-sashal@kernel.org>
+References: <162601048053.1318837.1550594515476777588.stgit@devnote2>
+In-Reply-To: <162601048053.1318837.1550594515476777588.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
-Cc: Arnd Bergmann <arnd@arndb.de>, Masahiro Yamada <masahiroy@kernel.org>, Randy Dunlap <rdunlap@infradead.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-From: Arnd Bergmann <arnd@arndb.de>
+Introduce kretprobe_find_ret_addr() and is_kretprobe_trampoline().
+These APIs will be used by the ORC stack unwinder and ftrace, so that
+they can check whether the given address points kretprobe trampoline
+code and query the correct return address in that case.
 
-[ Upstream commit c5f320ff8a79501bb59338278336ec43acb9d7e2 ]
-
-gcc points out a mistake in the mca driver that goes back to before the
-git history:
-
-arch/ia64/kernel/mca_drv.c: In function 'init_record_index_pools':
-arch/ia64/kernel/mca_drv.c:346:54: error: expression does not compute the number of elements in this array; element typ
-e is 'int', not 'size_t' {aka 'long unsigned int'} [-Werror=sizeof-array-div]
-  346 |         for (i = 1; i < sizeof sal_log_sect_min_sizes/sizeof(size_t); i++)
-      |                                                      ^
-
-This is the same as sizeof(size_t), which is two shorter than the actual
-array.  Use the ARRAY_SIZE() macro to get the correct calculation instead.
-
-Link: https://lkml.kernel.org/r/20210514214123.875971-1-arnd@kernel.org
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Cc: Masahiro Yamada <masahiroy@kernel.org>
-Cc: Randy Dunlap <rdunlap@infradead.org>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Sasha Levin <sashal@kernel.org>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+Tested-by: Andrii Nakryiko <andrii@kernel.org>
 ---
- arch/ia64/kernel/mca_drv.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ Changes in v9:
+  - Update changelog to explain why this is introduced.
+  - Move the prototype of kretprobe_find_ret_addr() and is_kretprobe_trampoline()
+    in the same place.
+  - Make __kretprobe_find_ret_addr() return 'kprobe_opcode_t *'.
+  - Update comments in the __kretprobe_trampoline_handler().
+ Changes in v6:
+  - Replace BUG_ON() with WARN_ON_ONCE() in __kretprobe_trampoline_handler().
+ Changes in v3:
+  - Remove generic stacktrace fixup. Instead, it should be solved in
+    each unwinder. This just provide the generic interface.
+ Changes in v2:
+  - Add is_kretprobe_trampoline() for checking address outside of
+    kretprobe_find_ret_addr()
+  - Remove unneeded addr from kretprobe_find_ret_addr()
+  - Rename fixup_kretprobe_tramp_addr() to fixup_kretprobe_trampoline()
+---
+ include/linux/kprobes.h |   22 +++++++++++
+ kernel/kprobes.c        |   91 ++++++++++++++++++++++++++++++++++-------------
+ 2 files changed, 87 insertions(+), 26 deletions(-)
 
-diff --git a/arch/ia64/kernel/mca_drv.c b/arch/ia64/kernel/mca_drv.c
-index 4d0ab323dee8..2a40268c3d49 100644
---- a/arch/ia64/kernel/mca_drv.c
-+++ b/arch/ia64/kernel/mca_drv.c
-@@ -343,7 +343,7 @@ init_record_index_pools(void)
+diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
+index 8dcfb9cd1bf0..4715a67d39fc 100644
+--- a/include/linux/kprobes.h
++++ b/include/linux/kprobes.h
+@@ -502,6 +502,28 @@ static inline bool is_kprobe_optinsn_slot(unsigned long addr)
+ }
+ #endif /* !CONFIG_OPTPROBES */
  
- 	/* - 2 - */
- 	sect_min_size = sal_log_sect_min_sizes[0];
--	for (i = 1; i < sizeof sal_log_sect_min_sizes/sizeof(size_t); i++)
-+	for (i = 1; i < ARRAY_SIZE(sal_log_sect_min_sizes); i++)
- 		if (sect_min_size > sal_log_sect_min_sizes[i])
- 			sect_min_size = sal_log_sect_min_sizes[i];
++#ifdef CONFIG_KRETPROBES
++static nokprobe_inline bool is_kretprobe_trampoline(unsigned long addr)
++{
++	return (void *)addr = kretprobe_trampoline_addr();
++}
++
++unsigned long kretprobe_find_ret_addr(struct task_struct *tsk, void *fp,
++				      struct llist_node **cur);
++#else
++static nokprobe_inline bool is_kretprobe_trampoline(unsigned long addr)
++{
++	return false;
++}
++
++static nokprobe_inline
++unsigned long kretprobe_find_ret_addr(struct task_struct *tsk, void *fp,
++				      struct llist_node **cur)
++{
++	return 0;
++}
++#endif
++
+ /* Returns true if kprobes handled the fault */
+ static nokprobe_inline bool kprobe_page_fault(struct pt_regs *regs,
+ 					      unsigned int trap)
+diff --git a/kernel/kprobes.c b/kernel/kprobes.c
+index f9a075374522..8f7d659eb277 100644
+--- a/kernel/kprobes.c
++++ b/kernel/kprobes.c
+@@ -1868,45 +1868,69 @@ static struct notifier_block kprobe_exceptions_nb = {
  
--- 
-2.30.2
+ #ifdef CONFIG_KRETPROBES
+ 
+-unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
+-					     void *frame_pointer)
++/* This assumes the 'tsk' is the current task or the is not running. */
++static kprobe_opcode_t *__kretprobe_find_ret_addr(struct task_struct *tsk,
++						  struct llist_node **cur)
+ {
+-	kprobe_opcode_t *correct_ret_addr = NULL;
+ 	struct kretprobe_instance *ri = NULL;
+-	struct llist_node *first, *node;
+-	struct kretprobe *rp;
++	struct llist_node *node = *cur;
++
++	if (!node)
++		node = tsk->kretprobe_instances.first;
++	else
++		node = node->next;
+ 
+-	/* Find all nodes for this frame. */
+-	first = node = current->kretprobe_instances.first;
+ 	while (node) {
+ 		ri = container_of(node, struct kretprobe_instance, llist);
+-
+-		BUG_ON(ri->fp != frame_pointer);
+-
+ 		if (ri->ret_addr != kretprobe_trampoline_addr()) {
+-			correct_ret_addr = ri->ret_addr;
+-			/*
+-			 * This is the real return address. Any other
+-			 * instances associated with this task are for
+-			 * other calls deeper on the call stack
+-			 */
+-			goto found;
++			*cur = node;
++			return ri->ret_addr;
+ 		}
+-
+ 		node = node->next;
+ 	}
+-	pr_err("kretprobe: Return address not found, not execute handler. Maybe there is a bug in the kernel.\n");
+-	BUG_ON(1);
++	return NULL;
++}
++NOKPROBE_SYMBOL(__kretprobe_find_ret_addr);
+ 
+-found:
+-	/* Unlink all nodes for this frame. */
+-	current->kretprobe_instances.first = node->next;
+-	node->next = NULL;
++unsigned long kretprobe_find_ret_addr(struct task_struct *tsk, void *fp,
++				      struct llist_node **cur)
++{
++	struct kretprobe_instance *ri = NULL;
++	kprobe_opcode_t *ret;
++
++	do {
++		ret = __kretprobe_find_ret_addr(tsk, cur);
++		if (!ret)
++			break;
++		ri = container_of(*cur, struct kretprobe_instance, llist);
++	} while (ri->fp != fp);
+ 
+-	/* Run them..  */
++	return (unsigned long)ret;
++}
++NOKPROBE_SYMBOL(kretprobe_find_ret_addr);
++
++unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
++					     void *frame_pointer)
++{
++	kprobe_opcode_t *correct_ret_addr = NULL;
++	struct kretprobe_instance *ri = NULL;
++	struct llist_node *first, *node = NULL;
++	struct kretprobe *rp;
++
++	/* Find correct address and all nodes for this frame. */
++	correct_ret_addr = __kretprobe_find_ret_addr(current, &node);
++	if (!correct_ret_addr) {
++		pr_err("kretprobe: Return address not found, not execute handler. Maybe there is a bug in the kernel.\n");
++		BUG_ON(1);
++	}
++
++	/* Run the user handler of the nodes. */
++	first = current->kretprobe_instances.first;
+ 	while (first) {
+ 		ri = container_of(first, struct kretprobe_instance, llist);
+-		first = first->next;
++
++		if (WARN_ON_ONCE(ri->fp != frame_pointer))
++			break;
+ 
+ 		rp = get_kretprobe(ri);
+ 		if (rp && rp->handler) {
+@@ -1917,6 +1941,21 @@ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
+ 			rp->handler(ri, regs);
+ 			__this_cpu_write(current_kprobe, prev);
+ 		}
++		if (first = node)
++			break;
++
++		first = first->next;
++	}
++
++	/* Unlink all nodes for this frame. */
++	first = current->kretprobe_instances.first;
++	current->kretprobe_instances.first = node->next;
++	node->next = NULL;
++
++	/* Recycle free instances. */
++	while (first) {
++		ri = container_of(first, struct kretprobe_instance, llist);
++		first = first->next;
+ 
+ 		recycle_rp_inst(ri);
+ 	}
