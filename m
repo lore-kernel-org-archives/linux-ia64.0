@@ -1,70 +1,121 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Date: Thu, 15 Jul 2021 16:45:33 +0000
-Subject: [PATCH v1 05/16] alpha: return error code from alpha_pci_map_sg()
-Message-Id: <20210715164544.6827-6-logang@deltatee.com>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Sun, 11 Jul 2021 13:37:06 +0000
+Subject: [PATCH -tip v9 14/14] x86/kprobes: Fixup return address in generic trampoline handler
+Message-Id: <162601062597.1318837.16157770826588124346.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210715164544.6827-1-logang@deltatee.com>
-In-Reply-To: <20210715164544.6827-1-logang@deltatee.com>
+References: <162601048053.1318837.1550594515476777588.stgit@devnote2>
+In-Reply-To: <162601048053.1318837.1550594515476777588.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
-Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>
+To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-From: Martin Oliveira <martin.oliveira@eideticom.com>
+In x86, the fake return address on the stack saved by
+__kretprobe_trampoline() will be replaced with the real return
+address after returning from trampoline_handler(). Before fixing
+the return address, the real return address can be found in the
+'current->kretprobe_instances'.
 
-The .map_sg() op now expects an error code instead of zero on failure.
+However, since there is a window between updating the
+'current->kretprobe_instances' and fixing the address on the stack,
+if an interrupt happens at that timing and the interrupt handler
+does stacktrace, it may fail to unwind because it can not get
+the correct return address from 'current->kretprobe_instances'.
 
-pci_map_single_1() can fail for different reasons, but since the only
-supported type of error return is DMA_MAPPING_ERROR, we coalesce those
-errors into EINVAL.
+This will eliminate that window by fixing the return address
+right before updating 'current->kretprobe_instances'.
 
-ENOMEM is returned when no page tables can be allocated.
-
-Signed-off-by: Martin Oliveira <martin.oliveira@eideticom.com>
-Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
-Cc: Richard Henderson <rth@twiddle.net>
-Cc: Ivan Kokshaysky <ink@jurassic.park.msu.ru>
-Cc: Matt Turner <mattst88@gmail.com>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+Tested-by: Andrii Nakryiko <andrii@kernel.org>
 ---
- arch/alpha/kernel/pci_iommu.c | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
+ Changes in v9:
+  - Fixes the changelog. This can eliminate the window.
+  - Add more comment how it works.
+ Changes in v7:
+  - Add a prototype for arch_kretprobe_fixup_return()
+---
+ arch/x86/kernel/kprobes/core.c |   18 ++++++++++++++++--
+ include/linux/kprobes.h        |    3 +++
+ kernel/kprobes.c               |   11 +++++++++++
+ 3 files changed, 30 insertions(+), 2 deletions(-)
 
-diff --git a/arch/alpha/kernel/pci_iommu.c b/arch/alpha/kernel/pci_iommu.c
-index 35d7b3096d6e..72fc2465d13c 100644
---- a/arch/alpha/kernel/pci_iommu.c
-+++ b/arch/alpha/kernel/pci_iommu.c
-@@ -649,7 +649,9 @@ static int alpha_pci_map_sg(struct device *dev, struct scatterlist *sg,
- 		sg->dma_address
- 		  = pci_map_single_1(pdev, SG_ENT_VIRT_ADDRESS(sg),
- 				     sg->length, dac_allowed);
--		return sg->dma_address != DMA_MAPPING_ERROR;
-+		if (sg->dma_address = DMA_MAPPING_ERROR)
-+			return -EINVAL;
-+		return 1;
+diff --git a/arch/x86/kernel/kprobes/core.c b/arch/x86/kernel/kprobes/core.c
+index 7e1111c19605..fce99e249d61 100644
+--- a/arch/x86/kernel/kprobes/core.c
++++ b/arch/x86/kernel/kprobes/core.c
+@@ -1065,6 +1065,16 @@ NOKPROBE_SYMBOL(__kretprobe_trampoline);
+  */
+ STACK_FRAME_NON_STANDARD_FP(__kretprobe_trampoline);
+ 
++/* This is called from kretprobe_trampoline_handler(). */
++void arch_kretprobe_fixup_return(struct pt_regs *regs,
++				 kprobe_opcode_t *correct_ret_addr)
++{
++	unsigned long *frame_pointer = &regs->sp + 1;
++
++	/* Replace fake return address with real one. */
++	*frame_pointer = (unsigned long)correct_ret_addr;
++}
++
+ /*
+  * Called from __kretprobe_trampoline
+  */
+@@ -1082,8 +1092,12 @@ __used __visible void trampoline_handler(struct pt_regs *regs)
+ 	regs->sp += sizeof(long);
+ 	frame_pointer = &regs->sp + 1;
+ 
+-	/* Replace fake return address with real one. */
+-	*frame_pointer = kretprobe_trampoline_handler(regs, frame_pointer);
++	/*
++	 * The return address at 'frame_pointer' is recovered by the
++	 * arch_kretprobe_fixup_return() which called from the
++	 * kretprobe_trampoline_handler().
++	 */
++	kretprobe_trampoline_handler(regs, frame_pointer);
+ 
+ 	/*
+ 	 * Copy FLAGS to 'pt_regs::sp' so that __kretprobe_trapmoline()
+diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
+index 4715a67d39fc..bfd73263496e 100644
+--- a/include/linux/kprobes.h
++++ b/include/linux/kprobes.h
+@@ -188,6 +188,9 @@ extern void arch_prepare_kretprobe(struct kretprobe_instance *ri,
+ 				   struct pt_regs *regs);
+ extern int arch_trampoline_kprobe(struct kprobe *p);
+ 
++void arch_kretprobe_fixup_return(struct pt_regs *regs,
++				 kprobe_opcode_t *correct_ret_addr);
++
+ void __kretprobe_trampoline(void);
+ /*
+  * Since some architecture uses structured function pointer,
+diff --git a/kernel/kprobes.c b/kernel/kprobes.c
+index e7c75725934b..ab861b4bd6dd 100644
+--- a/kernel/kprobes.c
++++ b/kernel/kprobes.c
+@@ -1909,6 +1909,15 @@ unsigned long kretprobe_find_ret_addr(struct task_struct *tsk, void *fp,
+ }
+ NOKPROBE_SYMBOL(kretprobe_find_ret_addr);
+ 
++void __weak arch_kretprobe_fixup_return(struct pt_regs *regs,
++					kprobe_opcode_t *correct_ret_addr)
++{
++	/*
++	 * Do nothing by default. Please fill this to update the fake return
++	 * address on the stack with the correct one on each arch if possible.
++	 */
++}
++
+ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
+ 					     void *frame_pointer)
+ {
+@@ -1954,6 +1963,8 @@ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
+ 		first = first->next;
  	}
  
- 	start = sg;
-@@ -685,8 +687,10 @@ static int alpha_pci_map_sg(struct device *dev, struct scatterlist *sg,
- 	if (out < end)
- 		out->dma_length = 0;
- 
--	if (out - start = 0)
-+	if (out - start = 0) {
- 		printk(KERN_WARNING "pci_map_sg failed: no entries?\n");
-+		return -ENOMEM;
-+	}
- 	DBGA("pci_map_sg: %ld entries\n", out - start);
- 
- 	return out - start;
-@@ -699,7 +703,7 @@ static int alpha_pci_map_sg(struct device *dev, struct scatterlist *sg,
- 	   entries.  Unmap them now.  */
- 	if (out > start)
- 		pci_unmap_sg(pdev, start, out - start, dir);
--	return 0;
-+	return -ENOMEM;
- }
- 
- /* Unmap a set of streaming mode DMA translations.  Again, cpu read
--- 
-2.20.1
++	arch_kretprobe_fixup_return(regs, correct_ret_addr);
++
+ 	/* Unlink all nodes for this frame. */
+ 	first = current->kretprobe_instances.first;
+ 	current->kretprobe_instances.first = node->next;
