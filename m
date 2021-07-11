@@ -1,98 +1,77 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Date: Thu, 15 Jul 2021 16:45:37 +0000
-Subject: [PATCH v1 09/16] powerpc/iommu: return error code from .map_sg() ops
-Message-Id: <20210715164544.6827-10-logang@deltatee.com>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Sun, 11 Jul 2021 13:34:50 +0000
+Subject: [PATCH -tip v9 01/14] ia64: kprobes: Fix to pass correct trampoline address to the handler
+Message-Id: <162601049060.1318837.14249101984226564922.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210715164544.6827-1-logang@deltatee.com>
-In-Reply-To: <20210715164544.6827-1-logang@deltatee.com>
+References: <162601048053.1318837.1550594515476777588.stgit@devnote2>
+In-Reply-To: <162601048053.1318837.1550594515476777588.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
-Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Geoff Levand <geoff@infradead.org>
+To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-From: Martin Oliveira <martin.oliveira@eideticom.com>
+The following commit:
 
-The .map_sg() op now expects an error code instead of zero on failure.
+   Commit e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
 
-Propagate the error up if vio_dma_iommu_map_sg() fails.
+Passed the wrong trampoline address to __kretprobe_trampoline_handler(): it
+passes the descriptor address instead of function entry address.
 
-ppc_iommu_map_sg() may fail either because of iommu_range_alloc() or
-because of tbl->it_ops->set(). The former only supports returning an
-error with DMA_MAPPING_ERROR and an examination of the latter indicates
-that it may return arch-specific errors (for example,
-tce_buildmulti_pSeriesLP()). Hence, coalesce all of those errors into
--EINVAL;
+Pass the right parameter.
 
-Signed-off-by: Martin Oliveira <martin.oliveira@eideticom.com>
-Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
-Cc: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: Geoff Levand <geoff@infradead.org>
+Also use correct symbol dereference function to get the function address
+from 'kretprobe_trampoline' - an IA64 special.
+
+Fixes: e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
+Cc: stable@vger.kernel.org
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
 ---
- arch/powerpc/kernel/iommu.c             | 4 ++--
- arch/powerpc/platforms/ps3/system-bus.c | 2 +-
- arch/powerpc/platforms/pseries/vio.c    | 5 +++--
- 3 files changed, 6 insertions(+), 5 deletions(-)
+ Changes in v9:
+  - Update changelog according to Ingo's suggestion.
+  - Add Cc: stable tag.
+ Changes in v5:
+  - Fix a compile error typo.
+---
+ arch/ia64/kernel/kprobes.c |    9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/arch/powerpc/kernel/iommu.c b/arch/powerpc/kernel/iommu.c
-index 2af89a5e379f..bd0ed618bfa5 100644
---- a/arch/powerpc/kernel/iommu.c
-+++ b/arch/powerpc/kernel/iommu.c
-@@ -473,7 +473,7 @@ int ppc_iommu_map_sg(struct device *dev, struct iommu_table *tbl,
- 	BUG_ON(direction = DMA_NONE);
+diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
+index 441ed04b1037..d4048518a1d7 100644
+--- a/arch/ia64/kernel/kprobes.c
++++ b/arch/ia64/kernel/kprobes.c
+@@ -398,7 +398,8 @@ static void kretprobe_trampoline(void)
  
- 	if ((nelems = 0) || !tbl)
--		return 0;
-+		return -EINVAL;
- 
- 	outs = s = segstart = &sglist[0];
- 	outcount = 1;
-@@ -599,7 +599,7 @@ int ppc_iommu_map_sg(struct device *dev, struct iommu_table *tbl,
- 		if (s = outs)
- 			break;
- 	}
--	return 0;
-+	return -EINVAL;
- }
- 
- 
-diff --git a/arch/powerpc/platforms/ps3/system-bus.c b/arch/powerpc/platforms/ps3/system-bus.c
-index 1a5665875165..c54eb46f0cfb 100644
---- a/arch/powerpc/platforms/ps3/system-bus.c
-+++ b/arch/powerpc/platforms/ps3/system-bus.c
-@@ -663,7 +663,7 @@ static int ps3_ioc0_map_sg(struct device *_dev, struct scatterlist *sg,
- 			   unsigned long attrs)
+ int __kprobes trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
  {
- 	BUG();
--	return 0;
-+	return -EINVAL;
+-	regs->cr_iip = __kretprobe_trampoline_handler(regs, kretprobe_trampoline, NULL);
++	regs->cr_iip = __kretprobe_trampoline_handler(regs,
++		dereference_function_descriptor(kretprobe_trampoline), NULL);
+ 	/*
+ 	 * By returning a non-zero value, we are telling
+ 	 * kprobe_handler() that we don't want the post_handler
+@@ -414,7 +415,7 @@ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
+ 	ri->fp = NULL;
+ 
+ 	/* Replace the return addr with trampoline addr */
+-	regs->b0 = ((struct fnptr *)kretprobe_trampoline)->ip;
++	regs->b0 = (unsigned long)dereference_function_descriptor(kretprobe_trampoline);
  }
  
- static void ps3_sb_unmap_sg(struct device *_dev, struct scatterlist *sg,
-diff --git a/arch/powerpc/platforms/pseries/vio.c b/arch/powerpc/platforms/pseries/vio.c
-index e00f3725ec96..e31e59c54f30 100644
---- a/arch/powerpc/platforms/pseries/vio.c
-+++ b/arch/powerpc/platforms/pseries/vio.c
-@@ -560,7 +560,8 @@ static int vio_dma_iommu_map_sg(struct device *dev, struct scatterlist *sglist,
- 	for_each_sg(sglist, sgl, nelems, count)
- 		alloc_size += roundup(sgl->length, IOMMU_PAGE_SIZE(tbl));
- 
--	if (vio_cmo_alloc(viodev, alloc_size))
-+	ret = vio_cmo_alloc(viodev, alloc_size);
-+	if (ret)
- 		goto out_fail;
- 	ret = ppc_iommu_map_sg(dev, tbl, sglist, nelems, dma_get_mask(dev),
- 			direction, attrs);
-@@ -577,7 +578,7 @@ static int vio_dma_iommu_map_sg(struct device *dev, struct scatterlist *sglist,
- 	vio_cmo_dealloc(viodev, alloc_size);
- out_fail:
- 	atomic_inc(&viodev->cmo.allocs_failed);
--	return 0;
-+	return ret;
+ /* Check the instruction in the slot is break */
+@@ -902,14 +903,14 @@ static struct kprobe trampoline_p = {
+ int __init arch_init_kprobes(void)
+ {
+ 	trampoline_p.addr -		(kprobe_opcode_t *)((struct fnptr *)kretprobe_trampoline)->ip;
++		dereference_function_descriptor(kretprobe_trampoline);
+ 	return register_kprobe(&trampoline_p);
  }
  
- static void vio_dma_iommu_unmap_sg(struct device *dev,
--- 
-2.20.1
+ int __kprobes arch_trampoline_kprobe(struct kprobe *p)
+ {
+ 	if (p->addr =
+-		(kprobe_opcode_t *)((struct fnptr *)kretprobe_trampoline)->ip)
++		dereference_function_descriptor(kretprobe_trampoline))
+ 		return 1;
+ 
+ 	return 0;
