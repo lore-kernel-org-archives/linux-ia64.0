@@ -1,84 +1,85 @@
-From: Niklas Schnelle <schnelle@linux.ibm.com>
-Date: Fri, 16 Jul 2021 08:24:08 +0000
-Subject: Re: [PATCH v1 10/16] s390/pci: return error code from s390_dma_map_sg()
-Message-Id: <352f2a35d62399fce1dca0ce1158974ecda3904c.camel@linux.ibm.com>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Thu, 15 Jul 2021 16:45:32 +0000
+Subject: [PATCH v1 04/16] dma-iommu: Return error code from iommu_dma_map_sg()
+Message-Id: <20210715164544.6827-5-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20210715164544.6827-1-logang@deltatee.com>
-         <20210715164544.6827-11-logang@deltatee.com>
-In-Reply-To: <20210715164544.6827-11-logang@deltatee.com>
+In-Reply-To: <20210715164544.6827-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Logan Gunthorpe <logang@deltatee.com>, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
-Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Gerald Schaefer <gerald.schaefer@linux.ibm.com>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>
+To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
+Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, Joerg Roedel <joro@8bytes.org>, Will Deacon <will@kernel.org>
 
-On Thu, 2021-07-15 at 10:45 -0600, Logan Gunthorpe wrote:
-> From: Martin Oliveira <martin.oliveira@eideticom.com>
-> 
-> The .map_sg() op now expects an error code instead of zero on failure.
-> 
-> So propagate the error from __s390_dma_map_sg() up.
-> 
-> Signed-off-by: Martin Oliveira <martin.oliveira@eideticom.com>
-> Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
-> Cc: Niklas Schnelle <schnelle@linux.ibm.com>
-> Cc: Gerald Schaefer <gerald.schaefer@linux.ibm.com>
-> Cc: Heiko Carstens <hca@linux.ibm.com>
-> Cc: Vasily Gorbik <gor@linux.ibm.com>
-> Cc: Christian Borntraeger <borntraeger@de.ibm.com>
-> ---
->  arch/s390/pci/pci_dma.c | 12 +++++++-----
->  1 file changed, 7 insertions(+), 5 deletions(-)
-> 
-> diff --git a/arch/s390/pci/pci_dma.c b/arch/s390/pci/pci_dma.c
-> index ebc9a49523aa..c78b02012764 100644
-> --- a/arch/s390/pci/pci_dma.c
-> +++ b/arch/s390/pci/pci_dma.c
-> @@ -487,7 +487,7 @@ static int s390_dma_map_sg(struct device *dev, struct scatterlist *sg,
->  	unsigned int max = dma_get_max_seg_size(dev);
->  	unsigned int size = s->offset + s->length;
->  	unsigned int offset = s->offset;
-> -	int count = 0, i;
-> +	int count = 0, i, ret;
->  
->  	for (i = 1; i < nr_elements; i++) {
->  		s = sg_next(s);
-> @@ -497,8 +497,9 @@ static int s390_dma_map_sg(struct device *dev, struct scatterlist *sg,
->  
->  		if (s->offset || (size & ~PAGE_MASK) ||
->  		    size + s->length > max) {
-> -			if (__s390_dma_map_sg(dev, start, size,
-> -					      &dma->dma_address, dir))
-> +			ret = __s390_dma_map_sg(dev, start, size,
-> +						&dma->dma_address, dir);
-> +			if (ret)
->  				goto unmap;
->  
->  			dma->dma_address += offset;
-> @@ -511,7 +512,8 @@ static int s390_dma_map_sg(struct device *dev, struct scatterlist *sg,
->  		}
->  		size += s->length;
->  	}
-> -	if (__s390_dma_map_sg(dev, start, size, &dma->dma_address, dir))
-> +	ret = __s390_dma_map_sg(dev, start, size, &dma->dma_address, dir);
-> +	if (ret)
->  		goto unmap;
->  
->  	dma->dma_address += offset;
-> @@ -523,7 +525,7 @@ static int s390_dma_map_sg(struct device *dev, struct scatterlist *sg,
->  		s390_dma_unmap_pages(dev, sg_dma_address(s), sg_dma_len(s),
->  				     dir, attrs);
->  
-> -	return 0;
-> +	return ret;
->  }
->  
->  static void s390_dma_unmap_sg(struct device *dev, struct scatterlist *sg,
+Pass through appropriate error codes from iommu_dma_map_sg() now that
+the error code will be passed through dma_map_sgtable().
 
-So the error codes we return are -ENOMEM if allocating a DMA
-translation entry fails and -EINVAL if the DMA translation table hasn't
-been initialized or the caller tries to map 0 sized memory. Are these
-error codes that you would expect? If yes then this change looks good
-to me.
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
+Cc: Joerg Roedel <joro@8bytes.org>
+Cc: Will Deacon <will@kernel.org>
+---
+ drivers/iommu/dma-iommu.c | 20 +++++++++++++-------
+ 1 file changed, 13 insertions(+), 7 deletions(-)
 
-Acked-by: Niklas Schnelle <schnelle@linux.ibm.com>
+diff --git a/drivers/iommu/dma-iommu.c b/drivers/iommu/dma-iommu.c
+index 98ba927aee1a..9d35e9994306 100644
+--- a/drivers/iommu/dma-iommu.c
++++ b/drivers/iommu/dma-iommu.c
+@@ -972,7 +972,7 @@ static int iommu_dma_map_sg_swiotlb(struct device *dev, struct scatterlist *sg,
+ 
+ out_unmap:
+ 	iommu_dma_unmap_sg_swiotlb(dev, sg, i, dir, attrs | DMA_ATTR_SKIP_CPU_SYNC);
+-	return 0;
++	return -EINVAL;
+ }
+ 
+ /*
+@@ -993,11 +993,14 @@ static int iommu_dma_map_sg(struct device *dev, struct scatterlist *sg,
+ 	dma_addr_t iova;
+ 	size_t iova_len = 0;
+ 	unsigned long mask = dma_get_seg_boundary(dev);
++	ssize_t ret;
+ 	int i;
+ 
+-	if (static_branch_unlikely(&iommu_deferred_attach_enabled) &&
+-	    iommu_deferred_attach(dev, domain))
+-		return 0;
++	if (static_branch_unlikely(&iommu_deferred_attach_enabled)) {
++		ret = iommu_deferred_attach(dev, domain);
++		if (ret)
++			return ret;
++	}
+ 
+ 	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
+ 		iommu_dma_sync_sg_for_device(dev, sg, nents, dir);
+@@ -1045,14 +1048,17 @@ static int iommu_dma_map_sg(struct device *dev, struct scatterlist *sg,
+ 	}
+ 
+ 	iova = iommu_dma_alloc_iova(domain, iova_len, dma_get_mask(dev), dev);
+-	if (!iova)
++	if (!iova) {
++		ret = -ENOMEM;
+ 		goto out_restore_sg;
++	}
+ 
+ 	/*
+ 	 * We'll leave any physical concatenation to the IOMMU driver's
+ 	 * implementation - it knows better than we do.
+ 	 */
+-	if (iommu_map_sg_atomic(domain, iova, sg, nents, prot) < iova_len)
++	ret = iommu_map_sg_atomic(domain, iova, sg, nents, prot);
++	if (ret < iova_len)
+ 		goto out_free_iova;
+ 
+ 	return __finalise_sg(dev, sg, nents, iova);
+@@ -1061,7 +1067,7 @@ static int iommu_dma_map_sg(struct device *dev, struct scatterlist *sg,
+ 	iommu_dma_free_iova(cookie, iova, iova_len, NULL);
+ out_restore_sg:
+ 	__invalidate_sg(sg, nents);
+-	return 0;
++	return ret;
+ }
+ 
+ static void iommu_dma_unmap_sg(struct device *dev, struct scatterlist *sg,
+-- 
+2.20.1
