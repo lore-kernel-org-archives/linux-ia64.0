@@ -1,59 +1,46 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Mon, 05 Jul 2021 10:05:55 +0000
-Subject: Re: [PATCH -tip v8 01/13] ia64: kprobes: Fix to pass correct trampoline address to the handler
-Message-Id: <20210705190555.7c02f53dc92a6a3191a17fb1@kernel.org>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Thu, 15 Jul 2021 16:45:41 +0000
+Subject: [PATCH v1 13/16] xen: swiotlb: return error code from xen_swiotlb_map_sg()
+Message-Id: <20210715164544.6827-14-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162399992186.506599.8457763707951687195.stgit@devnote2>
-        <162399993125.506599.11062077324255866677.stgit@devnote2>
-        <YOK42eM70kb9fd6r@gmail.com>
-In-Reply-To: <YOK42eM70kb9fd6r@gmail.com>
+References: <20210715164544.6827-1-logang@deltatee.com>
+In-Reply-To: <20210715164544.6827-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@kernel.org>
-Cc: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
+Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>
 
-On Mon, 5 Jul 2021 09:46:33 +0200
-Ingo Molnar <mingo@kernel.org> wrote:
+From: Martin Oliveira <martin.oliveira@eideticom.com>
 
-> 
-> * Masami Hiramatsu <mhiramat@kernel.org> wrote:
-> 
-> > Commit e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
-> > missed to pass the wrong trampoline address (it passes the descriptor address
-> > instead of function entry address).
-> > This fixes it to pass correct trampoline address to __kretprobe_trampoline_handler().
-> > This also changes to use correct symbol dereference function to get the
-> > function address from the kretprobe_trampoline.
-> > 
-> > Fixes: e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
-> > Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-> 
-> A better changelog:
-> 
->   The following commit:
-> 
->      Commit e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
-> 
->   Passed the wrong trampoline address to __kretprobe_trampoline_handler(): it
->   passes the descriptor address instead of function entry address.
-> 
->   Pass the right parameter.
-> 
->   Also use correct symbol dereference function to get the function address
->   from 'kretprobe_trampoline' - an IA64 special.
+The .map_sg() op now expects an error code instead of zero on failure.
 
-Thanks for rewriting! OK, I'll update it.
+xen_swiotlb_map_sg() may only fail if xen_swiotlb_map_page() fails, but
+xen_swiotlb_map_page() only supports returning errors as
+DMA_MAPPING_ERROR. So coalesce all errors into EINVAL.
 
-> 
-> (Although I realize that much of this goes away just a couple of patches 
-> later.)
+Signed-off-by: Martin Oliveira <martin.oliveira@eideticom.com>
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Cc: Juergen Gross <jgross@suse.com>
+Cc: Stefano Stabellini <sstabellini@kernel.org>
+---
+ drivers/xen/swiotlb-xen.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Yes, but since this is a real bug. I think I should split it for backporting
-to stable trees. (Oh, I also forgot to add Cc: stable. Sorry about that.)
-
-Thank you,
-
-
+diff --git a/drivers/xen/swiotlb-xen.c b/drivers/xen/swiotlb-xen.c
+index 24d11861ac7d..b5707127c9d7 100644
+--- a/drivers/xen/swiotlb-xen.c
++++ b/drivers/xen/swiotlb-xen.c
+@@ -509,7 +509,7 @@ xen_swiotlb_map_sg(struct device *dev, struct scatterlist *sgl, int nelems,
+ out_unmap:
+ 	xen_swiotlb_unmap_sg(dev, sgl, i, dir, attrs | DMA_ATTR_SKIP_CPU_SYNC);
+ 	sg_dma_len(sgl) = 0;
+-	return 0;
++	return -EINVAL;
+ }
+ 
+ static void
 -- 
-Masami Hiramatsu <mhiramat@kernel.org>
+2.20.1
