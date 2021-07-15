@@ -1,55 +1,113 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Thu, 29 Jul 2021 14:07:48 +0000
-Subject: [PATCH -tip v10 12/16] kprobes: Enable stacktrace from pt_regs in kretprobe handler
-Message-Id: <162756766854.301564.16064835736239439658.stgit@devnote2>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Thu, 15 Jul 2021 16:45:31 +0000
+Subject: [PATCH v1 03/16] iommu: Return full error code from iommu_map_sg[_atomic]()
+Message-Id: <20210715164544.6827-4-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162756755600.301564.4957591913842010341.stgit@devnote2>
-In-Reply-To: <162756755600.301564.4957591913842010341.stgit@devnote2>
+References: <20210715164544.6827-1-logang@deltatee.com>
+In-Reply-To: <20210715164544.6827-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
+Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, Joerg Roedel <joro@8bytes.org>, Will Deacon <will@kernel.org>
 
-Since the ORC unwinder from pt_regs requires setting up regs->ip
-correctly, set the correct return address to the regs->ip before
-calling user kretprobe handler.
+Convert to ssize_t return code so the return code from __iommu_map()
+can be returned all the way down through dma_iommu_map_sg().
 
-This allows the kretrprobe handler to trace stack from the
-kretprobe's pt_regs by stack_trace_save_regs() (eBPF will do
-this), instead of stack tracing from the handler context by
-stack_trace_save() (ftrace will do this).
-
-Suggested-by: Josh Poimboeuf <jpoimboe@redhat.com>
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-Tested-by: Andrii Nakryiko <andrii@kernel.org>
-Acked-by: Josh Poimboeuf <jpoimboe@redhat.com>
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
+Cc: Joerg Roedel <joro@8bytes.org>
+Cc: Will Deacon <will@kernel.org>
 ---
- Changes in v9:
-  - Update comment to explain specifically why this is necessary.
- Changes in v8:
-  - Update comment to clarify why this is needed.
- Changes in v3:
-  - Cast the correct_ret_addr to unsigned long.
----
- kernel/kprobes.c |    7 +++++++
- 1 file changed, 7 insertions(+)
+ drivers/iommu/iommu.c | 15 +++++++--------
+ include/linux/iommu.h | 22 +++++++++++-----------
+ 2 files changed, 18 insertions(+), 19 deletions(-)
 
-diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-index 833f07f33115..ebc587b9a346 100644
---- a/kernel/kprobes.c
-+++ b/kernel/kprobes.c
-@@ -1937,6 +1937,13 @@ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
- 		BUG_ON(1);
- 	}
+diff --git a/drivers/iommu/iommu.c b/drivers/iommu/iommu.c
+index 5419c4b9f27a..bf971b4e34aa 100644
+--- a/drivers/iommu/iommu.c
++++ b/drivers/iommu/iommu.c
+@@ -2567,9 +2567,9 @@ size_t iommu_unmap_fast(struct iommu_domain *domain,
+ }
+ EXPORT_SYMBOL_GPL(iommu_unmap_fast);
  
-+	/*
-+	 * Set the return address as the instruction pointer, because if the
-+	 * user handler calls stack_trace_save_regs() with this 'regs',
-+	 * the stack trace will start from the instruction pointer.
-+	 */
-+	instruction_pointer_set(regs, (unsigned long)correct_ret_addr);
-+
- 	/* Run the user handler of the nodes. */
- 	first = current->kretprobe_instances.first;
- 	while (first) {
+-static size_t __iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
+-			     struct scatterlist *sg, unsigned int nents, int prot,
+-			     gfp_t gfp)
++static ssize_t __iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
++		struct scatterlist *sg, unsigned int nents, int prot,
++		gfp_t gfp)
+ {
+ 	const struct iommu_ops *ops = domain->ops;
+ 	size_t len = 0, mapped = 0;
+@@ -2610,19 +2610,18 @@ static size_t __iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
+ 	/* undo mappings already done */
+ 	iommu_unmap(domain, iova, mapped);
+ 
+-	return 0;
+-
++	return ret;
+ }
+ 
+-size_t iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
+-		    struct scatterlist *sg, unsigned int nents, int prot)
++ssize_t iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
++		     struct scatterlist *sg, unsigned int nents, int prot)
+ {
+ 	might_sleep();
+ 	return __iommu_map_sg(domain, iova, sg, nents, prot, GFP_KERNEL);
+ }
+ EXPORT_SYMBOL_GPL(iommu_map_sg);
+ 
+-size_t iommu_map_sg_atomic(struct iommu_domain *domain, unsigned long iova,
++ssize_t iommu_map_sg_atomic(struct iommu_domain *domain, unsigned long iova,
+ 		    struct scatterlist *sg, unsigned int nents, int prot)
+ {
+ 	return __iommu_map_sg(domain, iova, sg, nents, prot, GFP_ATOMIC);
+diff --git a/include/linux/iommu.h b/include/linux/iommu.h
+index 32d448050bf7..9369458ba1bd 100644
+--- a/include/linux/iommu.h
++++ b/include/linux/iommu.h
+@@ -414,11 +414,11 @@ extern size_t iommu_unmap(struct iommu_domain *domain, unsigned long iova,
+ extern size_t iommu_unmap_fast(struct iommu_domain *domain,
+ 			       unsigned long iova, size_t size,
+ 			       struct iommu_iotlb_gather *iotlb_gather);
+-extern size_t iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
+-			   struct scatterlist *sg,unsigned int nents, int prot);
+-extern size_t iommu_map_sg_atomic(struct iommu_domain *domain,
+-				  unsigned long iova, struct scatterlist *sg,
+-				  unsigned int nents, int prot);
++extern ssize_t iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
++		struct scatterlist *sg, unsigned int nents, int prot);
++extern ssize_t iommu_map_sg_atomic(struct iommu_domain *domain,
++				   unsigned long iova, struct scatterlist *sg,
++				   unsigned int nents, int prot);
+ extern phys_addr_t iommu_iova_to_phys(struct iommu_domain *domain, dma_addr_t iova);
+ extern void iommu_set_fault_handler(struct iommu_domain *domain,
+ 			iommu_fault_handler_t handler, void *token);
+@@ -679,18 +679,18 @@ static inline size_t iommu_unmap_fast(struct iommu_domain *domain,
+ 	return 0;
+ }
+ 
+-static inline size_t iommu_map_sg(struct iommu_domain *domain,
+-				  unsigned long iova, struct scatterlist *sg,
+-				  unsigned int nents, int prot)
++static inline ssize_t iommu_map_sg(struct iommu_domain *domain,
++				   unsigned long iova, struct scatterlist *sg,
++				   unsigned int nents, int prot)
+ {
+-	return 0;
++	return -ENODEV;
+ }
+ 
+-static inline size_t iommu_map_sg_atomic(struct iommu_domain *domain,
++static inline ssize_t iommu_map_sg_atomic(struct iommu_domain *domain,
+ 				  unsigned long iova, struct scatterlist *sg,
+ 				  unsigned int nents, int prot)
+ {
+-	return 0;
++	return -ENODEV;
+ }
+ 
+ static inline void iommu_flush_iotlb_all(struct iommu_domain *domain)
+-- 
+2.20.1
