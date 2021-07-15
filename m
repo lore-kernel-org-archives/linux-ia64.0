@@ -1,24 +1,76 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Thu, 22 Jul 2021 13:01:17 +0000
-Subject: Re: [PATCH v3 5/9] csky: use generic strncpy/strnlen from_user
-Message-Id: <20210722130117.GE26225@lst.de>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Thu, 15 Jul 2021 16:45:38 +0000
+Subject: [PATCH v1 10/16] s390/pci: return error code from s390_dma_map_sg()
+Message-Id: <20210715164544.6827-11-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210722124814.778059-1-arnd@kernel.org> <20210722124814.778059-6-arnd@kernel.org>
-In-Reply-To: <20210722124814.778059-6-arnd@kernel.org>
+References: <20210715164544.6827-1-logang@deltatee.com>
+In-Reply-To: <20210715164544.6827-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@kernel.org>
-Cc: linux-arch@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Al Viro <viro@zeniv.linux.org.uk>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Brian Cain <bcain@codeaurora.org>, Chris Zankel <chris@zankel.net>, Christian Borntraeger <borntraeger@de.ibm.com>, Christoph Hellwig <hch@lst.de>, Guo Ren <guoren@kernel.org>, Heiko Carstens <hca@linux.ibm.com>, Helge Deller <deller@gmx.de>, Jeff Dike <jdike@addtoit.com>, Linus Walleij <linus.walleij@linaro.org>, Max Filippov <jcmvbkbc@gmail.com>, Michal Simek <monstr@monstr.eu>, Richard Weinberger <richard@nod.at>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Vasily Gorbik <gor@linux.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-s390@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, uclinux-h8-devel@lists.sourceforge.jp
+To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
+Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, Niklas Schnelle <schnelle@linux.ibm.com>, Gerald Schaefer <gerald.schaefer@linux.ibm.com>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>
 
-On Thu, Jul 22, 2021 at 02:48:10PM +0200, Arnd Bergmann wrote:
-> From: Arnd Bergmann <arnd@arndb.de>
-> 
-> Remove the csky implemenation of strncpy/strnlen and instead use the
-> generic versions.  The csky version is fairly slow because it always does
-> byte accesses even for aligned data, and it lacks a checks for
-> user_addr_max().
+From: Martin Oliveira <martin.oliveira@eideticom.com>
 
-Looks good,
+The .map_sg() op now expects an error code instead of zero on failure.
 
-Reviewed-by: Christoph Hellwig <hch@lst.de>
+So propagate the error from __s390_dma_map_sg() up.
+
+Signed-off-by: Martin Oliveira <martin.oliveira@eideticom.com>
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
+Cc: Niklas Schnelle <schnelle@linux.ibm.com>
+Cc: Gerald Schaefer <gerald.schaefer@linux.ibm.com>
+Cc: Heiko Carstens <hca@linux.ibm.com>
+Cc: Vasily Gorbik <gor@linux.ibm.com>
+Cc: Christian Borntraeger <borntraeger@de.ibm.com>
+---
+ arch/s390/pci/pci_dma.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/arch/s390/pci/pci_dma.c b/arch/s390/pci/pci_dma.c
+index ebc9a49523aa..c78b02012764 100644
+--- a/arch/s390/pci/pci_dma.c
++++ b/arch/s390/pci/pci_dma.c
+@@ -487,7 +487,7 @@ static int s390_dma_map_sg(struct device *dev, struct scatterlist *sg,
+ 	unsigned int max = dma_get_max_seg_size(dev);
+ 	unsigned int size = s->offset + s->length;
+ 	unsigned int offset = s->offset;
+-	int count = 0, i;
++	int count = 0, i, ret;
+ 
+ 	for (i = 1; i < nr_elements; i++) {
+ 		s = sg_next(s);
+@@ -497,8 +497,9 @@ static int s390_dma_map_sg(struct device *dev, struct scatterlist *sg,
+ 
+ 		if (s->offset || (size & ~PAGE_MASK) ||
+ 		    size + s->length > max) {
+-			if (__s390_dma_map_sg(dev, start, size,
+-					      &dma->dma_address, dir))
++			ret = __s390_dma_map_sg(dev, start, size,
++						&dma->dma_address, dir);
++			if (ret)
+ 				goto unmap;
+ 
+ 			dma->dma_address += offset;
+@@ -511,7 +512,8 @@ static int s390_dma_map_sg(struct device *dev, struct scatterlist *sg,
+ 		}
+ 		size += s->length;
+ 	}
+-	if (__s390_dma_map_sg(dev, start, size, &dma->dma_address, dir))
++	ret = __s390_dma_map_sg(dev, start, size, &dma->dma_address, dir);
++	if (ret)
+ 		goto unmap;
+ 
+ 	dma->dma_address += offset;
+@@ -523,7 +525,7 @@ static int s390_dma_map_sg(struct device *dev, struct scatterlist *sg,
+ 		s390_dma_unmap_pages(dev, sg_dma_address(s), sg_dma_len(s),
+ 				     dir, attrs);
+ 
+-	return 0;
++	return ret;
+ }
+ 
+ static void s390_dma_unmap_sg(struct device *dev, struct scatterlist *sg,
+-- 
+2.20.1
