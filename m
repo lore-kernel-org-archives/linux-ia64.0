@@ -1,97 +1,70 @@
 From: Logan Gunthorpe <logang@deltatee.com>
-Date: Thu, 29 Jul 2021 20:15:36 +0000
-Subject: [PATCH v3 18/21] x86/amd_gart: return error code from gart_map_sg()
-Message-Id: <20210729201539.5602-19-logang@deltatee.com>
+Date: Thu, 15 Jul 2021 16:45:33 +0000
+Subject: [PATCH v1 05/16] alpha: return error code from alpha_pci_map_sg()
+Message-Id: <20210715164544.6827-6-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210729201539.5602-1-logang@deltatee.com>
-In-Reply-To: <20210729201539.5602-1-logang@deltatee.com>
+References: <20210715164544.6827-1-logang@deltatee.com>
+In-Reply-To: <20210715164544.6827-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
-Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Niklas Schnelle <schnelle@linux.ibm.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Michael Ellerman <mpe@ellerman.id.au>
+Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>
 
 From: Martin Oliveira <martin.oliveira@eideticom.com>
 
 The .map_sg() op now expects an error code instead of zero on failure.
 
-So make __dma_map_cont() return a valid errno (which is then propagated
-to gart_map_sg() via dma_map_cont()) and return it in case of failure.
+pci_map_single_1() can fail for different reasons, but since the only
+supported type of error return is DMA_MAPPING_ERROR, we coalesce those
+errors into EINVAL.
 
-Also, return -EINVAL in case of invalid nents.
+ENOMEM is returned when no page tables can be allocated.
 
 Signed-off-by: Martin Oliveira <martin.oliveira@eideticom.com>
 Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: Borislav Petkov <bp@alien8.de>
-Cc: "H. Peter Anvin" <hpa@zytor.com>
-Cc: Niklas Schnelle <schnelle@linux.ibm.com>
-Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Richard Henderson <rth@twiddle.net>
+Cc: Ivan Kokshaysky <ink@jurassic.park.msu.ru>
+Cc: Matt Turner <mattst88@gmail.com>
 ---
- arch/x86/kernel/amd_gart_64.c | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+ arch/alpha/kernel/pci_iommu.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
-diff --git a/arch/x86/kernel/amd_gart_64.c b/arch/x86/kernel/amd_gart_64.c
-index 9ac696487b13..46aea9a4f26b 100644
---- a/arch/x86/kernel/amd_gart_64.c
-+++ b/arch/x86/kernel/amd_gart_64.c
-@@ -331,7 +331,7 @@ static int __dma_map_cont(struct device *dev, struct scatterlist *start,
- 	int i;
- 
- 	if (iommu_start = -1)
--		return -1;
-+		return -ENOMEM;
- 
- 	for_each_sg(start, s, nelems, i) {
- 		unsigned long pages, addr;
-@@ -380,13 +380,13 @@ static int gart_map_sg(struct device *dev, struct scatterlist *sg, int nents,
- 		       enum dma_data_direction dir, unsigned long attrs)
- {
- 	struct scatterlist *s, *ps, *start_sg, *sgmap;
--	int need = 0, nextneed, i, out, start;
-+	int need = 0, nextneed, i, out, start, ret;
- 	unsigned long pages = 0;
- 	unsigned int seg_size;
- 	unsigned int max_seg_size;
- 
- 	if (nents = 0)
--		return 0;
-+		return -EINVAL;
- 
- 	out		= 0;
- 	start		= 0;
-@@ -414,8 +414,9 @@ static int gart_map_sg(struct device *dev, struct scatterlist *sg, int nents,
- 			if (!iommu_merge || !nextneed || !need || s->offset ||
- 			    (s->length + seg_size > max_seg_size) ||
- 			    (ps->offset + ps->length) % PAGE_SIZE) {
--				if (dma_map_cont(dev, start_sg, i - start,
--						 sgmap, pages, need) < 0)
-+				ret = dma_map_cont(dev, start_sg, i - start,
-+						   sgmap, pages, need);
-+				if (ret < 0)
- 					goto error;
- 				out++;
- 
-@@ -432,7 +433,8 @@ static int gart_map_sg(struct device *dev, struct scatterlist *sg, int nents,
- 		pages += iommu_num_pages(s->offset, s->length, PAGE_SIZE);
- 		ps = s;
+diff --git a/arch/alpha/kernel/pci_iommu.c b/arch/alpha/kernel/pci_iommu.c
+index 35d7b3096d6e..72fc2465d13c 100644
+--- a/arch/alpha/kernel/pci_iommu.c
++++ b/arch/alpha/kernel/pci_iommu.c
+@@ -649,7 +649,9 @@ static int alpha_pci_map_sg(struct device *dev, struct scatterlist *sg,
+ 		sg->dma_address
+ 		  = pci_map_single_1(pdev, SG_ENT_VIRT_ADDRESS(sg),
+ 				     sg->length, dac_allowed);
+-		return sg->dma_address != DMA_MAPPING_ERROR;
++		if (sg->dma_address = DMA_MAPPING_ERROR)
++			return -EINVAL;
++		return 1;
  	}
--	if (dma_map_cont(dev, start_sg, i - start, sgmap, pages, need) < 0)
-+	ret = dma_map_cont(dev, start_sg, i - start, sgmap, pages, need);
-+	if (ret < 0)
- 		goto error;
- 	out++;
- 	flush_gart();
-@@ -458,7 +460,7 @@ static int gart_map_sg(struct device *dev, struct scatterlist *sg, int nents,
- 	iommu_full(dev, pages << PAGE_SHIFT, dir);
- 	for_each_sg(sg, s, nents, i)
- 		s->dma_address = DMA_MAPPING_ERROR;
+ 
+ 	start = sg;
+@@ -685,8 +687,10 @@ static int alpha_pci_map_sg(struct device *dev, struct scatterlist *sg,
+ 	if (out < end)
+ 		out->dma_length = 0;
+ 
+-	if (out - start = 0)
++	if (out - start = 0) {
+ 		printk(KERN_WARNING "pci_map_sg failed: no entries?\n");
++		return -ENOMEM;
++	}
+ 	DBGA("pci_map_sg: %ld entries\n", out - start);
+ 
+ 	return out - start;
+@@ -699,7 +703,7 @@ static int alpha_pci_map_sg(struct device *dev, struct scatterlist *sg,
+ 	   entries.  Unmap them now.  */
+ 	if (out > start)
+ 		pci_unmap_sg(pdev, start, out - start, dir);
 -	return 0;
-+	return ret;
++	return -ENOMEM;
  }
  
- /* allocate and map a coherent mapping */
+ /* Unmap a set of streaming mode DMA translations.  Again, cpu read
 -- 
 2.20.1
