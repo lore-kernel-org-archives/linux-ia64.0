@@ -1,76 +1,84 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Date: Thu, 15 Jul 2021 16:45:38 +0000
-Subject: [PATCH v1 10/16] s390/pci: return error code from s390_dma_map_sg()
-Message-Id: <20210715164544.6827-11-logang@deltatee.com>
+From: Niklas Schnelle <schnelle@linux.ibm.com>
+Date: Fri, 16 Jul 2021 08:24:08 +0000
+Subject: Re: [PATCH v1 10/16] s390/pci: return error code from s390_dma_map_sg()
+Message-Id: <352f2a35d62399fce1dca0ce1158974ecda3904c.camel@linux.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20210715164544.6827-1-logang@deltatee.com>
-In-Reply-To: <20210715164544.6827-1-logang@deltatee.com>
+         <20210715164544.6827-11-logang@deltatee.com>
+In-Reply-To: <20210715164544.6827-11-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
-Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, Niklas Schnelle <schnelle@linux.ibm.com>, Gerald Schaefer <gerald.schaefer@linux.ibm.com>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>
+To: Logan Gunthorpe <logang@deltatee.com>, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
+Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Gerald Schaefer <gerald.schaefer@linux.ibm.com>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>
 
-From: Martin Oliveira <martin.oliveira@eideticom.com>
+On Thu, 2021-07-15 at 10:45 -0600, Logan Gunthorpe wrote:
+> From: Martin Oliveira <martin.oliveira@eideticom.com>
+> 
+> The .map_sg() op now expects an error code instead of zero on failure.
+> 
+> So propagate the error from __s390_dma_map_sg() up.
+> 
+> Signed-off-by: Martin Oliveira <martin.oliveira@eideticom.com>
+> Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
+> Cc: Niklas Schnelle <schnelle@linux.ibm.com>
+> Cc: Gerald Schaefer <gerald.schaefer@linux.ibm.com>
+> Cc: Heiko Carstens <hca@linux.ibm.com>
+> Cc: Vasily Gorbik <gor@linux.ibm.com>
+> Cc: Christian Borntraeger <borntraeger@de.ibm.com>
+> ---
+>  arch/s390/pci/pci_dma.c | 12 +++++++-----
+>  1 file changed, 7 insertions(+), 5 deletions(-)
+> 
+> diff --git a/arch/s390/pci/pci_dma.c b/arch/s390/pci/pci_dma.c
+> index ebc9a49523aa..c78b02012764 100644
+> --- a/arch/s390/pci/pci_dma.c
+> +++ b/arch/s390/pci/pci_dma.c
+> @@ -487,7 +487,7 @@ static int s390_dma_map_sg(struct device *dev, struct scatterlist *sg,
+>  	unsigned int max = dma_get_max_seg_size(dev);
+>  	unsigned int size = s->offset + s->length;
+>  	unsigned int offset = s->offset;
+> -	int count = 0, i;
+> +	int count = 0, i, ret;
+>  
+>  	for (i = 1; i < nr_elements; i++) {
+>  		s = sg_next(s);
+> @@ -497,8 +497,9 @@ static int s390_dma_map_sg(struct device *dev, struct scatterlist *sg,
+>  
+>  		if (s->offset || (size & ~PAGE_MASK) ||
+>  		    size + s->length > max) {
+> -			if (__s390_dma_map_sg(dev, start, size,
+> -					      &dma->dma_address, dir))
+> +			ret = __s390_dma_map_sg(dev, start, size,
+> +						&dma->dma_address, dir);
+> +			if (ret)
+>  				goto unmap;
+>  
+>  			dma->dma_address += offset;
+> @@ -511,7 +512,8 @@ static int s390_dma_map_sg(struct device *dev, struct scatterlist *sg,
+>  		}
+>  		size += s->length;
+>  	}
+> -	if (__s390_dma_map_sg(dev, start, size, &dma->dma_address, dir))
+> +	ret = __s390_dma_map_sg(dev, start, size, &dma->dma_address, dir);
+> +	if (ret)
+>  		goto unmap;
+>  
+>  	dma->dma_address += offset;
+> @@ -523,7 +525,7 @@ static int s390_dma_map_sg(struct device *dev, struct scatterlist *sg,
+>  		s390_dma_unmap_pages(dev, sg_dma_address(s), sg_dma_len(s),
+>  				     dir, attrs);
+>  
+> -	return 0;
+> +	return ret;
+>  }
+>  
+>  static void s390_dma_unmap_sg(struct device *dev, struct scatterlist *sg,
 
-The .map_sg() op now expects an error code instead of zero on failure.
+So the error codes we return are -ENOMEM if allocating a DMA
+translation entry fails and -EINVAL if the DMA translation table hasn't
+been initialized or the caller tries to map 0 sized memory. Are these
+error codes that you would expect? If yes then this change looks good
+to me.
 
-So propagate the error from __s390_dma_map_sg() up.
-
-Signed-off-by: Martin Oliveira <martin.oliveira@eideticom.com>
-Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
-Cc: Niklas Schnelle <schnelle@linux.ibm.com>
-Cc: Gerald Schaefer <gerald.schaefer@linux.ibm.com>
-Cc: Heiko Carstens <hca@linux.ibm.com>
-Cc: Vasily Gorbik <gor@linux.ibm.com>
-Cc: Christian Borntraeger <borntraeger@de.ibm.com>
----
- arch/s390/pci/pci_dma.c | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
-
-diff --git a/arch/s390/pci/pci_dma.c b/arch/s390/pci/pci_dma.c
-index ebc9a49523aa..c78b02012764 100644
---- a/arch/s390/pci/pci_dma.c
-+++ b/arch/s390/pci/pci_dma.c
-@@ -487,7 +487,7 @@ static int s390_dma_map_sg(struct device *dev, struct scatterlist *sg,
- 	unsigned int max = dma_get_max_seg_size(dev);
- 	unsigned int size = s->offset + s->length;
- 	unsigned int offset = s->offset;
--	int count = 0, i;
-+	int count = 0, i, ret;
- 
- 	for (i = 1; i < nr_elements; i++) {
- 		s = sg_next(s);
-@@ -497,8 +497,9 @@ static int s390_dma_map_sg(struct device *dev, struct scatterlist *sg,
- 
- 		if (s->offset || (size & ~PAGE_MASK) ||
- 		    size + s->length > max) {
--			if (__s390_dma_map_sg(dev, start, size,
--					      &dma->dma_address, dir))
-+			ret = __s390_dma_map_sg(dev, start, size,
-+						&dma->dma_address, dir);
-+			if (ret)
- 				goto unmap;
- 
- 			dma->dma_address += offset;
-@@ -511,7 +512,8 @@ static int s390_dma_map_sg(struct device *dev, struct scatterlist *sg,
- 		}
- 		size += s->length;
- 	}
--	if (__s390_dma_map_sg(dev, start, size, &dma->dma_address, dir))
-+	ret = __s390_dma_map_sg(dev, start, size, &dma->dma_address, dir);
-+	if (ret)
- 		goto unmap;
- 
- 	dma->dma_address += offset;
-@@ -523,7 +525,7 @@ static int s390_dma_map_sg(struct device *dev, struct scatterlist *sg,
- 		s390_dma_unmap_pages(dev, sg_dma_address(s), sg_dma_len(s),
- 				     dir, attrs);
- 
--	return 0;
-+	return ret;
- }
- 
- static void s390_dma_unmap_sg(struct device *dev, struct scatterlist *sg,
--- 
-2.20.1
+Acked-by: Niklas Schnelle <schnelle@linux.ibm.com>
