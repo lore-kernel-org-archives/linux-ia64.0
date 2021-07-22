@@ -1,120 +1,82 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Tue, 06 Jul 2021 12:57:53 +0000
-Subject: Re: [PATCH -tip v8 13/13] x86/kprobes: Fixup return address in generic trampoline handler
-Message-Id: <20210706215753.c7cad02afdeda48bf801d294@kernel.org>
+From: Arnd Bergmann <arnd@kernel.org>
+Date: Thu, 22 Jul 2021 12:48:13 +0000
+Subject: [PATCH v3 8/9] asm-generic: remove extra strn{cpy_from,len}_user declarations
+Message-Id: <20210722124814.778059-9-arnd@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162399992186.506599.8457763707951687195.stgit@devnote2>
-        <162400004562.506599.7549585083316952768.stgit@devnote2>
-        <YOLEMvR1bCQiIMcl@gmail.com>
-In-Reply-To: <YOLEMvR1bCQiIMcl@gmail.com>
+References: <20210722124814.778059-1-arnd@kernel.org>
+In-Reply-To: <20210722124814.778059-1-arnd@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@kernel.org>
-Cc: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: linux-arch@vger.kernel.org
+Cc: Arnd Bergmann <arnd@arndb.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Al Viro <viro@zeniv.linux.org.uk>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Brian Cain <bcain@codeaurora.org>, Chris Zankel <chris@zankel.net>, Christian Borntraeger <borntraeger@de.ibm.com>, Christoph Hellwig <hch@lst.de>, Guo Ren <guoren@kernel.org>, Heiko Carstens <hca@linux.ibm.com>, Helge Deller <deller@gmx.de>, Jeff Dike <jdike@addtoit.com>, Linus Walleij <linus.walleij@linaro.org>, Max Filippov <jcmvbkbc@gmail.com>, Michal Simek <monstr@monstr.eu>, Richard Weinberger <richard@nod.at>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Vasily Gorbik <gor@linux.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-s390@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, uclinux-h8-devel@lists.sourceforge.jp
 
-On Mon, 5 Jul 2021 10:34:58 +0200
-Ingo Molnar <mingo@kernel.org> wrote:
+From: Arnd Bergmann <arnd@arndb.de>
 
-> 
-> * Masami Hiramatsu <mhiramat@kernel.org> wrote:
-> 
-> > In x86, kretprobe trampoline address on the stack frame will
-> > be replaced with the real return address after returning from
-> > trampoline_handler. Before fixing the return address, the real
-> > return address can be found in the current->kretprobe_instances.
-> > 
-> > However, since there is a window between updating the
-> > current->kretprobe_instances and fixing the address on the stack,
-> > if an interrupt caused at that timing and the interrupt handler
-> > does stacktrace, it may fail to unwind because it can not get
-> > the correct return address from current->kretprobe_instances.
-> > 
-> > This will minimize that window by fixing the return address
-> > right before updating current->kretprobe_instances.
-> 
-> Is there still a window? I.e. is it "minimized" (to how big of a window?), 
-> or eliminated?
+As these are now in asm-generic, it's no longer necessary to
+declare them in the architecture.
 
-Oh, this will eliminate the window, because the return address is
-fixed before updating the 'current->kretprobe_instance'.
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ arch/arc/include/asm/uaccess.h     | 5 -----
+ arch/hexagon/include/asm/uaccess.h | 6 ------
+ arch/um/include/asm/uaccess.h      | 5 +----
+ 3 files changed, 1 insertion(+), 15 deletions(-)
 
-
-> 
-> > +void arch_kretprobe_fixup_return(struct pt_regs *regs,
-> > +				 unsigned long correct_ret_addr)
-> > +{
-> > +	unsigned long *frame_pointer;
-> > +
-> > +	frame_pointer = ((unsigned long *)&regs->sp) + 1;
-> > +
-> > +	/* Replace fake return address with real one. */
-> > +	*frame_pointer = correct_ret_addr;
-> 
-> Firstly, why does &regs->sp have to be forced to 'unsigned long *'? 
-> 
-> pt_regs::sp is 'unsigned long' on both 32-bit and 64-bit kernels AFAICS.
-
-Ah, right.
-
-> 
-> Secondly, the new code modified by your patch now looks like this:
-> 
->         frame_pointer = ((unsigned long *)&regs->sp) + 1;
->  
-> +       kretprobe_trampoline_handler(regs, frame_pointer);
-> 
-> where:
-> 
-> +void arch_kretprobe_fixup_return(struct pt_regs *regs,
-> +                                unsigned long correct_ret_addr)
-> +{
-> +       unsigned long *frame_pointer;
-> +
-> +       frame_pointer = ((unsigned long *)&regs->sp) + 1;
-> +
-> +       /* Replace fake return address with real one. */
-> +       *frame_pointer = correct_ret_addr;
-> +}
-> 
-> So we first do:
-> 
->         frame_pointer = ((unsigned long *)&regs->sp) + 1;
-> 
-> ... and pass that in to arch_kretprobe_fixup_return() as 
-> 'correct_ret_addr', which does:
-
-No, 'correct_ret_addr' is found from 'current->kretprobe_instances'
-
-        /* Find correct address and all nodes for this frame. */
-        correct_ret_addr = (void *)__kretprobe_find_ret_addr(current, &node);
-
-> 
-> +       frame_pointer = ((unsigned long *)&regs->sp) + 1;
-> +	*frame_pointer = correct_ret_addr;
-> 
-> ... which looks like the exact same thing as:
-> 
-> 	*frame_pointer = frame_pointer;
-> 
-> ... obfuscated through a thick layer of type casts?
-
-Thus it will be the same thing as
-
-	*frame_pointer = __kretprobe_find_ret_addr(current, &node);
-
-Actually, this is a bit confusing because same 'frame_pointer' is
-calcurated twice from 'regs->sp'. This is because the return address
-is stored at 'frame_pointer' or not depends on the architecture.
-
-
-Thank you,
-
-> 
-> Thanks,
-> 
-> 	Ingo
-
-
+diff --git a/arch/arc/include/asm/uaccess.h b/arch/arc/include/asm/uaccess.h
+index 754a23f26736..783bfdb3bfa3 100644
+--- a/arch/arc/include/asm/uaccess.h
++++ b/arch/arc/include/asm/uaccess.h
+@@ -667,11 +667,6 @@ extern unsigned long arc_clear_user_noinline(void __user *to,
+ #define __clear_user(d, n)		arc_clear_user_noinline(d, n)
+ #endif
+ 
+-extern long strncpy_from_user(char *dst, const char __user *src, long count);
+-#define strncpy_from_user(d, s, n)	strncpy_from_user(d, s, n)
+-extern long strnlen_user(const char __user *src, long n);
+-#define strnlen_user(s, n)		strnlen_user(s, n)
+-
+ #include <asm/segment.h>
+ #include <asm-generic/uaccess.h>
+ 
+diff --git a/arch/hexagon/include/asm/uaccess.h b/arch/hexagon/include/asm/uaccess.h
+index d950df12d8c5..ef5bfef8d490 100644
+--- a/arch/hexagon/include/asm/uaccess.h
++++ b/arch/hexagon/include/asm/uaccess.h
+@@ -57,12 +57,6 @@ unsigned long raw_copy_to_user(void __user *to, const void *from,
+ __kernel_size_t __clear_user_hexagon(void __user *dest, unsigned long count);
+ #define __clear_user(a, s) __clear_user_hexagon((a), (s))
+ 
+-extern long strnlen_user(const char __user *src, long n);
+-#define strnlen_user strnlen_user
+-
+-extern long strncpy_from_user(char *dst, const char __user *src, long n)
+-#define strncpy_from_user strncpy_from_user
+-
+ #include <asm-generic/uaccess.h>
+ 
+ 
+diff --git a/arch/um/include/asm/uaccess.h b/arch/um/include/asm/uaccess.h
+index 3bf209f683f8..191ef36dd543 100644
+--- a/arch/um/include/asm/uaccess.h
++++ b/arch/um/include/asm/uaccess.h
+@@ -23,16 +23,13 @@
+ 
+ extern unsigned long raw_copy_from_user(void *to, const void __user *from, unsigned long n);
+ extern unsigned long raw_copy_to_user(void __user *to, const void *from, unsigned long n);
+-extern long strncpy_from_user(char *dst, const char __user *src, long count);
+-extern long strnlen_user(const void __user *str, long len);
+ extern unsigned long __clear_user(void __user *mem, unsigned long len);
+ static inline int __access_ok(unsigned long addr, unsigned long size);
+ 
+ /* Teach asm-generic/uaccess.h that we have C functions for these. */
+ #define __access_ok __access_ok
+ #define __clear_user __clear_user
+-#define strnlen_user strnlen_user
+-#define strncpy_from_user strncpy_from_user
++
+ #define INLINE_COPY_FROM_USER
+ #define INLINE_COPY_TO_USER
+ 
 -- 
-Masami Hiramatsu <mhiramat@kernel.org>
+2.29.2
