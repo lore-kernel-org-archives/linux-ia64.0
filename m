@@ -1,26 +1,248 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 16 Jul 2021 06:29:28 +0000
-Subject: Re: [PATCH v1 01/16] dma-mapping: Allow map_sg() ops to return negative error codes
-Message-Id: <20210716062928.GA13345@lst.de>
+From: Arnd Bergmann <arnd@kernel.org>
+Date: Thu, 22 Jul 2021 12:48:08 +0000
+Subject: [PATCH v3 3/9] hexagon: use generic strncpy/strnlen from_user
+Message-Id: <20210722124814.778059-4-arnd@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210715164544.6827-1-logang@deltatee.com> <20210715164544.6827-2-logang@deltatee.com>
-In-Reply-To: <20210715164544.6827-2-logang@deltatee.com>
+References: <20210722124814.778059-1-arnd@kernel.org>
+In-Reply-To: <20210722124814.778059-1-arnd@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Logan Gunthorpe <logang@deltatee.com>
-Cc: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org, Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>
+To: linux-arch@vger.kernel.org
+Cc: Arnd Bergmann <arnd@arndb.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Al Viro <viro@zeniv.linux.org.uk>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Brian Cain <bcain@codeaurora.org>, Chris Zankel <chris@zankel.net>, Christian Borntraeger <borntraeger@de.ibm.com>, Christoph Hellwig <hch@lst.de>, Guo Ren <guoren@kernel.org>, Heiko Carstens <hca@linux.ibm.com>, Helge Deller <deller@gmx.de>, Jeff Dike <jdike@addtoit.com>, Linus Walleij <linus.walleij@linaro.org>, Max Filippov <jcmvbkbc@gmail.com>, Michal Simek <monstr@monstr.eu>, Richard Weinberger <richard@nod.at>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Vasily Gorbik <gor@linux.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-s390@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, uclinux-h8-devel@lists.sourceforge.jp
 
-On Thu, Jul 15, 2021 at 10:45:29AM -0600, Logan Gunthorpe wrote:
-> +	 * dma_map_sgtable() will return the error code returned and convert
-> +	 * a zero return (for legacy implementations) into -EINVAL.
-> +	 *
-> +	 * dma_map_sg() will always return zero on any negative or zero
-> +	 * return to satisfy its own calling convention.
->  	 */
+From: Arnd Bergmann <arnd@arndb.de>
 
-I don't think this belongs here.
+Remove the hexagon implementation of strncpy/strnlen and instead use
+the generic version.  The hexagon version reads the data twice for
+strncpy() by doing an extra strnlen(), and it apparently lacks a check
+for user_addr_max().
 
-> +EXPORT_SYMBOL(dma_map_sgtable);
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ arch/hexagon/Kconfig                |   2 +
+ arch/hexagon/include/asm/uaccess.h  |  33 +-------
+ arch/hexagon/kernel/hexagon_ksyms.c |   1 -
+ arch/hexagon/mm/Makefile            |   2 +-
+ arch/hexagon/mm/strnlen_user.S      | 126 ----------------------------
+ 5 files changed, 5 insertions(+), 159 deletions(-)
+ delete mode 100644 arch/hexagon/mm/strnlen_user.S
 
-EXPORT_SYMBOL_GPL, please.
+diff --git a/arch/hexagon/Kconfig b/arch/hexagon/Kconfig
+index e5a852080730..3bf4845fed4b 100644
+--- a/arch/hexagon/Kconfig
++++ b/arch/hexagon/Kconfig
+@@ -19,6 +19,8 @@ config HEXAGON
+ 	# GENERIC_ALLOCATOR is used by dma_alloc_coherent()
+ 	select GENERIC_ALLOCATOR
+ 	select GENERIC_IRQ_SHOW
++	select GENERIC_STRNCPY_FROM_USER
++	select GENERIC_STRNLEN_USER
+ 	select HAVE_ARCH_KGDB
+ 	select HAVE_ARCH_TRACEHOOK
+ 	select NEED_SG_DMA_LENGTH
+diff --git a/arch/hexagon/include/asm/uaccess.h b/arch/hexagon/include/asm/uaccess.h
+index 59aa3a50744f..d950df12d8c5 100644
+--- a/arch/hexagon/include/asm/uaccess.h
++++ b/arch/hexagon/include/asm/uaccess.h
+@@ -57,42 +57,13 @@ unsigned long raw_copy_to_user(void __user *to, const void *from,
+ __kernel_size_t __clear_user_hexagon(void __user *dest, unsigned long count);
+ #define __clear_user(a, s) __clear_user_hexagon((a), (s))
+ 
+-extern long __strnlen_user(const char __user *src, long n);
+-
+-static inline strnlen_user(const char __user *src, long n)
+-{
+-        if (!access_ok(src, 1))
+-		return 0;
+-
+-	return __strnlen_user(src, n);
+-}
+-/*  get around the ifndef in asm-generic/uaccess.h  */
++extern long strnlen_user(const char __user *src, long n);
+ #define strnlen_user strnlen_user
+ 
+-static inline long strncpy_from_user(char *dst, const char __user *src, long n);
++extern long strncpy_from_user(char *dst, const char __user *src, long n)
+ #define strncpy_from_user strncpy_from_user
+ 
+ #include <asm-generic/uaccess.h>
+ 
+-/*  Todo:  an actual accelerated version of this.  */
+-static inline long strncpy_from_user(char *dst, const char __user *src, long n)
+-{
+-	long res = strnlen_user(src, n);
+-
+-	if (unlikely(!res))
+-		return -EFAULT;
+-
+-	if (res > n) {
+-		long left = raw_copy_from_user(dst, src, n);
+-		if (unlikely(left))
+-			memset(dst + (n - left), 0, left);
+-		return n;
+-	} else {
+-		long left = raw_copy_from_user(dst, src, res);
+-		if (unlikely(left))
+-			memset(dst + (res - left), 0, left);
+-		return res-1;
+-	}
+-}
+ 
+ #endif
+diff --git a/arch/hexagon/kernel/hexagon_ksyms.c b/arch/hexagon/kernel/hexagon_ksyms.c
+index 35545a7386a0..ec56ce2d92a2 100644
+--- a/arch/hexagon/kernel/hexagon_ksyms.c
++++ b/arch/hexagon/kernel/hexagon_ksyms.c
+@@ -15,7 +15,6 @@ EXPORT_SYMBOL(__clear_user_hexagon);
+ EXPORT_SYMBOL(raw_copy_from_user);
+ EXPORT_SYMBOL(raw_copy_to_user);
+ EXPORT_SYMBOL(iounmap);
+-EXPORT_SYMBOL(__strnlen_user);
+ EXPORT_SYMBOL(__vmgetie);
+ EXPORT_SYMBOL(__vmsetie);
+ EXPORT_SYMBOL(__vmyield);
+diff --git a/arch/hexagon/mm/Makefile b/arch/hexagon/mm/Makefile
+index 893838499591..49911a906fd0 100644
+--- a/arch/hexagon/mm/Makefile
++++ b/arch/hexagon/mm/Makefile
+@@ -4,4 +4,4 @@
+ #
+ 
+ obj-y := init.o ioremap.o uaccess.o vm_fault.o cache.o
+-obj-y += copy_to_user.o copy_from_user.o strnlen_user.o vm_tlb.o
++obj-y += copy_to_user.o copy_from_user.o vm_tlb.o
+diff --git a/arch/hexagon/mm/strnlen_user.S b/arch/hexagon/mm/strnlen_user.S
+deleted file mode 100644
+index 4b5574a7cc9c..000000000000
+--- a/arch/hexagon/mm/strnlen_user.S
++++ /dev/null
+@@ -1,126 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0-only */
+-/*
+- * User string length functions for kernel
+- *
+- * Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
+- */
+-
+-#define isrc	r0
+-#define max	r1	/*  Do not change!  */
+-
+-#define end	r2
+-#define tmp1	r3
+-
+-#define obo	r6	/*  off-by-one  */
+-#define start	r7
+-#define mod8	r8
+-#define dbuf    r15:14
+-#define dcmp	r13:12
+-
+-/*
+- * The vector mask version of this turned out *really* badly.
+- * The hardware loop version also turned out *really* badly.
+- * Seems straight pointer arithmetic basically wins here.
+- */
+-
+-#define fname __strnlen_user
+-
+-	.text
+-	.global fname
+-	.type fname, @function
+-	.p2align 5  /*  why?  */
+-fname:
+-	{
+-		mod8 = and(isrc,#7);
+-		end = add(isrc,max);
+-		start = isrc;
+-	}
+-	{
+-		P0 = cmp.eq(mod8,#0);
+-		mod8 = and(end,#7);
+-		dcmp = #0;
+-		if (P0.new) jump:t dw_loop;	/*  fire up the oven  */
+-	}
+-
+-alignment_loop:
+-fail_1:	{
+-		tmp1 = memb(start++#1);
+-	}
+-	{
+-		P0 = cmp.eq(tmp1,#0);
+-		if (P0.new) jump:nt exit_found;
+-		P1 = cmp.gtu(end,start);
+-		mod8 = and(start,#7);
+-	}
+-	{
+-		if (!P1) jump exit_error;  /*  hit the end  */
+-		P0 = cmp.eq(mod8,#0);
+-	}
+-	{
+-		if (!P0) jump alignment_loop;
+-	}
+-
+-
+-
+-dw_loop:
+-fail_2:	{
+-		dbuf = memd(start);
+-		obo = add(start,#1);
+-	}
+-	{
+-		P0 = vcmpb.eq(dbuf,dcmp);
+-	}
+-	{
+-		tmp1 = P0;
+-		P0 = cmp.gtu(end,start);
+-	}
+-	{
+-		tmp1 = ct0(tmp1);
+-		mod8 = and(end,#7);
+-		if (!P0) jump end_check;
+-	}
+-	{
+-		P0 = cmp.eq(tmp1,#32);
+-		if (!P0.new) jump:nt exit_found;
+-		if (!P0.new) start = add(obo,tmp1);
+-	}
+-	{
+-		start = add(start,#8);
+-		jump dw_loop;
+-	}	/*  might be nice to combine these jumps...   */
+-
+-
+-end_check:
+-	{
+-		P0 = cmp.gt(tmp1,mod8);
+-		if (P0.new) jump:nt exit_error;	/*  neverfound!  */
+-		start = add(obo,tmp1);
+-	}
+-
+-exit_found:
+-	{
+-		R0 = sub(start,isrc);
+-		jumpr R31;
+-	}
+-
+-exit_error:
+-	{
+-		R0 = add(max,#1);
+-		jumpr R31;
+-	}
+-
+-	/*  Uh, what does the "fixup" return here?  */
+-	.falign
+-fix_1:
+-	{
+-		R0 = #0;
+-		jumpr R31;
+-	}
+-
+-	.size fname,.-fname
+-
+-
+-.section __ex_table,"a"
+-.long fail_1,fix_1
+-.long fail_2,fix_1
+-.previous
+-- 
+2.29.2
