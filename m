@@ -1,178 +1,24 @@
-From: Arnd Bergmann <arnd@kernel.org>
-Date: Thu, 22 Jul 2021 12:48:10 +0000
-Subject: [PATCH v3 5/9] csky: use generic strncpy/strnlen from_user
-Message-Id: <20210722124814.778059-6-arnd@kernel.org>
+From: Christoph Hellwig <hch@lst.de>
+Date: Thu, 22 Jul 2021 13:01:17 +0000
+Subject: Re: [PATCH v3 5/9] csky: use generic strncpy/strnlen from_user
+Message-Id: <20210722130117.GE26225@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210722124814.778059-1-arnd@kernel.org>
-In-Reply-To: <20210722124814.778059-1-arnd@kernel.org>
+References: <20210722124814.778059-1-arnd@kernel.org> <20210722124814.778059-6-arnd@kernel.org>
+In-Reply-To: <20210722124814.778059-6-arnd@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arch@vger.kernel.org
-Cc: Arnd Bergmann <arnd@arndb.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Al Viro <viro@zeniv.linux.org.uk>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Brian Cain <bcain@codeaurora.org>, Chris Zankel <chris@zankel.net>, Christian Borntraeger <borntraeger@de.ibm.com>, Christoph Hellwig <hch@lst.de>, Guo Ren <guoren@kernel.org>, Heiko Carstens <hca@linux.ibm.com>, Helge Deller <deller@gmx.de>, Jeff Dike <jdike@addtoit.com>, Linus Walleij <linus.walleij@linaro.org>, Max Filippov <jcmvbkbc@gmail.com>, Michal Simek <monstr@monstr.eu>, Richard Weinberger <richard@nod.at>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Vasily Gorbik <gor@linux.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-s390@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, uclinux-h8-devel@lists.sourceforge.jp
+To: Arnd Bergmann <arnd@kernel.org>
+Cc: linux-arch@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Al Viro <viro@zeniv.linux.org.uk>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Brian Cain <bcain@codeaurora.org>, Chris Zankel <chris@zankel.net>, Christian Borntraeger <borntraeger@de.ibm.com>, Christoph Hellwig <hch@lst.de>, Guo Ren <guoren@kernel.org>, Heiko Carstens <hca@linux.ibm.com>, Helge Deller <deller@gmx.de>, Jeff Dike <jdike@addtoit.com>, Linus Walleij <linus.walleij@linaro.org>, Max Filippov <jcmvbkbc@gmail.com>, Michal Simek <monstr@monstr.eu>, Richard Weinberger <richard@nod.at>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Vasily Gorbik <gor@linux.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-s390@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, uclinux-h8-devel@lists.sourceforge.jp
 
-From: Arnd Bergmann <arnd@arndb.de>
+On Thu, Jul 22, 2021 at 02:48:10PM +0200, Arnd Bergmann wrote:
+> From: Arnd Bergmann <arnd@arndb.de>
+> 
+> Remove the csky implemenation of strncpy/strnlen and instead use the
+> generic versions.  The csky version is fairly slow because it always does
+> byte accesses even for aligned data, and it lacks a checks for
+> user_addr_max().
 
-Remove the csky implemenation of strncpy/strnlen and instead use the
-generic versions.  The csky version is fairly slow because it always does
-byte accesses even for aligned data, and it lacks a checks for
-user_addr_max().
+Looks good,
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- arch/csky/Kconfig               |   2 +
- arch/csky/include/asm/uaccess.h |   6 --
- arch/csky/lib/usercopy.c        | 108 --------------------------------
- 3 files changed, 2 insertions(+), 114 deletions(-)
-
-diff --git a/arch/csky/Kconfig b/arch/csky/Kconfig
-index 2716f6395ba7..5043e221ced4 100644
---- a/arch/csky/Kconfig
-+++ b/arch/csky/Kconfig
-@@ -35,6 +35,8 @@ config CSKY
- 	select GENERIC_IRQ_MULTI_HANDLER
- 	select GENERIC_SCHED_CLOCK
- 	select GENERIC_SMP_IDLE_THREAD
-+	select GENERIC_STRNCPY_FROM_USER
-+	select GENERIC_STRNLEN_USER
- 	select GENERIC_TIME_VSYSCALL
- 	select GENERIC_VDSO_32
- 	select GENERIC_GETTIMEOFDAY
-diff --git a/arch/csky/include/asm/uaccess.h b/arch/csky/include/asm/uaccess.h
-index e17c02a6709f..c40f06ee8d3e 100644
---- a/arch/csky/include/asm/uaccess.h
-+++ b/arch/csky/include/asm/uaccess.h
-@@ -209,12 +209,6 @@ unsigned long raw_copy_to_user(void *to, const void *from, unsigned long n);
- unsigned long __clear_user(void __user *to, unsigned long n);
- #define __clear_user __clear_user
- 
--long strncpy_from_user(char *dst, const char *src, long count);
--#define strncpy_from_user strncpy_from_user
--
--long strnlen_user(const char *s, long n);
--#define strnlen_user strnlen_user
--
- #include <asm/segment.h>
- #include <asm-generic/uaccess.h>
- 
-diff --git a/arch/csky/lib/usercopy.c b/arch/csky/lib/usercopy.c
-index 938b750d2fb1..3c01c54421ca 100644
---- a/arch/csky/lib/usercopy.c
-+++ b/arch/csky/lib/usercopy.c
-@@ -142,114 +142,6 @@ unsigned long raw_copy_to_user(void *to, const void *from,
- }
- EXPORT_SYMBOL(raw_copy_to_user);
- 
--/*
-- * __strncpy_from_user: - Copy a NUL terminated string from userspace,
-- * with less checking.
-- * @dst:   Destination address, in kernel space.  This buffer must be at
-- *         least @count bytes long.
-- * @src:   Source address, in user space.
-- * @count: Maximum number of bytes to copy, including the trailing NUL.
-- *
-- * Copies a NUL-terminated string from userspace to kernel space.
-- * Caller must check the specified block with access_ok() before calling
-- * this function.
-- *
-- * On success, returns the length of the string (not including the trailing
-- * NUL).
-- *
-- * If access to userspace fails, returns -EFAULT (some data may have been
-- * copied).
-- *
-- * If @count is smaller than the length of the string, copies @count bytes
-- * and returns @count.
-- */
--long strncpy_from_user(char *dst, const char *src, long count)
--{
--	long res, faultres;
--	int tmp;
--
--	if (!access_ok(src, 1))
--		return -EFAULT;
--
--	__asm__ __volatile__(
--	"       cmpnei  %3, 0           \n"
--	"       bf      4f              \n"
--	"1:     cmpnei  %1, 0          	\n"
--	"       bf      5f              \n"
--	"2:     ldb     %4, (%3, 0)     \n"
--	"       stb     %4, (%2, 0)     \n"
--	"       cmpnei  %4, 0           \n"
--	"       bf      3f              \n"
--	"       addi    %3,  1          \n"
--	"       addi    %2,  1          \n"
--	"       subi    %1,  1          \n"
--	"       br      1b              \n"
--	"3:     subu	%0, %1          \n"
--	"       br      5f              \n"
--	"4:     mov     %0, %5          \n"
--	"       br      5f              \n"
--	".section __ex_table, \"a\"     \n"
--	".align   2                     \n"
--	".long    2b, 4b                \n"
--	".previous                      \n"
--	"5:                             \n"
--	: "=r"(res), "=r"(count), "=r"(dst),
--	  "=r"(src), "=r"(tmp), "=r"(faultres)
--	: "5"(-EFAULT), "0"(count), "1"(count),
--	  "2"(dst), "3"(src)
--	: "memory");
--
--	return res;
--}
--EXPORT_SYMBOL(strncpy_from_user);
--
--/*
-- * strnlen_user: - Get the size of a string in user space.
-- * @str: The string to measure.
-- * @n:   The maximum valid length
-- *
-- * Get the size of a NUL-terminated string in user space.
-- *
-- * Returns the size of the string INCLUDING the terminating NUL.
-- * On exception, returns 0.
-- * If the string is too long, returns a value greater than @n.
-- */
--long strnlen_user(const char *s, long n)
--{
--	unsigned long res, tmp;
--
--	if (!access_ok(src, 1))
--		return -EFAULT;
--
--	__asm__ __volatile__(
--	"       cmpnei  %1, 0           \n"
--	"       bf      3f              \n"
--	"1:     cmpnei  %0, 0           \n"
--	"       bf      3f              \n"
--	"2:     ldb     %3, (%1, 0)     \n"
--	"       cmpnei  %3, 0           \n"
--	"       bf      3f              \n"
--	"       subi    %0,  1          \n"
--	"       addi    %1,  1          \n"
--	"       br      1b              \n"
--	"3:     subu    %2, %0          \n"
--	"       addi    %2,  1          \n"
--	"       br      5f              \n"
--	"4:     movi    %0, 0           \n"
--	"       br      5f              \n"
--	".section __ex_table, \"a\"     \n"
--	".align   2                     \n"
--	".long    2b, 4b                \n"
--	".previous                      \n"
--	"5:                             \n"
--	: "=r"(n), "=r"(s), "=r"(res), "=r"(tmp)
--	: "0"(n), "1"(s), "2"(n)
--	: "memory");
--
--	return res;
--}
--EXPORT_SYMBOL(strnlen_user);
--
- /*
-  * __clear_user: - Zero a block of memory in user space, with less checking.
-  * @to:   Destination address, in user space.
--- 
-2.29.2
+Reviewed-by: Christoph Hellwig <hch@lst.de>
