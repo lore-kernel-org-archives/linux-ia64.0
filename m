@@ -1,103 +1,426 @@
-From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
-Date: Thu, 22 Jul 2021 15:34:31 +0000
-Subject: Re: [PATCH v3 4/9] arc: use generic strncpy/strnlen from_user
-Message-Id: <fe655b87-8fbc-101e-7b53-9f2a2887f7df@synopsys.com>
+From: Arnd Bergmann <arnd@kernel.org>
+Date: Thu, 22 Jul 2021 12:48:14 +0000
+Subject: [PATCH v3 9/9] asm-generic: reverse GENERIC_{STRNCPY_FROM,STRNLEN}_USER symbols
+Message-Id: <20210722124814.778059-10-arnd@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20210722124814.778059-1-arnd@kernel.org>
- <20210722124814.778059-5-arnd@kernel.org>
-In-Reply-To: <20210722124814.778059-5-arnd@kernel.org>
+In-Reply-To: <20210722124814.778059-1-arnd@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@kernel.org>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>
-Cc: Arnd Bergmann <arnd@arndb.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Al Viro <viro@zeniv.linux.org.uk>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Brian Cain <bcain@codeaurora.org>, Chris Zankel <chris@zankel.net>, Christian Borntraeger <borntraeger@de.ibm.com>, Christoph Hellwig <hch@lst.de>, Guo Ren <guoren@kernel.org>, Heiko Carstens <hca@linux.ibm.com>, Helge Deller <deller@gmx.de>, Jeff Dike <jdike@addtoit.com>, Linus Walleij <linus.walleij@linaro.org>, Max Filippov <jcmvbkbc@gmail.com>, Michal Simek <monstr@monstr.eu>, Richard Weinberger <richard@nod.at>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Vasily Gorbik <gor@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>, "linux-hexagon@vger.kernel.org" <linux-hexagon@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>, "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>, "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>, "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>, "uclinux-h8-devel@lists.sourceforge.jp" <uclinux-h8-devel@lists.sourceforge.jp>
+To: linux-arch@vger.kernel.org
+Cc: Arnd Bergmann <arnd@arndb.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Al Viro <viro@zeniv.linux.org.uk>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Brian Cain <bcain@codeaurora.org>, Chris Zankel <chris@zankel.net>, Christian Borntraeger <borntraeger@de.ibm.com>, Christoph Hellwig <hch@lst.de>, Guo Ren <guoren@kernel.org>, Heiko Carstens <hca@linux.ibm.com>, Helge Deller <deller@gmx.de>, Jeff Dike <jdike@addtoit.com>, Linus Walleij <linus.walleij@linaro.org>, Max Filippov <jcmvbkbc@gmail.com>, Michal Simek <monstr@monstr.eu>, Richard Weinberger <richard@nod.at>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Vasily Gorbik <gor@linux.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-s390@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, uclinux-h8-devel@lists.sourceforge.jp
 
-T24gNy8yMi8yMSA1OjQ4IEFNLCBBcm5kIEJlcmdtYW5uIHdyb3RlOg0KPiBGcm9tOiBBcm5kIEJl
-cmdtYW5uIDxhcm5kQGFybmRiLmRlPg0KPg0KPiBSZW1vdmUgdGhlIGFyYyBpbXBsZW1lbmF0aW9u
-IG9mIHN0cm5jcHkvc3RybmxlbiBhbmQgaW5zdGVhZCB1c2UgdGhlDQo+IGdlbmVyaWMgdmVyc2lv
-bnMuICBUaGUgYXJjIHZlcnNpb24gaXMgZmFpcmx5IHNsb3cgYmVjYXVzZSBpdCBhbHdheXMgZG9l
-cw0KPiBieXRlIGFjY2Vzc2VzIGV2ZW4gZm9yIGFsaWduZWQgZGF0YSwgYW5kIGl0cyBjaGVja3Mg
-Zm9yIHVzZXJfYWRkcl9tYXgoKQ0KPiBkaWZmZXIgZnJvbSB0aGUgZ2VuZXJpYyBjb2RlLg0KPg0K
-PiBTaWduZWQtb2ZmLWJ5OiBBcm5kIEJlcmdtYW5uIDxhcm5kQGFybmRiLmRlPg0KDQpMR1RNLiBU
-aHggZm9yIGRvaW5nIHRoaXMgQXJuZCAhDQoNCkFja2VkLWJ5OiBWaW5lZXQgR3VwdGEgPHZndXB0
-YUBzeW5vcHN5cy5jb20+DQoNCi1WaW5lZXQNCg0KPiAtLS0NCj4gICBhcmNoL2FyYy9LY29uZmln
-ICAgICAgICAgICAgICAgfCAgMiArDQo+ICAgYXJjaC9hcmMvaW5jbHVkZS9hc20vdWFjY2Vzcy5o
-IHwgODMgKystLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KPiAgIGFyY2gvYXJjL21t
-L2V4dGFibGUuYyAgICAgICAgICB8IDEyIC0tLS0tDQo+ICAgMyBmaWxlcyBjaGFuZ2VkLCA3IGlu
-c2VydGlvbnMoKyksIDkwIGRlbGV0aW9ucygtKQ0KPg0KPiBkaWZmIC0tZ2l0IGEvYXJjaC9hcmMv
-S2NvbmZpZyBiL2FyY2gvYXJjL0tjb25maWcNCj4gaW5kZXggZDhmNTFlYjg5NjNiLi42NGU1Zjkz
-NjY0MDEgMTAwNjQ0DQo+IC0tLSBhL2FyY2gvYXJjL0tjb25maWcNCj4gKysrIGIvYXJjaC9hcmMv
-S2NvbmZpZw0KPiBAQCAtMjcsNiArMjcsOCBAQCBjb25maWcgQVJDDQo+ICAgCXNlbGVjdCBHRU5F
-UklDX1BFTkRJTkdfSVJRIGlmIFNNUA0KPiAgIAlzZWxlY3QgR0VORVJJQ19TQ0hFRF9DTE9DSw0K
-PiAgIAlzZWxlY3QgR0VORVJJQ19TTVBfSURMRV9USFJFQUQNCj4gKwlzZWxlY3QgR0VORVJJQ19T
-VFJOQ1BZX0ZST01fVVNFUg0KPiArCXNlbGVjdCBHRU5FUklDX1NUUk5MRU5fVVNFUg0KPiAgIAlz
-ZWxlY3QgSEFWRV9BUkNIX0tHREINCj4gICAJc2VsZWN0IEhBVkVfQVJDSF9UUkFDRUhPT0sNCj4g
-ICAJc2VsZWN0IEhBVkVfQVJDSF9UUkFOU1BBUkVOVF9IVUdFUEFHRSBpZiBBUkNfTU1VX1Y0DQo+
-IGRpZmYgLS1naXQgYS9hcmNoL2FyYy9pbmNsdWRlL2FzbS91YWNjZXNzLmggYi9hcmNoL2FyYy9p
-bmNsdWRlL2FzbS91YWNjZXNzLmgNCj4gaW5kZXggMzQ3NjM0OGYzNjFlLi43NTRhMjNmMjY3MzYg
-MTAwNjQ0DQo+IC0tLSBhL2FyY2gvYXJjL2luY2x1ZGUvYXNtL3VhY2Nlc3MuaA0KPiArKysgYi9h
-cmNoL2FyYy9pbmNsdWRlL2FzbS91YWNjZXNzLmgNCj4gQEAgLTY1NSw5NiArNjU1LDIzIEBAIHN0
-YXRpYyBpbmxpbmUgdW5zaWduZWQgbG9uZyBfX2FyY19jbGVhcl91c2VyKHZvaWQgX191c2VyICp0
-bywgdW5zaWduZWQgbG9uZyBuKQ0KPiAgIAlyZXR1cm4gcmVzOw0KPiAgIH0NCj4gICANCj4gLXN0
-YXRpYyBpbmxpbmUgbG9uZw0KPiAtX19hcmNfc3RybmNweV9mcm9tX3VzZXIoY2hhciAqZHN0LCBj
-b25zdCBjaGFyIF9fdXNlciAqc3JjLCBsb25nIGNvdW50KQ0KPiAtew0KPiAtCWxvbmcgcmVzID0g
-MDsNCj4gLQljaGFyIHZhbDsNCj4gLQ0KPiAtCWlmICghYWNjZXNzX29rKHNyYywgMSkpDQo+IC0J
-CXJldHVybiAtRUZBVUxUOw0KPiAtDQo+IC0JaWYgKGNvdW50ID09IDApDQo+IC0JCXJldHVybiAw
-Ow0KPiAtDQo+IC0JX19hc21fXyBfX3ZvbGF0aWxlX18oDQo+IC0JIgltb3YJbHBfY291bnQsICU1
-CQlcbiINCj4gLQkiCWxwCTNmCQkJXG4iDQo+IC0JIjE6CWxkYi5hYiAgJTMsIFslMiwgMV0JCVxu
-Ig0KPiAtCSIJYnJlcS5kCSUzLCAwLCAzZiAgICAgICAgICAgICAgIFxuIg0KPiAtCSIJc3RiLmFi
-ICAlMywgWyUxLCAxXQkJXG4iDQo+IC0JIglhZGQJJTAsICUwLCAxCSMgTnVtIG9mIE5PTiBOVUxM
-IGJ5dGVzIGNvcGllZAlcbiINCj4gLQkiMzoJCQkJCQkJCVxuIg0KPiAtCSIJLnNlY3Rpb24gLmZp
-eHVwLCBcImF4XCIJCVxuIg0KPiAtCSIJLmFsaWduIDQJCQlcbiINCj4gLQkiNDoJbW92ICUwLCAl
-NAkJIyBzZXRzIEByZXMgYXMgLUVGQVVMVAlcbiINCj4gLQkiCWogICAzYgkJCQlcbiINCj4gLQki
-CS5wcmV2aW91cwkJCVxuIg0KPiAtCSIJLnNlY3Rpb24gX19leF90YWJsZSwgXCJhXCIJXG4iDQo+
-IC0JIgkuYWxpZ24gNAkJCVxuIg0KPiAtCSIJLndvcmQgICAxYiwgNGIJCQlcbiINCj4gLQkiCS5w
-cmV2aW91cwkJCVxuIg0KPiAtCTogIityIihyZXMpLCAiK3IiKGRzdCksICIrciIoc3JjKSwgIj1y
-Iih2YWwpDQo+IC0JOiAiZyIoLUVGQVVMVCksICJyIihjb3VudCkNCj4gLQk6ICJscF9jb3VudCIs
-ICJtZW1vcnkiKTsNCj4gLQ0KPiAtCXJldHVybiByZXM7DQo+IC19DQo+IC0NCj4gLXN0YXRpYyBp
-bmxpbmUgbG9uZyBfX2FyY19zdHJubGVuX3VzZXIoY29uc3QgY2hhciBfX3VzZXIgKnMsIGxvbmcg
-bikNCj4gLXsNCj4gLQlsb25nIHJlcywgdG1wMSwgY250Ow0KPiAtCWNoYXIgdmFsOw0KPiAtDQo+
-IC0JaWYgKCFhY2Nlc3Nfb2socywgMSkpDQo+IC0JCXJldHVybiAwOw0KPiAtDQo+IC0JX19hc21f
-XyBfX3ZvbGF0aWxlX18oDQo+IC0JIgltb3YgJTIsICUxCQkJXG4iDQo+IC0JIjE6CWxkYi5hYiAg
-JTMsIFslMCwgMV0JCVxuIg0KPiAtCSIJYnJlcS5kICAlMywgMCwgMmYJCVxuIg0KPiAtCSIJc3Vi
-LmYgICAlMiwgJTIsIDEJCVxuIg0KPiAtCSIJYm56IDFiCQkJCVxuIg0KPiAtCSIJc3ViICUyLCAl
-MiwgMQkJCVxuIg0KPiAtCSIyOglzdWIgJTAsICUxLCAlMgkJCVxuIg0KPiAtCSIzOgk7bm9wCQkJ
-CVxuIg0KPiAtCSIJLnNlY3Rpb24gLmZpeHVwLCBcImF4XCIJCVxuIg0KPiAtCSIJLmFsaWduIDQJ
-CQlcbiINCj4gLQkiNDoJbW92ICUwLCAwCQkJXG4iDQo+IC0JIglqICAgM2IJCQkJXG4iDQo+IC0J
-IgkucHJldmlvdXMJCQlcbiINCj4gLQkiCS5zZWN0aW9uIF9fZXhfdGFibGUsIFwiYVwiCVxuIg0K
-PiAtCSIJLmFsaWduIDQJCQlcbiINCj4gLQkiCS53b3JkIDFiLCA0YgkJCVxuIg0KPiAtCSIJLnBy
-ZXZpb3VzCQkJXG4iDQo+IC0JOiAiPXIiKHJlcyksICI9ciIodG1wMSksICI9ciIoY250KSwgIj1y
-Iih2YWwpDQo+IC0JOiAiMCIocyksICIxIihuKQ0KPiAtCTogIm1lbW9yeSIpOw0KPiAtDQo+IC0J
-cmV0dXJuIHJlczsNCj4gLX0NCj4gLQ0KPiAgICNpZm5kZWYgQ09ORklHX0NDX09QVElNSVpFX0ZP
-Ul9TSVpFDQo+ICAgDQo+ICAgI2RlZmluZSBJTkxJTkVfQ09QWV9UT19VU0VSDQo+ICAgI2RlZmlu
-ZSBJTkxJTkVfQ09QWV9GUk9NX1VTRVINCj4gICANCj4gICAjZGVmaW5lIF9fY2xlYXJfdXNlcihk
-LCBuKQkJX19hcmNfY2xlYXJfdXNlcihkLCBuKQ0KPiAtI2RlZmluZSBzdHJuY3B5X2Zyb21fdXNl
-cihkLCBzLCBuKQlfX2FyY19zdHJuY3B5X2Zyb21fdXNlcihkLCBzLCBuKQ0KPiAtI2RlZmluZSBz
-dHJubGVuX3VzZXIocywgbikJCV9fYXJjX3N0cm5sZW5fdXNlcihzLCBuKQ0KPiAgICNlbHNlDQo+
-ICAgZXh0ZXJuIHVuc2lnbmVkIGxvbmcgYXJjX2NsZWFyX3VzZXJfbm9pbmxpbmUodm9pZCBfX3Vz
-ZXIgKnRvLA0KPiAgIAkJdW5zaWduZWQgbG9uZyBuKTsNCj4gLWV4dGVybiBsb25nIGFyY19zdHJu
-Y3B5X2Zyb21fdXNlcl9ub2lubGluZSAoY2hhciAqZHN0LCBjb25zdCBjaGFyIF9fdXNlciAqc3Jj
-LA0KPiAtCQlsb25nIGNvdW50KTsNCj4gLWV4dGVybiBsb25nIGFyY19zdHJubGVuX3VzZXJfbm9p
-bmxpbmUoY29uc3QgY2hhciBfX3VzZXIgKnNyYywgbG9uZyBuKTsNCj4gLQ0KPiAgICNkZWZpbmUg
-X19jbGVhcl91c2VyKGQsIG4pCQlhcmNfY2xlYXJfdXNlcl9ub2lubGluZShkLCBuKQ0KPiAtI2Rl
-ZmluZSBzdHJuY3B5X2Zyb21fdXNlcihkLCBzLCBuKQlhcmNfc3RybmNweV9mcm9tX3VzZXJfbm9p
-bmxpbmUoZCwgcywgbikNCj4gLSNkZWZpbmUgc3Rybmxlbl91c2VyKHMsIG4pCQlhcmNfc3Rybmxl
-bl91c2VyX25vaW5saW5lKHMsIG4pDQo+IC0NCj4gICAjZW5kaWYNCj4gICANCj4gK2V4dGVybiBs
-b25nIHN0cm5jcHlfZnJvbV91c2VyKGNoYXIgKmRzdCwgY29uc3QgY2hhciBfX3VzZXIgKnNyYywg
-bG9uZyBjb3VudCk7DQo+ICsjZGVmaW5lIHN0cm5jcHlfZnJvbV91c2VyKGQsIHMsIG4pCXN0cm5j
-cHlfZnJvbV91c2VyKGQsIHMsIG4pDQo+ICtleHRlcm4gbG9uZyBzdHJubGVuX3VzZXIoY29uc3Qg
-Y2hhciBfX3VzZXIgKnNyYywgbG9uZyBuKTsNCj4gKyNkZWZpbmUgc3Rybmxlbl91c2VyKHMsIG4p
-CQlzdHJubGVuX3VzZXIocywgbikNCj4gKw0KPiAgICNpbmNsdWRlIDxhc20vc2VnbWVudC5oPg0K
-PiAgICNpbmNsdWRlIDxhc20tZ2VuZXJpYy91YWNjZXNzLmg+DQo+ICAgDQo+IGRpZmYgLS1naXQg
-YS9hcmNoL2FyYy9tbS9leHRhYmxlLmMgYi9hcmNoL2FyYy9tbS9leHRhYmxlLmMNCj4gaW5kZXgg
-YjA2YjA5ZGRmOTI0Li40ZTE0YzQyNDRlYTIgMTAwNjQ0DQo+IC0tLSBhL2FyY2gvYXJjL21tL2V4
-dGFibGUuYw0KPiArKysgYi9hcmNoL2FyYy9tbS9leHRhYmxlLmMNCj4gQEAgLTMyLDE2ICszMiw0
-IEBAIHVuc2lnbmVkIGxvbmcgYXJjX2NsZWFyX3VzZXJfbm9pbmxpbmUodm9pZCBfX3VzZXIgKnRv
-LA0KPiAgIH0NCj4gICBFWFBPUlRfU1lNQk9MKGFyY19jbGVhcl91c2VyX25vaW5saW5lKTsNCj4g
-ICANCj4gLWxvbmcgYXJjX3N0cm5jcHlfZnJvbV91c2VyX25vaW5saW5lKGNoYXIgKmRzdCwgY29u
-c3QgY2hhciBfX3VzZXIgKnNyYywNCj4gLQkJbG9uZyBjb3VudCkNCj4gLXsNCj4gLQlyZXR1cm4g
-X19hcmNfc3RybmNweV9mcm9tX3VzZXIoZHN0LCBzcmMsIGNvdW50KTsNCj4gLX0NCj4gLUVYUE9S
-VF9TWU1CT0woYXJjX3N0cm5jcHlfZnJvbV91c2VyX25vaW5saW5lKTsNCj4gLQ0KPiAtbG9uZyBh
-cmNfc3Rybmxlbl91c2VyX25vaW5saW5lKGNvbnN0IGNoYXIgX191c2VyICpzcmMsIGxvbmcgbikN
-Cj4gLXsNCj4gLQlyZXR1cm4gX19hcmNfc3Rybmxlbl91c2VyKHNyYywgbik7DQo+IC19DQo+IC1F
-WFBPUlRfU1lNQk9MKGFyY19zdHJubGVuX3VzZXJfbm9pbmxpbmUpOw0KPiAgICNlbmRpZg0KDQo
+From: Arnd Bergmann <arnd@arndb.de>
+
+Most architectures do not need a custom implementation, and in most
+cases the generic implementation is preferred, so change the polariy
+on these Kconfig symbols to require architectures to select them when
+they provide their own version.
+
+The new name is CONFIG_ARCH_HAS_{STRNCPY_FROM,STRNLEN}_USER.
+
+The remaining architectures at the moment are: ia64, mips, parisc,
+s390, um and xtensa. We should probably convert these as well, but
+I was not sure how far to take this series.
+
+Cc: "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>
+Cc: Anton Ivanov <anton.ivanov@cambridgegreys.com>
+Cc: Christian Borntraeger <borntraeger@de.ibm.com>
+Cc: Heiko Carstens <hca@linux.ibm.com>
+Cc: Helge Deller <deller@gmx.de>
+Cc: Jeff Dike <jdike@addtoit.com>
+Cc: Max Filippov <jcmvbkbc@gmail.com>
+Cc: Richard Weinberger <richard@nod.at>
+Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+Cc: Vasily Gorbik <gor@linux.ibm.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-mips@vger.kernel.org
+Cc: linux-parisc@vger.kernel.org
+Cc: linux-s390@vger.kernel.org
+Cc: linux-um@lists.infradead.org
+Cc: linux-xtensa@linux-xtensa.org
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ arch/alpha/Kconfig                |  2 --
+ arch/arc/Kconfig                  |  2 --
+ arch/arm/Kconfig                  |  2 --
+ arch/arm64/Kconfig                |  2 --
+ arch/csky/Kconfig                 |  2 --
+ arch/h8300/Kconfig                |  2 --
+ arch/hexagon/Kconfig              |  2 --
+ arch/ia64/Kconfig                 |  2 ++
+ arch/m68k/Kconfig                 |  2 --
+ arch/microblaze/Kconfig           |  2 --
+ arch/mips/Kconfig                 |  2 ++
+ arch/nds32/Kconfig                |  2 --
+ arch/nios2/Kconfig                |  2 --
+ arch/openrisc/Kconfig             |  2 --
+ arch/parisc/Kconfig               |  2 +-
+ arch/powerpc/Kconfig              |  2 --
+ arch/riscv/Kconfig                |  2 --
+ arch/s390/Kconfig                 |  2 ++
+ arch/sh/Kconfig                   |  2 --
+ arch/sparc/Kconfig                |  2 --
+ arch/um/Kconfig                   |  2 ++
+ arch/x86/Kconfig                  |  2 --
+ arch/xtensa/Kconfig               |  3 ++-
+ arch/xtensa/include/asm/uaccess.h |  3 +--
+ lib/Kconfig                       | 10 ++++++++--
+ 25 files changed, 20 insertions(+), 40 deletions(-)
+
+diff --git a/arch/alpha/Kconfig b/arch/alpha/Kconfig
+index 77d3280dc678..62935da8e69e 100644
+--- a/arch/alpha/Kconfig
++++ b/arch/alpha/Kconfig
+@@ -29,8 +29,6 @@ config ALPHA
+ 	select AUDIT_ARCH
+ 	select GENERIC_CPU_VULNERABILITIES
+ 	select GENERIC_SMP_IDLE_THREAD
+-	select GENERIC_STRNCPY_FROM_USER
+-	select GENERIC_STRNLEN_USER
+ 	select HAVE_ARCH_AUDITSYSCALL
+ 	select HAVE_MOD_ARCH_SPECIFIC
+ 	select MODULES_USE_ELF_RELA
+diff --git a/arch/arc/Kconfig b/arch/arc/Kconfig
+index 64e5f9366401..d8f51eb8963b 100644
+--- a/arch/arc/Kconfig
++++ b/arch/arc/Kconfig
+@@ -27,8 +27,6 @@ config ARC
+ 	select GENERIC_PENDING_IRQ if SMP
+ 	select GENERIC_SCHED_CLOCK
+ 	select GENERIC_SMP_IDLE_THREAD
+-	select GENERIC_STRNCPY_FROM_USER
+-	select GENERIC_STRNLEN_USER
+ 	select HAVE_ARCH_KGDB
+ 	select HAVE_ARCH_TRACEHOOK
+ 	select HAVE_ARCH_TRANSPARENT_HUGEPAGE if ARC_MMU_V4
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index 82f908fa5676..e8ebbb9ededf 100644
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -63,8 +63,6 @@ config ARM
+ 	select GENERIC_PCI_IOMAP
+ 	select GENERIC_SCHED_CLOCK
+ 	select GENERIC_SMP_IDLE_THREAD
+-	select GENERIC_STRNCPY_FROM_USER
+-	select GENERIC_STRNLEN_USER
+ 	select HANDLE_DOMAIN_IRQ
+ 	select HARDIRQS_SW_RESEND
+ 	select HAVE_ARCH_AUDITSYSCALL if AEABI && !OABI_COMPAT
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index b5b13a932561..e0c6c14a21d0 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -130,8 +130,6 @@ config ARM64
+ 	select GENERIC_PTDUMP
+ 	select GENERIC_SCHED_CLOCK
+ 	select GENERIC_SMP_IDLE_THREAD
+-	select GENERIC_STRNCPY_FROM_USER
+-	select GENERIC_STRNLEN_USER
+ 	select GENERIC_TIME_VSYSCALL
+ 	select GENERIC_GETTIMEOFDAY
+ 	select GENERIC_VDSO_TIME_NS
+diff --git a/arch/csky/Kconfig b/arch/csky/Kconfig
+index 5043e221ced4..2716f6395ba7 100644
+--- a/arch/csky/Kconfig
++++ b/arch/csky/Kconfig
+@@ -35,8 +35,6 @@ config CSKY
+ 	select GENERIC_IRQ_MULTI_HANDLER
+ 	select GENERIC_SCHED_CLOCK
+ 	select GENERIC_SMP_IDLE_THREAD
+-	select GENERIC_STRNCPY_FROM_USER
+-	select GENERIC_STRNLEN_USER
+ 	select GENERIC_TIME_VSYSCALL
+ 	select GENERIC_VDSO_32
+ 	select GENERIC_GETTIMEOFDAY
+diff --git a/arch/h8300/Kconfig b/arch/h8300/Kconfig
+index 53dfd2d47e0e..3e3e0f16f7e0 100644
+--- a/arch/h8300/Kconfig
++++ b/arch/h8300/Kconfig
+@@ -11,8 +11,6 @@ config H8300
+ 	select GENERIC_IRQ_SHOW
+ 	select FRAME_POINTER
+ 	select GENERIC_CPU_DEVICES
+-	select GENERIC_STRNCPY_FROM_USER
+-	select GENERIC_STRNLEN_USER
+ 	select MODULES_USE_ELF_RELA
+ 	select COMMON_CLK
+ 	select ARCH_WANT_FRAME_POINTERS
+diff --git a/arch/hexagon/Kconfig b/arch/hexagon/Kconfig
+index 3bf4845fed4b..e5a852080730 100644
+--- a/arch/hexagon/Kconfig
++++ b/arch/hexagon/Kconfig
+@@ -19,8 +19,6 @@ config HEXAGON
+ 	# GENERIC_ALLOCATOR is used by dma_alloc_coherent()
+ 	select GENERIC_ALLOCATOR
+ 	select GENERIC_IRQ_SHOW
+-	select GENERIC_STRNCPY_FROM_USER
+-	select GENERIC_STRNLEN_USER
+ 	select HAVE_ARCH_KGDB
+ 	select HAVE_ARCH_TRACEHOOK
+ 	select NEED_SG_DMA_LENGTH
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index cf425c2c63af..7aa5b94464c6 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -9,6 +9,8 @@ menu "Processor type and features"
+ config IA64
+ 	bool
+ 	select ARCH_HAS_DMA_MARK_CLEAN
++	select ARCH_HAS_STRNCPY_FROM_USER
++	select ARCH_HAS_STRNLEN_USER
+ 	select ARCH_MIGHT_HAVE_PC_PARPORT
+ 	select ARCH_MIGHT_HAVE_PC_SERIO
+ 	select ACPI
+diff --git a/arch/m68k/Kconfig b/arch/m68k/Kconfig
+index 37a65bed6dfa..7970d316dc9b 100644
+--- a/arch/m68k/Kconfig
++++ b/arch/m68k/Kconfig
+@@ -16,8 +16,6 @@ config M68K
+ 	select GENERIC_CPU_DEVICES
+ 	select GENERIC_IOMAP
+ 	select GENERIC_IRQ_SHOW
+-	select GENERIC_STRNCPY_FROM_USER
+-	select GENERIC_STRNLEN_USER
+ 	select HAVE_AOUT if MMU
+ 	select HAVE_ASM_MODVERSIONS
+ 	select HAVE_DEBUG_BUGVERBOSE
+diff --git a/arch/microblaze/Kconfig b/arch/microblaze/Kconfig
+index 10dfa7b4feff..14a67a42fcae 100644
+--- a/arch/microblaze/Kconfig
++++ b/arch/microblaze/Kconfig
+@@ -21,8 +21,6 @@ config MICROBLAZE
+ 	select GENERIC_IRQ_SHOW
+ 	select GENERIC_PCI_IOMAP
+ 	select GENERIC_SCHED_CLOCK
+-	select GENERIC_STRNCPY_FROM_USER
+-	select GENERIC_STRNLEN_USER
+ 	select HAVE_ARCH_HASH
+ 	select HAVE_ARCH_KGDB
+ 	select HAVE_ARCH_SECCOMP
+diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
+index cee6087cd686..22aa4d75fa34 100644
+--- a/arch/mips/Kconfig
++++ b/arch/mips/Kconfig
+@@ -12,6 +12,8 @@ config MIPS
+ 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
+ 	select ARCH_HAS_UBSAN_SANITIZE_ALL
+ 	select ARCH_HAS_GCOV_PROFILE_ALL
++	select ARCH_HAS_STRNCPY_FROM_USER
++	select ARCH_HAS_STRNLEN_USER
+ 	select ARCH_KEEP_MEMBLOCK
+ 	select ARCH_SUPPORTS_UPROBES
+ 	select ARCH_USE_BUILTIN_BSWAP
+diff --git a/arch/nds32/Kconfig b/arch/nds32/Kconfig
+index 62313902d75d..9c9f3877abf9 100644
+--- a/arch/nds32/Kconfig
++++ b/arch/nds32/Kconfig
+@@ -26,8 +26,6 @@ config NDS32
+ 	select GENERIC_LIB_LSHRDI3
+ 	select GENERIC_LIB_MULDI3
+ 	select GENERIC_LIB_UCMPDI2
+-	select GENERIC_STRNCPY_FROM_USER
+-	select GENERIC_STRNLEN_USER
+ 	select GENERIC_TIME_VSYSCALL
+ 	select HANDLE_DOMAIN_IRQ
+ 	select HAVE_ARCH_TRACEHOOK
+diff --git a/arch/nios2/Kconfig b/arch/nios2/Kconfig
+index c24955c81c92..3efe5533ea1c 100644
+--- a/arch/nios2/Kconfig
++++ b/arch/nios2/Kconfig
+@@ -13,8 +13,6 @@ config NIOS2
+ 	select GENERIC_CPU_DEVICES
+ 	select GENERIC_IRQ_PROBE
+ 	select GENERIC_IRQ_SHOW
+-	select GENERIC_STRNCPY_FROM_USER
+-	select GENERIC_STRNLEN_USER
+ 	select HAVE_ARCH_TRACEHOOK
+ 	select HAVE_ARCH_KGDB
+ 	select IRQ_DOMAIN
+diff --git a/arch/openrisc/Kconfig b/arch/openrisc/Kconfig
+index 591acc5990dc..50035a9816c8 100644
+--- a/arch/openrisc/Kconfig
++++ b/arch/openrisc/Kconfig
+@@ -25,8 +25,6 @@ config OPENRISC
+ 	select HAVE_UID16
+ 	select GENERIC_ATOMIC64
+ 	select GENERIC_CLOCKEVENTS_BROADCAST
+-	select GENERIC_STRNCPY_FROM_USER
+-	select GENERIC_STRNLEN_USER
+ 	select GENERIC_SMP_IDLE_THREAD
+ 	select MODULES_USE_ELF_RELA
+ 	select HAVE_DEBUG_STACKOVERFLOW
+diff --git a/arch/parisc/Kconfig b/arch/parisc/Kconfig
+index bde9907bc5b2..727c823f866e 100644
+--- a/arch/parisc/Kconfig
++++ b/arch/parisc/Kconfig
+@@ -11,6 +11,7 @@ config PARISC
+ 	select ARCH_HAS_ELF_RANDOMIZE
+ 	select ARCH_HAS_STRICT_KERNEL_RWX
+ 	select ARCH_HAS_UBSAN_SANITIZE_ALL
++	select ARCH_HAS_STRNLEN_USER
+ 	select ARCH_NO_SG_CHAIN
+ 	select ARCH_SUPPORTS_HUGETLBFS if PA20
+ 	select ARCH_SUPPORTS_MEMORY_FAILURE
+@@ -34,7 +35,6 @@ config PARISC
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+ 	select GENERIC_SMP_IDLE_THREAD
+ 	select GENERIC_CPU_DEVICES
+-	select GENERIC_STRNCPY_FROM_USER
+ 	select GENERIC_LIB_DEVMEM_IS_ALLOWED
+ 	select SYSCTL_ARCH_UNALIGN_ALLOW
+ 	select SYSCTL_EXCEPTION_TRACE
+diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
+index d01e3401581d..d2df3d2db3eb 100644
+--- a/arch/powerpc/Kconfig
++++ b/arch/powerpc/Kconfig
+@@ -183,8 +183,6 @@ config PPC
+ 	select GENERIC_IRQ_SHOW_LEVEL
+ 	select GENERIC_PCI_IOMAP		if PCI
+ 	select GENERIC_SMP_IDLE_THREAD
+-	select GENERIC_STRNCPY_FROM_USER
+-	select GENERIC_STRNLEN_USER
+ 	select GENERIC_TIME_VSYSCALL
+ 	select GENERIC_VDSO_TIME_NS
+ 	select HAVE_ARCH_AUDITSYSCALL
+diff --git a/arch/riscv/Kconfig b/arch/riscv/Kconfig
+index 47bbbcab91b2..49d642df6ab9 100644
+--- a/arch/riscv/Kconfig
++++ b/arch/riscv/Kconfig
+@@ -56,8 +56,6 @@ config RISCV
+ 	select GENERIC_PTDUMP if MMU
+ 	select GENERIC_SCHED_CLOCK
+ 	select GENERIC_SMP_IDLE_THREAD
+-	select GENERIC_STRNCPY_FROM_USER
+-	select GENERIC_STRNLEN_USER
+ 	select GENERIC_TIME_VSYSCALL if MMU && 64BIT
+ 	select HANDLE_DOMAIN_IRQ
+ 	select HAVE_ARCH_AUDITSYSCALL
+diff --git a/arch/s390/Kconfig b/arch/s390/Kconfig
+index a0e2130f0100..f4f39087cad0 100644
+--- a/arch/s390/Kconfig
++++ b/arch/s390/Kconfig
+@@ -75,6 +75,8 @@ config S390
+ 	select ARCH_HAS_SET_MEMORY
+ 	select ARCH_HAS_STRICT_KERNEL_RWX
+ 	select ARCH_HAS_STRICT_MODULE_RWX
++	select ARCH_HAS_STRNCPY_FROM_USER
++	select ARCH_HAS_STRNLEN_USER
+ 	select ARCH_HAS_SYSCALL_WRAPPER
+ 	select ARCH_HAS_UBSAN_SANITIZE_ALL
+ 	select ARCH_HAS_VDSO_DATA
+diff --git a/arch/sh/Kconfig b/arch/sh/Kconfig
+index 45a0549421cd..5d20509e5556 100644
+--- a/arch/sh/Kconfig
++++ b/arch/sh/Kconfig
+@@ -22,8 +22,6 @@ config SUPERH
+ 	select GENERIC_IRQ_SHOW
+ 	select GENERIC_PCI_IOMAP if PCI
+ 	select GENERIC_SCHED_CLOCK
+-	select GENERIC_STRNCPY_FROM_USER
+-	select GENERIC_STRNLEN_USER
+ 	select GENERIC_SMP_IDLE_THREAD
+ 	select GUP_GET_PTE_LOW_HIGH if X2TLB
+ 	select HAVE_ARCH_AUDITSYSCALL
+diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
+index c5fa7932b550..9f78822562eb 100644
+--- a/arch/sparc/Kconfig
++++ b/arch/sparc/Kconfig
+@@ -38,8 +38,6 @@ config SPARC
+ 	select HAVE_EBPF_JIT if SPARC64
+ 	select HAVE_DEBUG_BUGVERBOSE
+ 	select GENERIC_SMP_IDLE_THREAD
+-	select GENERIC_STRNCPY_FROM_USER
+-	select GENERIC_STRNLEN_USER
+ 	select MODULES_USE_ELF_RELA
+ 	select PCI_SYSCALL if PCI
+ 	select PCI_MSI_ARCH_FALLBACKS if PCI_MSI
+diff --git a/arch/um/Kconfig b/arch/um/Kconfig
+index 0561b73cfd9a..77e66d3719f6 100644
+--- a/arch/um/Kconfig
++++ b/arch/um/Kconfig
+@@ -7,6 +7,8 @@ config UML
+ 	default y
+ 	select ARCH_EPHEMERAL_INODES
+ 	select ARCH_HAS_KCOV
++	select ARCH_HAS_STRNCPY_FROM_USER
++	select ARCH_HAS_STRNLEN_USER
+ 	select ARCH_NO_PREEMPT
+ 	select HAVE_ARCH_AUDITSYSCALL
+ 	select HAVE_ARCH_SECCOMP_FILTER
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index 49270655e827..5509c828bc93 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -144,8 +144,6 @@ config X86
+ 	select GENERIC_PENDING_IRQ		if SMP
+ 	select GENERIC_PTDUMP
+ 	select GENERIC_SMP_IDLE_THREAD
+-	select GENERIC_STRNCPY_FROM_USER
+-	select GENERIC_STRNLEN_USER
+ 	select GENERIC_TIME_VSYSCALL
+ 	select GENERIC_GETTIMEOFDAY
+ 	select GENERIC_VDSO_TIME_NS
+diff --git a/arch/xtensa/Kconfig b/arch/xtensa/Kconfig
+index 2332b2156993..282fc195680e 100644
+--- a/arch/xtensa/Kconfig
++++ b/arch/xtensa/Kconfig
+@@ -7,6 +7,8 @@ config XTENSA
+ 	select ARCH_HAS_SYNC_DMA_FOR_CPU if MMU
+ 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE if MMU
+ 	select ARCH_HAS_DMA_SET_UNCACHED if MMU
++	select ARCH_HAS_STRNCPY_FROM_USER if !KASAN
++	select ARCH_HAS_STRNLEN_USER
+ 	select ARCH_USE_MEMTEST
+ 	select ARCH_USE_QUEUED_RWLOCKS
+ 	select ARCH_USE_QUEUED_SPINLOCKS
+@@ -20,7 +22,6 @@ config XTENSA
+ 	select GENERIC_IRQ_SHOW
+ 	select GENERIC_PCI_IOMAP
+ 	select GENERIC_SCHED_CLOCK
+-	select GENERIC_STRNCPY_FROM_USER if KASAN
+ 	select HAVE_ARCH_AUDITSYSCALL
+ 	select HAVE_ARCH_JUMP_LABEL if !XIP_KERNEL
+ 	select HAVE_ARCH_KASAN if MMU && !XIP_KERNEL
+diff --git a/arch/xtensa/include/asm/uaccess.h b/arch/xtensa/include/asm/uaccess.h
+index 5c9fb8005aa8..250ee68e9d82 100644
+--- a/arch/xtensa/include/asm/uaccess.h
++++ b/arch/xtensa/include/asm/uaccess.h
+@@ -290,8 +290,7 @@ clear_user(void __user *addr, unsigned long size)
+ #define __clear_user  __xtensa_clear_user
+ 
+ 
+-#ifndef CONFIG_GENERIC_STRNCPY_FROM_USER
+-
++#ifdef CONFIG_HAS_STRNCPY_FROM_USER
+ extern long __strncpy_user(char *dst, const char __user *src, long count);
+ 
+ static inline long
+diff --git a/lib/Kconfig b/lib/Kconfig
+index d241fe476fda..0e66c9fa636b 100644
+--- a/lib/Kconfig
++++ b/lib/Kconfig
+@@ -50,12 +50,18 @@ config HAVE_ARCH_BITREVERSE
+ 	  This option enables the use of hardware bit-reversal instructions on
+ 	  architectures which support such operations.
+ 
+-config GENERIC_STRNCPY_FROM_USER
++config ARCH_HAS_STRNCPY_FROM_USER
+ 	bool
+ 
+-config GENERIC_STRNLEN_USER
++config ARCH_HAS_STRNLEN_USER
+ 	bool
+ 
++config GENERIC_STRNCPY_FROM_USER
++	def_bool !ARCH_HAS_STRNCPY_FROM_USER
++
++config GENERIC_STRNLEN_USER
++	def_bool !ARCH_HAS_STRNLEN_USER
++
+ config GENERIC_NET_UTILS
+ 	bool
+ 
+-- 
+2.29.2
