@@ -1,28 +1,99 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Sun, 25 Jul 2021 06:07:47 +0000
-Subject: Re: [PATCH v2 01/21] dma-mapping: Allow map_sg() ops to return negative error codes
-Message-Id: <20210725060747.GA10852@lst.de>
+From: Arnd Bergmann <arnd@kernel.org>
+Date: Thu, 22 Jul 2021 12:48:07 +0000
+Subject: [PATCH v3 2/9] h8300: remove stale strncpy_from_user
+Message-Id: <20210722124814.778059-3-arnd@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210723175008.22410-1-logang@deltatee.com> <20210723175008.22410-2-logang@deltatee.com>
-In-Reply-To: <20210723175008.22410-2-logang@deltatee.com>
+References: <20210722124814.778059-1-arnd@kernel.org>
+In-Reply-To: <20210722124814.778059-1-arnd@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Logan Gunthorpe <logang@deltatee.com>
-Cc: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org, Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>
+To: linux-arch@vger.kernel.org
+Cc: Arnd Bergmann <arnd@arndb.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Al Viro <viro@zeniv.linux.org.uk>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Brian Cain <bcain@codeaurora.org>, Chris Zankel <chris@zankel.net>, Christian Borntraeger <borntraeger@de.ibm.com>, Christoph Hellwig <hch@lst.de>, Guo Ren <guoren@kernel.org>, Heiko Carstens <hca@linux.ibm.com>, Helge Deller <deller@gmx.de>, Jeff Dike <jdike@addtoit.com>, Linus Walleij <linus.walleij@linaro.org>, Max Filippov <jcmvbkbc@gmail.com>, Michal Simek <monstr@monstr.eu>, Richard Weinberger <richard@nod.at>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Vasily Gorbik <gor@linux.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-s390@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, uclinux-h8-devel@lists.sourceforge.jp
 
-> +int dma_map_sgtable(struct device *dev, struct sg_table *sgt,
-> +		    enum dma_data_direction dir, unsigned long attrs)
-> +{
-> +	int nents;
-> +
-> +	nents = __dma_map_sg_attrs(dev, sgt->sgl, sgt->orig_nents, dir, attrs);
-> +	if (nents = 0)
-> +		return -EIO;
-> +	else if (nents < 0) {
-> +		if (WARN_ON_ONCE(nents != -EINVAL && nents != -ENOMEM &&
-> +				 nents != -EIO))
-> +			return -EIO;
+From: Arnd Bergmann <arnd@arndb.de>
 
-I think this validation of the errnos needs to go into __dma_map_sg_attrs,
-so that we catch it for the classic dma_map_sg callers as well.
+This function is never called because h8300 uses the asm-generic
+inline function version.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ arch/h8300/kernel/h8300_ksyms.c |  2 --
+ arch/h8300/lib/Makefile         |  2 +-
+ arch/h8300/lib/strncpy.S        | 35 ---------------------------------
+ 3 files changed, 1 insertion(+), 38 deletions(-)
+ delete mode 100644 arch/h8300/lib/strncpy.S
+
+diff --git a/arch/h8300/kernel/h8300_ksyms.c b/arch/h8300/kernel/h8300_ksyms.c
+index 1c6f902e82a5..853d6e886477 100644
+--- a/arch/h8300/kernel/h8300_ksyms.c
++++ b/arch/h8300/kernel/h8300_ksyms.c
+@@ -19,7 +19,6 @@ asmlinkage long __mulsi3(long, long);
+ asmlinkage long __udivsi3(long, long);
+ asmlinkage void *memcpy(void *, const void *, size_t);
+ asmlinkage void *memset(void *, int, size_t);
+-asmlinkage long strncpy_from_user(void *to, void *from, size_t n);
+ 
+ 	/* gcc lib functions */
+ EXPORT_SYMBOL(__ucmpdi2);
+@@ -34,4 +33,3 @@ EXPORT_SYMBOL(__mulsi3);
+ EXPORT_SYMBOL(__udivsi3);
+ EXPORT_SYMBOL(memcpy);
+ EXPORT_SYMBOL(memset);
+-EXPORT_SYMBOL(strncpy_from_user);
+diff --git a/arch/h8300/lib/Makefile b/arch/h8300/lib/Makefile
+index 685fa837c1f7..5911c1fa856d 100644
+--- a/arch/h8300/lib/Makefile
++++ b/arch/h8300/lib/Makefile
+@@ -3,7 +3,7 @@
+ # Makefile for H8/300-specific library files..
+ #
+ 
+-lib-y  = memcpy.o memset.o abs.o strncpy.o \
++lib-y  = memcpy.o memset.o abs.o \
+ 	 mulsi3.o udivsi3.o muldi3.o moddivsi3.o \
+ 	 ashldi3.o lshrdi3.o ashrdi3.o ucmpdi2.o \
+ 	 delay.o
+diff --git a/arch/h8300/lib/strncpy.S b/arch/h8300/lib/strncpy.S
+deleted file mode 100644
+index 8b65d7c4727b..000000000000
+--- a/arch/h8300/lib/strncpy.S
++++ /dev/null
+@@ -1,35 +0,0 @@
+-;;; SPDX-License-Identifier: GPL-2.0
+-;;; strncpy.S
+-
+-#include <asm/linkage.h>
+-
+-	.text
+-.global strncpy_from_user
+-
+-;;; long strncpy_from_user(void *to, void *from, size_t n)
+-strncpy_from_user:
+-	mov.l	er2,er2
+-	bne	1f
+-	sub.l	er0,er0
+-	rts
+-1:
+-	mov.l	er4,@-sp
+-	sub.l	er3,er3
+-2:
+-	mov.b	@er1+,r4l
+-	mov.b	r4l,@er0
+-	adds	#1,er0
+-	beq	3f
+-	inc.l	#1,er3
+-	dec.l	#1,er2
+-	bne	2b
+-3:
+-	dec.l	#1,er2
+-4:
+-	mov.b	r4l,@er0
+-	adds	#1,er0
+-	dec.l	#1,er2
+-	bne	4b
+-	mov.l	er3,er0
+-	mov.l	@sp+,er4
+-	rts
+-- 
+2.29.2
