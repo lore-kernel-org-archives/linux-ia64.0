@@ -1,69 +1,70 @@
 From: Logan Gunthorpe <logang@deltatee.com>
-Date: Thu, 29 Jul 2021 20:15:33 +0000
-Subject: [PATCH v3 15/21] sparc/iommu: don't set failed sg dma_address to DMA_MAPPING_ERROR
-Message-Id: <20210729201539.5602-16-logang@deltatee.com>
+Date: Fri, 23 Jul 2021 17:49:52 +0000
+Subject: [PATCH v2 05/21] alpha: return error code from alpha_pci_map_sg()
+Message-Id: <20210723175008.22410-6-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210729201539.5602-1-logang@deltatee.com>
-In-Reply-To: <20210729201539.5602-1-logang@deltatee.com>
+References: <20210723175008.22410-1-logang@deltatee.com>
+In-Reply-To: <20210723175008.22410-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
-Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, "David S. Miller" <davem@davemloft.net>, Niklas Schnelle <schnelle@linux.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>
+Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>
 
-Setting the ->dma_address to DMA_MAPPING_ERROR is not part of
-the ->map_sg calling convention, so remove it.
+From: Martin Oliveira <martin.oliveira@eideticom.com>
 
-Link: https://lore.kernel.org/linux-mips/20210716063241.GC13345@lst.de/
-Suggested-by: Christoph Hellwig <hch@lst.de>
+The .map_sg() op now expects an error code instead of zero on failure.
+
+pci_map_single_1() can fail for different reasons, but since the only
+supported type of error return is DMA_MAPPING_ERROR, we coalesce those
+errors into EIO.
+
+ENOMEM is returned when no page tables can be allocated.
+
+Signed-off-by: Martin Oliveira <martin.oliveira@eideticom.com>
 Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Niklas Schnelle <schnelle@linux.ibm.com>
-Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Richard Henderson <rth@twiddle.net>
+Cc: Ivan Kokshaysky <ink@jurassic.park.msu.ru>
+Cc: Matt Turner <mattst88@gmail.com>
 ---
- arch/sparc/kernel/iommu.c     | 2 --
- arch/sparc/kernel/pci_sun4v.c | 2 --
- 2 files changed, 4 deletions(-)
+ arch/alpha/kernel/pci_iommu.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
-diff --git a/arch/sparc/kernel/iommu.c b/arch/sparc/kernel/iommu.c
-index 0589acd34201..da0363692528 100644
---- a/arch/sparc/kernel/iommu.c
-+++ b/arch/sparc/kernel/iommu.c
-@@ -546,7 +546,6 @@ static int dma_4u_map_sg(struct device *dev, struct scatterlist *sglist,
- 
- 	if (outcount < incount) {
- 		outs = sg_next(outs);
--		outs->dma_address = DMA_MAPPING_ERROR;
- 		outs->dma_length = 0;
+diff --git a/arch/alpha/kernel/pci_iommu.c b/arch/alpha/kernel/pci_iommu.c
+index 35d7b3096d6e..21f9ac101324 100644
+--- a/arch/alpha/kernel/pci_iommu.c
++++ b/arch/alpha/kernel/pci_iommu.c
+@@ -649,7 +649,9 @@ static int alpha_pci_map_sg(struct device *dev, struct scatterlist *sg,
+ 		sg->dma_address
+ 		  = pci_map_single_1(pdev, SG_ENT_VIRT_ADDRESS(sg),
+ 				     sg->length, dac_allowed);
+-		return sg->dma_address != DMA_MAPPING_ERROR;
++		if (sg->dma_address = DMA_MAPPING_ERROR)
++			return -EIO;
++		return 1;
  	}
  
-@@ -572,7 +571,6 @@ static int dma_4u_map_sg(struct device *dev, struct scatterlist *sglist,
- 			iommu_tbl_range_free(&iommu->tbl, vaddr, npages,
- 					     IOMMU_ERROR_CODE);
+ 	start = sg;
+@@ -685,8 +687,10 @@ static int alpha_pci_map_sg(struct device *dev, struct scatterlist *sg,
+ 	if (out < end)
+ 		out->dma_length = 0;
  
--			s->dma_address = DMA_MAPPING_ERROR;
- 			s->dma_length = 0;
- 		}
- 		if (s = outs)
-diff --git a/arch/sparc/kernel/pci_sun4v.c b/arch/sparc/kernel/pci_sun4v.c
-index d90e80fa5705..384480971805 100644
---- a/arch/sparc/kernel/pci_sun4v.c
-+++ b/arch/sparc/kernel/pci_sun4v.c
-@@ -594,7 +594,6 @@ static int dma_4v_map_sg(struct device *dev, struct scatterlist *sglist,
+-	if (out - start = 0)
++	if (out - start = 0) {
+ 		printk(KERN_WARNING "pci_map_sg failed: no entries?\n");
++		return -ENOMEM;
++	}
+ 	DBGA("pci_map_sg: %ld entries\n", out - start);
  
- 	if (outcount < incount) {
- 		outs = sg_next(outs);
--		outs->dma_address = DMA_MAPPING_ERROR;
- 		outs->dma_length = 0;
- 	}
+ 	return out - start;
+@@ -699,7 +703,7 @@ static int alpha_pci_map_sg(struct device *dev, struct scatterlist *sg,
+ 	   entries.  Unmap them now.  */
+ 	if (out > start)
+ 		pci_unmap_sg(pdev, start, out - start, dir);
+-	return 0;
++	return -ENOMEM;
+ }
  
-@@ -611,7 +610,6 @@ static int dma_4v_map_sg(struct device *dev, struct scatterlist *sglist,
- 			iommu_tbl_range_free(tbl, vaddr, npages,
- 					     IOMMU_ERROR_CODE);
- 			/* XXX demap? XXX */
--			s->dma_address = DMA_MAPPING_ERROR;
- 			s->dma_length = 0;
- 		}
- 		if (s = outs)
+ /* Unmap a set of streaming mode DMA translations.  Again, cpu read
 -- 
 2.20.1
