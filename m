@@ -1,7 +1,7 @@
 From: Logan Gunthorpe <logang@deltatee.com>
-Date: Fri, 23 Jul 2021 17:49:58 +0000
-Subject: [PATCH v2 11/21] powerpc/iommu: don't set failed sg dma_address to DMA_MAPPING_ERROR
-Message-Id: <20210723175008.22410-12-logang@deltatee.com>
+Date: Fri, 23 Jul 2021 17:49:49 +0000
+Subject: [PATCH v2 02/21] dma-direct: Return appropriate error code from dma_direct_map_sg()
+Message-Id: <20210723175008.22410-3-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20210723175008.22410-1-logang@deltatee.com>
 In-Reply-To: <20210723175008.22410-1-logang@deltatee.com>
@@ -9,41 +9,30 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
-Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Geoff Levand <geoff@infradead.org>
+Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>
 
-Setting the ->dma_address to DMA_MAPPING_ERROR is not part of
-the ->map_sg calling convention, so remove it.
+Now that the map_sg() op expects error codes instead of return zero on
+error, convert dma_direct_map_sg() to return an error code. Per the
+documentation for dma_map_sgtable(), -EIO is returned due to an
+DMA_MAPPING_ERROR with unknown cause.
 
-Link: https://lore.kernel.org/linux-mips/20210716063241.GC13345@lst.de/
-Suggested-by: Christoph Hellwig <hch@lst.de>
 Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
-Cc: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: Geoff Levand <geoff@infradead.org>
 ---
- arch/powerpc/kernel/iommu.c | 2 --
- 1 file changed, 2 deletions(-)
+ kernel/dma/direct.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/powerpc/kernel/iommu.c b/arch/powerpc/kernel/iommu.c
-index a8ec4fe42817..30b7736f0896 100644
---- a/arch/powerpc/kernel/iommu.c
-+++ b/arch/powerpc/kernel/iommu.c
-@@ -575,7 +575,6 @@ int ppc_iommu_map_sg(struct device *dev, struct iommu_table *tbl,
- 	 */
- 	if (outcount < incount) {
- 		outs = sg_next(outs);
--		outs->dma_address = DMA_MAPPING_ERROR;
- 		outs->dma_length = 0;
- 	}
+diff --git a/kernel/dma/direct.c b/kernel/dma/direct.c
+index f737e3347059..f33ceb68aef2 100644
+--- a/kernel/dma/direct.c
++++ b/kernel/dma/direct.c
+@@ -411,7 +411,7 @@ int dma_direct_map_sg(struct device *dev, struct scatterlist *sgl, int nents,
  
-@@ -593,7 +592,6 @@ int ppc_iommu_map_sg(struct device *dev, struct iommu_table *tbl,
- 			npages = iommu_num_pages(s->dma_address, s->dma_length,
- 						 IOMMU_PAGE_SIZE(tbl));
- 			__iommu_free(tbl, vaddr, npages);
--			s->dma_address = DMA_MAPPING_ERROR;
- 			s->dma_length = 0;
- 		}
- 		if (s = outs)
+ out_unmap:
+ 	dma_direct_unmap_sg(dev, sgl, i, dir, attrs | DMA_ATTR_SKIP_CPU_SYNC);
+-	return 0;
++	return -EIO;
+ }
+ 
+ dma_addr_t dma_direct_map_resource(struct device *dev, phys_addr_t paddr,
 -- 
 2.20.1
