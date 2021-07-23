@@ -1,33 +1,50 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Thu, 22 Jul 2021 13:02:09 +0000
-Subject: Re: [PATCH v3 7/9] asm-generic: uaccess: remove inline strncpy_from_user/strnlen_user
-Message-Id: <20210722130209.GG26225@lst.de>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Fri, 23 Jul 2021 17:50:08 +0000
+Subject: [PATCH v2 21/21] dma-mapping: Disallow .map_sg operations from returning zero on error
+Message-Id: <20210723175008.22410-22-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210722124814.778059-1-arnd@kernel.org> <20210722124814.778059-8-arnd@kernel.org>
-In-Reply-To: <20210722124814.778059-8-arnd@kernel.org>
+References: <20210723175008.22410-1-logang@deltatee.com>
+In-Reply-To: <20210723175008.22410-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@kernel.org>
-Cc: linux-arch@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Al Viro <viro@zeniv.linux.org.uk>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Brian Cain <bcain@codeaurora.org>, Chris Zankel <chris@zankel.net>, Christian Borntraeger <borntraeger@de.ibm.com>, Christoph Hellwig <hch@lst.de>, Guo Ren <guoren@kernel.org>, Heiko Carstens <hca@linux.ibm.com>, Helge Deller <deller@gmx.de>, Jeff Dike <jdike@addtoit.com>, Linus Walleij <linus.walleij@linaro.org>, Max Filippov <jcmvbkbc@gmail.com>, Michal Simek <monstr@monstr.eu>, Richard Weinberger <richard@nod.at>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Vasily Gorbik <gor@linux.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-s390@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, uclinux-h8-devel@lists.sourceforge.jp, Geert Uytterhoeven <geert@linux-m68k.org>
+To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
+Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>
 
-On Thu, Jul 22, 2021 at 02:48:12PM +0200, Arnd Bergmann wrote:
-> From: Arnd Bergmann <arnd@arndb.de>
-> 
-> The inline version is used on three NOMMU architectures and is
-> particularly inefficient when it scans the string one byte at a time
-> twice. It also lacks a check for user_addr_max(), but this is
-> probably ok on NOMMU targets.
-> 
-> Consolidate the asm-generic implementation with the library version
-> that is used everywhere else.  This version is generalized enough to
-> work efficiently on both MMU and NOMMU targets, and using the
-> same code everywhere reduces the potential for subtle bugs.
-> 
-> Reviewed-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Now that all the .map_sg operations have been converted to returning
+proper error codes, drop the code to handle a zero return value,
+add a warning if a zero is returned and update the comment for the
+map_sg operation.
 
-Looks good,
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
+---
+ kernel/dma/mapping.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-Reviewed-by: Christoph Hellwig <hch@lst.de>
+diff --git a/kernel/dma/mapping.c b/kernel/dma/mapping.c
+index b8dc8b1cb402..86a8a421344a 100644
+--- a/kernel/dma/mapping.c
++++ b/kernel/dma/mapping.c
+@@ -194,6 +194,9 @@ static int __dma_map_sg_attrs(struct device *dev, struct scatterlist *sg,
+ 	else
+ 		ents = ops->map_sg(dev, sg, nents, dir, attrs);
+ 
++	if (WARN_ON_ONCE(ents = 0))
++		return -EIO;
++
+ 	if (ents > 0)
+ 		debug_dma_map_sg(dev, sg, nents, ents, dir);
+ 
+@@ -259,9 +262,7 @@ int dma_map_sgtable(struct device *dev, struct sg_table *sgt,
+ 	int nents;
+ 
+ 	nents = __dma_map_sg_attrs(dev, sgt->sgl, sgt->orig_nents, dir, attrs);
+-	if (nents = 0)
+-		return -EIO;
+-	else if (nents < 0) {
++	if (nents < 0) {
+ 		if (WARN_ON_ONCE(nents != -EINVAL && nents != -ENOMEM &&
+ 				 nents != -EIO))
+ 			return -EIO;
+-- 
+2.20.1
