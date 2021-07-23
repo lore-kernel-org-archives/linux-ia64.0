@@ -1,39 +1,55 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Thu, 29 Jul 2021 14:07:01 +0000
-Subject: [PATCH -tip v10 07/16] objtool: Ignore unwind hints for ignored functions
-Message-Id: <162756762128.301564.14921395970626566365.stgit@devnote2>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Fri, 23 Jul 2021 17:50:03 +0000
+Subject: [PATCH v2 16/21] parisc: return error code from .map_sg() ops
+Message-Id: <20210723175008.22410-17-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162756755600.301564.4957591913842010341.stgit@devnote2>
-In-Reply-To: <162756755600.301564.4957591913842010341.stgit@devnote2>
+References: <20210723175008.22410-1-logang@deltatee.com>
+In-Reply-To: <20210723175008.22410-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
+Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>
 
-From: Josh Poimboeuf <jpoimboe@redhat.com>
+From: Martin Oliveira <martin.oliveira@eideticom.com>
 
-If a function is ignored, also ignore its hints.  This is useful for the
-case where the function ignore is conditional on frame pointers, e.g.
-STACK_FRAME_NON_STANDARD_FP().
+The .map_sg() op now expects an error code instead of zero on failure.
+Return -EINVAL if the ioc cannot be obtained.
 
-Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
-Reviewed-by: Masami Hiramatsu <mhiramat@kernel.org>
-Tested-by: Masami Hiramatsu <mhiramat@kernel.org>
+Signed-off-by: Martin Oliveira <martin.oliveira@eideticom.com>
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
+Cc: "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>
+Cc: Helge Deller <deller@gmx.de>
 ---
- tools/objtool/check.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/parisc/ccio-dma.c  | 2 +-
+ drivers/parisc/sba_iommu.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/tools/objtool/check.c b/tools/objtool/check.c
-index e5947fbb9e7a..67cbdcfcabae 100644
---- a/tools/objtool/check.c
-+++ b/tools/objtool/check.c
-@@ -2909,7 +2909,7 @@ static int validate_unwind_hints(struct objtool_file *file, struct section *sec)
- 	}
+diff --git a/drivers/parisc/ccio-dma.c b/drivers/parisc/ccio-dma.c
+index b5f9ee81a46c..452e72b7bd01 100644
+--- a/drivers/parisc/ccio-dma.c
++++ b/drivers/parisc/ccio-dma.c
+@@ -918,7 +918,7 @@ ccio_map_sg(struct device *dev, struct scatterlist *sglist, int nents,
+ 	BUG_ON(!dev);
+ 	ioc = GET_IOC(dev);
+ 	if (!ioc)
+-		return 0;
++		return -EINVAL;
+ 	
+ 	DBG_RUN_SG("%s() START %d entries\n", __func__, nents);
  
- 	while (&insn->list != &file->insn_list && (!sec || insn->sec = sec)) {
--		if (insn->hint && !insn->visited) {
-+		if (insn->hint && !insn->visited && !insn->ignore) {
- 			ret = validate_branch(file, insn->func, insn, state);
- 			if (ret && backtrace)
- 				BT_FUNC("<== (hint)", insn);
+diff --git a/drivers/parisc/sba_iommu.c b/drivers/parisc/sba_iommu.c
+index dce4cdf786cd..e60690d38d67 100644
+--- a/drivers/parisc/sba_iommu.c
++++ b/drivers/parisc/sba_iommu.c
+@@ -947,7 +947,7 @@ sba_map_sg(struct device *dev, struct scatterlist *sglist, int nents,
+ 
+ 	ioc = GET_IOC(dev);
+ 	if (!ioc)
+-		return 0;
++		return -EINVAL;
+ 
+ 	/* Fast path single entry scatterlists. */
+ 	if (nents = 1) {
+-- 
+2.20.1
