@@ -1,70 +1,41 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Sun, 11 Jul 2021 13:36:54 +0000
-Subject: [PATCH -tip v9 13/14] tracing: Show kretprobe unknown indicator only for kretprobe_trampoline
-Message-Id: <162601061456.1318837.7158565595387058955.stgit@devnote2>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Fri, 23 Jul 2021 17:50:07 +0000
+Subject: [PATCH v2 20/21] dma-mapping: return error code from dma_dummy_map_sg()
+Message-Id: <20210723175008.22410-21-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162601048053.1318837.1550594515476777588.stgit@devnote2>
-In-Reply-To: <162601048053.1318837.1550594515476777588.stgit@devnote2>
+References: <20210723175008.22410-1-logang@deltatee.com>
+In-Reply-To: <20210723175008.22410-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
+Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>
 
-ftrace shows "[unknown/kretprobe'd]" indicator all addresses in the
-kretprobe_trampoline, but the modified address by kretprobe should
-be only kretprobe_trampoline+0.
+From: Martin Oliveira <martin.oliveira@eideticom.com>
 
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-Acked-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
-Tested-by: Andrii Nakryiko <andrii@kernel.org>
+The .map_sg() op now expects an error code instead of zero on failure.
+
+The only errno to return is -EINVAL in the case when DMA is not
+supported.
+
+Signed-off-by: Martin Oliveira <martin.oliveira@eideticom.com>
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
 ---
- kernel/trace/trace_output.c |   17 ++++-------------
- 1 file changed, 4 insertions(+), 13 deletions(-)
+ kernel/dma/dummy.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/kernel/trace/trace_output.c b/kernel/trace/trace_output.c
-index 9b2e69619057..bdadcc8cee75 100644
---- a/kernel/trace/trace_output.c
-+++ b/kernel/trace/trace_output.c
-@@ -8,6 +8,7 @@
- #include <linux/module.h>
- #include <linux/mutex.h>
- #include <linux/ftrace.h>
-+#include <linux/kprobes.h>
- #include <linux/sched/clock.h>
- #include <linux/sched/mm.h>
- 
-@@ -346,22 +347,12 @@ int trace_output_call(struct trace_iterator *iter, char *name, char *fmt, ...)
- }
- EXPORT_SYMBOL_GPL(trace_output_call);
- 
--#ifdef CONFIG_KRETPROBES
--static inline const char *kretprobed(const char *name)
-+static inline const char *kretprobed(const char *name, unsigned long addr)
+diff --git a/kernel/dma/dummy.c b/kernel/dma/dummy.c
+index eacd4c5b10bf..b492d59ac77e 100644
+--- a/kernel/dma/dummy.c
++++ b/kernel/dma/dummy.c
+@@ -22,7 +22,7 @@ static int dma_dummy_map_sg(struct device *dev, struct scatterlist *sgl,
+ 		int nelems, enum dma_data_direction dir,
+ 		unsigned long attrs)
  {
--	static const char tramp_name[] = "__kretprobe_trampoline";
--	int size = sizeof(tramp_name);
--
--	if (strncmp(tramp_name, name, size) = 0)
-+	if (is_kretprobe_trampoline(addr))
- 		return "[unknown/kretprobe'd]";
- 	return name;
+-	return 0;
++	return -EINVAL;
  }
--#else
--static inline const char *kretprobed(const char *name)
--{
--	return name;
--}
--#endif /* CONFIG_KRETPROBES */
  
- void
- trace_seq_print_sym(struct trace_seq *s, unsigned long address, bool offset)
-@@ -374,7 +365,7 @@ trace_seq_print_sym(struct trace_seq *s, unsigned long address, bool offset)
- 		sprint_symbol(str, address);
- 	else
- 		kallsyms_lookup(address, NULL, NULL, NULL, str);
--	name = kretprobed(str);
-+	name = kretprobed(str, address);
- 
- 	if (name && strlen(name)) {
- 		trace_seq_puts(s, name);
+ static int dma_dummy_supported(struct device *hwdev, u64 mask)
+-- 
+2.20.1
