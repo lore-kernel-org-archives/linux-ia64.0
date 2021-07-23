@@ -1,134 +1,91 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Thu, 29 Jul 2021 14:06:14 +0000
-Subject: [PATCH -tip v10 02/16] kprobes: treewide: Replace arch_deref_entry_point() with dereference_symbol_d
-Message-Id: <162756757416.301564.16511253361780129309.stgit@devnote2>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Fri, 23 Jul 2021 17:50:01 +0000
+Subject: [PATCH v2 14/21] sparc/iommu: return error codes from .map_sg() ops
+Message-Id: <20210723175008.22410-15-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162756755600.301564.4957591913842010341.stgit@devnote2>
-In-Reply-To: <162756755600.301564.4957591913842010341.stgit@devnote2>
+References: <20210723175008.22410-1-logang@deltatee.com>
+In-Reply-To: <20210723175008.22410-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
+Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, "David S. Miller" <davem@davemloft.net>, Niklas Schnelle <schnelle@linux.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>
 
-~15 years ago kprobes grew the 'arch_deref_entry_point()' __weak function:
+From: Martin Oliveira <martin.oliveira@eideticom.com>
 
-  3d7e33825d87: ("jprobes: make jprobes a little safer for users")
+The .map_sg() op now expects an error code instead of zero on failure.
 
-But this is just open-coded dereference_symbol_descriptor() in essence, and
-its obscure nature was causing bugs.
+Returning an errno from __sbus_iommu_map_sg() results in
+sbus_iommu_map_sg_gflush() and sbus_iommu_map_sg_pflush() returning an
+errno, as those functions are wrappers around __sbus_iommu_map_sg().
 
-Just use the real thing and remove arch_deref_entry_point().
-
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-Tested-by: Andrii Nakryiko <andrii@kernel.org>
+Signed-off-by: Martin Oliveira <martin.oliveira@eideticom.com>
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Niklas Schnelle <schnelle@linux.ibm.com>
+Cc: Michael Ellerman <mpe@ellerman.id.au>
 ---
- Changes in v9:
-  - Update changelog according to Ingo's suggestion.
- Changes in v6:
-  - Use dereference_symbol_descriptor() so that it can handle address in
-    modules correctly.
----
- arch/ia64/kernel/kprobes.c    |    5 -----
- arch/powerpc/kernel/kprobes.c |   11 -----------
- include/linux/kprobes.h       |    1 -
- kernel/kprobes.c              |    7 +------
- lib/error-inject.c            |    3 ++-
- 5 files changed, 3 insertions(+), 24 deletions(-)
+ arch/sparc/kernel/iommu.c     | 4 ++--
+ arch/sparc/kernel/pci_sun4v.c | 4 ++--
+ arch/sparc/mm/iommu.c         | 2 +-
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
-index d4048518a1d7..0f8573bbf520 100644
---- a/arch/ia64/kernel/kprobes.c
-+++ b/arch/ia64/kernel/kprobes.c
-@@ -891,11 +891,6 @@ int __kprobes kprobe_exceptions_notify(struct notifier_block *self,
- 	return ret;
+diff --git a/arch/sparc/kernel/iommu.c b/arch/sparc/kernel/iommu.c
+index a034f571d869..0589acd34201 100644
+--- a/arch/sparc/kernel/iommu.c
++++ b/arch/sparc/kernel/iommu.c
+@@ -448,7 +448,7 @@ static int dma_4u_map_sg(struct device *dev, struct scatterlist *sglist,
+ 	iommu = dev->archdata.iommu;
+ 	strbuf = dev->archdata.stc;
+ 	if (nelems = 0 || !iommu)
+-		return 0;
++		return -EINVAL;
+ 
+ 	spin_lock_irqsave(&iommu->lock, flags);
+ 
+@@ -580,7 +580,7 @@ static int dma_4u_map_sg(struct device *dev, struct scatterlist *sglist,
+ 	}
+ 	spin_unlock_irqrestore(&iommu->lock, flags);
+ 
+-	return 0;
++	return -EINVAL;
  }
  
--unsigned long arch_deref_entry_point(void *entry)
--{
--	return ((struct fnptr *)entry)->ip;
--}
--
- static struct kprobe trampoline_p = {
- 	.pre_handler = trampoline_probe_handler
- };
-diff --git a/arch/powerpc/kernel/kprobes.c b/arch/powerpc/kernel/kprobes.c
-index cbc28d1a2e1b..077ab73e6e56 100644
---- a/arch/powerpc/kernel/kprobes.c
-+++ b/arch/powerpc/kernel/kprobes.c
-@@ -541,17 +541,6 @@ int kprobe_fault_handler(struct pt_regs *regs, int trapnr)
+ /* If contexts are being used, they are the same in all of the mappings
+diff --git a/arch/sparc/kernel/pci_sun4v.c b/arch/sparc/kernel/pci_sun4v.c
+index 9de57e88f7a1..d90e80fa5705 100644
+--- a/arch/sparc/kernel/pci_sun4v.c
++++ b/arch/sparc/kernel/pci_sun4v.c
+@@ -486,7 +486,7 @@ static int dma_4v_map_sg(struct device *dev, struct scatterlist *sglist,
+ 
+ 	iommu = dev->archdata.iommu;
+ 	if (nelems = 0 || !iommu)
+-		return 0;
++		return -EINVAL;
+ 	atu = iommu->atu;
+ 
+ 	prot = HV_PCI_MAP_ATTR_READ;
+@@ -619,7 +619,7 @@ static int dma_4v_map_sg(struct device *dev, struct scatterlist *sglist,
+ 	}
+ 	local_irq_restore(flags);
+ 
+-	return 0;
++	return -EINVAL;
  }
- NOKPROBE_SYMBOL(kprobe_fault_handler);
  
--unsigned long arch_deref_entry_point(void *entry)
--{
--#ifdef PPC64_ELF_ABI_v1
--	if (!kernel_text_address((unsigned long)entry))
--		return ppc_global_function_entry(entry);
--	else
--#endif
--		return (unsigned long)entry;
--}
--NOKPROBE_SYMBOL(arch_deref_entry_point);
--
- static struct kprobe trampoline_p = {
- 	.addr = (kprobe_opcode_t *) &kretprobe_trampoline,
- 	.pre_handler = trampoline_probe_handler
-diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
-index 0ba3f9e316d4..2ed61fcbc89c 100644
---- a/include/linux/kprobes.h
-+++ b/include/linux/kprobes.h
-@@ -381,7 +381,6 @@ int register_kprobe(struct kprobe *p);
- void unregister_kprobe(struct kprobe *p);
- int register_kprobes(struct kprobe **kps, int num);
- void unregister_kprobes(struct kprobe **kps, int num);
--unsigned long arch_deref_entry_point(void *);
+ static void dma_4v_unmap_sg(struct device *dev, struct scatterlist *sglist,
+diff --git a/arch/sparc/mm/iommu.c b/arch/sparc/mm/iommu.c
+index 0c0342e5b10d..9e3f6933ca13 100644
+--- a/arch/sparc/mm/iommu.c
++++ b/arch/sparc/mm/iommu.c
+@@ -256,7 +256,7 @@ static int __sbus_iommu_map_sg(struct device *dev, struct scatterlist *sgl,
+ 		sg->dma_address =__sbus_iommu_map_page(dev, sg_page(sg),
+ 				sg->offset, sg->length, per_page_flush);
+ 		if (sg->dma_address = DMA_MAPPING_ERROR)
+-			return 0;
++			return -EIO;
+ 		sg->dma_length = sg->length;
+ 	}
  
- int register_kretprobe(struct kretprobe *rp);
- void unregister_kretprobe(struct kretprobe *rp);
-diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-index 8021bccb7770..550042d9a6ef 100644
---- a/kernel/kprobes.c
-+++ b/kernel/kprobes.c
-@@ -1861,11 +1861,6 @@ static struct notifier_block kprobe_exceptions_nb = {
- 	.priority = 0x7fffffff /* we need to be notified first */
- };
- 
--unsigned long __weak arch_deref_entry_point(void *entry)
--{
--	return (unsigned long)entry;
--}
--
- #ifdef CONFIG_KRETPROBES
- 
- unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
-@@ -2327,7 +2322,7 @@ static int __init populate_kprobe_blacklist(unsigned long *start,
- 	int ret;
- 
- 	for (iter = start; iter < end; iter++) {
--		entry = arch_deref_entry_point((void *)*iter);
-+		entry = (unsigned long)dereference_symbol_descriptor((void *)*iter);
- 		ret = kprobe_add_ksym_blacklist(entry);
- 		if (ret = -EINVAL)
- 			continue;
-diff --git a/lib/error-inject.c b/lib/error-inject.c
-index c73651b15b76..2ff5ef689d72 100644
---- a/lib/error-inject.c
-+++ b/lib/error-inject.c
-@@ -8,6 +8,7 @@
- #include <linux/mutex.h>
- #include <linux/list.h>
- #include <linux/slab.h>
-+#include <asm/sections.h>
- 
- /* Whitelist of symbols that can be overridden for error injection. */
- static LIST_HEAD(error_injection_list);
-@@ -64,7 +65,7 @@ static void populate_error_injection_list(struct error_injection_entry *start,
- 
- 	mutex_lock(&ei_mutex);
- 	for (iter = start; iter < end; iter++) {
--		entry = arch_deref_entry_point((void *)iter->addr);
-+		entry = (unsigned long)dereference_symbol_descriptor((void *)iter->addr);
- 
- 		if (!kernel_text_address(entry) ||
- 		    !kallsyms_lookup_size_offset(entry, &size, &offset)) {
+-- 
+2.20.1
