@@ -1,197 +1,167 @@
 From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Sun, 11 Jul 2021 13:35:31 +0000
-Subject: [PATCH -tip v9 05/14] kprobes: Add kretprobe_find_ret_addr() for searching return address
-Message-Id: <162601053091.1318837.12853354526881294955.stgit@devnote2>
+Date: Wed, 28 Jul 2021 15:30:16 +0000
+Subject: [PATCH -tip v3 6/6] kprobes: Use bool type for functions which returns boolean value
+Message-Id: <162748621647.59465.13024630535790061152.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162601048053.1318837.1550594515476777588.stgit@devnote2>
-In-Reply-To: <162601048053.1318837.1550594515476777588.stgit@devnote2>
+References: <162748615977.59465.13262421617578791515.stgit@devnote2>
+In-Reply-To: <162748615977.59465.13262421617578791515.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: X86 ML <x86@kernel.org>, Ingo Molnar <mingo@kernel.org>
+Cc: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>, Joe Perches <joe@perches.com>
 
-Introduce kretprobe_find_ret_addr() and is_kretprobe_trampoline().
-These APIs will be used by the ORC stack unwinder and ftrace, so that
-they can check whether the given address points kretprobe trampoline
-code and query the correct return address in that case.
+Use the 'bool' type instead of 'int' for the functions which
+returns a boolean value, because this makes clear that those
+functions don't return any error code.
 
 Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-Tested-by: Andrii Nakryiko <andrii@kernel.org>
 ---
- Changes in v9:
-  - Update changelog to explain why this is introduced.
-  - Move the prototype of kretprobe_find_ret_addr() and is_kretprobe_trampoline()
-    in the same place.
-  - Make __kretprobe_find_ret_addr() return 'kprobe_opcode_t *'.
-  - Update comments in the __kretprobe_trampoline_handler().
- Changes in v6:
-  - Replace BUG_ON() with WARN_ON_ONCE() in __kretprobe_trampoline_handler().
- Changes in v3:
-  - Remove generic stacktrace fixup. Instead, it should be solved in
-    each unwinder. This just provide the generic interface.
  Changes in v2:
-  - Add is_kretprobe_trampoline() for checking address outside of
-    kretprobe_find_ret_addr()
-  - Remove unneeded addr from kretprobe_find_ret_addr()
-  - Rename fixup_kretprobe_tramp_addr() to fixup_kretprobe_trampoline()
+  - Fix trace_kprobe's kprobe_gone() too.
 ---
- include/linux/kprobes.h |   22 +++++++++++
- kernel/kprobes.c        |   91 ++++++++++++++++++++++++++++++++++-------------
- 2 files changed, 87 insertions(+), 26 deletions(-)
+ include/linux/kprobes.h     |    8 ++++----
+ kernel/kprobes.c            |   26 +++++++++++++-------------
+ kernel/trace/trace_kprobe.c |    2 +-
+ 3 files changed, 18 insertions(+), 18 deletions(-)
 
 diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
-index 8dcfb9cd1bf0..4715a67d39fc 100644
+index 6a5995f334a0..0ba3f9e316d4 100644
 --- a/include/linux/kprobes.h
 +++ b/include/linux/kprobes.h
-@@ -502,6 +502,28 @@ static inline bool is_kprobe_optinsn_slot(unsigned long addr)
- }
- #endif /* !CONFIG_OPTPROBES */
+@@ -104,25 +104,25 @@ struct kprobe {
+ #define KPROBE_FLAG_FTRACE	8 /* probe is using ftrace */
  
-+#ifdef CONFIG_KRETPROBES
-+static nokprobe_inline bool is_kretprobe_trampoline(unsigned long addr)
-+{
-+	return (void *)addr = kretprobe_trampoline_addr();
-+}
-+
-+unsigned long kretprobe_find_ret_addr(struct task_struct *tsk, void *fp,
-+				      struct llist_node **cur);
-+#else
-+static nokprobe_inline bool is_kretprobe_trampoline(unsigned long addr)
-+{
-+	return false;
-+}
-+
-+static nokprobe_inline
-+unsigned long kretprobe_find_ret_addr(struct task_struct *tsk, void *fp,
-+				      struct llist_node **cur)
-+{
-+	return 0;
-+}
-+#endif
-+
- /* Returns true if kprobes handled the fault */
- static nokprobe_inline bool kprobe_page_fault(struct pt_regs *regs,
- 					      unsigned int trap)
+ /* Has this kprobe gone ? */
+-static inline int kprobe_gone(struct kprobe *p)
++static inline bool kprobe_gone(struct kprobe *p)
+ {
+ 	return p->flags & KPROBE_FLAG_GONE;
+ }
+ 
+ /* Is this kprobe disabled ? */
+-static inline int kprobe_disabled(struct kprobe *p)
++static inline bool kprobe_disabled(struct kprobe *p)
+ {
+ 	return p->flags & (KPROBE_FLAG_DISABLED | KPROBE_FLAG_GONE);
+ }
+ 
+ /* Is this kprobe really running optimized path ? */
+-static inline int kprobe_optimized(struct kprobe *p)
++static inline bool kprobe_optimized(struct kprobe *p)
+ {
+ 	return p->flags & KPROBE_FLAG_OPTIMIZED;
+ }
+ 
+ /* Is this kprobe uses ftrace ? */
+-static inline int kprobe_ftrace(struct kprobe *p)
++static inline bool kprobe_ftrace(struct kprobe *p)
+ {
+ 	return p->flags & KPROBE_FLAG_FTRACE;
+ }
 diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-index f9a075374522..8f7d659eb277 100644
+index b6f1dcf4bff3..8021bccb7770 100644
 --- a/kernel/kprobes.c
 +++ b/kernel/kprobes.c
-@@ -1868,45 +1868,69 @@ static struct notifier_block kprobe_exceptions_nb = {
+@@ -198,8 +198,8 @@ kprobe_opcode_t *__get_insn_slot(struct kprobe_insn_cache *c)
+ 	return slot;
+ }
  
- #ifdef CONFIG_KRETPROBES
- 
--unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
--					     void *frame_pointer)
-+/* This assumes the 'tsk' is the current task or the is not running. */
-+static kprobe_opcode_t *__kretprobe_find_ret_addr(struct task_struct *tsk,
-+						  struct llist_node **cur)
+-/* Return 1 if all garbages are collected, otherwise 0. */
+-static int collect_one_slot(struct kprobe_insn_page *kip, int idx)
++/* Return true if all garbages are collected, otherwise false. */
++static bool collect_one_slot(struct kprobe_insn_page *kip, int idx)
  {
--	kprobe_opcode_t *correct_ret_addr = NULL;
- 	struct kretprobe_instance *ri = NULL;
--	struct llist_node *first, *node;
--	struct kretprobe *rp;
-+	struct llist_node *node = *cur;
-+
-+	if (!node)
-+		node = tsk->kretprobe_instances.first;
-+	else
-+		node = node->next;
- 
--	/* Find all nodes for this frame. */
--	first = node = current->kretprobe_instances.first;
- 	while (node) {
- 		ri = container_of(node, struct kretprobe_instance, llist);
--
--		BUG_ON(ri->fp != frame_pointer);
--
- 		if (ri->ret_addr != kretprobe_trampoline_addr()) {
--			correct_ret_addr = ri->ret_addr;
--			/*
--			 * This is the real return address. Any other
--			 * instances associated with this task are for
--			 * other calls deeper on the call stack
--			 */
--			goto found;
-+			*cur = node;
-+			return ri->ret_addr;
+ 	kip->slot_used[idx] = SLOT_CLEAN;
+ 	kip->nused--;
+@@ -223,9 +223,9 @@ static int collect_one_slot(struct kprobe_insn_page *kip, int idx)
+ 			kip->cache->free(kip->insns);
+ 			kfree(kip);
  		}
--
- 		node = node->next;
+-		return 1;
++		return true;
  	}
--	pr_err("kretprobe: Return address not found, not execute handler. Maybe there is a bug in the kernel.\n");
--	BUG_ON(1);
-+	return NULL;
-+}
-+NOKPROBE_SYMBOL(__kretprobe_find_ret_addr);
+-	return 0;
++	return false;
+ }
  
--found:
--	/* Unlink all nodes for this frame. */
--	current->kretprobe_instances.first = node->next;
--	node->next = NULL;
-+unsigned long kretprobe_find_ret_addr(struct task_struct *tsk, void *fp,
-+				      struct llist_node **cur)
-+{
-+	struct kretprobe_instance *ri = NULL;
-+	kprobe_opcode_t *ret;
-+
-+	do {
-+		ret = __kretprobe_find_ret_addr(tsk, cur);
-+		if (!ret)
-+			break;
-+		ri = container_of(*cur, struct kretprobe_instance, llist);
-+	} while (ri->fp != fp);
+ static int collect_garbage_slots(struct kprobe_insn_cache *c)
+@@ -389,13 +389,13 @@ NOKPROBE_SYMBOL(get_kprobe);
+ static int aggr_pre_handler(struct kprobe *p, struct pt_regs *regs);
  
--	/* Run them..  */
-+	return (unsigned long)ret;
-+}
-+NOKPROBE_SYMBOL(kretprobe_find_ret_addr);
-+
-+unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
-+					     void *frame_pointer)
-+{
-+	kprobe_opcode_t *correct_ret_addr = NULL;
-+	struct kretprobe_instance *ri = NULL;
-+	struct llist_node *first, *node = NULL;
-+	struct kretprobe *rp;
-+
-+	/* Find correct address and all nodes for this frame. */
-+	correct_ret_addr = __kretprobe_find_ret_addr(current, &node);
-+	if (!correct_ret_addr) {
-+		pr_err("kretprobe: Return address not found, not execute handler. Maybe there is a bug in the kernel.\n");
-+		BUG_ON(1);
-+	}
-+
-+	/* Run the user handler of the nodes. */
-+	first = current->kretprobe_instances.first;
- 	while (first) {
- 		ri = container_of(first, struct kretprobe_instance, llist);
--		first = first->next;
-+
-+		if (WARN_ON_ONCE(ri->fp != frame_pointer))
-+			break;
+ /* Return true if 'p' is an aggregator */
+-static inline int kprobe_aggrprobe(struct kprobe *p)
++static inline bool kprobe_aggrprobe(struct kprobe *p)
+ {
+ 	return p->pre_handler = aggr_pre_handler;
+ }
  
- 		rp = get_kretprobe(ri);
- 		if (rp && rp->handler) {
-@@ -1917,6 +1941,21 @@ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
- 			rp->handler(ri, regs);
- 			__this_cpu_write(current_kprobe, prev);
- 		}
-+		if (first = node)
-+			break;
-+
-+		first = first->next;
-+	}
-+
-+	/* Unlink all nodes for this frame. */
-+	first = current->kretprobe_instances.first;
-+	current->kretprobe_instances.first = node->next;
-+	node->next = NULL;
-+
-+	/* Recycle free instances. */
-+	while (first) {
-+		ri = container_of(first, struct kretprobe_instance, llist);
-+		first = first->next;
+ /* Return true if 'p' is unused */
+-static inline int kprobe_unused(struct kprobe *p)
++static inline bool kprobe_unused(struct kprobe *p)
+ {
+ 	return kprobe_aggrprobe(p) && kprobe_disabled(p) &&
+ 	       list_empty(&p->list);
+@@ -455,7 +455,7 @@ static inline int kprobe_optready(struct kprobe *p)
+ }
  
- 		recycle_rp_inst(ri);
+ /* Return true if the kprobe is disarmed. Note: p must be on hash list */
+-static inline int kprobe_disarmed(struct kprobe *p)
++static inline bool kprobe_disarmed(struct kprobe *p)
+ {
+ 	struct optimized_kprobe *op;
+ 
+@@ -469,16 +469,16 @@ static inline int kprobe_disarmed(struct kprobe *p)
+ }
+ 
+ /* Return true if the probe is queued on (un)optimizing lists */
+-static int kprobe_queued(struct kprobe *p)
++static bool kprobe_queued(struct kprobe *p)
+ {
+ 	struct optimized_kprobe *op;
+ 
+ 	if (kprobe_aggrprobe(p)) {
+ 		op = container_of(p, struct optimized_kprobe, kp);
+ 		if (!list_empty(&op->list))
+-			return 1;
++			return true;
  	}
+-	return 0;
++	return false;
+ }
+ 
+ /*
+@@ -1678,7 +1678,7 @@ int register_kprobe(struct kprobe *p)
+ EXPORT_SYMBOL_GPL(register_kprobe);
+ 
+ /* Check if all probes on the 'ap' are disabled. */
+-static int aggr_kprobe_disabled(struct kprobe *ap)
++static bool aggr_kprobe_disabled(struct kprobe *ap)
+ {
+ 	struct kprobe *kp;
+ 
+@@ -1690,9 +1690,9 @@ static int aggr_kprobe_disabled(struct kprobe *ap)
+ 			 * Since there is an active probe on the list,
+ 			 * we can't disable this 'ap'.
+ 			 */
+-			return 0;
++			return false;
+ 
+-	return 1;
++	return true;
+ }
+ 
+ static struct kprobe *__disable_kprobe(struct kprobe *p)
+diff --git a/kernel/trace/trace_kprobe.c b/kernel/trace/trace_kprobe.c
+index ea6178cb5e33..c6e0345a44e9 100644
+--- a/kernel/trace/trace_kprobe.c
++++ b/kernel/trace/trace_kprobe.c
+@@ -101,7 +101,7 @@ static nokprobe_inline unsigned long trace_kprobe_offset(struct trace_kprobe *tk
+ 
+ static nokprobe_inline bool trace_kprobe_has_gone(struct trace_kprobe *tk)
+ {
+-	return !!(kprobe_gone(&tk->rp.kp));
++	return kprobe_gone(&tk->rp.kp);
+ }
+ 
+ static nokprobe_inline bool trace_kprobe_within_module(struct trace_kprobe *tk,
