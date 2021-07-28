@@ -1,55 +1,61 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Date: Fri, 23 Jul 2021 17:50:03 +0000
-Subject: [PATCH v2 16/21] parisc: return error code from .map_sg() ops
-Message-Id: <20210723175008.22410-17-logang@deltatee.com>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Wed, 28 Jul 2021 15:29:47 +0000
+Subject: [PATCH -tip v3 3/6] kprobes: Use IS_ENABLED() instead of kprobes_built_in()
+Message-Id: <162748618765.59465.7592282417881431316.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210723175008.22410-1-logang@deltatee.com>
-In-Reply-To: <20210723175008.22410-1-logang@deltatee.com>
+References: <162748615977.59465.13262421617578791515.stgit@devnote2>
+In-Reply-To: <162748615977.59465.13262421617578791515.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
-Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>
+To: X86 ML <x86@kernel.org>, Ingo Molnar <mingo@kernel.org>
+Cc: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>, Joe Perches <joe@perches.com>
 
-From: Martin Oliveira <martin.oliveira@eideticom.com>
+Use IS_ENABLED(CONFIG_KPROBES) instead of kprobes_built_in().
+This inline function is introduced only for avoiding #ifdef.
+But since now we have IS_ENABLED(), it is no longer needed.
 
-The .map_sg() op now expects an error code instead of zero on failure.
-Return -EINVAL if the ioc cannot be obtained.
-
-Signed-off-by: Martin Oliveira <martin.oliveira@eideticom.com>
-Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
-Cc: "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>
-Cc: Helge Deller <deller@gmx.de>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
 ---
- drivers/parisc/ccio-dma.c  | 2 +-
- drivers/parisc/sba_iommu.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ include/linux/kprobes.h |   14 +-------------
+ 1 file changed, 1 insertion(+), 13 deletions(-)
 
-diff --git a/drivers/parisc/ccio-dma.c b/drivers/parisc/ccio-dma.c
-index b5f9ee81a46c..452e72b7bd01 100644
---- a/drivers/parisc/ccio-dma.c
-+++ b/drivers/parisc/ccio-dma.c
-@@ -918,7 +918,7 @@ ccio_map_sg(struct device *dev, struct scatterlist *sglist, int nents,
- 	BUG_ON(!dev);
- 	ioc = GET_IOC(dev);
- 	if (!ioc)
--		return 0;
-+		return -EINVAL;
- 	
- 	DBG_RUN_SG("%s() START %d entries\n", __func__, nents);
+diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
+index 756d3d23ce37..9c28fbb18e74 100644
+--- a/include/linux/kprobes.h
++++ b/include/linux/kprobes.h
+@@ -180,14 +180,6 @@ struct kprobe_blacklist_entry {
+ DECLARE_PER_CPU(struct kprobe *, current_kprobe);
+ DECLARE_PER_CPU(struct kprobe_ctlblk, kprobe_ctlblk);
  
-diff --git a/drivers/parisc/sba_iommu.c b/drivers/parisc/sba_iommu.c
-index dce4cdf786cd..e60690d38d67 100644
---- a/drivers/parisc/sba_iommu.c
-+++ b/drivers/parisc/sba_iommu.c
-@@ -947,7 +947,7 @@ sba_map_sg(struct device *dev, struct scatterlist *sglist, int nents,
+-/*
+- * For #ifdef avoidance:
+- */
+-static inline int kprobes_built_in(void)
+-{
+-	return 1;
+-}
+-
+ extern void kprobe_busy_begin(void);
+ extern void kprobe_busy_end(void);
  
- 	ioc = GET_IOC(dev);
- 	if (!ioc)
--		return 0;
-+		return -EINVAL;
+@@ -417,10 +409,6 @@ int arch_kprobe_get_kallsym(unsigned int *symnum, unsigned long *value,
+ 			    char *type, char *sym);
+ #else /* !CONFIG_KPROBES: */
  
- 	/* Fast path single entry scatterlists. */
- 	if (nents = 1) {
--- 
-2.20.1
+-static inline int kprobes_built_in(void)
+-{
+-	return 0;
+-}
+ static inline int kprobe_fault_handler(struct pt_regs *regs, int trapnr)
+ {
+ 	return 0;
+@@ -514,7 +502,7 @@ static inline bool is_kprobe_optinsn_slot(unsigned long addr)
+ static nokprobe_inline bool kprobe_page_fault(struct pt_regs *regs,
+ 					      unsigned int trap)
+ {
+-	if (!kprobes_built_in())
++	if (!IS_ENABLED(CONFIG_KPROBES))
+ 		return false;
+ 	if (user_mode(regs))
+ 		return false;
