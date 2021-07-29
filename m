@@ -1,7 +1,7 @@
 From: Logan Gunthorpe <logang@deltatee.com>
-Date: Thu, 29 Jul 2021 20:15:28 +0000
-Subject: [PATCH v3 10/21] powerpc/iommu: return error code from .map_sg() ops
-Message-Id: <20210729201539.5602-11-logang@deltatee.com>
+Date: Thu, 29 Jul 2021 20:15:19 +0000
+Subject: [PATCH v3 01/21] dma-mapping: Allow map_sg() ops to return negative error codes
+Message-Id: <20210729201539.5602-2-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20210729201539.5602-1-logang@deltatee.com>
 In-Reply-To: <20210729201539.5602-1-logang@deltatee.com>
@@ -9,90 +9,218 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
-Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Geoff Levand <geoff@infradead.org>
+Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>
 
-From: Martin Oliveira <martin.oliveira@eideticom.com>
+Allow dma_map_sgtable() to pass errors from the map_sg() ops. This
+will be required for returning appropriate error codes when mapping
+P2PDMA memory.
 
-The .map_sg() op now expects an error code instead of zero on failure.
+Introduce __dma_map_sg_attrs() which will return the raw error code
+from the map_sg operation (whether it be negative or zero). Then add a
+dma_map_sg_attrs() wrapper to convert any negative errors to zero to
+satisfy the existing calling convention.
 
-Propagate the error up if vio_dma_iommu_map_sg() fails.
+dma_map_sgtable() defines three error codes that .map_sg implementations
+are allowed to return: -EINVAL, -ENOMEM and -EIO. The latter of which
+is a generic return for cases that are passing DMA_MAPPING_ERROR
+through.
 
-ppc_iommu_map_sg() may fail either because of iommu_range_alloc() or
-because of tbl->it_ops->set(). The former only supports returning an
-error with DMA_MAPPING_ERROR and an examination of the latter indicates
-that it may return arch-specific errors (for example,
-tce_buildmulti_pSeriesLP()). Hence, coalesce all of those errors into
--EIO, per the documentation on dma_map_sgtable().
+dma_map_sgtable() will convert a zero error return for old map_sg() ops
+into a -EIO return and return any negative errors as reported.
 
-Signed-off-by: Martin Oliveira <martin.oliveira@eideticom.com>
+This allows map_sg implementations to start returning multiple
+negative error codes. Legacy map_sg implementations can continue
+to return zero until they are all converted.
+
 Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
-Cc: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: Geoff Levand <geoff@infradead.org>
 ---
- arch/powerpc/kernel/iommu.c             | 4 ++--
- arch/powerpc/platforms/ps3/system-bus.c | 2 +-
- arch/powerpc/platforms/pseries/vio.c    | 5 +++--
- 3 files changed, 6 insertions(+), 5 deletions(-)
+ include/linux/dma-map-ops.h |  5 ++-
+ include/linux/dma-mapping.h | 35 ++++------------
+ kernel/dma/mapping.c        | 84 +++++++++++++++++++++++++++++++++----
+ 3 files changed, 86 insertions(+), 38 deletions(-)
 
-diff --git a/arch/powerpc/kernel/iommu.c b/arch/powerpc/kernel/iommu.c
-index 2af89a5e379f..a8ec4fe42817 100644
---- a/arch/powerpc/kernel/iommu.c
-+++ b/arch/powerpc/kernel/iommu.c
-@@ -473,7 +473,7 @@ int ppc_iommu_map_sg(struct device *dev, struct iommu_table *tbl,
- 	BUG_ON(direction = DMA_NONE);
- 
- 	if ((nelems = 0) || !tbl)
--		return 0;
-+		return -EINVAL;
- 
- 	outs = s = segstart = &sglist[0];
- 	outcount = 1;
-@@ -599,7 +599,7 @@ int ppc_iommu_map_sg(struct device *dev, struct iommu_table *tbl,
- 		if (s = outs)
- 			break;
- 	}
--	return 0;
-+	return -EIO;
- }
- 
- 
-diff --git a/arch/powerpc/platforms/ps3/system-bus.c b/arch/powerpc/platforms/ps3/system-bus.c
-index 1a5665875165..c54eb46f0cfb 100644
---- a/arch/powerpc/platforms/ps3/system-bus.c
-+++ b/arch/powerpc/platforms/ps3/system-bus.c
-@@ -663,7 +663,7 @@ static int ps3_ioc0_map_sg(struct device *_dev, struct scatterlist *sg,
- 			   unsigned long attrs)
+diff --git a/include/linux/dma-map-ops.h b/include/linux/dma-map-ops.h
+index 0d53a96a3d64..2f842498c448 100644
+--- a/include/linux/dma-map-ops.h
++++ b/include/linux/dma-map-ops.h
+@@ -41,8 +41,9 @@ struct dma_map_ops {
+ 			size_t size, enum dma_data_direction dir,
+ 			unsigned long attrs);
+ 	/*
+-	 * map_sg returns 0 on error and a value > 0 on success.
+-	 * It should never return a value < 0.
++	 * map_sg should return a negative error code on error. See
++	 * dma_map_sgtable() for a list of appropriate error codes
++	 * and their meanings.
+ 	 */
+ 	int (*map_sg)(struct device *dev, struct scatterlist *sg, int nents,
+ 			enum dma_data_direction dir, unsigned long attrs);
+diff --git a/include/linux/dma-mapping.h b/include/linux/dma-mapping.h
+index 183e7103a66d..daa1e360f0ee 100644
+--- a/include/linux/dma-mapping.h
++++ b/include/linux/dma-mapping.h
+@@ -110,6 +110,8 @@ int dma_map_sg_attrs(struct device *dev, struct scatterlist *sg, int nents,
+ void dma_unmap_sg_attrs(struct device *dev, struct scatterlist *sg,
+ 				      int nents, enum dma_data_direction dir,
+ 				      unsigned long attrs);
++int dma_map_sgtable(struct device *dev, struct sg_table *sgt,
++		enum dma_data_direction dir, unsigned long attrs);
+ dma_addr_t dma_map_resource(struct device *dev, phys_addr_t phys_addr,
+ 		size_t size, enum dma_data_direction dir, unsigned long attrs);
+ void dma_unmap_resource(struct device *dev, dma_addr_t addr, size_t size,
+@@ -174,6 +176,11 @@ static inline void dma_unmap_sg_attrs(struct device *dev,
+ 		unsigned long attrs)
  {
- 	BUG();
--	return 0;
-+	return -EINVAL;
+ }
++static inline int dma_map_sgtable(struct device *dev, struct sg_table *sgt,
++		enum dma_data_direction dir, unsigned long attrs)
++{
++	return -EOPNOTSUPP;
++}
+ static inline dma_addr_t dma_map_resource(struct device *dev,
+ 		phys_addr_t phys_addr, size_t size, enum dma_data_direction dir,
+ 		unsigned long attrs)
+@@ -343,34 +350,6 @@ static inline void dma_sync_single_range_for_device(struct device *dev,
+ 	return dma_sync_single_for_device(dev, addr + offset, size, dir);
  }
  
- static void ps3_sb_unmap_sg(struct device *_dev, struct scatterlist *sg,
-diff --git a/arch/powerpc/platforms/pseries/vio.c b/arch/powerpc/platforms/pseries/vio.c
-index e00f3725ec96..e31e59c54f30 100644
---- a/arch/powerpc/platforms/pseries/vio.c
-+++ b/arch/powerpc/platforms/pseries/vio.c
-@@ -560,7 +560,8 @@ static int vio_dma_iommu_map_sg(struct device *dev, struct scatterlist *sglist,
- 	for_each_sg(sglist, sgl, nelems, count)
- 		alloc_size += roundup(sgl->length, IOMMU_PAGE_SIZE(tbl));
- 
--	if (vio_cmo_alloc(viodev, alloc_size))
-+	ret = vio_cmo_alloc(viodev, alloc_size);
-+	if (ret)
- 		goto out_fail;
- 	ret = ppc_iommu_map_sg(dev, tbl, sglist, nelems, dma_get_mask(dev),
- 			direction, attrs);
-@@ -577,7 +578,7 @@ static int vio_dma_iommu_map_sg(struct device *dev, struct scatterlist *sglist,
- 	vio_cmo_dealloc(viodev, alloc_size);
- out_fail:
- 	atomic_inc(&viodev->cmo.allocs_failed);
+-/**
+- * dma_map_sgtable - Map the given buffer for DMA
+- * @dev:	The device for which to perform the DMA operation
+- * @sgt:	The sg_table object describing the buffer
+- * @dir:	DMA direction
+- * @attrs:	Optional DMA attributes for the map operation
+- *
+- * Maps a buffer described by a scatterlist stored in the given sg_table
+- * object for the @dir DMA operation by the @dev device. After success the
+- * ownership for the buffer is transferred to the DMA domain.  One has to
+- * call dma_sync_sgtable_for_cpu() or dma_unmap_sgtable() to move the
+- * ownership of the buffer back to the CPU domain before touching the
+- * buffer by the CPU.
+- *
+- * Returns 0 on success or -EINVAL on error during mapping the buffer.
+- */
+-static inline int dma_map_sgtable(struct device *dev, struct sg_table *sgt,
+-		enum dma_data_direction dir, unsigned long attrs)
+-{
+-	int nents;
+-
+-	nents = dma_map_sg_attrs(dev, sgt->sgl, sgt->orig_nents, dir, attrs);
+-	if (nents <= 0)
+-		return -EINVAL;
+-	sgt->nents = nents;
 -	return 0;
+-}
+-
+ /**
+  * dma_unmap_sgtable - Unmap the given buffer for DMA
+  * @dev:	The device for which to perform the DMA operation
+diff --git a/kernel/dma/mapping.c b/kernel/dma/mapping.c
+index 2b06a809d0b9..9f0bb56eb9aa 100644
+--- a/kernel/dma/mapping.c
++++ b/kernel/dma/mapping.c
+@@ -177,12 +177,8 @@ void dma_unmap_page_attrs(struct device *dev, dma_addr_t addr, size_t size,
+ }
+ EXPORT_SYMBOL(dma_unmap_page_attrs);
+ 
+-/*
+- * dma_maps_sg_attrs returns 0 on error and > 0 on success.
+- * It should never return a value < 0.
+- */
+-int dma_map_sg_attrs(struct device *dev, struct scatterlist *sg, int nents,
+-		enum dma_data_direction dir, unsigned long attrs)
++static int __dma_map_sg_attrs(struct device *dev, struct scatterlist *sg,
++	 int nents, enum dma_data_direction dir, unsigned long attrs)
+ {
+ 	const struct dma_map_ops *ops = get_dma_ops(dev);
+ 	int ents;
+@@ -197,13 +193,85 @@ int dma_map_sg_attrs(struct device *dev, struct scatterlist *sg, int nents,
+ 		ents = dma_direct_map_sg(dev, sg, nents, dir, attrs);
+ 	else
+ 		ents = ops->map_sg(dev, sg, nents, dir, attrs);
+-	BUG_ON(ents < 0);
+-	debug_dma_map_sg(dev, sg, nents, ents, dir);
++
++	if (ents > 0)
++		debug_dma_map_sg(dev, sg, nents, ents, dir);
++	else if (WARN_ON_ONCE(ents != -EINVAL && ents != -ENOMEM &&
++			      ents != -EIO && ents != 0))
++		return -EIO;
+ 
+ 	return ents;
+ }
++
++/**
++ * dma_map_sg_attrs - Map the given buffer for DMA
++ * @dev:	The device for which to perform the DMA operation
++ * @sg:	The sg_table object describing the buffer
++ * @dir:	DMA direction
++ * @attrs:	Optional DMA attributes for the map operation
++ *
++ * Maps a buffer described by a scatterlist passed in the sg argument with
++ * nents segments for the @dir DMA operation by the @dev device.
++ *
++ * Returns the number of mapped entries (which can be less than nents)
++ * on success. Zero is returned for any error.
++ *
++ * dma_unmap_sg_attrs() should be used to unmap the buffer with the
++ * original sg and original nents (not the value returned by this funciton).
++ */
++int dma_map_sg_attrs(struct device *dev, struct scatterlist *sg,
++		    int nents, enum dma_data_direction dir, unsigned long attrs)
++{
++	int ret;
++
++	ret = __dma_map_sg_attrs(dev, sg, nents, dir, attrs);
++	if (ret < 0)
++		ret = 0;
++
 +	return ret;
- }
++}
+ EXPORT_SYMBOL(dma_map_sg_attrs);
  
- static void vio_dma_iommu_unmap_sg(struct device *dev,
++/**
++ * dma_map_sgtable - Map the given buffer for DMA
++ * @dev:	The device for which to perform the DMA operation
++ * @sgt:	The sg_table object describing the buffer
++ * @dir:	DMA direction
++ * @attrs:	Optional DMA attributes for the map operation
++ *
++ * Maps a buffer described by a scatterlist stored in the given sg_table
++ * object for the @dir DMA operation by the @dev device. After success, the
++ * ownership for the buffer is transferred to the DMA domain.  One has to
++ * call dma_sync_sgtable_for_cpu() or dma_unmap_sgtable() to move the
++ * ownership of the buffer back to the CPU domain before touching the
++ * buffer by the CPU.
++ *
++ * Returns 0 on success or a negative error code on error. The following
++ * error codes are supported with the given meaning:
++ *
++ *   -EINVAL - An invalid argument, unaligned access or other error
++ *	       in usage. Will not succeed if retried.
++ *   -ENOMEM - Insufficient resources (like memory or IOVA space) to
++ *	       complete the mapping. Should succeed if retried later.
++ *   -EIO    - Legacy error code with an unknown meaning. eg. this is
++ *	       returned if a lower level call returned DMA_MAPPING_ERROR.
++ */
++int dma_map_sgtable(struct device *dev, struct sg_table *sgt,
++		    enum dma_data_direction dir, unsigned long attrs)
++{
++	int nents;
++
++	nents = __dma_map_sg_attrs(dev, sgt->sgl, sgt->orig_nents, dir, attrs);
++	if (nents = 0)
++		return -EIO;
++	else if (nents < 0)
++		return nents;
++
++	sgt->nents = nents;
++	return 0;
++}
++EXPORT_SYMBOL_GPL(dma_map_sgtable);
++
+ void dma_unmap_sg_attrs(struct device *dev, struct scatterlist *sg,
+ 				      int nents, enum dma_data_direction dir,
+ 				      unsigned long attrs)
 -- 
 2.20.1
