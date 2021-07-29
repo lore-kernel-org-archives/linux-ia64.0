@@ -1,140 +1,59 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Sun, 11 Jul 2021 07:35:09 +0000
-Subject: [PATCH -tip v2 5/6] kprobes: treewide: Use 'kprobe_opcode_t *' for the code address in get_optimized
-Message-Id: <162598890928.1222130.10593002740256697428.stgit@devnote2>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Thu, 29 Jul 2021 20:15:26 +0000
+Subject: [PATCH v3 08/21] ia64/sba_iommu: return error code from sba_map_sg_attrs()
+Message-Id: <20210729201539.5602-9-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162598881438.1222130.11530594038964049135.stgit@devnote2>
-In-Reply-To: <162598881438.1222130.11530594038964049135.stgit@devnote2>
+References: <20210729201539.5602-1-logang@deltatee.com>
+In-Reply-To: <20210729201539.5602-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: X86 ML <x86@kernel.org>, Ingo Molnar <mingo@kernel.org>
-Cc: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>, Joe Perches <joe@perches.com>
+To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
+Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, Michael Ellerman <mpe@ellerman.id.au>, Niklas Schnelle <schnelle@linux.ibm.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 
-Since get_optimized_kprobe() is only used inside kprobes,
-it doesn't need to use 'unsigned long' type for 'addr' parameter.
-Make it use 'kprobe_opcode_t *' for the 'addr' parameter and
-subsequent call of arch_within_optimized_kprobe() also should use
-'kprobe_opcode_t *'.
+From: Martin Oliveira <martin.oliveira@eideticom.com>
 
-Note that MAX_OPTIMIZED_LENGTH and RELATIVEJUMP_SIZE are defined
-by byte-size, but the size of 'kprobe_opcode_t' depends on the
-architecture. Therefore, we must be careful when calculating
-addresses using those macros.
+The .map_sg() op now expects an error code instead of zero on failure.
 
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+In the case of a dma_mapping_error() return -EIO as the actual cause
+is opaque here.
+
+sba_coalesce_chunks() may only presently fail if sba_alloc_range()
+fails, which in turn only fails if the iommu is out of mapping
+resources, hence a -ENOMEM is used in that case.
+
+Signed-off-by: Martin Oliveira <martin.oliveira@eideticom.com>
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Niklas Schnelle <schnelle@linux.ibm.com>
+Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 ---
- arch/arm/probes/kprobes/opt-arm.c |    7 ++++---
- arch/powerpc/kernel/optprobes.c   |    6 +++---
- arch/x86/kernel/kprobes/opt.c     |    6 +++---
- include/linux/kprobes.h           |    2 +-
- kernel/kprobes.c                  |   10 +++++-----
- 5 files changed, 16 insertions(+), 15 deletions(-)
+ arch/ia64/hp/common/sba_iommu.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/arch/arm/probes/kprobes/opt-arm.c b/arch/arm/probes/kprobes/opt-arm.c
-index c78180172120..dbef34ed933f 100644
---- a/arch/arm/probes/kprobes/opt-arm.c
-+++ b/arch/arm/probes/kprobes/opt-arm.c
-@@ -347,10 +347,11 @@ void arch_unoptimize_kprobes(struct list_head *oplist,
- }
- 
- int arch_within_optimized_kprobe(struct optimized_kprobe *op,
--				unsigned long addr)
-+				 kprobe_opcode_t *addr)
- {
--	return ((unsigned long)op->kp.addr <= addr &&
--		(unsigned long)op->kp.addr + RELATIVEJUMP_SIZE > addr);
-+	return (op->kp.addr <= addr &&
-+		op->kp.addr + (RELATIVEJUMP_SIZE / sizeof(kprobe_opcode_t)) > addr);
-+
- }
- 
- void arch_remove_optimized_kprobe(struct optimized_kprobe *op)
-diff --git a/arch/powerpc/kernel/optprobes.c b/arch/powerpc/kernel/optprobes.c
-index c79899abcec8..325ba544883c 100644
---- a/arch/powerpc/kernel/optprobes.c
-+++ b/arch/powerpc/kernel/optprobes.c
-@@ -301,8 +301,8 @@ void arch_unoptimize_kprobes(struct list_head *oplist, struct list_head *done_li
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index 9148ddbf02e5..430c166b68cd 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -1458,8 +1458,8 @@ static int sba_map_sg_attrs(struct device *dev, struct scatterlist *sglist,
+ 		sglist->dma_length = sglist->length;
+ 		sglist->dma_address = sba_map_page(dev, sg_page(sglist),
+ 				sglist->offset, sglist->length, dir, attrs);
+-		if (dma_mapping_error(dev, sglist->dma_address))
+-			return 0;
++		if(dma_mapping_error(dev, sglist->dma_address))
++			return -EIO;
+ 		return 1;
  	}
- }
  
--int arch_within_optimized_kprobe(struct optimized_kprobe *op, unsigned long addr)
-+int arch_within_optimized_kprobe(struct optimized_kprobe *op, kprobe_opcode_t *addr)
- {
--	return ((unsigned long)op->kp.addr <= addr &&
--		(unsigned long)op->kp.addr + RELATIVEJUMP_SIZE > addr);
-+	return (op->kp.addr <= addr &&
-+		op->kp.addr + (RELATIVEJUMP_SIZE / sizeof(kprobe_opcode_t)) > addr);
- }
-diff --git a/arch/x86/kernel/kprobes/opt.c b/arch/x86/kernel/kprobes/opt.c
-index 71425ebba98a..b4a54a52aa59 100644
---- a/arch/x86/kernel/kprobes/opt.c
-+++ b/arch/x86/kernel/kprobes/opt.c
-@@ -367,10 +367,10 @@ int arch_check_optimized_kprobe(struct optimized_kprobe *op)
- 
- /* Check the addr is within the optimized instructions. */
- int arch_within_optimized_kprobe(struct optimized_kprobe *op,
--				 unsigned long addr)
-+				 kprobe_opcode_t *addr)
- {
--	return ((unsigned long)op->kp.addr <= addr &&
--		(unsigned long)op->kp.addr + op->optinsn.size > addr);
-+	return (op->kp.addr <= addr &&
-+		op->kp.addr + op->optinsn.size > addr);
- }
- 
- /* Free optimized instruction slot */
-diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
-index 3d02917c837b..bb6d1e72a943 100644
---- a/include/linux/kprobes.h
-+++ b/include/linux/kprobes.h
-@@ -329,7 +329,7 @@ extern void arch_unoptimize_kprobes(struct list_head *oplist,
- 				    struct list_head *done_list);
- extern void arch_unoptimize_kprobe(struct optimized_kprobe *op);
- extern int arch_within_optimized_kprobe(struct optimized_kprobe *op,
--					unsigned long addr);
-+					kprobe_opcode_t *addr);
- 
- extern void opt_pre_handler(struct kprobe *p, struct pt_regs *regs);
- 
-diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-index a99fd840b5c9..e30c639fe2cc 100644
---- a/kernel/kprobes.c
-+++ b/kernel/kprobes.c
-@@ -485,15 +485,15 @@ static int kprobe_queued(struct kprobe *p)
-  * Return an optimized kprobe whose optimizing code replaces
-  * instructions including 'addr' (exclude breakpoint).
-  */
--static struct kprobe *get_optimized_kprobe(unsigned long addr)
-+static struct kprobe *get_optimized_kprobe(kprobe_opcode_t *addr)
- {
- 	int i;
- 	struct kprobe *p = NULL;
- 	struct optimized_kprobe *op;
- 
- 	/* Don't check i = 0, since that is a breakpoint case. */
--	for (i = 1; !p && i < MAX_OPTIMIZED_LENGTH; i++)
--		p = get_kprobe((void *)(addr - i));
-+	for (i = 1; !p && i < MAX_OPTIMIZED_LENGTH / sizeof(kprobe_opcode_t); i++)
-+		p = get_kprobe(addr - i);
- 
- 	if (p && kprobe_optready(p)) {
- 		op = container_of(p, struct optimized_kprobe, kp);
-@@ -967,7 +967,7 @@ static void __arm_kprobe(struct kprobe *p)
- 	lockdep_assert_held(&text_mutex);
- 
- 	/* Find the overlapping optimized kprobes. */
--	_p = get_optimized_kprobe((unsigned long)p->addr);
-+	_p = get_optimized_kprobe(p->addr);
- 	if (unlikely(_p))
- 		/* Fallback to unoptimized kprobe */
- 		unoptimize_kprobe(_p, true);
-@@ -989,7 +989,7 @@ static void __disarm_kprobe(struct kprobe *p, bool reopt)
- 	if (!kprobe_queued(p)) {
- 		arch_disarm_kprobe(p);
- 		/* If another kprobe was blocked, re-optimize it. */
--		_p = get_optimized_kprobe((unsigned long)p->addr);
-+		_p = get_optimized_kprobe(p->addr);
- 		if (unlikely(_p) && reopt)
- 			optimize_kprobe(_p);
+@@ -1486,7 +1486,7 @@ static int sba_map_sg_attrs(struct device *dev, struct scatterlist *sglist,
+ 	coalesced = sba_coalesce_chunks(ioc, dev, sglist, nents);
+ 	if (coalesced < 0) {
+ 		sba_unmap_sg_attrs(dev, sglist, nents, dir, attrs);
+-		return 0;
++		return -ENOMEM;
  	}
+ 
+ 	/*
+-- 
+2.20.1
