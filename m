@@ -1,55 +1,55 @@
-From: Sasha Levin <sashal@kernel.org>
-Date: Mon, 05 Jul 2021 15:31:13 +0000
-Subject: [PATCH AUTOSEL 4.19 17/17] ia64: mca_drv: fix incorrect array size calculation
-Message-Id: <20210705153114.1522046-17-sashal@kernel.org>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Thu, 29 Jul 2021 14:07:48 +0000
+Subject: [PATCH -tip v10 12/16] kprobes: Enable stacktrace from pt_regs in kretprobe handler
+Message-Id: <162756766854.301564.16064835736239439658.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210705153114.1522046-1-sashal@kernel.org>
-In-Reply-To: <20210705153114.1522046-1-sashal@kernel.org>
+References: <162756755600.301564.4957591913842010341.stgit@devnote2>
+In-Reply-To: <162756755600.301564.4957591913842010341.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
-Cc: Arnd Bergmann <arnd@arndb.de>, Masahiro Yamada <masahiroy@kernel.org>, Randy Dunlap <rdunlap@infradead.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-From: Arnd Bergmann <arnd@arndb.de>
+Since the ORC unwinder from pt_regs requires setting up regs->ip
+correctly, set the correct return address to the regs->ip before
+calling user kretprobe handler.
 
-[ Upstream commit c5f320ff8a79501bb59338278336ec43acb9d7e2 ]
+This allows the kretrprobe handler to trace stack from the
+kretprobe's pt_regs by stack_trace_save_regs() (eBPF will do
+this), instead of stack tracing from the handler context by
+stack_trace_save() (ftrace will do this).
 
-gcc points out a mistake in the mca driver that goes back to before the
-git history:
-
-arch/ia64/kernel/mca_drv.c: In function 'init_record_index_pools':
-arch/ia64/kernel/mca_drv.c:346:54: error: expression does not compute the number of elements in this array; element typ
-e is 'int', not 'size_t' {aka 'long unsigned int'} [-Werror=sizeof-array-div]
-  346 |         for (i = 1; i < sizeof sal_log_sect_min_sizes/sizeof(size_t); i++)
-      |                                                      ^
-
-This is the same as sizeof(size_t), which is two shorter than the actual
-array.  Use the ARRAY_SIZE() macro to get the correct calculation instead.
-
-Link: https://lkml.kernel.org/r/20210514214123.875971-1-arnd@kernel.org
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Cc: Masahiro Yamada <masahiroy@kernel.org>
-Cc: Randy Dunlap <rdunlap@infradead.org>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Sasha Levin <sashal@kernel.org>
+Suggested-by: Josh Poimboeuf <jpoimboe@redhat.com>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+Tested-by: Andrii Nakryiko <andrii@kernel.org>
+Acked-by: Josh Poimboeuf <jpoimboe@redhat.com>
 ---
- arch/ia64/kernel/mca_drv.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ Changes in v9:
+  - Update comment to explain specifically why this is necessary.
+ Changes in v8:
+  - Update comment to clarify why this is needed.
+ Changes in v3:
+  - Cast the correct_ret_addr to unsigned long.
+---
+ kernel/kprobes.c |    7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/arch/ia64/kernel/mca_drv.c b/arch/ia64/kernel/mca_drv.c
-index dfe40cbdf3b3..06419a95af30 100644
---- a/arch/ia64/kernel/mca_drv.c
-+++ b/arch/ia64/kernel/mca_drv.c
-@@ -343,7 +343,7 @@ init_record_index_pools(void)
+diff --git a/kernel/kprobes.c b/kernel/kprobes.c
+index 833f07f33115..ebc587b9a346 100644
+--- a/kernel/kprobes.c
++++ b/kernel/kprobes.c
+@@ -1937,6 +1937,13 @@ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
+ 		BUG_ON(1);
+ 	}
  
- 	/* - 2 - */
- 	sect_min_size = sal_log_sect_min_sizes[0];
--	for (i = 1; i < sizeof sal_log_sect_min_sizes/sizeof(size_t); i++)
-+	for (i = 1; i < ARRAY_SIZE(sal_log_sect_min_sizes); i++)
- 		if (sect_min_size > sal_log_sect_min_sizes[i])
- 			sect_min_size = sal_log_sect_min_sizes[i];
- 
--- 
-2.30.2
++	/*
++	 * Set the return address as the instruction pointer, because if the
++	 * user handler calls stack_trace_save_regs() with this 'regs',
++	 * the stack trace will start from the instruction pointer.
++	 */
++	instruction_pointer_set(regs, (unsigned long)correct_ret_addr);
++
+ 	/* Run the user handler of the nodes. */
+ 	first = current->kretprobe_instances.first;
+ 	while (first) {
