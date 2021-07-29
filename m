@@ -1,88 +1,50 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Sun, 11 Jul 2021 13:35:46 +0000
-Subject: [PATCH -tip v9 06/14] x86/kprobes: Add UNWIND_HINT_FUNC on kretprobe_trampoline()
-Message-Id: <162601054601.1318837.6067145827088507621.stgit@devnote2>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Thu, 29 Jul 2021 20:15:39 +0000
+Subject: [PATCH v3 21/21] dma-mapping: Disallow .map_sg operations from returning zero on error
+Message-Id: <20210729201539.5602-22-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162601048053.1318837.1550594515476777588.stgit@devnote2>
-In-Reply-To: <162601048053.1318837.1550594515476777588.stgit@devnote2>
+References: <20210729201539.5602-1-logang@deltatee.com>
+In-Reply-To: <20210729201539.5602-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
+Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>
 
-From: Josh Poimboeuf <jpoimboe@redhat.com>
+Now that all the .map_sg operations have been converted to returning
+proper error codes, drop the code to handle a zero return value,
+add a warning if a zero is returned.
 
-Add UNWIND_HINT_FUNC on __kretprobe_trampoline() code so that ORC
-information is generated on the __kretprobe_trampoline() correctly.
-Also, this uses STACK_FRAME_NON_STANDARD_FP(), CONFIG_FRAME_POINTER-
--specific version of STACK_FRAME_NON_STANDARD().
-
-Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-Tested-by: Andrii Nakryiko <andrii@kernel.org>
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
 ---
- Changes in v9:
-  - Update changelog and fix comment.
-  - Use STACK_FRAME_NON_STANDARD_FP().
- Changes in v4:
-  - Apply UNWIND_HINT_FUNC only if CONFIG_FRAME_POINTER=n.
----
- arch/x86/include/asm/unwind_hints.h |    5 +++++
- arch/x86/kernel/kprobes/core.c      |   13 +++++++++++--
- 2 files changed, 16 insertions(+), 2 deletions(-)
+ kernel/dma/mapping.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/arch/x86/include/asm/unwind_hints.h b/arch/x86/include/asm/unwind_hints.h
-index 8e574c0afef8..8b33674288ea 100644
---- a/arch/x86/include/asm/unwind_hints.h
-+++ b/arch/x86/include/asm/unwind_hints.h
-@@ -52,6 +52,11 @@
- 	UNWIND_HINT sp_reg=ORC_REG_SP sp_offset=8 type=UNWIND_HINT_TYPE_FUNC
- .endm
+diff --git a/kernel/dma/mapping.c b/kernel/dma/mapping.c
+index 9f0bb56eb9aa..cbcbdc877458 100644
+--- a/kernel/dma/mapping.c
++++ b/kernel/dma/mapping.c
+@@ -196,8 +196,8 @@ static int __dma_map_sg_attrs(struct device *dev, struct scatterlist *sg,
  
-+#else
-+
-+#define UNWIND_HINT_FUNC \
-+	UNWIND_HINT(ORC_REG_SP, 8, UNWIND_HINT_TYPE_FUNC, 0)
-+
- #endif /* __ASSEMBLY__ */
+ 	if (ents > 0)
+ 		debug_dma_map_sg(dev, sg, nents, ents, dir);
+-	else if (WARN_ON_ONCE(ents != -EINVAL && ents != -ENOMEM &&
+-			      ents != -EIO && ents != 0))
++	else if (WARN_ON_ONCE((ents != -EINVAL && ents != -ENOMEM &&
++			       ents != -EIO) || ents = 0))
+ 		return -EIO;
  
- #endif /* _ASM_X86_UNWIND_HINTS_H */
-diff --git a/arch/x86/kernel/kprobes/core.c b/arch/x86/kernel/kprobes/core.c
-index 79cd23dba5b5..d1436d7463fd 100644
---- a/arch/x86/kernel/kprobes/core.c
-+++ b/arch/x86/kernel/kprobes/core.c
-@@ -1025,6 +1025,7 @@ asm(
- 	/* We don't bother saving the ss register */
- #ifdef CONFIG_X86_64
- 	"	pushq %rsp\n"
-+	UNWIND_HINT_FUNC
- 	"	pushfq\n"
- 	SAVE_REGS_STRING
- 	"	movq %rsp, %rdi\n"
-@@ -1035,6 +1036,7 @@ asm(
- 	"	popfq\n"
- #else
- 	"	pushl %esp\n"
-+	UNWIND_HINT_FUNC
- 	"	pushfl\n"
- 	SAVE_REGS_STRING
- 	"	movl %esp, %eax\n"
-@@ -1048,8 +1050,15 @@ asm(
- 	".size __kretprobe_trampoline, .-__kretprobe_trampoline\n"
- );
- NOKPROBE_SYMBOL(__kretprobe_trampoline);
--STACK_FRAME_NON_STANDARD(__kretprobe_trampoline);
--
-+/*
-+ * __kretprobe_trampoline() skips updating frame pointer. The frame pointer
-+ * saved in trampoline_handler() points to the real caller function's
-+ * frame pointer. Thus the __kretprobe_trampoline() doesn't have a
-+ * standard stack frame with CONFIG_FRAME_POINTER=y.
-+ * Let's mark it non-standard function. Anyway, FP unwinder can correctly
-+ * unwind without the hint.
-+ */
-+STACK_FRAME_NON_STANDARD_FP(__kretprobe_trampoline);
+ 	return ents;
+@@ -262,9 +262,7 @@ int dma_map_sgtable(struct device *dev, struct sg_table *sgt,
+ 	int nents;
  
- /*
-  * Called from __kretprobe_trampoline
+ 	nents = __dma_map_sg_attrs(dev, sgt->sgl, sgt->orig_nents, dir, attrs);
+-	if (nents = 0)
+-		return -EIO;
+-	else if (nents < 0)
++	if (nents < 0)
+ 		return nents;
+ 
+ 	sgt->nents = nents;
+-- 
+2.20.1
