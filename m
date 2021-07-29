@@ -1,124 +1,109 @@
-From: Arnd Bergmann <arnd@kernel.org>
-Date: Thu, 22 Jul 2021 12:48:05 +0000
-Subject: [PATCH v3 0/6] asm-generic: strncpy_from_user/strnlen_user cleanup
-Message-Id: <20210722124814.778059-1-arnd@kernel.org>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Thu, 29 Jul 2021 14:07:58 +0000
+Subject: [PATCH -tip v10 13/16] x86/kprobes: Push a fake return address at kretprobe_trampoline
+Message-Id: <162756767828.301564.16335053369674561101.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <162756755600.301564.4957591913842010341.stgit@devnote2>
+In-Reply-To: <162756755600.301564.4957591913842010341.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arch@vger.kernel.org
-Cc: Arnd Bergmann <arnd@arndb.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Al Viro <viro@zeniv.linux.org.uk>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Brian Cain <bcain@codeaurora.org>, Chris Zankel <chris@zankel.net>, Christian Borntraeger <borntraeger@de.ibm.com>, Christoph Hellwig <hch@lst.de>, Guo Ren <guoren@kernel.org>, Heiko Carstens <hca@linux.ibm.com>, Helge Deller <deller@gmx.de>, Jeff Dike <jdike@addtoit.com>, Linus Walleij <linus.walleij@linaro.org>, Max Filippov <jcmvbkbc@gmail.com>, Michal Simek <monstr@monstr.eu>, Richard Weinberger <richard@nod.at>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Vasily Gorbik <gor@linux.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-s390@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, uclinux-h8-devel@lists.sourceforge.jp
+To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-From: Arnd Bergmann <arnd@arndb.de>
+Change __kretprobe_trampoline() to push the address of the
+__kretprobe_trampoline() as a fake return address at the bottom
+of the stack frame. This fake return address will be replaced
+with the correct return address in the trampoline_handler().
 
-I had run into some regressions for the previous version of this
-series, the new version is based on v5.14-rc2 instead.
+With this change, the ORC unwinder can check whether the return
+address is modified by kretprobes or not.
 
-These two functions appear to be unnecessarily different between
-architectures, and the asm-generic version is a bit questionable,
-even for NOMMU architectures.
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+Suggested-by: Josh Poimboeuf <jpoimboe@redhat.com>
+Tested-by: Andrii Nakryiko <andrii@kernel.org>
+Acked-by: Josh Poimboeuf <jpoimboe@redhat.com>
+---
+ Changes in v9:
+  - Update changelog and comment.
+  - Remove unneeded type casting.
+---
+ arch/x86/kernel/kprobes/core.c |   34 +++++++++++++++++++++++++---------
+ 1 file changed, 25 insertions(+), 9 deletions(-)
 
-Clean this up to just use the generic library version for anything
-that uses the generic version today. I've expanded on the patch
-descriptions a little, as suggested by Christoph Hellwig, but I
-suspect a more detailed review would uncover additional problems
-with the custom versions that are getting removed.
-
-I ended up adding patches for csky and microblaze as they had the
-same implementation that I removed elsewhere, these are now gone
-as well.
-
-If I hear no objections from architecture maintainers or new
-build regressions, I'll queue these up in the asm-generic tree
-for 5.15.
-
-       Arnd
-
-Link: https://lore.kernel.org/linux-arch/20210515101803.924427-1-arnd@kernel.org/
-
-Arnd Bergmann (9):
-  asm-generic/uaccess.h: remove __strncpy_from_user/__strnlen_user
-  h8300: remove stale strncpy_from_user
-  hexagon: use generic strncpy/strnlen from_user
-  arc: use generic strncpy/strnlen from_user
-  csky: use generic strncpy/strnlen from_user
-  microblaze: use generic strncpy/strnlen from_user
-  asm-generic: uaccess: remove inline strncpy_from_user/strnlen_user
-  asm-generic: remove extra strn{cpy_from,len}_user declarations
-  asm-generic: reverse GENERIC_{STRNCPY_FROM,STRNLEN}_USER symbols
-
- arch/alpha/Kconfig                        |   2 -
- arch/arc/include/asm/uaccess.h            |  72 -------------
- arch/arc/mm/extable.c                     |  12 ---
- arch/arm/Kconfig                          |   2 -
- arch/arm64/Kconfig                        |   2 -
- arch/csky/include/asm/uaccess.h           |   6 --
- arch/csky/lib/usercopy.c                  | 102 ------------------
- arch/h8300/kernel/h8300_ksyms.c           |   2 -
- arch/h8300/lib/Makefile                   |   2 +-
- arch/h8300/lib/strncpy.S                  |  35 ------
- arch/hexagon/include/asm/uaccess.h        |  31 ------
- arch/hexagon/kernel/hexagon_ksyms.c       |   1 -
- arch/hexagon/mm/Makefile                  |   2 +-
- arch/hexagon/mm/strnlen_user.S            | 126 ----------------------
- arch/ia64/Kconfig                         |   2 +
- arch/m68k/Kconfig                         |   2 -
- arch/microblaze/include/asm/uaccess.h     |  19 +---
- arch/microblaze/kernel/microblaze_ksyms.c |   3 -
- arch/microblaze/lib/uaccess_old.S         |  90 ----------------
- arch/mips/Kconfig                         |   2 +
- arch/nds32/Kconfig                        |   2 -
- arch/nios2/Kconfig                        |   2 -
- arch/openrisc/Kconfig                     |   2 -
- arch/parisc/Kconfig                       |   2 +-
- arch/powerpc/Kconfig                      |   2 -
- arch/riscv/Kconfig                        |   2 -
- arch/s390/Kconfig                         |   2 +
- arch/sh/Kconfig                           |   2 -
- arch/sparc/Kconfig                        |   2 -
- arch/um/Kconfig                           |   2 +
- arch/um/include/asm/uaccess.h             |   5 +-
- arch/um/kernel/skas/uaccess.c             |  14 ++-
- arch/x86/Kconfig                          |   2 -
- arch/xtensa/Kconfig                       |   3 +-
- arch/xtensa/include/asm/uaccess.h         |   3 +-
- include/asm-generic/uaccess.h             |  52 ++-------
- lib/Kconfig                               |  10 +-
- 37 files changed, 43 insertions(+), 581 deletions(-)
- delete mode 100644 arch/h8300/lib/strncpy.S
- delete mode 100644 arch/hexagon/mm/strnlen_user.S
-
--- 
-2.29.2
-
-Cc: "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com> 
-Cc: Al Viro <viro@zeniv.linux.org.uk> 
-Cc: Anton Ivanov <anton.ivanov@cambridgegreys.com> 
-Cc: Brian Cain <bcain@codeaurora.org> 
-Cc: Chris Zankel <chris@zankel.net> 
-Cc: Christian Borntraeger <borntraeger@de.ibm.com> 
-Cc: Christoph Hellwig <hch@lst.de>
-Cc: Guo Ren <guoren@kernel.org> 
-Cc: Heiko Carstens <hca@linux.ibm.com> 
-Cc: Helge Deller <deller@gmx.de> 
-Cc: Jeff Dike <jdike@addtoit.com> 
-Cc: Linus Walleij <linus.walleij@linaro.org> 
-Cc: Max Filippov <jcmvbkbc@gmail.com> 
-Cc: Michal Simek <monstr@monstr.eu> 
-Cc: Richard Weinberger <richard@nod.at> 
-Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de> 
-Cc: Vasily Gorbik <gor@linux.ibm.com> 
-Cc: Vineet Gupta <vgupta@synopsys.com> 
-Cc: Yoshinori Sato <ysato@users.sourceforge.jp> 
-Cc: linux-arch@vger.kernel.org 
-Cc: linux-csky@vger.kernel.org 
-Cc: linux-hexagon@vger.kernel.org 
-Cc: linux-ia64@vger.kernel.org 
-Cc: linux-kernel@vger.kernel.org 
-Cc: linux-mips@vger.kernel.org 
-Cc: linux-parisc@vger.kernel.org 
-Cc: linux-s390@vger.kernel.org 
-Cc: linux-snps-arc@lists.infradead.org 
-Cc: linux-um@lists.infradead.org 
-Cc: linux-xtensa@linux-xtensa.org 
-Cc: uclinux-h8-devel@lists.sourceforge.jp 
+diff --git a/arch/x86/kernel/kprobes/core.c b/arch/x86/kernel/kprobes/core.c
+index d1436d7463fd..7e1111c19605 100644
+--- a/arch/x86/kernel/kprobes/core.c
++++ b/arch/x86/kernel/kprobes/core.c
+@@ -1022,28 +1022,33 @@ asm(
+ 	".global __kretprobe_trampoline\n"
+ 	".type __kretprobe_trampoline, @function\n"
+ 	"__kretprobe_trampoline:\n"
+-	/* We don't bother saving the ss register */
+ #ifdef CONFIG_X86_64
+-	"	pushq %rsp\n"
++	/* Push a fake return address to tell the unwinder it's a kretprobe. */
++	"	pushq $__kretprobe_trampoline\n"
+ 	UNWIND_HINT_FUNC
++	/* Save the 'sp - 8', this will be fixed later. */
++	"	pushq %rsp\n"
+ 	"	pushfq\n"
+ 	SAVE_REGS_STRING
+ 	"	movq %rsp, %rdi\n"
+ 	"	call trampoline_handler\n"
+-	/* Replace saved sp with true return address. */
+-	"	movq %rax, 19*8(%rsp)\n"
+ 	RESTORE_REGS_STRING
++	/* In trampoline_handler(), 'regs->flags' is copied to 'regs->sp'. */
++	"	addq $8, %rsp\n"
+ 	"	popfq\n"
+ #else
+-	"	pushl %esp\n"
++	/* Push a fake return address to tell the unwinder it's a kretprobe. */
++	"	pushl $__kretprobe_trampoline\n"
+ 	UNWIND_HINT_FUNC
++	/* Save the 'sp - 4', this will be fixed later. */
++	"	pushl %esp\n"
+ 	"	pushfl\n"
+ 	SAVE_REGS_STRING
+ 	"	movl %esp, %eax\n"
+ 	"	call trampoline_handler\n"
+-	/* Replace saved sp with true return address. */
+-	"	movl %eax, 15*4(%esp)\n"
+ 	RESTORE_REGS_STRING
++	/* In trampoline_handler(), 'regs->flags' is copied to 'regs->sp'. */
++	"	addl $4, %esp\n"
+ 	"	popfl\n"
+ #endif
+ 	"	ret\n"
+@@ -1063,8 +1068,10 @@ STACK_FRAME_NON_STANDARD_FP(__kretprobe_trampoline);
+ /*
+  * Called from __kretprobe_trampoline
+  */
+-__used __visible void *trampoline_handler(struct pt_regs *regs)
++__used __visible void trampoline_handler(struct pt_regs *regs)
+ {
++	unsigned long *frame_pointer;
++
+ 	/* fixup registers */
+ 	regs->cs = __KERNEL_CS;
+ #ifdef CONFIG_X86_32
+@@ -1072,8 +1079,17 @@ __used __visible void *trampoline_handler(struct pt_regs *regs)
+ #endif
+ 	regs->ip = (unsigned long)&__kretprobe_trampoline;
+ 	regs->orig_ax = ~0UL;
++	regs->sp += sizeof(long);
++	frame_pointer = &regs->sp + 1;
++
++	/* Replace fake return address with real one. */
++	*frame_pointer = kretprobe_trampoline_handler(regs, frame_pointer);
+ 
+-	return (void *)kretprobe_trampoline_handler(regs, &regs->sp);
++	/*
++	 * Copy FLAGS to 'pt_regs::sp' so that __kretprobe_trapmoline()
++	 * can do RET right after POPF.
++	 */
++	regs->sp = regs->flags;
+ }
+ NOKPROBE_SYMBOL(trampoline_handler);
+ 
