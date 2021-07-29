@@ -1,47 +1,47 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Date: Thu, 29 Jul 2021 20:15:35 +0000
-Subject: [PATCH v3 17/21] xen: swiotlb: return error code from xen_swiotlb_map_sg()
-Message-Id: <20210729201539.5602-18-logang@deltatee.com>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Thu, 29 Jul 2021 14:07:39 +0000
+Subject: [PATCH -tip v10 11/16] arm: kprobes: Make space for instruction pointer on stack
+Message-Id: <162756765964.301564.5697343919087076371.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210729201539.5602-1-logang@deltatee.com>
-In-Reply-To: <20210729201539.5602-1-logang@deltatee.com>
+References: <162756755600.301564.4957591913842010341.stgit@devnote2>
+In-Reply-To: <162756755600.301564.4957591913842010341.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
-Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>
+To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-From: Martin Oliveira <martin.oliveira@eideticom.com>
+Since arm's __kretprobe_trampoline() saves partial 'pt_regs' on the
+stack, 'regs->ARM_pc' (instruction pointer) is not accessible from
+the kretprobe handler. This means if instruction_pointer_set() is
+used from kretprobe handler, it will break the data on the stack.
 
-The .map_sg() op now expects an error code instead of zero on failure.
+Make space for instruction pointer (ARM_pc) on the stack in the
+__kretprobe_trampoline() for fixing this problem.
 
-xen_swiotlb_map_sg() may only fail if xen_swiotlb_map_page() fails, but
-xen_swiotlb_map_page() only supports returning errors as
-DMA_MAPPING_ERROR. So coalesce all errors into EIO per the documentation
-for dma_map_sgtable().
-
-Signed-off-by: Martin Oliveira <martin.oliveira@eideticom.com>
-Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
-Reviewed-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Cc: Juergen Gross <jgross@suse.com>
-Cc: Stefano Stabellini <sstabellini@kernel.org>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
 ---
- drivers/xen/swiotlb-xen.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ Changes in v9:
+  - Update changelog.
+---
+ arch/arm/probes/kprobes/core.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/xen/swiotlb-xen.c b/drivers/xen/swiotlb-xen.c
-index 24d11861ac7d..85d58b720a24 100644
---- a/drivers/xen/swiotlb-xen.c
-+++ b/drivers/xen/swiotlb-xen.c
-@@ -509,7 +509,7 @@ xen_swiotlb_map_sg(struct device *dev, struct scatterlist *sgl, int nelems,
- out_unmap:
- 	xen_swiotlb_unmap_sg(dev, sgl, i, dir, attrs | DMA_ATTR_SKIP_CPU_SYNC);
- 	sg_dma_len(sgl) = 0;
--	return 0;
-+	return -EIO;
- }
- 
- static void
--- 
-2.20.1
+diff --git a/arch/arm/probes/kprobes/core.c b/arch/arm/probes/kprobes/core.c
+index 67ce7eb8f285..95f23b47ba27 100644
+--- a/arch/arm/probes/kprobes/core.c
++++ b/arch/arm/probes/kprobes/core.c
+@@ -376,11 +376,13 @@ int __kprobes kprobe_exceptions_notify(struct notifier_block *self,
+ void __naked __kprobes __kretprobe_trampoline(void)
+ {
+ 	__asm__ __volatile__ (
++		"sub	sp, sp, #16		\n\t"
+ 		"stmdb	sp!, {r0 - r11}		\n\t"
+ 		"mov	r0, sp			\n\t"
+ 		"bl	trampoline_handler	\n\t"
+ 		"mov	lr, r0			\n\t"
+ 		"ldmia	sp!, {r0 - r11}		\n\t"
++		"add	sp, sp, #16		\n\t"
+ #ifdef CONFIG_THUMB2_KERNEL
+ 		"bx	lr			\n\t"
+ #else
