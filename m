@@ -1,55 +1,55 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Sun, 11 Jul 2021 13:36:24 +0000
-Subject: [PATCH -tip v9 10/14] kprobes: Enable stacktrace from pt_regs in kretprobe handler
-Message-Id: <162601058474.1318837.14382888792125339316.stgit@devnote2>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Thu, 29 Jul 2021 20:15:34 +0000
+Subject: [PATCH v3 16/21] parisc: return error code from .map_sg() ops
+Message-Id: <20210729201539.5602-17-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162601048053.1318837.1550594515476777588.stgit@devnote2>
-In-Reply-To: <162601048053.1318837.1550594515476777588.stgit@devnote2>
+References: <20210729201539.5602-1-logang@deltatee.com>
+In-Reply-To: <20210729201539.5602-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
+Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>
 
-Since the ORC unwinder from pt_regs requires setting up regs->ip
-correctly, set the correct return address to the regs->ip before
-calling user kretprobe handler.
+From: Martin Oliveira <martin.oliveira@eideticom.com>
 
-This allows the kretrprobe handler to trace stack from the
-kretprobe's pt_regs by stack_trace_save_regs() (eBPF will do
-this), instead of stack tracing from the handler context by
-stack_trace_save() (ftrace will do this).
+The .map_sg() op now expects an error code instead of zero on failure.
+Return -EINVAL if the ioc cannot be obtained.
 
-Suggested-by: Josh Poimboeuf <jpoimboe@redhat.com>
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-Tested-by: Andrii Nakryiko <andrii@kernel.org>
-Acked-by: Josh Poimboeuf <jpoimboe@redhat.com>
+Signed-off-by: Martin Oliveira <martin.oliveira@eideticom.com>
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
+Cc: "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>
+Cc: Helge Deller <deller@gmx.de>
 ---
- Changes in v9:
-  - Update comment to explain specifically why this is necessary.
- Changes in v8:
-  - Update comment to clarify why this is needed.
- Changes in v3:
-  - Cast the correct_ret_addr to unsigned long.
----
- kernel/kprobes.c |    7 +++++++
- 1 file changed, 7 insertions(+)
+ drivers/parisc/ccio-dma.c  | 2 +-
+ drivers/parisc/sba_iommu.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-index 8f7d659eb277..e7c75725934b 100644
---- a/kernel/kprobes.c
-+++ b/kernel/kprobes.c
-@@ -1924,6 +1924,13 @@ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
- 		BUG_ON(1);
- 	}
+diff --git a/drivers/parisc/ccio-dma.c b/drivers/parisc/ccio-dma.c
+index b5f9ee81a46c..452e72b7bd01 100644
+--- a/drivers/parisc/ccio-dma.c
++++ b/drivers/parisc/ccio-dma.c
+@@ -918,7 +918,7 @@ ccio_map_sg(struct device *dev, struct scatterlist *sglist, int nents,
+ 	BUG_ON(!dev);
+ 	ioc = GET_IOC(dev);
+ 	if (!ioc)
+-		return 0;
++		return -EINVAL;
+ 	
+ 	DBG_RUN_SG("%s() START %d entries\n", __func__, nents);
  
-+	/*
-+	 * Set the return address as the instruction pointer, because if the
-+	 * user handler calls stack_trace_save_regs() with this 'regs',
-+	 * the stack trace will start from the instruction pointer.
-+	 */
-+	instruction_pointer_set(regs, (unsigned long)correct_ret_addr);
-+
- 	/* Run the user handler of the nodes. */
- 	first = current->kretprobe_instances.first;
- 	while (first) {
+diff --git a/drivers/parisc/sba_iommu.c b/drivers/parisc/sba_iommu.c
+index dce4cdf786cd..e60690d38d67 100644
+--- a/drivers/parisc/sba_iommu.c
++++ b/drivers/parisc/sba_iommu.c
+@@ -947,7 +947,7 @@ sba_map_sg(struct device *dev, struct scatterlist *sglist, int nents,
+ 
+ 	ioc = GET_IOC(dev);
+ 	if (!ioc)
+-		return 0;
++		return -EINVAL;
+ 
+ 	/* Fast path single entry scatterlists. */
+ 	if (nents = 1) {
+-- 
+2.20.1
