@@ -1,41 +1,39 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Sun, 11 Jul 2021 13:36:05 +0000
-Subject: [PATCH -tip v9 08/14] ia64: Add instruction_pointer_set() API
-Message-Id: <162601056517.1318837.12417186157614320062.stgit@devnote2>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Thu, 29 Jul 2021 20:15:25 +0000
+Subject: [PATCH v3 07/21] ARM/dma-mapping: don't set failed sg dma_address to DMA_MAPPING_ERROR
+Message-Id: <20210729201539.5602-8-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162601048053.1318837.1550594515476777588.stgit@devnote2>
-In-Reply-To: <162601048053.1318837.1550594515476777588.stgit@devnote2>
+References: <20210729201539.5602-1-logang@deltatee.com>
+In-Reply-To: <20210729201539.5602-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org
+Cc: Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>, Logan Gunthorpe <logang@deltatee.com>, Russell King <linux@armlinux.org.uk>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 
-Add instruction_pointer_set() API for ia64.
+Setting the ->dma_address to DMA_MAPPING_ERROR is not part of the
+->map_sg calling convention, so remove it.
 
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+Link: https://lore.kernel.org/linux-mips/20210716063241.GC13345@lst.de/
+Suggested-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
+Cc: Russell King <linux@armlinux.org.uk>
+Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 ---
-  Changes in v9:
-   - Fix "space at the start of a line" checkpatch warnings.
-  Changes in v4:
-   - Make the API macro for avoiding a build error.
----
- arch/ia64/include/asm/ptrace.h |    5 +++++
- 1 file changed, 5 insertions(+)
+ arch/arm/mm/dma-mapping.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/arch/ia64/include/asm/ptrace.h b/arch/ia64/include/asm/ptrace.h
-index 08179135905c..8a2d0f72b324 100644
---- a/arch/ia64/include/asm/ptrace.h
-+++ b/arch/ia64/include/asm/ptrace.h
-@@ -51,6 +51,11 @@
-  * the canonical representation by adding to instruction pointer.
-  */
- # define instruction_pointer(regs) ((regs)->cr_iip + ia64_psr(regs)->ri)
-+# define instruction_pointer_set(regs, val)	\
-+({						\
-+	ia64_psr(regs)->ri = (val & 0xf);	\
-+	regs->cr_iip = (val & ~0xfULL);		\
-+})
+diff --git a/arch/arm/mm/dma-mapping.c b/arch/arm/mm/dma-mapping.c
+index 113b9cb3701b..4b61541853ea 100644
+--- a/arch/arm/mm/dma-mapping.c
++++ b/arch/arm/mm/dma-mapping.c
+@@ -1632,7 +1632,6 @@ static int __iommu_map_sg(struct device *dev, struct scatterlist *sg, int nents,
+ 	for (i = 1; i < nents; i++) {
+ 		s = sg_next(s);
  
- static inline unsigned long user_stack_pointer(struct pt_regs *regs)
- {
+-		s->dma_address = DMA_MAPPING_ERROR;
+ 		s->dma_length = 0;
+ 
+ 		if (s->offset || (size & ~PAGE_MASK) || size + s->length > max) {
+-- 
+2.20.1
