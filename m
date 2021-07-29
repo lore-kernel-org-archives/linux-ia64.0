@@ -1,7 +1,7 @@
 From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Sun, 11 Jul 2021 01:16:33 +0000
+Date: Thu, 29 Jul 2021 02:31:42 +0000
 Subject: Re: [PATCH 1/2] objtool: Add frame-pointer-specific function ignore
-Message-Id: <20210711101633.eaceff78742984c641993ced@kernel.org>
+Message-Id: <20210729113142.b0b26ad823e2350680347473@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <162399992186.506599.8457763707951687195.stgit@devnote2>
         <162399996966.506599.810050095040575221.stgit@devnote2>
@@ -17,6 +17,29 @@ Content-Transfer-Encoding: 7bit
 To: Josh Poimboeuf <jpoimboe@redhat.com>
 Cc: Ingo Molnar <mingo@kernel.org>, Steven Rostedt <rostedt@goodmis.org>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
+Hi Josh,
+
+I found one mistake on this patch. You have to add STACK_FRAME_NON_STANDARD_FP() in
+case of !CONFIG_STACK_VALIDATION.
+
+diff --git a/include/linux/objtool.h b/include/linux/objtool.h
+index c9575ed91052..aca52db2f3f3 100644
+--- a/include/linux/objtool.h
++++ b/include/linux/objtool.h
+@@ -138,6 +138,7 @@ struct unwind_hint {
+ #define UNWIND_HINT(sp_reg, sp_offset, type, end)      \
+        "\n\t"
+ #define STACK_FRAME_NON_STANDARD(func)
++#define STACK_FRAME_NON_STANDARD_FP(func)
+ #else
+ #define ANNOTATE_INTRA_FUNCTION_CALL
+ .macro UNWIND_HINT sp_reg:req sp_offset=0 type:req end=0
+
+Anyway, I will send my series including these patches and this fix as v10.
+
+Thank you,
+
+
 On Sat, 10 Jul 2021 12:24:33 -0700
 Josh Poimboeuf <jpoimboe@redhat.com> wrote:
 
@@ -24,13 +47,6 @@ Josh Poimboeuf <jpoimboe@redhat.com> wrote:
 > STACK_FRAME_NON_STANDARD() for the case where a function is
 > intentionally missing frame pointer setup, but otherwise needs
 > objtool/ORC coverage when frame pointers are disabled.
-
-Looks good to me.
-
-Reviewed-by: Masami Hiramatsu <mhiramat@kernel.org>
-
-Thanks!
-
 > 
 > Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
 > ---
