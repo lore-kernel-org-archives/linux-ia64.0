@@ -1,110 +1,75 @@
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Date: Wed, 25 Aug 2021 11:48:28 +0000
-Subject: [PATCH 2/3] ia64: Make reserve_elfcorehdr() static
-Message-Id: <fe236cd73b64abc4abd03dd808cb015c907f4c8c.1629884459.git.geert+renesas@glider.be>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Fri, 13 Aug 2021 15:26:14 +0000
+Subject: Re: [PATCH -tip v3 0/6] kprobes: treewide: Clean up kprobe code
+Message-Id: <20210814002614.1e4711003e9013e0b60aa789@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1629884459.git.geert+renesas@glider.be>
-In-Reply-To: <cover.1629884459.git.geert+renesas@glider.be>
+References: <162748615977.59465.13262421617578791515.stgit@devnote2>
+In-Reply-To: <162748615977.59465.13262421617578791515.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>, Simon Horman <horms@verge.net.au>, Tony Luck <tony.luck@intel.com>, Jay Lan <jlan@sgi.com>, Magnus Damm <magnus.damm@gmail.com>, Mike Rapoport <rppt@linux.vnet.ibm.com>
-Cc: Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, devicetree@vger.kernel.org, Geert Uytterhoeven <geert+renesas@glider.be>
+To: Masami Hiramatsu <mhiramat@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Ingo Molnar <mingo@kernel.org>, Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>, Joe Perches <joe@perches.com>
 
-There never was a reason for reserve_elfcorehdr() to be global.
-Make the function static, and move it before its sole caller.
+Hi Ingo,
 
-Fixes: cee87af2a5f75713 ("[IA64] kexec: Use EFI_LOADER_DATA for ELF core header")
-Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
----
-This fixes a conflict triggered by
-https://lore.kernel.org/r/c7e46e50aaf87ef49bdaa61358d25b122f32b7df.1628670468.git.geert+renesas@glider.be/
-and fixed by
-https://lore.kernel.org/r/f6eabbbce0fba6da3da0264c1e1cf23c01173999.1629884393.git.geert+renesas@glider.be
- arch/ia64/include/asm/meminit.h |  1 -
- arch/ia64/kernel/setup.c        | 51 ++++++++++++++++-----------------
- 2 files changed, 25 insertions(+), 27 deletions(-)
+Could you pick this series if no problem?
+These patches do not change any functionalities. (of course some of them
+changes function APIs, like the type of return value and arguments)
 
-diff --git a/arch/ia64/include/asm/meminit.h b/arch/ia64/include/asm/meminit.h
-index 6c47a239fc26df12..2738f62b5f989492 100644
---- a/arch/ia64/include/asm/meminit.h
-+++ b/arch/ia64/include/asm/meminit.h
-@@ -40,7 +40,6 @@ extern unsigned long efi_memmap_init(u64 *s, u64 *e);
- extern int find_max_min_low_pfn (u64, u64, void *);
- 
- extern unsigned long vmcore_find_descriptor_size(unsigned long address);
--extern int reserve_elfcorehdr(u64 *start, u64 *end);
- 
- /*
-  * For rounding an address to the next IA64_GRANULE_SIZE or order
-diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
-index fbd931f1eb270d98..5e6ee8939092a2df 100644
---- a/arch/ia64/kernel/setup.c
-+++ b/arch/ia64/kernel/setup.c
-@@ -325,6 +325,31 @@ static inline void __init setup_crashkernel(unsigned long total, int *n)
- {}
- #endif
- 
-+#ifdef CONFIG_CRASH_DUMP
-+static int __init reserve_elfcorehdr(u64 *start, u64 *end)
-+{
-+	u64 length;
-+
-+	/* We get the address using the kernel command line,
-+	 * but the size is extracted from the EFI tables.
-+	 * Both address and size are required for reservation
-+	 * to work properly.
-+	 */
-+
-+	if (!is_vmcore_usable())
-+		return -EINVAL;
-+
-+	if ((length = vmcore_find_descriptor_size(elfcorehdr_addr)) = 0) {
-+		vmcore_unusable();
-+		return -EINVAL;
-+	}
-+
-+	*start = (unsigned long)__va(elfcorehdr_addr);
-+	*end = *start + length;
-+	return 0;
-+}
-+#endif /* CONFIG_CRASH_DUMP */
-+
- /**
-  * reserve_memory - setup reserved memory areas
-  *
-@@ -522,32 +547,6 @@ static __init int setup_nomca(char *s)
- }
- early_param("nomca", setup_nomca);
- 
--#ifdef CONFIG_CRASH_DUMP
--int __init reserve_elfcorehdr(u64 *start, u64 *end)
--{
--	u64 length;
--
--	/* We get the address using the kernel command line,
--	 * but the size is extracted from the EFI tables.
--	 * Both address and size are required for reservation
--	 * to work properly.
--	 */
--
--	if (!is_vmcore_usable())
--		return -EINVAL;
--
--	if ((length = vmcore_find_descriptor_size(elfcorehdr_addr)) = 0) {
--		vmcore_unusable();
--		return -EINVAL;
--	}
--
--	*start = (unsigned long)__va(elfcorehdr_addr);
--	*end = *start + length;
--	return 0;
--}
--
--#endif /* CONFIG_CRASH_DUMP */
--
- void __init
- setup_arch (char **cmdline_p)
- {
+Thank you,
+
+On Thu, 29 Jul 2021 00:29:20 +0900
+Masami Hiramatsu <mhiramat@kernel.org> wrote:
+
+> Hi,
+> 
+> Here is the 3rd series of patches to cleanup the kprobes code. Previous
+> version is here.
+> 
+>  https://lore.kernel.org/bpf/162598881438.1222130.11530594038964049135.stgit@devnote2/
+> 
+> This version is rebased on the latest tip/master and Punit's cleanup series;
+> 
+>  https://lore.kernel.org/linux-csky/20210727133426.2919710-1-punitagrawal@gmail.com/
+> 
+> Just fixed some conflicts, basically no change.
+> 
+> I pushed his series and this series as the 'kprobes/cleanup' branch on my tree.
+> So you can pull the series (and Punit's series too) from the branch below.
+> 
+>  git://git.kernel.org/pub/scm/linux/kernel/git/mhiramat/linux.git kprobes/cleanup 
+> 
+> Thank you,
+> 
+> ---
+> 
+> Masami Hiramatsu (6):
+>       kprobes: treewide: Cleanup the error messages for kprobes
+>       kprobes: Fix coding style issues
+>       kprobes: Use IS_ENABLED() instead of kprobes_built_in()
+>       kprobes: Add assertions for required lock
+>       kprobes: treewide: Use 'kprobe_opcode_t *' for the code address in get_optimized_kprobe()
+>       kprobes: Use bool type for functions which returns boolean value
+> 
+> 
+>  arch/arm/probes/kprobes/core.c     |    4 
+>  arch/arm/probes/kprobes/opt-arm.c  |    7 -
+>  arch/arm64/kernel/probes/kprobes.c |    5 -
+>  arch/csky/kernel/probes/kprobes.c  |   10 +
+>  arch/mips/kernel/kprobes.c         |   11 +
+>  arch/powerpc/kernel/optprobes.c    |    6 -
+>  arch/riscv/kernel/probes/kprobes.c |   11 +
+>  arch/s390/kernel/kprobes.c         |    4 
+>  arch/x86/kernel/kprobes/opt.c      |    6 -
+>  include/linux/kprobes.h            |   64 +++----
+>  kernel/kprobes.c                   |  313 +++++++++++++++++++-----------------
+>  kernel/trace/trace_kprobe.c        |    2 
+>  12 files changed, 226 insertions(+), 217 deletions(-)
+> 
+> --
+> Masami Hiramatsu (Linaro) <mhiramat@kernel.org>
+
+
 -- 
-2.25.1
+Masami Hiramatsu <mhiramat@kernel.org>
