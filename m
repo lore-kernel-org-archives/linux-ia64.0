@@ -1,17 +1,43 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Mon, 09 Aug 2021 15:16:22 +0000
-Subject: Re: [PATCH v3 00/21] .map_sg() error cleanup
-Message-Id: <20210809151622.GB22445@lst.de>
+From: Geert Uytterhoeven <geert+renesas@glider.be>
+Date: Wed, 25 Aug 2021 11:48:26 +0000
+Subject: [PATCH 0/3] ia64: Miscellaneous fixes and cleanups
+Message-Id: <cover.1629884459.git.geert+renesas@glider.be>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210729201539.5602-1-logang@deltatee.com>
-In-Reply-To: <20210729201539.5602-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Logan Gunthorpe <logang@deltatee.com>
-Cc: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, iommu@lists.linux-foundation.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org, Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Stephen Bates <sbates@raithlin.com>, Martin Oliveira <martin.oliveira@eideticom.com>
+To: Andrew Morton <akpm@linux-foundation.org>, Simon Horman <horms@verge.net.au>, Tony Luck <tony.luck@intel.com>, Jay Lan <jlan@sgi.com>, Magnus Damm <magnus.damm@gmail.com>, Mike Rapoport <rppt@linux.vnet.ibm.com>
+Cc: Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, devicetree@vger.kernel.org, Geert Uytterhoeven <geert+renesas@glider.be>
 
-Thanks,
+	Hi Andrew,
 
-I've applied this to the dma-mapping tree with a few minor cosmetic
-tweaks.
+This patch series contains some miscellaneous fixes and cleanups for
+ia64.  The second patch fixes a naming conflict triggered by a patch for
+the FDT code.
+
+This has been compile-tested only, due to lack of hardware.
+
+Thanks!
+
+Geert Uytterhoeven (3):
+  ia64: Fix #endif comment for reserve_elfcorehdr()
+  ia64: Make reserve_elfcorehdr() static
+  ia64: Make num_rsvd_regions static
+
+ arch/ia64/include/asm/meminit.h |  2 --
+ arch/ia64/kernel/setup.c        | 53 ++++++++++++++++-----------------
+ 2 files changed, 26 insertions(+), 29 deletions(-)
+
+-- 
+2.25.1
+
+Gr{oetje,eeting}s,
+
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
