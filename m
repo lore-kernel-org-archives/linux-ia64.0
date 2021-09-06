@@ -1,39 +1,44 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Tue, 14 Sep 2021 14:41:23 +0000
-Subject: [PATCH -tip v11 18/27] objtool: Ignore unwind hints for ignored functions
-Message-Id: <163163048317.489837.10988954983369863209.stgit@devnote2>
+From: Simon Horman <horms@verge.net.au>
+Date: Mon, 06 Sep 2021 07:03:46 +0000
+Subject: Re: [PATCH 1/3] ia64: Fix #endif comment for reserve_elfcorehdr()
+Message-Id: <20210906070346.GB19281@vergenet.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <163163030719.489837.2236069935502195491.stgit@devnote2>
-In-Reply-To: <163163030719.489837.2236069935502195491.stgit@devnote2>
+References: <cover.1629884459.git.geert+renesas@glider.be>
+ <77b4c0648f200cab7e1c2c5171c06763e09362aa.1629884459.git.geert+renesas@glider.be>
+In-Reply-To: <77b4c0648f200cab7e1c2c5171c06763e09362aa.1629884459.git.geert+renesas@glider.be>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>, Paul McKenney <paulmck@kernel.org>
+To: Geert Uytterhoeven <geert+renesas@glider.be>
+Cc: Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Jay Lan <jlan@sgi.com>, Magnus Damm <magnus.damm@gmail.com>, Mike Rapoport <rppt@linux.vnet.ibm.com>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, devicetree@vger.kernel.org
 
-From: Josh Poimboeuf <jpoimboe@redhat.com>
+On Wed, Aug 25, 2021 at 01:48:27PM +0200, Geert Uytterhoeven wrote:
+> The definition of reserve_elfcorehdr() depends on CONFIG_CRASH_DUMP, not
+> CONFIG_PROC_VMCORE.
+> 
+> Fixes: d9a9855d0b06ca6d ("always reserve elfcore header memory in crash kernel")
+> Fixes: 17c1f07ed70afa4f ("[IA64] Reserve elfcorehdr memory in CONFIG_CRASH_DUMP")
+> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
 
-If a function is ignored, also ignore its hints.  This is useful for the
-case where the function ignore is conditional on frame pointers, e.g.
-STACK_FRAME_NON_STANDARD_FP().
+Reviewed-by: Simon Horman <horms@verge.net.au>
 
-Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
-Reviewed-by: Masami Hiramatsu <mhiramat@kernel.org>
-Tested-by: Masami Hiramatsu <mhiramat@kernel.org>
----
- tools/objtool/check.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/tools/objtool/check.c b/tools/objtool/check.c
-index e5947fbb9e7a..67cbdcfcabae 100644
---- a/tools/objtool/check.c
-+++ b/tools/objtool/check.c
-@@ -2909,7 +2909,7 @@ static int validate_unwind_hints(struct objtool_file *file, struct section *sec)
- 	}
- 
- 	while (&insn->list != &file->insn_list && (!sec || insn->sec = sec)) {
--		if (insn->hint && !insn->visited) {
-+		if (insn->hint && !insn->visited && !insn->ignore) {
- 			ret = validate_branch(file, insn->func, insn, state);
- 			if (ret && backtrace)
- 				BT_FUNC("<== (hint)", insn);
+> ---
+>  arch/ia64/kernel/setup.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+> index dd595fbd800651fe..fbd931f1eb270d98 100644
+> --- a/arch/ia64/kernel/setup.c
+> +++ b/arch/ia64/kernel/setup.c
+> @@ -546,7 +546,7 @@ int __init reserve_elfcorehdr(u64 *start, u64 *end)
+>  	return 0;
+>  }
+>  
+> -#endif /* CONFIG_PROC_VMCORE */
+> +#endif /* CONFIG_CRASH_DUMP */
+>  
+>  void __init
+>  setup_arch (char **cmdline_p)
+> -- 
+> 2.25.1
+> 
