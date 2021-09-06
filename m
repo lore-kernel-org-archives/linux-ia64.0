@@ -1,36 +1,55 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Tue, 14 Sep 2021 14:41:41 +0000
-Subject: [PATCH -tip v11 20/27] ARC: Add instruction_pointer_set() API
-Message-Id: <163163050148.489837.15187799269793560256.stgit@devnote2>
+From: Simon Horman <horms@verge.net.au>
+Date: Mon, 06 Sep 2021 07:05:21 +0000
+Subject: Re: [PATCH 3/3] ia64: Make num_rsvd_regions static
+Message-Id: <20210906070521.GC19281@vergenet.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <163163030719.489837.2236069935502195491.stgit@devnote2>
-In-Reply-To: <163163030719.489837.2236069935502195491.stgit@devnote2>
+References: <cover.1629884459.git.geert+renesas@glider.be>
+ <a377b5437e3e9da93d02f996fe06a2b956cb0990.1629884459.git.geert+renesas@glider.be>
+In-Reply-To: <a377b5437e3e9da93d02f996fe06a2b956cb0990.1629884459.git.geert+renesas@glider.be>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>, Paul McKenney <paulmck@kernel.org>
+To: Geert Uytterhoeven <geert+renesas@glider.be>
+Cc: Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Jay Lan <jlan@sgi.com>, Magnus Damm <magnus.damm@gmail.com>, Mike Rapoport <rppt@linux.vnet.ibm.com>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, devicetree@vger.kernel.org
 
-Add instruction_pointer_set() API for arc.
+On Wed, Aug 25, 2021 at 01:48:29PM +0200, Geert Uytterhoeven wrote:
+> Commit f62800992e5917f2 ("ia64: switch to NO_BOOTMEM") removed the last
+> user of num_rsvd_regions outside arch/ia64/kernel/setup.c.
+> 
+> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
 
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
----
- arch/arc/include/asm/ptrace.h |    5 +++++
- 1 file changed, 5 insertions(+)
+Reviewed-by: Simon Horman <horms@verge.net.au>
 
-diff --git a/arch/arc/include/asm/ptrace.h b/arch/arc/include/asm/ptrace.h
-index 4c3c9be5bd16..cca8d6583e31 100644
---- a/arch/arc/include/asm/ptrace.h
-+++ b/arch/arc/include/asm/ptrace.h
-@@ -149,6 +149,11 @@ static inline long regs_return_value(struct pt_regs *regs)
- 	return (long)regs->r0;
- }
- 
-+static inline void instruction_pointer_set(struct pt_regs *regs,
-+					   unsigned long val)
-+{
-+	instruction_pointer(regs) = val;
-+}
- #endif /* !__ASSEMBLY__ */
- 
- #endif /* __ASM_PTRACE_H */
+> ---
+>  arch/ia64/include/asm/meminit.h | 1 -
+>  arch/ia64/kernel/setup.c        | 2 +-
+>  2 files changed, 1 insertion(+), 2 deletions(-)
+> 
+> diff --git a/arch/ia64/include/asm/meminit.h b/arch/ia64/include/asm/meminit.h
+> index 2738f62b5f989492..f1d5bf2ba847a135 100644
+> --- a/arch/ia64/include/asm/meminit.h
+> +++ b/arch/ia64/include/asm/meminit.h
+> @@ -29,7 +29,6 @@ struct rsvd_region {
+>  };
+>  
+>  extern struct rsvd_region rsvd_region[IA64_MAX_RSVD_REGIONS + 1];
+> -extern int num_rsvd_regions;
+>  
+>  extern void find_memory (void);
+>  extern void reserve_memory (void);
+> diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+> index 5e6ee8939092a2df..31fb84de2d21469a 100644
+> --- a/arch/ia64/kernel/setup.c
+> +++ b/arch/ia64/kernel/setup.c
+> @@ -131,7 +131,7 @@ unsigned long ia64_cache_stride_shift = ~0;
+>   * We use a special marker for the end of memory and it uses the extra (+1) slot
+>   */
+>  struct rsvd_region rsvd_region[IA64_MAX_RSVD_REGIONS + 1] __initdata;
+> -int num_rsvd_regions __initdata;
+> +static int num_rsvd_regions __initdata;
+>  
+>  
+>  /*
+> -- 
+> 2.25.1
+> 
