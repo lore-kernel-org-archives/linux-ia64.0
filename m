@@ -1,311 +1,253 @@
-From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Date: Wed, 29 Sep 2021 14:50:57 +0000
-Subject: Re: [PATCH 2/2] [v2] qcom_scm: hide Kconfig symbol
-Message-Id: <YVR9UdzgUv43k5Og@yoga>
+From: Weizhao Ouyang <o451686892@gmail.com>
+Date: Thu, 09 Sep 2021 09:02:16 +0000
+Subject: [PATCH v4] ftrace: Cleanup ftrace_dyn_arch_init()
+Message-Id: <20210909090216.1955240-1-o451686892@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210928075216.4193128-1-arnd@kernel.org>
- <20210928075216.4193128-2-arnd@kernel.org>
-In-Reply-To: <20210928075216.4193128-2-arnd@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@kernel.org>
-Cc: Arnd Bergmann <arnd@arndb.de>, Mark Brown <broonie@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Charles Keepax <ckeepax@opensource.cirrus.com>, Simon Trimmer <simont@opensource.cirrus.com>, Michael Ellerman <mpe@ellerman.id.au>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Geert Uytterhoeven <geert+renesas@glider.be>, Linus Walleij <linus.walleij@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, Kalle Valo <kvalo@codeaurora.org>, Rob Clark <robdclark@gmail.com>, Sean Paul <sean@poorly.run>, David Airlie <airlied@linux.ie>, Daniel Vetter <daniel@ffwll.ch>, Joerg Roedel <joro@8bytes.org>, Mauro Carvalho Chehab <mchehab@kernel.org>, Ulf Hansson <ulf.hansson@linaro.org>, Alex Elder <elder@kernel.org>, "David S. Miller" <davem@davemloft.net>, Jakub Kicinski <kuba@kernel.org>, Andy Gross <agross@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Sudeep Holla <sudeep.holla@arm.com>, linux-arm-msm@vger.kernel.org, dri-devel@lists.freedesktop.org, freedreno@lists.freedesktop.org, iommu@lists.linux-foundation.org, linux-media@vger.kernel.org, linux-mmc@vger.kernel.org, netdev@vger.kernel.org, ath10k@lists.infradead.org, linux-wireless@vger.kernel.org, linux-gpio@vger.kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@redhat.com>
+Cc: Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Weizhao Ouyang <o451686892@gmail.com>
 
-On Tue 28 Sep 02:50 CDT 2021, Arnd Bergmann wrote:
+Most of ARCHs use empty ftrace_dyn_arch_init(), introduce a weak common
+ftrace_dyn_arch_init() to cleanup them.
 
-> From: Arnd Bergmann <arnd@arndb.de>
-> 
-> Now that SCM can be a loadable module, we have to add another
-> dependency to avoid link failures when ipa or adreno-gpu are
-> built-in:
-> 
-> aarch64-linux-ld: drivers/net/ipa/ipa_main.o: in function `ipa_probe':
-> ipa_main.c:(.text+0xfc4): undefined reference to `qcom_scm_is_available'
-> 
-> ld.lld: error: undefined symbol: qcom_scm_is_available
-> >>> referenced by adreno_gpu.c
-> >>>               gpu/drm/msm/adreno/adreno_gpu.o:(adreno_zap_shader_load) in archive drivers/built-in.a
-> 
-> This can happen when CONFIG_ARCH_QCOM is disabled and we don't select
-> QCOM_MDT_LOADER, but some other module selects QCOM_SCM. Ideally we'd
-> use a similar dependency here to what we have for QCOM_RPROC_COMMON,
-> but that causes dependency loops from other things selecting QCOM_SCM.
-> 
-> This appears to be an endless problem, so try something different this
-> time:
-> 
->  - CONFIG_QCOM_SCM becomes a hidden symbol that nothing 'depends on'
->    but that is simply selected by all of its users
-> 
->  - All the stubs in include/linux/qcom_scm.h can go away
-> 
->  - arm-smccc.h needs to provide a stub for __arm_smccc_smc() to
->    allow compile-testing QCOM_SCM on all architectures.
-> 
->  - To avoid a circular dependency chain involving RESET_CONTROLLER
->    and PINCTRL_SUNXI, drop the 'select RESET_CONTROLLER' statement.
->    According to my testing this still builds fine, and the QCOM
->    platform selects this symbol already.
-> 
-> Acked-by: Kalle Valo <kvalo@codeaurora.org>
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
-> Changes in v2:
->   - drop the 'select RESET_CONTROLLER' line, rather than adding
->     more of the same
-> ---
->  drivers/firmware/Kconfig                |  5 +-
->  drivers/gpu/drm/msm/Kconfig             |  4 +-
->  drivers/iommu/Kconfig                   |  2 +-
->  drivers/media/platform/Kconfig          |  2 +-
->  drivers/mmc/host/Kconfig                |  2 +-
->  drivers/net/ipa/Kconfig                 |  1 +
->  drivers/net/wireless/ath/ath10k/Kconfig |  2 +-
->  drivers/pinctrl/qcom/Kconfig            |  3 +-
->  include/linux/arm-smccc.h               | 10 ++++
->  include/linux/qcom_scm.h                | 71 -------------------------
->  10 files changed, 20 insertions(+), 82 deletions(-)
-> 
-> diff --git a/drivers/firmware/Kconfig b/drivers/firmware/Kconfig
-> index 220a58cf0a44..cda7d7162cbb 100644
-> --- a/drivers/firmware/Kconfig
-> +++ b/drivers/firmware/Kconfig
-> @@ -203,10 +203,7 @@ config INTEL_STRATIX10_RSU
->  	  Say Y here if you want Intel RSU support.
->  
->  config QCOM_SCM
-> -	tristate "Qcom SCM driver"
-> -	depends on ARM || ARM64
-> -	depends on HAVE_ARM_SMCCC
-> -	select RESET_CONTROLLER
-> +	tristate
->  
->  config QCOM_SCM_DOWNLOAD_MODE_DEFAULT
->  	bool "Qualcomm download mode enabled by default"
-> diff --git a/drivers/gpu/drm/msm/Kconfig b/drivers/gpu/drm/msm/Kconfig
-> index e9c6af78b1d7..3ddf739a6f9b 100644
-> --- a/drivers/gpu/drm/msm/Kconfig
-> +++ b/drivers/gpu/drm/msm/Kconfig
-> @@ -17,7 +17,7 @@ config DRM_MSM
->  	select DRM_SCHED
->  	select SHMEM
->  	select TMPFS
-> -	select QCOM_SCM if ARCH_QCOM
-> +	select QCOM_SCM
->  	select WANT_DEV_COREDUMP
->  	select SND_SOC_HDMI_CODEC if SND_SOC
->  	select SYNC_FILE
-> @@ -55,7 +55,7 @@ config DRM_MSM_GPU_SUDO
->  
->  config DRM_MSM_HDMI_HDCP
->  	bool "Enable HDMI HDCP support in MSM DRM driver"
-> -	depends on DRM_MSM && QCOM_SCM
-> +	depends on DRM_MSM
->  	default y
->  	help
->  	  Choose this option to enable HDCP state machine
-> diff --git a/drivers/iommu/Kconfig b/drivers/iommu/Kconfig
-> index 124c41adeca1..989c83acbfee 100644
-> --- a/drivers/iommu/Kconfig
-> +++ b/drivers/iommu/Kconfig
-> @@ -308,7 +308,7 @@ config APPLE_DART
->  config ARM_SMMU
->  	tristate "ARM Ltd. System MMU (SMMU) Support"
->  	depends on ARM64 || ARM || (COMPILE_TEST && !GENERIC_ATOMIC64)
-> -	depends on QCOM_SCM || !QCOM_SCM #if QCOM_SCM=m this can't be =y
-> +	select QCOM_SCM
->  	select IOMMU_API
->  	select IOMMU_IO_PGTABLE_LPAE
->  	select ARM_DMA_USE_IOMMU if ARM
+Signed-off-by: Weizhao Ouyang <o451686892@gmail.com>
+Acked-by: Heiko Carstens <hca@linux.ibm.com> (s390)
+Acked-by: Helge Deller <deller@gmx.de> (parisc)
 
-As noted in the RFC, I think you also need to fix QCOM_IOMMU.
+---
+Changes in v4:
+-- revert the generic declaration
 
-In particular (iirc) since all the users of the iommu might be modules,
-which would prevent QCOM_IOMMU from being selected.
+Changes in v3:
+-- fix unrecognized opcode on PowerPC
 
-The rest looks good.
+Changes in v2:
+-- correct CONFIG_DYNAMIC_FTRACE on PowerPC
+-- add Acked-by tag
 
-Regards,
-Bjorn
+---
+ arch/arm/kernel/ftrace.c        | 5 -----
+ arch/arm64/kernel/ftrace.c      | 5 -----
+ arch/csky/kernel/ftrace.c       | 5 -----
+ arch/ia64/kernel/ftrace.c       | 6 ------
+ arch/microblaze/kernel/ftrace.c | 5 -----
+ arch/nds32/kernel/ftrace.c      | 5 -----
+ arch/parisc/kernel/ftrace.c     | 5 -----
+ arch/riscv/kernel/ftrace.c      | 5 -----
+ arch/s390/kernel/ftrace.c       | 5 -----
+ arch/sh/kernel/ftrace.c         | 5 -----
+ arch/sparc/kernel/ftrace.c      | 5 -----
+ arch/x86/kernel/ftrace.c        | 5 -----
+ kernel/trace/ftrace.c           | 5 +++++
+ 13 files changed, 5 insertions(+), 61 deletions(-)
 
-> diff --git a/drivers/media/platform/Kconfig b/drivers/media/platform/Kconfig
-> index 157c924686e4..80321e03809a 100644
-> --- a/drivers/media/platform/Kconfig
-> +++ b/drivers/media/platform/Kconfig
-> @@ -565,7 +565,7 @@ config VIDEO_QCOM_VENUS
->  	depends on VIDEO_DEV && VIDEO_V4L2 && QCOM_SMEM
->  	depends on (ARCH_QCOM && IOMMU_DMA) || COMPILE_TEST
->  	select QCOM_MDT_LOADER if ARCH_QCOM
-> -	select QCOM_SCM if ARCH_QCOM
-> +	select QCOM_SCM
->  	select VIDEOBUF2_DMA_CONTIG
->  	select V4L2_MEM2MEM_DEV
->  	help
-> diff --git a/drivers/mmc/host/Kconfig b/drivers/mmc/host/Kconfig
-> index 71313961cc54..95b3511b0560 100644
-> --- a/drivers/mmc/host/Kconfig
-> +++ b/drivers/mmc/host/Kconfig
-> @@ -547,7 +547,7 @@ config MMC_SDHCI_MSM
->  	depends on MMC_SDHCI_PLTFM
->  	select MMC_SDHCI_IO_ACCESSORS
->  	select MMC_CQHCI
-> -	select QCOM_SCM if MMC_CRYPTO && ARCH_QCOM
-> +	select QCOM_SCM if MMC_CRYPTO
->  	help
->  	  This selects the Secure Digital Host Controller Interface (SDHCI)
->  	  support present in Qualcomm SOCs. The controller supports
-> diff --git a/drivers/net/ipa/Kconfig b/drivers/net/ipa/Kconfig
-> index 8f99cfa14680..d037682fb7ad 100644
-> --- a/drivers/net/ipa/Kconfig
-> +++ b/drivers/net/ipa/Kconfig
-> @@ -4,6 +4,7 @@ config QCOM_IPA
->  	depends on ARCH_QCOM || COMPILE_TEST
->  	depends on QCOM_RPROC_COMMON || (QCOM_RPROC_COMMON=n && COMPILE_TEST)
->  	select QCOM_MDT_LOADER if ARCH_QCOM
-> +	select QCOM_SCM
->  	select QCOM_QMI_HELPERS
->  	help
->  	  Choose Y or M here to include support for the Qualcomm
-> diff --git a/drivers/net/wireless/ath/ath10k/Kconfig b/drivers/net/wireless/ath/ath10k/Kconfig
-> index 741289e385d5..ca007b800f75 100644
-> --- a/drivers/net/wireless/ath/ath10k/Kconfig
-> +++ b/drivers/net/wireless/ath/ath10k/Kconfig
-> @@ -44,7 +44,7 @@ config ATH10K_SNOC
->  	tristate "Qualcomm ath10k SNOC support"
->  	depends on ATH10K
->  	depends on ARCH_QCOM || COMPILE_TEST
-> -	depends on QCOM_SCM || !QCOM_SCM #if QCOM_SCM=m this can't be =y
-> +	select QCOM_SCM
->  	select QCOM_QMI_HELPERS
->  	help
->  	  This module adds support for integrated WCN3990 chip connected
-> diff --git a/drivers/pinctrl/qcom/Kconfig b/drivers/pinctrl/qcom/Kconfig
-> index 32ea2a8ec02b..5ff4207df66e 100644
-> --- a/drivers/pinctrl/qcom/Kconfig
-> +++ b/drivers/pinctrl/qcom/Kconfig
-> @@ -3,7 +3,8 @@ if (ARCH_QCOM || COMPILE_TEST)
->  
->  config PINCTRL_MSM
->  	tristate "Qualcomm core pin controller driver"
-> -	depends on GPIOLIB && (QCOM_SCM || !QCOM_SCM) #if QCOM_SCM=m this can't be =y
-> +	depends on GPIOLIB
-> +	select QCOM_SCM
->  	select PINMUX
->  	select PINCONF
->  	select GENERIC_PINCONF
-> diff --git a/include/linux/arm-smccc.h b/include/linux/arm-smccc.h
-> index 7d1cabe15262..63ccb5252190 100644
-> --- a/include/linux/arm-smccc.h
-> +++ b/include/linux/arm-smccc.h
-> @@ -321,10 +321,20 @@ asmlinkage unsigned long __arm_smccc_sve_check(unsigned long x0);
->   * from register 0 to 3 on return from the SMC instruction.  An optional
->   * quirk structure provides vendor specific behavior.
->   */
-> +#ifdef CONFIG_HAVE_ARM_SMCCC
->  asmlinkage void __arm_smccc_smc(unsigned long a0, unsigned long a1,
->  			unsigned long a2, unsigned long a3, unsigned long a4,
->  			unsigned long a5, unsigned long a6, unsigned long a7,
->  			struct arm_smccc_res *res, struct arm_smccc_quirk *quirk);
-> +#else
-> +static inline void __arm_smccc_smc(unsigned long a0, unsigned long a1,
-> +			unsigned long a2, unsigned long a3, unsigned long a4,
-> +			unsigned long a5, unsigned long a6, unsigned long a7,
-> +			struct arm_smccc_res *res, struct arm_smccc_quirk *quirk)
-> +{
-> +	*res = (struct arm_smccc_res){};
-> +}
-> +#endif
->  
->  /**
->   * __arm_smccc_hvc() - make HVC calls
-> diff --git a/include/linux/qcom_scm.h b/include/linux/qcom_scm.h
-> index c0475d1c9885..81cad9e1e412 100644
-> --- a/include/linux/qcom_scm.h
-> +++ b/include/linux/qcom_scm.h
-> @@ -61,7 +61,6 @@ enum qcom_scm_ice_cipher {
->  #define QCOM_SCM_PERM_RW (QCOM_SCM_PERM_READ | QCOM_SCM_PERM_WRITE)
->  #define QCOM_SCM_PERM_RWX (QCOM_SCM_PERM_RW | QCOM_SCM_PERM_EXEC)
->  
-> -#if IS_ENABLED(CONFIG_QCOM_SCM)
->  extern bool qcom_scm_is_available(void);
->  
->  extern int qcom_scm_set_cold_boot_addr(void *entry, const cpumask_t *cpus);
-> @@ -115,74 +114,4 @@ extern int qcom_scm_lmh_dcvsh(u32 payload_fn, u32 payload_reg, u32 payload_val,
->  extern int qcom_scm_lmh_profile_change(u32 profile_id);
->  extern bool qcom_scm_lmh_dcvsh_available(void);
->  
-> -#else
-> -
-> -#include <linux/errno.h>
-> -
-> -static inline bool qcom_scm_is_available(void) { return false; }
-> -
-> -static inline int qcom_scm_set_cold_boot_addr(void *entry,
-> -		const cpumask_t *cpus) { return -ENODEV; }
-> -static inline int qcom_scm_set_warm_boot_addr(void *entry,
-> -		const cpumask_t *cpus) { return -ENODEV; }
-> -static inline void qcom_scm_cpu_power_down(u32 flags) {}
-> -static inline u32 qcom_scm_set_remote_state(u32 state,u32 id)
-> -		{ return -ENODEV; }
-> -
-> -static inline int qcom_scm_pas_init_image(u32 peripheral, const void *metadata,
-> -		size_t size) { return -ENODEV; }
-> -static inline int qcom_scm_pas_mem_setup(u32 peripheral, phys_addr_t addr,
-> -		phys_addr_t size) { return -ENODEV; }
-> -static inline int qcom_scm_pas_auth_and_reset(u32 peripheral)
-> -		{ return -ENODEV; }
-> -static inline int qcom_scm_pas_shutdown(u32 peripheral) { return -ENODEV; }
-> -static inline bool qcom_scm_pas_supported(u32 peripheral) { return false; }
-> -
-> -static inline int qcom_scm_io_readl(phys_addr_t addr, unsigned int *val)
-> -		{ return -ENODEV; }
-> -static inline int qcom_scm_io_writel(phys_addr_t addr, unsigned int val)
-> -		{ return -ENODEV; }
-> -
-> -static inline bool qcom_scm_restore_sec_cfg_available(void) { return false; }
-> -static inline int qcom_scm_restore_sec_cfg(u32 device_id, u32 spare)
-> -		{ return -ENODEV; }
-> -static inline int qcom_scm_iommu_secure_ptbl_size(u32 spare, size_t *size)
-> -		{ return -ENODEV; }
-> -static inline int qcom_scm_iommu_secure_ptbl_init(u64 addr, u32 size, u32 spare)
-> -		{ return -ENODEV; }
-> -extern inline int qcom_scm_mem_protect_video_var(u32 cp_start, u32 cp_size,
-> -						 u32 cp_nonpixel_start,
-> -						 u32 cp_nonpixel_size)
-> -		{ return -ENODEV; }
-> -static inline int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
-> -		unsigned int *src, const struct qcom_scm_vmperm *newvm,
-> -		unsigned int dest_cnt) { return -ENODEV; }
-> -
-> -static inline bool qcom_scm_ocmem_lock_available(void) { return false; }
-> -static inline int qcom_scm_ocmem_lock(enum qcom_scm_ocmem_client id, u32 offset,
-> -		u32 size, u32 mode) { return -ENODEV; }
-> -static inline int qcom_scm_ocmem_unlock(enum qcom_scm_ocmem_client id,
-> -		u32 offset, u32 size) { return -ENODEV; }
-> -
-> -static inline bool qcom_scm_ice_available(void) { return false; }
-> -static inline int qcom_scm_ice_invalidate_key(u32 index) { return -ENODEV; }
-> -static inline int qcom_scm_ice_set_key(u32 index, const u8 *key, u32 key_size,
-> -				       enum qcom_scm_ice_cipher cipher,
-> -				       u32 data_unit_size) { return -ENODEV; }
-> -
-> -static inline bool qcom_scm_hdcp_available(void) { return false; }
-> -static inline int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt,
-> -		u32 *resp) { return -ENODEV; }
-> -
-> -static inline int qcom_scm_qsmmu500_wait_safe_toggle(bool en)
-> -		{ return -ENODEV; }
-> -
-> -static inline int qcom_scm_lmh_dcvsh(u32 payload_fn, u32 payload_reg, u32 payload_val,
-> -				     u64 limit_node, u32 node_id, u64 version)
-> -		{ return -ENODEV; }
-> -
-> -static inline int qcom_scm_lmh_profile_change(u32 profile_id) { return -ENODEV; }
-> -
-> -static inline bool qcom_scm_lmh_dcvsh_available(void) { return -ENODEV; }
-> -#endif
->  #endif
-> -- 
-> 2.29.2
-> 
+diff --git a/arch/arm/kernel/ftrace.c b/arch/arm/kernel/ftrace.c
+index 3c83b5d29697..a006585e1c09 100644
+--- a/arch/arm/kernel/ftrace.c
++++ b/arch/arm/kernel/ftrace.c
+@@ -193,11 +193,6 @@ int ftrace_make_nop(struct module *mod,
+ 
+ 	return ret;
+ }
+-
+-int __init ftrace_dyn_arch_init(void)
+-{
+-	return 0;
+-}
+ #endif /* CONFIG_DYNAMIC_FTRACE */
+ 
+ #ifdef CONFIG_FUNCTION_GRAPH_TRACER
+diff --git a/arch/arm64/kernel/ftrace.c b/arch/arm64/kernel/ftrace.c
+index 7f467bd9db7a..fc62dfe73f93 100644
+--- a/arch/arm64/kernel/ftrace.c
++++ b/arch/arm64/kernel/ftrace.c
+@@ -236,11 +236,6 @@ void arch_ftrace_update_code(int command)
+ 	command |= FTRACE_MAY_SLEEP;
+ 	ftrace_modify_all_code(command);
+ }
+-
+-int __init ftrace_dyn_arch_init(void)
+-{
+-	return 0;
+-}
+ #endif /* CONFIG_DYNAMIC_FTRACE */
+ 
+ #ifdef CONFIG_FUNCTION_GRAPH_TRACER
+diff --git a/arch/csky/kernel/ftrace.c b/arch/csky/kernel/ftrace.c
+index b4a7ec1517ff..50bfcf129078 100644
+--- a/arch/csky/kernel/ftrace.c
++++ b/arch/csky/kernel/ftrace.c
+@@ -133,11 +133,6 @@ int ftrace_update_ftrace_func(ftrace_func_t func)
+ 				(unsigned long)func, true, true);
+ 	return ret;
+ }
+-
+-int __init ftrace_dyn_arch_init(void)
+-{
+-	return 0;
+-}
+ #endif /* CONFIG_DYNAMIC_FTRACE */
+ 
+ #ifdef CONFIG_DYNAMIC_FTRACE_WITH_REGS
+diff --git a/arch/ia64/kernel/ftrace.c b/arch/ia64/kernel/ftrace.c
+index b2ab2d58fb30..d6360fd404ab 100644
+--- a/arch/ia64/kernel/ftrace.c
++++ b/arch/ia64/kernel/ftrace.c
+@@ -194,9 +194,3 @@ int ftrace_update_ftrace_func(ftrace_func_t func)
+ 	flush_icache_range(addr, addr + 16);
+ 	return 0;
+ }
+-
+-/* run from kstop_machine */
+-int __init ftrace_dyn_arch_init(void)
+-{
+-	return 0;
+-}
+diff --git a/arch/microblaze/kernel/ftrace.c b/arch/microblaze/kernel/ftrace.c
+index 224eea40e1ee..188749d62709 100644
+--- a/arch/microblaze/kernel/ftrace.c
++++ b/arch/microblaze/kernel/ftrace.c
+@@ -163,11 +163,6 @@ int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
+ 	return ret;
+ }
+ 
+-int __init ftrace_dyn_arch_init(void)
+-{
+-	return 0;
+-}
+-
+ int ftrace_update_ftrace_func(ftrace_func_t func)
+ {
+ 	unsigned long ip = (unsigned long)(&ftrace_call);
+diff --git a/arch/nds32/kernel/ftrace.c b/arch/nds32/kernel/ftrace.c
+index 0e23e3a8df6b..f0ef4842d191 100644
+--- a/arch/nds32/kernel/ftrace.c
++++ b/arch/nds32/kernel/ftrace.c
+@@ -84,11 +84,6 @@ void _ftrace_caller(unsigned long parent_ip)
+ 	/* restore all state needed by the compiler epilogue */
+ }
+ 
+-int __init ftrace_dyn_arch_init(void)
+-{
+-	return 0;
+-}
+-
+ static unsigned long gen_sethi_insn(unsigned long addr)
+ {
+ 	unsigned long opcode = 0x46000000;
+diff --git a/arch/parisc/kernel/ftrace.c b/arch/parisc/kernel/ftrace.c
+index 0a1e75af5382..01581f715737 100644
+--- a/arch/parisc/kernel/ftrace.c
++++ b/arch/parisc/kernel/ftrace.c
+@@ -94,11 +94,6 @@ int ftrace_disable_ftrace_graph_caller(void)
+ #endif
+ 
+ #ifdef CONFIG_DYNAMIC_FTRACE
+-
+-int __init ftrace_dyn_arch_init(void)
+-{
+-	return 0;
+-}
+ int ftrace_update_ftrace_func(ftrace_func_t func)
+ {
+ 	return 0;
+diff --git a/arch/riscv/kernel/ftrace.c b/arch/riscv/kernel/ftrace.c
+index 7f1e5203de88..4716f4cdc038 100644
+--- a/arch/riscv/kernel/ftrace.c
++++ b/arch/riscv/kernel/ftrace.c
+@@ -154,11 +154,6 @@ int ftrace_update_ftrace_func(ftrace_func_t func)
+ 
+ 	return ret;
+ }
+-
+-int __init ftrace_dyn_arch_init(void)
+-{
+-	return 0;
+-}
+ #endif
+ 
+ #ifdef CONFIG_DYNAMIC_FTRACE_WITH_REGS
+diff --git a/arch/s390/kernel/ftrace.c b/arch/s390/kernel/ftrace.c
+index 0a464d328467..3fd80397ff52 100644
+--- a/arch/s390/kernel/ftrace.c
++++ b/arch/s390/kernel/ftrace.c
+@@ -262,11 +262,6 @@ int ftrace_update_ftrace_func(ftrace_func_t func)
+ 	return 0;
+ }
+ 
+-int __init ftrace_dyn_arch_init(void)
+-{
+-	return 0;
+-}
+-
+ void arch_ftrace_update_code(int command)
+ {
+ 	if (ftrace_shared_hotpatch_trampoline(NULL))
+diff --git a/arch/sh/kernel/ftrace.c b/arch/sh/kernel/ftrace.c
+index 295c43315bbe..930001bb8c6a 100644
+--- a/arch/sh/kernel/ftrace.c
++++ b/arch/sh/kernel/ftrace.c
+@@ -252,11 +252,6 @@ int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
+ 
+ 	return ftrace_modify_code(rec->ip, old, new);
+ }
+-
+-int __init ftrace_dyn_arch_init(void)
+-{
+-	return 0;
+-}
+ #endif /* CONFIG_DYNAMIC_FTRACE */
+ 
+ #ifdef CONFIG_FUNCTION_GRAPH_TRACER
+diff --git a/arch/sparc/kernel/ftrace.c b/arch/sparc/kernel/ftrace.c
+index 684b84ce397f..eaead3da8e03 100644
+--- a/arch/sparc/kernel/ftrace.c
++++ b/arch/sparc/kernel/ftrace.c
+@@ -82,11 +82,6 @@ int ftrace_update_ftrace_func(ftrace_func_t func)
+ 	new = ftrace_call_replace(ip, (unsigned long)func);
+ 	return ftrace_modify_code(ip, old, new);
+ }
+-
+-int __init ftrace_dyn_arch_init(void)
+-{
+-	return 0;
+-}
+ #endif
+ 
+ #ifdef CONFIG_FUNCTION_GRAPH_TRACER
+diff --git a/arch/x86/kernel/ftrace.c b/arch/x86/kernel/ftrace.c
+index 1b3ce3b4a2a2..23d221a9a3cd 100644
+--- a/arch/x86/kernel/ftrace.c
++++ b/arch/x86/kernel/ftrace.c
+@@ -252,11 +252,6 @@ void arch_ftrace_update_code(int command)
+ 	ftrace_modify_all_code(command);
+ }
+ 
+-int __init ftrace_dyn_arch_init(void)
+-{
+-	return 0;
+-}
+-
+ /* Currently only x86_64 supports dynamic trampolines */
+ #ifdef CONFIG_X86_64
+ 
+diff --git a/kernel/trace/ftrace.c b/kernel/trace/ftrace.c
+index 7efbc8aaf7f6..4c090323198d 100644
+--- a/kernel/trace/ftrace.c
++++ b/kernel/trace/ftrace.c
+@@ -6846,6 +6846,11 @@ void __init ftrace_free_init_mem(void)
+ 	ftrace_free_mem(NULL, start, end);
+ }
+ 
++int __init __weak ftrace_dyn_arch_init(void)
++{
++	return 0;
++}
++
+ void __init ftrace_init(void)
+ {
+ 	extern unsigned long __start_mcount_loc[];
+-- 
+2.30.2
