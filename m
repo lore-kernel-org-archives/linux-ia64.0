@@ -1,58 +1,90 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Thu, 30 Sep 2021 23:54:29 +0000
-Subject: Re: [PATCH -tip v11 00/27] kprobes: Fix stacktrace with kretprobes on x86
-Message-Id: <20211001085429.eb031708a65f2f738479e93f@kernel.org>
+From: Robin Murphy <robin.murphy@arm.com>
+Date: Mon, 13 Sep 2021 12:41:19 +0000
+Subject: [PATCH] iommu/dma: Tidy up Kconfig selects
+Message-Id: <9ba6f2e8568a3ff6a94fade66668d99705433c44.1631536879.git.robin.murphy@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <163163030719.489837.2236069935502195491.stgit@devnote2>
-        <20210929112408.35b0ffe06b372533455d890d@kernel.org>
-        <CAADnVQ+0v601toAz7wWPy2gxNtiJNZy6UpLmw_Dg+0G8ByJS6A@mail.gmail.com>
-        <874ka17t8s.ffs@tglx>
-In-Reply-To: <874ka17t8s.ffs@tglx>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>, Linus Torvalds <torvalds@linux-foundation.org>, Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>, X86 ML <x86@kernel.org>, LKML <linux-kernel@vger.kernel.org>, bpf <bpf@vger.kernel.org>, Jakub Kicinski <kuba@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, Kernel Team <kernel-team@fb.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>, Paul McKenney <paulmck@kernel.org>
+To: joro@8bytes.org, will@kernel.org
+Cc: iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, Christoph Hellwig <hch@lst.de>, Marek Szyprowski <m.szyprowski@samsung.com>, x86@kernel.org, linux-ia64@vger.kernel.org
 
-On Thu, 30 Sep 2021 21:34:11 +0200
-Thomas Gleixner <tglx@linutronix.de> wrote:
+Now that the dust has settled on converting all the x86 drivers to
+iommu-dma, we can punt the Kconfig selection to arch code where it
+was always intended to be.
 
-> On Thu, Sep 30 2021 at 11:17, Alexei Starovoitov wrote:
-> 
-> > On Tue, Sep 28, 2021 at 7:24 PM Masami Hiramatsu <mhiramat@kernel.org> wrote:
-> >>
-> >> Hi Ingo,
-> >>
-> >> Can you merge this series to -tip tree since if I understand correctly,
-> >> all kprobes patches still should be merged via -tip tree.
-> >> If you don't think so anymore, I would like to handle the kprobe related
-> >> patches on my tree. Since many kprobes fixes/cleanups have not been
-> >> merged these months, it seems unhealthy now.
-> >>
-> >> Thank you,
-> >
-> > Linus,
-> >
-> > please suggest how to move these patches forward.
-> > We've been waiting for this fix for months now.
-> 
-> Sorry, I've not paying attention to those as they are usually handled by
-> Ingo who seems to be lost in space.
-> 
-> Masami, feel free to merge them over your tree. If not, let me know and
-> I'll pick them up tomorrow morning.
+CC: Christoph Hellwig <hch@lst.de>
+CC: Marek Szyprowski <m.szyprowski@samsung.com>
+CC: x86@kernel.org
+CC: linux-ia64@vger.kernel.org
+Signed-off-by: Robin Murphy <robin.murphy@arm.com>
+---
+ arch/ia64/Kconfig           | 1 +
+ arch/x86/Kconfig            | 1 +
+ drivers/iommu/Kconfig       | 1 -
+ drivers/iommu/amd/Kconfig   | 1 -
+ drivers/iommu/intel/Kconfig | 1 -
+ 5 files changed, 2 insertions(+), 3 deletions(-)
 
-Thank you Thomas for your proposal. As I send in the other mail,
-if Steve can pick this as a part of tracing, I think that will be
-better.
-
-Thanks again,
-
-> 
-> Thanks,
-> 
->         tglx
-
-
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 045792cde481..56c00a0851ce 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -51,6 +51,7 @@ config IA64
+ 	select GENERIC_TIME_VSYSCALL
+ 	select LEGACY_TIMER_TICK
+ 	select SWIOTLB
++	select IOMMU_DMA if INTEL_IOMMU
+ 	select SYSCTL_ARCH_UNALIGN_NO_WARN
+ 	select HAVE_MOD_ARCH_SPECIFIC
+ 	select MODULES_USE_ELF_RELA
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index 4e001bbbb425..10ea941e7c80 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -247,6 +247,7 @@ config X86
+ 	select HAVE_USER_RETURN_NOTIFIER
+ 	select HAVE_GENERIC_VDSO
+ 	select HOTPLUG_SMT			if SMP
++	select IOMMU_DMA			if IOMMU_SUPPORT
+ 	select IRQ_FORCED_THREADING
+ 	select NEED_SG_DMA_LENGTH
+ 	select PCI_DOMAINS			if PCI
+diff --git a/drivers/iommu/Kconfig b/drivers/iommu/Kconfig
+index 124c41adeca1..3538a2f38b94 100644
+--- a/drivers/iommu/Kconfig
++++ b/drivers/iommu/Kconfig
+@@ -459,7 +459,6 @@ config VIRTIO_IOMMU
+ 	depends on VIRTIO
+ 	depends on (ARM64 || X86)
+ 	select IOMMU_API
+-	select IOMMU_DMA
+ 	select INTERVAL_TREE
+ 	select ACPI_VIOT if ACPI
+ 	help
+diff --git a/drivers/iommu/amd/Kconfig b/drivers/iommu/amd/Kconfig
+index a3cbafb603f5..9b5fc3356bf2 100644
+--- a/drivers/iommu/amd/Kconfig
++++ b/drivers/iommu/amd/Kconfig
+@@ -9,7 +9,6 @@ config AMD_IOMMU
+ 	select PCI_PASID
+ 	select IOMMU_API
+ 	select IOMMU_IOVA
+-	select IOMMU_DMA
+ 	select IOMMU_IO_PGTABLE
+ 	depends on X86_64 && PCI && ACPI && HAVE_CMPXCHG_DOUBLE
+ 	help
+diff --git a/drivers/iommu/intel/Kconfig b/drivers/iommu/intel/Kconfig
+index 0ddb77115be7..28c3e922ca27 100644
+--- a/drivers/iommu/intel/Kconfig
++++ b/drivers/iommu/intel/Kconfig
+@@ -16,7 +16,6 @@ config INTEL_IOMMU
+ 	select DMAR_TABLE
+ 	select SWIOTLB
+ 	select IOASID
+-	select IOMMU_DMA
+ 	select PCI_ATS
+ 	help
+ 	  DMA remapping (DMAR) devices support enables independent address
 -- 
-Masami Hiramatsu <mhiramat@kernel.org>
+2.25.1
