@@ -1,166 +1,61 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Fri, 24 Sep 2021 15:22:00 +0000
-Subject: [PATCH 2/6] ptrace: Remove the unnecessary arguments from arch_ptrace_stop
-Message-Id: <87k0j6q9rb.fsf@disp2133>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Tue, 14 Sep 2021 14:39:46 +0000
+Subject: [PATCH -tip v11 08/27] kprobes: Use IS_ENABLED() instead of kprobes_built_in()
+Message-Id: <163163038581.489837.2805250706507372658.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <87v92qx2c6.fsf@disp2133>
-In-Reply-To: <87v92qx2c6.fsf@disp2133> (Eric W. Biederman's message of "Thu,
-        23 Sep 2021 19:08:09 -0500")
+References: <163163030719.489837.2236069935502195491.stgit@devnote2>
+In-Reply-To: <163163030719.489837.2236069935502195491.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Linus Torvalds <torvalds@linux-foundation.org>, Oleg Nesterov <oleg@redhat.com>, Al Viro <viro@ZenIV.linux.org.uk>, linux-api@vger.kernel.org, Kees Cook <keescook@chromium.org>, David Miller <davem@davemloft.net>, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>, Paul McKenney <paulmck@kernel.org>
 
+Use IS_ENABLED(CONFIG_KPROBES) instead of kprobes_built_in().
+This inline function is introduced only for avoiding #ifdef.
+But since now we have IS_ENABLED(), it is no longer needed.
 
-Both arch_ptrace_stop_needed and arch_ptrace_stop are called with an
-exit_code and a siginfo structure.  Neither argument is used by any of
-the implementations so just remove the unneeded arguments.
-
-The two arechitectures that implement arch_ptrace_stop are ia64 and
-sparc.  Both architectures flush their register stacks before a
-ptrace_stack so that all of the register information can be accessed
-by debuggers.
-
-As the question of if a register stack needs to be flushed is
-independent of why ptrace is stopping not needing arguments make sense.
-
-Cc: David Miller <davem@davemloft.net>
-Cc: sparclinux@vger.kernel.org
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
 ---
+ include/linux/kprobes.h |   14 +-------------
+ 1 file changed, 1 insertion(+), 13 deletions(-)
 
-Resent because my little one distracted me as I was sending this last
-night and I did not manage to copy the sparc and ia64 folks.
-
- arch/ia64/include/asm/ptrace.h  |  4 ++--
- arch/sparc/include/asm/ptrace.h |  8 ++++----
- include/linux/ptrace.h          | 22 +++++++++-------------
- kernel/signal.c                 |  4 ++--
- 4 files changed, 17 insertions(+), 21 deletions(-)
-
-diff --git a/arch/ia64/include/asm/ptrace.h b/arch/ia64/include/asm/ptrace.h
-index 08179135905c..f15504f75f10 100644
---- a/arch/ia64/include/asm/ptrace.h
-+++ b/arch/ia64/include/asm/ptrace.h
-@@ -129,9 +129,9 @@ static inline long regs_return_value(struct pt_regs *regs)
-   extern void ia64_decrement_ip (struct pt_regs *pt);
+diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
+index 756d3d23ce37..9c28fbb18e74 100644
+--- a/include/linux/kprobes.h
++++ b/include/linux/kprobes.h
+@@ -180,14 +180,6 @@ struct kprobe_blacklist_entry {
+ DECLARE_PER_CPU(struct kprobe *, current_kprobe);
+ DECLARE_PER_CPU(struct kprobe_ctlblk, kprobe_ctlblk);
  
-   extern void ia64_ptrace_stop(void);
--  #define arch_ptrace_stop(code, info) \
-+  #define arch_ptrace_stop() \
- 	ia64_ptrace_stop()
--  #define arch_ptrace_stop_needed(code, info) \
-+  #define arch_ptrace_stop_needed() \
- 	(!test_thread_flag(TIF_RESTORE_RSE))
+-/*
+- * For #ifdef avoidance:
+- */
+-static inline int kprobes_built_in(void)
+-{
+-	return 1;
+-}
+-
+ extern void kprobe_busy_begin(void);
+ extern void kprobe_busy_end(void);
  
-   extern void ptrace_attach_sync_user_rbs (struct task_struct *);
-diff --git a/arch/sparc/include/asm/ptrace.h b/arch/sparc/include/asm/ptrace.h
-index 71dd82b43cc5..d1419e669027 100644
---- a/arch/sparc/include/asm/ptrace.h
-+++ b/arch/sparc/include/asm/ptrace.h
-@@ -26,12 +26,12 @@ static inline bool pt_regs_clear_syscall(struct pt_regs *regs)
- 	return (regs->tstate &= ~TSTATE_SYSCALL);
- }
+@@ -417,10 +409,6 @@ int arch_kprobe_get_kallsym(unsigned int *symnum, unsigned long *value,
+ 			    char *type, char *sym);
+ #else /* !CONFIG_KPROBES: */
  
--#define arch_ptrace_stop_needed(exit_code, info) \
-+#define arch_ptrace_stop_needed() \
- ({	flush_user_windows(); \
- 	get_thread_wsaved() != 0; \
- })
- 
--#define arch_ptrace_stop(exit_code, info) \
-+#define arch_ptrace_stop() \
- 	synchronize_user_stack()
- 
- #define current_pt_regs() \
-@@ -129,12 +129,12 @@ static inline bool pt_regs_clear_syscall(struct pt_regs *regs)
- 	return (regs->psr &= ~PSR_SYSCALL);
- }
- 
--#define arch_ptrace_stop_needed(exit_code, info) \
-+#define arch_ptrace_stop_needed() \
- ({	flush_user_windows(); \
- 	current_thread_info()->w_saved != 0;	\
- })
- 
--#define arch_ptrace_stop(exit_code, info) \
-+#define arch_ptrace_stop() \
- 	synchronize_user_stack()
- 
- #define current_pt_regs() \
-diff --git a/include/linux/ptrace.h b/include/linux/ptrace.h
-index b5ebf6c01292..8aee2945ff08 100644
---- a/include/linux/ptrace.h
-+++ b/include/linux/ptrace.h
-@@ -362,29 +362,25 @@ static inline void user_single_step_report(struct pt_regs *regs)
- #ifndef arch_ptrace_stop_needed
- /**
-  * arch_ptrace_stop_needed - Decide whether arch_ptrace_stop() should be called
-- * @code:	current->exit_code value ptrace will stop with
-- * @info:	siginfo_t pointer (or %NULL) for signal ptrace will stop with
-  *
-  * This is called with the siglock held, to decide whether or not it's
-- * necessary to release the siglock and call arch_ptrace_stop() with the
-- * same @code and @info arguments.  It can be defined to a constant if
-- * arch_ptrace_stop() is never required, or always is.  On machines where
-- * this makes sense, it should be defined to a quick test to optimize out
-- * calling arch_ptrace_stop() when it would be superfluous.  For example,
-- * if the thread has not been back to user mode since the last stop, the
-- * thread state might indicate that nothing needs to be done.
-+ * necessary to release the siglock and call arch_ptrace_stop().  It can be
-+ * defined to a constant if arch_ptrace_stop() is never required, or always
-+ * is.  On machines where this makes sense, it should be defined to a quick
-+ * test to optimize out calling arch_ptrace_stop() when it would be
-+ * superfluous.  For example, if the thread has not been back to user mode
-+ * since the last stop, the thread state might indicate that nothing needs
-+ * to be done.
-  *
-  * This is guaranteed to be invoked once before a task stops for ptrace and
-  * may include arch-specific operations necessary prior to a ptrace stop.
-  */
--#define arch_ptrace_stop_needed(code, info)	(0)
-+#define arch_ptrace_stop_needed()	(0)
- #endif
- 
- #ifndef arch_ptrace_stop
- /**
-  * arch_ptrace_stop - Do machine-specific work before stopping for ptrace
-- * @code:	current->exit_code value ptrace will stop with
-- * @info:	siginfo_t pointer (or %NULL) for signal ptrace will stop with
-  *
-  * This is called with no locks held when arch_ptrace_stop_needed() has
-  * just returned nonzero.  It is allowed to block, e.g. for user memory
-@@ -394,7 +390,7 @@ static inline void user_single_step_report(struct pt_regs *regs)
-  * we only do it when the arch requires it for this particular stop, as
-  * indicated by arch_ptrace_stop_needed().
-  */
--#define arch_ptrace_stop(code, info)		do { } while (0)
-+#define arch_ptrace_stop()		do { } while (0)
- #endif
- 
- #ifndef current_pt_regs
-diff --git a/kernel/signal.c b/kernel/signal.c
-index 9f2dc9cf3208..c9759ff2cb43 100644
---- a/kernel/signal.c
-+++ b/kernel/signal.c
-@@ -2200,7 +2200,7 @@ static void ptrace_stop(int exit_code, int why, int clear_code, kernel_siginfo_t
+-static inline int kprobes_built_in(void)
+-{
+-	return 0;
+-}
+ static inline int kprobe_fault_handler(struct pt_regs *regs, int trapnr)
  {
- 	bool gstop_done = false;
- 
--	if (arch_ptrace_stop_needed(exit_code, info)) {
-+	if (arch_ptrace_stop_needed()) {
- 		/*
- 		 * The arch code has something special to do before a
- 		 * ptrace stop.  This is allowed to block, e.g. for faults
-@@ -2210,7 +2210,7 @@ static void ptrace_stop(int exit_code, int why, int clear_code, kernel_siginfo_t
- 		 * any signal bookkeeping like checking group_stop_count.
- 		 */
- 		spin_unlock_irq(&current->sighand->siglock);
--		arch_ptrace_stop(exit_code, info);
-+		arch_ptrace_stop();
- 		spin_lock_irq(&current->sighand->siglock);
- 	}
- 
--- 
-2.20.1
+ 	return 0;
+@@ -514,7 +502,7 @@ static inline bool is_kprobe_optinsn_slot(unsigned long addr)
+ static nokprobe_inline bool kprobe_page_fault(struct pt_regs *regs,
+ 					      unsigned int trap)
+ {
+-	if (!kprobes_built_in())
++	if (!IS_ENABLED(CONFIG_KPROBES))
+ 		return false;
+ 	if (user_mode(regs))
+ 		return false;
