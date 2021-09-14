@@ -1,33 +1,59 @@
-From: Simon Horman <horms@verge.net.au>
-Date: Mon, 06 Sep 2021 07:07:47 +0000
-Subject: Re: [PATCH 2/3] ia64: Make reserve_elfcorehdr() static
-Message-Id: <20210906070747.GD19281@vergenet.net>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Tue, 14 Sep 2021 14:38:37 +0000
+Subject: [PATCH -tip v11 01/27] kprobes: Do not use local variable when creating debugfs file
+Message-Id: <163163031686.489837.4476867635937014973.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1629884459.git.geert+renesas@glider.be>
- <fe236cd73b64abc4abd03dd808cb015c907f4c8c.1629884459.git.geert+renesas@glider.be>
-In-Reply-To: <fe236cd73b64abc4abd03dd808cb015c907f4c8c.1629884459.git.geert+renesas@glider.be>
+References: <163163030719.489837.2236069935502195491.stgit@devnote2>
+In-Reply-To: <163163030719.489837.2236069935502195491.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Geert Uytterhoeven <geert+renesas@glider.be>
-Cc: Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Jay Lan <jlan@sgi.com>, Magnus Damm <magnus.damm@gmail.com>, Mike Rapoport <rppt@linux.vnet.ibm.com>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, devicetree@vger.kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>, Paul McKenney <paulmck@kernel.org>
 
-On Wed, Aug 25, 2021 at 01:48:28PM +0200, Geert Uytterhoeven wrote:
-> There never was a reason for reserve_elfcorehdr() to be global.
-> Make the function static, and move it before its sole caller.
-> 
-> Fixes: cee87af2a5f75713 ("[IA64] kexec: Use EFI_LOADER_DATA for ELF core header")
-> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+From: Punit Agrawal <punitagrawal@gmail.com>
 
-Reviewed-by: Simon Horman <horms@verge.net.au>
+debugfs_create_file() takes a pointer argument that can be used during
+file operation callbacks (accessible via i_private in the inode
+structure). An obvious requirement is for the pointer to refer to
+valid memory when used.
 
-> ---
-> This fixes a conflict triggered by
-> https://lore.kernel.org/r/c7e46e50aaf87ef49bdaa61358d25b122f32b7df.1628670468.git.geert+renesas@glider.be/
-> and fixed by
-> https://lore.kernel.org/r/f6eabbbce0fba6da3da0264c1e1cf23c01173999.1629884393.git.geert+renesas@glider.be
->  arch/ia64/include/asm/meminit.h |  1 -
->  arch/ia64/kernel/setup.c        | 51 ++++++++++++++++-----------------
->  2 files changed, 25 insertions(+), 27 deletions(-)
+When creating the debugfs file to dynamically enable / disable
+kprobes, a pointer to local variable is passed to
+debugfs_create_file(); which will go out of scope when the init
+function returns. The reason this hasn't triggered random memory
+corruption is because the pointer is not accessed during the debugfs
+file callbacks.
 
-...
+Since the enabled state is managed by the kprobes_all_disabled global
+variable, the local variable is not needed. Fix the incorrect (and
+unnecessary) usage of local variable during debugfs_file_create() by
+passing NULL instead.
+
+Fixes: bf8f6e5b3e51 ("Kprobes: The ON/OFF knob thru debugfs")
+Signed-off-by: Punit Agrawal <punitagrawal@gmail.com>
+Acked-by: Masami Hiramatsu <mhiramat@kernel.org>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+---
+ kernel/kprobes.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/kernel/kprobes.c b/kernel/kprobes.c
+index 790a573bbe00..1cf8bca1ea86 100644
+--- a/kernel/kprobes.c
++++ b/kernel/kprobes.c
+@@ -2809,13 +2809,12 @@ static const struct file_operations fops_kp = {
+ static int __init debugfs_kprobe_init(void)
+ {
+ 	struct dentry *dir;
+-	unsigned int value = 1;
+ 
+ 	dir = debugfs_create_dir("kprobes", NULL);
+ 
+ 	debugfs_create_file("list", 0400, dir, NULL, &kprobes_fops);
+ 
+-	debugfs_create_file("enabled", 0600, dir, &value, &fops_kp);
++	debugfs_create_file("enabled", 0600, dir, NULL, &fops_kp);
+ 
+ 	debugfs_create_file("blacklist", 0400, dir, NULL,
+ 			    &kprobe_blacklist_fops);
