@@ -1,7 +1,7 @@
 From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Tue, 14 Sep 2021 14:41:04 +0000
-Subject: [PATCH -tip v11 16/27] kprobes: Add kretprobe_find_ret_addr() for searching return address
-Message-Id: <163163046461.489837.1044778356430293962.stgit@devnote2>
+Date: Tue, 14 Sep 2021 14:40:07 +0000
+Subject: [PATCH -tip v11 10/27] kprobes: treewide: Use 'kprobe_opcode_t *' for the code address in get_optimi
+Message-Id: <163163040680.489837.12133032364499833736.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <163163030719.489837.2236069935502195491.stgit@devnote2>
 In-Reply-To: <163163030719.489837.2236069935502195491.stgit@devnote2>
@@ -11,207 +11,130 @@ Content-Transfer-Encoding: 7bit
 To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
 Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>, Paul McKenney <paulmck@kernel.org>
 
-Introduce kretprobe_find_ret_addr() and is_kretprobe_trampoline().
-These APIs will be used by the ORC stack unwinder and ftrace, so that
-they can check whether the given address points kretprobe trampoline
-code and query the correct return address in that case.
+Since get_optimized_kprobe() is only used inside kprobes,
+it doesn't need to use 'unsigned long' type for 'addr' parameter.
+Make it use 'kprobe_opcode_t *' for the 'addr' parameter and
+subsequent call of arch_within_optimized_kprobe() also should use
+'kprobe_opcode_t *'.
+
+Note that MAX_OPTIMIZED_LENGTH and RELATIVEJUMP_SIZE are defined
+by byte-size, but the size of 'kprobe_opcode_t' depends on the
+architecture. Therefore, we must be careful when calculating
+addresses using those macros.
 
 Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-Tested-by: Andrii Nakryiko <andrii@kernel.org>
 ---
- Changes in v10:
-  - Add a document about kretprobe_find_ret_addr() and check cur = NULL.
- Changes in v9:
-  - Update changelog to explain why this is introduced.
-  - Move the prototype of kretprobe_find_ret_addr() and is_kretprobe_trampoline()
-    in the same place.
-  - Make __kretprobe_find_ret_addr() return 'kprobe_opcode_t *'.
-  - Update comments in the __kretprobe_trampoline_handler().
- Changes in v6:
-  - Replace BUG_ON() with WARN_ON_ONCE() in __kretprobe_trampoline_handler().
- Changes in v3:
-  - Remove generic stacktrace fixup. Instead, it should be solved in
-    each unwinder. This just provide the generic interface.
- Changes in v2:
-  - Add is_kretprobe_trampoline() for checking address outside of
-    kretprobe_find_ret_addr()
-  - Remove unneeded addr from kretprobe_find_ret_addr()
-  - Rename fixup_kretprobe_tramp_addr() to fixup_kretprobe_trampoline()
----
- include/linux/kprobes.h |   22 +++++++++
- kernel/kprobes.c        |  109 ++++++++++++++++++++++++++++++++++++-----------
- 2 files changed, 105 insertions(+), 26 deletions(-)
+ arch/arm/probes/kprobes/opt-arm.c |    7 ++++---
+ arch/powerpc/kernel/optprobes.c   |    6 +++---
+ arch/x86/kernel/kprobes/opt.c     |    6 +++---
+ include/linux/kprobes.h           |    2 +-
+ kernel/kprobes.c                  |   10 +++++-----
+ 5 files changed, 16 insertions(+), 15 deletions(-)
 
+diff --git a/arch/arm/probes/kprobes/opt-arm.c b/arch/arm/probes/kprobes/opt-arm.c
+index c78180172120..dbef34ed933f 100644
+--- a/arch/arm/probes/kprobes/opt-arm.c
++++ b/arch/arm/probes/kprobes/opt-arm.c
+@@ -347,10 +347,11 @@ void arch_unoptimize_kprobes(struct list_head *oplist,
+ }
+ 
+ int arch_within_optimized_kprobe(struct optimized_kprobe *op,
+-				unsigned long addr)
++				 kprobe_opcode_t *addr)
+ {
+-	return ((unsigned long)op->kp.addr <= addr &&
+-		(unsigned long)op->kp.addr + RELATIVEJUMP_SIZE > addr);
++	return (op->kp.addr <= addr &&
++		op->kp.addr + (RELATIVEJUMP_SIZE / sizeof(kprobe_opcode_t)) > addr);
++
+ }
+ 
+ void arch_remove_optimized_kprobe(struct optimized_kprobe *op)
+diff --git a/arch/powerpc/kernel/optprobes.c b/arch/powerpc/kernel/optprobes.c
+index c79899abcec8..325ba544883c 100644
+--- a/arch/powerpc/kernel/optprobes.c
++++ b/arch/powerpc/kernel/optprobes.c
+@@ -301,8 +301,8 @@ void arch_unoptimize_kprobes(struct list_head *oplist, struct list_head *done_li
+ 	}
+ }
+ 
+-int arch_within_optimized_kprobe(struct optimized_kprobe *op, unsigned long addr)
++int arch_within_optimized_kprobe(struct optimized_kprobe *op, kprobe_opcode_t *addr)
+ {
+-	return ((unsigned long)op->kp.addr <= addr &&
+-		(unsigned long)op->kp.addr + RELATIVEJUMP_SIZE > addr);
++	return (op->kp.addr <= addr &&
++		op->kp.addr + (RELATIVEJUMP_SIZE / sizeof(kprobe_opcode_t)) > addr);
+ }
+diff --git a/arch/x86/kernel/kprobes/opt.c b/arch/x86/kernel/kprobes/opt.c
+index 71425ebba98a..b4a54a52aa59 100644
+--- a/arch/x86/kernel/kprobes/opt.c
++++ b/arch/x86/kernel/kprobes/opt.c
+@@ -367,10 +367,10 @@ int arch_check_optimized_kprobe(struct optimized_kprobe *op)
+ 
+ /* Check the addr is within the optimized instructions. */
+ int arch_within_optimized_kprobe(struct optimized_kprobe *op,
+-				 unsigned long addr)
++				 kprobe_opcode_t *addr)
+ {
+-	return ((unsigned long)op->kp.addr <= addr &&
+-		(unsigned long)op->kp.addr + op->optinsn.size > addr);
++	return (op->kp.addr <= addr &&
++		op->kp.addr + op->optinsn.size > addr);
+ }
+ 
+ /* Free optimized instruction slot */
 diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
-index b6b2370f4a4c..6d47a9da1e0a 100644
+index 9c28fbb18e74..6a5995f334a0 100644
 --- a/include/linux/kprobes.h
 +++ b/include/linux/kprobes.h
-@@ -505,6 +505,28 @@ static inline bool is_kprobe_optinsn_slot(unsigned long addr)
- }
- #endif /* !CONFIG_OPTPROBES */
+@@ -329,7 +329,7 @@ extern void arch_unoptimize_kprobes(struct list_head *oplist,
+ 				    struct list_head *done_list);
+ extern void arch_unoptimize_kprobe(struct optimized_kprobe *op);
+ extern int arch_within_optimized_kprobe(struct optimized_kprobe *op,
+-					unsigned long addr);
++					kprobe_opcode_t *addr);
  
-+#ifdef CONFIG_KRETPROBES
-+static nokprobe_inline bool is_kretprobe_trampoline(unsigned long addr)
-+{
-+	return (void *)addr = kretprobe_trampoline_addr();
-+}
-+
-+unsigned long kretprobe_find_ret_addr(struct task_struct *tsk, void *fp,
-+				      struct llist_node **cur);
-+#else
-+static nokprobe_inline bool is_kretprobe_trampoline(unsigned long addr)
-+{
-+	return false;
-+}
-+
-+static nokprobe_inline
-+unsigned long kretprobe_find_ret_addr(struct task_struct *tsk, void *fp,
-+				      struct llist_node **cur)
-+{
-+	return 0;
-+}
-+#endif
-+
- /* Returns true if kprobes handled the fault */
- static nokprobe_inline bool kprobe_page_fault(struct pt_regs *regs,
- 					      unsigned int trap)
+ extern void opt_pre_handler(struct kprobe *p, struct pt_regs *regs);
+ 
 diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-index 6ed755111eea..833f07f33115 100644
+index ec3d97fd8c6b..b6f1dcf4bff3 100644
 --- a/kernel/kprobes.c
 +++ b/kernel/kprobes.c
-@@ -1863,45 +1863,87 @@ static struct notifier_block kprobe_exceptions_nb = {
- 
- #ifdef CONFIG_KRETPROBES
- 
--unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
--					     void *frame_pointer)
-+/* This assumes the 'tsk' is the current task or the is not running. */
-+static kprobe_opcode_t *__kretprobe_find_ret_addr(struct task_struct *tsk,
-+						  struct llist_node **cur)
+@@ -485,15 +485,15 @@ static int kprobe_queued(struct kprobe *p)
+  * Return an optimized kprobe whose optimizing code replaces
+  * instructions including 'addr' (exclude breakpoint).
+  */
+-static struct kprobe *get_optimized_kprobe(unsigned long addr)
++static struct kprobe *get_optimized_kprobe(kprobe_opcode_t *addr)
  {
--	kprobe_opcode_t *correct_ret_addr = NULL;
- 	struct kretprobe_instance *ri = NULL;
--	struct llist_node *first, *node;
--	struct kretprobe *rp;
-+	struct llist_node *node = *cur;
-+
-+	if (!node)
-+		node = tsk->kretprobe_instances.first;
-+	else
-+		node = node->next;
+ 	int i;
+ 	struct kprobe *p = NULL;
+ 	struct optimized_kprobe *op;
  
--	/* Find all nodes for this frame. */
--	first = node = current->kretprobe_instances.first;
- 	while (node) {
- 		ri = container_of(node, struct kretprobe_instance, llist);
--
--		BUG_ON(ri->fp != frame_pointer);
--
- 		if (ri->ret_addr != kretprobe_trampoline_addr()) {
--			correct_ret_addr = ri->ret_addr;
--			/*
--			 * This is the real return address. Any other
--			 * instances associated with this task are for
--			 * other calls deeper on the call stack
--			 */
--			goto found;
-+			*cur = node;
-+			return ri->ret_addr;
- 		}
--
- 		node = node->next;
- 	}
--	pr_err("kretprobe: Return address not found, not execute handler. Maybe there is a bug in the kernel.\n");
--	BUG_ON(1);
-+	return NULL;
-+}
-+NOKPROBE_SYMBOL(__kretprobe_find_ret_addr);
+ 	/* Don't check i = 0, since that is a breakpoint case. */
+-	for (i = 1; !p && i < MAX_OPTIMIZED_LENGTH; i++)
+-		p = get_kprobe((void *)(addr - i));
++	for (i = 1; !p && i < MAX_OPTIMIZED_LENGTH / sizeof(kprobe_opcode_t); i++)
++		p = get_kprobe(addr - i);
  
--found:
--	/* Unlink all nodes for this frame. */
--	current->kretprobe_instances.first = node->next;
--	node->next = NULL;
-+/**
-+ * kretprobe_find_ret_addr -- Find correct return address modified by kretprobe
-+ * @tsk: Target task
-+ * @fp: A frame pointer
-+ * @cur: a storage of the loop cursor llist_node pointer for next call
-+ *
-+ * Find the correct return address modified by a kretprobe on @tsk in unsigned
-+ * long type. If it finds the return address, this returns that address value,
-+ * or this returns 0.
-+ * The @tsk must be 'current' or a task which is not running. @fp is a hint
-+ * to get the currect return address - which is compared with the
-+ * kretprobe_instance::fp field. The @cur is a loop cursor for searching the
-+ * kretprobe return addresses on the @tsk. The '*@cur' should be NULL at the
-+ * first call, but '@cur' itself must NOT NULL.
-+ */
-+unsigned long kretprobe_find_ret_addr(struct task_struct *tsk, void *fp,
-+				      struct llist_node **cur)
-+{
-+	struct kretprobe_instance *ri = NULL;
-+	kprobe_opcode_t *ret;
-+
-+	if (WARN_ON_ONCE(!cur))
-+		return 0;
-+
-+	do {
-+		ret = __kretprobe_find_ret_addr(tsk, cur);
-+		if (!ret)
-+			break;
-+		ri = container_of(*cur, struct kretprobe_instance, llist);
-+	} while (ri->fp != fp);
+ 	if (p && kprobe_optready(p)) {
+ 		op = container_of(p, struct optimized_kprobe, kp);
+@@ -967,7 +967,7 @@ static void __arm_kprobe(struct kprobe *p)
+ 	lockdep_assert_held(&text_mutex);
  
--	/* Run them..  */
-+	return (unsigned long)ret;
-+}
-+NOKPROBE_SYMBOL(kretprobe_find_ret_addr);
-+
-+unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
-+					     void *frame_pointer)
-+{
-+	kprobe_opcode_t *correct_ret_addr = NULL;
-+	struct kretprobe_instance *ri = NULL;
-+	struct llist_node *first, *node = NULL;
-+	struct kretprobe *rp;
-+
-+	/* Find correct address and all nodes for this frame. */
-+	correct_ret_addr = __kretprobe_find_ret_addr(current, &node);
-+	if (!correct_ret_addr) {
-+		pr_err("kretprobe: Return address not found, not execute handler. Maybe there is a bug in the kernel.\n");
-+		BUG_ON(1);
-+	}
-+
-+	/* Run the user handler of the nodes. */
-+	first = current->kretprobe_instances.first;
- 	while (first) {
- 		ri = container_of(first, struct kretprobe_instance, llist);
--		first = first->next;
-+
-+		if (WARN_ON_ONCE(ri->fp != frame_pointer))
-+			break;
- 
- 		rp = get_kretprobe(ri);
- 		if (rp && rp->handler) {
-@@ -1912,6 +1954,21 @@ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
- 			rp->handler(ri, regs);
- 			__this_cpu_write(current_kprobe, prev);
- 		}
-+		if (first = node)
-+			break;
-+
-+		first = first->next;
-+	}
-+
-+	/* Unlink all nodes for this frame. */
-+	first = current->kretprobe_instances.first;
-+	current->kretprobe_instances.first = node->next;
-+	node->next = NULL;
-+
-+	/* Recycle free instances. */
-+	while (first) {
-+		ri = container_of(first, struct kretprobe_instance, llist);
-+		first = first->next;
- 
- 		recycle_rp_inst(ri);
+ 	/* Find the overlapping optimized kprobes. */
+-	_p = get_optimized_kprobe((unsigned long)p->addr);
++	_p = get_optimized_kprobe(p->addr);
+ 	if (unlikely(_p))
+ 		/* Fallback to unoptimized kprobe */
+ 		unoptimize_kprobe(_p, true);
+@@ -989,7 +989,7 @@ static void __disarm_kprobe(struct kprobe *p, bool reopt)
+ 	if (!kprobe_queued(p)) {
+ 		arch_disarm_kprobe(p);
+ 		/* If another kprobe was blocked, re-optimize it. */
+-		_p = get_optimized_kprobe((unsigned long)p->addr);
++		_p = get_optimized_kprobe(p->addr);
+ 		if (unlikely(_p) && reopt)
+ 			optimize_kprobe(_p);
  	}
