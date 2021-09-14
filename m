@@ -1,7 +1,7 @@
 From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Tue, 14 Sep 2021 14:42:12 +0000
-Subject: [PATCH -tip v11 23/27] kprobes: Enable stacktrace from pt_regs in kretprobe handler
-Message-Id: <163163053237.489837.4272653874525136832.stgit@devnote2>
+Date: Tue, 14 Sep 2021 14:42:40 +0000
+Subject: [PATCH -tip v11 26/27] tracing: Show kretprobe unknown indicator only for kretprobe_trampoline
+Message-Id: <163163056044.489837.794883849706638013.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <163163030719.489837.2236069935502195491.stgit@devnote2>
 In-Reply-To: <163163030719.489837.2236069935502195491.stgit@devnote2>
@@ -11,45 +11,60 @@ Content-Transfer-Encoding: 7bit
 To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
 Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>, Paul McKenney <paulmck@kernel.org>
 
-Since the ORC unwinder from pt_regs requires setting up regs->ip
-correctly, set the correct return address to the regs->ip before
-calling user kretprobe handler.
+ftrace shows "[unknown/kretprobe'd]" indicator all addresses in the
+kretprobe_trampoline, but the modified address by kretprobe should
+be only kretprobe_trampoline+0.
 
-This allows the kretrprobe handler to trace stack from the
-kretprobe's pt_regs by stack_trace_save_regs() (eBPF will do
-this), instead of stack tracing from the handler context by
-stack_trace_save() (ftrace will do this).
-
-Suggested-by: Josh Poimboeuf <jpoimboe@redhat.com>
 Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+Acked-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
 Tested-by: Andrii Nakryiko <andrii@kernel.org>
-Acked-by: Josh Poimboeuf <jpoimboe@redhat.com>
 ---
- Changes in v9:
-  - Update comment to explain specifically why this is necessary.
- Changes in v8:
-  - Update comment to clarify why this is needed.
- Changes in v3:
-  - Cast the correct_ret_addr to unsigned long.
----
- kernel/kprobes.c |    7 +++++++
- 1 file changed, 7 insertions(+)
+ kernel/trace/trace_output.c |   17 ++++-------------
+ 1 file changed, 4 insertions(+), 13 deletions(-)
 
-diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-index 833f07f33115..ebc587b9a346 100644
---- a/kernel/kprobes.c
-+++ b/kernel/kprobes.c
-@@ -1937,6 +1937,13 @@ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
- 		BUG_ON(1);
- 	}
+diff --git a/kernel/trace/trace_output.c b/kernel/trace/trace_output.c
+index 5a5949c659d0..3547e7176ff7 100644
+--- a/kernel/trace/trace_output.c
++++ b/kernel/trace/trace_output.c
+@@ -8,6 +8,7 @@
+ #include <linux/module.h>
+ #include <linux/mutex.h>
+ #include <linux/ftrace.h>
++#include <linux/kprobes.h>
+ #include <linux/sched/clock.h>
+ #include <linux/sched/mm.h>
  
-+	/*
-+	 * Set the return address as the instruction pointer, because if the
-+	 * user handler calls stack_trace_save_regs() with this 'regs',
-+	 * the stack trace will start from the instruction pointer.
-+	 */
-+	instruction_pointer_set(regs, (unsigned long)correct_ret_addr);
-+
- 	/* Run the user handler of the nodes. */
- 	first = current->kretprobe_instances.first;
- 	while (first) {
+@@ -346,22 +347,12 @@ int trace_output_call(struct trace_iterator *iter, char *name, char *fmt, ...)
+ }
+ EXPORT_SYMBOL_GPL(trace_output_call);
+ 
+-#ifdef CONFIG_KRETPROBES
+-static inline const char *kretprobed(const char *name)
++static inline const char *kretprobed(const char *name, unsigned long addr)
+ {
+-	static const char tramp_name[] = "__kretprobe_trampoline";
+-	int size = sizeof(tramp_name);
+-
+-	if (strncmp(tramp_name, name, size) = 0)
++	if (is_kretprobe_trampoline(addr))
+ 		return "[unknown/kretprobe'd]";
+ 	return name;
+ }
+-#else
+-static inline const char *kretprobed(const char *name)
+-{
+-	return name;
+-}
+-#endif /* CONFIG_KRETPROBES */
+ 
+ void
+ trace_seq_print_sym(struct trace_seq *s, unsigned long address, bool offset)
+@@ -374,7 +365,7 @@ trace_seq_print_sym(struct trace_seq *s, unsigned long address, bool offset)
+ 		sprint_symbol(str, address);
+ 	else
+ 		kallsyms_lookup(address, NULL, NULL, NULL, str);
+-	name = kretprobed(str);
++	name = kretprobed(str, address);
+ 
+ 	if (name && strlen(name)) {
+ 		trace_seq_puts(s, name);
