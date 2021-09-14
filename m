@@ -1,52 +1,47 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Mon, 27 Sep 2021 15:05:15 +0000
-Subject: [PATCH v1 1/4] mm/memory_hotplug: handle memblock_add_node() failures in add_memory_resource()
-Message-Id: <20210927150518.8607-2-david@redhat.com>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Tue, 14 Sep 2021 14:42:02 +0000
+Subject: [PATCH -tip v11 22/27] arm: kprobes: Make space for instruction pointer on stack
+Message-Id: <163163052262.489837.10327621053231461255.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210927150518.8607-1-david@redhat.com>
-In-Reply-To: <20210927150518.8607-1-david@redhat.com>
+References: <163163030719.489837.2236069935502195491.stgit@devnote2>
+In-Reply-To: <163163030719.489837.2236069935502195491.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: David Hildenbrand <david@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, Mike Rapoport <rppt@kernel.org>, Michal Hocko <mhocko@suse.com>, Oscar Salvador <osalvador@suse.de>, Jianyong Wu <Jianyong.Wu@arm.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Vineet Gupta <vgupta@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Huacai Chen <chenhuacai@kernel.org>, Jiaxun Yang <jiaxun.yang@flygoat.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Eric Biederman <ebiederm@xmission.com>, Arnd Bergmann <arnd@arndb.de>, linux-snps-arc@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-s390@vger.kernel.org, linux-mm@kvack.org, kexec@lists.infradead.org
+To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>, Paul McKenney <paulmck@kernel.org>
 
-If memblock_add_node() fails, we're most probably running out of memory.
-While this is unlikely to happen, it can happen and having memory added
-without a memblock can be problematic for architectures that use
-memblock to detect valid memory. Let's fail in a nice way instead of
-silently ignoring the error.
+Since arm's __kretprobe_trampoline() saves partial 'pt_regs' on the
+stack, 'regs->ARM_pc' (instruction pointer) is not accessible from
+the kretprobe handler. This means if instruction_pointer_set() is
+used from kretprobe handler, it will break the data on the stack.
 
-Signed-off-by: David Hildenbrand <david@redhat.com>
+Make space for instruction pointer (ARM_pc) on the stack in the
+__kretprobe_trampoline() for fixing this problem.
+
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
 ---
- mm/memory_hotplug.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ Changes in v9:
+  - Update changelog.
+---
+ arch/arm/probes/kprobes/core.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index 9fd0be32a281..917b3528636d 100644
---- a/mm/memory_hotplug.c
-+++ b/mm/memory_hotplug.c
-@@ -1384,8 +1384,11 @@ int __ref add_memory_resource(int nid, struct resource *res, mhp_t mhp_flags)
- 
- 	mem_hotplug_begin();
- 
--	if (IS_ENABLED(CONFIG_ARCH_KEEP_MEMBLOCK))
--		memblock_add_node(start, size, nid);
-+	if (IS_ENABLED(CONFIG_ARCH_KEEP_MEMBLOCK)) {
-+		ret = memblock_add_node(start, size, nid);
-+		if (ret)
-+			goto error_mem_hotplug_end;
-+	}
- 
- 	ret = __try_online_node(nid, false);
- 	if (ret < 0)
-@@ -1458,6 +1461,7 @@ int __ref add_memory_resource(int nid, struct resource *res, mhp_t mhp_flags)
- 		rollback_node_hotadd(nid);
- 	if (IS_ENABLED(CONFIG_ARCH_KEEP_MEMBLOCK))
- 		memblock_remove(start, size);
-+error_mem_hotplug_end:
- 	mem_hotplug_done();
- 	return ret;
- }
--- 
-2.31.1
+diff --git a/arch/arm/probes/kprobes/core.c b/arch/arm/probes/kprobes/core.c
+index 67ce7eb8f285..95f23b47ba27 100644
+--- a/arch/arm/probes/kprobes/core.c
++++ b/arch/arm/probes/kprobes/core.c
+@@ -376,11 +376,13 @@ int __kprobes kprobe_exceptions_notify(struct notifier_block *self,
+ void __naked __kprobes __kretprobe_trampoline(void)
+ {
+ 	__asm__ __volatile__ (
++		"sub	sp, sp, #16		\n\t"
+ 		"stmdb	sp!, {r0 - r11}		\n\t"
+ 		"mov	r0, sp			\n\t"
+ 		"bl	trampoline_handler	\n\t"
+ 		"mov	lr, r0			\n\t"
+ 		"ldmia	sp!, {r0 - r11}		\n\t"
++		"add	sp, sp, #16		\n\t"
+ #ifdef CONFIG_THUMB2_KERNEL
+ 		"bx	lr			\n\t"
+ #else
