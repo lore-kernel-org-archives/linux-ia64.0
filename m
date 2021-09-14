@@ -1,47 +1,88 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Mon, 27 Sep 2021 15:05:18 +0000
-Subject: [PATCH v1 4/4] mm/memory_hotplug: indicate MEMBLOCK_DRIVER_MANAGED with IORESOURCE_SYSRAM_DRIVER_MAN
-Message-Id: <20210927150518.8607-5-david@redhat.com>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Tue, 14 Sep 2021 14:41:32 +0000
+Subject: [PATCH -tip v11 19/27] x86/kprobes: Add UNWIND_HINT_FUNC on kretprobe_trampoline()
+Message-Id: <163163049242.489837.11970969750993364293.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210927150518.8607-1-david@redhat.com>
-In-Reply-To: <20210927150518.8607-1-david@redhat.com>
+References: <163163030719.489837.2236069935502195491.stgit@devnote2>
+In-Reply-To: <163163030719.489837.2236069935502195491.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: David Hildenbrand <david@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, Mike Rapoport <rppt@kernel.org>, Michal Hocko <mhocko@suse.com>, Oscar Salvador <osalvador@suse.de>, Jianyong Wu <Jianyong.Wu@arm.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Vineet Gupta <vgupta@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Huacai Chen <chenhuacai@kernel.org>, Jiaxun Yang <jiaxun.yang@flygoat.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Eric Biederman <ebiederm@xmission.com>, Arnd Bergmann <arnd@arndb.de>, linux-snps-arc@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-s390@vger.kernel.org, linux-mm@kvack.org, kexec@lists.infradead.org
+To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>, Paul McKenney <paulmck@kernel.org>
 
-Let's communicate driver-managed regions to memblock, to properly
-teach kexec_file with CONFIG_ARCH_KEEP_MEMBLOCK to not place images on
-these memory regions.
+From: Josh Poimboeuf <jpoimboe@redhat.com>
 
-Signed-off-by: David Hildenbrand <david@redhat.com>
+Add UNWIND_HINT_FUNC on __kretprobe_trampoline() code so that ORC
+information is generated on the __kretprobe_trampoline() correctly.
+Also, this uses STACK_FRAME_NON_STANDARD_FP(), CONFIG_FRAME_POINTER-
+-specific version of STACK_FRAME_NON_STANDARD().
+
+Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+Tested-by: Andrii Nakryiko <andrii@kernel.org>
 ---
- mm/memory_hotplug.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ Changes in v9:
+  - Update changelog and fix comment.
+  - Use STACK_FRAME_NON_STANDARD_FP().
+ Changes in v4:
+  - Apply UNWIND_HINT_FUNC only if CONFIG_FRAME_POINTER=n.
+---
+ arch/x86/include/asm/unwind_hints.h |    5 +++++
+ arch/x86/kernel/kprobes/core.c      |   13 +++++++++++--
+ 2 files changed, 16 insertions(+), 2 deletions(-)
 
-diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index 5f873e7f5b29..6d90818d4ce8 100644
---- a/mm/memory_hotplug.c
-+++ b/mm/memory_hotplug.c
-@@ -1357,6 +1357,7 @@ bool mhp_supports_memmap_on_memory(unsigned long size)
- int __ref add_memory_resource(int nid, struct resource *res, mhp_t mhp_flags)
- {
- 	struct mhp_params params = { .pgprot = pgprot_mhp(PAGE_KERNEL) };
-+	enum memblock_flags memblock_flags = MEMBLOCK_NONE;
- 	struct vmem_altmap mhp_altmap = {};
- 	struct memory_group *group = NULL;
- 	u64 start, size;
-@@ -1385,7 +1386,9 @@ int __ref add_memory_resource(int nid, struct resource *res, mhp_t mhp_flags)
- 	mem_hotplug_begin();
+diff --git a/arch/x86/include/asm/unwind_hints.h b/arch/x86/include/asm/unwind_hints.h
+index 8e574c0afef8..8b33674288ea 100644
+--- a/arch/x86/include/asm/unwind_hints.h
++++ b/arch/x86/include/asm/unwind_hints.h
+@@ -52,6 +52,11 @@
+ 	UNWIND_HINT sp_reg=ORC_REG_SP sp_offset=8 type=UNWIND_HINT_TYPE_FUNC
+ .endm
  
- 	if (IS_ENABLED(CONFIG_ARCH_KEEP_MEMBLOCK)) {
--		ret = memblock_add_node(start, size, nid, MEMBLOCK_NONE);
-+		if (res->flags & IORESOURCE_SYSRAM_DRIVER_MANAGED)
-+			memblock_flags = MEMBLOCK_DRIVER_MANAGED;
-+		ret = memblock_add_node(start, size, nid, memblock_flags);
- 		if (ret)
- 			goto error_mem_hotplug_end;
- 	}
--- 
-2.31.1
++#else
++
++#define UNWIND_HINT_FUNC \
++	UNWIND_HINT(ORC_REG_SP, 8, UNWIND_HINT_TYPE_FUNC, 0)
++
+ #endif /* __ASSEMBLY__ */
+ 
+ #endif /* _ASM_X86_UNWIND_HINTS_H */
+diff --git a/arch/x86/kernel/kprobes/core.c b/arch/x86/kernel/kprobes/core.c
+index 79cd23dba5b5..d1436d7463fd 100644
+--- a/arch/x86/kernel/kprobes/core.c
++++ b/arch/x86/kernel/kprobes/core.c
+@@ -1025,6 +1025,7 @@ asm(
+ 	/* We don't bother saving the ss register */
+ #ifdef CONFIG_X86_64
+ 	"	pushq %rsp\n"
++	UNWIND_HINT_FUNC
+ 	"	pushfq\n"
+ 	SAVE_REGS_STRING
+ 	"	movq %rsp, %rdi\n"
+@@ -1035,6 +1036,7 @@ asm(
+ 	"	popfq\n"
+ #else
+ 	"	pushl %esp\n"
++	UNWIND_HINT_FUNC
+ 	"	pushfl\n"
+ 	SAVE_REGS_STRING
+ 	"	movl %esp, %eax\n"
+@@ -1048,8 +1050,15 @@ asm(
+ 	".size __kretprobe_trampoline, .-__kretprobe_trampoline\n"
+ );
+ NOKPROBE_SYMBOL(__kretprobe_trampoline);
+-STACK_FRAME_NON_STANDARD(__kretprobe_trampoline);
+-
++/*
++ * __kretprobe_trampoline() skips updating frame pointer. The frame pointer
++ * saved in trampoline_handler() points to the real caller function's
++ * frame pointer. Thus the __kretprobe_trampoline() doesn't have a
++ * standard stack frame with CONFIG_FRAME_POINTER=y.
++ * Let's mark it non-standard function. Anyway, FP unwinder can correctly
++ * unwind without the hint.
++ */
++STACK_FRAME_NON_STANDARD_FP(__kretprobe_trampoline);
+ 
+ /*
+  * Called from __kretprobe_trampoline
