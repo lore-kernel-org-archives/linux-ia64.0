@@ -1,44 +1,51 @@
-From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Date: Wed, 29 Sep 2021 14:59:58 +0000
-Subject: Re: [PATCH 1/2] firmware: include drivers/firmware/Kconfig unconditionally
-Message-Id: <YVR/jMv5HZj1hxmI@yoga>
+From: Randy Dunlap <rdunlap@infradead.org>
+Date: Sun, 26 Sep 2021 17:12:24 +0000
+Subject: [PATCH v2] ia64: don't do IA64_CMPXCHG_DEBUG without CONFIG_PRINTK
+Message-Id: <20210926171224.27019-1-rdunlap@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210928075216.4193128-1-arnd@kernel.org>
- <20210928115856.GK4199@sirena.org.uk>
- <CAK8P3a05oRxgncJb04+niAKSO_2Adki03a04tnj8YuQT=Py54A@mail.gmail.com>
-In-Reply-To: <CAK8P3a05oRxgncJb04+niAKSO_2Adki03a04tnj8YuQT=Py54A@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@kernel.org>
-Cc: Mark Brown <broonie@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Liam Girdwood <lgirdwood@gmail.com>, Charles Keepax <ckeepax@opensource.cirrus.com>, Simon Trimmer <simont@opensource.cirrus.com>, Michael Ellerman <mpe@ellerman.id.au>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, the arch/x86 maintainers <x86@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Geert Uytterhoeven <geert+renesas@glider.be>, Linus Walleij <linus.walleij@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, "open list:BROADCOM NVRAM DRIVER" <linux-mips@vger.kernel.org>, Parisc List <linux-parisc@vger.kernel.org>, linux-riscv <linux-riscv@lists.infradead.org>
+To: linux-ia64@vger.kernel.org
 
-On Tue 28 Sep 07:22 CDT 2021, Arnd Bergmann wrote:
+When CONFIG_PRINTK is not set, the CMPXCHG_BUGCHECK() macro calls
+_printk(), but _printk() is a static inline function, not available
+as an extern.
+Since the purpose of the macro is to print the BUGCHECK info,
+make this config option depend on PRINTK.
 
-> On Tue, Sep 28, 2021 at 1:58 PM Mark Brown <broonie@kernel.org> wrote:
-> > On Tue, Sep 28, 2021 at 09:50:26AM +0200, Arnd Bergmann wrote:
-> >
-> > > Not sure how we'd want to merge this patch, if two other things
-> > > need it. I'd prefer to merge it along with the QCOM_SCM change
-> > > through the soc tree, but that leaves the cirrus firmware broken
-> > > unless we also merge it the same way (rather than through ASoC
-> > > as it is now).
-> >
-> > We could also merge a tag into both places.
-> 
-> I wonder if I should just take my two patches as bugfixes for 5.15,
-> after all they do address real build failures. In that case, all  you need
-> is a merge with 5.15-rc4 or higher.
-> 
+Fixes multiple occurrences of this build error:
 
-I'm in favor of this, better get it over with.
-With QCOM_IOMMU fixed up as well, feel free to add my
+../include/linux/printk.h:208:5: error: static declaration of '_printk' follows non-static declaration
+  208 | int _printk(const char *s, ...)
+      |     ^~~~~~~
+In file included from ../arch/ia64/include/asm/cmpxchg.h:5,
+../arch/ia64/include/uapi/asm/cmpxchg.h:146:28: note: previous declaration of '_printk' with type 'int(const char *, ...)'
+  146 |                 extern int _printk(const char *fmt, ...);
 
-Reviewed-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+Fixes: 85f8f7759e41 ("ia64: populate the cmpxchg header with appropriate code")
+Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+Cc: linux-ia64@vger.kernel.org
+Cc: Petr Mladek <pmladek@suse.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Chris Down <chris@chrisdown.name>
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
+Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+---
+v2: correct the Fixes: commit info
 
-on both the patches, and for the qcom_scm changes you have my
+ arch/ia64/Kconfig.debug |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Acked-by: Bjorn Andersson <bjorn.andersson@linaro.org>
-
-Thanks,
-Bjorn
+--- linux-next-20210917.orig/arch/ia64/Kconfig.debug
++++ linux-next-20210917/arch/ia64/Kconfig.debug
+@@ -39,7 +39,7 @@ config DISABLE_VHPT
+ 
+ config IA64_DEBUG_CMPXCHG
+ 	bool "Turn on compare-and-exchange bug checking (slow!)"
+-	depends on DEBUG_KERNEL
++	depends on DEBUG_KERNEL && PRINTK
+ 	help
+ 	  Selecting this option turns on bug checking for the IA-64
+ 	  compare-and-exchange instructions.  This is slow!  Itaniums
