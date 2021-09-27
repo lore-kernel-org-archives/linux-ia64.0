@@ -1,298 +1,128 @@
-From: Helge Deller <deller@gmx.de>
-Date: Mon, 06 Sep 2021 20:36:32 +0000
-Subject: Re: [PATCH v2] ftrace: Cleanup ftrace_dyn_arch_init()
-Message-Id: <a25be752-bb65-652e-977f-312ee0b95c15@gmx.de>
+From: David Hildenbrand <david@redhat.com>
+Date: Mon, 27 Sep 2021 15:05:17 +0000
+Subject: [PATCH v1 3/4] memblock: add MEMBLOCK_DRIVER_MANAGED to mimic IORESOURCE_SYSRAM_DRIVER_MANAGED
+Message-Id: <20210927150518.8607-4-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210906111626.1259867-1-o451686892@gmail.com>
-In-Reply-To: <20210906111626.1259867-1-o451686892@gmail.com>
+References: <20210927150518.8607-1-david@redhat.com>
+In-Reply-To: <20210927150518.8607-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Weizhao Ouyang <o451686892@gmail.com>, Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@redhat.com>
-Cc: Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: David Hildenbrand <david@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, Mike Rapoport <rppt@kernel.org>, Michal Hocko <mhocko@suse.com>, Oscar Salvador <osalvador@suse.de>, Jianyong Wu <Jianyong.Wu@arm.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Vineet Gupta <vgupta@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Huacai Chen <chenhuacai@kernel.org>, Jiaxun Yang <jiaxun.yang@flygoat.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Eric Biederman <ebiederm@xmission.com>, Arnd Bergmann <arnd@arndb.de>, linux-snps-arc@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-s390@vger.kernel.org, linux-mm@kvack.org, kexec@lists.infradead.org
 
-On 9/6/21 1:16 PM, Weizhao Ouyang wrote:
-> Most of ARCHs use empty ftrace_dyn_arch_init(), introduce a weak common
-> ftrace_dyn_arch_init() to cleanup them.
->
-> Signed-off-by: Weizhao Ouyang <o451686892@gmail.com>
-> Acked-by: Heiko Carstens <hca@linux.ibm.com> (s390)
+Let's add a flag that corresponds to IORESOURCE_SYSRAM_DRIVER_MANAGED.
+Similar to MEMBLOCK_HOTPLUG, most infrastructure has to treat such memory
+like ordinary MEMBLOCK_NONE memory -- for example, when selecting memory
+regions to add to the vmcore for dumping in the crashkernel via
+for_each_mem_range().
 
-Acked-by: Helge Deller <deller@gmx.de> # parisc
+However, especially kexec_file is not supposed to select such memblocks via
+for_each_free_mem_range() / for_each_free_mem_range_reverse() to place
+kexec images, similar to how we handle IORESOURCE_SYSRAM_DRIVER_MANAGED
+without CONFIG_ARCH_KEEP_MEMBLOCK.
 
-Thanks,
-Helge
+Let's document why kexec_walk_memblock() won't try placing images on
+areas marked MEMBLOCK_DRIVER_MANAGED -- similar to
+IORESOURCE_SYSRAM_DRIVER_MANAGED handling in locate_mem_hole_callback()
+via kexec_walk_resources().
 
+We'll make sure that memory hotplug code sets the flag where applicable
+(IORESOURCE_SYSRAM_DRIVER_MANAGED) next. This prepares architectures
+that need CONFIG_ARCH_KEEP_MEMBLOCK, such as arm64, for virtio-mem
+support.
 
-> ---
->
-> Changes in v2:
-> -- correct CONFIG_DYNAMIC_FTRACE on PowerPC
-> -- add Acked-by tag
->
-> ---
->   arch/arm/kernel/ftrace.c          | 5 -----
->   arch/arm64/kernel/ftrace.c        | 5 -----
->   arch/csky/kernel/ftrace.c         | 5 -----
->   arch/ia64/kernel/ftrace.c         | 6 ------
->   arch/microblaze/kernel/ftrace.c   | 5 -----
->   arch/mips/include/asm/ftrace.h    | 2 ++
->   arch/nds32/kernel/ftrace.c        | 5 -----
->   arch/parisc/kernel/ftrace.c       | 5 -----
->   arch/powerpc/include/asm/ftrace.h | 4 ++++
->   arch/riscv/kernel/ftrace.c        | 5 -----
->   arch/s390/kernel/ftrace.c         | 5 -----
->   arch/sh/kernel/ftrace.c           | 5 -----
->   arch/sparc/kernel/ftrace.c        | 5 -----
->   arch/x86/kernel/ftrace.c          | 5 -----
->   include/linux/ftrace.h            | 1 -
->   kernel/trace/ftrace.c             | 5 +++++
->   16 files changed, 11 insertions(+), 62 deletions(-)
->
-> diff --git a/arch/arm/kernel/ftrace.c b/arch/arm/kernel/ftrace.c
-> index 3c83b5d29697..a006585e1c09 100644
-> --- a/arch/arm/kernel/ftrace.c
-> +++ b/arch/arm/kernel/ftrace.c
-> @@ -193,11 +193,6 @@ int ftrace_make_nop(struct module *mod,
->
->   	return ret;
->   }
-> -
-> -int __init ftrace_dyn_arch_init(void)
-> -{
-> -	return 0;
-> -}
->   #endif /* CONFIG_DYNAMIC_FTRACE */
->
->   #ifdef CONFIG_FUNCTION_GRAPH_TRACER
-> diff --git a/arch/arm64/kernel/ftrace.c b/arch/arm64/kernel/ftrace.c
-> index 7f467bd9db7a..fc62dfe73f93 100644
-> --- a/arch/arm64/kernel/ftrace.c
-> +++ b/arch/arm64/kernel/ftrace.c
-> @@ -236,11 +236,6 @@ void arch_ftrace_update_code(int command)
->   	command |= FTRACE_MAY_SLEEP;
->   	ftrace_modify_all_code(command);
->   }
-> -
-> -int __init ftrace_dyn_arch_init(void)
-> -{
-> -	return 0;
-> -}
->   #endif /* CONFIG_DYNAMIC_FTRACE */
->
->   #ifdef CONFIG_FUNCTION_GRAPH_TRACER
-> diff --git a/arch/csky/kernel/ftrace.c b/arch/csky/kernel/ftrace.c
-> index b4a7ec1517ff..50bfcf129078 100644
-> --- a/arch/csky/kernel/ftrace.c
-> +++ b/arch/csky/kernel/ftrace.c
-> @@ -133,11 +133,6 @@ int ftrace_update_ftrace_func(ftrace_func_t func)
->   				(unsigned long)func, true, true);
->   	return ret;
->   }
-> -
-> -int __init ftrace_dyn_arch_init(void)
-> -{
-> -	return 0;
-> -}
->   #endif /* CONFIG_DYNAMIC_FTRACE */
->
->   #ifdef CONFIG_DYNAMIC_FTRACE_WITH_REGS
-> diff --git a/arch/ia64/kernel/ftrace.c b/arch/ia64/kernel/ftrace.c
-> index b2ab2d58fb30..d6360fd404ab 100644
-> --- a/arch/ia64/kernel/ftrace.c
-> +++ b/arch/ia64/kernel/ftrace.c
-> @@ -194,9 +194,3 @@ int ftrace_update_ftrace_func(ftrace_func_t func)
->   	flush_icache_range(addr, addr + 16);
->   	return 0;
->   }
-> -
-> -/* run from kstop_machine */
-> -int __init ftrace_dyn_arch_init(void)
-> -{
-> -	return 0;
-> -}
-> diff --git a/arch/microblaze/kernel/ftrace.c b/arch/microblaze/kernel/ftrace.c
-> index 224eea40e1ee..188749d62709 100644
-> --- a/arch/microblaze/kernel/ftrace.c
-> +++ b/arch/microblaze/kernel/ftrace.c
-> @@ -163,11 +163,6 @@ int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
->   	return ret;
->   }
->
-> -int __init ftrace_dyn_arch_init(void)
-> -{
-> -	return 0;
-> -}
-> -
->   int ftrace_update_ftrace_func(ftrace_func_t func)
->   {
->   	unsigned long ip = (unsigned long)(&ftrace_call);
-> diff --git a/arch/mips/include/asm/ftrace.h b/arch/mips/include/asm/ftrace.h
-> index b463f2aa5a61..ed013e767390 100644
-> --- a/arch/mips/include/asm/ftrace.h
-> +++ b/arch/mips/include/asm/ftrace.h
-> @@ -76,6 +76,8 @@ do {						\
->
->
->   #ifdef CONFIG_DYNAMIC_FTRACE
-> +int __init ftrace_dyn_arch_init(void);
-> +
->   static inline unsigned long ftrace_call_adjust(unsigned long addr)
->   {
->   	return addr;
-> diff --git a/arch/nds32/kernel/ftrace.c b/arch/nds32/kernel/ftrace.c
-> index 0e23e3a8df6b..f0ef4842d191 100644
-> --- a/arch/nds32/kernel/ftrace.c
-> +++ b/arch/nds32/kernel/ftrace.c
-> @@ -84,11 +84,6 @@ void _ftrace_caller(unsigned long parent_ip)
->   	/* restore all state needed by the compiler epilogue */
->   }
->
-> -int __init ftrace_dyn_arch_init(void)
-> -{
-> -	return 0;
-> -}
-> -
->   static unsigned long gen_sethi_insn(unsigned long addr)
->   {
->   	unsigned long opcode = 0x46000000;
-> diff --git a/arch/parisc/kernel/ftrace.c b/arch/parisc/kernel/ftrace.c
-> index 0a1e75af5382..01581f715737 100644
-> --- a/arch/parisc/kernel/ftrace.c
-> +++ b/arch/parisc/kernel/ftrace.c
-> @@ -94,11 +94,6 @@ int ftrace_disable_ftrace_graph_caller(void)
->   #endif
->
->   #ifdef CONFIG_DYNAMIC_FTRACE
-> -
-> -int __init ftrace_dyn_arch_init(void)
-> -{
-> -	return 0;
-> -}
->   int ftrace_update_ftrace_func(ftrace_func_t func)
->   {
->   	return 0;
-> diff --git a/arch/powerpc/include/asm/ftrace.h b/arch/powerpc/include/asm/ftrace.h
-> index debe8c4f7062..d59f67c0225f 100644
-> --- a/arch/powerpc/include/asm/ftrace.h
-> +++ b/arch/powerpc/include/asm/ftrace.h
-> @@ -61,6 +61,10 @@ struct dyn_arch_ftrace {
->   };
->   #endif /* __ASSEMBLY__ */
->
-> +#ifdef CONFIG_DYNAMIC_FTRACE
-> +int __init ftrace_dyn_arch_init(void);
-> +#endif /* CONFIG_DYNAMIC_FTRACE */
-> +
->   #ifdef CONFIG_DYNAMIC_FTRACE_WITH_REGS
->   #define ARCH_SUPPORTS_FTRACE_OPS 1
->   #endif
-> diff --git a/arch/riscv/kernel/ftrace.c b/arch/riscv/kernel/ftrace.c
-> index 7f1e5203de88..4716f4cdc038 100644
-> --- a/arch/riscv/kernel/ftrace.c
-> +++ b/arch/riscv/kernel/ftrace.c
-> @@ -154,11 +154,6 @@ int ftrace_update_ftrace_func(ftrace_func_t func)
->
->   	return ret;
->   }
-> -
-> -int __init ftrace_dyn_arch_init(void)
-> -{
-> -	return 0;
-> -}
->   #endif
->
->   #ifdef CONFIG_DYNAMIC_FTRACE_WITH_REGS
-> diff --git a/arch/s390/kernel/ftrace.c b/arch/s390/kernel/ftrace.c
-> index 0a464d328467..3fd80397ff52 100644
-> --- a/arch/s390/kernel/ftrace.c
-> +++ b/arch/s390/kernel/ftrace.c
-> @@ -262,11 +262,6 @@ int ftrace_update_ftrace_func(ftrace_func_t func)
->   	return 0;
->   }
->
-> -int __init ftrace_dyn_arch_init(void)
-> -{
-> -	return 0;
-> -}
-> -
->   void arch_ftrace_update_code(int command)
->   {
->   	if (ftrace_shared_hotpatch_trampoline(NULL))
-> diff --git a/arch/sh/kernel/ftrace.c b/arch/sh/kernel/ftrace.c
-> index 295c43315bbe..930001bb8c6a 100644
-> --- a/arch/sh/kernel/ftrace.c
-> +++ b/arch/sh/kernel/ftrace.c
-> @@ -252,11 +252,6 @@ int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
->
->   	return ftrace_modify_code(rec->ip, old, new);
->   }
-> -
-> -int __init ftrace_dyn_arch_init(void)
-> -{
-> -	return 0;
-> -}
->   #endif /* CONFIG_DYNAMIC_FTRACE */
->
->   #ifdef CONFIG_FUNCTION_GRAPH_TRACER
-> diff --git a/arch/sparc/kernel/ftrace.c b/arch/sparc/kernel/ftrace.c
-> index 684b84ce397f..eaead3da8e03 100644
-> --- a/arch/sparc/kernel/ftrace.c
-> +++ b/arch/sparc/kernel/ftrace.c
-> @@ -82,11 +82,6 @@ int ftrace_update_ftrace_func(ftrace_func_t func)
->   	new = ftrace_call_replace(ip, (unsigned long)func);
->   	return ftrace_modify_code(ip, old, new);
->   }
-> -
-> -int __init ftrace_dyn_arch_init(void)
-> -{
-> -	return 0;
-> -}
->   #endif
->
->   #ifdef CONFIG_FUNCTION_GRAPH_TRACER
-> diff --git a/arch/x86/kernel/ftrace.c b/arch/x86/kernel/ftrace.c
-> index 1b3ce3b4a2a2..23d221a9a3cd 100644
-> --- a/arch/x86/kernel/ftrace.c
-> +++ b/arch/x86/kernel/ftrace.c
-> @@ -252,11 +252,6 @@ void arch_ftrace_update_code(int command)
->   	ftrace_modify_all_code(command);
->   }
->
-> -int __init ftrace_dyn_arch_init(void)
-> -{
-> -	return 0;
-> -}
-> -
->   /* Currently only x86_64 supports dynamic trampolines */
->   #ifdef CONFIG_X86_64
->
-> diff --git a/include/linux/ftrace.h b/include/linux/ftrace.h
-> index 832e65f06754..f1eca123d89d 100644
-> --- a/include/linux/ftrace.h
-> +++ b/include/linux/ftrace.h
-> @@ -573,7 +573,6 @@ ftrace_set_early_filter(struct ftrace_ops *ops, char *buf, int enable);
->
->   /* defined in arch */
->   extern int ftrace_ip_converted(unsigned long ip);
-> -extern int ftrace_dyn_arch_init(void);
->   extern void ftrace_replace_code(int enable);
->   extern int ftrace_update_ftrace_func(ftrace_func_t func);
->   extern void ftrace_caller(void);
-> diff --git a/kernel/trace/ftrace.c b/kernel/trace/ftrace.c
-> index 7efbc8aaf7f6..4c090323198d 100644
-> --- a/kernel/trace/ftrace.c
-> +++ b/kernel/trace/ftrace.c
-> @@ -6846,6 +6846,11 @@ void __init ftrace_free_init_mem(void)
->   	ftrace_free_mem(NULL, start, end);
->   }
->
-> +int __init __weak ftrace_dyn_arch_init(void)
-> +{
-> +	return 0;
-> +}
-> +
->   void __init ftrace_init(void)
->   {
->   	extern unsigned long __start_mcount_loc[];
->
+Signed-off-by: David Hildenbrand <david@redhat.com>
+---
+ include/linux/memblock.h | 16 ++++++++++++++--
+ kernel/kexec_file.c      |  5 +++++
+ mm/memblock.c            |  4 ++++
+ 3 files changed, 23 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/memblock.h b/include/linux/memblock.h
+index b49a58f621bc..7d8d656d5082 100644
+--- a/include/linux/memblock.h
++++ b/include/linux/memblock.h
+@@ -33,12 +33,17 @@ extern unsigned long long max_possible_pfn;
+  * @MEMBLOCK_NOMAP: don't add to kernel direct mapping and treat as
+  * reserved in the memory map; refer to memblock_mark_nomap() description
+  * for further details
++ * @MEMBLOCK_DRIVER_MANAGED: memory region that is always detected via a driver,
++ * corresponding to IORESOURCE_SYSRAM_DRIVER_MANAGED in the kernel resource
++ * tree. Especially kexec should never use this memory for placing images and
++ * shouldn't expose this memory to the second kernel.
+  */
+ enum memblock_flags {
+ 	MEMBLOCK_NONE		= 0x0,	/* No special request */
+ 	MEMBLOCK_HOTPLUG	= 0x1,	/* hotpluggable region */
+ 	MEMBLOCK_MIRROR		= 0x2,	/* mirrored region */
+ 	MEMBLOCK_NOMAP		= 0x4,	/* don't add to kernel direct mapping */
++	MEMBLOCK_DRIVER_MANAGED = 0x8,	/* always detected via a driver */
+ };
+ 
+ /**
+@@ -209,7 +214,8 @@ static inline void __next_physmem_range(u64 *idx, struct memblock_type *type,
+  */
+ #define for_each_mem_range(i, p_start, p_end) \
+ 	__for_each_mem_range(i, &memblock.memory, NULL, NUMA_NO_NODE,	\
+-			     MEMBLOCK_HOTPLUG, p_start, p_end, NULL)
++			     MEMBLOCK_HOTPLUG | MEMBLOCK_DRIVER_MANAGED, \
++			     p_start, p_end, NULL)
+ 
+ /**
+  * for_each_mem_range_rev - reverse iterate through memblock areas from
+@@ -220,7 +226,8 @@ static inline void __next_physmem_range(u64 *idx, struct memblock_type *type,
+  */
+ #define for_each_mem_range_rev(i, p_start, p_end)			\
+ 	__for_each_mem_range_rev(i, &memblock.memory, NULL, NUMA_NO_NODE, \
+-				 MEMBLOCK_HOTPLUG, p_start, p_end, NULL)
++				 MEMBLOCK_HOTPLUG | MEMBLOCK_DRIVER_MANAGED,\
++				 p_start, p_end, NULL)
+ 
+ /**
+  * for_each_reserved_mem_range - iterate over all reserved memblock areas
+@@ -250,6 +257,11 @@ static inline bool memblock_is_nomap(struct memblock_region *m)
+ 	return m->flags & MEMBLOCK_NOMAP;
+ }
+ 
++static inline bool memblock_is_driver_managed(struct memblock_region *m)
++{
++	return m->flags & MEMBLOCK_DRIVER_MANAGED;
++}
++
+ int memblock_search_pfn_nid(unsigned long pfn, unsigned long *start_pfn,
+ 			    unsigned long  *end_pfn);
+ void __next_mem_pfn_range(int *idx, int nid, unsigned long *out_start_pfn,
+diff --git a/kernel/kexec_file.c b/kernel/kexec_file.c
+index 33400ff051a8..8347fc158d2b 100644
+--- a/kernel/kexec_file.c
++++ b/kernel/kexec_file.c
+@@ -556,6 +556,11 @@ static int kexec_walk_memblock(struct kexec_buf *kbuf,
+ 	if (kbuf->image->type = KEXEC_TYPE_CRASH)
+ 		return func(&crashk_res, kbuf);
+ 
++	/*
++	 * Using MEMBLOCK_NONE will properly skip MEMBLOCK_DRIVER_MANAGED. See
++	 * IORESOURCE_SYSRAM_DRIVER_MANAGED handling in
++	 * locate_mem_hole_callback().
++	 */
+ 	if (kbuf->top_down) {
+ 		for_each_free_mem_range_reverse(i, NUMA_NO_NODE, MEMBLOCK_NONE,
+ 						&mstart, &mend, NULL) {
+diff --git a/mm/memblock.c b/mm/memblock.c
+index 47a56b223141..540a35317fb0 100644
+--- a/mm/memblock.c
++++ b/mm/memblock.c
+@@ -979,6 +979,10 @@ static bool should_skip_region(struct memblock_type *type,
+ 	if (!(flags & MEMBLOCK_NOMAP) && memblock_is_nomap(m))
+ 		return true;
+ 
++	/* skip driver-managed memory unless we were asked for it explicitly */
++	if (!(flags & MEMBLOCK_DRIVER_MANAGED) && memblock_is_driver_managed(m))
++		return true;
++
+ 	return false;
+ }
+ 
+-- 
+2.31.1
