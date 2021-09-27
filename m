@@ -1,116 +1,47 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Tue, 14 Sep 2021 14:39:55 +0000
-Subject: [PATCH -tip v11 09/27] kprobes: Add assertions for required lock
-Message-Id: <163163039572.489837.18011973177537476885.stgit@devnote2>
+From: David Hildenbrand <david@redhat.com>
+Date: Mon, 27 Sep 2021 15:05:18 +0000
+Subject: [PATCH v1 4/4] mm/memory_hotplug: indicate MEMBLOCK_DRIVER_MANAGED with IORESOURCE_SYSRAM_DRIVER_MAN
+Message-Id: <20210927150518.8607-5-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <163163030719.489837.2236069935502195491.stgit@devnote2>
-In-Reply-To: <163163030719.489837.2236069935502195491.stgit@devnote2>
+References: <20210927150518.8607-1-david@redhat.com>
+In-Reply-To: <20210927150518.8607-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>, Paul McKenney <paulmck@kernel.org>
+To: linux-kernel@vger.kernel.org
+Cc: David Hildenbrand <david@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, Mike Rapoport <rppt@kernel.org>, Michal Hocko <mhocko@suse.com>, Oscar Salvador <osalvador@suse.de>, Jianyong Wu <Jianyong.Wu@arm.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Vineet Gupta <vgupta@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Huacai Chen <chenhuacai@kernel.org>, Jiaxun Yang <jiaxun.yang@flygoat.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Eric Biederman <ebiederm@xmission.com>, Arnd Bergmann <arnd@arndb.de>, linux-snps-arc@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-s390@vger.kernel.org, linux-mm@kvack.org, kexec@lists.infradead.org
 
-Add assertions for required locks instead of comment it
-so that the lockdep can inspect locks automatically.
+Let's communicate driver-managed regions to memblock, to properly
+teach kexec_file with CONFIG_ARCH_KEEP_MEMBLOCK to not place images on
+these memory regions.
 
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+Signed-off-by: David Hildenbrand <david@redhat.com>
 ---
- kernel/kprobes.c |   19 ++++++++++++-------
- 1 file changed, 12 insertions(+), 7 deletions(-)
+ mm/memory_hotplug.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-index ad39eeaa4371..ec3d97fd8c6b 100644
---- a/kernel/kprobes.c
-+++ b/kernel/kprobes.c
-@@ -959,11 +959,13 @@ int proc_kprobes_optimization_handler(struct ctl_table *table, int write,
- }
- #endif /* CONFIG_SYSCTL */
- 
--/* Put a breakpoint for a probe. Must be called with 'text_mutex' locked. */
-+/* Put a breakpoint for a probe. */
- static void __arm_kprobe(struct kprobe *p)
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 5f873e7f5b29..6d90818d4ce8 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -1357,6 +1357,7 @@ bool mhp_supports_memmap_on_memory(unsigned long size)
+ int __ref add_memory_resource(int nid, struct resource *res, mhp_t mhp_flags)
  {
- 	struct kprobe *_p;
+ 	struct mhp_params params = { .pgprot = pgprot_mhp(PAGE_KERNEL) };
++	enum memblock_flags memblock_flags = MEMBLOCK_NONE;
+ 	struct vmem_altmap mhp_altmap = {};
+ 	struct memory_group *group = NULL;
+ 	u64 start, size;
+@@ -1385,7 +1386,9 @@ int __ref add_memory_resource(int nid, struct resource *res, mhp_t mhp_flags)
+ 	mem_hotplug_begin();
  
-+	lockdep_assert_held(&text_mutex);
-+
- 	/* Find the overlapping optimized kprobes. */
- 	_p = get_optimized_kprobe((unsigned long)p->addr);
- 	if (unlikely(_p))
-@@ -974,11 +976,13 @@ static void __arm_kprobe(struct kprobe *p)
- 	optimize_kprobe(p);	/* Try to optimize (add kprobe to a list) */
- }
- 
--/* Remove the breakpoint of a probe. Must be called with 'text_mutex' locked. */
-+/* Remove the breakpoint of a probe. */
- static void __disarm_kprobe(struct kprobe *p, bool reopt)
- {
- 	struct kprobe *_p;
- 
-+	lockdep_assert_held(&text_mutex);
-+
- 	/* Try to unoptimize */
- 	unoptimize_kprobe(p, kprobes_all_disarmed);
- 
-@@ -1047,12 +1051,13 @@ static struct ftrace_ops kprobe_ipmodify_ops __read_mostly = {
- static int kprobe_ipmodify_enabled;
- static int kprobe_ftrace_enabled;
- 
--/* Caller must lock 'kprobe_mutex' */
- static int __arm_kprobe_ftrace(struct kprobe *p, struct ftrace_ops *ops,
- 			       int *cnt)
- {
- 	int ret = 0;
- 
-+	lockdep_assert_held(&kprobe_mutex);
-+
- 	ret = ftrace_set_filter_ip(ops, (unsigned long)p->addr, 0, 0);
- 	if (WARN_ONCE(ret < 0, "Failed to arm kprobe-ftrace at %pS (error %d)\n", p->addr, ret))
- 		return ret;
-@@ -1084,12 +1089,13 @@ static int arm_kprobe_ftrace(struct kprobe *p)
- 		ipmodify ? &kprobe_ipmodify_enabled : &kprobe_ftrace_enabled);
- }
- 
--/* Caller must lock 'kprobe_mutex'. */
- static int __disarm_kprobe_ftrace(struct kprobe *p, struct ftrace_ops *ops,
- 				  int *cnt)
- {
- 	int ret = 0;
- 
-+	lockdep_assert_held(&kprobe_mutex);
-+
- 	if (*cnt = 1) {
- 		ret = unregister_ftrace_function(ops);
- 		if (WARN(ret < 0, "Failed to unregister kprobe-ftrace (error %d)\n", ret))
-@@ -1133,7 +1139,6 @@ static int prepare_kprobe(struct kprobe *p)
- 	return arch_prepare_kprobe(p);
- }
- 
--/* Arm a kprobe with 'text_mutex'. */
- static int arm_kprobe(struct kprobe *kp)
- {
- 	if (unlikely(kprobe_ftrace(kp)))
-@@ -1148,7 +1153,6 @@ static int arm_kprobe(struct kprobe *kp)
- 	return 0;
- }
- 
--/* Disarm a kprobe with 'text_mutex'. */
- static int disarm_kprobe(struct kprobe *kp, bool reopt)
- {
- 	if (unlikely(kprobe_ftrace(kp)))
-@@ -1691,12 +1695,13 @@ static int aggr_kprobe_disabled(struct kprobe *ap)
- 	return 1;
- }
- 
--/* Disable one kprobe: Make sure called under 'kprobe_mutex' is locked. */
- static struct kprobe *__disable_kprobe(struct kprobe *p)
- {
- 	struct kprobe *orig_p;
- 	int ret;
- 
-+	lockdep_assert_held(&kprobe_mutex);
-+
- 	/* Get an original kprobe for return */
- 	orig_p = __get_valid_kprobe(p);
- 	if (unlikely(orig_p = NULL))
+ 	if (IS_ENABLED(CONFIG_ARCH_KEEP_MEMBLOCK)) {
+-		ret = memblock_add_node(start, size, nid, MEMBLOCK_NONE);
++		if (res->flags & IORESOURCE_SYSRAM_DRIVER_MANAGED)
++			memblock_flags = MEMBLOCK_DRIVER_MANAGED;
++		ret = memblock_add_node(start, size, nid, memblock_flags);
+ 		if (ret)
+ 			goto error_mem_hotplug_end;
+ 	}
+-- 
+2.31.1
