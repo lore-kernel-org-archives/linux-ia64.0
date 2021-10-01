@@ -1,57 +1,56 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Mon, 18 Oct 2021 07:08:54 +0000
-Subject: Re: [PATCH v3 04/12] powerpc: Prepare func_desc_t for refactorisation
-Message-Id: <1f66d234-3624-7ba2-7b03-5d0e1bea087f@csgroup.eu>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Fri, 01 Oct 2021 00:35:47 +0000
+Subject: Re: [PATCH -tip v11 00/27] kprobes: Fix stacktrace with kretprobes on x86
+Message-Id: <20211001093547.f08d8b2477783d36c310b77a@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1634457599.git.christophe.leroy@csgroup.eu>
- <86c393ce0a6f603f94e6d2ceca08d535f654bb23.1634457599.git.christophe.leroy@csgroup.eu>
- <1634536863.oq0s171f8c.astroid@bobo.none>
-In-Reply-To: <1634536863.oq0s171f8c.astroid@bobo.none>
+References: <163163030719.489837.2236069935502195491.stgit@devnote2>
+        <20210929112408.35b0ffe06b372533455d890d@kernel.org>
+        <CAADnVQ+0v601toAz7wWPy2gxNtiJNZy6UpLmw_Dg+0G8ByJS6A@mail.gmail.com>
+        <874ka17t8s.ffs@tglx>
+        <20210930172206.1a34279b@oasis.local.home>
+        <87wnmx64mn.ffs@tglx>
+        <20211001082733.236bee605f506b2b62c055ef@kernel.org>
+        <20210930193708.3b2caf23@oasis.local.home>
+In-Reply-To: <20210930193708.3b2caf23@oasis.local.home>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Nicholas Piggin <npiggin@gmail.com>, Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Helge Deller <deller@gmx.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Kees Cook <keescook@chromium.org>, Michael Ellerman <mpe@ellerman.id.au>, Paul Mackerras <paulus@samba.org>
-Cc: linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Steven Rostedt <rostedt@goodmis.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>, Alexei Starovoitov <alexei.starovoitov@gmail.com>, Linus Torvalds <torvalds@linux-foundation.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>, X86 ML <x86@kernel.org>, LKML <linux-kernel@vger.kernel.org>, bpf <bpf@vger.kernel.org>, Jakub Kicinski <kuba@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, Kernel Team <kernel-team@fb.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>, Paul McKenney <paulmck@kernel.org>
 
+On Thu, 30 Sep 2021 19:37:08 -0400
+Steven Rostedt <rostedt@goodmis.org> wrote:
 
-
-Le 18/10/2021 à 08:27, Nicholas Piggin a écrit :
-> Excerpts from Christophe Leroy's message of October 17, 2021 10:38 pm:
->> In preparation of making func_desc_t generic, change the ELFv2
->> version to a struct containing 'addr' element.
->>
->> This allows using single helpers common to ELFv1 and ELFv2.
->>
->> Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
+> On Fri, 1 Oct 2021 08:27:33 +0900
+> Masami Hiramatsu <mhiramat@kernel.org> wrote:
 > 
->> ---
->>   arch/powerpc/kernel/module_64.c | 32 ++++++++++++++------------------
->>   1 file changed, 14 insertions(+), 18 deletions(-)
->>
->> diff --git a/arch/powerpc/kernel/module_64.c b/arch/powerpc/kernel/module_64.c
->> index a89da0ee25e2..b687ef88c4c4 100644
->> --- a/arch/powerpc/kernel/module_64.c
->> +++ b/arch/powerpc/kernel/module_64.c
->> @@ -33,19 +33,13 @@
->>   #ifdef PPC64_ELF_ABI_v2
->>   
->>   /* An address is simply the address of the function. */
->> -typedef unsigned long func_desc_t;
->> +typedef struct {
->> +	unsigned long addr;
->> +} func_desc_t;
+> > Let me explain how the patches are usually merged.
+> > 
+> > - kernel/kprobes.c related patches go through the tip tree.
+> > - kernel/trace/* patches go through the tracing tree.
 > 
-> I'm not quite following why this change is done. I guess it is so you
-> can move this func_desc_t type into core code, but why do that? Is it
-> just to avoid using the preprocessor?
+> And arch/*/kprobe* usually goes through tip as well.
+> 
+> > 
+> > So traditionally(?) I think this series go through the tip tree,
+> > but since the biggest user of kprobes is tracing and the kprobes fix
+> > now involves tree-wide fixes as you can see in this series, I think
+> > it is a good timing to move kprobes to tracing tree.
+> 
+> I'll pick it up and take the burden off of Thomas.
 
-I explained it in patch 7 but yes it probably also deserves some more 
-explanation here as well.
-
-That's right, it's to avoid having to spread #ifdefs everywhere.
+Thank you very much!
 
 > 
-> On its own this patch looks okay.
+> Just to confirm, this is for the next merge window, right?
+
+Yes, please push it to the next merge window.
+
+Thanks,
+
 > 
-> Acked-by: Nicholas Piggin <npiggin@gmail.com>
-> 
+> -- Steve
+
+
+-- 
+Masami Hiramatsu <mhiramat@kernel.org>
