@@ -1,106 +1,134 @@
-From: John Stultz <john.stultz@linaro.org>
-Date: Tue, 12 Oct 2021 03:11:20 +0000
-Subject: Re: [PATCH v2 2/2] qcom_scm: hide Kconfig symbol
-Message-Id: <CALAqxLVVEi67HQbjCSvfDPmfjeeZ4ROvqa8yfYMnRmeyi34Ddw@mail.gmail.com>
+From: David Hildenbrand <david@redhat.com>
+Date: Fri, 01 Oct 2021 08:04:24 +0000
+Subject: Re: [PATCH v1 3/4] memblock: add MEMBLOCK_DRIVER_MANAGED to mimic IORESOURCE_SYSRAM_DRIVER_MANAGED
+Message-Id: <0d6c86ba-076b-5d4b-33a8-da267f951a85@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211007151010.333516-1-arnd@kernel.org> <20211007151010.333516-2-arnd@kernel.org>
-In-Reply-To: <20211007151010.333516-2-arnd@kernel.org>
+References: <20210927150518.8607-1-david@redhat.com>
+ <20210927150518.8607-4-david@redhat.com> <YVSW3uuu7mIcJMm3@kernel.org>
+ <830c1670-378b-0fb6-bd5e-208e545fa126@redhat.com>
+ <YVYqdN7MFdzBlCVm@kernel.org>
+In-Reply-To: <YVYqdN7MFdzBlCVm@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@kernel.org>, Bjorn Andersson <bjorn.andersson@linaro.org>
-Cc: lkml <linux-kernel@vger.kernel.org>, linux-arm-kernel <linux-arm-kernel@lists.infradead.org>, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-arm-msm <linux-arm-msm@vger.kernel.org>, dri-devel <dri-devel@lists.freedesktop.org>, "open list:DRM DRIVER FOR MSM ADRENO GPU" <freedreno@lists.freedesktop.org>, "list@263.net:IOMMU DRIVERS <iommu@lists.linux-foundation.org>, Joerg
-        Roedel <joro@8bytes.org>," <iommu@lists.linux-foundation.org>, linux-media <linux-media@vger.kernel.org>, linux-mmc <linux-mmc@vger.kernel.org>, Network Development <netdev@vger.kernel.org>, ath10k <ath10k@lists.infradead.org>, linux-wireless@vger.kernel.org, "open list:GPIO SUBSYSTEM" <linux-gpio@vger.kernel.org>, Arnd Bergmann <arnd@arndb.de>, Kalle Valo <kvalo@codeaurora.org>, Alex Elder <elder@linaro.org>, Amit Pundir <amit.pundir@linaro.org>, Caleb Connolly <caleb.connolly@linaro.org>
+To: Mike Rapoport <rppt@kernel.org>
+Cc: linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Michal Hocko <mhocko@suse.com>, Oscar Salvador <osalvador@suse.de>, Jianyong Wu <Jianyong.Wu@arm.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Vineet Gupta <vgupta@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Huacai Chen <chenhuacai@kernel.org>, Jiaxun Yang <jiaxun.yang@flygoat.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Eric Biederman <ebiederm@xmission.com>, Arnd Bergmann <arnd@arndb.de>, linux-snps-arc@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-s390@vger.kernel.org, linux-mm@kvack.org, kexec@lists.infradead.org
 
-On Thu, Oct 7, 2021 at 8:10 AM Arnd Bergmann <arnd@kernel.org> wrote:
->
-> From: Arnd Bergmann <arnd@arndb.de>
->
-> Now that SCM can be a loadable module, we have to add another
-> dependency to avoid link failures when ipa or adreno-gpu are
-> built-in:
->
-> aarch64-linux-ld: drivers/net/ipa/ipa_main.o: in function `ipa_probe':
-> ipa_main.c:(.text+0xfc4): undefined reference to `qcom_scm_is_available'
->
-> ld.lld: error: undefined symbol: qcom_scm_is_available
-> >>> referenced by adreno_gpu.c
-> >>>               gpu/drm/msm/adreno/adreno_gpu.o:(adreno_zap_shader_load) in archive drivers/built-in.a
->
-> This can happen when CONFIG_ARCH_QCOM is disabled and we don't select
-> QCOM_MDT_LOADER, but some other module selects QCOM_SCM. Ideally we'd
-> use a similar dependency here to what we have for QCOM_RPROC_COMMON,
-> but that causes dependency loops from other things selecting QCOM_SCM.
->
-> This appears to be an endless problem, so try something different this
-> time:
->
->  - CONFIG_QCOM_SCM becomes a hidden symbol that nothing 'depends on'
->    but that is simply selected by all of its users
->
->  - All the stubs in include/linux/qcom_scm.h can go away
->
->  - arm-smccc.h needs to provide a stub for __arm_smccc_smc() to
->    allow compile-testing QCOM_SCM on all architectures.
->
->  - To avoid a circular dependency chain involving RESET_CONTROLLER
->    and PINCTRL_SUNXI, drop the 'select RESET_CONTROLLER' statement.
->    According to my testing this still builds fine, and the QCOM
->    platform selects this symbol already.
->
-> Acked-by: Kalle Valo <kvalo@codeaurora.org>
-> Acked-by: Alex Elder <elder@linaro.org>
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
-> Changes in v2:
-> - fix the iommu dependencies
+On 30.09.21 23:21, Mike Rapoport wrote:
+> On Wed, Sep 29, 2021 at 06:54:01PM +0200, David Hildenbrand wrote:
+>> On 29.09.21 18:39, Mike Rapoport wrote:
+>>> Hi,
+>>>
+>>> On Mon, Sep 27, 2021 at 05:05:17PM +0200, David Hildenbrand wrote:
+>>>> Let's add a flag that corresponds to IORESOURCE_SYSRAM_DRIVER_MANAGED.
+>>>> Similar to MEMBLOCK_HOTPLUG, most infrastructure has to treat such memory
+>>>> like ordinary MEMBLOCK_NONE memory -- for example, when selecting memory
+>>>> regions to add to the vmcore for dumping in the crashkernel via
+>>>> for_each_mem_range().
+>>> Can you please elaborate on the difference in semantics of MEMBLOCK_HOTPLUG
+>>> and MEMBLOCK_DRIVER_MANAGED?
+>>> Unless I'm missing something they both mark memory that can be unplugged
+>>> anytime and so it should not be used in certain cases. Why is there a need
+>>> for a new flag?
+>>
+>> In the cover letter I have "Alternative B: Reuse MEMBLOCK_HOTPLUG.
+>> MEMBLOCK_HOTPLUG serves a different purpose, though.", but looking into the
+>> details it won't work as is.
+>>
+>> MEMBLOCK_HOTPLUG is used to mark memory early during boot that can later get
+>> hotunplugged again and should be placed into ZONE_MOVABLE if the
+>> "movable_node" kernel parameter is set.
+>>
+>> The confusing part is that we talk about "hotpluggable" but really mean
+>> "hotunpluggable": the reason is that HW flags DIMM slots that can later be
+>> hotplugged as "hotpluggable" even though there is already something
+>> hotplugged.
+> 
+> MEMBLOCK_HOTPLUG name is indeed somewhat confusing, but still it's core
+> meaning "this memory may be removed" which does not differ from what
+> IORESOURCE_SYSRAM_DRIVER_MANAGED means.
+> 
+> MEMBLOCK_HOTPLUG regions are indeed placed into ZONE_MOVABLE, but more
+> importantly, they are avoided when we allocate memory from memblock.
+> 
+> So, in my view, both flags mean that the memory may be removed and it
+> should not be used for certain types of allocations.
 
-Hey Arnd,
-   Thanks again so much for working out these details. Also my
-apologies, as Bjorn asked for me to test this patch, but I wasn't able
-to get to it before it landed.  Unfortunately I've hit an issue that
-is keeping the db845c from booting with this.
+The semantics are different:
 
-> diff --git a/drivers/iommu/arm/arm-smmu/Makefile b/drivers/iommu/arm/arm-smmu/Makefile
-> index e240a7bcf310..b0cc01aa20c9 100644
-> --- a/drivers/iommu/arm/arm-smmu/Makefile
-> +++ b/drivers/iommu/arm/arm-smmu/Makefile
-> @@ -1,4 +1,5 @@
->  # SPDX-License-Identifier: GPL-2.0
->  obj-$(CONFIG_QCOM_IOMMU) += qcom_iommu.o
->  obj-$(CONFIG_ARM_SMMU) += arm_smmu.o
-> -arm_smmu-objs += arm-smmu.o arm-smmu-impl.o arm-smmu-nvidia.o arm-smmu-qcom.o
-> +arm_smmu-objs += arm-smmu.o arm-smmu-impl.o arm-smmu-nvidia.o
-> +arm_smmu-$(CONFIG_ARM_SMMU_QCOM) += arm-smmu-qcom.o
-> diff --git a/drivers/iommu/arm/arm-smmu/arm-smmu-impl.c b/drivers/iommu/arm/arm-smmu/arm-smmu-impl.c
-> index 9f465e146799..2c25cce38060 100644
-> --- a/drivers/iommu/arm/arm-smmu/arm-smmu-impl.c
-> +++ b/drivers/iommu/arm/arm-smmu/arm-smmu-impl.c
-> @@ -215,7 +215,8 @@ struct arm_smmu_device *arm_smmu_impl_init(struct arm_smmu_device *smmu)
->             of_device_is_compatible(np, "nvidia,tegra186-smmu"))
->                 return nvidia_smmu_impl_init(smmu);
->
-> -       smmu = qcom_smmu_impl_init(smmu);
-> +       if (IS_ENABLED(CONFIG_ARM_SMMU_QCOM))
-> +               smmu = qcom_smmu_impl_init(smmu);
->
->         if (of_device_is_compatible(np, "marvell,ap806-smmu-500"))
->                 smmu->impl = &mrvl_mmu500_impl;
+MEMBLOCK_HOTPLUG: memory is indicated as "System RAM" in the 
+firmware-provided memory map and added to the system early during boot; 
+we want this memory to be managed by ZONE_MOVABLE with "movable_node" 
+set on the kernel command line, because only then we want it to be 
+hotpluggable again. kexec *has to* indicate this memory to the second 
+kernel and can place kexec-images on this memory. After memory 
+hotunplug, kexec has to be re-armed.
+
+MEMBLOCK_DRIVER_MANAGED: memory is not indicated as System RAM" in the 
+firmware-provided memory map; this memory is always detected and added 
+to the system by a driver; memory might not actually be physically 
+hotunpluggable and the ZONE selection does not depend on "movable_core". 
+kexec *must not* indicate this memory to the second kernel and *must 
+not* place kexec-images on this memory.
 
 
-The problem with these two chunks is that there is currently no
-CONFIG_ARM_SMMU_QCOM option. :)
+I would really advise against mixing concepts here.
 
-Was that something you intended to add in the patch?
 
-I'm working up a Kconfig patch to do so, so I'll send that out in a
-second here, but let me know if you already have that somewhere (I
-suspect you implemented it and just forgot to add the change to the
-commit), as I'm sure your Kconfig help text will be better than mine.
-:)
+What we could do is indicate *all* hotplugged memory (not just 
+IORESOURCE_SYSRAM_DRIVER_MANAGED memory) as MEMBLOCK_HOTPLUG and make 
+MEMBLOCK_HOTPLUG less dependent on "movable_node".
 
-Again, I'm so sorry I didn't get over to testing your patch before
-seeing this here!
+MEMBLOCK_HOTPLUG for early boot memory: with "movable_core", place it in 
+ZONE_MOVABLE. Even without "movable_core", don't place early kernel 
+allocations on this memory.
+MEMBLOCK_HOTPLUG for all memory: don't place kexec images or on this 
+memory, independent of "movable_core".
 
-thanks
--john
+
+memblock would then not contain the information "contained in 
+firmware-provided memory map" vs. "not contained in firmware-provided 
+memory map"; but I think right now it's not strictly required to have 
+that information if we'd go down that path.
+
+>   
+>> For example, ranges in the ACPI SRAT that are marked as
+>> ACPI_SRAT_MEM_HOT_PLUGGABLE will be marked MEMBLOCK_HOTPLUG early during
+>> boot (drivers/acpi/numa/srat.c:acpi_numa_memory_affinity_init()). Later, we
+>> use that information to size ZONE_MOVABLE
+>> (mm/page_alloc.c:find_zone_movable_pfns_for_nodes()). This will make sure
+>> that these "hotpluggable" DIMMs can later get hotunplugged.
+>>
+>> Also, see should_skip_region() how this relates to the "movable_node" kernel
+>> parameter:
+>>
+>> 	/* skip hotpluggable memory regions if needed */
+>> 	if (movable_node_is_enabled() && memblock_is_hotpluggable(m) &&
+>> 	    (flags & MEMBLOCK_HOTPLUG))
+>> 		return true;
+> 
+> Hmm, I think that the movable_node_is_enabled() check here is excessive,
+> but I suspect we cannot simply remove it without breaking anything.
+
+The reasoning is: without "movable_core" we don't want this memory to be 
+hotunpluggable; consequently, we don't care if we place kexec-images on 
+this memory. MEMBLOCK_HOTPLUG is currently only active with "movable_core".
+
+If we remove that check, we will always not place early kernel 
+allocations on that memory, even if we don't care about ZONE_MOVABLE.
+
+> 
+> I'll take a deeper look on the potential consequences.
+> 
+> BTW, is there anything that prevents putting kexec to hot-unplugable memory
+> that was cold-plugged on boot?
+
+I think it depends on how the platform handles hotunpluggable DIMMs or 
+hotunpluggable NUMA nodes. If the platform ends up indicates such memory 
+via MEMBLOCK_HOTPLUG, and "movable_core" is set, memory would be put 
+into ZONE_MOVABLE and kexec would not place kexec-images on that memory.
+
+-- 
+Thanks,
+
+David / dhildenb
