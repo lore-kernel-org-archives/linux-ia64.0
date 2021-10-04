@@ -1,66 +1,52 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Sun, 17 Oct 2021 12:38:23 +0000
-Subject: [PATCH v3 10/12] lkdtm: Really write into kernel text in WRITE_KERN
-Message-Id: <3ccab3dde1c8acf3125e82fb990896d7ef6e97b2.1634457599.git.christophe.leroy@csgroup.eu>
+From: David Hildenbrand <david@redhat.com>
+Date: Mon, 04 Oct 2021 09:36:01 +0000
+Subject: [PATCH v2 1/5] mm/memory_hotplug: handle memblock_add_node() failures in add_memory_resource()
+Message-Id: <20211004093605.5830-2-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1634457599.git.christophe.leroy@csgroup.eu>
-In-Reply-To: <cover.1634457599.git.christophe.leroy@csgroup.eu>
+References: <20211004093605.5830-1-david@redhat.com>
+In-Reply-To: <20211004093605.5830-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+To: linux-kernel@vger.kernel.org
+Cc: David Hildenbrand <david@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, Mike Rapoport <rppt@kernel.org>, Michal Hocko <mhocko@suse.com>, Oscar Salvador <osalvador@suse.de>, Jianyong Wu <Jianyong.Wu@arm.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Vineet Gupta <vgupta@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Huacai Chen <chenhuacai@kernel.org>, Jiaxun Yang <jiaxun.yang@flygoat.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Eric Biederman <ebiederm@xmission.com>, Arnd Bergmann <arnd@arndb.de>, linux-snps-arc@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-s390@vger.kernel.org, linux-mm@kvack.org, kexec@lists.infradead.org
 
-WRITE_KERN is supposed to overwrite some kernel text, namely
-do_overwritten() function.
+If memblock_add_node() fails, we're most probably running out of memory.
+While this is unlikely to happen, it can happen and having memory added
+without a memblock can be problematic for architectures that use
+memblock to detect valid memory. Let's fail in a nice way instead of
+silently ignoring the error.
 
-But at the time being it overwrites do_overwritten() function
-descriptor, not function text.
-
-Fix it by dereferencing the function descriptor to obtain
-function text pointer.
-
-And make do_overwritten() noinline so that it is really
-do_overwritten() which is called by lkdtm_WRITE_KERN().
-
-Acked-by: Kees Cook <keescook@chromium.org>
-Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
+Signed-off-by: David Hildenbrand <david@redhat.com>
 ---
- drivers/misc/lkdtm/perms.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ mm/memory_hotplug.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/misc/lkdtm/perms.c b/drivers/misc/lkdtm/perms.c
-index 60b3b2fe929d..035fcca441f0 100644
---- a/drivers/misc/lkdtm/perms.c
-+++ b/drivers/misc/lkdtm/perms.c
-@@ -10,6 +10,7 @@
- #include <linux/mman.h>
- #include <linux/uaccess.h>
- #include <asm/cacheflush.h>
-+#include <asm/sections.h>
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 9fd0be32a281..917b3528636d 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -1384,8 +1384,11 @@ int __ref add_memory_resource(int nid, struct resource *res, mhp_t mhp_flags)
  
- /* Whether or not to fill the target memory area with do_nothing(). */
- #define CODE_WRITE	true
-@@ -37,7 +38,7 @@ static noinline void do_nothing(void)
+ 	mem_hotplug_begin();
+ 
+-	if (IS_ENABLED(CONFIG_ARCH_KEEP_MEMBLOCK))
+-		memblock_add_node(start, size, nid);
++	if (IS_ENABLED(CONFIG_ARCH_KEEP_MEMBLOCK)) {
++		ret = memblock_add_node(start, size, nid);
++		if (ret)
++			goto error_mem_hotplug_end;
++	}
+ 
+ 	ret = __try_online_node(nid, false);
+ 	if (ret < 0)
+@@ -1458,6 +1461,7 @@ int __ref add_memory_resource(int nid, struct resource *res, mhp_t mhp_flags)
+ 		rollback_node_hotadd(nid);
+ 	if (IS_ENABLED(CONFIG_ARCH_KEEP_MEMBLOCK))
+ 		memblock_remove(start, size);
++error_mem_hotplug_end:
+ 	mem_hotplug_done();
+ 	return ret;
  }
- 
- /* Must immediately follow do_nothing for size calculuations to work out. */
--static void do_overwritten(void)
-+static noinline void do_overwritten(void)
- {
- 	pr_info("do_overwritten wasn't overwritten!\n");
- 	return;
-@@ -113,8 +114,9 @@ void lkdtm_WRITE_KERN(void)
- 	size_t size;
- 	volatile unsigned char *ptr;
- 
--	size = (unsigned long)do_overwritten - (unsigned long)do_nothing;
--	ptr = (unsigned char *)do_overwritten;
-+	size = (unsigned long)dereference_function_descriptor(do_overwritten) -
-+	       (unsigned long)dereference_function_descriptor(do_nothing);
-+	ptr = dereference_function_descriptor(do_overwritten);
- 
- 	pr_info("attempting bad %zu byte write at %px\n", size, ptr);
- 	memcpy((void *)ptr, (unsigned char *)do_nothing, size);
 -- 
 2.31.1
