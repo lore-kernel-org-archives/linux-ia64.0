@@ -1,42 +1,86 @@
-From: Dmitry Osipenko <digetx@gmail.com>
-Date: Wed, 27 Oct 2021 21:16:50 +0000
-Subject: [PATCH v2 20/45] x86: Use do_kernel_power_off()
-Message-Id: <20211027211715.12671-21-digetx@gmail.com>
+From: David Hildenbrand <david@redhat.com>
+Date: Mon, 04 Oct 2021 09:36:00 +0000
+Subject: [PATCH v2 0/5] mm/memory_hotplug: full support for add_memory_driver_managed() with CONFIG_ARCH_KEEP
+Message-Id: <20211004093605.5830-1-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211027211715.12671-1-digetx@gmail.com>
-In-Reply-To: <20211027211715.12671-1-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Lee Jones <lee.jones@linaro.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Mark Brown <broonie@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Russell King <linux@armlinux.org.uk>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
-Cc: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Linus Walleij <linus.walleij@linaro.org>, Chen-Yu Tsai <wens@csie.org>, =?UTF-8?q?Jonathan=20Neusch=C3=A4fer?= <j.neuschaefer@gmx.net>, Tony Lindgren <tony@atomide.com>, Liam Girdwood <lgirdwood@gmail.com>, Philipp Zabel <p.zabel@pengutronix.de>, Vladimir Zapolskiy <vz@mleia.com>, Avi Fishman <avifishman70@gmail.com>, Tomer Maimon <tmaimon77@gmail.com>, Tali Perry <tali.perry1@gmail.com>, Patrick Venture <venture@google.com>, Nancy Yuen <yuenn@google.com>, Benjamin Fair <benjaminfair@google.com>, Pavel Machek <pavel@ucw.cz>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-omap@vger.kernel.org, openbmc@lists.ozlabs.org, linux-tegra@vger.kernel.org, linux-pm@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: David Hildenbrand <david@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, Mike Rapoport <rppt@kernel.org>, Michal Hocko <mhocko@suse.com>, Oscar Salvador <osalvador@suse.de>, Jianyong Wu <Jianyong.Wu@arm.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Vineet Gupta <vgupta@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Huacai Chen <chenhuacai@kernel.org>, Jiaxun Yang <jiaxun.yang@flygoat.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Eric Biederman <ebiederm@xmission.com>, Arnd Bergmann <arnd@arndb.de>, linux-snps-arc@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-s390@vger.kernel.org, linux-mm@kvack.org, kexec@lists.infradead.org
 
-Kernel now supports chained power-off handlers. Use do_kernel_power_off()
-that invokes chained power-off handlers. It also invokes legacy
-pm_power_off() for now, which will be removed once all drivers will
-be converted to the new power-off API.
+Architectures that require CONFIG_ARCH_KEEP_MEMBLOCK=y, such as arm64,
+don't cleanly support add_memory_driver_managed() yet. Most prominently,
+kexec_file can still end up placing kexec images on such driver-managed
+memory, resulting in undesired behavior, for example, having kexec images
+located on memory not part of the firmware-provided memory map.
 
-Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
----
- arch/x86/kernel/reboot.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Teaching kexec to not place images on driver-managed memory is especially
+relevant for virtio-mem. Details can be found in commit 7b7b27214bba
+("mm/memory_hotplug: introduce add_memory_driver_managed()").
 
-diff --git a/arch/x86/kernel/reboot.c b/arch/x86/kernel/reboot.c
-index 0a40df66a40d..cd7d9416d81a 100644
---- a/arch/x86/kernel/reboot.c
-+++ b/arch/x86/kernel/reboot.c
-@@ -747,10 +747,10 @@ static void native_machine_halt(void)
- 
- static void native_machine_power_off(void)
- {
--	if (pm_power_off) {
-+	if (kernel_can_power_off()) {
- 		if (!reboot_force)
- 			machine_shutdown();
--		pm_power_off();
-+		do_kernel_power_off();
- 	}
- 	/* A fallback in case there is no PM info available */
- 	tboot_shutdown(TB_SHUTDOWN_HALT);
+Extend memblock with a new flag and set it from memory hotplug code
+when applicable. This is required to fully support virtio-mem on
+arm64, making also kexec_file behave like on x86-64.
+
+v1 -> v2:
+- "memblock: improve MEMBLOCK_HOTPLUG documentation"
+-- Added
+- "memblock: add MEMBLOCK_DRIVER_MANAGED to mimic
+   IORESOURCE_SYSRAM_DRIVER_MANAGED"
+-- Improve documentation of MEMBLOCK_DRIVER_MANAGED
+- Refine patch descriptions
+
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Mike Rapoport <rppt@kernel.org>
+Cc: Michal Hocko <mhocko@suse.com>
+Cc: Oscar Salvador <osalvador@suse.de>
+Cc: Jianyong Wu <Jianyong.Wu@arm.com>
+Cc: Aneesh Kumar K.V <aneesh.kumar@linux.ibm.com>
+Cc: Vineet Gupta <vgupta@kernel.org>
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>
+Cc: Huacai Chen <chenhuacai@kernel.org>
+Cc: Jiaxun Yang <jiaxun.yang@flygoat.com>
+Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+Cc: Heiko Carstens <hca@linux.ibm.com>
+Cc: Vasily Gorbik <gor@linux.ibm.com>
+Cc: Christian Borntraeger <borntraeger@de.ibm.com>
+Cc: Eric Biederman <ebiederm@xmission.com>
+Cc: Arnd Bergmann <arnd@arndb.de>
+Cc: linux-snps-arc@lists.infradead.org
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-m68k@lists.linux-m68k.org
+Cc: linux-mips@vger.kernel.org
+Cc: linux-s390@vger.kernel.org
+Cc: linux-mm@kvack.org
+Cc: kexec@lists.infradead.org
+
+David Hildenbrand (5):
+  mm/memory_hotplug: handle memblock_add_node() failures in
+    add_memory_resource()
+  memblock: improve MEMBLOCK_HOTPLUG documentation
+  memblock: allow to specify flags with memblock_add_node()
+  memblock: add MEMBLOCK_DRIVER_MANAGED to mimic
+    IORESOURCE_SYSRAM_DRIVER_MANAGED
+  mm/memory_hotplug: indicate MEMBLOCK_DRIVER_MANAGED with
+    IORESOURCE_SYSRAM_DRIVER_MANAGED
+
+ arch/arc/mm/init.c               |  4 ++--
+ arch/ia64/mm/contig.c            |  2 +-
+ arch/ia64/mm/init.c              |  2 +-
+ arch/m68k/mm/mcfmmu.c            |  3 ++-
+ arch/m68k/mm/motorola.c          |  6 ++++--
+ arch/mips/loongson64/init.c      |  4 +++-
+ arch/mips/sgi-ip27/ip27-memory.c |  3 ++-
+ arch/s390/kernel/setup.c         |  3 ++-
+ include/linux/memblock.h         | 25 +++++++++++++++++++++----
+ include/linux/mm.h               |  2 +-
+ kernel/kexec_file.c              |  5 +++++
+ mm/memblock.c                    | 13 +++++++++----
+ mm/memory_hotplug.c              | 11 +++++++++--
+ 13 files changed, 62 insertions(+), 21 deletions(-)
+
+
+base-commit: 9e1ff307c779ce1f0f810c7ecce3d95bbae40896
 -- 
-2.33.1
+2.31.1
