@@ -1,66 +1,60 @@
-From: Petr Mladek <pmladek@suse.com>
-Date: Mon, 04 Oct 2021 09:23:32 +0000
-Subject: Re: [PATCH v2] ia64: don't do IA64_CMPXCHG_DEBUG without CONFIG_PRINTK
-Message-Id: <YVrIFGbo4c8nmx3V@alley>
+From: David Hildenbrand <david@redhat.com>
+Date: Mon, 04 Oct 2021 09:36:02 +0000
+Subject: [PATCH v2 2/5] memblock: improve MEMBLOCK_HOTPLUG documentation
+Message-Id: <20211004093605.5830-3-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210926171224.27019-1-rdunlap@infradead.org>
-In-Reply-To: <20210926171224.27019-1-rdunlap@infradead.org>
+References: <20211004093605.5830-1-david@redhat.com>
+In-Reply-To: <20211004093605.5830-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: David Hildenbrand <david@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, Mike Rapoport <rppt@kernel.org>, Michal Hocko <mhocko@suse.com>, Oscar Salvador <osalvador@suse.de>, Jianyong Wu <Jianyong.Wu@arm.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Vineet Gupta <vgupta@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Huacai Chen <chenhuacai@kernel.org>, Jiaxun Yang <jiaxun.yang@flygoat.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Eric Biederman <ebiederm@xmission.com>, Arnd Bergmann <arnd@arndb.de>, linux-snps-arc@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-s390@vger.kernel.org, linux-mm@kvack.org, kexec@lists.infradead.org
 
-On Mon 2021-09-27 11:57:18, Randy Dunlap wrote:
-> On 9/27/21 4:15 AM, Petr Mladek wrote:
-> > On Sun 2021-09-26 21:53:33, Randy Dunlap wrote:
-> > > On 9/26/21 8:22 PM, Paul Gortmaker wrote:
-> > > > [[PATCH v2] ia64: don't do IA64_CMPXCHG_DEBUG without CONFIG_PRINTK] On 26/09/2021 (Sun 10:12) Randy Dunlap wrote:
-> > > > 
-> > > > > When CONFIG_PRINTK is not set, the CMPXCHG_BUGCHECK() macro calls
-> > > > > _printk(), but _printk() is a static inline function, not available
-> > > > > as an extern.
-> > > > > Since the purpose of the macro is to print the BUGCHECK info,
-> > > > > make this config option depend on PRINTK.
-> > > > > 
-> > > > > Fixes multiple occurrences of this build error:
-> > > > > 
-> > > > > ../include/linux/printk.h:208:5: error: static declaration of '_printk' follows non-static declaration
-> > > > >     208 | int _printk(const char *s, ...)
-> > > > >         |     ^~~~~~~
-> > > > > In file included from ../arch/ia64/include/asm/cmpxchg.h:5,
-> > > > > ../arch/ia64/include/uapi/asm/cmpxchg.h:146:28: note: previous declaration of '_printk' with type 'int(const char *, ...)'
-> > > > >     146 |                 extern int _printk(const char *fmt, ...);
-> > > > > 
-> > > > > Fixes: 85f8f7759e41 ("ia64: populate the cmpxchg header with appropriate code")
-> > > > 
-> > > > I don't think this fixes tag makes sense either as it was just a
-> > > > straightforward code relocation.  As pointed out elsewhere, it will
-> > > > probably be back even further where CONFIG_PRINTK was introduced, which
-> > > > would be d59745ce3e7a (2005 vintage).  The ia64 debug option predates
-> > > > git, so it isn't at fault (and you can't blame it anyway).
-> > > > 
-> > > > Honestly, realize this is just for a randconfig for ia64 where PRINTK is
-> > > > disabled - something that will never be done in any of the remaining
-> > > > ia64 deployments out there (if there is any).  So I'd just recommend
-> > > > dropping the Fixes tag and move on.  It isn't like there is a lot of
-> > > > people out there doing randconfig builds on linux-stable releases.
-> > > > 
-> > > 
-> > > Yes, I like the idea of dropping the Fixes: tag also. Thanks.
-> > > Guess I'll send a v3.
-> > 
-> > I could take it via printk tree. I am going to wait 2-3 more days
-> > just in case anyone has a comment.
-> > 
-> > Feel free to send v3 but I could just remove the tag when pushing v2.
-> 
-> Hi Petr,
-> 
-> Please just remove the Fixes: tag after waiting a few more days
-> for comments.
+The description of MEMBLOCK_HOTPLUG is currently short and consequently
+misleading: we're actually dealing with a memory region that might get
+hotunplugged later (i.e., the platform+firmware supports it), yet it is
+indicated in the firmware-provided memory map as system ram that will just
+get used by the system for any purpose when not taking special care. The
+firmware marked this memory region as a hot(un)plugged (e.g., hotplugged
+before reboot), implying that it might get hotunplugged again later.
 
-Done. The patch has been pushed into printk/linux.git, branch
-for-5.16.
+Whether we consider this information depends on the "movable_node" kernel
+commandline parameter: only with "movable_node" set, we'll try keeping
+this memory hotunpluggable, for example, by not serving early allocations
+from this memory region and by letting the buddy manage it using the
+ZONE_MOVABLE.
 
-Best Regards,
-Petr
+Let's make this clearer by extending the documentation.
+
+Note: kexec *has to* indicate this memory to the second kernel. With
+"movable_node" set, we don't want to place kexec-images on this memory.
+Without "movable_node" set, we don't care and can place kexec-images on
+this memory. In both cases, after successful memory hotunplug, kexec has to
+be re-armed to update the memory map for the second kernel and to place the
+kexec-images somewhere else.
+
+Signed-off-by: David Hildenbrand <david@redhat.com>
+---
+ include/linux/memblock.h | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/memblock.h b/include/linux/memblock.h
+index 34de69b3b8ba..4ee8dd2d63a7 100644
+--- a/include/linux/memblock.h
++++ b/include/linux/memblock.h
+@@ -28,7 +28,11 @@ extern unsigned long long max_possible_pfn;
+ /**
+  * enum memblock_flags - definition of memory region attributes
+  * @MEMBLOCK_NONE: no special request
+- * @MEMBLOCK_HOTPLUG: hotpluggable region
++ * @MEMBLOCK_HOTPLUG: memory region indicated in the firmware-provided memory
++ * map during early boot as hot(un)pluggable system RAM (e.g., memory range
++ * that might get hotunplugged later). With "movable_node" set on the kernel
++ * commandline, try keeping this memory region hotunpluggable. Does not apply
++ * to memblocks added ("hotplugged") after early boot.
+  * @MEMBLOCK_MIRROR: mirrored region
+  * @MEMBLOCK_NOMAP: don't add to kernel direct mapping and treat as
+  * reserved in the memory map; refer to memblock_mark_nomap() description
+-- 
+2.31.1
