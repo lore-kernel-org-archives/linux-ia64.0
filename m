@@ -1,68 +1,66 @@
-From: Arnd Bergmann <arnd@kernel.org>
-Date: Mon, 11 Oct 2021 09:45:47 +0000
-Subject: Re: [PATCH 1/2] firmware: include drivers/firmware/Kconfig unconditionally
-Message-Id: <CAK8P3a3s5tu8MfdtXpoCeA8rrAUD3sscCMqLaoUVdUY9G-9AvQ@mail.gmail.com>
+From: Petr Mladek <pmladek@suse.com>
+Date: Mon, 04 Oct 2021 09:23:32 +0000
+Subject: Re: [PATCH v2] ia64: don't do IA64_CMPXCHG_DEBUG without CONFIG_PRINTK
+Message-Id: <YVrIFGbo4c8nmx3V@alley>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210928075216.4193128-1-arnd@kernel.org> <9dedf9bb-5377-9f2c-cbb1-2a57b40493da@molgen.mpg.de>
- <CAMuHMdXspk27xd95YAsXa73ES8rfKxii3RUEtsBtxQTk9qLztA@mail.gmail.com>
-In-Reply-To: <CAMuHMdXspk27xd95YAsXa73ES8rfKxii3RUEtsBtxQTk9qLztA@mail.gmail.com>
+References: <20210926171224.27019-1-rdunlap@infradead.org>
+In-Reply-To: <20210926171224.27019-1-rdunlap@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Cc: Paul Menzel <pmenzel@molgen.mpg.de>, Bjorn Andersson <bjorn.andersson@linaro.org>, Arnd Bergmann <arnd@arndb.de>, Mark Brown <broonie@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Charles Keepax <ckeepax@opensource.cirrus.com>, Simon Trimmer <simont@opensource.cirrus.com>, Michael Ellerman <mpe@ellerman.id.au>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, the arch/x86 maintainers <x86@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Geert Uytterhoeven <geert+renesas@glider.be>, Linus Walleij <linus.walleij@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "open list:BROADCOM NVRAM DRIVER" <linux-mips@vger.kernel.org>, Parisc List <linux-parisc@vger.kernel.org>, linux-riscv <linux-riscv@lists.infradead.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>
+To: linux-ia64@vger.kernel.org
 
-On Mon, Oct 11, 2021 at 10:42 AM Geert Uytterhoeven
-<geert@linux-m68k.org> wrote:
-> On Sat, Oct 9, 2021 at 11:24 AM Paul Menzel <pmenzel@molgen.mpg.de> wrote:
-> > Am 28.09.21 um 09:50 schrieb Arnd Bergmann:
-> > > From: Arnd Bergmann <arnd@arndb.de>
-> > +#
-> > +# ARM System Control and Management Interface Protocol
-> > +#
-> > +# end of ARM System Control and Management Interface Protocol
-> > +
-> > +# CONFIG_FIRMWARE_MEMMAP is not set
-> > +# CONFIG_GOOGLE_FIRMWARE is not set
-> > +
-> > +#
-> > +# Tegra firmware driver
-> > +#
-> > +# end of Tegra firmware driver
-> > +# end of Firmware Drivers
-> > +
-> >   # CONFIG_GNSS is not set
-> >   CONFIG_MTD=m
-> >   # CONFIG_MTD_TESTS is not set
-> > ```
-> >
-> > No idea if the entries could be hidden for platforms not supporting them.
-> >
-> >          ARM System Control and Management Interface Protocol  ----
-> >      [ ] Add firmware-provided memory map to sysfs
-> >      [ ] Google Firmware Drivers  ----
-> >          Tegra firmware driver  ----
->
-> GOOGLE_FIRMWARE should probably depend on something.
-> I highly doubt Google is running servers on e.g. h8300 and nds32.
+On Mon 2021-09-27 11:57:18, Randy Dunlap wrote:
+> On 9/27/21 4:15 AM, Petr Mladek wrote:
+> > On Sun 2021-09-26 21:53:33, Randy Dunlap wrote:
+> > > On 9/26/21 8:22 PM, Paul Gortmaker wrote:
+> > > > [[PATCH v2] ia64: don't do IA64_CMPXCHG_DEBUG without CONFIG_PRINTK] On 26/09/2021 (Sun 10:12) Randy Dunlap wrote:
+> > > > 
+> > > > > When CONFIG_PRINTK is not set, the CMPXCHG_BUGCHECK() macro calls
+> > > > > _printk(), but _printk() is a static inline function, not available
+> > > > > as an extern.
+> > > > > Since the purpose of the macro is to print the BUGCHECK info,
+> > > > > make this config option depend on PRINTK.
+> > > > > 
+> > > > > Fixes multiple occurrences of this build error:
+> > > > > 
+> > > > > ../include/linux/printk.h:208:5: error: static declaration of '_printk' follows non-static declaration
+> > > > >     208 | int _printk(const char *s, ...)
+> > > > >         |     ^~~~~~~
+> > > > > In file included from ../arch/ia64/include/asm/cmpxchg.h:5,
+> > > > > ../arch/ia64/include/uapi/asm/cmpxchg.h:146:28: note: previous declaration of '_printk' with type 'int(const char *, ...)'
+> > > > >     146 |                 extern int _printk(const char *fmt, ...);
+> > > > > 
+> > > > > Fixes: 85f8f7759e41 ("ia64: populate the cmpxchg header with appropriate code")
+> > > > 
+> > > > I don't think this fixes tag makes sense either as it was just a
+> > > > straightforward code relocation.  As pointed out elsewhere, it will
+> > > > probably be back even further where CONFIG_PRINTK was introduced, which
+> > > > would be d59745ce3e7a (2005 vintage).  The ia64 debug option predates
+> > > > git, so it isn't at fault (and you can't blame it anyway).
+> > > > 
+> > > > Honestly, realize this is just for a randconfig for ia64 where PRINTK is
+> > > > disabled - something that will never be done in any of the remaining
+> > > > ia64 deployments out there (if there is any).  So I'd just recommend
+> > > > dropping the Fixes tag and move on.  It isn't like there is a lot of
+> > > > people out there doing randconfig builds on linux-stable releases.
+> > > > 
+> > > 
+> > > Yes, I like the idea of dropping the Fixes: tag also. Thanks.
+> > > Guess I'll send a v3.
+> > 
+> > I could take it via printk tree. I am going to wait 2-3 more days
+> > just in case anyone has a comment.
+> > 
+> > Feel free to send v3 but I could just remove the tag when pushing v2.
+> 
+> Hi Petr,
+> 
+> Please just remove the Fixes: tag after waiting a few more days
+> for comments.
 
-GOOGLE_FIRMWARE is only the 'menuconfig' option that contains
-the other options, but on architectures that have neither CONFIG_OF
-nor CONFIG_ACPI, this is empty.  Most architectures of course
-do support or require CONFIG_OF, so it's unclear whether we should
-show the options for coreboot. Since it's a software-only driver, I
-would tend to keep showing it, given that coreboot can be ported
-to every architecture. The DT binding [1] seems to be neither
-Google nor Arm specific.
+Done. The patch has been pushed into printk/linux.git, branch
+for-5.16.
 
-CONFIG_FIRMWARE_MEMMAP in turn can be used for
-anything that has memory hotplug, and in theory additional
-drivers that register with this interface.
-
-I'd lean towards "leave as is" for both, to avoid having to
-change the dependencies again whenever something else
-can use these.
-
-        Arnd
-
-[1] Documentation/devicetree/bindings/firmware/coreboot.txt
+Best Regards,
+Petr
