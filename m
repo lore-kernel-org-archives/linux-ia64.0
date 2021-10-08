@@ -1,87 +1,55 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Thu, 14 Oct 2021 05:49:53 +0000
-Subject: [PATCH v2 04/13] powerpc: Prepare func_desc_t for refactorisation
-Message-Id: <9c5dfd474978b95044bea23f2c6ecfcd0e70be36.1634190022.git.christophe.leroy@csgroup.eu>
+From: Valentin Schneider <valentin.schneider@arm.com>
+Date: Fri, 08 Oct 2021 11:53:45 +0000
+Subject: [PATCH 0/2] sched: cleanup CONFIG_SCHED_MC & friends
+Message-Id: <20211008115347.425234-1-valentin.schneider@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1634190022.git.christophe.leroy@csgroup.eu>
-In-Reply-To: <cover.1634190022.git.christophe.leroy@csgroup.eu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org
+Cc: Peter Zijlstra <peterz@infradead.org>, aubrey.li@linux.intel.com, song.bao.hua@hisilicon.com, tim.c.chen@linux.intel.com, jonathan.cameron@huawei.com, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Juri Lelli <juri.lelli@redhat.com>, Vincent Guittot <vincent.guittot@linaro.org>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Steven Rostedt <rostedt@goodmis.org>, Ben Segall <bsegall@google.com>, Mel Gorman <mgorman@suse.de>, Daniel Bristot de Oliveira <bristot@redhat.com>, Arnd Bergmann <arnd@arndb.de>, Linus Walleij <linus.walleij@linaro.org>, Geert Uytterhoeven <geert+renesas@glider.be>, Andrew Morton <akpm@linux-foundation.org>, Anshuman Khandual <anshuman.khandual@arm.com>, Mike Rapoport <rppt@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Ard Biesheuvel <ardb@kernel.org>, YiFei Zhu <yifeifz2@illinois.edu>, =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?= <u.kleine-koenig@pengutronix.de>, Kefeng Wang <wangkefeng.wang@huawei.com>, Sergei Trofimovich <slyfox@gentoo.org>, David Hildenbrand <david@redhat.com>, Randy Dunlap <rdunlap@infradead.org>, Masahiro Yamada <masahiroy@kernel.org>, Kees Cook <keescook@chromium.org>, Nathan Chancellor <nathan@kernel.org>, Nick Desaulniers <ndesaulniers@google.com>, Chris Down <chris@chrisdown.name>, Vipin Sharma <vipinsh@google.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Daniel Borkmann <daniel@iogearbox.net>, Vlastimil Babka <vbabka@suse.cz>, Frederic Weisbecker <frederic@kernel.org>, Hugh Dickins <hughd@google.com>, Michal Hocko <mhocko@kernel.org>
 
-In preparation of making func_desc_t generic, change it to
-a struct containing 'addr' element.
+Hi folks,
 
-In addition this allows using single helpers common to ELFv1 and ELFv2.
+This stems from Barry introducing a new CONFIG_SCHED_CLUSTER which highlighted
+the current state of similar Kconfigs isn't great:
+  http://lore.kernel.org/r/CAGsJ_4xZD0sG0Df666f0bvHOzuPMjnw0dN_mArER5k1pJ6LPLw@mail.gmail.com
 
-Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
----
- arch/powerpc/kernel/module_64.c | 34 +++++++++++++++------------------
- 1 file changed, 15 insertions(+), 19 deletions(-)
+The changes happen all in one big patch; the alternative would be to have one
+patch per arch that adds the ARCH_SUPPORTS_SCHED_* selection, then a final patch
+that adds the generic definitions and removes the arch ones (which I can do if
+that's a preferred approach).
 
-diff --git a/arch/powerpc/kernel/module_64.c b/arch/powerpc/kernel/module_64.c
-index 82908c9be627..dc99a3f6cee2 100644
---- a/arch/powerpc/kernel/module_64.c
-+++ b/arch/powerpc/kernel/module_64.c
-@@ -33,19 +33,13 @@
- #ifdef PPC64_ELF_ABI_v2
- 
- /* An address is simply the address of the function. */
--typedef unsigned long func_desc_t;
-+typedef struct {
-+	unsigned long addr;
-+} func_desc_t;
- 
- static func_desc_t func_desc(unsigned long addr)
- {
--	return addr;
--}
--static unsigned long func_addr(unsigned long addr)
--{
--	return addr;
--}
--static unsigned long stub_func_addr(func_desc_t func)
--{
--	return func;
-+	return (func_desc_t){addr};
- }
- 
- /* PowerPC64 specific values for the Elf64_Sym st_other field.  */
-@@ -68,15 +62,7 @@ typedef struct ppc64_opd_entry func_desc_t;
- 
- static func_desc_t func_desc(unsigned long addr)
- {
--	return *(struct ppc64_opd_entry *)addr;
--}
--static unsigned long func_addr(unsigned long addr)
--{
--	return func_desc(addr).addr;
--}
--static unsigned long stub_func_addr(func_desc_t func)
--{
--	return func.addr;
-+	return *(func_desc_t *)addr;
- }
- static unsigned int local_entry_offset(const Elf64_Sym *sym)
- {
-@@ -93,6 +79,16 @@ void *dereference_module_function_descriptor(struct module *mod, void *ptr)
- }
- #endif
- 
-+static unsigned long func_addr(unsigned long addr)
-+{
-+	return func_desc(addr).addr;
-+}
-+
-+static unsigned long stub_func_addr(func_desc_t func)
-+{
-+	return func.addr;
-+}
-+
- #define STUB_MAGIC 0x73747562 /* stub */
- 
- /* Like PPC32, we need little trampolines to do > 24-bit jumps (into
--- 
-2.31.1
+Briefly tested by setting ARCH=foo and playing around with menuconfig.
+
+Based on top of Peter's queue:
+  git://git.kernel.org/pub/scm/linux/kernel/git/peterz/queue.git -b sched/next
+
+Patches are also available at:
+  https://git.gitlab.arm.com/linux-arm/linux-vs.git -b mainline/sched/topo_kconfig_cleanup
+
+Cheers,
+Valentin
+
+Valentin Schneider (2):
+  sched: Move Kconfig.preempt to sched/Kconfig
+  sched: Centralize SCHED_{SMT, MC, CLUSTER} definitions
+
+ arch/arm/Kconfig                          | 18 ++--------
+ arch/arm64/Kconfig                        | 26 ++------------
+ arch/ia64/Kconfig                         |  9 +----
+ arch/mips/Kconfig                         | 10 +-----
+ arch/parisc/Kconfig                       |  9 +----
+ arch/powerpc/Kconfig                      |  9 +----
+ arch/s390/Kconfig                         |  8 ++---
+ arch/sh/Kconfig                           |  1 +
+ arch/sh/mm/Kconfig                        |  9 -----
+ arch/sparc/Kconfig                        | 20 ++---------
+ arch/x86/Kconfig                          | 26 ++------------
+ init/Kconfig                              |  2 +-
+ kernel/{Kconfig.preempt => sched/Kconfig} | 41 +++++++++++++++++++++++
+ 13 files changed, 59 insertions(+), 129 deletions(-)
+ rename kernel/{Kconfig.preempt => sched/Kconfig} (79%)
+
+--
+2.25.1
