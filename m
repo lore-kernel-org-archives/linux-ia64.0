@@ -1,208 +1,419 @@
-From: Nicholas Piggin <npiggin@gmail.com>
-Date: Fri, 15 Oct 2021 06:59:26 +0000
-Subject: Re: [PATCH v2 08/13] asm-generic: Refactor dereference_[kernel]_function_descriptor()
-Message-Id: <1634279175.w0z6ck2mpb.astroid@bobo.none>
+From: Valentin Schneider <valentin.schneider@arm.com>
+Date: Fri, 08 Oct 2021 11:53:47 +0000
+Subject: [PATCH 2/2] sched: Centralize SCHED_{SMT, MC, CLUSTER} definitions
+Message-Id: <20211008115347.425234-3-valentin.schneider@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1634190022.git.christophe.leroy@csgroup.eu>
-        <865b5c872814e3291fe7afabcc110f53b3457b56.1634190022.git.christophe.leroy@csgroup.eu>
-In-Reply-To: <865b5c872814e3291fe7afabcc110f53b3457b56.1634190022.git.christophe.leroy@csgroup.eu>
+References: <20211008115347.425234-1-valentin.schneider@arm.com>
+In-Reply-To: <20211008115347.425234-1-valentin.schneider@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Christophe Leroy <christophe.leroy@csgroup.eu>, Helge Deller <deller@gmx.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Kees Cook <keescook@chromium.org>, Michael Ellerman <mpe@ellerman.id.au>, Paul Mackerras <paulus@samba.org>
-Cc: linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org
+Cc: Barry Song <21cnbao@gmail.com>, Peter Zijlstra <peterz@infradead.org>, aubrey.li@linux.intel.com, song.bao.hua@hisilicon.com, tim.c.chen@linux.intel.com, jonathan.cameron@huawei.com, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Juri Lelli <juri.lelli@redhat.com>, Vincent Guittot <vincent.guittot@linaro.org>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Steven Rostedt <rostedt@goodmis.org>, Ben Segall <bsegall@google.com>, Mel Gorman <mgorman@suse.de>, Daniel Bristot de Oliveira <bristot@redhat.com>, Arnd Bergmann <arnd@arndb.de>, Linus Walleij <linus.walleij@linaro.org>, Geert Uytterhoeven <geert+renesas@glider.be>, Andrew Morton <akpm@linux-foundation.org>, Anshuman Khandual <anshuman.khandual@arm.com>, Mike Rapoport <rppt@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Ard Biesheuvel <ardb@kernel.org>, YiFei Zhu <yifeifz2@illinois.edu>, =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?= <u.kleine-koenig@pengutronix.de>, Kefeng Wang <wangkefeng.wang@huawei.com>, Sergei Trofimovich <slyfox@gentoo.org>, David Hildenbrand <david@redhat.com>, Randy Dunlap <rdunlap@infradead.org>, Masahiro Yamada <masahiroy@kernel.org>, Kees Cook <keescook@chromium.org>, Nathan Chancellor <nathan@kernel.org>, Nick Desaulniers <ndesaulniers@google.com>, Chris Down <chris@chrisdown.name>, Vipin Sharma <vipinsh@google.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Daniel Borkmann <daniel@iogearbox.net>, Vlastimil Babka <vbabka@suse.cz>, Frederic Weisbecker <frederic@kernel.org>, Hugh Dickins <hughd@google.com>, Michal Hocko <mhocko@kernel.org>
 
-Excerpts from Christophe Leroy's message of October 14, 2021 3:49 pm:
-> dereference_function_descriptor() and
-> dereference_kernel_function_descriptor() are identical on the
-> three architectures implementing them.
-> 
-> Make them common and put them out-of-line in kernel/extable.c
-> which is one of the users and has similar type of functions.
+Barry recently introduced a new CONFIG_SCHED_CLUSTER, and discussions
+around that highlighted that every architecture redefines its own help text
+and dependencies for CONFIG_SCHED_SMT and CONFIG_SCHED_MC.
 
-We should be moving more stuff out of extable.c (including all the
-kernel address tests). lib/kimage.c or kelf.c or something. 
+Move the definition of those to scheduler's Kconfig to centralize help text
+and generic dependencies (i.e. SMP). Make them depend on a matching
+ARCH_SUPPORTS_SCHED_* which the architectures can select with the relevant
+architecture-specific dependency.
 
-It could be after your series though.
+s390 uses its own topology table (set_sched_topology()) and doesn't seem to
+cope without SCHED_MC or SCHED_SMT, so those remain untogglable.
 
-> 
-> Reviewed-by: Kees Cook <keescook@chromium.org>
-> Reviewed-by: Arnd Bergmann <arnd@arndb.de>
-> Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
-> ---
->  arch/ia64/include/asm/sections.h    | 19 -------------------
->  arch/parisc/include/asm/sections.h  |  9 ---------
->  arch/parisc/kernel/process.c        | 21 ---------------------
->  arch/powerpc/include/asm/sections.h | 23 -----------------------
->  include/asm-generic/sections.h      |  2 ++
->  kernel/extable.c                    | 23 ++++++++++++++++++++++-
->  6 files changed, 24 insertions(+), 73 deletions(-)
-> 
-> diff --git a/arch/ia64/include/asm/sections.h b/arch/ia64/include/asm/sections.h
-> index 1aaed8882294..96c9bb500c34 100644
-> --- a/arch/ia64/include/asm/sections.h
-> +++ b/arch/ia64/include/asm/sections.h
-> @@ -31,23 +31,4 @@ extern char __start_gate_brl_fsys_bubble_down_patchlist[], __end_gate_brl_fsys_b
->  extern char __start_unwind[], __end_unwind[];
->  extern char __start_ivt_text[], __end_ivt_text[];
->  
-> -#undef dereference_function_descriptor
-> -static inline void *dereference_function_descriptor(void *ptr)
-> -{
-> -	struct fdesc *desc = ptr;
-> -	void *p;
-> -
-> -	if (!get_kernel_nofault(p, (void *)&desc->addr))
-> -		ptr = p;
-> -	return ptr;
-> -}
-> -
-> -#undef dereference_kernel_function_descriptor
-> -static inline void *dereference_kernel_function_descriptor(void *ptr)
-> -{
-> -	if (ptr < (void *)__start_opd || ptr >= (void *)__end_opd)
-> -		return ptr;
-> -	return dereference_function_descriptor(ptr);
-> -}
-> -
->  #endif /* _ASM_IA64_SECTIONS_H */
-> diff --git a/arch/parisc/include/asm/sections.h b/arch/parisc/include/asm/sections.h
-> index 37b34b357cb5..6b1fe22baaf5 100644
-> --- a/arch/parisc/include/asm/sections.h
-> +++ b/arch/parisc/include/asm/sections.h
-> @@ -13,13 +13,4 @@ typedef Elf64_Fdesc func_desc_t;
->  
->  extern char __alt_instructions[], __alt_instructions_end[];
->  
-> -#ifdef CONFIG_64BIT
-> -
-> -#undef dereference_function_descriptor
-> -void *dereference_function_descriptor(void *);
-> -
-> -#undef dereference_kernel_function_descriptor
-> -void *dereference_kernel_function_descriptor(void *);
-> -#endif
-> -
->  #endif
-> diff --git a/arch/parisc/kernel/process.c b/arch/parisc/kernel/process.c
-> index 38ec4ae81239..7382576b52a8 100644
-> --- a/arch/parisc/kernel/process.c
-> +++ b/arch/parisc/kernel/process.c
-> @@ -266,27 +266,6 @@ get_wchan(struct task_struct *p)
->  	return 0;
->  }
->  
-> -#ifdef CONFIG_64BIT
-> -void *dereference_function_descriptor(void *ptr)
-> -{
-> -	Elf64_Fdesc *desc = ptr;
-> -	void *p;
-> -
-> -	if (!get_kernel_nofault(p, (void *)&desc->addr))
-> -		ptr = p;
-> -	return ptr;
-> -}
-> -
-> -void *dereference_kernel_function_descriptor(void *ptr)
-> -{
-> -	if (ptr < (void *)__start_opd ||
-> -			ptr >= (void *)__end_opd)
-> -		return ptr;
-> -
-> -	return dereference_function_descriptor(ptr);
-> -}
-> -#endif
-> -
->  static inline unsigned long brk_rnd(void)
->  {
->  	return (get_random_int() & BRK_RND_MASK) << PAGE_SHIFT;
-> diff --git a/arch/powerpc/include/asm/sections.h b/arch/powerpc/include/asm/sections.h
-> index 1322d7b2f1a3..fbfe1957edbe 100644
-> --- a/arch/powerpc/include/asm/sections.h
-> +++ b/arch/powerpc/include/asm/sections.h
-> @@ -72,29 +72,6 @@ static inline int overlaps_kernel_text(unsigned long start, unsigned long end)
->  		(unsigned long)_stext < end;
->  }
->  
-> -#ifdef PPC64_ELF_ABI_v1
-> -
-> -#undef dereference_function_descriptor
-> -static inline void *dereference_function_descriptor(void *ptr)
-> -{
-> -	struct ppc64_opd_entry *desc = ptr;
-> -	void *p;
-> -
-> -	if (!get_kernel_nofault(p, (void *)&desc->addr))
-> -		ptr = p;
-> -	return ptr;
-> -}
-> -
-> -#undef dereference_kernel_function_descriptor
-> -static inline void *dereference_kernel_function_descriptor(void *ptr)
-> -{
-> -	if (ptr < (void *)__start_opd || ptr >= (void *)__end_opd)
-> -		return ptr;
-> -
-> -	return dereference_function_descriptor(ptr);
-> -}
-> -#endif /* PPC64_ELF_ABI_v1 */
-> -
->  #endif
->  
->  #endif /* __KERNEL__ */
-> diff --git a/include/asm-generic/sections.h b/include/asm-generic/sections.h
-> index cbec7d5f1678..76163883c6ff 100644
-> --- a/include/asm-generic/sections.h
-> +++ b/include/asm-generic/sections.h
-> @@ -60,6 +60,8 @@ extern __visible const void __nosave_begin, __nosave_end;
->  
->  /* Function descriptor handling (if any).  Override in asm/sections.h */
->  #ifdef HAVE_FUNCTION_DESCRIPTORS
-> +void *dereference_function_descriptor(void *ptr);
-> +void *dereference_kernel_function_descriptor(void *ptr);
->  #else
->  #define dereference_function_descriptor(p) ((void *)(p))
->  #define dereference_kernel_function_descriptor(p) ((void *)(p))
-> diff --git a/kernel/extable.c b/kernel/extable.c
-> index b0ea5eb0c3b4..013ccffade11 100644
-> --- a/kernel/extable.c
-> +++ b/kernel/extable.c
-> @@ -3,6 +3,7 @@
->     Copyright (C) 2001 Rusty Russell, 2002 Rusty Russell IBM.
->  
->  */
-> +#include <linux/elf.h>
->  #include <linux/ftrace.h>
->  #include <linux/memory.h>
->  #include <linux/extable.h>
-> @@ -159,12 +160,32 @@ int kernel_text_address(unsigned long addr)
->  }
->  
->  /*
-> - * On some architectures (PPC64, IA64) function pointers
-> + * On some architectures (PPC64, IA64, PARISC) function pointers
->   * are actually only tokens to some data that then holds the
->   * real function address. As a result, to find if a function
->   * pointer is part of the kernel text, we need to do some
->   * special dereferencing first.
->   */
-> +#ifdef HAVE_FUNCTION_DESCRIPTORS
-> +void *dereference_function_descriptor(void *ptr)
-> +{
-> +	func_desc_t *desc = ptr;
-> +	void *p;
-> +
-> +	if (!get_kernel_nofault(p, (void *)&desc->addr))
-> +		ptr = p;
+Suggested-by: Barry Song <21cnbao@gmail.com>
+Signed-off-by: Valentin Schneider <valentin.schneider@arm.com>
+---
+ arch/arm/Kconfig     | 18 ++----------------
+ arch/arm64/Kconfig   | 26 +++-----------------------
+ arch/ia64/Kconfig    |  9 +--------
+ arch/mips/Kconfig    | 10 +---------
+ arch/parisc/Kconfig  |  9 +--------
+ arch/powerpc/Kconfig |  9 +--------
+ arch/s390/Kconfig    |  8 ++------
+ arch/sh/Kconfig      |  1 +
+ arch/sh/mm/Kconfig   |  9 ---------
+ arch/sparc/Kconfig   | 20 ++------------------
+ arch/x86/Kconfig     | 26 +++-----------------------
+ kernel/sched/Kconfig | 43 +++++++++++++++++++++++++++++++++++++++++++
+ 12 files changed, 60 insertions(+), 128 deletions(-)
 
-I know you're just copying existing code. This seems a bit risky though. 
-I don't think anything good could come of just treating the descriptor
-address like a function entry address if we failed to load from it for
-whatever reason.
-
-Existing callers might be benign but the API is not good. It should
-give a nice fail return or BUG. If we change that then we should also
-change the name and pass the correct type to it too.
-
-Thanks,
-Nick
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index fc196421b2ce..13aac98edf06 100644
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -32,6 +32,8 @@ config ARM
+ 	select ARCH_OPTIONAL_KERNEL_RWX_DEFAULT if CPU_V7
+ 	select ARCH_SUPPORTS_ATOMIC_RMW
+ 	select ARCH_SUPPORTS_HUGETLBFS if ARM_LPAE
++	select ARCH_SUPPORTS_SCHED_SMT if ARM_CPU_TOPOLOGY
++	select ARCH_SUPPORTS_SCHED_MC if ARM_CPU_TOPOLOGY
+ 	select ARCH_USE_BUILTIN_BSWAP
+ 	select ARCH_USE_CMPXCHG_LOCKREF
+ 	select ARCH_USE_MEMTEST
+@@ -1166,22 +1168,6 @@ config ARM_CPU_TOPOLOGY
+ 	  affinity between processors which is then used to describe the cpu
+ 	  topology of an ARM System.
+ 
+-config SCHED_MC
+-	bool "Multi-core scheduler support"
+-	depends on ARM_CPU_TOPOLOGY
+-	help
+-	  Multi-core scheduler support improves the CPU scheduler's decision
+-	  making when dealing with multi-core CPU chips at a cost of slightly
+-	  increased overhead in some places. If unsure say N here.
+-
+-config SCHED_SMT
+-	bool "SMT scheduler support"
+-	depends on ARM_CPU_TOPOLOGY
+-	help
+-	  Improves the CPU scheduler's decision making when dealing with
+-	  MultiThreading at a cost of slightly increased overhead in some
+-	  places. If unsure say N here.
+-
+ config HAVE_ARM_SCU
+ 	bool
+ 	help
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index d13677f4731d..8a49dd33f5e3 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -88,6 +88,9 @@ config ARM64
+ 	select ARCH_SUPPORTS_ATOMIC_RMW
+ 	select ARCH_SUPPORTS_INT128 if CC_HAS_INT128
+ 	select ARCH_SUPPORTS_NUMA_BALANCING
++	select ARCH_SUPPORTS_SCHED_SMT
++	select ARCH_SUPPORTS_SCHED_MC
++	select ARCH_SUPPORTS_SCHED_CLUSTER
+ 	select ARCH_WANT_COMPAT_IPC_PARSE_VERSION if COMPAT
+ 	select ARCH_WANT_DEFAULT_BPF_JIT
+ 	select ARCH_WANT_DEFAULT_TOPDOWN_MMAP_LAYOUT
+@@ -982,29 +985,6 @@ config CPU_LITTLE_ENDIAN
+ 
+ endchoice
+ 
+-config SCHED_MC
+-	bool "Multi-core scheduler support"
+-	help
+-	  Multi-core scheduler support improves the CPU scheduler's decision
+-	  making when dealing with multi-core CPU chips at a cost of slightly
+-	  increased overhead in some places. If unsure say N here.
+-
+-config SCHED_CLUSTER
+-	bool "Cluster scheduler support"
+-	help
+-	  Cluster scheduler support improves the CPU scheduler's decision
+-	  making when dealing with machines that have clusters of CPUs.
+-	  Cluster usually means a couple of CPUs which are placed closely
+-	  by sharing mid-level caches, last-level cache tags or internal
+-	  busses.
+-
+-config SCHED_SMT
+-	bool "SMT scheduler support"
+-	help
+-	  Improves the CPU scheduler's decision making when dealing with
+-	  MultiThreading at a cost of slightly increased overhead in some
+-	  places. If unsure say N here.
+-
+ config NR_CPUS
+ 	int "Maximum number of CPUs (2-4096)"
+ 	range 2 4096
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 045792cde481..67f3d84242ae 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -18,6 +18,7 @@ config IA64
+ 	select ARCH_ENABLE_MEMORY_HOTPLUG
+ 	select ARCH_ENABLE_MEMORY_HOTREMOVE
+ 	select ARCH_SUPPORTS_ACPI
++	select ARCH_SUPPORTS_SCHED_SMT
+ 	select ACPI_SYSTEM_POWER_STATES_SUPPORT if ACPI
+ 	select ARCH_MIGHT_HAVE_ACPI_PDC if ACPI
+ 	select FORCE_PCI
+@@ -247,14 +248,6 @@ config HOTPLUG_CPU
+ 	  can be controlled through /sys/devices/system/cpu/cpu#.
+ 	  Say N if you want to disable CPU hotplug.
+ 
+-config SCHED_SMT
+-	bool "SMT scheduler support"
+-	depends on SMP
+-	help
+-	  Improves the CPU scheduler's decision making when dealing with
+-	  Intel IA64 chips with MultiThreading at a cost of slightly increased
+-	  overhead in some places. If unsure say N here.
+-
+ config PERMIT_BSP_REMOVE
+ 	bool "Support removal of Bootstrap Processor"
+ 	depends on HOTPLUG_CPU
+diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
+index 771ca53af06d..cc60d440b097 100644
+--- a/arch/mips/Kconfig
++++ b/arch/mips/Kconfig
+@@ -2373,17 +2373,9 @@ config MIPS_MT_SMP
+ config MIPS_MT
+ 	bool
+ 
+-config SCHED_SMT
+-	bool "SMT (multithreading) scheduler support"
+-	depends on SYS_SUPPORTS_SCHED_SMT
+-	default n
+-	help
+-	  SMT scheduler support improves the CPU scheduler's decision making
+-	  when dealing with MIPS MT enabled cores at a cost of slightly
+-	  increased overhead in some places. If unsure say N here.
+-
+ config SYS_SUPPORTS_SCHED_SMT
+ 	bool
++	select ARCH_SUPPORTS_SCHED_SMT
+ 
+ config SYS_SUPPORTS_MULTITHREADING
+ 	bool
+diff --git a/arch/parisc/Kconfig b/arch/parisc/Kconfig
+index 4742b6f169b7..6aaa962ec2f4 100644
+--- a/arch/parisc/Kconfig
++++ b/arch/parisc/Kconfig
+@@ -13,6 +13,7 @@ config PARISC
+ 	select ARCH_NO_SG_CHAIN
+ 	select ARCH_SUPPORTS_HUGETLBFS if PA20
+ 	select ARCH_SUPPORTS_MEMORY_FAILURE
++	select ARCH_SUPPORTS_SCHED_MC if PARISC_CPU_TOPOLOGY && PA8X00
+ 	select DMA_OPS
+ 	select RTC_CLASS
+ 	select RTC_DRV_GENERIC
+@@ -295,14 +296,6 @@ config PARISC_CPU_TOPOLOGY
+ 	help
+ 	  Support PARISC cpu topology definition.
+ 
+-config SCHED_MC
+-	bool "Multi-core scheduler support"
+-	depends on PARISC_CPU_TOPOLOGY && PA8X00
+-	help
+-	  Multi-core scheduler support improves the CPU scheduler's decision
+-	  making when dealing with multi-core CPU chips at a cost of slightly
+-	  increased overhead in some places. If unsure say N here.
+-
+ config IRQSTACKS
+ 	bool "Use separate kernel stacks when processing interrupts"
+ 	default y
+diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
+index ba5b66189358..9f45b92ccac1 100644
+--- a/arch/powerpc/Kconfig
++++ b/arch/powerpc/Kconfig
+@@ -151,6 +151,7 @@ config PPC
+ 	select ARCH_STACKWALK
+ 	select ARCH_SUPPORTS_ATOMIC_RMW
+ 	select ARCH_SUPPORTS_DEBUG_PAGEALLOC	if PPC32 || PPC_BOOK3S_64
++	select ARCH_SUPPORTS_SCHED_SMT          if PPC64
+ 	select ARCH_USE_BUILTIN_BSWAP
+ 	select ARCH_USE_CMPXCHG_LOCKREF		if PPC64
+ 	select ARCH_USE_MEMTEST
+@@ -861,14 +862,6 @@ config PPC_PROT_SAO_LPAR
+ config PPC_COPRO_BASE
+ 	bool
+ 
+-config SCHED_SMT
+-	bool "SMT (Hyperthreading) scheduler support"
+-	depends on PPC64 && SMP
+-	help
+-	  SMT scheduler support improves the CPU scheduler's decision making
+-	  when dealing with POWER5 cpus at a cost of slightly increased
+-	  overhead in some places. If unsure say N here.
+-
+ config PPC_DENORMALISATION
+ 	bool "PowerPC denormalisation exception handling"
+ 	depends on PPC_BOOK3S_64
+diff --git a/arch/s390/Kconfig b/arch/s390/Kconfig
+index b86de61b8caa..a0b4117cb1fa 100644
+--- a/arch/s390/Kconfig
++++ b/arch/s390/Kconfig
+@@ -483,12 +483,6 @@ config NODES_SHIFT
+ 	depends on NUMA
+ 	default "1"
+ 
+-config SCHED_SMT
+-	def_bool n
+-
+-config SCHED_MC
+-	def_bool n
+-
+ config SCHED_BOOK
+ 	def_bool n
+ 
+@@ -498,6 +492,8 @@ config SCHED_DRAWER
+ config SCHED_TOPOLOGY
+ 	def_bool y
+ 	prompt "Topology scheduler support"
++	select ARCH_SUPPORTS_SCHED_SMT
++	select ARCH_SUPPORTS_SCHED_MC
+ 	select SCHED_SMT
+ 	select SCHED_MC
+ 	select SCHED_BOOK
+diff --git a/arch/sh/Kconfig b/arch/sh/Kconfig
+index 6904f4bdbf00..7380ee27d252 100644
+--- a/arch/sh/Kconfig
++++ b/arch/sh/Kconfig
+@@ -13,6 +13,7 @@ config SUPERH
+ 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
+ 	select ARCH_HIBERNATION_POSSIBLE if MMU
+ 	select ARCH_MIGHT_HAVE_PC_PARPORT
++	select ARCH_SUPPORTS_SCHED_MC
+ 	select ARCH_WANT_IPC_PARSE_VERSION
+ 	select CPU_NO_EFFICIENT_FFS
+ 	select DMA_DECLARE_COHERENT
+diff --git a/arch/sh/mm/Kconfig b/arch/sh/mm/Kconfig
+index ba569cfb4368..1d9f7006a72a 100644
+--- a/arch/sh/mm/Kconfig
++++ b/arch/sh/mm/Kconfig
+@@ -208,15 +208,6 @@ config HUGETLB_PAGE_SIZE_64MB
+ 
+ endchoice
+ 
+-config SCHED_MC
+-	bool "Multi-core scheduler support"
+-	depends on SMP
+-	default y
+-	help
+-	  Multi-core scheduler support improves the CPU scheduler's decision
+-	  making when dealing with multi-core CPU chips at a cost of slightly
+-	  increased overhead in some places. If unsure say N here.
+-
+ endmenu
+ 
+ menu "Cache configuration"
+diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
+index b120ed947f50..a6cf30d37725 100644
+--- a/arch/sparc/Kconfig
++++ b/arch/sparc/Kconfig
+@@ -86,6 +86,8 @@ config SPARC64
+ 	select HAVE_ARCH_AUDITSYSCALL
+ 	select ARCH_SUPPORTS_ATOMIC_RMW
+ 	select ARCH_SUPPORTS_DEBUG_PAGEALLOC
++	select ARCH_SUPPORTS_SCHED_SMT
++	select ARCH_SUPPORTS_SCHED_MC
+ 	select HAVE_NMI
+ 	select HAVE_REGS_AND_STACK_ACCESS_API
+ 	select ARCH_USE_QUEUED_RWLOCKS
+@@ -290,24 +292,6 @@ if SPARC64
+ source "kernel/power/Kconfig"
+ endif
+ 
+-config SCHED_SMT
+-	bool "SMT (Hyperthreading) scheduler support"
+-	depends on SPARC64 && SMP
+-	default y
+-	help
+-	  SMT scheduler support improves the CPU scheduler's decision making
+-	  when dealing with SPARC cpus at a cost of slightly increased overhead
+-	  in some places. If unsure say N here.
+-
+-config SCHED_MC
+-	bool "Multi-core scheduler support"
+-	depends on SPARC64 && SMP
+-	default y
+-	help
+-	  Multi-core scheduler support improves the CPU scheduler's decision
+-	  making when dealing with multi-core CPU chips at a cost of slightly
+-	  increased overhead in some places. If unsure say N here.
+-
+ config CMDLINE_BOOL
+ 	bool "Default bootloader kernel arguments"
+ 	depends on SPARC64
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index 349e59b2f0e3..87a91fd33d85 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -107,6 +107,9 @@ config X86
+ 	select ARCH_SUPPORTS_KMAP_LOCAL_FORCE_MAP	if NR_CPUS <= 4096
+ 	select ARCH_SUPPORTS_LTO_CLANG
+ 	select ARCH_SUPPORTS_LTO_CLANG_THIN
++	select ARCH_SUPPORTS_SCHED_SMT
++	select ARCH_SUPPORTS_SCHED_MC
++	select ARCH_SUPPORTS_SCHED_CLUSTER
+ 	select ARCH_USE_BUILTIN_BSWAP
+ 	select ARCH_USE_MEMTEST
+ 	select ARCH_USE_QUEUED_RWLOCKS
+@@ -1001,29 +1004,6 @@ config NR_CPUS
+ 	  This is purely to save memory: each supported CPU adds about 8KB
+ 	  to the kernel image.
+ 
+-config SCHED_CLUSTER
+-	bool "Cluster scheduler support"
+-	depends on SMP
+-	default y
+-	help
+-	  Cluster scheduler support improves the CPU scheduler's decision
+-	  making when dealing with machines that have clusters of CPUs.
+-	  Cluster usually means a couple of CPUs which are placed closely
+-	  by sharing mid-level caches, last-level cache tags or internal
+-	  busses.
+-
+-config SCHED_SMT
+-	def_bool y if SMP
+-
+-config SCHED_MC
+-	def_bool y
+-	prompt "Multi-core scheduler support"
+-	depends on SMP
+-	help
+-	  Multi-core scheduler support improves the CPU scheduler's decision
+-	  making when dealing with multi-core CPU chips at a cost of slightly
+-	  increased overhead in some places. If unsure say N here.
+-
+ config SCHED_MC_PRIO
+ 	bool "CPU core priorities scheduler support"
+ 	depends on SCHED_MC && CPU_SUP_INTEL
+diff --git a/kernel/sched/Kconfig b/kernel/sched/Kconfig
+index c8b8e12c9c9c..9ceb08f42aeb 100644
+--- a/kernel/sched/Kconfig
++++ b/kernel/sched/Kconfig
+@@ -131,3 +131,46 @@ config SCHED_CORE
+ 	  SCHED_CORE is default disabled. When it is enabled and unused,
+ 	  which is the likely usage by Linux distributions, there should
+ 	  be no measurable impact on performance.
++
++
++#
++# For architectuers that want to enable generic scheduler handling of
++# different topology levels:
++#
++config ARCH_SUPPORTS_SCHED_SMT
++       bool
++
++config ARCH_SUPPORTS_SCHED_MC
++       bool
++
++config ARCH_SUPPORTS_SCHED_CLUSTER
++       bool
++
++config SCHED_SMT
++	bool "SMT scheduler support"
++	depends on ARCH_SUPPORTS_SCHED_SMT && SMP
++	default y
++	help
++	  Improves the CPU scheduler's decision making when dealing with
++	  MultiThreading at a cost of slightly increased overhead in some
++	  places. If unsure say N here.
++
++config SCHED_MC
++	bool "Multi-core scheduler support"
++	depends on ARCH_SUPPORTS_SCHED_MC && SMP
++	default y
++	help
++	  Multi-core scheduler support improves the CPU scheduler's decision
++	  making when dealing with multi-core CPU chips at a cost of slightly
++	  increased overhead in some places. If unsure say N here.
++
++config SCHED_CLUSTER
++	bool "Cluster scheduler support"
++	depends on ARCH_SUPPORTS_SCHED_CLUSTER && SMP
++	default y
++	help
++	  Cluster scheduler support improves the CPU scheduler's decision
++	  making when dealing with machines that have clusters of CPUs.
++	  Cluster usually means a couple of CPUs which are placed closely
++	  by sharing mid-level caches, last-level cache tags or internal
++	  busses.
+-- 
+2.25.1
