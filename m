@@ -1,97 +1,65 @@
-From: Nicholas Piggin <npiggin@gmail.com>
-Date: Fri, 15 Oct 2021 06:01:26 +0000
-Subject: Re: [PATCH v2 02/13] powerpc: Rename 'funcaddr' to 'addr' in 'struct ppc64_opd_entry'
-Message-Id: <1634277517.7t2t049cd5.astroid@bobo.none>
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Mon, 11 Oct 2021 15:25:35 +0000
+Subject: [PATCH v1 08/10] lkdtm: Really write into kernel text in WRITE_KERN
+Message-Id: <624940395e5d81967246f911a65740b9a15b5a70.1633964380.git.christophe.leroy@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1634190022.git.christophe.leroy@csgroup.eu>
-        <49f59a8bf2c4d95cfaa03bd3dd3c1569822ad6ba.1634190022.git.christophe.leroy@csgroup.eu>
-In-Reply-To: <49f59a8bf2c4d95cfaa03bd3dd3c1569822ad6ba.1634190022.git.christophe.leroy@csgroup.eu>
+References: <cover.1633964380.git.christophe.leroy@csgroup.eu>
+In-Reply-To: <cover.1633964380.git.christophe.leroy@csgroup.eu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Christophe Leroy <christophe.leroy@csgroup.eu>, Helge Deller <deller@gmx.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Kees Cook <keescook@chromium.org>, Michael Ellerman <mpe@ellerman.id.au>, Paul Mackerras <paulus@samba.org>
-Cc: linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-Excerpts from Christophe Leroy's message of October 14, 2021 3:49 pm:
-> There are three architectures with function descriptors, try to
-> have common names for the address they contain in order to
-> refactor some functions into generic functions later.
-> 
-> powerpc has 'funcaddr'
-> ia64 has 'ip'
-> parisc has 'addr'
-> 
-> Vote for 'addr' and update 'struct ppc64_opd_entry' accordingly.
+WRITE_KERN is supposed to overwrite some kernel text, namely
+do_overwritten() function.
 
-It is the "address of the entry point of the function" according to 
-powerpc ELF spec, so addr seems fine.
+But at the time being it overwrites do_overwritten() function
+descriptor, not function text.
 
-Reviewed-by: Nicholas Piggin <npiggin@gmail.com>
+Fix it by dereferencing the function descriptor to obtain
+function text pointer.
 
-> 
-> Reviewed-by: Kees Cook <keescook@chromium.org>
-> Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
-> ---
->  arch/powerpc/include/asm/elf.h      | 2 +-
->  arch/powerpc/include/asm/sections.h | 2 +-
->  arch/powerpc/kernel/module_64.c     | 6 +++---
->  3 files changed, 5 insertions(+), 5 deletions(-)
-> 
-> diff --git a/arch/powerpc/include/asm/elf.h b/arch/powerpc/include/asm/elf.h
-> index a4406714c060..bb0f278f9ed4 100644
-> --- a/arch/powerpc/include/asm/elf.h
-> +++ b/arch/powerpc/include/asm/elf.h
-> @@ -178,7 +178,7 @@ void relocate(unsigned long final_address);
->  
->  /* There's actually a third entry here, but it's unused */
->  struct ppc64_opd_entry {
-> -	unsigned long funcaddr;
-> +	unsigned long addr;
->  	unsigned long r2;
->  };
->  
-> diff --git a/arch/powerpc/include/asm/sections.h b/arch/powerpc/include/asm/sections.h
-> index 6e4af4492a14..32e7035863ac 100644
-> --- a/arch/powerpc/include/asm/sections.h
-> +++ b/arch/powerpc/include/asm/sections.h
-> @@ -77,7 +77,7 @@ static inline void *dereference_function_descriptor(void *ptr)
->  	struct ppc64_opd_entry *desc = ptr;
->  	void *p;
->  
-> -	if (!get_kernel_nofault(p, (void *)&desc->funcaddr))
-> +	if (!get_kernel_nofault(p, (void *)&desc->addr))
->  		ptr = p;
->  	return ptr;
->  }
-> diff --git a/arch/powerpc/kernel/module_64.c b/arch/powerpc/kernel/module_64.c
-> index 6baa676e7cb6..82908c9be627 100644
-> --- a/arch/powerpc/kernel/module_64.c
-> +++ b/arch/powerpc/kernel/module_64.c
-> @@ -72,11 +72,11 @@ static func_desc_t func_desc(unsigned long addr)
->  }
->  static unsigned long func_addr(unsigned long addr)
->  {
-> -	return func_desc(addr).funcaddr;
-> +	return func_desc(addr).addr;
->  }
->  static unsigned long stub_func_addr(func_desc_t func)
->  {
-> -	return func.funcaddr;
-> +	return func.addr;
->  }
->  static unsigned int local_entry_offset(const Elf64_Sym *sym)
->  {
-> @@ -187,7 +187,7 @@ static int relacmp(const void *_x, const void *_y)
->  static unsigned long get_stubs_size(const Elf64_Ehdr *hdr,
->  				    const Elf64_Shdr *sechdrs)
->  {
-> -	/* One extra reloc so it's always 0-funcaddr terminated */
-> +	/* One extra reloc so it's always 0-addr terminated */
->  	unsigned long relocs = 1;
->  	unsigned i;
->  
-> -- 
-> 2.31.1
-> 
-> 
-> 
+And make do_overwritten() noinline so that it is really
+do_overwritten() which is called by lkdtm_WRITE_KERN().
+
+Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
+---
+ drivers/misc/lkdtm/perms.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/misc/lkdtm/perms.c b/drivers/misc/lkdtm/perms.c
+index 60b3b2fe929d..442d60ed25ef 100644
+--- a/drivers/misc/lkdtm/perms.c
++++ b/drivers/misc/lkdtm/perms.c
+@@ -5,6 +5,7 @@
+  * even non-readable regions.
+  */
+ #include "lkdtm.h"
++#include <linux/kallsyms.h>
+ #include <linux/slab.h>
+ #include <linux/vmalloc.h>
+ #include <linux/mman.h>
+@@ -37,7 +38,7 @@ static noinline void do_nothing(void)
+ }
+ 
+ /* Must immediately follow do_nothing for size calculuations to work out. */
+-static void do_overwritten(void)
++static noinline void do_overwritten(void)
+ {
+ 	pr_info("do_overwritten wasn't overwritten!\n");
+ 	return;
+@@ -113,8 +114,9 @@ void lkdtm_WRITE_KERN(void)
+ 	size_t size;
+ 	volatile unsigned char *ptr;
+ 
+-	size = (unsigned long)do_overwritten - (unsigned long)do_nothing;
+-	ptr = (unsigned char *)do_overwritten;
++	size = (unsigned long)dereference_symbol_descriptor(do_overwritten) -
++	       (unsigned long)dereference_symbol_descriptor(do_nothing);
++	ptr = dereference_symbol_descriptor(do_overwritten);
+ 
+ 	pr_info("attempting bad %zu byte write at %px\n", size, ptr);
+ 	memcpy((void *)ptr, (unsigned char *)do_nothing, size);
+-- 
+2.31.1
