@@ -1,137 +1,81 @@
 From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Wed, 13 Oct 2021 12:00:50 +0000
-Subject: Re: [PATCH v1 10/10] lkdtm: Fix execute_[user]_location()
-Message-Id: <8f2e80a9-bef1-2594-61ed-85d510e00cf2@csgroup.eu>
+Date: Mon, 11 Oct 2021 15:25:32 +0000
+Subject: [PATCH v1 05/10] asm-generic: Define 'funct_descr_t' to commonly describe function descriptors
+Message-Id: <02224551451ab9c37055499fc621c41246c81125.1633964380.git.christophe.leroy@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <cover.1633964380.git.christophe.leroy@csgroup.eu>
- <c551f3f4b803d1a4a184b0fa94475d405ba436d8.1633964380.git.christophe.leroy@csgroup.eu>
- <202110130012.4608FFD38E@keescook>
-In-Reply-To: <202110130012.4608FFD38E@keescook>
+In-Reply-To: <cover.1633964380.git.christophe.leroy@csgroup.eu>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Kees Cook <keescook@chromium.org>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
+We have three architectures using function descriptors, each with its
+own name.
 
+Add a common typedef that can be used in generic code.
 
-Le 13/10/2021 à 09:16, Kees Cook a écrit :
-> On Mon, Oct 11, 2021 at 05:25:37PM +0200, Christophe Leroy wrote:
->> execute_location() and execute_user_location() intent
->> to copy do_nothing() text and execute it at a new location.
->> However, at the time being it doesn't copy do_nothing() function
->> but do_nothing() function descriptor which still points to the
->> original text. So at the end it still executes do_nothing() at
->> its original location allthough using a copied function descriptor.
->>
->> So, fix that by really copying do_nothing() text and build a new
->> function descriptor by copying do_nothing() function descriptor and
->> updating the target address with the new location.
->>
->> Also fix the displayed addresses by dereferencing do_nothing()
->> function descriptor.
->>
->> Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
->> ---
->>   drivers/misc/lkdtm/perms.c | 45 +++++++++++++++++++++++++++++++-------
->>   1 file changed, 37 insertions(+), 8 deletions(-)
->>
->> diff --git a/drivers/misc/lkdtm/perms.c b/drivers/misc/lkdtm/perms.c
->> index da16564e1ecd..1d03cd44c21d 100644
->> --- a/drivers/misc/lkdtm/perms.c
->> +++ b/drivers/misc/lkdtm/perms.c
->> @@ -44,19 +44,42 @@ static noinline void do_overwritten(void)
->>   	return;
->>   }
->>   
->> +static void *setup_function_descriptor(funct_descr_t *fdesc, void *dst)
->> +{
->> +	int err;
->> +
->> +	if (!__is_defined(HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR))
->> +		return dst;
->> +
->> +	err = copy_from_kernel_nofault(fdesc, do_nothing, sizeof(*fdesc));
->> +	if (err < 0)
->> +		return ERR_PTR(err);
->> +
->> +	fdesc->addr = (unsigned long)dst;
->> +	barrier();
->> +
->> +	return fdesc;
->> +}
->> +
->>   static noinline void execute_location(void *dst, bool write)
->>   {
->> -	void (*func)(void) = dst;
->> +	void (*func)(void);
->> +	funct_descr_t fdesc;
->> +	void *do_nothing_text = dereference_symbol_descriptor(do_nothing);
->>   
->> -	pr_info("attempting ok execution at %px\n", do_nothing);
->> +	pr_info("attempting ok execution at %px\n", do_nothing_text);
->>   	do_nothing();
->>   
->>   	if (write = CODE_WRITE) {
->> -		memcpy(dst, do_nothing, EXEC_SIZE);
->> +		memcpy(dst, do_nothing_text, EXEC_SIZE);
->>   		flush_icache_range((unsigned long)dst,
->>   				   (unsigned long)dst + EXEC_SIZE);
->>   	}
->> -	pr_info("attempting bad execution at %px\n", func);
->> +	func = setup_function_descriptor(&fdesc, dst);
->> +	if (IS_ERR(func))
->> +		return;
-> 
-> I think this error case should complain with some details. :) Maybe:
-> 
-> 	pr_err("FAIL: could not build function descriptor for %px\n", dst);
+Also add a stub typedef for architecture without function descriptors,
+to avoid a forest of #ifdefs.
 
-Ok, I was going to add that in v2, but after one more thought I realise 
-that there's no need to use copy_from_kernel_nofault() here, we are 
-copying a static object into our stack, so a memcpy() will be good enough.
+Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
+---
+ arch/ia64/include/asm/sections.h    | 1 +
+ arch/parisc/include/asm/sections.h  | 1 +
+ arch/powerpc/include/asm/sections.h | 1 +
+ include/asm-generic/sections.h      | 3 +++
+ 4 files changed, 6 insertions(+)
 
-> 
->> +
->> +	pr_info("attempting bad execution at %px\n", dst);
-> 
-> And then leave this pr_info() as it was, before the
-> setup_function_descriptor() call.
-> 
->>   	func();
->>   	pr_err("FAIL: func returned\n");
->>   }
->> @@ -66,16 +89,22 @@ static void execute_user_location(void *dst)
->>   	int copied;
->>   
->>   	/* Intentionally crossing kernel/user memory boundary. */
->> -	void (*func)(void) = dst;
->> +	void (*func)(void);
->> +	funct_descr_t fdesc;
->> +	void *do_nothing_text = dereference_symbol_descriptor(do_nothing);
->>   
->> -	pr_info("attempting ok execution at %px\n", do_nothing);
->> +	pr_info("attempting ok execution at %px\n", do_nothing_text);
->>   	do_nothing();
->>   
->> -	copied = access_process_vm(current, (unsigned long)dst, do_nothing,
->> +	copied = access_process_vm(current, (unsigned long)dst, do_nothing_text,
->>   				   EXEC_SIZE, FOLL_WRITE);
->>   	if (copied < EXEC_SIZE)
->>   		return;
->> -	pr_info("attempting bad execution at %px\n", func);
->> +	func = setup_function_descriptor(&fdesc, dst);
->> +	if (IS_ERR(func))
->> +		return;
->> +
->> +	pr_info("attempting bad execution at %px\n", dst);
-> 
-> Same here.
-> 
->>   	func();
->>   	pr_err("FAIL: func returned\n");
->>   }
->> -- 
->> 2.31.1
->>
-> 
+diff --git a/arch/ia64/include/asm/sections.h b/arch/ia64/include/asm/sections.h
+index 80f5868afb06..929b5c535620 100644
+--- a/arch/ia64/include/asm/sections.h
++++ b/arch/ia64/include/asm/sections.h
+@@ -8,6 +8,7 @@
+  */
+ 
+ #define HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR 1
++typedef struct fdesc funct_descr_t;
+ 
+ #include <linux/elf.h>
+ #include <linux/uaccess.h>
+diff --git a/arch/parisc/include/asm/sections.h b/arch/parisc/include/asm/sections.h
+index 2e781ee19b66..329e80f7af0a 100644
+--- a/arch/parisc/include/asm/sections.h
++++ b/arch/parisc/include/asm/sections.h
+@@ -4,6 +4,7 @@
+ 
+ #ifdef CONFIG_64BIT
+ #define HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR 1
++typedef Elf64_Fdesc funct_descr_t;
+ #endif
+ 
+ /* nothing to see, move along */
+diff --git a/arch/powerpc/include/asm/sections.h b/arch/powerpc/include/asm/sections.h
+index b7f1ba04e756..d0d5287fa568 100644
+--- a/arch/powerpc/include/asm/sections.h
++++ b/arch/powerpc/include/asm/sections.h
+@@ -10,6 +10,7 @@
+ 
+ #ifdef PPC64_ELF_ABI_v1
+ #define HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR 1
++typedef struct ppc64_opd_entry funct_descr_t;
+ #endif
+ 
+ #include <asm-generic/sections.h>
+diff --git a/include/asm-generic/sections.h b/include/asm-generic/sections.h
+index 1db5cfd69817..436412d94054 100644
+--- a/include/asm-generic/sections.h
++++ b/include/asm-generic/sections.h
+@@ -63,6 +63,9 @@ extern __visible const void __nosave_begin, __nosave_end;
+ #else
+ #define dereference_function_descriptor(p) ((void *)(p))
+ #define dereference_kernel_function_descriptor(p) ((void *)(p))
++typedef struct {
++	unsigned long addr;
++} funct_descr_t;
+ #endif
+ 
+ /* random extra sections (if any).  Override
+-- 
+2.31.1
