@@ -1,117 +1,50 @@
-From: Dmitry Osipenko <digetx@gmail.com>
-Date: Wed, 27 Oct 2021 21:17:00 +0000
-Subject: [PATCH v2 30/45] mfd: ene-kb3930: Use devm_register_power_handler()
-Message-Id: <20211027211715.12671-31-digetx@gmail.com>
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Mon, 11 Oct 2021 15:25:27 +0000
+Subject: [PATCH v1 00/10] Fix LKDTM for PPC64/IA64/PARISC
+Message-Id: <cover.1633964380.git.christophe.leroy@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211027211715.12671-1-digetx@gmail.com>
-In-Reply-To: <20211027211715.12671-1-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Lee Jones <lee.jones@linaro.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Mark Brown <broonie@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Russell King <linux@armlinux.org.uk>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
-Cc: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Linus Walleij <linus.walleij@linaro.org>, Chen-Yu Tsai <wens@csie.org>, =?UTF-8?q?Jonathan=20Neusch=C3=A4fer?= <j.neuschaefer@gmx.net>, Tony Lindgren <tony@atomide.com>, Liam Girdwood <lgirdwood@gmail.com>, Philipp Zabel <p.zabel@pengutronix.de>, Vladimir Zapolskiy <vz@mleia.com>, Avi Fishman <avifishman70@gmail.com>, Tomer Maimon <tmaimon77@gmail.com>, Tali Perry <tali.perry1@gmail.com>, Patrick Venture <venture@google.com>, Nancy Yuen <yuenn@google.com>, Benjamin Fair <benjaminfair@google.com>, Pavel Machek <pavel@ucw.cz>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-omap@vger.kernel.org, openbmc@lists.ozlabs.org, linux-tegra@vger.kernel.org, linux-pm@vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-Use devm_register_power_handler() that replaces global pm_power_off
-variable and allows to register multiple power-off handlers. It also
-provides restart-handler support, i.e. all in one API.
+PPC64/IA64/PARISC have function descriptors. LKDTM doesn't work
+on those three architectures because LKDTM messes up function
+descriptors with functions.
 
-Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
----
- drivers/mfd/ene-kb3930.c | 45 ++++++++++++++--------------------------
- 1 file changed, 15 insertions(+), 30 deletions(-)
+This series does some cleanup in the three architectures and
+refactors function descriptors so that it can then easily use it
+in a generic way in LKDTM.
 
-diff --git a/drivers/mfd/ene-kb3930.c b/drivers/mfd/ene-kb3930.c
-index 1b73318d1f1f..6a3c5f48e5e1 100644
---- a/drivers/mfd/ene-kb3930.c
-+++ b/drivers/mfd/ene-kb3930.c
-@@ -31,10 +31,9 @@ struct kb3930 {
- 	struct i2c_client *client;
- 	struct regmap *ram_regmap;
- 	struct gpio_descs *off_gpios;
-+	struct power_handler power_handler;
- };
- 
--static struct kb3930 *kb3930_power_off;
--
- #define EC_GPIO_WAVE		0
- #define EC_GPIO_OFF_MODE	1
- 
-@@ -60,21 +59,19 @@ static void kb3930_off(struct kb3930 *ddata, int off_mode)
- 	}
- }
- 
--static int kb3930_restart(struct notifier_block *this,
--			  unsigned long mode, void *cmd)
-+static void kb3930_restart(struct restart_data *data)
- {
--	kb3930_off(kb3930_power_off, EC_OFF_MODE_REBOOT);
--	return NOTIFY_DONE;
-+	struct kb3930 *ddata = data->cb_data;
-+
-+	kb3930_off(ddata, EC_OFF_MODE_REBOOT);
- }
- 
--static void kb3930_pm_power_off(void)
-+static void kb3930_power_off(struct power_off_data *data)
- {
--	kb3930_off(kb3930_power_off, EC_OFF_MODE_POWER);
--}
-+	struct kb3930 *ddata = data->cb_data;
- 
--static struct notifier_block kb3930_restart_nb = {
--	.notifier_call = kb3930_restart,
--};
-+	kb3930_off(ddata, EC_OFF_MODE_POWER);
-+}
- 
- static const struct mfd_cell ariel_ec_cells[] = {
- 	{ .name = "dell-wyse-ariel-led", },
-@@ -131,7 +128,6 @@ static int kb3930_probe(struct i2c_client *client)
- 	if (!ddata)
- 		return -ENOMEM;
- 
--	kb3930_power_off = ddata;
- 	ddata->client = client;
- 	i2c_set_clientdata(client, ddata);
- 
-@@ -169,24 +165,14 @@ static int kb3930_probe(struct i2c_client *client)
- 	}
- 
- 	if (ddata->off_gpios) {
--		register_restart_handler(&kb3930_restart_nb);
--		if (!pm_power_off)
--			pm_power_off = kb3930_pm_power_off;
--	}
-+		ddata->power_handler.cb_data = ddata;
-+		ddata->power_handler.restart_cb = kb3930_restart;
-+		ddata->power_handler.power_off_cb = kb3930_power_off;
- 
--	return 0;
--}
--
--static int kb3930_remove(struct i2c_client *client)
--{
--	struct kb3930 *ddata = i2c_get_clientdata(client);
--
--	if (ddata->off_gpios) {
--		if (pm_power_off = kb3930_pm_power_off)
--			pm_power_off = NULL;
--		unregister_restart_handler(&kb3930_restart_nb);
-+		ret = devm_register_power_handler(dev, &ddata->power_handler);
-+		if (ret)
-+			return ret;
- 	}
--	kb3930_power_off = NULL;
- 
- 	return 0;
- }
-@@ -199,7 +185,6 @@ MODULE_DEVICE_TABLE(of, kb3930_dt_ids);
- 
- static struct i2c_driver kb3930_driver = {
- 	.probe_new = kb3930_probe,
--	.remove = kb3930_remove,
- 	.driver = {
- 		.name = "ene-kb3930",
- 		.of_match_table = kb3930_dt_ids,
+Patch 6 is not absolutely necessary but it is a good trivial cleanup.
+
+Christophe Leroy (10):
+  powerpc: Move 'struct ppc64_opd_entry' back into asm/elf.h
+  powerpc: Rename 'funcaddr' to 'addr' in 'struct ppc64_opd_entry'
+  ia64: Rename 'ip' to 'addr' in 'struct fdesc'
+  asm-generic: Use HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR to define
+    associated stubs
+  asm-generic: Define 'funct_descr_t' to commonly describe function
+    descriptors
+  asm-generic: Refactor dereference_[kernel]_function_descriptor()
+  lkdtm: Force do_nothing() out of line
+  lkdtm: Really write into kernel text in WRITE_KERN
+  lkdtm: Fix lkdtm_EXEC_RODATA()
+  lkdtm: Fix execute_[user]_location()
+
+ arch/ia64/include/asm/elf.h         |  2 +-
+ arch/ia64/include/asm/sections.h    | 24 ++---------
+ arch/ia64/kernel/module.c           |  6 +--
+ arch/parisc/include/asm/sections.h  | 16 +++----
+ arch/parisc/kernel/process.c        | 21 ---------
+ arch/powerpc/include/asm/elf.h      |  7 +++
+ arch/powerpc/include/asm/sections.h | 30 +++----------
+ arch/powerpc/include/uapi/asm/elf.h |  8 ----
+ arch/powerpc/kernel/module_64.c     |  6 +--
+ drivers/misc/lkdtm/perms.c          | 66 +++++++++++++++++++++++------
+ include/asm-generic/sections.h      | 24 ++++++++++-
+ 11 files changed, 102 insertions(+), 108 deletions(-)
+
 -- 
-2.33.1
+2.31.1
