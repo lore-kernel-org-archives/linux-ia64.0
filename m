@@ -1,134 +1,171 @@
-From: Dmitry Osipenko <digetx@gmail.com>
-Date: Wed, 27 Oct 2021 21:16:57 +0000
-Subject: [PATCH v2 27/45] mfd: ntxec: Use devm_register_power_handler()
-Message-Id: <20211027211715.12671-28-digetx@gmail.com>
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Mon, 11 Oct 2021 15:25:33 +0000
+Subject: [PATCH v1 06/10] asm-generic: Refactor dereference_[kernel]_function_descriptor()
+Message-Id: <c215b244a19a07327ec81bf99f3c5f89c68af7b4.1633964380.git.christophe.leroy@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211027211715.12671-1-digetx@gmail.com>
-In-Reply-To: <20211027211715.12671-1-digetx@gmail.com>
+References: <cover.1633964380.git.christophe.leroy@csgroup.eu>
+In-Reply-To: <cover.1633964380.git.christophe.leroy@csgroup.eu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Lee Jones <lee.jones@linaro.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Mark Brown <broonie@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Russell King <linux@armlinux.org.uk>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
-Cc: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Linus Walleij <linus.walleij@linaro.org>, Chen-Yu Tsai <wens@csie.org>, =?UTF-8?q?Jonathan=20Neusch=C3=A4fer?= <j.neuschaefer@gmx.net>, Tony Lindgren <tony@atomide.com>, Liam Girdwood <lgirdwood@gmail.com>, Philipp Zabel <p.zabel@pengutronix.de>, Vladimir Zapolskiy <vz@mleia.com>, Avi Fishman <avifishman70@gmail.com>, Tomer Maimon <tmaimon77@gmail.com>, Tali Perry <tali.perry1@gmail.com>, Patrick Venture <venture@google.com>, Nancy Yuen <yuenn@google.com>, Benjamin Fair <benjaminfair@google.com>, Pavel Machek <pavel@ucw.cz>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-omap@vger.kernel.org, openbmc@lists.ozlabs.org, linux-tegra@vger.kernel.org, linux-pm@vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-Use devm_register_power_handler() that replaces global pm_power_off
-variable and allows to register multiple power-off handlers. It also
-provides restart-handler support, i.e. all in one API.
+dereference_function_descriptor() and
+dereference_kernel_function_descriptor() are identical on the
+three architectures implementing them.
 
-Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
+Make it common.
+
+Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
 ---
- drivers/mfd/ntxec.c | 50 ++++++++++-----------------------------------
- 1 file changed, 11 insertions(+), 39 deletions(-)
+ arch/ia64/include/asm/sections.h    | 19 -------------------
+ arch/parisc/include/asm/sections.h  |  9 ---------
+ arch/parisc/kernel/process.c        | 21 ---------------------
+ arch/powerpc/include/asm/sections.h | 23 -----------------------
+ include/asm-generic/sections.h      | 18 ++++++++++++++++++
+ 5 files changed, 18 insertions(+), 72 deletions(-)
 
-diff --git a/drivers/mfd/ntxec.c b/drivers/mfd/ntxec.c
-index b711e73eedcb..fd6410cbe153 100644
---- a/drivers/mfd/ntxec.c
-+++ b/drivers/mfd/ntxec.c
-@@ -32,12 +32,11 @@
- #define NTXEC_POWERKEEP_VALUE	0x0800
- #define NTXEC_RESET_VALUE	0xff00
+diff --git a/arch/ia64/include/asm/sections.h b/arch/ia64/include/asm/sections.h
+index 929b5c535620..d9addaea8339 100644
+--- a/arch/ia64/include/asm/sections.h
++++ b/arch/ia64/include/asm/sections.h
+@@ -30,23 +30,4 @@ extern char __start_gate_brl_fsys_bubble_down_patchlist[], __end_gate_brl_fsys_b
+ extern char __start_unwind[], __end_unwind[];
+ extern char __start_ivt_text[], __end_ivt_text[];
  
--static struct i2c_client *poweroff_restart_client;
--
--static void ntxec_poweroff(void)
-+static void ntxec_poweroff(struct power_off_data *data)
- {
- 	int res;
- 	u8 buf[3] = { NTXEC_REG_POWEROFF };
-+	struct i2c_client *poweroff_restart_client = data->cb_data;
- 	struct i2c_msg msgs[] = {
- 		{
- 			.addr = poweroff_restart_client->addr,
-@@ -62,8 +61,7 @@ static void ntxec_poweroff(void)
- 	msleep(5000);
- }
- 
--static int ntxec_restart(struct notifier_block *nb,
--			 unsigned long action, void *data)
-+static void ntxec_restart(struct restart_data *data)
- {
- 	int res;
- 	u8 buf[3] = { NTXEC_REG_RESET };
-@@ -72,6 +70,7 @@ static int ntxec_restart(struct notifier_block *nb,
- 	 * it causes an I2C error. (The reset handler in the downstream driver
- 	 * does send the full two-byte value, but doesn't check the result).
- 	 */
-+	struct i2c_client *poweroff_restart_client = data->cb_data;
- 	struct i2c_msg msgs[] = {
- 		{
- 			.addr = poweroff_restart_client->addr,
-@@ -87,13 +86,11 @@ static int ntxec_restart(struct notifier_block *nb,
- 	if (res < 0)
- 		dev_warn(&poweroff_restart_client->dev,
- 			 "Failed to restart (err = %d)\n", res);
--
--	return NOTIFY_DONE;
- }
- 
--static struct notifier_block ntxec_restart_handler = {
--	.notifier_call = ntxec_restart,
--	.priority = 128,
-+static struct power_handler ntxec_power_handler = {
-+	.restart_cb = ntxec_restart,
-+	.power_off_cb = ntxec_poweroff,
- };
- 
- static int regmap_ignore_write(void *context,
-@@ -208,25 +205,12 @@ static int ntxec_probe(struct i2c_client *client)
- 		if (res < 0)
- 			return res;
- 
--		if (poweroff_restart_client)
--			/*
--			 * Another instance of the driver already took
--			 * poweroff/restart duties.
--			 */
--			dev_err(ec->dev, "poweroff_restart_client already assigned\n");
--		else
--			poweroff_restart_client = client;
--
--		if (pm_power_off)
--			/* Another driver already registered a poweroff handler. */
--			dev_err(ec->dev, "pm_power_off already assigned\n");
--		else
--			pm_power_off = ntxec_poweroff;
--
--		res = register_restart_handler(&ntxec_restart_handler);
-+		ntxec_power_handler.cb_data = client;
-+
-+		res = devm_register_power_handler(ec->dev, &ntxec_power_handler);
- 		if (res)
- 			dev_err(ec->dev,
--				"Failed to register restart handler: %d\n", res);
-+				"Failed to register power handler: %d\n", res);
- 	}
- 
- 	i2c_set_clientdata(client, ec);
-@@ -239,17 +223,6 @@ static int ntxec_probe(struct i2c_client *client)
- 	return res;
- }
- 
--static int ntxec_remove(struct i2c_client *client)
+-#undef dereference_function_descriptor
+-static inline void *dereference_function_descriptor(void *ptr)
 -{
--	if (client = poweroff_restart_client) {
--		poweroff_restart_client = NULL;
--		pm_power_off = NULL;
--		unregister_restart_handler(&ntxec_restart_handler);
--	}
+-	struct fdesc *desc = ptr;
+-	void *p;
 -
--	return 0;
+-	if (!get_kernel_nofault(p, (void *)&desc->addr))
+-		ptr = p;
+-	return ptr;
 -}
 -
- static const struct of_device_id of_ntxec_match_table[] = {
- 	{ .compatible = "netronix,ntxec", },
- 	{}
-@@ -262,7 +235,6 @@ static struct i2c_driver ntxec_driver = {
- 		.of_match_table = of_ntxec_match_table,
- 	},
- 	.probe_new = ntxec_probe,
--	.remove = ntxec_remove,
- };
- module_i2c_driver(ntxec_driver);
+-#undef dereference_kernel_function_descriptor
+-static inline void *dereference_kernel_function_descriptor(void *ptr)
+-{
+-	if (ptr < (void *)__start_opd || ptr >= (void *)__end_opd)
+-		return ptr;
+-	return dereference_function_descriptor(ptr);
+-}
+-
+ #endif /* _ASM_IA64_SECTIONS_H */
+diff --git a/arch/parisc/include/asm/sections.h b/arch/parisc/include/asm/sections.h
+index 329e80f7af0a..b041fb32a300 100644
+--- a/arch/parisc/include/asm/sections.h
++++ b/arch/parisc/include/asm/sections.h
+@@ -12,13 +12,4 @@ typedef Elf64_Fdesc funct_descr_t;
  
+ extern char __alt_instructions[], __alt_instructions_end[];
+ 
+-#ifdef CONFIG_64BIT
+-
+-#undef dereference_function_descriptor
+-void *dereference_function_descriptor(void *);
+-
+-#undef dereference_kernel_function_descriptor
+-void *dereference_kernel_function_descriptor(void *);
+-#endif
+-
+ #endif
+diff --git a/arch/parisc/kernel/process.c b/arch/parisc/kernel/process.c
+index 38ec4ae81239..7382576b52a8 100644
+--- a/arch/parisc/kernel/process.c
++++ b/arch/parisc/kernel/process.c
+@@ -266,27 +266,6 @@ get_wchan(struct task_struct *p)
+ 	return 0;
+ }
+ 
+-#ifdef CONFIG_64BIT
+-void *dereference_function_descriptor(void *ptr)
+-{
+-	Elf64_Fdesc *desc = ptr;
+-	void *p;
+-
+-	if (!get_kernel_nofault(p, (void *)&desc->addr))
+-		ptr = p;
+-	return ptr;
+-}
+-
+-void *dereference_kernel_function_descriptor(void *ptr)
+-{
+-	if (ptr < (void *)__start_opd ||
+-			ptr >= (void *)__end_opd)
+-		return ptr;
+-
+-	return dereference_function_descriptor(ptr);
+-}
+-#endif
+-
+ static inline unsigned long brk_rnd(void)
+ {
+ 	return (get_random_int() & BRK_RND_MASK) << PAGE_SHIFT;
+diff --git a/arch/powerpc/include/asm/sections.h b/arch/powerpc/include/asm/sections.h
+index d0d5287fa568..8f8e95f234e2 100644
+--- a/arch/powerpc/include/asm/sections.h
++++ b/arch/powerpc/include/asm/sections.h
+@@ -72,29 +72,6 @@ static inline int overlaps_kernel_text(unsigned long start, unsigned long end)
+ 		(unsigned long)_stext < end;
+ }
+ 
+-#ifdef PPC64_ELF_ABI_v1
+-
+-#undef dereference_function_descriptor
+-static inline void *dereference_function_descriptor(void *ptr)
+-{
+-	struct ppc64_opd_entry *desc = ptr;
+-	void *p;
+-
+-	if (!get_kernel_nofault(p, (void *)&desc->addr))
+-		ptr = p;
+-	return ptr;
+-}
+-
+-#undef dereference_kernel_function_descriptor
+-static inline void *dereference_kernel_function_descriptor(void *ptr)
+-{
+-	if (ptr < (void *)__start_opd || ptr >= (void *)__end_opd)
+-		return ptr;
+-
+-	return dereference_function_descriptor(ptr);
+-}
+-#endif /* PPC64_ELF_ABI_v1 */
+-
+ #endif
+ 
+ #endif /* __KERNEL__ */
+diff --git a/include/asm-generic/sections.h b/include/asm-generic/sections.h
+index 436412d94054..5baaf9d7c671 100644
+--- a/include/asm-generic/sections.h
++++ b/include/asm-generic/sections.h
+@@ -60,6 +60,24 @@ extern __visible const void __nosave_begin, __nosave_end;
+ 
+ /* Function descriptor handling (if any).  Override in asm/sections.h */
+ #ifdef HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR
++static inline void *dereference_function_descriptor(void *ptr)
++{
++	funct_descr_t *desc = ptr;
++	void *p;
++
++	if (!get_kernel_nofault(p, (void *)&desc->addr))
++		ptr = p;
++	return ptr;
++}
++
++static inline void *dereference_kernel_function_descriptor(void *ptr)
++{
++	if (ptr < (void *)__start_opd || ptr >= (void *)__end_opd)
++		return ptr;
++
++	return dereference_function_descriptor(ptr);
++}
++
+ #else
+ #define dereference_function_descriptor(p) ((void *)(p))
+ #define dereference_kernel_function_descriptor(p) ((void *)(p))
 -- 
-2.33.1
+2.31.1
