@@ -1,111 +1,110 @@
 From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Sun, 17 Oct 2021 12:38:24 +0000
-Subject: [PATCH v3 11/12] lkdtm: Fix execute_[user]_location()
-Message-Id: <d4688c2af08dda706d3b6786ae5ec5a74e6171f1.1634457599.git.christophe.leroy@csgroup.eu>
+Date: Mon, 11 Oct 2021 15:25:31 +0000
+Subject: [PATCH v1 04/10] asm-generic: Use HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR to define associated stubs
+Message-Id: <8db2a3ca2b26a8325c671baa3e0492914597f079.1633964380.git.christophe.leroy@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1634457599.git.christophe.leroy@csgroup.eu>
-In-Reply-To: <cover.1634457599.git.christophe.leroy@csgroup.eu>
+References: <cover.1633964380.git.christophe.leroy@csgroup.eu>
+In-Reply-To: <cover.1633964380.git.christophe.leroy@csgroup.eu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-execute_location() and execute_user_location() intent
-to copy do_nothing() text and execute it at a new location.
-However, at the time being it doesn't copy do_nothing() function
-but do_nothing() function descriptor which still points to the
-original text. So at the end it still executes do_nothing() at
-its original location allthough using a copied function descriptor.
-
-So, fix that by really copying do_nothing() text and build a new
-function descriptor by copying do_nothing() function descriptor and
-updating the target address with the new location.
-
-Also fix the displayed addresses by dereferencing do_nothing()
-function descriptor.
+Use HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR instead of 'dereference_function_descriptor'
+to know whether arch has function descriptors.
 
 Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
 ---
- drivers/misc/lkdtm/perms.c | 37 ++++++++++++++++++++++++++++---------
- 1 file changed, 28 insertions(+), 9 deletions(-)
+ arch/ia64/include/asm/sections.h    | 4 ++--
+ arch/parisc/include/asm/sections.h  | 6 ++++--
+ arch/powerpc/include/asm/sections.h | 6 ++++--
+ include/asm-generic/sections.h      | 3 ++-
+ 4 files changed, 12 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/misc/lkdtm/perms.c b/drivers/misc/lkdtm/perms.c
-index 035fcca441f0..1cf24c4a79e9 100644
---- a/drivers/misc/lkdtm/perms.c
-+++ b/drivers/misc/lkdtm/perms.c
-@@ -44,19 +44,34 @@ static noinline void do_overwritten(void)
- 	return;
- }
+diff --git a/arch/ia64/include/asm/sections.h b/arch/ia64/include/asm/sections.h
+index 35f24e52149a..80f5868afb06 100644
+--- a/arch/ia64/include/asm/sections.h
++++ b/arch/ia64/include/asm/sections.h
+@@ -7,6 +7,8 @@
+  *	David Mosberger-Tang <davidm@hpl.hp.com>
+  */
  
-+static void *setup_function_descriptor(func_desc_t *fdesc, void *dst)
-+{
-+	if (!have_function_descriptors())
-+		return dst;
++#define HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR 1
 +
-+	memcpy(fdesc, do_nothing, sizeof(*fdesc));
-+	fdesc->addr = (unsigned long)dst;
-+	barrier();
-+
-+	return fdesc;
-+}
-+
- static noinline void execute_location(void *dst, bool write)
+ #include <linux/elf.h>
+ #include <linux/uaccess.h>
+ #include <asm-generic/sections.h>
+@@ -27,8 +29,6 @@ extern char __start_gate_brl_fsys_bubble_down_patchlist[], __end_gate_brl_fsys_b
+ extern char __start_unwind[], __end_unwind[];
+ extern char __start_ivt_text[], __end_ivt_text[];
+ 
+-#define HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR 1
+-
+ #undef dereference_function_descriptor
+ static inline void *dereference_function_descriptor(void *ptr)
  {
--	void (*func)(void) = dst;
-+	void (*func)(void);
-+	func_desc_t fdesc;
-+	void *do_nothing_text = dereference_function_descriptor(do_nothing);
+diff --git a/arch/parisc/include/asm/sections.h b/arch/parisc/include/asm/sections.h
+index bb52aea0cb21..2e781ee19b66 100644
+--- a/arch/parisc/include/asm/sections.h
++++ b/arch/parisc/include/asm/sections.h
+@@ -2,6 +2,10 @@
+ #ifndef _PARISC_SECTIONS_H
+ #define _PARISC_SECTIONS_H
  
--	pr_info("attempting ok execution at %px\n", do_nothing);
-+	pr_info("attempting ok execution at %px\n", do_nothing_text);
- 	do_nothing();
++#ifdef CONFIG_64BIT
++#define HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR 1
++#endif
++
+ /* nothing to see, move along */
+ #include <asm-generic/sections.h>
  
- 	if (write = CODE_WRITE) {
--		memcpy(dst, do_nothing, EXEC_SIZE);
-+		memcpy(dst, do_nothing_text, EXEC_SIZE);
- 		flush_icache_range((unsigned long)dst,
- 				   (unsigned long)dst + EXEC_SIZE);
- 	}
--	pr_info("attempting bad execution at %px\n", func);
-+	pr_info("attempting bad execution at %px\n", dst);
-+	func = setup_function_descriptor(&fdesc, dst);
- 	func();
- 	pr_err("FAIL: func returned\n");
- }
-@@ -66,16 +81,19 @@ static void execute_user_location(void *dst)
- 	int copied;
+@@ -9,8 +13,6 @@ extern char __alt_instructions[], __alt_instructions_end[];
  
- 	/* Intentionally crossing kernel/user memory boundary. */
--	void (*func)(void) = dst;
-+	void (*func)(void);
-+	func_desc_t fdesc;
-+	void *do_nothing_text = dereference_function_descriptor(do_nothing);
+ #ifdef CONFIG_64BIT
  
--	pr_info("attempting ok execution at %px\n", do_nothing);
-+	pr_info("attempting ok execution at %px\n", do_nothing_text);
- 	do_nothing();
+-#define HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR 1
+-
+ #undef dereference_function_descriptor
+ void *dereference_function_descriptor(void *);
  
--	copied = access_process_vm(current, (unsigned long)dst, do_nothing,
-+	copied = access_process_vm(current, (unsigned long)dst, do_nothing_text,
- 				   EXEC_SIZE, FOLL_WRITE);
- 	if (copied < EXEC_SIZE)
- 		return;
--	pr_info("attempting bad execution at %px\n", func);
-+	pr_info("attempting bad execution at %px\n", dst);
-+	func = setup_function_descriptor(&fdesc, dst);
- 	func();
- 	pr_err("FAIL: func returned\n");
- }
-@@ -153,7 +171,8 @@ void lkdtm_EXEC_VMALLOC(void)
+diff --git a/arch/powerpc/include/asm/sections.h b/arch/powerpc/include/asm/sections.h
+index 32e7035863ac..b7f1ba04e756 100644
+--- a/arch/powerpc/include/asm/sections.h
++++ b/arch/powerpc/include/asm/sections.h
+@@ -8,6 +8,10 @@
  
- void lkdtm_EXEC_RODATA(void)
+ #define arch_is_kernel_initmem_freed arch_is_kernel_initmem_freed
+ 
++#ifdef PPC64_ELF_ABI_v1
++#define HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR 1
++#endif
++
+ #include <asm-generic/sections.h>
+ 
+ extern bool init_mem_is_free;
+@@ -69,8 +73,6 @@ static inline int overlaps_kernel_text(unsigned long start, unsigned long end)
+ 
+ #ifdef PPC64_ELF_ABI_v1
+ 
+-#define HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR 1
+-
+ #undef dereference_function_descriptor
+ static inline void *dereference_function_descriptor(void *ptr)
  {
--	execute_location(lkdtm_rodata_do_nothing, CODE_AS_IS);
-+	execute_location(dereference_function_descriptor(lkdtm_rodata_do_nothing),
-+			 CODE_AS_IS);
- }
+diff --git a/include/asm-generic/sections.h b/include/asm-generic/sections.h
+index d16302d3eb59..1db5cfd69817 100644
+--- a/include/asm-generic/sections.h
++++ b/include/asm-generic/sections.h
+@@ -59,7 +59,8 @@ extern char __noinstr_text_start[], __noinstr_text_end[];
+ extern __visible const void __nosave_begin, __nosave_end;
  
- void lkdtm_EXEC_USERSPACE(void)
+ /* Function descriptor handling (if any).  Override in asm/sections.h */
+-#ifndef dereference_function_descriptor
++#ifdef HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR
++#else
+ #define dereference_function_descriptor(p) ((void *)(p))
+ #define dereference_kernel_function_descriptor(p) ((void *)(p))
+ #endif
 -- 
 2.31.1
