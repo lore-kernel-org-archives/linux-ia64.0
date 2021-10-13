@@ -1,12 +1,12 @@
 From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Wed, 13 Oct 2021 07:35:34 +0000
+Date: Wed, 13 Oct 2021 07:39:34 +0000
 Subject: Re: [PATCH v1 09/10] lkdtm: Fix lkdtm_EXEC_RODATA()
-Message-Id: <5181d261-fe93-5e21-5013-321d85e22354@csgroup.eu>
+Message-Id: <be307455-b02b-f382-851f-091ea26040b7@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <cover.1633964380.git.christophe.leroy@csgroup.eu>
  <7da92e59e148bd23564d63bdd8bcfaba0ba6d1f1.1633964380.git.christophe.leroy@csgroup.eu>
- <202110130008.EC5E957D4A@keescook>
-In-Reply-To: <202110130008.EC5E957D4A@keescook>
+ <202110130018.7B2129375@keescook>
+In-Reply-To: <202110130018.7B2129375@keescook>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
@@ -15,33 +15,12 @@ Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@sa
 
 
 
-Le 13/10/2021 à 09:09, Kees Cook a écrit :
+Le 13/10/2021 à 09:23, Kees Cook a écrit :
 > On Mon, Oct 11, 2021 at 05:25:36PM +0200, Christophe Leroy wrote:
 >> Behind a location, lkdtm_EXEC_RODATA() executes a real function,
 >> not a copy of do_nothing().
 >>
 >> So do it directly instead of using execute_location().
-> 
-> I don't understand this. Why does the next patch not fix this?
-
-Well, probably it would, but it looked incorrect in my mind.
-
-lkdtm_rodata_do_nothing() is a function which has its own function 
-descriptor, it is not a copy of do_nothing().
-
-If we use execute_location() as modified by next patch, then we will 
-execute it using the function descriptor of do_nothing(). Allthough it 
-most likely works (at least on powerpc as it uses the same TOC) it looks 
-odd to me to do so.
-
-Am I missing something ?
-
-Christophe
-
-
-> 
-> -Kees
-> 
 >>
 >> And fix displayed addresses by dereferencing the function descriptors.
 >>
@@ -55,7 +34,7 @@ Christophe
 >> --- a/drivers/misc/lkdtm/perms.c
 >> +++ b/drivers/misc/lkdtm/perms.c
 >> @@ -153,7 +153,14 @@ void lkdtm_EXEC_VMALLOC(void)
->>   
+>>
 >>   void lkdtm_EXEC_RODATA(void)
 >>   {
 >> -	execute_location(lkdtm_rodata_do_nothing, CODE_AS_IS);
@@ -68,9 +47,28 @@ Christophe
 >> +	lkdtm_rodata_do_nothing();
 >> +	pr_err("FAIL: func returned\n");
 >>   }
->>   
->>   void lkdtm_EXEC_USERSPACE(void)
->> -- 
->> 2.31.1
->>
 > 
+> (In re-reading this more carefully, I see now why kallsyms.h is used
+> earlier: _function_ vs _symbol_ descriptor.)
+> 
+> In the next patch:
+> 
+> static noinline void execute_location(void *dst, bool write)
+> {
+> ...
+>         func = setup_function_descriptor(&fdesc, dst);
+>         if (IS_ERR(func))
+>                 return;
+> 
+>         pr_info("attempting bad execution at %px\n", dst);
+>         func();
+>         pr_err("FAIL: func returned\n");
+> }
+> 
+> What are the conditions for which dereference_symbol_descriptor works
+> but dereference _function_descriptor doesn't?
+> 
+
+When LKDTM is built as a module I guess ?
+
+Christophe
