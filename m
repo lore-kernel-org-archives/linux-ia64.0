@@ -1,50 +1,82 @@
 From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Sun, 17 Oct 2021 12:38:22 +0000
-Subject: [PATCH v3 09/12] lkdtm: Force do_nothing() out of line
-Message-Id: <a7072b9e628b01cf30dd16d508f138c7c229b992.1634457599.git.christophe.leroy@csgroup.eu>
+Date: Thu, 14 Oct 2021 05:49:54 +0000
+Subject: [PATCH v2 05/13] ia64: Rename 'ip' to 'addr' in 'struct fdesc'
+Message-Id: <7277476086854d9e30d7ca128fd57bca58463d04.1634190022.git.christophe.leroy@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1634457599.git.christophe.leroy@csgroup.eu>
-In-Reply-To: <cover.1634457599.git.christophe.leroy@csgroup.eu>
+References: <cover.1634190022.git.christophe.leroy@csgroup.eu>
+In-Reply-To: <cover.1634190022.git.christophe.leroy@csgroup.eu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-LKDTM tests display that the run do_nothing() at a given
-address, but in reality do_nothing() is inlined into the
-caller.
+There are three architectures with function descriptors, try to
+have common names for the address they contain in order to
+refactor some functions into generic functions later.
 
-Force it out of line so that it really runs text at the
-displayed address.
+powerpc has 'funcaddr'
+ia64 has 'ip'
+parisc has 'addr'
 
-Acked-by: Kees Cook <keescook@chromium.org>
+Vote for 'addr' and update 'struct fdesc' accordingly.
+
+Reviewed-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
 ---
- drivers/misc/lkdtm/perms.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ arch/ia64/include/asm/elf.h      | 2 +-
+ arch/ia64/include/asm/sections.h | 2 +-
+ arch/ia64/kernel/module.c        | 6 +++---
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/misc/lkdtm/perms.c b/drivers/misc/lkdtm/perms.c
-index 2dede2ef658f..60b3b2fe929d 100644
---- a/drivers/misc/lkdtm/perms.c
-+++ b/drivers/misc/lkdtm/perms.c
-@@ -21,7 +21,7 @@
- /* This is non-const, so it will end up in the .data section. */
- static u8 data_area[EXEC_SIZE];
- 
--/* This is cost, so it will end up in the .rodata section. */
-+/* This is const, so it will end up in the .rodata section. */
- static const unsigned long rodata = 0xAA55AA55;
- 
- /* This is marked __ro_after_init, so it should ultimately be .rodata. */
-@@ -31,7 +31,7 @@ static unsigned long ro_after_init __ro_after_init = 0x55AA5500;
-  * This just returns to the caller. It is designed to be copied into
-  * non-executable memory regions.
+diff --git a/arch/ia64/include/asm/elf.h b/arch/ia64/include/asm/elf.h
+index 6629301a2620..2ef5f9966ad1 100644
+--- a/arch/ia64/include/asm/elf.h
++++ b/arch/ia64/include/asm/elf.h
+@@ -226,7 +226,7 @@ struct got_entry {
+  * Layout of the Function Descriptor
   */
--static void do_nothing(void)
-+static noinline void do_nothing(void)
- {
- 	return;
+ struct fdesc {
+-	uint64_t ip;
++	uint64_t addr;
+ 	uint64_t gp;
+ };
+ 
+diff --git a/arch/ia64/include/asm/sections.h b/arch/ia64/include/asm/sections.h
+index 3a033d2008b3..35f24e52149a 100644
+--- a/arch/ia64/include/asm/sections.h
++++ b/arch/ia64/include/asm/sections.h
+@@ -35,7 +35,7 @@ static inline void *dereference_function_descriptor(void *ptr)
+ 	struct fdesc *desc = ptr;
+ 	void *p;
+ 
+-	if (!get_kernel_nofault(p, (void *)&desc->ip))
++	if (!get_kernel_nofault(p, (void *)&desc->addr))
+ 		ptr = p;
+ 	return ptr;
+ }
+diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
+index 2cba53c1da82..4f6400cbf79e 100644
+--- a/arch/ia64/kernel/module.c
++++ b/arch/ia64/kernel/module.c
+@@ -602,15 +602,15 @@ get_fdesc (struct module *mod, uint64_t value, int *okp)
+ 		return value;
+ 
+ 	/* Look for existing function descriptor. */
+-	while (fdesc->ip) {
+-		if (fdesc->ip = value)
++	while (fdesc->addr) {
++		if (fdesc->addr = value)
+ 			return (uint64_t)fdesc;
+ 		if ((uint64_t) ++fdesc >= mod->arch.opd->sh_addr + mod->arch.opd->sh_size)
+ 			BUG();
+ 	}
+ 
+ 	/* Create new one */
+-	fdesc->ip = value;
++	fdesc->addr = value;
+ 	fdesc->gp = mod->arch.gp;
+ 	return (uint64_t) fdesc;
  }
 -- 
 2.31.1
