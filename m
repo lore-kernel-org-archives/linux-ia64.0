@@ -1,43 +1,74 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Wed, 13 Oct 2021 07:27:19 +0000
-Subject: Re: [PATCH v1 05/10] asm-generic: Define 'funct_descr_t' to commonly describe function descriptors
-Message-Id: <202110130026.0AB963F82@keescook>
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Thu, 14 Oct 2021 05:49:52 +0000
+Subject: [PATCH v2 03/13] powerpc: Remove func_descr_t
+Message-Id: <16eef6afbf7322d0c07760ebf827b8f9f50f7c6e.1634190022.git.christophe.leroy@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1633964380.git.christophe.leroy@csgroup.eu>
- <02224551451ab9c37055499fc621c41246c81125.1633964380.git.christophe.leroy@csgroup.eu>
- <202110130001.11A50456@keescook>
- <cf0e465e-e678-692c-3ca5-fde70ba4fc97@csgroup.eu>
-In-Reply-To: <cf0e465e-e678-692c-3ca5-fde70ba4fc97@csgroup.eu>
+References: <cover.1634190022.git.christophe.leroy@csgroup.eu>
+In-Reply-To: <cover.1634190022.git.christophe.leroy@csgroup.eu>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Christophe Leroy <christophe.leroy@csgroup.eu>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-On Wed, Oct 13, 2021 at 09:23:56AM +0200, Christophe Leroy wrote:
->=20
->=20
-> Le 13/10/2021 =E0 09:01, Kees Cook a =E9crit=A0:
-> > On Mon, Oct 11, 2021 at 05:25:32PM +0200, Christophe Leroy wrote:
-> > > We have three architectures using function descriptors, each with its
-> > > own name.
-> > >=20
-> > > Add a common typedef that can be used in generic code.
-> > >=20
-> > > Also add a stub typedef for architecture without function descriptors,
-> >=20
-> > nit: funct_descr_t reads weird to me. why not func_desc_t ? Either way:
->=20
-> func_desc_t already exists in powerpc. I have a patch to remove it as it =
-is
-> redundant with struct ppc64_opd_entry, but I didnt' want to include it in
-> this series.
->=20
-> But after all I can add it in this series, I'll add it in v2.
+'func_descr_t' is redundant with 'struct ppc64_opd_entry'
 
-Ah-ha! That works for me. :) Thanks!
+Remove it.
 
--Kees
+Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
+---
+ arch/powerpc/include/asm/code-patching.h | 2 +-
+ arch/powerpc/include/asm/types.h         | 6 ------
+ arch/powerpc/kernel/signal_64.c          | 8 ++++----
+ 3 files changed, 5 insertions(+), 11 deletions(-)
 
---=20
-Kees Cook
+diff --git a/arch/powerpc/include/asm/code-patching.h b/arch/powerpc/include/asm/code-patching.h
+index 4ba834599c4d..f3445188d319 100644
+--- a/arch/powerpc/include/asm/code-patching.h
++++ b/arch/powerpc/include/asm/code-patching.h
+@@ -110,7 +110,7 @@ static inline unsigned long ppc_function_entry(void *func)
+ 	 * function's descriptor. The first entry in the descriptor is the
+ 	 * address of the function text.
+ 	 */
+-	return ((func_descr_t *)func)->entry;
++	return ((struct ppc64_opd_entry *)func)->addr;
+ #else
+ 	return (unsigned long)func;
+ #endif
+diff --git a/arch/powerpc/include/asm/types.h b/arch/powerpc/include/asm/types.h
+index f1630c553efe..97da77bc48c9 100644
+--- a/arch/powerpc/include/asm/types.h
++++ b/arch/powerpc/include/asm/types.h
+@@ -23,12 +23,6 @@
+ 
+ typedef __vector128 vector128;
+ 
+-typedef struct {
+-	unsigned long entry;
+-	unsigned long toc;
+-	unsigned long env;
+-} func_descr_t;
+-
+ #endif /* __ASSEMBLY__ */
+ 
+ #endif /* _ASM_POWERPC_TYPES_H */
+diff --git a/arch/powerpc/kernel/signal_64.c b/arch/powerpc/kernel/signal_64.c
+index 1831bba0582e..63ddbe7b108c 100644
+--- a/arch/powerpc/kernel/signal_64.c
++++ b/arch/powerpc/kernel/signal_64.c
+@@ -933,11 +933,11 @@ int handle_rt_signal64(struct ksignal *ksig, sigset_t *set,
+ 		 * descriptor is the entry address of signal and the second
+ 		 * entry is the TOC value we need to use.
+ 		 */
+-		func_descr_t __user *funct_desc_ptr -			(func_descr_t __user *) ksig->ka.sa.sa_handler;
++		struct ppc64_opd_entry __user *funct_desc_ptr +			(struct ppc64_opd_entry __user *)ksig->ka.sa.sa_handler;
+ 
+-		err |= get_user(regs->ctr, &funct_desc_ptr->entry);
+-		err |= get_user(regs->gpr[2], &funct_desc_ptr->toc);
++		err |= get_user(regs->ctr, &funct_desc_ptr->addr);
++		err |= get_user(regs->gpr[2], &funct_desc_ptr->r2);
+ 	}
+ 
+ 	/* enter the signal handler in native-endian mode */
+-- 
+2.31.1
