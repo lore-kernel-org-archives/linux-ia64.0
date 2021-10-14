@@ -1,31 +1,67 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 14 Oct 2021 06:52:37 +0000
-Subject: Re: [PATCH v2 07/13] asm-generic: Define 'func_desc_t' to commonly describe function descriptors
-Message-Id: <CAK8P3a3yAcU0JAri0f9q6HVrZwX_4i6Y9X4P8MebN_Krt-SLQA@mail.gmail.com>
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Thu, 14 Oct 2021 05:49:49 +0000
+Subject: [PATCH v2 00/13] Fix LKDTM for PPC64/IA64/PARISC
+Message-Id: <cover.1634190022.git.christophe.leroy@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1634190022.git.christophe.leroy@csgroup.eu> <dbc9a149826eaa18f524635e64c207c85560c2aa.1634190022.git.christophe.leroy@csgroup.eu>
-In-Reply-To: <dbc9a149826eaa18f524635e64c207c85560c2aa.1634190022.git.christophe.leroy@csgroup.eu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christophe Leroy <christophe.leroy@csgroup.eu>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, linux-ia64@vger.kernel.org, Parisc List <linux-parisc@vger.kernel.org>, linux-arch <linux-arch@vger.kernel.org>, Linux-MM <linux-mm@kvack.org>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-On Thu, Oct 14, 2021 at 7:49 AM Christophe Leroy
-<christophe.leroy@csgroup.eu> wrote:
->
-> We have three architectures using function descriptors, each with its
-> own name.
->
-> Add a common typedef that can be used in generic code.
->
-> Also add a stub typedef for architecture without function descriptors,
-> to avoid a forest of #ifdefs.
->
-> It replaces the similar func_desc_t previously defined in
-> arch/powerpc/kernel/module_64.c
->
-> Reviewed-by: Kees Cook <keescook@chromium.org>
-> Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
+PPC64/IA64/PARISC have function descriptors. LKDTM doesn't work
+on those three architectures because LKDTM messes up function
+descriptors with functions.
 
-Acked-by: Arnd Bergmann <arnd@arndb.de>
+This series does some cleanup in the three architectures and
+refactors function descriptors so that it can then easily use it
+in a generic way in LKDTM.
+
+Patch 8 is not absolutely necessary but it is a good trivial cleanup.
+
+Changes in v2:
+- Addressed received comments
+- Moved dereference_[kernel]_function_descriptor() out of line
+- Added patches to remove func_descr_t and func_desc_t in powerpc
+- Using func_desc_t instead of funct_descr_t
+- Renamed HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR to HAVE_FUNCTION_DESCRIPTORS
+- Added a new lkdtm test to check protection of function descriptors
+
+Christophe Leroy (13):
+  powerpc: Move 'struct ppc64_opd_entry' back into asm/elf.h
+  powerpc: Rename 'funcaddr' to 'addr' in 'struct ppc64_opd_entry'
+  powerpc: Remove func_descr_t
+  powerpc: Prepare func_desc_t for refactorisation
+  ia64: Rename 'ip' to 'addr' in 'struct fdesc'
+  asm-generic: Use HAVE_FUNCTION_DESCRIPTORS to define associated stubs
+  asm-generic: Define 'func_desc_t' to commonly describe function
+    descriptors
+  asm-generic: Refactor dereference_[kernel]_function_descriptor()
+  lkdtm: Force do_nothing() out of line
+  lkdtm: Really write into kernel text in WRITE_KERN
+  lkdtm: Fix lkdtm_EXEC_RODATA()
+  lkdtm: Fix execute_[user]_location()
+  lkdtm: Add a test for function descriptors protection
+
+ arch/ia64/include/asm/elf.h              |  2 +-
+ arch/ia64/include/asm/sections.h         | 25 ++-------
+ arch/ia64/kernel/module.c                |  6 +--
+ arch/parisc/include/asm/sections.h       | 17 +++---
+ arch/parisc/kernel/process.c             | 21 --------
+ arch/powerpc/include/asm/code-patching.h |  2 +-
+ arch/powerpc/include/asm/elf.h           |  6 +++
+ arch/powerpc/include/asm/sections.h      | 30 ++---------
+ arch/powerpc/include/asm/types.h         |  6 ---
+ arch/powerpc/include/uapi/asm/elf.h      |  8 ---
+ arch/powerpc/kernel/module_64.c          | 38 +++++--------
+ arch/powerpc/kernel/signal_64.c          |  8 +--
+ drivers/misc/lkdtm/core.c                |  1 +
+ drivers/misc/lkdtm/lkdtm.h               |  1 +
+ drivers/misc/lkdtm/perms.c               | 68 ++++++++++++++++++++----
+ include/asm-generic/sections.h           | 13 ++++-
+ include/linux/kallsyms.h                 |  2 +-
+ kernel/extable.c                         | 23 +++++++-
+ 18 files changed, 138 insertions(+), 139 deletions(-)
+
+-- 
+2.31.1
