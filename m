@@ -1,99 +1,77 @@
-From: Dmitry Osipenko <digetx@gmail.com>
-Date: Wed, 27 Oct 2021 21:16:37 +0000
-Subject: [PATCH v2 07/45] reboot: Remove extern annotation from function prototypes
-Message-Id: <20211027211715.12671-8-digetx@gmail.com>
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Sun, 17 Oct 2021 12:38:13 +0000
+Subject: [PATCH v3 00/12] Fix LKDTM for PPC64/IA64/PARISC
+Message-Id: <cover.1634457599.git.christophe.leroy@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211027211715.12671-1-digetx@gmail.com>
-In-Reply-To: <20211027211715.12671-1-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Lee Jones <lee.jones@linaro.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Mark Brown <broonie@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Russell King <linux@armlinux.org.uk>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
-Cc: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Linus Walleij <linus.walleij@linaro.org>, Chen-Yu Tsai <wens@csie.org>, =?UTF-8?q?Jonathan=20Neusch=C3=A4fer?= <j.neuschaefer@gmx.net>, Tony Lindgren <tony@atomide.com>, Liam Girdwood <lgirdwood@gmail.com>, Philipp Zabel <p.zabel@pengutronix.de>, Vladimir Zapolskiy <vz@mleia.com>, Avi Fishman <avifishman70@gmail.com>, Tomer Maimon <tmaimon77@gmail.com>, Tali Perry <tali.perry1@gmail.com>, Patrick Venture <venture@google.com>, Nancy Yuen <yuenn@google.com>, Benjamin Fair <benjaminfair@google.com>, Pavel Machek <pavel@ucw.cz>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-omap@vger.kernel.org, openbmc@lists.ozlabs.org, linux-tegra@vger.kernel.org, linux-pm@vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-There is no need to annotate function prototypes with 'extern', it makes
-code less readable. Remove unnecessary annotations from <reboot.h>.
+PPC64/IA64/PARISC have function descriptors. LKDTM doesn't work
+on those three architectures because LKDTM messes up function
+descriptors with functions.
 
-Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
----
- include/linux/reboot.h | 38 +++++++++++++++++++-------------------
- 1 file changed, 19 insertions(+), 19 deletions(-)
+This series does some cleanup in the three architectures and
+refactors function descriptors so that it can then easily use it
+in a generic way in LKDTM.
 
-diff --git a/include/linux/reboot.h b/include/linux/reboot.h
-index 7c288013a3ca..b7fa25726323 100644
---- a/include/linux/reboot.h
-+++ b/include/linux/reboot.h
-@@ -40,36 +40,36 @@ extern int reboot_cpu;
- extern int reboot_force;
- 
- 
--extern int register_reboot_notifier(struct notifier_block *);
--extern int unregister_reboot_notifier(struct notifier_block *);
-+int register_reboot_notifier(struct notifier_block *);
-+int unregister_reboot_notifier(struct notifier_block *);
- 
--extern int devm_register_reboot_notifier(struct device *, struct notifier_block *);
-+int devm_register_reboot_notifier(struct device *, struct notifier_block *);
- 
--extern int register_restart_handler(struct notifier_block *);
--extern int unregister_restart_handler(struct notifier_block *);
--extern void do_kernel_restart(char *cmd);
-+int register_restart_handler(struct notifier_block *);
-+int unregister_restart_handler(struct notifier_block *);
-+void do_kernel_restart(char *cmd);
- 
- /*
-  * Architecture-specific implementations of sys_reboot commands.
-  */
- 
--extern void migrate_to_reboot_cpu(void);
--extern void machine_restart(char *cmd);
--extern void machine_halt(void);
--extern void machine_power_off(void);
-+void migrate_to_reboot_cpu(void);
-+void machine_restart(char *cmd);
-+void machine_halt(void);
-+void machine_power_off(void);
- 
--extern void machine_shutdown(void);
-+void machine_shutdown(void);
- struct pt_regs;
--extern void machine_crash_shutdown(struct pt_regs *);
-+void machine_crash_shutdown(struct pt_regs *);
- 
- /*
-  * Architecture independent implementations of sys_reboot commands.
-  */
- 
--extern void kernel_restart_prepare(char *cmd);
--extern void kernel_restart(char *cmd);
--extern void kernel_halt(void);
--extern void kernel_power_off(void);
-+void kernel_restart_prepare(char *cmd);
-+void kernel_restart(char *cmd);
-+void kernel_halt(void);
-+void kernel_power_off(void);
- 
- extern int C_A_D; /* for sysctl */
- void ctrl_alt_del(void);
-@@ -77,15 +77,15 @@ void ctrl_alt_del(void);
- #define POWEROFF_CMD_PATH_LEN	256
- extern char poweroff_cmd[POWEROFF_CMD_PATH_LEN];
- 
--extern void orderly_poweroff(bool force);
--extern void orderly_reboot(void);
-+void orderly_poweroff(bool force);
-+void orderly_reboot(void);
- void hw_protection_shutdown(const char *reason, int ms_until_forced);
- 
- /*
-  * Emergency restart, callable from an interrupt handler.
-  */
- 
--extern void emergency_restart(void);
-+void emergency_restart(void);
- #include <asm/emergency-restart.h>
- 
- #endif /* _LINUX_REBOOT_H */
+Patch 8 is not absolutely necessary but it is a good trivial cleanup.
+
+Changes in v3:
+- Addressed received comments
+- Swapped some of the powerpc patches to keep func_descr_t renamed as struct func_desc and remove 'struct ppc64_opd_entry'
+- Changed HAVE_FUNCTION_DESCRIPTORS macro to a config item CONFIG_HAVE_FUNCTION_DESCRIPTORS
+- Dropped patch 11 ("Fix lkdtm_EXEC_RODATA()")
+
+Changes in v2:
+- Addressed received comments
+- Moved dereference_[kernel]_function_descriptor() out of line
+- Added patches to remove func_descr_t and func_desc_t in powerpc
+- Using func_desc_t instead of funct_descr_t
+- Renamed HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR to HAVE_FUNCTION_DESCRIPTORS
+- Added a new lkdtm test to check protection of function descriptors
+
+Christophe Leroy (12):
+  powerpc: Move and rename func_descr_t
+  powerpc: Use 'struct func_desc' instead of 'struct ppc64_opd_entry'
+  powerpc: Remove 'struct ppc64_opd_entry'
+  powerpc: Prepare func_desc_t for refactorisation
+  ia64: Rename 'ip' to 'addr' in 'struct fdesc'
+  asm-generic: Define CONFIG_HAVE_FUNCTION_DESCRIPTORS
+  asm-generic: Define 'func_desc_t' to commonly describe function
+    descriptors
+  asm-generic: Refactor dereference_[kernel]_function_descriptor()
+  lkdtm: Force do_nothing() out of line
+  lkdtm: Really write into kernel text in WRITE_KERN
+  lkdtm: Fix execute_[user]_location()
+  lkdtm: Add a test for function descriptors protection
+
+ arch/Kconfig                             |  3 +
+ arch/ia64/Kconfig                        |  1 +
+ arch/ia64/include/asm/elf.h              |  2 +-
+ arch/ia64/include/asm/sections.h         | 24 +-------
+ arch/ia64/kernel/module.c                |  6 +-
+ arch/parisc/Kconfig                      |  1 +
+ arch/parisc/include/asm/sections.h       | 16 ++----
+ arch/parisc/kernel/process.c             | 21 -------
+ arch/powerpc/Kconfig                     |  1 +
+ arch/powerpc/include/asm/code-patching.h |  2 +-
+ arch/powerpc/include/asm/elf.h           |  6 ++
+ arch/powerpc/include/asm/sections.h      | 29 ++--------
+ arch/powerpc/include/asm/types.h         |  6 --
+ arch/powerpc/include/uapi/asm/elf.h      |  8 ---
+ arch/powerpc/kernel/module_64.c          | 38 +++++--------
+ arch/powerpc/kernel/ptrace/ptrace.c      |  6 ++
+ arch/powerpc/kernel/signal_64.c          |  8 +--
+ drivers/misc/lkdtm/core.c                |  1 +
+ drivers/misc/lkdtm/lkdtm.h               |  1 +
+ drivers/misc/lkdtm/perms.c               | 71 +++++++++++++++++++-----
+ include/asm-generic/sections.h           | 13 ++++-
+ include/linux/kallsyms.h                 |  2 +-
+ kernel/extable.c                         | 23 +++++++-
+ 23 files changed, 146 insertions(+), 143 deletions(-)
+
 -- 
-2.33.1
+2.31.1
