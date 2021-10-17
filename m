@@ -1,39 +1,186 @@
-From: Dmitry Osipenko <digetx@gmail.com>
-Date: Wed, 27 Oct 2021 21:16:44 +0000
-Subject: [PATCH v2 14/45] mips: Use do_kernel_power_off()
-Message-Id: <20211027211715.12671-15-digetx@gmail.com>
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Sun, 17 Oct 2021 12:38:19 +0000
+Subject: [PATCH v3 06/12] asm-generic: Define CONFIG_HAVE_FUNCTION_DESCRIPTORS
+Message-Id: <ad0eb12f6e3f49b4a3284fc54c4c4d70c496609e.1634457599.git.christophe.leroy@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211027211715.12671-1-digetx@gmail.com>
-In-Reply-To: <20211027211715.12671-1-digetx@gmail.com>
+References: <cover.1634457599.git.christophe.leroy@csgroup.eu>
+In-Reply-To: <cover.1634457599.git.christophe.leroy@csgroup.eu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Lee Jones <lee.jones@linaro.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Mark Brown <broonie@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Russell King <linux@armlinux.org.uk>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
-Cc: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Linus Walleij <linus.walleij@linaro.org>, Chen-Yu Tsai <wens@csie.org>, =?UTF-8?q?Jonathan=20Neusch=C3=A4fer?= <j.neuschaefer@gmx.net>, Tony Lindgren <tony@atomide.com>, Liam Girdwood <lgirdwood@gmail.com>, Philipp Zabel <p.zabel@pengutronix.de>, Vladimir Zapolskiy <vz@mleia.com>, Avi Fishman <avifishman70@gmail.com>, Tomer Maimon <tmaimon77@gmail.com>, Tali Perry <tali.perry1@gmail.com>, Patrick Venture <venture@google.com>, Nancy Yuen <yuenn@google.com>, Benjamin Fair <benjaminfair@google.com>, Pavel Machek <pavel@ucw.cz>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-omap@vger.kernel.org, openbmc@lists.ozlabs.org, linux-tegra@vger.kernel.org, linux-pm@vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, Nicholas Piggin <npiggin@gmail.com>
 
-Kernel now supports chained power-off handlers. Use do_kernel_power_off()
-that invokes chained power-off handlers. It also invokes legacy
-pm_power_off() for now, which will be removed once all drivers will
-be converted to the new power-off API.
+Replace HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR by a config option
+named CONFIG_HAVE_FUNCTION_DESCRIPTORS and use it instead of
+'dereference_function_descriptor' macro to know whether an
+arch has function descriptors.
 
-Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
+To limit churn in one of the following patches, use
+an #ifdef/#else construct with empty first part
+instead of an #ifndef in asm-generic/sections.h
+
+On powerpc, make sure the config option matches the ABI used
+by the compiler with a BUILD_BUG_ON().
+
+And include a helper to check whether an arch has function
+descriptors or not : have_function_descriptors()
+
+Reviewed-by: Kees Cook <keescook@chromium.org>
+Reviewed-by: Nicholas Piggin <npiggin@gmail.com>
+Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
 ---
- arch/mips/kernel/reset.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ arch/Kconfig                        | 3 +++
+ arch/ia64/Kconfig                   | 1 +
+ arch/ia64/include/asm/sections.h    | 2 --
+ arch/parisc/Kconfig                 | 1 +
+ arch/parisc/include/asm/sections.h  | 2 --
+ arch/powerpc/Kconfig                | 1 +
+ arch/powerpc/include/asm/sections.h | 2 --
+ arch/powerpc/kernel/ptrace/ptrace.c | 6 ++++++
+ include/asm-generic/sections.h      | 8 +++++++-
+ include/linux/kallsyms.h            | 2 +-
+ 10 files changed, 20 insertions(+), 8 deletions(-)
 
-diff --git a/arch/mips/kernel/reset.c b/arch/mips/kernel/reset.c
-index 6288780b779e..e7ce07b3e79b 100644
---- a/arch/mips/kernel/reset.c
-+++ b/arch/mips/kernel/reset.c
-@@ -114,8 +114,7 @@ void machine_halt(void)
+diff --git a/arch/Kconfig b/arch/Kconfig
+index 8df1c7102643..6e610a53d832 100644
+--- a/arch/Kconfig
++++ b/arch/Kconfig
+@@ -197,6 +197,9 @@ config HAVE_FUNCTION_ERROR_INJECTION
+ config HAVE_NMI
+ 	bool
  
- void machine_power_off(void)
++config HAVE_FUNCTION_DESCRIPTORS
++	bool
++
+ config TRACE_IRQFLAGS_SUPPORT
+ 	bool
+ 
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 1e33666fa679..97cf02951610 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -34,6 +34,7 @@ config IA64
+ 	select HAVE_FUNCTION_TRACER
+ 	select TTY
+ 	select HAVE_ARCH_TRACEHOOK
++	select HAVE_FUNCTION_DESCRIPTORS
+ 	select HAVE_VIRT_CPU_ACCOUNTING
+ 	select HUGETLB_PAGE_SIZE_VARIABLE if HUGETLB_PAGE
+ 	select VIRT_TO_BUS
+diff --git a/arch/ia64/include/asm/sections.h b/arch/ia64/include/asm/sections.h
+index 35f24e52149a..2460d365a057 100644
+--- a/arch/ia64/include/asm/sections.h
++++ b/arch/ia64/include/asm/sections.h
+@@ -27,8 +27,6 @@ extern char __start_gate_brl_fsys_bubble_down_patchlist[], __end_gate_brl_fsys_b
+ extern char __start_unwind[], __end_unwind[];
+ extern char __start_ivt_text[], __end_ivt_text[];
+ 
+-#define HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR 1
+-
+ #undef dereference_function_descriptor
+ static inline void *dereference_function_descriptor(void *ptr)
  {
--	if (pm_power_off)
--		pm_power_off();
-+	do_kernel_power_off();
+diff --git a/arch/parisc/Kconfig b/arch/parisc/Kconfig
+index 27a8b49af11f..01d46ca32119 100644
+--- a/arch/parisc/Kconfig
++++ b/arch/parisc/Kconfig
+@@ -65,6 +65,7 @@ config PARISC
+ 	select HAVE_DYNAMIC_FTRACE_WITH_REGS
+ 	select HAVE_SOFTIRQ_ON_OWN_STACK if IRQSTACKS
+ 	select TRACE_IRQFLAGS_SUPPORT
++	select HAVE_FUNCTION_DESCRIPTORS if 64BIT
  
- #ifdef CONFIG_SMP
- 	preempt_disable();
+ 	help
+ 	  The PA-RISC microprocessor is designed by Hewlett-Packard and used
+diff --git a/arch/parisc/include/asm/sections.h b/arch/parisc/include/asm/sections.h
+index bb52aea0cb21..c8092e4d94de 100644
+--- a/arch/parisc/include/asm/sections.h
++++ b/arch/parisc/include/asm/sections.h
+@@ -9,8 +9,6 @@ extern char __alt_instructions[], __alt_instructions_end[];
+ 
+ #ifdef CONFIG_64BIT
+ 
+-#define HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR 1
+-
+ #undef dereference_function_descriptor
+ void *dereference_function_descriptor(void *);
+ 
+diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
+index ba5b66189358..0effedba082f 100644
+--- a/arch/powerpc/Kconfig
++++ b/arch/powerpc/Kconfig
+@@ -208,6 +208,7 @@ config PPC
+ 	select HAVE_EFFICIENT_UNALIGNED_ACCESS	if !(CPU_LITTLE_ENDIAN && POWER7_CPU)
+ 	select HAVE_FAST_GUP
+ 	select HAVE_FTRACE_MCOUNT_RECORD
++	select HAVE_FUNCTION_DESCRIPTORS	if PPC64 && !CPU_LITTLE_ENDIAN
+ 	select HAVE_FUNCTION_ERROR_INJECTION
+ 	select HAVE_FUNCTION_GRAPH_TRACER
+ 	select HAVE_FUNCTION_TRACER
+diff --git a/arch/powerpc/include/asm/sections.h b/arch/powerpc/include/asm/sections.h
+index abd2e5213197..fb11544d7e6a 100644
+--- a/arch/powerpc/include/asm/sections.h
++++ b/arch/powerpc/include/asm/sections.h
+@@ -69,8 +69,6 @@ static inline int overlaps_kernel_text(unsigned long start, unsigned long end)
+ 
+ #ifdef PPC64_ELF_ABI_v1
+ 
+-#define HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR 1
+-
+ #undef dereference_function_descriptor
+ static inline void *dereference_function_descriptor(void *ptr)
+ {
+diff --git a/arch/powerpc/kernel/ptrace/ptrace.c b/arch/powerpc/kernel/ptrace/ptrace.c
+index 7c7093c17c45..740b682caa73 100644
+--- a/arch/powerpc/kernel/ptrace/ptrace.c
++++ b/arch/powerpc/kernel/ptrace/ptrace.c
+@@ -446,4 +446,10 @@ void __init pt_regs_check(void)
+ 	 * real registers.
+ 	 */
+ 	BUILD_BUG_ON(PT_DSCR < sizeof(struct user_pt_regs) / sizeof(unsigned long));
++
++#ifdef PPC64_ELF_ABI_v1
++	BUILD_BUG_ON(!IS_ENABLED(CONFIG_HAVE_FUNCTION_DESCRIPTORS));
++#else
++	BUILD_BUG_ON(IS_ENABLED(CONFIG_HAVE_FUNCTION_DESCRIPTORS));
++#endif
+ }
+diff --git a/include/asm-generic/sections.h b/include/asm-generic/sections.h
+index d16302d3eb59..a918388d9bf6 100644
+--- a/include/asm-generic/sections.h
++++ b/include/asm-generic/sections.h
+@@ -59,11 +59,17 @@ extern char __noinstr_text_start[], __noinstr_text_end[];
+ extern __visible const void __nosave_begin, __nosave_end;
+ 
+ /* Function descriptor handling (if any).  Override in asm/sections.h */
+-#ifndef dereference_function_descriptor
++#ifdef CONFIG_HAVE_FUNCTION_DESCRIPTORS
++#else
+ #define dereference_function_descriptor(p) ((void *)(p))
+ #define dereference_kernel_function_descriptor(p) ((void *)(p))
+ #endif
+ 
++static inline bool have_function_descriptors(void)
++{
++	return IS_ENABLED(CONFIG_HAVE_FUNCTION_DESCRIPTORS);
++}
++
+ /* random extra sections (if any).  Override
+  * in asm/sections.h */
+ #ifndef arch_is_kernel_text
+diff --git a/include/linux/kallsyms.h b/include/linux/kallsyms.h
+index a1d6fc82d7f0..18799df0c9bf 100644
+--- a/include/linux/kallsyms.h
++++ b/include/linux/kallsyms.h
+@@ -57,7 +57,7 @@ static inline int is_ksym_addr(unsigned long addr)
+ 
+ static inline void *dereference_symbol_descriptor(void *ptr)
+ {
+-#ifdef HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR
++#ifdef CONFIG_HAVE_FUNCTION_DESCRIPTORS
+ 	struct module *mod;
+ 
+ 	ptr = dereference_kernel_function_descriptor(ptr);
 -- 
-2.33.1
+2.31.1
