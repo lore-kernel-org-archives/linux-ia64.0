@@ -1,36 +1,135 @@
-From: Dmitry Osipenko <digetx@gmail.com>
-Date: Wed, 27 Oct 2021 21:16:52 +0000
-Subject: [PATCH v2 22/45] memory: emif: Use kernel_can_power_off()
-Message-Id: <20211027211715.12671-23-digetx@gmail.com>
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Sun, 17 Oct 2021 17:19:47 +0000
+Subject: [RFC PATCH] lkdtm: Replace lkdtm_rodata_do_nothing() by do_nothing()
+Message-Id: <fe36bf23fb14e7eff92a95a1092ed38edb01d5f5.1634491011.git.christophe.leroy@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211027211715.12671-1-digetx@gmail.com>
-In-Reply-To: <20211027211715.12671-1-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Lee Jones <lee.jones@linaro.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Mark Brown <broonie@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Russell King <linux@armlinux.org.uk>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
-Cc: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Linus Walleij <linus.walleij@linaro.org>, Chen-Yu Tsai <wens@csie.org>, =?UTF-8?q?Jonathan=20Neusch=C3=A4fer?= <j.neuschaefer@gmx.net>, Tony Lindgren <tony@atomide.com>, Liam Girdwood <lgirdwood@gmail.com>, Philipp Zabel <p.zabel@pengutronix.de>, Vladimir Zapolskiy <vz@mleia.com>, Avi Fishman <avifishman70@gmail.com>, Tomer Maimon <tmaimon77@gmail.com>, Tali Perry <tali.perry1@gmail.com>, Patrick Venture <venture@google.com>, Nancy Yuen <yuenn@google.com>, Benjamin Fair <benjaminfair@google.com>, Pavel Machek <pavel@ucw.cz>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-omap@vger.kernel.org, openbmc@lists.ozlabs.org, linux-tegra@vger.kernel.org, linux-pm@vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-Replace legacy pm_power_off with kernel_can_power_off() helper that
-is aware about chained power-off handlers.
+All EXEC tests are based on running a copy of do_nothing()
+except lkdtm_EXEC_RODATA which uses a different function
+called lkdtm_rodata_do_nothing().
 
-Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
+On architectures using function descriptors, EXEC tests are
+performed using execute_location() which is a function
+that most of the time copies do_nothing() at the tested
+location then duplicates do_nothing() function descriptor
+and updates it with the address of the copy of do_nothing().
+
+But for EXEC_RODATA test, execute_location() uses
+lkdtm_rodata_do_nothing() which is already in rodata section
+at build time instead of using a copy of do_nothing(). However
+it still uses the function descriptor of do_nothing(). There
+is a risk that running lkdtm_rodata_do_nothing() with the
+function descriptor of do_thing() is wrong.
+
+To remove the above risk, change the approach and do the same
+as for other EXEC tests: use a copy of do_nothing(). The copy
+cannot be done during the test because RODATA area is write
+protected. Do the copy during init, before RODATA becomes
+write protected.
+
+Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
 ---
- drivers/memory/emif.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+This applies on top of series v3 "Fix LKDTM for PPC64/IA64/PARISC"
 
-diff --git a/drivers/memory/emif.c b/drivers/memory/emif.c
-index 762d0c0f0716..cab10d5274a0 100644
---- a/drivers/memory/emif.c
-+++ b/drivers/memory/emif.c
-@@ -630,7 +630,7 @@ static irqreturn_t emif_threaded_isr(int irq, void *dev_id)
- 		dev_emerg(emif->dev, "SDRAM temperature exceeds operating limit.. Needs shut down!!!\n");
+ drivers/misc/lkdtm/Makefile | 11 -----------
+ drivers/misc/lkdtm/lkdtm.h  |  3 ---
+ drivers/misc/lkdtm/perms.c  |  9 +++++++--
+ drivers/misc/lkdtm/rodata.c | 11 -----------
+ 4 files changed, 7 insertions(+), 27 deletions(-)
+ delete mode 100644 drivers/misc/lkdtm/rodata.c
+
+diff --git a/drivers/misc/lkdtm/Makefile b/drivers/misc/lkdtm/Makefile
+index e2984ce51fe4..3d45a2b3007d 100644
+--- a/drivers/misc/lkdtm/Makefile
++++ b/drivers/misc/lkdtm/Makefile
+@@ -6,21 +6,10 @@ lkdtm-$(CONFIG_LKDTM)		+= bugs.o
+ lkdtm-$(CONFIG_LKDTM)		+= heap.o
+ lkdtm-$(CONFIG_LKDTM)		+= perms.o
+ lkdtm-$(CONFIG_LKDTM)		+= refcount.o
+-lkdtm-$(CONFIG_LKDTM)		+= rodata_objcopy.o
+ lkdtm-$(CONFIG_LKDTM)		+= usercopy.o
+ lkdtm-$(CONFIG_LKDTM)		+= stackleak.o
+ lkdtm-$(CONFIG_LKDTM)		+= cfi.o
+ lkdtm-$(CONFIG_LKDTM)		+= fortify.o
+ lkdtm-$(CONFIG_PPC_BOOK3S_64)	+= powerpc.o
  
- 		/* If we have Power OFF ability, use it, else try restarting */
--		if (pm_power_off) {
-+		if (kernel_can_power_off()) {
- 			kernel_power_off();
- 		} else {
- 			WARN(1, "FIXME: NO pm_power_off!!! trying restart\n");
+-KASAN_SANITIZE_rodata.o		:= n
+ KASAN_SANITIZE_stackleak.o	:= n
+-KCOV_INSTRUMENT_rodata.o	:= n
+-CFLAGS_REMOVE_rodata.o		+= $(CC_FLAGS_LTO)
+-
+-OBJCOPYFLAGS :-OBJCOPYFLAGS_rodata_objcopy.o	:= \
+-			--rename-section .noinstr.text=.rodata,alloc,readonly,load,contents
+-targets += rodata.o rodata_objcopy.o
+-$(obj)/rodata_objcopy.o: $(obj)/rodata.o FORCE
+-	$(call if_changed,objcopy)
+diff --git a/drivers/misc/lkdtm/lkdtm.h b/drivers/misc/lkdtm/lkdtm.h
+index 188bd0fd6575..905555d4c2cf 100644
+--- a/drivers/misc/lkdtm/lkdtm.h
++++ b/drivers/misc/lkdtm/lkdtm.h
+@@ -137,9 +137,6 @@ void lkdtm_REFCOUNT_SUB_AND_TEST_SATURATED(void);
+ void lkdtm_REFCOUNT_TIMING(void);
+ void lkdtm_ATOMIC_TIMING(void);
+ 
+-/* rodata.c */
+-void lkdtm_rodata_do_nothing(void);
+-
+ /* usercopy.c */
+ void __init lkdtm_usercopy_init(void);
+ void __exit lkdtm_usercopy_exit(void);
+diff --git a/drivers/misc/lkdtm/perms.c b/drivers/misc/lkdtm/perms.c
+index 2c6aba3ff32b..9b951ca48363 100644
+--- a/drivers/misc/lkdtm/perms.c
++++ b/drivers/misc/lkdtm/perms.c
+@@ -27,6 +27,7 @@ static const unsigned long rodata = 0xAA55AA55;
+ 
+ /* This is marked __ro_after_init, so it should ultimately be .rodata. */
+ static unsigned long ro_after_init __ro_after_init = 0x55AA5500;
++static u8 rodata_area[EXEC_SIZE] __ro_after_init;
+ 
+ /*
+  * This just returns to the caller. It is designed to be copied into
+@@ -193,8 +194,7 @@ void lkdtm_EXEC_VMALLOC(void)
+ 
+ void lkdtm_EXEC_RODATA(void)
+ {
+-	execute_location(dereference_function_descriptor(lkdtm_rodata_do_nothing),
+-			 CODE_AS_IS);
++	execute_location(rodata_area, CODE_AS_IS);
+ }
+ 
+ void lkdtm_EXEC_USERSPACE(void)
+@@ -269,4 +269,9 @@ void __init lkdtm_perms_init(void)
+ {
+ 	/* Make sure we can write to __ro_after_init values during __init */
+ 	ro_after_init |= 0xAA;
++
++	memcpy(rodata_area, dereference_function_descriptor(do_nothing),
++	       EXEC_SIZE);
++	flush_icache_range((unsigned long)rodata_area,
++			   (unsigned long)rodata_area + EXEC_SIZE);
+ }
+diff --git a/drivers/misc/lkdtm/rodata.c b/drivers/misc/lkdtm/rodata.c
+deleted file mode 100644
+index baacb876d1d9..000000000000
+--- a/drivers/misc/lkdtm/rodata.c
++++ /dev/null
+@@ -1,11 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0
+-/*
+- * This includes functions that are meant to live entirely in .rodata
+- * (via objcopy tricks), to validate the non-executability of .rodata.
+- */
+-#include "lkdtm.h"
+-
+-void noinstr lkdtm_rodata_do_nothing(void)
+-{
+-	/* Does nothing. We just want an architecture agnostic "return". */
+-}
 -- 
-2.33.1
+2.31.1
