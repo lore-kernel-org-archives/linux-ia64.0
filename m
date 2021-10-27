@@ -1,83 +1,116 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Date: Wed, 27 Oct 2021 12:01:41 +0000
-Subject: Re: [PATCH] locking: remove spin_lock_flags() etc
-Message-Id: <87r1c6ad7e.fsf@mpe.ellerman.id.au>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Wed, 27 Oct 2021 21:16:54 +0000
+Subject: [PATCH v2 24/45] regulator: pfuze100: Use devm_register_power_handler()
+Message-Id: <20211027211715.12671-25-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211022120058.1031690-1-arnd@kernel.org>
- <cc8e3c58-457d-fdf3-6a62-98bde0cefdea@redhat.com>
- <CAK8P3a0YjaRS+aUCOKGjsfkR3TM49PrG6U4ftG_Fz+OFuyCb0w@mail.gmail.com>
- <YXZ/iLB7BvZtzDMp@hirez.programming.kicks-ass.net>
- <CAK8P3a2Luz7sd5cM1OdZhYCs_UPzo+2qVQYSZPfR2QN+0DkyRg@mail.gmail.com>
- <YXbAPIm47WwpYYup@hirez.programming.kicks-ass.net>
-In-Reply-To: <YXbAPIm47WwpYYup@hirez.programming.kicks-ass.net>
+References: <20211027211715.12671-1-digetx@gmail.com>
+In-Reply-To: <20211027211715.12671-1-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@kernel.org>
-Cc: Waiman Long <longman@redhat.com>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Boqun Feng <boqun.feng@gmail.com>, Jonas Bonn <jonas@southpole.se>, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, Stafford Horne <shorne@gmail.com>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Openrisc <openrisc@lists.librecores.org>, Parisc List <linux-parisc@vger.kernel.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, linux-s390 <linux-s390@vger.kernel.org>
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Lee Jones <lee.jones@linaro.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Mark Brown <broonie@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Russell King <linux@armlinux.org.uk>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
+Cc: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Linus Walleij <linus.walleij@linaro.org>, Chen-Yu Tsai <wens@csie.org>, =?UTF-8?q?Jonathan=20Neusch=C3=A4fer?= <j.neuschaefer@gmx.net>, Tony Lindgren <tony@atomide.com>, Liam Girdwood <lgirdwood@gmail.com>, Philipp Zabel <p.zabel@pengutronix.de>, Vladimir Zapolskiy <vz@mleia.com>, Avi Fishman <avifishman70@gmail.com>, Tomer Maimon <tmaimon77@gmail.com>, Tali Perry <tali.perry1@gmail.com>, Patrick Venture <venture@google.com>, Nancy Yuen <yuenn@google.com>, Benjamin Fair <benjaminfair@google.com>, Pavel Machek <pavel@ucw.cz>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-omap@vger.kernel.org, openbmc@lists.ozlabs.org, linux-tegra@vger.kernel.org, linux-pm@vger.kernel.org
 
-Peter Zijlstra <peterz@infradead.org> writes:
-> On Mon, Oct 25, 2021 at 03:06:24PM +0200, Arnd Bergmann wrote:
->> On Mon, Oct 25, 2021 at 11:57 AM Peter Zijlstra <peterz@infradead.org> wrote:
->> > On Sat, Oct 23, 2021 at 06:04:57PM +0200, Arnd Bergmann wrote:
->> > > On Sat, Oct 23, 2021 at 3:37 AM Waiman Long <longman@redhat.com> wrote:
->> > > >> On 10/22/21 7:59 AM, Arnd Bergmann wrote:
->> > > > > From: Arnd Bergmann <arnd@arndb.de>
->> > > > >
->> > > > > As this is all dead code, just remove it and the helper functions built
->> > > > > around it. For arch/ia64, the inline asm could be cleaned up, but
->> > > > > it seems safer to leave it untouched.
->> > > > >
->> > > > > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
->> > > >
->> > > > Does that mean we can also remove the GENERIC_LOCKBREAK config option
->> > > > from the Kconfig files as well?
->> > >
->> > >  I couldn't figure this out.
->> > >
->> > > What I see is that the only architectures setting GENERIC_LOCKBREAK are
->> > > nds32, parisc, powerpc, s390, sh and sparc64, while the only architectures
->> > > implementing arch_spin_is_contended() are arm32, csky and ia64.
->> > >
->> > > The part I don't understand is whether the option actually does anything
->> > > useful any more after commit d89c70356acf ("locking/core: Remove break_lock
->> > > field when CONFIG_GENERIC_LOCKBREAK=y").
->> >
->> > Urgh, what a mess.. AFAICT there's still code in
->> > kernel/locking/spinlock.c that relies on it. Specifically when
->> > GENERIC_LOCKBREAK=y we seem to create _lock*() variants that are
->> > basically TaS locks which drop preempt/irq disable while spinning.
->> >
->> > Anybody having this on and not having native TaS locks is in for a rude
->> > surprise I suppose... sparc64 being the obvious candidate there :/
->> 
->> Is this a problem on s390 and powerpc, those two being the ones
->> that matter in practice?
->> 
->> On s390, we pick between the cmpxchg() based directed-yield when
->> running on virtualized CPUs, and a normal qspinlock when running on a
->> dedicated CPU.
->> 
->> On PowerPC, we pick at compile-time between either the qspinlock
->> (default-enabled on Book3S-64, i.e. all server chips) or a ll/sc based
->> spinlock plus vm_yield() (default on embedded and 32-bit mac).
->
-> Urgh, yeah, so this crud undermines the whole point of having a fair
-> lock. I'm thinking s390 and Power want to have this fixed.
+Use devm_register_power_handler() that replaces global pm_power_off_prepare
+variable and allows to register multiple power-off handlers.
 
-Our Kconfig has:
+Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
+---
+ drivers/regulator/pfuze100-regulator.c | 39 ++++++++++----------------
+ 1 file changed, 15 insertions(+), 24 deletions(-)
 
-  config GENERIC_LOCKBREAK
-  	bool
-  	default y
-  	depends on SMP && PREEMPTION
-
-And we have exactly one defconfig that enables both SMP and PREEMPT,
-arch/powerpc/configs/85xx/ge_imp3a_defconfig, which is some ~10 year old
-PCI card embedded thing I've never heard of. High chance anyone who has
-those is not running upstream kernels on them.
-
-So I think we'd be happy for you rip GENERIC_LOCKBREAK out, it's almost
-entirely unused on powerpc anyway.
-
-cheers
+diff --git a/drivers/regulator/pfuze100-regulator.c b/drivers/regulator/pfuze100-regulator.c
+index d60d7d1b7fa2..73d5baf9d3ea 100644
+--- a/drivers/regulator/pfuze100-regulator.c
++++ b/drivers/regulator/pfuze100-regulator.c
+@@ -10,6 +10,7 @@
+ #include <linux/of_device.h>
+ #include <linux/regulator/of_regulator.h>
+ #include <linux/platform_device.h>
++#include <linux/reboot.h>
+ #include <linux/regulator/driver.h>
+ #include <linux/regulator/machine.h>
+ #include <linux/regulator/pfuze100.h>
+@@ -76,6 +77,7 @@ struct pfuze_chip {
+ 	struct pfuze_regulator regulator_descs[PFUZE100_MAX_REGULATOR];
+ 	struct regulator_dev *regulators[PFUZE100_MAX_REGULATOR];
+ 	struct pfuze_regulator *pfuze_regulators;
++	struct power_handler power_handler;
+ };
+ 
+ static const int pfuze100_swbst[] = {
+@@ -569,10 +571,10 @@ static inline struct device_node *match_of_node(int index)
+ 	return pfuze_matches[index].of_node;
+ }
+ 
+-static struct pfuze_chip *syspm_pfuze_chip;
+-
+-static void pfuze_power_off_prepare(void)
++static void pfuze_power_off_prepare(struct power_off_prep_data *data)
+ {
++	struct pfuze_chip *syspm_pfuze_chip = data->cb_data;
++
+ 	dev_info(syspm_pfuze_chip->dev, "Configure standby mode for power off");
+ 
+ 	/* Switch from default mode: APS/APS to APS/Off */
+@@ -611,24 +613,24 @@ static void pfuze_power_off_prepare(void)
+ 
+ static int pfuze_power_off_prepare_init(struct pfuze_chip *pfuze_chip)
+ {
++	int err;
++
+ 	if (pfuze_chip->chip_id != PFUZE100) {
+ 		dev_warn(pfuze_chip->dev, "Requested pm_power_off_prepare handler for not supported chip\n");
+ 		return -ENODEV;
+ 	}
+ 
+-	if (pm_power_off_prepare) {
+-		dev_warn(pfuze_chip->dev, "pm_power_off_prepare is already registered.\n");
+-		return -EBUSY;
+-	}
++	pfuze_chip->power_handler.power_off_prepare_cb = pfuze_power_off_prepare;
++	pfuze_chip->power_handler.cb_data = pfuze_chip;
+ 
+-	if (syspm_pfuze_chip) {
+-		dev_warn(pfuze_chip->dev, "syspm_pfuze_chip is already set.\n");
+-		return -EBUSY;
++	err = devm_register_power_handler(pfuze_chip->dev,
++					  &pfuze_chip->power_handler);
++	if (err) {
++		dev_err(pfuze_chip->dev,
++			"failed to register power handler: %d\n", err);
++		return err;
+ 	}
+ 
+-	syspm_pfuze_chip = pfuze_chip;
+-	pm_power_off_prepare = pfuze_power_off_prepare;
+-
+ 	return 0;
+ }
+ 
+@@ -837,23 +839,12 @@ static int pfuze100_regulator_probe(struct i2c_client *client,
+ 	return 0;
+ }
+ 
+-static int pfuze100_regulator_remove(struct i2c_client *client)
+-{
+-	if (syspm_pfuze_chip) {
+-		syspm_pfuze_chip = NULL;
+-		pm_power_off_prepare = NULL;
+-	}
+-
+-	return 0;
+-}
+-
+ static struct i2c_driver pfuze_driver = {
+ 	.driver = {
+ 		.name = "pfuze100-regulator",
+ 		.of_match_table = pfuze_dt_ids,
+ 	},
+ 	.probe = pfuze100_regulator_probe,
+-	.remove = pfuze100_regulator_remove,
+ };
+ module_i2c_driver(pfuze_driver);
+ 
+-- 
+2.33.1
