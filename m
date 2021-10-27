@@ -1,47 +1,47 @@
-From: Mark Brown <broonie@kernel.org>
-Date: Wed, 13 Oct 2021 11:16:44 +0000
-Subject: Re: [PATCH AUTOSEL 5.14 17/17] firmware: include drivers/firmware/Kconfig unconditionally
-Message-Id: <YWbAHCYS/IsGyeEw@sirena.org.uk>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Hzj7Ij7mixgewbmh"
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Wed, 27 Oct 2021 21:16:39 +0000
+Subject: [PATCH v2 09/45] xen/x86: Use do_kernel_power_off()
+Message-Id: <20211027211715.12671-10-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211013005441.699846-1-sashal@kernel.org>
- <20211013005441.699846-17-sashal@kernel.org>
-In-Reply-To: <20211013005441.699846-17-sashal@kernel.org>
-To: Sasha Levin <sashal@kernel.org>
-Cc: linux-kernel@vger.kernel.org, stable@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>, Bjorn Andersson <bjorn.andersson@linaro.org>, Charles Keepax <ckeepax@opensource.cirrus.com>, Will Deacon <will@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Simon Trimmer <simont@opensource.cirrus.com>, Michael Ellerman <mpe@ellerman.id.au>, linux@armlinux.org.uk, catalin.marinas@arm.com, tsbogend@alpha.franken.de, James.Bottomley@hansenpartnership.com, deller@gmx.de, paul.walmsley@sifive.com, palmer@dabbelt.com, aou@eecs.berkeley.edu, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, x86@kernel.org, geert+renesas@glider.be, linus.walleij@linaro.org, rmk+kernel@armlinux.org.uk, akpm@linux-foundation.org, anshuman.khandual@arm.com, rppt@kernel.org, ardb@kernel.org, u.kleine-koenig@pengutronix.de, lukas.bulwahn@gmail.com, mark.rutland@arm.com, wangkefeng.wang@huawei.com, slyfox@gentoo.org, axboe@kernel.dk, rientjes@google.com, dan.j.williams@intel.com, gregkh@linuxfoundation.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org
+References: <20211027211715.12671-1-digetx@gmail.com>
+In-Reply-To: <20211027211715.12671-1-digetx@gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Lee Jones <lee.jones@linaro.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Mark Brown <broonie@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Russell King <linux@armlinux.org.uk>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
+Cc: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Linus Walleij <linus.walleij@linaro.org>, Chen-Yu Tsai <wens@csie.org>, =?UTF-8?q?Jonathan=20Neusch=C3=A4fer?= <j.neuschaefer@gmx.net>, Tony Lindgren <tony@atomide.com>, Liam Girdwood <lgirdwood@gmail.com>, Philipp Zabel <p.zabel@pengutronix.de>, Vladimir Zapolskiy <vz@mleia.com>, Avi Fishman <avifishman70@gmail.com>, Tomer Maimon <tmaimon77@gmail.com>, Tali Perry <tali.perry1@gmail.com>, Patrick Venture <venture@google.com>, Nancy Yuen <yuenn@google.com>, Benjamin Fair <benjaminfair@google.com>, Pavel Machek <pavel@ucw.cz>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-omap@vger.kernel.org, openbmc@lists.ozlabs.org, linux-tegra@vger.kernel.org, linux-pm@vger.kernel.org
 
+Kernel now supports chained power-off handlers. Use do_kernel_power_off()
+that invokes chained power-off handlers. It also invokes legacy
+pm_power_off() for now, which will be removed once all drivers will
+be converted to the new power-off API.
 
---Hzj7Ij7mixgewbmh
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
+---
+ arch/x86/xen/enlighten_pv.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-On Tue, Oct 12, 2021 at 08:54:41PM -0400, Sasha Levin wrote:
-> From: Arnd Bergmann <arnd@arndb.de>
->=20
-> [ Upstream commit 951cd3a0866d29cb9c01ebc1d9c17590e598226e ]
->=20
-> Compile-testing drivers that require access to a firmware layer
-> fails when that firmware symbol is unavailable. This happened
-> twice this week:
-
-This seems *way* too invasive a change for stable.  It exposes code to
-building on entire new architectures.
-
---Hzj7Ij7mixgewbmh
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAABCgAdFiEEreZoqmdXGLWf4p/qJNaLcl1Uh9AFAmFmwBsACgkQJNaLcl1U
-h9AFjgf9HNz1iDlvraGZuINQkg4b76glybMJpIJI9Q9/fCTbm75p34EctvP3YnrO
-TCUYnuynKAfFn6bLAoHN4AO5JLYPELiK1jd3olKo4QbWgHL449nF7NwkBR/bjHNZ
-jwefNQMINnMo7bhrsdhmvYjoC9GuSHPSrHkHLKZRBsiCdc1SopabE67oBmTQ06+4
-6JOnbKmjExje2UT0JyJwgp59/YVbDOd06QLxA6gLuCPRmCTgYGqXS3/V1e89VwH1
-tK4vtT5ICEUVeBinsBUb2MMEAY41vB410JxWhNL9HFVg30fvQw/YDW7mQSdvCL0G
-Gf+lxOl5vhEl0xrMPE8gIqtfQ4Kyyw==
-=dgIM
------END PGP SIGNATURE-----
-
---Hzj7Ij7mixgewbmh--
+diff --git a/arch/x86/xen/enlighten_pv.c b/arch/x86/xen/enlighten_pv.c
+index 4f63117f09bb..4a0b9b7baf02 100644
+--- a/arch/x86/xen/enlighten_pv.c
++++ b/arch/x86/xen/enlighten_pv.c
+@@ -32,6 +32,7 @@
+ #include <linux/gfp.h>
+ #include <linux/edd.h>
+ #include <linux/objtool.h>
++#include <linux/reboot.h>
+ 
+ #include <xen/xen.h>
+ #include <xen/events.h>
+@@ -1087,8 +1088,7 @@ static void xen_machine_halt(void)
+ 
+ static void xen_machine_power_off(void)
+ {
+-	if (pm_power_off)
+-		pm_power_off();
++	do_kernel_power_off();
+ 	xen_reboot(SHUTDOWN_poweroff);
+ }
+ 
+-- 
+2.33.1
