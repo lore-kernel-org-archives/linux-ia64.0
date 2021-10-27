@@ -1,7 +1,7 @@
 From: Dmitry Osipenko <digetx@gmail.com>
-Date: Wed, 27 Oct 2021 21:16:59 +0000
-Subject: [PATCH v2 29/45] mfd: acer-a500: Use devm_register_power_handler()
-Message-Id: <20211027211715.12671-30-digetx@gmail.com>
+Date: Wed, 27 Oct 2021 21:16:42 +0000
+Subject: [PATCH v2 12/45] csky: Use do_kernel_power_off()
+Message-Id: <20211027211715.12671-13-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20211027211715.12671-1-digetx@gmail.com>
 In-Reply-To: <20211027211715.12671-1-digetx@gmail.com>
@@ -11,114 +11,38 @@ Content-Transfer-Encoding: 7bit
 To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Lee Jones <lee.jones@linaro.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Mark Brown <broonie@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Russell King <linux@armlinux.org.uk>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
 Cc: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Linus Walleij <linus.walleij@linaro.org>, Chen-Yu Tsai <wens@csie.org>, =?UTF-8?q?Jonathan=20Neusch=C3=A4fer?= <j.neuschaefer@gmx.net>, Tony Lindgren <tony@atomide.com>, Liam Girdwood <lgirdwood@gmail.com>, Philipp Zabel <p.zabel@pengutronix.de>, Vladimir Zapolskiy <vz@mleia.com>, Avi Fishman <avifishman70@gmail.com>, Tomer Maimon <tmaimon77@gmail.com>, Tali Perry <tali.perry1@gmail.com>, Patrick Venture <venture@google.com>, Nancy Yuen <yuenn@google.com>, Benjamin Fair <benjaminfair@google.com>, Pavel Machek <pavel@ucw.cz>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-omap@vger.kernel.org, openbmc@lists.ozlabs.org, linux-tegra@vger.kernel.org, linux-pm@vger.kernel.org
 
-Use devm_register_power_handler() that replaces global pm_power_off
-variable and allows to register multiple power-off handlers. It also
-provides restart-handler support, i.e. all in one API.
+Kernel now supports chained power-off handlers. Use do_kernel_power_off()
+that invokes chained power-off handlers. It also invokes legacy
+pm_power_off() for now, which will be removed once all drivers will
+be converted to the new power-off API.
 
 Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- drivers/mfd/acer-ec-a500.c | 52 ++++++++++++++------------------------
- 1 file changed, 19 insertions(+), 33 deletions(-)
+ arch/csky/kernel/power.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/mfd/acer-ec-a500.c b/drivers/mfd/acer-ec-a500.c
-index 80c2fdd14fc4..fc864abc0049 100644
---- a/drivers/mfd/acer-ec-a500.c
-+++ b/drivers/mfd/acer-ec-a500.c
-@@ -31,8 +31,6 @@ enum {
- 	REG_COLD_REBOOT = 0x55,
- };
- 
--static struct i2c_client *a500_ec_client_pm_off;
--
- static int a500_ec_read(void *context, const void *reg_buf, size_t reg_size,
- 			void *val_buf, size_t val_sizel)
+diff --git a/arch/csky/kernel/power.c b/arch/csky/kernel/power.c
+index 923ee4e381b8..86ee202906f8 100644
+--- a/arch/csky/kernel/power.c
++++ b/arch/csky/kernel/power.c
+@@ -9,16 +9,14 @@ EXPORT_SYMBOL(pm_power_off);
+ void machine_power_off(void)
  {
-@@ -104,32 +102,35 @@ static const struct regmap_bus a500_ec_regmap_bus = {
- 	.max_raw_read = 2,
- };
- 
--static void a500_ec_poweroff(void)
-+static void a500_ec_power_off_handler(struct power_off_data *data)
- {
--	i2c_smbus_write_word_data(a500_ec_client_pm_off,
--				  REG_SHUTDOWN, CMD_SHUTDOWN);
-+	struct i2c_client *client = data->cb_data;
-+
-+	i2c_smbus_write_word_data(client, REG_SHUTDOWN, CMD_SHUTDOWN);
- 
- 	mdelay(A500_EC_POWER_CMD_TIMEOUT);
+ 	local_irq_disable();
+-	if (pm_power_off)
+-		pm_power_off();
++	do_kernel_power_off();
+ 	asm volatile ("bkpt");
  }
  
--static int a500_ec_restart_notify(struct notifier_block *this,
--				  unsigned long reboot_mode, void *data)
-+static void a500_ec_restart_handler(struct restart_data *data)
+ void machine_halt(void)
  {
--	if (reboot_mode = REBOOT_WARM)
--		i2c_smbus_write_word_data(a500_ec_client_pm_off,
-+	struct i2c_client *client = data->cb_data;
-+
-+	if (data->mode = REBOOT_WARM)
-+		i2c_smbus_write_word_data(client,
- 					  REG_WARM_REBOOT, CMD_WARM_REBOOT);
- 	else
--		i2c_smbus_write_word_data(a500_ec_client_pm_off,
-+		i2c_smbus_write_word_data(client,
- 					  REG_COLD_REBOOT, CMD_COLD_REBOOT);
- 
- 	mdelay(A500_EC_POWER_CMD_TIMEOUT);
--
--	return NOTIFY_DONE;
+ 	local_irq_disable();
+-	if (pm_power_off)
+-		pm_power_off();
++	do_kernel_power_off();
+ 	asm volatile ("bkpt");
  }
- 
--static struct notifier_block a500_ec_restart_handler = {
--	.notifier_call = a500_ec_restart_notify,
--	.priority = 200,
-+static struct power_handler a500_ec_power_handler = {
-+	.restart_cb = a500_ec_restart_handler,
-+	.restart_priority = RESTART_PRIO_HIGH,
-+
-+	.power_off_cb = a500_ec_power_off_handler,
-+	.power_off_priority = POWEROFF_PRIO_HIGH,
- };
- 
- static const struct mfd_cell a500_ec_cells[] = {
-@@ -156,26 +157,12 @@ static int a500_ec_probe(struct i2c_client *client)
- 	}
- 
- 	if (of_device_is_system_power_controller(client->dev.of_node)) {
--		a500_ec_client_pm_off = client;
-+		a500_ec_power_handler.cb_data = client;
- 
--		err = register_restart_handler(&a500_ec_restart_handler);
-+		err = devm_register_power_handler(&client->dev,
-+						  &a500_ec_power_handler);
- 		if (err)
- 			return err;
--
--		if (!pm_power_off)
--			pm_power_off = a500_ec_poweroff;
--	}
--
--	return 0;
--}
--
--static int a500_ec_remove(struct i2c_client *client)
--{
--	if (of_device_is_system_power_controller(client->dev.of_node)) {
--		if (pm_power_off = a500_ec_poweroff)
--			pm_power_off = NULL;
--
--		unregister_restart_handler(&a500_ec_restart_handler);
- 	}
- 
- 	return 0;
-@@ -193,7 +180,6 @@ static struct i2c_driver a500_ec_driver = {
- 		.of_match_table = a500_ec_match,
- 	},
- 	.probe_new = a500_ec_probe,
--	.remove = a500_ec_remove,
- };
- module_i2c_driver(a500_ec_driver);
  
 -- 
 2.33.1
