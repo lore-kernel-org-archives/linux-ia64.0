@@ -1,96 +1,39 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Fri, 01 Oct 2021 14:03:13 +0000
-Subject: Re: [PATCH v1 3/4] memblock: add MEMBLOCK_DRIVER_MANAGED to mimic IORESOURCE_SYSRAM_DRIVER_MANAGED
-Message-Id: <YVcVIej0Wlyd9JAB@kernel.org>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Wed, 27 Oct 2021 21:16:45 +0000
+Subject: [PATCH v2 15/45] nds32: Use do_kernel_power_off()
+Message-Id: <20211027211715.12671-16-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210927150518.8607-1-david@redhat.com>
- <20210927150518.8607-4-david@redhat.com>
- <YVSW3uuu7mIcJMm3@kernel.org>
- <830c1670-378b-0fb6-bd5e-208e545fa126@redhat.com>
- <YVYqdN7MFdzBlCVm@kernel.org>
- <0d6c86ba-076b-5d4b-33a8-da267f951a85@redhat.com>
-In-Reply-To: <0d6c86ba-076b-5d4b-33a8-da267f951a85@redhat.com>
+References: <20211027211715.12671-1-digetx@gmail.com>
+In-Reply-To: <20211027211715.12671-1-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>
-Cc: linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Michal Hocko <mhocko@suse.com>, Oscar Salvador <osalvador@suse.de>, Jianyong Wu <Jianyong.Wu@arm.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Vineet Gupta <vgupta@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Huacai Chen <chenhuacai@kernel.org>, Jiaxun Yang <jiaxun.yang@flygoat.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Eric Biederman <ebiederm@xmission.com>, Arnd Bergmann <arnd@arndb.de>, linux-snps-arc@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-s390@vger.kernel.org, linux-mm@kvack.org, kexec@lists.infradead.org
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Lee Jones <lee.jones@linaro.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Mark Brown <broonie@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Russell King <linux@armlinux.org.uk>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
+Cc: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Linus Walleij <linus.walleij@linaro.org>, Chen-Yu Tsai <wens@csie.org>, =?UTF-8?q?Jonathan=20Neusch=C3=A4fer?= <j.neuschaefer@gmx.net>, Tony Lindgren <tony@atomide.com>, Liam Girdwood <lgirdwood@gmail.com>, Philipp Zabel <p.zabel@pengutronix.de>, Vladimir Zapolskiy <vz@mleia.com>, Avi Fishman <avifishman70@gmail.com>, Tomer Maimon <tmaimon77@gmail.com>, Tali Perry <tali.perry1@gmail.com>, Patrick Venture <venture@google.com>, Nancy Yuen <yuenn@google.com>, Benjamin Fair <benjaminfair@google.com>, Pavel Machek <pavel@ucw.cz>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-omap@vger.kernel.org, openbmc@lists.ozlabs.org, linux-tegra@vger.kernel.org, linux-pm@vger.kernel.org
 
-On Fri, Oct 01, 2021 at 10:04:24AM +0200, David Hildenbrand wrote:
-> On 30.09.21 23:21, Mike Rapoport wrote:
-> > On Wed, Sep 29, 2021 at 06:54:01PM +0200, David Hildenbrand wrote:
-> > > On 29.09.21 18:39, Mike Rapoport wrote:
-> > > > Hi,
-> > > > 
-> > > > On Mon, Sep 27, 2021 at 05:05:17PM +0200, David Hildenbrand wrote:
-> > > > > Let's add a flag that corresponds to IORESOURCE_SYSRAM_DRIVER_MANAGED.
-> > > > > Similar to MEMBLOCK_HOTPLUG, most infrastructure has to treat such memory
-> > > > > like ordinary MEMBLOCK_NONE memory -- for example, when selecting memory
-> > > > > regions to add to the vmcore for dumping in the crashkernel via
-> > > > > for_each_mem_range().
-> > > > Can you please elaborate on the difference in semantics of MEMBLOCK_HOTPLUG
-> > > > and MEMBLOCK_DRIVER_MANAGED?
-> > > > Unless I'm missing something they both mark memory that can be unplugged
-> > > > anytime and so it should not be used in certain cases. Why is there a need
-> > > > for a new flag?
-> > > 
-> > > In the cover letter I have "Alternative B: Reuse MEMBLOCK_HOTPLUG.
-> > > MEMBLOCK_HOTPLUG serves a different purpose, though.", but looking into the
-> > > details it won't work as is.
-> > > 
-> > > MEMBLOCK_HOTPLUG is used to mark memory early during boot that can later get
-> > > hotunplugged again and should be placed into ZONE_MOVABLE if the
-> > > "movable_node" kernel parameter is set.
-> > > 
-> > > The confusing part is that we talk about "hotpluggable" but really mean
-> > > "hotunpluggable": the reason is that HW flags DIMM slots that can later be
-> > > hotplugged as "hotpluggable" even though there is already something
-> > > hotplugged.
-> > 
-> > MEMBLOCK_HOTPLUG name is indeed somewhat confusing, but still it's core
-> > meaning "this memory may be removed" which does not differ from what
-> > IORESOURCE_SYSRAM_DRIVER_MANAGED means.
-> > 
-> > MEMBLOCK_HOTPLUG regions are indeed placed into ZONE_MOVABLE, but more
-> > importantly, they are avoided when we allocate memory from memblock.
-> > 
-> > So, in my view, both flags mean that the memory may be removed and it
-> > should not be used for certain types of allocations.
-> 
-> The semantics are different:
-> 
-> MEMBLOCK_HOTPLUG: memory is indicated as "System RAM" in the
-> firmware-provided memory map and added to the system early during boot; we
-> want this memory to be managed by ZONE_MOVABLE with "movable_node" set on
-> the kernel command line, because only then we want it to be hotpluggable
-> again. kexec *has to* indicate this memory to the second kernel and can
-> place kexec-images on this memory. After memory hotunplug, kexec has to be
-> re-armed.
-> 
-> MEMBLOCK_DRIVER_MANAGED: memory is not indicated as System RAM" in the
-> firmware-provided memory map; this memory is always detected and added to
-> the system by a driver; memory might not actually be physically
-> hotunpluggable and the ZONE selection does not depend on "movable_core".
-> kexec *must not* indicate this memory to the second kernel and *must not*
-> place kexec-images on this memory.
+Kernel now supports chained power-off handlers. Use do_kernel_power_off()
+that invokes chained power-off handlers. It also invokes legacy
+pm_power_off() for now, which will be removed once all drivers will
+be converted to the new power-off API.
 
-Ok, this clarifies.
-This explanation should be a part of the changelog. The sentences about the
-zone selection could be probably skipped, because they are less important
-for this case. E.g something like:
+Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
+---
+ arch/nds32/kernel/process.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-MEMBLOCK_HOTPLUG: memory is indicated as "System RAM" in the
-firmware-provided memory map and added to the system early during boot;
-kexec *has to* indicate this memory to the second kernel and can place
-kexec-images on this memory. After memory hotunplug, kexec has to be
-re-armed.
-
-MEMBLOCK_DRIVER_MANAGED: memory is not indicated as "System RAM" in the
-firmware-provided memory map; this memory is always detected and added to
-the system by a driver; memory might not actually be physically
-hotunpluggable.  kexec *must not* indicate this memory to the second kernel
-and *must not* place kexec-images on this memory.
-
+diff --git a/arch/nds32/kernel/process.c b/arch/nds32/kernel/process.c
+index 49fab9e39cbf..0936dcd7db1b 100644
+--- a/arch/nds32/kernel/process.c
++++ b/arch/nds32/kernel/process.c
+@@ -54,8 +54,7 @@ EXPORT_SYMBOL(machine_halt);
+ 
+ void machine_power_off(void)
+ {
+-	if (pm_power_off)
+-		pm_power_off();
++	do_kernel_power_off();
+ }
+ 
+ EXPORT_SYMBOL(machine_power_off);
 -- 
-Sincerely yours,
-Mike.
+2.33.1
