@@ -1,7 +1,7 @@
 From: Dmitry Osipenko <digetx@gmail.com>
-Date: Wed, 27 Oct 2021 21:16:58 +0000
-Subject: [PATCH v2 28/45] mfd: rn5t618: Use devm_register_power_handler()
-Message-Id: <20211027211715.12671-29-digetx@gmail.com>
+Date: Wed, 27 Oct 2021 21:16:57 +0000
+Subject: [PATCH v2 27/45] mfd: ntxec: Use devm_register_power_handler()
+Message-Id: <20211027211715.12671-28-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20211027211715.12671-1-digetx@gmail.com>
 In-Reply-To: <20211027211715.12671-1-digetx@gmail.com>
@@ -17,124 +17,118 @@ provides restart-handler support, i.e. all in one API.
 
 Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- drivers/mfd/rn5t618.c | 56 ++++++++++++++++---------------------------
- 1 file changed, 21 insertions(+), 35 deletions(-)
+ drivers/mfd/ntxec.c | 50 ++++++++++-----------------------------------
+ 1 file changed, 11 insertions(+), 39 deletions(-)
 
-diff --git a/drivers/mfd/rn5t618.c b/drivers/mfd/rn5t618.c
-index 384acb459427..12d7b2339bbe 100644
---- a/drivers/mfd/rn5t618.c
-+++ b/drivers/mfd/rn5t618.c
-@@ -84,9 +84,6 @@ static const struct regmap_irq_chip rc5t619_irq_chip = {
- 	.mask_invert = true,
- };
+diff --git a/drivers/mfd/ntxec.c b/drivers/mfd/ntxec.c
+index b711e73eedcb..fd6410cbe153 100644
+--- a/drivers/mfd/ntxec.c
++++ b/drivers/mfd/ntxec.c
+@@ -32,12 +32,11 @@
+ #define NTXEC_POWERKEEP_VALUE	0x0800
+ #define NTXEC_RESET_VALUE	0xff00
  
--static struct i2c_client *rn5t618_pm_power_off;
--static struct notifier_block rn5t618_restart_handler;
+-static struct i2c_client *poweroff_restart_client;
 -
- static int rn5t618_irq_init(struct rn5t618 *rn5t618)
+-static void ntxec_poweroff(void)
++static void ntxec_poweroff(struct power_off_data *data)
  {
- 	const struct regmap_irq_chip *irq_chip = NULL;
-@@ -115,7 +112,9 @@ static int rn5t618_irq_init(struct rn5t618 *rn5t618)
- 	return ret;
+ 	int res;
+ 	u8 buf[3] = { NTXEC_REG_POWEROFF };
++	struct i2c_client *poweroff_restart_client = data->cb_data;
+ 	struct i2c_msg msgs[] = {
+ 		{
+ 			.addr = poweroff_restart_client->addr,
+@@ -62,8 +61,7 @@ static void ntxec_poweroff(void)
+ 	msleep(5000);
  }
  
--static void rn5t618_trigger_poweroff_sequence(bool repower)
-+static void
-+rn5t618_trigger_poweroff_sequence(struct i2c_client *rn5t618_pm_power_off,
-+				  bool repower)
+-static int ntxec_restart(struct notifier_block *nb,
+-			 unsigned long action, void *data)
++static void ntxec_restart(struct restart_data *data)
  {
- 	int ret;
- 
-@@ -151,25 +150,31 @@ static void rn5t618_trigger_poweroff_sequence(bool repower)
- 	dev_alert(&rn5t618_pm_power_off->dev, "Failed to shutdown (err = %d)\n", ret);
- }
- 
--static void rn5t618_power_off(void)
-+static void rn5t618_power_off(struct power_off_data *data)
- {
--	rn5t618_trigger_poweroff_sequence(false);
-+	struct i2c_client *client = data->cb_data;
-+
-+	rn5t618_trigger_poweroff_sequence(client, false);
- }
- 
--static int rn5t618_restart(struct notifier_block *this,
--			    unsigned long mode, void *cmd)
-+static void rn5t618_restart(struct restart_data *data)
- {
--	rn5t618_trigger_poweroff_sequence(true);
-+	struct i2c_client *client = data->cb_data;
-+
-+	rn5t618_trigger_poweroff_sequence(client, true);
- 
- 	/*
- 	 * Re-power factor detection on PMIC side is not instant. 1ms
- 	 * proved to be enough time until reset takes effect.
+ 	int res;
+ 	u8 buf[3] = { NTXEC_REG_RESET };
+@@ -72,6 +70,7 @@ static int ntxec_restart(struct notifier_block *nb,
+ 	 * it causes an I2C error. (The reset handler in the downstream driver
+ 	 * does send the full two-byte value, but doesn't check the result).
  	 */
- 	mdelay(1);
++	struct i2c_client *poweroff_restart_client = data->cb_data;
+ 	struct i2c_msg msgs[] = {
+ 		{
+ 			.addr = poweroff_restart_client->addr,
+@@ -87,13 +86,11 @@ static int ntxec_restart(struct notifier_block *nb,
+ 	if (res < 0)
+ 		dev_warn(&poweroff_restart_client->dev,
+ 			 "Failed to restart (err = %d)\n", res);
 -
 -	return NOTIFY_DONE;
  }
  
-+static struct power_handler rn5t618_power_handler = {
-+	.restart_cb = rn5t618_restart,
-+	.restart_priority = RESTART_PRIO_HIGH,
-+};
-+
- static const struct of_device_id rn5t618_of_match[] = {
- 	{ .compatible = "ricoh,rn5t567", .data = (void *)RN5T567 },
- 	{ .compatible = "ricoh,rn5t618", .data = (void *)RN5T618 },
-@@ -221,38 +226,20 @@ static int rn5t618_i2c_probe(struct i2c_client *i2c)
- 		return ret;
- 	}
+-static struct notifier_block ntxec_restart_handler = {
+-	.notifier_call = ntxec_restart,
+-	.priority = 128,
++static struct power_handler ntxec_power_handler = {
++	.restart_cb = ntxec_restart,
++	.power_off_cb = ntxec_poweroff,
+ };
  
--	rn5t618_pm_power_off = i2c;
--	if (of_device_is_system_power_controller(i2c->dev.of_node)) {
--		if (!pm_power_off)
--			pm_power_off = rn5t618_power_off;
+ static int regmap_ignore_write(void *context,
+@@ -208,25 +205,12 @@ static int ntxec_probe(struct i2c_client *client)
+ 		if (res < 0)
+ 			return res;
+ 
+-		if (poweroff_restart_client)
+-			/*
+-			 * Another instance of the driver already took
+-			 * poweroff/restart duties.
+-			 */
+-			dev_err(ec->dev, "poweroff_restart_client already assigned\n");
 -		else
--			dev_warn(&i2c->dev, "Poweroff callback already assigned\n");
--	}
-+	if (of_device_is_system_power_controller(i2c->dev.of_node))
-+		rn5t618_power_handler.power_off_cb = rn5t618_power_off;
- 
--	rn5t618_restart_handler.notifier_call = rn5t618_restart;
--	rn5t618_restart_handler.priority = 192;
-+	rn5t618_power_handler.cb_data = i2c;
- 
--	ret = register_restart_handler(&rn5t618_restart_handler);
-+	ret = devm_register_power_handler(&i2c->dev, &rn5t618_power_handler);
- 	if (ret) {
--		dev_err(&i2c->dev, "cannot register restart handler, %d\n", ret);
-+		dev_err(&i2c->dev, "failed to register power handler: %d\n", ret);
- 		return ret;
+-			poweroff_restart_client = client;
+-
+-		if (pm_power_off)
+-			/* Another driver already registered a poweroff handler. */
+-			dev_err(ec->dev, "pm_power_off already assigned\n");
+-		else
+-			pm_power_off = ntxec_poweroff;
+-
+-		res = register_restart_handler(&ntxec_restart_handler);
++		ntxec_power_handler.cb_data = client;
++
++		res = devm_register_power_handler(ec->dev, &ntxec_power_handler);
+ 		if (res)
+ 			dev_err(ec->dev,
+-				"Failed to register restart handler: %d\n", res);
++				"Failed to register power handler: %d\n", res);
  	}
  
- 	return rn5t618_irq_init(priv);
+ 	i2c_set_clientdata(client, ec);
+@@ -239,17 +223,6 @@ static int ntxec_probe(struct i2c_client *client)
+ 	return res;
  }
  
--static int rn5t618_i2c_remove(struct i2c_client *i2c)
+-static int ntxec_remove(struct i2c_client *client)
 -{
--	if (i2c = rn5t618_pm_power_off) {
--		rn5t618_pm_power_off = NULL;
+-	if (client = poweroff_restart_client) {
+-		poweroff_restart_client = NULL;
 -		pm_power_off = NULL;
+-		unregister_restart_handler(&ntxec_restart_handler);
 -	}
--
--	unregister_restart_handler(&rn5t618_restart_handler);
 -
 -	return 0;
 -}
 -
- static int __maybe_unused rn5t618_i2c_suspend(struct device *dev)
- {
- 	struct rn5t618 *priv = dev_get_drvdata(dev);
-@@ -284,7 +271,6 @@ static struct i2c_driver rn5t618_i2c_driver = {
- 		.pm = &rn5t618_i2c_dev_pm_ops,
+ static const struct of_device_id of_ntxec_match_table[] = {
+ 	{ .compatible = "netronix,ntxec", },
+ 	{}
+@@ -262,7 +235,6 @@ static struct i2c_driver ntxec_driver = {
+ 		.of_match_table = of_ntxec_match_table,
  	},
- 	.probe_new = rn5t618_i2c_probe,
--	.remove = rn5t618_i2c_remove,
+ 	.probe_new = ntxec_probe,
+-	.remove = ntxec_remove,
  };
+ module_i2c_driver(ntxec_driver);
  
- module_i2c_driver(rn5t618_i2c_driver);
 -- 
 2.33.1
