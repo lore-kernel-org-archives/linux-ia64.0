@@ -1,154 +1,62 @@
-From: Arnd Bergmann <arnd@kernel.org>
-Date: Thu, 07 Oct 2021 15:10:09 +0000
-Subject: [PATCH v2 1/2] firmware: include drivers/firmware/Kconfig unconditionally
-Message-Id: <20211007151010.333516-1-arnd@kernel.org>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Wed, 27 Oct 2021 21:16:32 +0000
+Subject: [PATCH v2 02/45] notifier: Add blocking_notifier_call_chain_empty()
+Message-Id: <20211027211715.12671-3-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20211027211715.12671-1-digetx@gmail.com>
+In-Reply-To: <20211027211715.12671-1-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-arm-msm@vger.kernel.org, dri-devel@lists.freedesktop.org, freedreno@lists.freedesktop.org, iommu@lists.linux-foundation.org, linux-media@vger.kernel.org, linux-mmc@vger.kernel.org, netdev@vger.kernel.org, ath10k@lists.infradead.org, linux-wireless@vger.kernel.org, linux-gpio@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>, Bjorn Andersson <bjorn.andersson@linaro.org>, Charles Keepax <ckeepax@opensource.cirrus.com>, Will Deacon <will@kernel.org>, Mark Brown <broonie@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Simon Trimmer <simont@opensource.cirrus.com>, Michael Ellerman <mpe@ellerman.id.au>
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Lee Jones <lee.jones@linaro.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Mark Brown <broonie@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Russell King <linux@armlinux.org.uk>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
+Cc: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Linus Walleij <linus.walleij@linaro.org>, Chen-Yu Tsai <wens@csie.org>, =?UTF-8?q?Jonathan=20Neusch=C3=A4fer?= <j.neuschaefer@gmx.net>, Tony Lindgren <tony@atomide.com>, Liam Girdwood <lgirdwood@gmail.com>, Philipp Zabel <p.zabel@pengutronix.de>, Vladimir Zapolskiy <vz@mleia.com>, Avi Fishman <avifishman70@gmail.com>, Tomer Maimon <tmaimon77@gmail.com>, Tali Perry <tali.perry1@gmail.com>, Patrick Venture <venture@google.com>, Nancy Yuen <yuenn@google.com>, Benjamin Fair <benjaminfair@google.com>, Pavel Machek <pavel@ucw.cz>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-omap@vger.kernel.org, openbmc@lists.ozlabs.org, linux-tegra@vger.kernel.org, linux-pm@vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
+Add blocking_notifier_call_chain_empty() that returns true if call chain
+is empty.
 
-Compile-testing drivers that require access to a firmware layer
-fails when that firmware symbol is unavailable. This happened
-twice this week:
-
- - My proposed to change to rework the QCOM_SCM firmware symbol
-   broke on ppc64 and others.
-
- - The cs_dsp firmware patch added device specific firmware loader
-   into drivers/firmware, which broke on the same set of
-   architectures.
-
-We should probably do the same thing for other subsystems as well,
-but fix this one first as this is a dependency for other patches
-getting merged.
-
-Reviewed-by: Bjorn Andersson <bjorn.andersson@linaro.org>
-Reviewed-by: Charles Keepax <ckeepax@opensource.cirrus.com>
-Acked-by: Will Deacon <will@kernel.org>
-Acked-by: Bjorn Andersson <bjorn.andersson@linaro.org>
-Cc: Mark Brown <broonie@kernel.org>
-Cc: Liam Girdwood <lgirdwood@gmail.com>
-Cc: Charles Keepax <ckeepax@opensource.cirrus.com>
-Cc: Simon Trimmer <simont@opensource.cirrus.com>
-Cc: Michael Ellerman <mpe@ellerman.id.au>
-Reviewed-by: Mark Brown <broonie@kernel.org>
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
-No changes in v2, but it's now queued in my asm-generic
-tree for v5.15
+ include/linux/notifier.h |  2 ++
+ kernel/notifier.c        | 14 ++++++++++++++
+ 2 files changed, 16 insertions(+)
 
- arch/arm/Kconfig    | 2 --
- arch/arm64/Kconfig  | 2 --
- arch/ia64/Kconfig   | 2 --
- arch/mips/Kconfig   | 2 --
- arch/parisc/Kconfig | 2 --
- arch/riscv/Kconfig  | 2 --
- arch/x86/Kconfig    | 2 --
- drivers/Kconfig     | 2 ++
- 8 files changed, 2 insertions(+), 14 deletions(-)
-
-diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
-index fc196421b2ce..59baf6c132a7 100644
---- a/arch/arm/Kconfig
-+++ b/arch/arm/Kconfig
-@@ -1989,8 +1989,6 @@ config ARCH_HIBERNATION_POSSIBLE
+diff --git a/include/linux/notifier.h b/include/linux/notifier.h
+index 4b80a815b666..054271e9cb20 100644
+--- a/include/linux/notifier.h
++++ b/include/linux/notifier.h
+@@ -173,6 +173,8 @@ int blocking_notifier_call_chain_robust(struct blocking_notifier_head *nh,
+ int raw_notifier_call_chain_robust(struct raw_notifier_head *nh,
+ 		unsigned long val_up, unsigned long val_down, void *v);
  
- endmenu
- 
--source "drivers/firmware/Kconfig"
--
- if CRYPTO
- source "arch/arm/crypto/Kconfig"
- endif
-diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
-index 077f2ec4eeb2..407b4addea36 100644
---- a/arch/arm64/Kconfig
-+++ b/arch/arm64/Kconfig
-@@ -1931,8 +1931,6 @@ source "drivers/cpufreq/Kconfig"
- 
- endmenu
- 
--source "drivers/firmware/Kconfig"
--
- source "drivers/acpi/Kconfig"
- 
- source "arch/arm64/kvm/Kconfig"
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 045792cde481..1e33666fa679 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -388,8 +388,6 @@ config CRASH_DUMP
- 	  help
- 	    Generate crash dump after being started by kexec.
- 
--source "drivers/firmware/Kconfig"
--
- endmenu
- 
- menu "Power management and ACPI options"
-diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
-index 771ca53af06d..6b8f591c5054 100644
---- a/arch/mips/Kconfig
-+++ b/arch/mips/Kconfig
-@@ -3316,8 +3316,6 @@ source "drivers/cpuidle/Kconfig"
- 
- endmenu
- 
--source "drivers/firmware/Kconfig"
--
- source "arch/mips/kvm/Kconfig"
- 
- source "arch/mips/vdso/Kconfig"
-diff --git a/arch/parisc/Kconfig b/arch/parisc/Kconfig
-index 4742b6f169b7..27a8b49af11f 100644
---- a/arch/parisc/Kconfig
-+++ b/arch/parisc/Kconfig
-@@ -384,6 +384,4 @@ config KEXEC_FILE
- 
- endmenu
- 
--source "drivers/firmware/Kconfig"
--
- source "drivers/parisc/Kconfig"
-diff --git a/arch/riscv/Kconfig b/arch/riscv/Kconfig
-index c3f3fd583e04..8bc71ab143e3 100644
---- a/arch/riscv/Kconfig
-+++ b/arch/riscv/Kconfig
-@@ -561,5 +561,3 @@ menu "Power management options"
- source "kernel/power/Kconfig"
- 
- endmenu
--
--source "drivers/firmware/Kconfig"
-diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-index 4e001bbbb425..4dca39744ee9 100644
---- a/arch/x86/Kconfig
-+++ b/arch/x86/Kconfig
-@@ -2828,8 +2828,6 @@ config HAVE_ATOMIC_IOMAP
- 	def_bool y
- 	depends on X86_32
- 
--source "drivers/firmware/Kconfig"
--
- source "arch/x86/kvm/Kconfig"
- 
- source "arch/x86/Kconfig.assembler"
-diff --git a/drivers/Kconfig b/drivers/Kconfig
-index 30d2db37cc87..0d399ddaa185 100644
---- a/drivers/Kconfig
-+++ b/drivers/Kconfig
-@@ -17,6 +17,8 @@ source "drivers/bus/Kconfig"
- 
- source "drivers/connector/Kconfig"
- 
-+source "drivers/firmware/Kconfig"
++bool blocking_notifier_call_chain_empty(struct blocking_notifier_head *nh);
 +
- source "drivers/gnss/Kconfig"
+ #define NOTIFY_DONE		0x0000		/* Don't care */
+ #define NOTIFY_OK		0x0001		/* Suits me */
+ #define NOTIFY_STOP_MASK	0x8000		/* Don't call further */
+diff --git a/kernel/notifier.c b/kernel/notifier.c
+index b8251dc0bc0f..1f7ba8988b90 100644
+--- a/kernel/notifier.c
++++ b/kernel/notifier.c
+@@ -322,6 +322,20 @@ int blocking_notifier_call_chain(struct blocking_notifier_head *nh,
+ }
+ EXPORT_SYMBOL_GPL(blocking_notifier_call_chain);
  
- source "drivers/mtd/Kconfig"
++/**
++ *	blocking_notifier_call_chain_empty - Check whether notifier chain is empty
++ *	@nh: Pointer to head of the blocking notifier chain
++ *
++ *	Checks whether notifier chain is empty.
++ *
++ *	Returns true is notifier chain is empty, false otherwise.
++ */
++bool blocking_notifier_call_chain_empty(struct blocking_notifier_head *nh)
++{
++	return !rcu_access_pointer(nh->head);
++}
++EXPORT_SYMBOL_GPL(blocking_notifier_call_chain_empty);
++
+ /*
+  *	Raw notifier chain routines.  There is no protection;
+  *	the caller must provide it.  Use at your own risk!
 -- 
-2.29.2
+2.33.1
