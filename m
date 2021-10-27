@@ -1,160 +1,141 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Wed, 06 Oct 2021 00:35:28 +0000
-Subject: Re: [PATCH v2 4/5] memblock: add MEMBLOCK_DRIVER_MANAGED to mimic IORESOURCE_SYSRAM_DRIVER_MANAGED
-Message-Id: <YVzvUCOXlHNAjgQk@kernel.org>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Wed, 27 Oct 2021 21:16:51 +0000
+Subject: [PATCH v2 21/45] m68k: Switch to new power-handler API
+Message-Id: <20211027211715.12671-22-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211004093605.5830-1-david@redhat.com>
- <20211004093605.5830-5-david@redhat.com>
-In-Reply-To: <20211004093605.5830-5-david@redhat.com>
+References: <20211027211715.12671-1-digetx@gmail.com>
+In-Reply-To: <20211027211715.12671-1-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>
-Cc: linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Michal Hocko <mhocko@suse.com>, Oscar Salvador <osalvador@suse.de>, Jianyong Wu <Jianyong.Wu@arm.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Vineet Gupta <vgupta@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Huacai Chen <chenhuacai@kernel.org>, Jiaxun Yang <jiaxun.yang@flygoat.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Eric Biederman <ebiederm@xmission.com>, Arnd Bergmann <arnd@arndb.de>, linux-snps-arc@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-s390@vger.kernel.org, linux-mm@kvack.org, kexec@lists.infradead.org
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Lee Jones <lee.jones@linaro.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Mark Brown <broonie@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Russell King <linux@armlinux.org.uk>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
+Cc: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Linus Walleij <linus.walleij@linaro.org>, Chen-Yu Tsai <wens@csie.org>, =?UTF-8?q?Jonathan=20Neusch=C3=A4fer?= <j.neuschaefer@gmx.net>, Tony Lindgren <tony@atomide.com>, Liam Girdwood <lgirdwood@gmail.com>, Philipp Zabel <p.zabel@pengutronix.de>, Vladimir Zapolskiy <vz@mleia.com>, Avi Fishman <avifishman70@gmail.com>, Tomer Maimon <tmaimon77@gmail.com>, Tali Perry <tali.perry1@gmail.com>, Patrick Venture <venture@google.com>, Nancy Yuen <yuenn@google.com>, Benjamin Fair <benjaminfair@google.com>, Pavel Machek <pavel@ucw.cz>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-omap@vger.kernel.org, openbmc@lists.ozlabs.org, linux-tegra@vger.kernel.org, linux-pm@vger.kernel.org
 
-On Mon, Oct 04, 2021 at 11:36:04AM +0200, David Hildenbrand wrote:
-> Let's add a flag that corresponds to IORESOURCE_SYSRAM_DRIVER_MANAGED,
-> indicating that we're dealing with a memory region that is never
-> indicated in the firmware-provided memory map, but always detected and
-> added by a driver.
-> 
-> Similar to MEMBLOCK_HOTPLUG, most infrastructure has to treat such memory
-> regions like ordinary MEMBLOCK_NONE memory regions -- for example, when
-> selecting memory regions to add to the vmcore for dumping in the
-> crashkernel via for_each_mem_range().
-> 
-> However, especially kexec_file is not supposed to select such memblocks via
-> for_each_free_mem_range() / for_each_free_mem_range_reverse() to place
-> kexec images, similar to how we handle IORESOURCE_SYSRAM_DRIVER_MANAGED
-> without CONFIG_ARCH_KEEP_MEMBLOCK.
-> 
-> We'll make sure that memory hotplug code sets the flag where applicable
-> (IORESOURCE_SYSRAM_DRIVER_MANAGED) next. This prepares architectures
-> that need CONFIG_ARCH_KEEP_MEMBLOCK, such as arm64, for virtio-mem
-> support.
-> 
-> Note that kexec *must not* indicate this memory to the second kernel
-> and *must not* place kexec-images on this memory. Let's add a comment to
-> kexec_walk_memblock(), documenting how we handle MEMBLOCK_DRIVER_MANAGED
-> now just like using IORESOURCE_SYSRAM_DRIVER_MANAGED in
-> locate_mem_hole_callback() for kexec_walk_resources().
-> 
-> Also note that MEMBLOCK_HOTPLUG cannot be reused due to different
-> semantics:
-> 	MEMBLOCK_HOTPLUG: memory is indicated as "System RAM" in the
-> 	firmware-provided memory map and added to the system early during
-> 	boot; kexec *has to* indicate this memory to the second kernel and
-> 	can place kexec-images on this memory. After memory hotunplug,
-> 	kexec has to be re-armed. We mostly ignore this flag when
-> 	"movable_node" is not set on the kernel command line, because
-> 	then we're told to not care about hotunpluggability of such
-> 	memory regions.
-> 
-> 	MEMBLOCK_DRIVER_MANAGED: memory is not indicated as "System RAM" in
-> 	the firmware-provided memory map; this memory is always detected
-> 	and added to the system by a driver; memory might not actually be
-> 	physically hotunpluggable. kexec *must not* indicate this memory to
-> 	the second kernel and *must not* place kexec-images on this memory.
-> 
-> Signed-off-by: David Hildenbrand <david@redhat.com>
+Kernel now supports chained power-off handlers. Use
+register_power_off_handler() that registers power-off handlers and
+do_kernel_power_off() that invokes chained power-off handlers. Legacy
+pm_power_off() will be removed once all drivers will be converted to
+the new power-off API.
 
-Reviewed-by: Mike Rapoport <rppt@linux.ibm.com>
+Normally arch code should adopt only the do_kernel_power_off() at first,
+but m68k is a special case because it uses pm_power_off() "inside out",
+i.e. pm_power_off() invokes machine_power_off() [in fact it does nothing],
+while it's machine_power_off() that should invoke the pm_power_off(), and
+thus, we can't convert platforms to the new API separately. There are only
+two platforms changed here, so it's not a big deal.
 
-> ---
->  include/linux/memblock.h | 16 ++++++++++++++--
->  kernel/kexec_file.c      |  5 +++++
->  mm/memblock.c            |  4 ++++
->  3 files changed, 23 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/linux/memblock.h b/include/linux/memblock.h
-> index 2bc726e43a1b..b3b29ccf91f3 100644
-> --- a/include/linux/memblock.h
-> +++ b/include/linux/memblock.h
-> @@ -37,12 +37,17 @@ extern unsigned long long max_possible_pfn;
->   * @MEMBLOCK_NOMAP: don't add to kernel direct mapping and treat as
->   * reserved in the memory map; refer to memblock_mark_nomap() description
->   * for further details
-> + * @MEMBLOCK_DRIVER_MANAGED: memory region that is always detected and added
-> + * via a driver, and never indicated in the firmware-provided memory map as
-> + * system RAM. This corresponds to IORESOURCE_SYSRAM_DRIVER_MANAGED in the
-> + * kernel resource tree.
->   */
->  enum memblock_flags {
->  	MEMBLOCK_NONE		= 0x0,	/* No special request */
->  	MEMBLOCK_HOTPLUG	= 0x1,	/* hotpluggable region */
->  	MEMBLOCK_MIRROR		= 0x2,	/* mirrored region */
->  	MEMBLOCK_NOMAP		= 0x4,	/* don't add to kernel direct mapping */
-> +	MEMBLOCK_DRIVER_MANAGED = 0x8,	/* always detected via a driver */
->  };
->  
->  /**
-> @@ -213,7 +218,8 @@ static inline void __next_physmem_range(u64 *idx, struct memblock_type *type,
->   */
->  #define for_each_mem_range(i, p_start, p_end) \
->  	__for_each_mem_range(i, &memblock.memory, NULL, NUMA_NO_NODE,	\
-> -			     MEMBLOCK_HOTPLUG, p_start, p_end, NULL)
-> +			     MEMBLOCK_HOTPLUG | MEMBLOCK_DRIVER_MANAGED, \
-> +			     p_start, p_end, NULL)
->  
->  /**
->   * for_each_mem_range_rev - reverse iterate through memblock areas from
-> @@ -224,7 +230,8 @@ static inline void __next_physmem_range(u64 *idx, struct memblock_type *type,
->   */
->  #define for_each_mem_range_rev(i, p_start, p_end)			\
->  	__for_each_mem_range_rev(i, &memblock.memory, NULL, NUMA_NO_NODE, \
-> -				 MEMBLOCK_HOTPLUG, p_start, p_end, NULL)
-> +				 MEMBLOCK_HOTPLUG | MEMBLOCK_DRIVER_MANAGED,\
-> +				 p_start, p_end, NULL)
->  
->  /**
->   * for_each_reserved_mem_range - iterate over all reserved memblock areas
-> @@ -254,6 +261,11 @@ static inline bool memblock_is_nomap(struct memblock_region *m)
->  	return m->flags & MEMBLOCK_NOMAP;
->  }
->  
-> +static inline bool memblock_is_driver_managed(struct memblock_region *m)
-> +{
-> +	return m->flags & MEMBLOCK_DRIVER_MANAGED;
-> +}
-> +
->  int memblock_search_pfn_nid(unsigned long pfn, unsigned long *start_pfn,
->  			    unsigned long  *end_pfn);
->  void __next_mem_pfn_range(int *idx, int nid, unsigned long *out_start_pfn,
-> diff --git a/kernel/kexec_file.c b/kernel/kexec_file.c
-> index 33400ff051a8..8347fc158d2b 100644
-> --- a/kernel/kexec_file.c
-> +++ b/kernel/kexec_file.c
-> @@ -556,6 +556,11 @@ static int kexec_walk_memblock(struct kexec_buf *kbuf,
->  	if (kbuf->image->type = KEXEC_TYPE_CRASH)
->  		return func(&crashk_res, kbuf);
->  
-> +	/*
-> +	 * Using MEMBLOCK_NONE will properly skip MEMBLOCK_DRIVER_MANAGED. See
-> +	 * IORESOURCE_SYSRAM_DRIVER_MANAGED handling in
-> +	 * locate_mem_hole_callback().
-> +	 */
->  	if (kbuf->top_down) {
->  		for_each_free_mem_range_reverse(i, NUMA_NO_NODE, MEMBLOCK_NONE,
->  						&mstart, &mend, NULL) {
-> diff --git a/mm/memblock.c b/mm/memblock.c
-> index 47a56b223141..540a35317fb0 100644
-> --- a/mm/memblock.c
-> +++ b/mm/memblock.c
-> @@ -979,6 +979,10 @@ static bool should_skip_region(struct memblock_type *type,
->  	if (!(flags & MEMBLOCK_NOMAP) && memblock_is_nomap(m))
->  		return true;
->  
-> +	/* skip driver-managed memory unless we were asked for it explicitly */
-> +	if (!(flags & MEMBLOCK_DRIVER_MANAGED) && memblock_is_driver_managed(m))
-> +		return true;
-> +
->  	return false;
->  }
->  
-> -- 
-> 2.31.1
-> 
+Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
+---
+ arch/m68k/emu/natfeat.c         | 3 ++-
+ arch/m68k/include/asm/machdep.h | 1 -
+ arch/m68k/kernel/process.c      | 5 ++---
+ arch/m68k/kernel/setup_mm.c     | 1 -
+ arch/m68k/kernel/setup_no.c     | 1 -
+ arch/m68k/mac/config.c          | 4 +++-
+ 6 files changed, 7 insertions(+), 8 deletions(-)
 
+diff --git a/arch/m68k/emu/natfeat.c b/arch/m68k/emu/natfeat.c
+index 71b78ecee75c..b19dc00026d9 100644
+--- a/arch/m68k/emu/natfeat.c
++++ b/arch/m68k/emu/natfeat.c
+@@ -15,6 +15,7 @@
+ #include <linux/string.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
++#include <linux/reboot.h>
+ #include <linux/io.h>
+ #include <asm/machdep.h>
+ #include <asm/natfeat.h>
+@@ -90,5 +91,5 @@ void __init nf_init(void)
+ 	pr_info("NatFeats found (%s, %lu.%lu)\n", buf, version >> 16,
+ 		version & 0xffff);
+ 
+-	mach_power_off = nf_poweroff;
++	register_platform_power_off(nf_poweroff);
+ }
+diff --git a/arch/m68k/include/asm/machdep.h b/arch/m68k/include/asm/machdep.h
+index 8fd80ef1b77e..8d8c3ee2069f 100644
+--- a/arch/m68k/include/asm/machdep.h
++++ b/arch/m68k/include/asm/machdep.h
+@@ -24,7 +24,6 @@ extern int (*mach_get_rtc_pll)(struct rtc_pll_info *);
+ extern int (*mach_set_rtc_pll)(struct rtc_pll_info *);
+ extern void (*mach_reset)( void );
+ extern void (*mach_halt)( void );
+-extern void (*mach_power_off)( void );
+ extern unsigned long (*mach_hd_init) (unsigned long, unsigned long);
+ extern void (*mach_hd_setup)(char *, int *);
+ extern void (*mach_heartbeat) (int);
+diff --git a/arch/m68k/kernel/process.c b/arch/m68k/kernel/process.c
+index a6030dbaa089..e160a7c57bd3 100644
+--- a/arch/m68k/kernel/process.c
++++ b/arch/m68k/kernel/process.c
+@@ -67,12 +67,11 @@ void machine_halt(void)
+ 
+ void machine_power_off(void)
+ {
+-	if (mach_power_off)
+-		mach_power_off();
++	do_kernel_power_off();
+ 	for (;;);
+ }
+ 
+-void (*pm_power_off)(void) = machine_power_off;
++void (*pm_power_off)(void);
+ EXPORT_SYMBOL(pm_power_off);
+ 
+ void show_regs(struct pt_regs * regs)
+diff --git a/arch/m68k/kernel/setup_mm.c b/arch/m68k/kernel/setup_mm.c
+index 4b51bfd38e5f..50f4f120a4ff 100644
+--- a/arch/m68k/kernel/setup_mm.c
++++ b/arch/m68k/kernel/setup_mm.c
+@@ -98,7 +98,6 @@ EXPORT_SYMBOL(mach_get_rtc_pll);
+ EXPORT_SYMBOL(mach_set_rtc_pll);
+ void (*mach_reset)( void );
+ void (*mach_halt)( void );
+-void (*mach_power_off)( void );
+ #ifdef CONFIG_HEARTBEAT
+ void (*mach_heartbeat) (int);
+ EXPORT_SYMBOL(mach_heartbeat);
+diff --git a/arch/m68k/kernel/setup_no.c b/arch/m68k/kernel/setup_no.c
+index 5e4104f07a44..00bf82258233 100644
+--- a/arch/m68k/kernel/setup_no.c
++++ b/arch/m68k/kernel/setup_no.c
+@@ -55,7 +55,6 @@ int (*mach_hwclk) (int, struct rtc_time*);
+ /* machine dependent reboot functions */
+ void (*mach_reset)(void);
+ void (*mach_halt)(void);
+-void (*mach_power_off)(void);
+ 
+ #ifdef CONFIG_M68000
+ #if defined(CONFIG_M68328)
+diff --git a/arch/m68k/mac/config.c b/arch/m68k/mac/config.c
+index 5d16f9b47aa9..727320dedf08 100644
+--- a/arch/m68k/mac/config.c
++++ b/arch/m68k/mac/config.c
+@@ -12,6 +12,7 @@
+ 
+ #include <linux/errno.h>
+ #include <linux/module.h>
++#include <linux/reboot.h>
+ #include <linux/types.h>
+ #include <linux/mm.h>
+ #include <linux/tty.h>
+@@ -139,7 +140,6 @@ void __init config_mac(void)
+ 	mach_hwclk = mac_hwclk;
+ 	mach_reset = mac_reset;
+ 	mach_halt = mac_poweroff;
+-	mach_power_off = mac_poweroff;
+ #if IS_ENABLED(CONFIG_INPUT_M68K_BEEP)
+ 	mach_beep = mac_mksound;
+ #endif
+@@ -159,6 +159,8 @@ void __init config_mac(void)
+ 
+ 	if (macintosh_config->ident = MAC_MODEL_IICI)
+ 		mach_l2_flush = via_l2_flush;
++
++	register_platform_power_off(mac_poweroff);
+ }
+ 
+ 
 -- 
-Sincerely yours,
-Mike.
+2.33.1
