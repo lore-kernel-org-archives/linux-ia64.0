@@ -1,50 +1,36 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Mon, 11 Oct 2021 15:25:27 +0000
-Subject: [PATCH v1 00/10] Fix LKDTM for PPC64/IA64/PARISC
-Message-Id: <cover.1633964380.git.christophe.leroy@csgroup.eu>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Wed, 27 Oct 2021 21:16:36 +0000
+Subject: [PATCH v2 06/45] reboot: Warn if unregister_restart_handler() fails
+Message-Id: <20211027211715.12671-7-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20211027211715.12671-1-digetx@gmail.com>
+In-Reply-To: <20211027211715.12671-1-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Lee Jones <lee.jones@linaro.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Mark Brown <broonie@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Russell King <linux@armlinux.org.uk>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
+Cc: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Linus Walleij <linus.walleij@linaro.org>, Chen-Yu Tsai <wens@csie.org>, =?UTF-8?q?Jonathan=20Neusch=C3=A4fer?= <j.neuschaefer@gmx.net>, Tony Lindgren <tony@atomide.com>, Liam Girdwood <lgirdwood@gmail.com>, Philipp Zabel <p.zabel@pengutronix.de>, Vladimir Zapolskiy <vz@mleia.com>, Avi Fishman <avifishman70@gmail.com>, Tomer Maimon <tmaimon77@gmail.com>, Tali Perry <tali.perry1@gmail.com>, Patrick Venture <venture@google.com>, Nancy Yuen <yuenn@google.com>, Benjamin Fair <benjaminfair@google.com>, Pavel Machek <pavel@ucw.cz>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-omap@vger.kernel.org, openbmc@lists.ozlabs.org, linux-tegra@vger.kernel.org, linux-pm@vger.kernel.org
 
-PPC64/IA64/PARISC have function descriptors. LKDTM doesn't work
-on those three architectures because LKDTM messes up function
-descriptors with functions.
+Emit warning if unregister_restart_handler() fails since it never should
+fail. This will ease further API development by catching mistakes early.
 
-This series does some cleanup in the three architectures and
-refactors function descriptors so that it can then easily use it
-in a generic way in LKDTM.
+Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
+---
+ kernel/reboot.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Patch 6 is not absolutely necessary but it is a good trivial cleanup.
-
-Christophe Leroy (10):
-  powerpc: Move 'struct ppc64_opd_entry' back into asm/elf.h
-  powerpc: Rename 'funcaddr' to 'addr' in 'struct ppc64_opd_entry'
-  ia64: Rename 'ip' to 'addr' in 'struct fdesc'
-  asm-generic: Use HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR to define
-    associated stubs
-  asm-generic: Define 'funct_descr_t' to commonly describe function
-    descriptors
-  asm-generic: Refactor dereference_[kernel]_function_descriptor()
-  lkdtm: Force do_nothing() out of line
-  lkdtm: Really write into kernel text in WRITE_KERN
-  lkdtm: Fix lkdtm_EXEC_RODATA()
-  lkdtm: Fix execute_[user]_location()
-
- arch/ia64/include/asm/elf.h         |  2 +-
- arch/ia64/include/asm/sections.h    | 24 ++---------
- arch/ia64/kernel/module.c           |  6 +--
- arch/parisc/include/asm/sections.h  | 16 +++----
- arch/parisc/kernel/process.c        | 21 ---------
- arch/powerpc/include/asm/elf.h      |  7 +++
- arch/powerpc/include/asm/sections.h | 30 +++----------
- arch/powerpc/include/uapi/asm/elf.h |  8 ----
- arch/powerpc/kernel/module_64.c     |  6 +--
- drivers/misc/lkdtm/perms.c          | 66 +++++++++++++++++++++++------
- include/asm-generic/sections.h      | 24 ++++++++++-
- 11 files changed, 102 insertions(+), 108 deletions(-)
-
+diff --git a/kernel/reboot.c b/kernel/reboot.c
+index d39e599c3c99..291d44082f42 100644
+--- a/kernel/reboot.c
++++ b/kernel/reboot.c
+@@ -210,7 +210,7 @@ EXPORT_SYMBOL(register_restart_handler);
+  */
+ int unregister_restart_handler(struct notifier_block *nb)
+ {
+-	return atomic_notifier_chain_unregister(&restart_handler_list, nb);
++	return WARN_ON(atomic_notifier_chain_unregister(&restart_handler_list, nb));
+ }
+ EXPORT_SYMBOL(unregister_restart_handler);
+ 
 -- 
-2.31.1
+2.33.1
