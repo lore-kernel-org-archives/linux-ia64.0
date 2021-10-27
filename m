@@ -1,77 +1,47 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Sun, 17 Oct 2021 12:38:13 +0000
-Subject: [PATCH v3 00/12] Fix LKDTM for PPC64/IA64/PARISC
-Message-Id: <cover.1634457599.git.christophe.leroy@csgroup.eu>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Wed, 27 Oct 2021 21:16:43 +0000
+Subject: [PATCH v2 13/45] ia64: Use do_kernel_power_off()
+Message-Id: <20211027211715.12671-14-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20211027211715.12671-1-digetx@gmail.com>
+In-Reply-To: <20211027211715.12671-1-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Lee Jones <lee.jones@linaro.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Mark Brown <broonie@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Russell King <linux@armlinux.org.uk>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
+Cc: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Linus Walleij <linus.walleij@linaro.org>, Chen-Yu Tsai <wens@csie.org>, =?UTF-8?q?Jonathan=20Neusch=C3=A4fer?= <j.neuschaefer@gmx.net>, Tony Lindgren <tony@atomide.com>, Liam Girdwood <lgirdwood@gmail.com>, Philipp Zabel <p.zabel@pengutronix.de>, Vladimir Zapolskiy <vz@mleia.com>, Avi Fishman <avifishman70@gmail.com>, Tomer Maimon <tmaimon77@gmail.com>, Tali Perry <tali.perry1@gmail.com>, Patrick Venture <venture@google.com>, Nancy Yuen <yuenn@google.com>, Benjamin Fair <benjaminfair@google.com>, Pavel Machek <pavel@ucw.cz>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-omap@vger.kernel.org, openbmc@lists.ozlabs.org, linux-tegra@vger.kernel.org, linux-pm@vger.kernel.org
 
-PPC64/IA64/PARISC have function descriptors. LKDTM doesn't work
-on those three architectures because LKDTM messes up function
-descriptors with functions.
+Kernel now supports chained power-off handlers. Use do_kernel_power_off()
+that invokes chained power-off handlers. It also invokes legacy
+pm_power_off() for now, which will be removed once all drivers will
+be converted to the new power-off API.
 
-This series does some cleanup in the three architectures and
-refactors function descriptors so that it can then easily use it
-in a generic way in LKDTM.
+Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
+---
+ arch/ia64/kernel/process.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Patch 8 is not absolutely necessary but it is a good trivial cleanup.
-
-Changes in v3:
-- Addressed received comments
-- Swapped some of the powerpc patches to keep func_descr_t renamed as struct func_desc and remove 'struct ppc64_opd_entry'
-- Changed HAVE_FUNCTION_DESCRIPTORS macro to a config item CONFIG_HAVE_FUNCTION_DESCRIPTORS
-- Dropped patch 11 ("Fix lkdtm_EXEC_RODATA()")
-
-Changes in v2:
-- Addressed received comments
-- Moved dereference_[kernel]_function_descriptor() out of line
-- Added patches to remove func_descr_t and func_desc_t in powerpc
-- Using func_desc_t instead of funct_descr_t
-- Renamed HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR to HAVE_FUNCTION_DESCRIPTORS
-- Added a new lkdtm test to check protection of function descriptors
-
-Christophe Leroy (12):
-  powerpc: Move and rename func_descr_t
-  powerpc: Use 'struct func_desc' instead of 'struct ppc64_opd_entry'
-  powerpc: Remove 'struct ppc64_opd_entry'
-  powerpc: Prepare func_desc_t for refactorisation
-  ia64: Rename 'ip' to 'addr' in 'struct fdesc'
-  asm-generic: Define CONFIG_HAVE_FUNCTION_DESCRIPTORS
-  asm-generic: Define 'func_desc_t' to commonly describe function
-    descriptors
-  asm-generic: Refactor dereference_[kernel]_function_descriptor()
-  lkdtm: Force do_nothing() out of line
-  lkdtm: Really write into kernel text in WRITE_KERN
-  lkdtm: Fix execute_[user]_location()
-  lkdtm: Add a test for function descriptors protection
-
- arch/Kconfig                             |  3 +
- arch/ia64/Kconfig                        |  1 +
- arch/ia64/include/asm/elf.h              |  2 +-
- arch/ia64/include/asm/sections.h         | 24 +-------
- arch/ia64/kernel/module.c                |  6 +-
- arch/parisc/Kconfig                      |  1 +
- arch/parisc/include/asm/sections.h       | 16 ++----
- arch/parisc/kernel/process.c             | 21 -------
- arch/powerpc/Kconfig                     |  1 +
- arch/powerpc/include/asm/code-patching.h |  2 +-
- arch/powerpc/include/asm/elf.h           |  6 ++
- arch/powerpc/include/asm/sections.h      | 29 ++--------
- arch/powerpc/include/asm/types.h         |  6 --
- arch/powerpc/include/uapi/asm/elf.h      |  8 ---
- arch/powerpc/kernel/module_64.c          | 38 +++++--------
- arch/powerpc/kernel/ptrace/ptrace.c      |  6 ++
- arch/powerpc/kernel/signal_64.c          |  8 +--
- drivers/misc/lkdtm/core.c                |  1 +
- drivers/misc/lkdtm/lkdtm.h               |  1 +
- drivers/misc/lkdtm/perms.c               | 71 +++++++++++++++++++-----
- include/asm-generic/sections.h           | 13 ++++-
- include/linux/kallsyms.h                 |  2 +-
- kernel/extable.c                         | 23 +++++++-
- 23 files changed, 146 insertions(+), 143 deletions(-)
-
+diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
+index 834df24a88f1..cee4d7db2143 100644
+--- a/arch/ia64/kernel/process.c
++++ b/arch/ia64/kernel/process.c
+@@ -19,6 +19,7 @@
+ #include <linux/module.h>
+ #include <linux/notifier.h>
+ #include <linux/personality.h>
++#include <linux/reboot.h>
+ #include <linux/sched.h>
+ #include <linux/sched/debug.h>
+ #include <linux/sched/hotplug.h>
+@@ -599,8 +600,7 @@ machine_halt (void)
+ void
+ machine_power_off (void)
+ {
+-	if (pm_power_off)
+-		pm_power_off();
++	do_kernel_power_off();
+ 	machine_halt();
+ }
+ 
 -- 
-2.31.1
+2.33.1
