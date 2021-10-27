@@ -1,84 +1,39 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Sun, 17 Oct 2021 12:38:15 +0000
-Subject: [PATCH v3 02/12] powerpc: Use 'struct func_desc' instead of 'struct ppc64_opd_entry'
-Message-Id: <4a912da3c89569bf5bff897d2588538e74198f35.1634457599.git.christophe.leroy@csgroup.eu>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Wed, 27 Oct 2021 21:16:49 +0000
+Subject: [PATCH v2 19/45] sh: Use do_kernel_power_off()
+Message-Id: <20211027211715.12671-20-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1634457599.git.christophe.leroy@csgroup.eu>
-In-Reply-To: <cover.1634457599.git.christophe.leroy@csgroup.eu>
+References: <20211027211715.12671-1-digetx@gmail.com>
+In-Reply-To: <20211027211715.12671-1-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, Daniel Axtens <dja@axtens.net>, Nicholas Piggin <npiggin@gmail.com>
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Lee Jones <lee.jones@linaro.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Mark Brown <broonie@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Russell King <linux@armlinux.org.uk>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
+Cc: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Linus Walleij <linus.walleij@linaro.org>, Chen-Yu Tsai <wens@csie.org>, =?UTF-8?q?Jonathan=20Neusch=C3=A4fer?= <j.neuschaefer@gmx.net>, Tony Lindgren <tony@atomide.com>, Liam Girdwood <lgirdwood@gmail.com>, Philipp Zabel <p.zabel@pengutronix.de>, Vladimir Zapolskiy <vz@mleia.com>, Avi Fishman <avifishman70@gmail.com>, Tomer Maimon <tmaimon77@gmail.com>, Tali Perry <tali.perry1@gmail.com>, Patrick Venture <venture@google.com>, Nancy Yuen <yuenn@google.com>, Benjamin Fair <benjaminfair@google.com>, Pavel Machek <pavel@ucw.cz>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-omap@vger.kernel.org, openbmc@lists.ozlabs.org, linux-tegra@vger.kernel.org, linux-pm@vger.kernel.org
 
-'struct ppc64_opd_entry' is somehow redundant with 'struct func_desc',
-the later is more correct/complete as it includes the third
-field which is unused.
+Kernel now supports chained power-off handlers. Use do_kernel_power_off()
+that invokes chained power-off handlers. It also invokes legacy
+pm_power_off() for now, which will be removed once all drivers will
+be converted to the new power-off API.
 
-So use 'struct func_desc' instead of 'struct ppc64_opd_entry'
-
-Reviewed-by: Kees Cook <keescook@chromium.org>
-Reviewed-by: Daniel Axtens <dja@axtens.net>
-Reviewed-by: Nicholas Piggin <npiggin@gmail.com>
-Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
+Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- arch/powerpc/include/asm/sections.h |  4 ++--
- arch/powerpc/kernel/module_64.c     | 10 +++++-----
- 2 files changed, 7 insertions(+), 7 deletions(-)
+ arch/sh/kernel/reboot.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/arch/powerpc/include/asm/sections.h b/arch/powerpc/include/asm/sections.h
-index 6e4af4492a14..abd2e5213197 100644
---- a/arch/powerpc/include/asm/sections.h
-+++ b/arch/powerpc/include/asm/sections.h
-@@ -74,10 +74,10 @@ static inline int overlaps_kernel_text(unsigned long start, unsigned long end)
- #undef dereference_function_descriptor
- static inline void *dereference_function_descriptor(void *ptr)
- {
--	struct ppc64_opd_entry *desc = ptr;
-+	struct func_desc *desc = ptr;
- 	void *p;
+diff --git a/arch/sh/kernel/reboot.c b/arch/sh/kernel/reboot.c
+index 5c33f036418b..e8eeedc9b182 100644
+--- a/arch/sh/kernel/reboot.c
++++ b/arch/sh/kernel/reboot.c
+@@ -46,8 +46,7 @@ static void native_machine_shutdown(void)
  
--	if (!get_kernel_nofault(p, (void *)&desc->funcaddr))
-+	if (!get_kernel_nofault(p, (void *)&desc->addr))
- 		ptr = p;
- 	return ptr;
+ static void native_machine_power_off(void)
+ {
+-	if (pm_power_off)
+-		pm_power_off();
++	do_kernel_power_off();
  }
-diff --git a/arch/powerpc/kernel/module_64.c b/arch/powerpc/kernel/module_64.c
-index 6baa676e7cb6..a89da0ee25e2 100644
---- a/arch/powerpc/kernel/module_64.c
-+++ b/arch/powerpc/kernel/module_64.c
-@@ -64,19 +64,19 @@ static unsigned int local_entry_offset(const Elf64_Sym *sym)
- #else
  
- /* An address is address of the OPD entry, which contains address of fn. */
--typedef struct ppc64_opd_entry func_desc_t;
-+typedef struct func_desc func_desc_t;
- 
- static func_desc_t func_desc(unsigned long addr)
- {
--	return *(struct ppc64_opd_entry *)addr;
-+	return *(struct func_desc *)addr;
- }
- static unsigned long func_addr(unsigned long addr)
- {
--	return func_desc(addr).funcaddr;
-+	return func_desc(addr).addr;
- }
- static unsigned long stub_func_addr(func_desc_t func)
- {
--	return func.funcaddr;
-+	return func.addr;
- }
- static unsigned int local_entry_offset(const Elf64_Sym *sym)
- {
-@@ -187,7 +187,7 @@ static int relacmp(const void *_x, const void *_y)
- static unsigned long get_stubs_size(const Elf64_Ehdr *hdr,
- 				    const Elf64_Shdr *sechdrs)
- {
--	/* One extra reloc so it's always 0-funcaddr terminated */
-+	/* One extra reloc so it's always 0-addr terminated */
- 	unsigned long relocs = 1;
- 	unsigned i;
- 
+ static void native_machine_halt(void)
 -- 
-2.31.1
+2.33.1
