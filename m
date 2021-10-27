@@ -1,7 +1,7 @@
 From: Dmitry Osipenko <digetx@gmail.com>
-Date: Wed, 27 Oct 2021 21:17:02 +0000
-Subject: [PATCH v2 32/45] mfd: retu: Use devm_register_simple_power_off_handler()
-Message-Id: <20211027211715.12671-33-digetx@gmail.com>
+Date: Wed, 27 Oct 2021 21:17:08 +0000
+Subject: [PATCH v2 38/45] mfd: max77620: Use devm_register_simple_power_off_handler()
+Message-Id: <20211027211715.12671-39-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20211027211715.12671-1-digetx@gmail.com>
 In-Reply-To: <20211027211715.12671-1-digetx@gmail.com>
@@ -14,97 +14,67 @@ Cc: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Gu
 Use devm_register_simple_power_off_handler() that replaces global
 pm_power_off variable and allows to register multiple power-off handlers.
 
+Nexus 7 Android tablet can be powered off using MAX77663 PMIC and using
+a special bootloader command. At first the bootloader option should be
+tried, it will have a higher priority than of PMIC that uses default
+priority.
+
 Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- drivers/mfd/retu-mfd.c | 31 ++++++++++++++++---------------
- 1 file changed, 16 insertions(+), 15 deletions(-)
+ drivers/mfd/max77620.c | 21 ++++++++++++---------
+ 1 file changed, 12 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/mfd/retu-mfd.c b/drivers/mfd/retu-mfd.c
-index c748fd29a220..d18f05c1f095 100644
---- a/drivers/mfd/retu-mfd.c
-+++ b/drivers/mfd/retu-mfd.c
-@@ -22,6 +22,7 @@
- #include <linux/slab.h>
- #include <linux/mutex.h>
- #include <linux/module.h>
+diff --git a/drivers/mfd/max77620.c b/drivers/mfd/max77620.c
+index fec2096474ad..29487ccc191a 100644
+--- a/drivers/mfd/max77620.c
++++ b/drivers/mfd/max77620.c
+@@ -31,11 +31,10 @@
+ #include <linux/init.h>
+ #include <linux/of.h>
+ #include <linux/of_device.h>
 +#include <linux/reboot.h>
  #include <linux/regmap.h>
- #include <linux/mfd/core.h>
- #include <linux/mfd/retu.h>
-@@ -81,9 +82,6 @@ static struct regmap_irq_chip retu_irq_chip = {
- 	.ack_base	= RETU_REG_IDR,
- };
+ #include <linux/slab.h>
  
--/* Retu device registered for the power off. */
--static struct retu_dev *retu_pm_power_off;
+-static struct max77620_chip *max77620_scratch;
 -
- static const struct resource tahvo_usb_res[] = {
- 	{
- 		.name	= "tahvo-usb",
-@@ -165,12 +163,12 @@ int retu_write(struct retu_dev *rdev, u8 reg, u16 data)
+ static const struct resource gpio_resources[] = {
+ 	DEFINE_RES_IRQ(MAX77620_IRQ_TOP_GPIO),
+ };
+@@ -483,13 +482,13 @@ static int max77620_read_es_version(struct max77620_chip *chip)
+ 	return ret;
  }
- EXPORT_SYMBOL_GPL(retu_write);
  
--static void retu_power_off(void)
-+static void retu_power_off(void *data)
+-static void max77620_pm_power_off(void)
++static void max77620_pm_power_off(void *data)
  {
--	struct retu_dev *rdev = retu_pm_power_off;
-+	struct retu_dev *rdev = data;
- 	int reg;
+-	struct max77620_chip *chip = max77620_scratch;
++	struct max77620_chip *chip = data;
  
--	mutex_lock(&retu_pm_power_off->mutex);
-+	mutex_lock(&rdev->mutex);
- 
- 	/* Ignore power button state */
- 	regmap_read(rdev->regmap, RETU_REG_CC1, &reg);
-@@ -183,7 +181,7 @@ static void retu_power_off(void)
- 	for (;;)
- 		cpu_relax();
- 
--	mutex_unlock(&retu_pm_power_off->mutex);
-+	mutex_unlock(&rdev->mutex);
+ 	regmap_update_bits(chip->rmap, MAX77620_REG_ONOFFCNFG1,
+-			   MAX77620_ONOFFCNFG1_SFT_RST,
+-			   MAX77620_ONOFFCNFG1_SFT_RST);
++				   MAX77620_ONOFFCNFG1_SFT_RST,
++				   MAX77620_ONOFFCNFG1_SFT_RST);
  }
  
- static int retu_regmap_read(void *context, const void *reg, size_t reg_size,
-@@ -261,6 +259,17 @@ static int retu_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
- 		 (ret & RETU_REG_ASICR_VILMA) ? rdat->companion_name : "",
- 		 (ret >> 4) & 0x7, ret & 0xf);
- 
-+	if (i2c->addr = 1) {
-+		ret = devm_register_simple_power_off_handler(&i2c->dev,
-+							     retu_power_off,
-+							     rdev);
-+		if (ret) {
-+			dev_err(rdev->dev,
-+				"could not register power-off handler: %d\n", ret);
-+			return ret;
-+		}
-+	}
-+
- 	/* Mask all interrupts. */
- 	ret = retu_write(rdev, rdat->irq_chip->mask_base, 0xffff);
- 	if (ret < 0)
-@@ -279,10 +288,6 @@ static int retu_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
- 		return ret;
+ static int max77620_probe(struct i2c_client *client,
+@@ -566,9 +565,13 @@ static int max77620_probe(struct i2c_client *client,
  	}
  
--	if (i2c->addr = 1 && !pm_power_off) {
--		retu_pm_power_off = rdev;
--		pm_power_off	  = retu_power_off;
--	}
+ 	pm_off = of_device_is_system_power_controller(client->dev.of_node);
+-	if (pm_off && !pm_power_off) {
+-		max77620_scratch = chip;
+-		pm_power_off = max77620_pm_power_off;
++	if (pm_off) {
++		ret = devm_register_simple_power_off_handler(chip->dev,
++							     max77620_pm_power_off,
++							     chip);
++		if (ret < 0)
++			dev_err(chip->dev,
++				"Failed to register power-off handler: %d\n", ret);
+ 	}
  
  	return 0;
- }
-@@ -291,10 +296,6 @@ static int retu_remove(struct i2c_client *i2c)
- {
- 	struct retu_dev *rdev = i2c_get_clientdata(i2c);
- 
--	if (retu_pm_power_off = rdev) {
--		pm_power_off	  = NULL;
--		retu_pm_power_off = NULL;
--	}
- 	mfd_remove_devices(rdev->dev);
- 	regmap_del_irq_chip(i2c->irq, rdev->irq_data);
- 
 -- 
 2.33.1
