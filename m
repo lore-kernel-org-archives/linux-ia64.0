@@ -1,86 +1,49 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Date: Thu, 28 Oct 2021 11:00:31 +0000
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Thu, 28 Oct 2021 21:32:37 +0000
 Subject: Re: [PATCH v2 03/45] notifier: Add atomic/blocking_notifier_has_unique_priority()
-Message-Id: <YXqCz/utp2DFJJ45@smile.fi.intel.com>
+Message-Id: <c5fb7590-03a7-0eea-4040-07472a5c9710@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20211027211715.12671-1-digetx@gmail.com>
  <20211027211715.12671-4-digetx@gmail.com>
-In-Reply-To: <20211027211715.12671-4-digetx@gmail.com>
+ <YXqCz/utp2DFJJ45@smile.fi.intel.com>
+In-Reply-To: <YXqCz/utp2DFJJ45@smile.fi.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Dmitry Osipenko <digetx@gmail.com>
-Cc: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Lee Jones <lee.jones@linaro.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Mark Brown <broonie@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Russell King <linux@armlinux.org.uk>, Daniel Lezcano <daniel.lezcano@linaro.org>, Ulf Hansson <ulf.hansson@linaro.org>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Linus Walleij <linus.walleij@linaro.org>, Chen-Yu Tsai <wens@csie.org>, Jonathan =?iso-8859-1?Q?Neusch=E4fer?= <j.neuschaefer@gmx.net>, Tony Lindgren <tony@atomide.com>, Liam Girdwood <lgirdwood@gmail.com>, Philipp Zabel <p.zabel@pengutronix.de>, Vladimir Zapolskiy <vz@mleia.com>, Avi Fishman <avifishman70@gmail.com>, Tomer Maimon <tmaimon77@gmail.com>, Tali Perry <tali.perry1@gmail.com>, Patrick Venture <venture@google.com>, Nancy Yuen <yuenn@google.com>, Benjamin Fair <benjaminfair@google.com>, Pavel Machek <pavel@ucw.cz>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-omap@vger.kernel.org, openbmc@lists.ozlabs.org, linux-tegra@vger.kernel.org, linux-pm@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Cc: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Lee Jones <lee.jones@linaro.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Mark Brown <broonie@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Russell King <linux@armlinux.org.uk>, Daniel Lezcano <daniel.lezcano@linaro.org>, Ulf Hansson <ulf.hansson@linaro.org>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Linus Walleij <linus.walleij@linaro.org>, Chen-Yu Tsai <wens@csie.org>, =?UTF-8?Q?Jonathan_Neusch=c3=a4fer?= <j.neuschaefer@gmx.net>, Tony Lindgren <tony@atomide.com>, Liam Girdwood <lgirdwood@gmail.com>, Philipp Zabel <p.zabel@pengutronix.de>, Vladimir Zapolskiy <vz@mleia.com>, Avi Fishman <avifishman70@gmail.com>, Tomer Maimon <tmaimon77@gmail.com>, Tali Perry <tali.perry1@gmail.com>, Patrick Venture <venture@google.com>, Nancy Yuen <yuenn@google.com>, Benjamin Fair <benjaminfair@google.com>, Pavel Machek <pavel@ucw.cz>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-omap@vger.kernel.org, openbmc@lists.ozlabs.org, linux-tegra@vger.kernel.org, linux-pm@vger.kernel.org
 
-On Thu, Oct 28, 2021 at 12:16:33AM +0300, Dmitry Osipenko wrote:
-> Add atomic/blocking_notifier_has_unique_priority() helpers which return
-> true if given handler has unique priority.
+28.10.2021 14:00, Andy Shevchenko пишет:
+> On Thu, Oct 28, 2021 at 12:16:33AM +0300, Dmitry Osipenko wrote:
+>> Add atomic/blocking_notifier_has_unique_priority() helpers which return
+>> true if given handler has unique priority.
+> 
+> ...
+> 
+>> +/**
+>> + *	atomic_notifier_has_unique_priority - Checks whether notifier's priority is unique
+>> + *	@nh: Pointer to head of the atomic notifier chain
+>> + *	@n: Entry in notifier chain to check
+>> + *
+>> + *	Checks whether there is another notifier in the chain with the same priority.
+>> + *	Must be called in process context.
+>> + *
+>> + *	Returns true if priority is unique, false otherwise.
+> 
+> Why this indentation?
 
-...
+This is the same doc-comment style used by this file in general. I
+haven't tried to invent anything new.
 
-> +/**
-> + *	atomic_notifier_has_unique_priority - Checks whether notifier's priority is unique
-> + *	@nh: Pointer to head of the atomic notifier chain
-> + *	@n: Entry in notifier chain to check
-> + *
-> + *	Checks whether there is another notifier in the chain with the same priority.
-> + *	Must be called in process context.
-> + *
-> + *	Returns true if priority is unique, false otherwise.
 
-Why this indentation?
+> ...
+> 
+>> +	/*
+>> +	 * This code gets used during boot-up, when task switching is
+>> +	 * not yet working and interrupts must remain disabled.  At
+> 
+> One space is enough.
 
-> + */
-> +bool atomic_notifier_has_unique_priority(struct atomic_notifier_head *nh,
-> +		struct notifier_block *n)
-> +{
-> +	struct notifier_block **nl = &nh->head;
-> +	unsigned long flags;
-> +	bool ret = true;
-> +
-> +	spin_lock_irqsave(&nh->lock, flags);
-> +
-> +	while ((*nl) != NULL && (*nl)->priority >= n->priority) {
-
-' != NULL' is redundant.
-
-> +		if ((*nl)->priority = n->priority && (*nl) != n) {
-> +			ret = false;
-> +			break;
-> +		}
-> +
-> +		nl = &((*nl)->next);
-> +	}
-> +
-> +	spin_unlock_irqrestore(&nh->lock, flags);
-> +
-> +	return ret;
-> +}
-
-...
-
-> +	/*
-> +	 * This code gets used during boot-up, when task switching is
-> +	 * not yet working and interrupts must remain disabled.  At
-
-One space is enough.
-
-> +	 * such times we must not call down_write().
-> +	 */
-
-> +	while ((*nl) != NULL && (*nl)->priority >= n->priority) {
-
-' != NULL' is not needed.
-
-> +		if ((*nl)->priority = n->priority && (*nl) != n) {
-> +			ret = false;
-> +			break;
-> +		}
-> +
-> +		nl = &((*nl)->next);
-> +	}
-
--- 
-With Best Regards,
-Andy Shevchenko
-
+This comment is replicated multiple times over this source file. You can
+find it before each down_write(). I borrowed the text as-is, for
+consistency.
