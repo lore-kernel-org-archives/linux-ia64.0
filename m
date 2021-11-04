@@ -1,62 +1,48 @@
-From: Dmitry Osipenko <digetx@gmail.com>
-Date: Fri, 26 Nov 2021 18:00:38 +0000
-Subject: [PATCH v4 02/25] notifier: Add blocking_notifier_call_chain_is_empty()
-Message-Id: <20211126180101.27818-3-digetx@gmail.com>
+From: davidcomponentone@gmail.com
+Date: Thu, 04 Nov 2021 06:26:42 +0000
+Subject: [PATCH] ia64: module: use swap() to make code cleaner
+Message-Id: <20211104062642.1506539-1-yang.guang5@zte.com.cn>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211126180101.27818-1-digetx@gmail.com>
-In-Reply-To: <20211126180101.27818-1-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>
-Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
+To: slyfox@gentoo.org
+Cc: davidcomponentone@gmail.com, akpm@linux-foundation.org, yang.guang5@zte.com.cn, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Zeal Robot <zealci@zte.com.cn>
 
-Add blocking_notifier_call_chain_is_empty() that returns true if call
-chain is empty.
+From: Yang Guang <yang.guang5@zte.com.cn>
 
-Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
+Use the macro 'swap()' defined in 'include/linux/minmax.h' to avoid
+opencoding it.
+
+Reported-by: Zeal Robot <zealci@zte.com.cn>
+Signed-off-by: Yang Guang <yang.guang5@zte.com.cn>
 ---
- include/linux/notifier.h |  2 ++
- kernel/notifier.c        | 14 ++++++++++++++
- 2 files changed, 16 insertions(+)
+ arch/ia64/kernel/module.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/notifier.h b/include/linux/notifier.h
-index 4b80a815b666..924c9d7c8e73 100644
---- a/include/linux/notifier.h
-+++ b/include/linux/notifier.h
-@@ -173,6 +173,8 @@ int blocking_notifier_call_chain_robust(struct blocking_notifier_head *nh,
- int raw_notifier_call_chain_robust(struct raw_notifier_head *nh,
- 		unsigned long val_up, unsigned long val_down, void *v);
+diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
+index 2cba53c1da82..360f36b0eb3f 100644
+--- a/arch/ia64/kernel/module.c
++++ b/arch/ia64/kernel/module.c
+@@ -848,7 +848,7 @@ register_unwind_table (struct module *mod)
+ {
+ 	struct unw_table_entry *start = (void *) mod->arch.unwind->sh_addr;
+ 	struct unw_table_entry *end = start + mod->arch.unwind->sh_size / sizeof (*start);
+-	struct unw_table_entry tmp, *e1, *e2, *core, *init;
++	struct unw_table_entry *e1, *e2, *core, *init;
+ 	unsigned long num_init = 0, num_core = 0;
  
-+bool blocking_notifier_call_chain_is_empty(struct blocking_notifier_head *nh);
-+
- #define NOTIFY_DONE		0x0000		/* Don't care */
- #define NOTIFY_OK		0x0001		/* Suits me */
- #define NOTIFY_STOP_MASK	0x8000		/* Don't call further */
-diff --git a/kernel/notifier.c b/kernel/notifier.c
-index b8251dc0bc0f..b20cb7b9b1f0 100644
---- a/kernel/notifier.c
-+++ b/kernel/notifier.c
-@@ -322,6 +322,20 @@ int blocking_notifier_call_chain(struct blocking_notifier_head *nh,
- }
- EXPORT_SYMBOL_GPL(blocking_notifier_call_chain);
- 
-+/**
-+ *	blocking_notifier_call_chain_is_empty - Check whether notifier chain is empty
-+ *	@nh: Pointer to head of the blocking notifier chain
-+ *
-+ *	Checks whether notifier chain is empty.
-+ *
-+ *	Returns true is notifier chain is empty, false otherwise.
-+ */
-+bool blocking_notifier_call_chain_is_empty(struct blocking_notifier_head *nh)
-+{
-+	return !rcu_access_pointer(nh->head);
-+}
-+EXPORT_SYMBOL_GPL(blocking_notifier_call_chain_is_empty);
-+
- /*
-  *	Raw notifier chain routines.  There is no protection;
-  *	the caller must provide it.  Use at your own risk!
+ 	/* First, count how many init and core unwind-table entries there are.  */
+@@ -865,9 +865,7 @@ register_unwind_table (struct module *mod)
+ 	for (e1 = start; e1 < end; ++e1) {
+ 		for (e2 = e1 + 1; e2 < end; ++e2) {
+ 			if (e2->start_offset < e1->start_offset) {
+-				tmp = *e1;
+-				*e1 = *e2;
+-				*e2 = tmp;
++				swap(*e1, *e2);
+ 			}
+ 		}
+ 	}
 -- 
-2.33.1
+2.30.2
