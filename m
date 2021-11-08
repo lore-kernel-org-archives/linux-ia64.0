@@ -1,90 +1,141 @@
-From: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Date: Mon, 29 Nov 2021 16:34:07 +0000
-Subject: Re: [PATCH 0/9] lib/bitmap: optimize bitmap_weight() usage
-Message-Id: <3CD9ECD8-901E-497B-9AE1-0DDB02346892@rere.qmqm.pl>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Mon, 08 Nov 2021 00:45:20 +0000
+Subject: [PATCH v3 21/25] m68k: Switch to new sys-off handler API
+Message-Id: <20211108004524.29465-22-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211128035704.270739-1-yury.norov@gmail.com>
- <YaPEfZ0t9UFGwpml@qmqm.qmqm.pl> <20211129063839.GA338729@lapt>
-In-Reply-To: <20211129063839.GA338729@lapt>
+References: <20211108004524.29465-1-digetx@gmail.com>
+In-Reply-To: <20211108004524.29465-1-digetx@gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Yury Norov <yury.norov@gmail.com>
-Cc: linux-kernel@vger.kernel.org, "James E.J. Bottomley" <jejb@linux.ibm.com>, "Paul E. McKenney" <paulmck@kernel.org>, "Martin K. Petersen" <martin.petersen@oracle.com>, "Rafael J. Wysocki" <rafael@kernel.org>, Russell King <linux@armlinux.org.uk>, Amitkumar Karwar <amitkarwar@gmail.com>, Alexey Klimov <aklimov@redhat.com>, linux-alpha@vger.kernel.org, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Andy Gross <agross@kernel.org>, Mike Marciniszyn <mike.marciniszyn@cornelisnetworks.com>, Petr Mladek <pmladek@suse.com>, Andrew Morton <akpm@linux-foundation.org>, Andrew Lunn <andrew@lunn.ch>, Andi Kleen <ak@linux.intel.com>, Tejun Heo <tj@kernel.org>, Ard Biesheuvel <ardb@kernel.org>, Vlastimil Babka <vbabka@suse.cz>, Anup Patel <anup.patel@wdc.com>, linux-ia64@vger.kernel.org, Andy Shevchenko <andy@infradead.org>, Andy Lutomirski <luto@kernel.org>, Matti Vaittinen <mazziesaccount@gmail.com>, Mel Gorman <mgorman@suse.de>, Christoph Hellwig <hch@lst.de>, Palmer Dabbelt <palmer@dabbelt.com>, Catalin Marinas <catalin.marinas@arm.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Borislav Petkov <bp@alien8.de>, Arnd Bergmann <arnd@arndb.de>, Arnaldo Carvalho de Melo <acme@kernel.org>, Stephen Rothwell <sfr@canb.auug.org.au>, David Laight <David.Laight@aculab.com>, Sunil Goutham <sgoutham@marvell.com>, David Airlie <airlied@linux.ie>, Thomas Gleixner <tglx@linutronix.de>, Dave Hansen <dave.hansen@linux.intel.com>, Viresh Kumar <viresh.kumar@linaro.org>, Daniel Vetter <daniel@ffwll.ch>, bcm-kernel-feedback-list@broadcom.com, Christoph Lameter <cl@linux.com>, linux-crypto@vger.kernel.org, Hans de Goede <hdegoede@redhat.com>, linux-mm@kvack.org, Guo Ren <guoren@kernel.org>, linux-snps-arc@lists.infradead.org, Geetha sowjanya <gakula@marvell.com>, Mark Rutland <mark.rutland@arm.com>, Dinh Nguyen <dinguyen@kernel.org>, Mauro Carvalho Chehab <mchehab@kernel.org>, Dennis Zhou <dennis@kernel.org>, Michael Ellerman <mpe@ellerman.id.au>, Heiko Carstens <hca@linux.ibm.com>, Nicholas Piggin <npiggin@gmail.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Peter Zijlstra <peterz@infradead.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Randy Dunlap <rdunlap@infradead.org>, Roy Pledge <Roy.Pledge@nxp.com>, Saeed Mahameed <saeedm@nvidia.com>, Jens Axboe <axboe@fb.com>, Jason Wessel <jason.wessel@windriver.com>, Jakub Kicinski <kuba@kernel.org>, Sergey Senozhatsky <senozhatsky@chromium.org>, Ingo Molnar <mingo@redhat.com>, Stephen Boyd <sboyd@kernel.org>, Ian Rogers <irogers@google.com>, Steven Rostedt <rostedt@goodmis.org>, Sagi Grimberg <sagi@grimberg.me>, Sudeep Holla <sudeep.holla@arm.com>, Kalle Valo <kvalo@codeaurora.org>, Tariq Toukan <tariqt@nvidia.com>, Juri Lelli <juri.lelli@redhat.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Jonathan Cameron <jic23@kernel.org>, Ulf Hansson <ulf.hansson@linaro.org>, Jiri Olsa <jolsa@redhat.com>, Vineet Gupta <vgupta@kernel.org>, Solomon Peachy <pizza@shaftnet.org>, Vivien Didelot <vivien.didelot@gmail.com>, Lee Jones <lee.jones@linaro.org>, Will Deacon <will@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, kvm@vger.kernel.org, Kees Cook <keescook@chromium.org>, linux-arm-kernel@lists.infradead.org, Subbaraya Sundeep <sbhatta@marvell.com>, linux-csky@vger.kernel.org, Marcin Wojtas <mw@semihalf.com>, linux-mips@vger.kernel.org, Marc Zyngier <maz@kernel.org>, linux-perf-users@vger.kernel.org, Vincent Guittot <vincent.guittot@linaro.org>, linux-s390@vger.kernel.org, Mark Gross <markgross@kernel.org>, linux-riscv@lists.infradead.org, linuxppc-dev@lists.ozlabs.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-Dnia 29 listopada 2021 06:38:39 UTC, Yury Norov <yury.norov@gmail.com> napisał/a:
->On Sun, Nov 28, 2021 at 07:03:41PM +0100, mirq-test@rere.qmqm.pl wrote:
->> On Sat, Nov 27, 2021 at 07:56:55PM -0800, Yury Norov wrote:
->> > In many cases people use bitmap_weight()-based functions like this:
->> > 
->> > 	if (num_present_cpus() > 1)
->> > 		do_something();
->> > 
->> > This may take considerable amount of time on many-cpus machines because
->> > num_present_cpus() will traverse every word of underlying cpumask
->> > unconditionally.
->> > 
->> > We can significantly improve on it for many real cases if stop traversing
->> > the mask as soon as we count present cpus to any number greater than 1:
->> > 
->> > 	if (num_present_cpus_gt(1))
->> > 		do_something();
->> > 
->> > To implement this idea, the series adds bitmap_weight_{eq,gt,le}
->> > functions together with corresponding wrappers in cpumask and nodemask.
->> 
->> Having slept on it I have more structured thoughts:
->> 
->> First, I like substituting bitmap_empty/full where possible - I think
->> the change stands on its own, so could be split and sent as is.
->
->Ok, I can do it.
->
->> I don't like the proposed API very much. One problem is that it hides
->> the comparison operator and makes call sites less readable:
->> 
->> 	bitmap_weight(...) > N
->> 
->> becomes:
->> 
->> 	bitmap_weight_gt(..., N)
->> 
->> and:
->> 	bitmap_weight(...) <= N
->> 
->> becomes:
->> 
->> 	bitmap_weight_lt(..., N+1)
->> or:
->> 	!bitmap_weight_gt(..., N)
->> 
->> I'd rather see something resembling memcmp() API that's known enough
->> to be easier to grasp. For above examples:
->> 
->> 	bitmap_weight_cmp(..., N) > 0
->> 	bitmap_weight_cmp(..., N) <= 0
->> 	...
->
->bitmap_weight_cmp() cannot be efficient. Consider this example:
->
->bitmap_weight_lt(1000 0000 0000 0000, 1) == false
->                 ^
->                 stop here
->
->bitmap_weight_cmp(1000 0000 0000 0000, 1) == 0
->                                 ^
->                                 stop here
->
->I agree that '_gt' is less verbose than '>', but the advantage of 
->'_gt' over '>' is proportional to length of bitmap, and it means
->that this API should exist.
+Kernel now supports chained power-off handlers. Use
+register_power_off_handler() that registers power-off handlers and
+do_kernel_power_off() that invokes chained power-off handlers. Legacy
+pm_power_off() will be removed once all drivers will be converted to
+the new power-off API.
 
-Thank you for the example. Indeed, for less-than to be efficient here you would need to replace
- bitmap_weight_cmp(..., N) < 0
-with
- bitmap_weight_cmp(..., N-1) <= 0
+Normally arch code should adopt only the do_kernel_power_off() at first,
+but m68k is a special case because it uses pm_power_off() "inside out",
+i.e. pm_power_off() invokes machine_power_off() [in fact it does nothing],
+while it's machine_power_off() that should invoke the pm_power_off(), and
+thus, we can't convert platforms to the new API separately. There are only
+two platforms changed here, so it's not a big deal.
 
-It would still be more readable, I think.
+Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
+---
+ arch/m68k/emu/natfeat.c         | 3 ++-
+ arch/m68k/include/asm/machdep.h | 1 -
+ arch/m68k/kernel/process.c      | 5 ++---
+ arch/m68k/kernel/setup_mm.c     | 1 -
+ arch/m68k/kernel/setup_no.c     | 1 -
+ arch/m68k/mac/config.c          | 4 +++-
+ 6 files changed, 7 insertions(+), 8 deletions(-)
 
-Best Regards
-Michał Mirosław
+diff --git a/arch/m68k/emu/natfeat.c b/arch/m68k/emu/natfeat.c
+index 71b78ecee75c..b19dc00026d9 100644
+--- a/arch/m68k/emu/natfeat.c
++++ b/arch/m68k/emu/natfeat.c
+@@ -15,6 +15,7 @@
+ #include <linux/string.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
++#include <linux/reboot.h>
+ #include <linux/io.h>
+ #include <asm/machdep.h>
+ #include <asm/natfeat.h>
+@@ -90,5 +91,5 @@ void __init nf_init(void)
+ 	pr_info("NatFeats found (%s, %lu.%lu)\n", buf, version >> 16,
+ 		version & 0xffff);
+ 
+-	mach_power_off = nf_poweroff;
++	register_platform_power_off(nf_poweroff);
+ }
+diff --git a/arch/m68k/include/asm/machdep.h b/arch/m68k/include/asm/machdep.h
+index 8fd80ef1b77e..8d8c3ee2069f 100644
+--- a/arch/m68k/include/asm/machdep.h
++++ b/arch/m68k/include/asm/machdep.h
+@@ -24,7 +24,6 @@ extern int (*mach_get_rtc_pll)(struct rtc_pll_info *);
+ extern int (*mach_set_rtc_pll)(struct rtc_pll_info *);
+ extern void (*mach_reset)( void );
+ extern void (*mach_halt)( void );
+-extern void (*mach_power_off)( void );
+ extern unsigned long (*mach_hd_init) (unsigned long, unsigned long);
+ extern void (*mach_hd_setup)(char *, int *);
+ extern void (*mach_heartbeat) (int);
+diff --git a/arch/m68k/kernel/process.c b/arch/m68k/kernel/process.c
+index a6030dbaa089..e160a7c57bd3 100644
+--- a/arch/m68k/kernel/process.c
++++ b/arch/m68k/kernel/process.c
+@@ -67,12 +67,11 @@ void machine_halt(void)
+ 
+ void machine_power_off(void)
+ {
+-	if (mach_power_off)
+-		mach_power_off();
++	do_kernel_power_off();
+ 	for (;;);
+ }
+ 
+-void (*pm_power_off)(void) = machine_power_off;
++void (*pm_power_off)(void);
+ EXPORT_SYMBOL(pm_power_off);
+ 
+ void show_regs(struct pt_regs * regs)
+diff --git a/arch/m68k/kernel/setup_mm.c b/arch/m68k/kernel/setup_mm.c
+index 4b51bfd38e5f..50f4f120a4ff 100644
+--- a/arch/m68k/kernel/setup_mm.c
++++ b/arch/m68k/kernel/setup_mm.c
+@@ -98,7 +98,6 @@ EXPORT_SYMBOL(mach_get_rtc_pll);
+ EXPORT_SYMBOL(mach_set_rtc_pll);
+ void (*mach_reset)( void );
+ void (*mach_halt)( void );
+-void (*mach_power_off)( void );
+ #ifdef CONFIG_HEARTBEAT
+ void (*mach_heartbeat) (int);
+ EXPORT_SYMBOL(mach_heartbeat);
+diff --git a/arch/m68k/kernel/setup_no.c b/arch/m68k/kernel/setup_no.c
+index 5e4104f07a44..00bf82258233 100644
+--- a/arch/m68k/kernel/setup_no.c
++++ b/arch/m68k/kernel/setup_no.c
+@@ -55,7 +55,6 @@ int (*mach_hwclk) (int, struct rtc_time*);
+ /* machine dependent reboot functions */
+ void (*mach_reset)(void);
+ void (*mach_halt)(void);
+-void (*mach_power_off)(void);
+ 
+ #ifdef CONFIG_M68000
+ #if defined(CONFIG_M68328)
+diff --git a/arch/m68k/mac/config.c b/arch/m68k/mac/config.c
+index 5d16f9b47aa9..727320dedf08 100644
+--- a/arch/m68k/mac/config.c
++++ b/arch/m68k/mac/config.c
+@@ -12,6 +12,7 @@
+ 
+ #include <linux/errno.h>
+ #include <linux/module.h>
++#include <linux/reboot.h>
+ #include <linux/types.h>
+ #include <linux/mm.h>
+ #include <linux/tty.h>
+@@ -139,7 +140,6 @@ void __init config_mac(void)
+ 	mach_hwclk = mac_hwclk;
+ 	mach_reset = mac_reset;
+ 	mach_halt = mac_poweroff;
+-	mach_power_off = mac_poweroff;
+ #if IS_ENABLED(CONFIG_INPUT_M68K_BEEP)
+ 	mach_beep = mac_mksound;
+ #endif
+@@ -159,6 +159,8 @@ void __init config_mac(void)
+ 
+ 	if (macintosh_config->ident = MAC_MODEL_IICI)
+ 		mach_l2_flush = via_l2_flush;
++
++	register_platform_power_off(mac_poweroff);
+ }
+ 
+ 
+-- 
+2.33.1
