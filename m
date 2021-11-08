@@ -1,7 +1,7 @@
 From: Dmitry Osipenko <digetx@gmail.com>
-Date: Mon, 08 Nov 2021 00:45:16 +0000
-Subject: [PATCH v3 17/25] ia64: Use do_kernel_power_off()
-Message-Id: <20211108004524.29465-18-digetx@gmail.com>
+Date: Mon, 08 Nov 2021 00:45:18 +0000
+Subject: [PATCH v3 19/25] nds32: Use do_kernel_power_off()
+Message-Id: <20211108004524.29465-20-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20211108004524.29465-1-digetx@gmail.com>
 In-Reply-To: <20211108004524.29465-1-digetx@gmail.com>
@@ -18,30 +18,22 @@ be converted to the new power-off API.
 
 Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- arch/ia64/kernel/process.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ arch/nds32/kernel/process.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
-index 834df24a88f1..cee4d7db2143 100644
---- a/arch/ia64/kernel/process.c
-+++ b/arch/ia64/kernel/process.c
-@@ -19,6 +19,7 @@
- #include <linux/module.h>
- #include <linux/notifier.h>
- #include <linux/personality.h>
-+#include <linux/reboot.h>
- #include <linux/sched.h>
- #include <linux/sched/debug.h>
- #include <linux/sched/hotplug.h>
-@@ -599,8 +600,7 @@ machine_halt (void)
- void
- machine_power_off (void)
+diff --git a/arch/nds32/kernel/process.c b/arch/nds32/kernel/process.c
+index 49fab9e39cbf..0936dcd7db1b 100644
+--- a/arch/nds32/kernel/process.c
++++ b/arch/nds32/kernel/process.c
+@@ -54,8 +54,7 @@ EXPORT_SYMBOL(machine_halt);
+ 
+ void machine_power_off(void)
  {
 -	if (pm_power_off)
 -		pm_power_off();
 +	do_kernel_power_off();
- 	machine_halt();
  }
  
+ EXPORT_SYMBOL(machine_power_off);
 -- 
 2.33.1
