@@ -1,80 +1,47 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Date: Thu, 18 Nov 2021 14:34:47 +0000
-Subject: [PATCH 3/8] kernel/fork, IA64: Provide a alloc_thread_stack_node() for IA64.
-Message-Id: <20211118143452.136421-4-bigeasy@linutronix.de>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Mon, 08 Nov 2021 00:45:16 +0000
+Subject: [PATCH v3 17/25] ia64: Use do_kernel_power_off()
+Message-Id: <20211108004524.29465-18-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211118143452.136421-1-bigeasy@linutronix.de>
-In-Reply-To: <20211118143452.136421-1-bigeasy@linutronix.de>
+References: <20211108004524.29465-1-digetx@gmail.com>
+In-Reply-To: <20211108004524.29465-1-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-Cc: Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Andy Lutomirski <luto@kernel.org>, Juri Lelli <juri.lelli@redhat.com>, Vincent Guittot <vincent.guittot@linaro.org>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Steven Rostedt <rostedt@goodmis.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-Provide a generic alloc_thread_stack_node() for IA64/
-CONFIG_ARCH_THREAD_STACK_ALLOCATOR which returns stack pointer and sets
-task_struct::stack so it behaves exactly like the other implementations.
+Kernel now supports chained power-off handlers. Use do_kernel_power_off()
+that invokes chained power-off handlers. It also invokes legacy
+pm_power_off() for now, which will be removed once all drivers will
+be converted to the new power-off API.
 
-Rename IA64's alloc_thread_stack_node() and add the generic version to
-the fork code so it is in one place _and_ to drastically lower chances
-of fat fingering the IA64 code.
-Do the same for free_thread_stack().
-
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- arch/ia64/include/asm/thread_info.h |  6 +++---
- kernel/fork.c                       | 16 ++++++++++++++++
- 2 files changed, 19 insertions(+), 3 deletions(-)
+ arch/ia64/kernel/process.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/include/asm/thread_info.h b/arch/ia64/include/asm/thread_info.h
-index 51d20cb377062..1684716f08201 100644
---- a/arch/ia64/include/asm/thread_info.h
-+++ b/arch/ia64/include/asm/thread_info.h
-@@ -55,15 +55,15 @@ struct thread_info {
- #ifndef ASM_OFFSETS_C
- /* how to get the thread information struct from C */
- #define current_thread_info()	((struct thread_info *) ((char *) current + IA64_TASK_SIZE))
--#define alloc_thread_stack_node(tsk, node)	\
-+#define arch_alloc_thread_stack_node(tsk, node)	\
- 		((unsigned long *) ((char *) (tsk) + IA64_TASK_SIZE))
- #define task_thread_info(tsk)	((struct thread_info *) ((char *) (tsk) + IA64_TASK_SIZE))
- #else
- #define current_thread_info()	((struct thread_info *) 0)
--#define alloc_thread_stack_node(tsk, node)	((unsigned long *) 0)
-+#define arch_alloc_thread_stack_node(tsk, node)	((unsigned long *) 0)
- #define task_thread_info(tsk)	((struct thread_info *) 0)
- #endif
--#define free_thread_stack(tsk)	/* nothing */
-+#define arch_free_thread_stack(tsk)	/* nothing */
- #define task_stack_page(tsk)	((void *)(tsk))
- 
- #define __HAVE_THREAD_FUNCTIONS
-diff --git a/kernel/fork.c b/kernel/fork.c
-index ce320d4b8e1f4..d1681a415cdf1 100644
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -329,6 +329,22 @@ void thread_stack_cache_init(void)
+diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
+index 834df24a88f1..cee4d7db2143 100644
+--- a/arch/ia64/kernel/process.c
++++ b/arch/ia64/kernel/process.c
+@@ -19,6 +19,7 @@
+ #include <linux/module.h>
+ #include <linux/notifier.h>
+ #include <linux/personality.h>
++#include <linux/reboot.h>
+ #include <linux/sched.h>
+ #include <linux/sched/debug.h>
+ #include <linux/sched/hotplug.h>
+@@ -599,8 +600,7 @@ machine_halt (void)
+ void
+ machine_power_off (void)
+ {
+-	if (pm_power_off)
+-		pm_power_off();
++	do_kernel_power_off();
+ 	machine_halt();
  }
  
- # endif /* THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK) */
-+#else /* CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
-+
-+static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
-+{
-+	unsigned long *stack;
-+
-+	stack = arch_alloc_thread_stack_node(tsk, node);
-+	tsk->stack = stack;
-+	return stack;
-+}
-+
-+static void free_thread_stack(struct task_struct *tsk, bool cache_only)
-+{
-+	arch_free_thread_stack(tsk);
-+}
-+
- #endif /* !CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
- 
- /* SLAB cache for signal_struct structures (tsk->signal) */
 -- 
 2.33.1
