@@ -1,172 +1,36 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Date: Thu, 18 Nov 2021 14:34:45 +0000
-Subject: [PATCH 1/8] kernel/fork: Redo ifdefs around task's handling.
-Message-Id: <20211118143452.136421-2-bigeasy@linutronix.de>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Mon, 08 Nov 2021 00:45:05 +0000
+Subject: [PATCH v3 06/25] reboot: Warn if unregister_restart_handler() fails
+Message-Id: <20211108004524.29465-7-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211118143452.136421-1-bigeasy@linutronix.de>
-In-Reply-To: <20211118143452.136421-1-bigeasy@linutronix.de>
+References: <20211108004524.29465-1-digetx@gmail.com>
+In-Reply-To: <20211108004524.29465-1-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-Cc: Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Andy Lutomirski <luto@kernel.org>, Juri Lelli <juri.lelli@redhat.com>, Vincent Guittot <vincent.guittot@linaro.org>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Steven Rostedt <rostedt@goodmis.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-The use of ifdef CONFIG_VMAP_STACK is confusing in terms what is
-actually happenning and what can happen.
-For instance from reading free_thread_stack() it appears that in the
-CONFIG_VMAP_STACK case we may receive a non-NULL vm pointer but it may
-also be NULL in which case __free_pages() is used to free the stack.
-This is however not the case because in the VMAP case a non-NULL pointer
-is always returned here.
-Since it looks like this might happen, the compiler creates the correct
-dead code with the invocation to __free_pages() and everything around
-it. Twice.
+Emit warning if unregister_restart_handler() fails since it never should
+fail. This will ease further API development by catching mistakes early.
 
-Add spaces between the ifdef and the identifer to recognize the ifdef
-level that we are currently in.
-Add the current identifer as a comment behind #else and #endif.
-Move the code within free_thread_stack() and alloc_thread_stack_node()
-into the relavant ifdef block.
-
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- kernel/fork.c | 74 +++++++++++++++++++++++++++------------------------
- 1 file changed, 39 insertions(+), 35 deletions(-)
+ kernel/reboot.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/kernel/fork.c b/kernel/fork.c
-index 3244cc56b697d..bb3f2980f94fb 100644
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -184,7 +184,7 @@ static inline void free_task_struct(struct task_struct *tsk)
+diff --git a/kernel/reboot.c b/kernel/reboot.c
+index e6659ae329f1..f0e7b9c13f6b 100644
+--- a/kernel/reboot.c
++++ b/kernel/reboot.c
+@@ -210,7 +210,7 @@ EXPORT_SYMBOL(register_restart_handler);
   */
- # if THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK)
- 
--#ifdef CONFIG_VMAP_STACK
-+#  ifdef CONFIG_VMAP_STACK
- /*
-  * vmalloc() is a bit slow, and calling vfree() enough times will force a TLB
-  * flush.  Try to minimize the number of calls by caching stacks.
-@@ -209,11 +209,9 @@ static int free_vm_stack_cache(unsigned int cpu)
- 
- 	return 0;
- }
--#endif
- 
- static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
+ int unregister_restart_handler(struct notifier_block *nb)
  {
--#ifdef CONFIG_VMAP_STACK
- 	void *stack;
- 	int i;
- 
-@@ -257,7 +255,34 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
- 		tsk->stack = stack;
- 	}
- 	return stack;
--#else
-+}
-+
-+static void free_thread_stack(struct task_struct *tsk)
-+{
-+	struct vm_struct *vm = task_stack_vm_area(tsk);
-+	int i;
-+
-+	for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++)
-+		memcg_kmem_uncharge_page(vm->pages[i], 0);
-+
-+	for (i = 0; i < NR_CACHED_STACKS; i++) {
-+		if (this_cpu_cmpxchg(cached_stacks[i], NULL,
-+				     tsk->stack_vm_area) != NULL)
-+			continue;
-+
-+		tsk->stack = NULL;
-+		tsk->stack_vm_area = NULL;
-+		return;
-+	}
-+	vfree_atomic(tsk->stack);
-+	tsk->stack = NULL;
-+	tsk->stack_vm_area = NULL;
-+}
-+
-+#  else /* !CONFIG_VMAP_STACK */
-+
-+static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
-+{
- 	struct page *page = alloc_pages_node(node, THREADINFO_GFP,
- 					     THREAD_SIZE_ORDER);
- 
-@@ -266,36 +291,17 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
- 		return tsk->stack;
- 	}
- 	return NULL;
--#endif
+-	return atomic_notifier_chain_unregister(&restart_handler_list, nb);
++	return WARN_ON(atomic_notifier_chain_unregister(&restart_handler_list, nb));
  }
+ EXPORT_SYMBOL(unregister_restart_handler);
  
--static inline void free_thread_stack(struct task_struct *tsk)
-+static void free_thread_stack(struct task_struct *tsk)
- {
--#ifdef CONFIG_VMAP_STACK
--	struct vm_struct *vm = task_stack_vm_area(tsk);
--
--	if (vm) {
--		int i;
--
--		for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++)
--			memcg_kmem_uncharge_page(vm->pages[i], 0);
--
--		for (i = 0; i < NR_CACHED_STACKS; i++) {
--			if (this_cpu_cmpxchg(cached_stacks[i],
--					NULL, tsk->stack_vm_area) != NULL)
--				continue;
--
--			return;
--		}
--
--		vfree_atomic(tsk->stack);
--		return;
--	}
--#endif
--
- 	__free_pages(virt_to_page(tsk->stack), THREAD_SIZE_ORDER);
-+	tsk->stack = NULL;
- }
--# else
-+
-+#  endif /* CONFIG_VMAP_STACK */
-+# else /* !(THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK)) */
-+
- static struct kmem_cache *thread_stack_cache;
- 
- static unsigned long *alloc_thread_stack_node(struct task_struct *tsk,
-@@ -311,6 +317,7 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk,
- static void free_thread_stack(struct task_struct *tsk)
- {
- 	kmem_cache_free(thread_stack_cache, tsk->stack);
-+	tsk->stack = NULL;
- }
- 
- void thread_stack_cache_init(void)
-@@ -320,8 +327,9 @@ void thread_stack_cache_init(void)
- 					THREAD_SIZE, NULL);
- 	BUG_ON(thread_stack_cache == NULL);
- }
--# endif
--#endif
-+
-+# endif /* THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK) */
-+#endif /* !CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
- 
- /* SLAB cache for signal_struct structures (tsk->signal) */
- static struct kmem_cache *signal_cachep;
-@@ -429,10 +437,6 @@ static void release_task_stack(struct task_struct *tsk)
- 
- 	account_kernel_stack(tsk, -1);
- 	free_thread_stack(tsk);
--	tsk->stack = NULL;
--#ifdef CONFIG_VMAP_STACK
--	tsk->stack_vm_area = NULL;
--#endif
- }
- 
- #ifdef CONFIG_THREAD_INFO_IN_TASK
 -- 
 2.33.1
