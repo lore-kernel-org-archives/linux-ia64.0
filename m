@@ -1,42 +1,62 @@
-From: Yury Norov <yury.norov@gmail.com>
-Date: Sun, 28 Nov 2021 03:57:04 +0000
-Subject: [PATCH 9/9] MAINTAINERS: add cpumask and nodemask files to BITMAP_API
-Message-Id: <20211128035704.270739-10-yury.norov@gmail.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Date: Mon, 15 Nov 2021 16:58:44 +0000
+Subject: [PATCH 5.10 199/575] ia64: dont do IA64_CMPXCHG_DEBUG without CONFIG_PRINTK
+Message-Id: <20211115165350.589442470@linuxfoundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211128035704.270739-1-yury.norov@gmail.com>
-In-Reply-To: <20211128035704.270739-1-yury.norov@gmail.com>
+References: <20211115165343.579890274@linuxfoundation.org>
+In-Reply-To: <20211115165343.579890274@linuxfoundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, Yury Norov <yury.norov@gmail.com>, "James E.J. Bottomley" <jejb@linux.ibm.com>, "Martin K. Petersen" <martin.petersen@oracle.com>, "Paul E. McKenney" <paulmck@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Alexey Klimov <aklimov@redhat.com>, Amitkumar Karwar <amitkarwar@gmail.com>, Andi Kleen <ak@linux.intel.com>, Andrew Lunn <andrew@lunn.ch>, Andrew Morton <akpm@linux-foundation.org>, Andy Gross <agross@kernel.org>, Andy Lutomirski <luto@kernel.org>, Andy Shevchenko <andy@infradead.org>, Anup Patel <anup.patel@wdc.com>, Ard Biesheuvel <ardb@kernel.org>, Arnaldo Carvalho de Melo <acme@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Borislav Petkov <bp@alien8.de>, Catalin Marinas <catalin.marinas@arm.com>, Christoph Hellwig <hch@lst.de>, Christoph Lameter <cl@linux.com>, Daniel Vetter <daniel@ffwll.ch>, Dave Hansen <dave.hansen@linux.intel.com>, David Airlie <airlied@linux.ie>, David Laight <David.Laight@ACULAB.COM>, Dennis Zhou <dennis@kernel.org>, Dinh Nguyen <dinguyen@kernel.org>, Geetha sowjanya <gakula@marvell.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Guo Ren <guoren@kernel.org>, Hans de Goede <hdegoede@redhat.com>, Heiko Carstens <hca@linux.ibm.com>, Ian Rogers <irogers@google.com>, Ingo Molnar <mingo@redhat.com>, Jakub Kicinski <kuba@kernel.org>, Jason Wessel <jason.wessel@windriver.com>, Jens Axboe <axboe@fb.com>, Jiri Olsa <jolsa@redhat.com>, Jonathan Cameron <jic23@kernel.org>, Juri Lelli <juri.lelli@redhat.com>, Kalle Valo <kvalo@codeaurora.org>, Kees Cook <keescook@chromium.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Lee Jones <lee.jones@linaro.org>, Marc Zyngier <maz@kernel.org>, Marcin Wojtas <mw@semihalf.com>, Mark Gross <markgross@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Matti Vaittinen <mazziesaccount@gmail.com>, Mauro Carvalho Chehab <mchehab@kernel.org>, Mel Gorman <mgorman@suse.de>, Michael Ellerman <mpe@ellerman.id.au>, Mike Marciniszyn <mike.marciniszyn@cornelisnetworks.com>, Nicholas Piggin <npiggin@gmail.com>, Palmer Dabbelt <palmer@dabbelt.com>, Peter Zijlstra <peterz@infradead.org>, Petr Mladek <pmladek@suse.com>, Randy Dunlap <rdunlap@infradead.org>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Roy Pledge <Roy.Pledge@nxp.com>, Russell King <linux@armlinux.org.uk>, Saeed Mahameed <saeedm@nvidia.com>, Sagi Grimberg <sagi@grimberg.me>, Sergey Senozhatsky <senozhatsky@chromium.org>, Solomon Peachy <pizza@shaftnet.org>, Stephen Boyd <sboyd@kernel.org>, Stephen Rothwell <sfr@canb.auug.org.au>, Steven Rostedt <rostedt@goodmis.org>, Subbaraya Sundeep <sbhatta@marvell.com>, Sudeep Holla <sudeep.holla@arm.com>, Sunil Goutham <sgoutham@marvell.com>, Tariq Toukan <tariqt@nvidia.com>, Tejun Heo <tj@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Thomas Gleixner <tglx@linutronix.de>, Ulf Hansson <ulf.hansson@linaro.org>, Vincent Guittot <vincent.guittot@linaro.org>, Vineet Gupta <vgupta@kernel.org>, Viresh Kumar <viresh.kumar@linaro.org>, Vivien Didelot <vivien.didelot@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Will Deacon <will@kernel.org>, bcm-kernel-feedback-list@broadcom.com, kvm@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-crypto@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-mm@kvack.org, linux-perf-users@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-snps-arc@lists.infradead.org, linuxppc-dev@lists.ozlabs.org
+To: linux-kernel@vger.kernel.org
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, stable@vger.kernel.org, linux-ia64@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Chris Down <chris@chrisdown.name>, Paul Gortmaker <paul.gortmaker@windriver.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Randy Dunlap <rdunlap@infradead.org>, Petr Mladek <pmladek@suse.com>, Sasha Levin <sashal@kernel.org>
 
-cpumask and nodemask APIs are thin wrappers around basic bitmap API, and
-corresponding files are not formally maintained. This patch adds them to
-BITMAP_API section, so that bitmap folks would have closer look at it.
+From: Randy Dunlap <rdunlap@infradead.org>
 
-Signed-off-by: Yury Norov <yury.norov@gmail.com>
+[ Upstream commit c15b5fc054c3d6c97e953617605235c5cb8ce979 ]
+
+When CONFIG_PRINTK is not set, the CMPXCHG_BUGCHECK() macro calls
+_printk(), but _printk() is a static inline function, not available
+as an extern.
+Since the purpose of the macro is to print the BUGCHECK info,
+make this config option depend on PRINTK.
+
+Fixes multiple occurrences of this build error:
+
+../include/linux/printk.h:208:5: error: static declaration of '_printk' follows non-static declaration
+  208 | int _printk(const char *s, ...)
+      |     ^~~~~~~
+In file included from ../arch/ia64/include/asm/cmpxchg.h:5,
+../arch/ia64/include/uapi/asm/cmpxchg.h:146:28: note: previous declaration of '_printk' with type 'int(const char *, ...)'
+  146 |                 extern int _printk(const char *fmt, ...);
+
+Cc: linux-ia64@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Chris Down <chris@chrisdown.name>
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
+Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+Signed-off-by: Petr Mladek <pmladek@suse.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
 ---
- MAINTAINERS | 4 ++++
- 1 file changed, 4 insertions(+)
+ arch/ia64/Kconfig.debug | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 00ad0cb5cb05..ceeffcd81fa4 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -3375,10 +3375,14 @@ R:	Andy Shevchenko <andriy.shevchenko@linux.intel.com>
- R:	Rasmus Villemoes <linux@rasmusvillemoes.dk>
- S:	Maintained
- F:	include/linux/bitmap.h
-+F:	include/linux/cpumask.h
- F:	include/linux/find.h
-+F:	include/linux/nodemask.h
- F:	lib/bitmap.c
-+F:	lib/cpumask.c
- F:	lib/find_bit.c
- F:	lib/find_bit_benchmark.c
-+F:	lib/nodemask.c
- F:	lib/test_bitmap.c
- F:	tools/include/linux/bitmap.h
- F:	tools/include/linux/find.h
+diff --git a/arch/ia64/Kconfig.debug b/arch/ia64/Kconfig.debug
+index 40ca23bd228d6..2ce008e2d1644 100644
+--- a/arch/ia64/Kconfig.debug
++++ b/arch/ia64/Kconfig.debug
+@@ -39,7 +39,7 @@ config DISABLE_VHPT
+ 
+ config IA64_DEBUG_CMPXCHG
+ 	bool "Turn on compare-and-exchange bug checking (slow!)"
+-	depends on DEBUG_KERNEL
++	depends on DEBUG_KERNEL && PRINTK
+ 	help
+ 	  Selecting this option turns on bug checking for the IA-64
+ 	  compare-and-exchange instructions.  This is slow!  Itaniums
 -- 
-2.25.1
+2.33.0
+
+
