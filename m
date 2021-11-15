@@ -1,117 +1,62 @@
-From: Dmitry Osipenko <digetx@gmail.com>
-Date: Mon, 08 Nov 2021 00:45:23 +0000
-Subject: [PATCH v3 24/25] regulator: pfuze100: Use devm_register_sys_off_handler()
-Message-Id: <20211108004524.29465-25-digetx@gmail.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Date: Mon, 15 Nov 2021 16:55:27 +0000
+Subject: [PATCH 5.15 232/917] ia64: dont do IA64_CMPXCHG_DEBUG without CONFIG_PRINTK
+Message-Id: <20211115165436.652441367@linuxfoundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211108004524.29465-1-digetx@gmail.com>
-In-Reply-To: <20211108004524.29465-1-digetx@gmail.com>
+References: <20211115165428.722074685@linuxfoundation.org>
+In-Reply-To: <20211115165428.722074685@linuxfoundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
-Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, stable@vger.kernel.org, linux-ia64@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Chris Down <chris@chrisdown.name>, Paul Gortmaker <paul.gortmaker@windriver.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Randy Dunlap <rdunlap@infradead.org>, Petr Mladek <pmladek@suse.com>, Sasha Levin <sashal@kernel.org>
 
-Use devm_register_sys_off_handler() that replaces global
-pm_power_off_prepare variable and allows to register multiple
-power-off handlers.
+From: Randy Dunlap <rdunlap@infradead.org>
 
-Acked-by: Mark Brown <broonie@kernel.org>
-Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
+[ Upstream commit c15b5fc054c3d6c97e953617605235c5cb8ce979 ]
+
+When CONFIG_PRINTK is not set, the CMPXCHG_BUGCHECK() macro calls
+_printk(), but _printk() is a static inline function, not available
+as an extern.
+Since the purpose of the macro is to print the BUGCHECK info,
+make this config option depend on PRINTK.
+
+Fixes multiple occurrences of this build error:
+
+../include/linux/printk.h:208:5: error: static declaration of '_printk' follows non-static declaration
+  208 | int _printk(const char *s, ...)
+      |     ^~~~~~~
+In file included from ../arch/ia64/include/asm/cmpxchg.h:5,
+../arch/ia64/include/uapi/asm/cmpxchg.h:146:28: note: previous declaration of '_printk' with type 'int(const char *, ...)'
+  146 |                 extern int _printk(const char *fmt, ...);
+
+Cc: linux-ia64@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Chris Down <chris@chrisdown.name>
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
+Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+Signed-off-by: Petr Mladek <pmladek@suse.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
 ---
- drivers/regulator/pfuze100-regulator.c | 38 ++++++++++----------------
- 1 file changed, 14 insertions(+), 24 deletions(-)
+ arch/ia64/Kconfig.debug | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/regulator/pfuze100-regulator.c b/drivers/regulator/pfuze100-regulator.c
-index d60d7d1b7fa2..2eca8d43a097 100644
---- a/drivers/regulator/pfuze100-regulator.c
-+++ b/drivers/regulator/pfuze100-regulator.c
-@@ -10,6 +10,7 @@
- #include <linux/of_device.h>
- #include <linux/regulator/of_regulator.h>
- #include <linux/platform_device.h>
-+#include <linux/reboot.h>
- #include <linux/regulator/driver.h>
- #include <linux/regulator/machine.h>
- #include <linux/regulator/pfuze100.h>
-@@ -76,6 +77,7 @@ struct pfuze_chip {
- 	struct pfuze_regulator regulator_descs[PFUZE100_MAX_REGULATOR];
- 	struct regulator_dev *regulators[PFUZE100_MAX_REGULATOR];
- 	struct pfuze_regulator *pfuze_regulators;
-+	struct sys_off_handler sys_off;
- };
+diff --git a/arch/ia64/Kconfig.debug b/arch/ia64/Kconfig.debug
+index 40ca23bd228d6..2ce008e2d1644 100644
+--- a/arch/ia64/Kconfig.debug
++++ b/arch/ia64/Kconfig.debug
+@@ -39,7 +39,7 @@ config DISABLE_VHPT
  
- static const int pfuze100_swbst[] = {
-@@ -569,10 +571,10 @@ static inline struct device_node *match_of_node(int index)
- 	return pfuze_matches[index].of_node;
- }
- 
--static struct pfuze_chip *syspm_pfuze_chip;
--
--static void pfuze_power_off_prepare(void)
-+static void pfuze_power_off_prepare(struct power_off_prep_data *data)
- {
-+	struct pfuze_chip *syspm_pfuze_chip = data->cb_data;
-+
- 	dev_info(syspm_pfuze_chip->dev, "Configure standby mode for power off");
- 
- 	/* Switch from default mode: APS/APS to APS/Off */
-@@ -611,24 +613,23 @@ static void pfuze_power_off_prepare(void)
- 
- static int pfuze_power_off_prepare_init(struct pfuze_chip *pfuze_chip)
- {
-+	int err;
-+
- 	if (pfuze_chip->chip_id != PFUZE100) {
- 		dev_warn(pfuze_chip->dev, "Requested pm_power_off_prepare handler for not supported chip\n");
- 		return -ENODEV;
- 	}
- 
--	if (pm_power_off_prepare) {
--		dev_warn(pfuze_chip->dev, "pm_power_off_prepare is already registered.\n");
--		return -EBUSY;
--	}
-+	pfuze_chip->sys_off.power_off_prepare_cb = pfuze_power_off_prepare;
-+	pfuze_chip->sys_off.cb_data = pfuze_chip;
- 
--	if (syspm_pfuze_chip) {
--		dev_warn(pfuze_chip->dev, "syspm_pfuze_chip is already set.\n");
--		return -EBUSY;
-+	err = devm_register_sys_off_handler(pfuze_chip->dev, &pfuze_chip->sys_off);
-+	if (err) {
-+		dev_err(pfuze_chip->dev,
-+			"failed to register sys-off handler: %d\n", err);
-+		return err;
- 	}
- 
--	syspm_pfuze_chip = pfuze_chip;
--	pm_power_off_prepare = pfuze_power_off_prepare;
--
- 	return 0;
- }
- 
-@@ -837,23 +838,12 @@ static int pfuze100_regulator_probe(struct i2c_client *client,
- 	return 0;
- }
- 
--static int pfuze100_regulator_remove(struct i2c_client *client)
--{
--	if (syspm_pfuze_chip) {
--		syspm_pfuze_chip = NULL;
--		pm_power_off_prepare = NULL;
--	}
--
--	return 0;
--}
--
- static struct i2c_driver pfuze_driver = {
- 	.driver = {
- 		.name = "pfuze100-regulator",
- 		.of_match_table = pfuze_dt_ids,
- 	},
- 	.probe = pfuze100_regulator_probe,
--	.remove = pfuze100_regulator_remove,
- };
- module_i2c_driver(pfuze_driver);
- 
+ config IA64_DEBUG_CMPXCHG
+ 	bool "Turn on compare-and-exchange bug checking (slow!)"
+-	depends on DEBUG_KERNEL
++	depends on DEBUG_KERNEL && PRINTK
+ 	help
+ 	  Selecting this option turns on bug checking for the IA-64
+ 	  compare-and-exchange instructions.  This is slow!  Itaniums
 -- 
-2.33.1
+2.33.0
+
+
