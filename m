@@ -1,160 +1,62 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Date: Thu, 18 Nov 2021 14:34:48 +0000
-Subject: [PATCH 4/8] kernel/fork: Don't assign the stack pointer in dup_task_struct().
-Message-Id: <20211118143452.136421-5-bigeasy@linutronix.de>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Date: Mon, 15 Nov 2021 16:55:35 +0000
+Subject: [PATCH 5.14 252/849] ia64: dont do IA64_CMPXCHG_DEBUG without CONFIG_PRINTK
+Message-Id: <20211115165428.750621614@linuxfoundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211118143452.136421-1-bigeasy@linutronix.de>
-In-Reply-To: <20211118143452.136421-1-bigeasy@linutronix.de>
+References: <20211115165419.961798833@linuxfoundation.org>
+In-Reply-To: <20211115165419.961798833@linuxfoundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-Cc: Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Andy Lutomirski <luto@kernel.org>, Juri Lelli <juri.lelli@redhat.com>, Vincent Guittot <vincent.guittot@linaro.org>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Steven Rostedt <rostedt@goodmis.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+To: linux-kernel@vger.kernel.org
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, stable@vger.kernel.org, linux-ia64@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Chris Down <chris@chrisdown.name>, Paul Gortmaker <paul.gortmaker@windriver.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Randy Dunlap <rdunlap@infradead.org>, Petr Mladek <pmladek@suse.com>, Sasha Levin <sashal@kernel.org>
 
-All four versions of alloc_thread_stack_node() assign now
-task_struct::stack in case the allocation was successful.
+From: Randy Dunlap <rdunlap@infradead.org>
 
-Let alloc_thread_stack_node() return an error code instead of the stack
-pointer and remove the stack assignment in dup_task_struct().
+[ Upstream commit c15b5fc054c3d6c97e953617605235c5cb8ce979 ]
 
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+When CONFIG_PRINTK is not set, the CMPXCHG_BUGCHECK() macro calls
+_printk(), but _printk() is a static inline function, not available
+as an extern.
+Since the purpose of the macro is to print the BUGCHECK info,
+make this config option depend on PRINTK.
+
+Fixes multiple occurrences of this build error:
+
+../include/linux/printk.h:208:5: error: static declaration of '_printk' follows non-static declaration
+  208 | int _printk(const char *s, ...)
+      |     ^~~~~~~
+In file included from ../arch/ia64/include/asm/cmpxchg.h:5,
+../arch/ia64/include/uapi/asm/cmpxchg.h:146:28: note: previous declaration of '_printk' with type 'int(const char *, ...)'
+  146 |                 extern int _printk(const char *fmt, ...);
+
+Cc: linux-ia64@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Chris Down <chris@chrisdown.name>
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
+Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+Signed-off-by: Petr Mladek <pmladek@suse.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
 ---
- kernel/fork.c | 47 ++++++++++++++++-------------------------------
- 1 file changed, 16 insertions(+), 31 deletions(-)
+ arch/ia64/Kconfig.debug | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/kernel/fork.c b/kernel/fork.c
-index d1681a415cdf1..5e58e0a923f85 100644
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -210,7 +210,7 @@ static int free_vm_stack_cache(unsigned int cpu)
- 	return 0;
- }
+diff --git a/arch/ia64/Kconfig.debug b/arch/ia64/Kconfig.debug
+index 40ca23bd228d6..2ce008e2d1644 100644
+--- a/arch/ia64/Kconfig.debug
++++ b/arch/ia64/Kconfig.debug
+@@ -39,7 +39,7 @@ config DISABLE_VHPT
  
--static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
-+static int alloc_thread_stack_node(struct task_struct *tsk, int node)
- {
- 	void *stack;
- 	int i;
-@@ -231,7 +231,7 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
- 
- 		tsk->stack_vm_area = s;
- 		tsk->stack = s->addr;
--		return s->addr;
-+		return 0;
- 	}
- 
- 	/*
-@@ -244,17 +244,16 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
- 				     THREADINFO_GFP & ~__GFP_ACCOUNT,
- 				     PAGE_KERNEL,
- 				     0, node, __builtin_return_address(0));
--
-+	if (!stack)
-+		return -ENOMEM;
- 	/*
- 	 * We can't call find_vm_area() in interrupt context, and
- 	 * free_thread_stack() can be called in interrupt context,
- 	 * so cache the vm_struct.
- 	 */
--	if (stack) {
--		tsk->stack_vm_area = find_vm_area(stack);
--		tsk->stack = stack;
--	}
--	return stack;
-+	tsk->stack_vm_area = find_vm_area(stack);
-+	tsk->stack = stack;
-+	return 0;
- }
- 
- static void free_thread_stack(struct task_struct *tsk)
-@@ -281,16 +280,16 @@ static void free_thread_stack(struct task_struct *tsk)
- 
- #  else /* !CONFIG_VMAP_STACK */
- 
--static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
-+static int alloc_thread_stack_node(struct task_struct *tsk, int node)
- {
- 	struct page *page = alloc_pages_node(node, THREADINFO_GFP,
- 					     THREAD_SIZE_ORDER);
- 
- 	if (likely(page)) {
- 		tsk->stack = kasan_reset_tag(page_address(page));
--		return tsk->stack;
-+		return 0;
- 	}
--	return NULL;
-+	return -ENOMEM;
- }
- 
- static void free_thread_stack(struct task_struct *tsk)
-@@ -304,14 +303,13 @@ static void free_thread_stack(struct task_struct *tsk)
- 
- static struct kmem_cache *thread_stack_cache;
- 
--static unsigned long *alloc_thread_stack_node(struct task_struct *tsk,
--						  int node)
-+static int alloc_thread_stack_node(struct task_struct *tsk, int node)
- {
- 	unsigned long *stack;
- 	stack = kmem_cache_alloc_node(thread_stack_cache, THREADINFO_GFP, node);
- 	stack = kasan_reset_tag(stack);
- 	tsk->stack = stack;
--	return stack;
-+	return stack ? 0 : -ENOMEM;
- }
- 
- static void free_thread_stack(struct task_struct *tsk)
-@@ -331,13 +329,13 @@ void thread_stack_cache_init(void)
- # endif /* THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK) */
- #else /* CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
- 
--static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
-+static int alloc_thread_stack_node(struct task_struct *tsk, int node)
- {
- 	unsigned long *stack;
- 
- 	stack = arch_alloc_thread_stack_node(tsk, node);
- 	tsk->stack = stack;
--	return stack;
-+	return stack ? 0 : -ENOMEM;
- }
- 
- static void free_thread_stack(struct task_struct *tsk, bool cache_only)
-@@ -893,8 +891,6 @@ void set_task_stack_end_magic(struct task_struct *tsk)
- static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
- {
- 	struct task_struct *tsk;
--	unsigned long *stack;
--	struct vm_struct *stack_vm_area __maybe_unused;
- 	int err;
- 
- 	if (node == NUMA_NO_NODE)
-@@ -907,24 +903,13 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
- 	if (err)
- 		goto free_tsk;
- 
--	stack = alloc_thread_stack_node(tsk, node);
--	if (!stack)
-+	err = alloc_thread_stack_node(tsk, node);
-+	if (err)
- 		goto free_tsk;
- 
- 	if (memcg_charge_kernel_stack(tsk))
- 		goto free_stack;
- 
--	stack_vm_area = task_stack_vm_area(tsk);
--
--	/*
--	 * arch_dup_task_struct() clobbers the stack-related fields.  Make
--	 * sure they're properly initialized before using any stack-related
--	 * functions again.
--	 */
--	tsk->stack = stack;
--#ifdef CONFIG_VMAP_STACK
--	tsk->stack_vm_area = stack_vm_area;
--#endif
- #ifdef CONFIG_THREAD_INFO_IN_TASK
- 	refcount_set(&tsk->stack_refcount, 1);
- #endif
+ config IA64_DEBUG_CMPXCHG
+ 	bool "Turn on compare-and-exchange bug checking (slow!)"
+-	depends on DEBUG_KERNEL
++	depends on DEBUG_KERNEL && PRINTK
+ 	help
+ 	  Selecting this option turns on bug checking for the IA-64
+ 	  compare-and-exchange instructions.  This is slow!  Itaniums
 -- 
-2.33.1
+2.33.0
+
+
