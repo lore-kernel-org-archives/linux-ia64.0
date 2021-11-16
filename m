@@ -1,117 +1,111 @@
-From: Dmitry Osipenko <digetx@gmail.com>
-Date: Fri, 26 Nov 2021 18:01:00 +0000
-Subject: [PATCH v4 24/25] regulator: pfuze100: Use devm_register_sys_off_handler()
-Message-Id: <20211126180101.27818-25-digetx@gmail.com>
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Tue, 16 Nov 2021 15:07:47 +0000
+Subject: Re: [PATCH v2 12/13] lkdtm: Fix execute_[user]_location()
+Message-Id: <8ba77500-cb40-0662-f571-6a6f391374b9@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211126180101.27818-1-digetx@gmail.com>
-In-Reply-To: <20211126180101.27818-1-digetx@gmail.com>
+References: <cover.1634190022.git.christophe.leroy@csgroup.eu>
+ <cbee30c66890994e116a8eae8094fa8c5336f90a.1634190022.git.christophe.leroy@csgroup.eu>
+ <202110151428.187B1CF@keescook>
+ <9b4c39d4-1322-89af-585c-679a574576a2@csgroup.eu>
+In-Reply-To: <9b4c39d4-1322-89af-585c-679a574576a2@csgroup.eu>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>
-Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Kees Cook <keescook@chromium.org>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-Use devm_register_sys_off_handler() that replaces global
-pm_power_off_prepare variable and allows to register multiple
-power-off handlers.
+Hi Kees,
 
-Acked-by: Mark Brown <broonie@kernel.org>
-Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
----
- drivers/regulator/pfuze100-regulator.c | 38 ++++++++++----------------
- 1 file changed, 14 insertions(+), 24 deletions(-)
+Le 16/10/2021 à 08:42, Christophe Leroy a écrit :
+> 
+> 
+> Le 15/10/2021 à 23:31, Kees Cook a écrit :
+>> On Thu, Oct 14, 2021 at 07:50:01AM +0200, Christophe Leroy wrote:
+>>> execute_location() and execute_user_location() intent
+>>> to copy do_nothing() text and execute it at a new location.
+>>> However, at the time being it doesn't copy do_nothing() function
+>>> but do_nothing() function descriptor which still points to the
+>>> original text. So at the end it still executes do_nothing() at
+>>> its original location allthough using a copied function descriptor.
+>>>
+>>> So, fix that by really copying do_nothing() text and build a new
+>>> function descriptor by copying do_nothing() function descriptor and
+>>> updating the target address with the new location.
+>>>
+>>> Also fix the displayed addresses by dereferencing do_nothing()
+>>> function descriptor.
+>>>
+>>> Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
+>>> ---
+>>>   drivers/misc/lkdtm/perms.c     | 25 +++++++++++++++++++++----
+>>>   include/asm-generic/sections.h |  5 +++++
+>>>   2 files changed, 26 insertions(+), 4 deletions(-)
+>>>
+>>> diff --git a/drivers/misc/lkdtm/perms.c b/drivers/misc/lkdtm/perms.c
+>>> index 5266dc28df6e..96b3ebfcb8ed 100644
+>>> --- a/drivers/misc/lkdtm/perms.c
+>>> +++ b/drivers/misc/lkdtm/perms.c
+>>> @@ -44,19 +44,32 @@ static noinline void do_overwritten(void)
+>>>       return;
+>>>   }
+>>> +static void *setup_function_descriptor(func_desc_t *fdesc, void *dst)
+>>> +{
+>>> +    memcpy(fdesc, do_nothing, sizeof(*fdesc));
+>>> +    fdesc->addr = (unsigned long)dst;
+>>> +    barrier();
+>>> +
+>>> +    return fdesc;
+>>> +}
+>>
+>> How about collapsing the "have_function_descriptors()" check into
+>> setup_function_descriptor()?
+>>
+>> static void *setup_function_descriptor(func_desc_t *fdesc, void *dst)
+>> {
+>>     if (__is_defined(HAVE_FUNCTION_DESCRIPTORS)) {
+>>         memcpy(fdesc, do_nothing, sizeof(*fdesc));
+>>         fdesc->addr = (unsigned long)dst;
+>>         barrier();
+>>         return fdesc;
+>>     } else {
+>>         return dst;
+>>     }
+>> }
+> 
+> Ok
+> 
 
-diff --git a/drivers/regulator/pfuze100-regulator.c b/drivers/regulator/pfuze100-regulator.c
-index d60d7d1b7fa2..2eca8d43a097 100644
---- a/drivers/regulator/pfuze100-regulator.c
-+++ b/drivers/regulator/pfuze100-regulator.c
-@@ -10,6 +10,7 @@
- #include <linux/of_device.h>
- #include <linux/regulator/of_regulator.h>
- #include <linux/platform_device.h>
-+#include <linux/reboot.h>
- #include <linux/regulator/driver.h>
- #include <linux/regulator/machine.h>
- #include <linux/regulator/pfuze100.h>
-@@ -76,6 +77,7 @@ struct pfuze_chip {
- 	struct pfuze_regulator regulator_descs[PFUZE100_MAX_REGULATOR];
- 	struct regulator_dev *regulators[PFUZE100_MAX_REGULATOR];
- 	struct pfuze_regulator *pfuze_regulators;
-+	struct sys_off_handler sys_off;
- };
- 
- static const int pfuze100_swbst[] = {
-@@ -569,10 +571,10 @@ static inline struct device_node *match_of_node(int index)
- 	return pfuze_matches[index].of_node;
- }
- 
--static struct pfuze_chip *syspm_pfuze_chip;
--
--static void pfuze_power_off_prepare(void)
-+static void pfuze_power_off_prepare(struct power_off_prep_data *data)
- {
-+	struct pfuze_chip *syspm_pfuze_chip = data->cb_data;
-+
- 	dev_info(syspm_pfuze_chip->dev, "Configure standby mode for power off");
- 
- 	/* Switch from default mode: APS/APS to APS/Off */
-@@ -611,24 +613,23 @@ static void pfuze_power_off_prepare(void)
- 
- static int pfuze_power_off_prepare_init(struct pfuze_chip *pfuze_chip)
- {
-+	int err;
-+
- 	if (pfuze_chip->chip_id != PFUZE100) {
- 		dev_warn(pfuze_chip->dev, "Requested pm_power_off_prepare handler for not supported chip\n");
- 		return -ENODEV;
- 	}
- 
--	if (pm_power_off_prepare) {
--		dev_warn(pfuze_chip->dev, "pm_power_off_prepare is already registered.\n");
--		return -EBUSY;
--	}
-+	pfuze_chip->sys_off.power_off_prepare_cb = pfuze_power_off_prepare;
-+	pfuze_chip->sys_off.cb_data = pfuze_chip;
- 
--	if (syspm_pfuze_chip) {
--		dev_warn(pfuze_chip->dev, "syspm_pfuze_chip is already set.\n");
--		return -EBUSY;
-+	err = devm_register_sys_off_handler(pfuze_chip->dev, &pfuze_chip->sys_off);
-+	if (err) {
-+		dev_err(pfuze_chip->dev,
-+			"failed to register sys-off handler: %d\n", err);
-+		return err;
- 	}
- 
--	syspm_pfuze_chip = pfuze_chip;
--	pm_power_off_prepare = pfuze_power_off_prepare;
--
- 	return 0;
- }
- 
-@@ -837,23 +838,12 @@ static int pfuze100_regulator_probe(struct i2c_client *client,
- 	return 0;
- }
- 
--static int pfuze100_regulator_remove(struct i2c_client *client)
--{
--	if (syspm_pfuze_chip) {
--		syspm_pfuze_chip = NULL;
--		pm_power_off_prepare = NULL;
--	}
--
--	return 0;
--}
--
- static struct i2c_driver pfuze_driver = {
- 	.driver = {
- 		.name = "pfuze100-regulator",
- 		.of_match_table = pfuze_dt_ids,
- 	},
- 	.probe = pfuze100_regulator_probe,
--	.remove = pfuze100_regulator_remove,
- };
- module_i2c_driver(pfuze_driver);
- 
--- 
-2.33.1
+...
+
+>>
+>>> diff --git a/include/asm-generic/sections.h 
+>>> b/include/asm-generic/sections.h
+>>> index 76163883c6ff..d225318538bd 100644
+>>> --- a/include/asm-generic/sections.h
+>>> +++ b/include/asm-generic/sections.h
+>>> @@ -70,6 +70,11 @@ typedef struct {
+>>>   } func_desc_t;
+>>>   #endif
+>>> +static inline bool have_function_descriptors(void)
+>>> +{
+>>> +    return __is_defined(HAVE_FUNCTION_DESCRIPTORS);
+>>> +}
+>>> +
+>>>   /* random extra sections (if any).  Override
+>>>    * in asm/sections.h */
+>>>   #ifndef arch_is_kernel_text
+>>
+>> This hunk seems like it should live in a separate patch.
+>>
+> 
+> Ok I move it in a previous patch.
+
+
+Do you have any additional feedback or comment on series v3 ?
+
+What's the way forward, should it go via LKDTM tree or via powerpc tree 
+or another tree ? I see there are neither Ack-by nor Reviewed-by for the 
+last 2 patches.
+
+Thanks
+Christophe
