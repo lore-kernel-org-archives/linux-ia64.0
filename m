@@ -1,70 +1,34 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Date: Thu, 18 Nov 2021 14:34:44 +0000
-Subject: [PATCH 0/8] kernel/fork: Move thread stack free otu of the scheduler path.
-Message-Id: <20211118143452.136421-1-bigeasy@linutronix.de>
+Date: Thu, 18 Nov 2021 14:38:50 +0000
+Subject: Re: [PATCH 0/8] kernel/fork: Move thread stack free otu of the scheduler path.
+Message-Id: <20211118143850.ygpp7xetpz3pt2nj@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20211118143452.136421-1-bigeasy@linutronix.de>
+In-Reply-To: <20211118143452.136421-1-bigeasy@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tglx@linutronix.de
 Cc: Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Andy Lutomirski <luto@kernel.org>, Juri Lelli <juri.lelli@redhat.com>, Vincent Guittot <vincent.guittot@linaro.org>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Steven Rostedt <rostedt@goodmis.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>
 
++ tglx.
 
-This is a follup-up on the patch
-    sched: Delay task stack freeing on RT 
-    https://lkml.kernel.org/r/20210928122411.593486363@linutronix.de
+It starts at
+   https://lore.kernel.org/all/20211118143452.136421-1-bigeasy@linutronix.de/
 
-It addresses the review feedback:
-- Decouple stack accounting from its free invocation. The accounting
-  happens in do_exit(), the final free call happens later.
-
-- Add put_task_stack_sched() to finish_task_switch(). Here the VMAP
-  stack is cached only. If it fails, or in the !VMAP case then the final
-  free happens in delayed_put_task_struct(). This is also an oportunity
-  to cache the stack.
-
-From testing I observe the following:
-
-|            bash-1715    [006] .....   124.901510: copy_process: allocC ffffc90007e70000
-|      sh-cmds.sh-1746    [007] .....   124.907389: copy_process: allocC ffffc90007dc4000
-|          <idle>-0       [019] ...1.   124.918126: free_thread_stack: cache ffffc90007dc4000
-|      sh-cmds.sh-1746    [007] .....   124.918279: copy_process: allocC ffffc90007de8000
-|          <idle>-0       [004] ...1.   124.920121: free_thread_stack: delay ffffc90007de8001
-|          <idle>-0       [007] ...1.   124.920299: free_thread_stack: cache ffffc90007e70000
-|          <idle>-0       [007] ..s1.   124.945433: free_thread_stack: cache ffffc90007de8000
-
-TS 124.901510, bash started sh-cmds.sh, obtained stack from cache.
-TS 124.907389, script invokes its first command, obtained stacak from
-cache. As you can see bash was running on CPU6 but its child was moved
-CPU7. This happens a lot, maybe because my test system is too idle.
-TS 124.918126, the first command is done, stack is ached on CPU19.
-TS 124.918279, script's second command, stack from cache.
-TS 124.920121, the command is done. The stack cache on CPU4 is full.
-TS 124.920299, the script is done, caches stack on CPU7.
-TS 124.945433, the RCU-callback of last command is now happening. On
-CPU7, which is where the command was invoked (but not running). Instead
-of freeing the stack, it was cached since CPU7 had an empty slot. \o/.
-
-If I pin the script to CPU5 and run it with multiple commands then it
-works as expected:
-
-|            bash-1799    [005] .....   993.608131: copy_process: allocC ffffc90007fa0000
-|      sh-cmds.sh-1827    [005] .....   993.608888: copy_process: allocC ffffc90007fa8000
-|      sh-cmds.sh-1827    [005] .....   993.610734: copy_process: allocV ffffc90007ff4000
-|      sh-cmds.sh-1829    [005] ...1.   993.610757: free_thread_stack: cache ffffc90007fa8000
-|      sh-cmds.sh-1827    [005] .....   993.612401: copy_process: allocC ffffc90007fa8000
-|           <...>-1830    [005] ...1.   993.612416: free_thread_stack: cache ffffc90007ff4000
-|      sh-cmds.sh-1827    [005] .....   993.613707: copy_process: allocC ffffc90007ff4000
-|      sh-cmds.sh-1831    [005] ...1.   993.613723: free_thread_stack: cache ffffc90007fa8000
-|      sh-cmds.sh-1827    [005] .....   993.615024: copy_process: allocC ffffc90007fa8000
-|           <...>-1832    [005] ...1.   993.615040: free_thread_stack: cache ffffc90007ff4000
-|      sh-cmds.sh-1827    [005] .....   993.616380: copy_process: allocC ffffc90007ff4000
-|           <...>-1833    [005] ...1.   993.616397: free_thread_stack: cache ffffc90007fa8000
-|            bash-1799    [005] ...1.   993.617759: free_thread_stack: cache ffffc90007fa0000
-|          <idle>-0       [005] ...1.   993.617871: free_thread_stack: delay ffffc90007ff4001
-|          <idle>-0       [005] ..s1.   993.638311: free_thread_stack: free ffffc90007ff4000
-
-and after a warm up no new stack is allocated during its runtime and a
-cached stack is used instead.
+On 2021-11-18 15:34:44 [+0100], To linux-kernel@vger.kernel.org wrote:
+> 
+> This is a follup-up on the patch
+>     sched: Delay task stack freeing on RT 
+>     https://lkml.kernel.org/r/20210928122411.593486363@linutronix.de
+> 
+> It addresses the review feedback:
+> - Decouple stack accounting from its free invocation. The accounting
+>   happens in do_exit(), the final free call happens later.
+> 
+> - Add put_task_stack_sched() to finish_task_switch(). Here the VMAP
+>   stack is cached only. If it fails, or in the !VMAP case then the final
+>   free happens in delayed_put_task_struct(). This is also an oportunity
+>   to cache the stack.
 
 Sebastian
