@@ -1,60 +1,133 @@
-From: Sasha Levin <sashal@kernel.org>
-Date: Tue, 09 Nov 2021 01:06:28 +0000
-Subject: [PATCH AUTOSEL 4.14 18/39] ia64: don't do IA64_CMPXCHG_DEBUG without CONFIG_PRINTK
-Message-Id: <20211109010649.1191041-18-sashal@kernel.org>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 18 Nov 2021 14:34:49 +0000
+Subject: [PATCH 5/8] kernel/fork: Move memcg_charge_kernel_stack() into CONFIG_VMAP_STACK.
+Message-Id: <20211118143452.136421-6-bigeasy@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211109010649.1191041-1-sashal@kernel.org>
-In-Reply-To: <20211109010649.1191041-1-sashal@kernel.org>
+References: <20211118143452.136421-1-bigeasy@linutronix.de>
+In-Reply-To: <20211118143452.136421-1-bigeasy@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
-Cc: Randy Dunlap <rdunlap@infradead.org>, linux-ia64@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Chris Down <chris@chrisdown.name>, Paul Gortmaker <paul.gortmaker@windriver.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Petr Mladek <pmladek@suse.com>, Sasha Levin <sashal@kernel.org>
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Andy Lutomirski <luto@kernel.org>, Juri Lelli <juri.lelli@redhat.com>, Vincent Guittot <vincent.guittot@linaro.org>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Steven Rostedt <rostedt@goodmis.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-From: Randy Dunlap <rdunlap@infradead.org>
+memcg_charge_kernel_stack() is only used in the CONFIG_VMAP_STACK case.
 
-[ Upstream commit c15b5fc054c3d6c97e953617605235c5cb8ce979 ]
+Move memcg_charge_kernel_stack() into the CONFIG_VMAP_STACK block and
+invoke it from within alloc_thread_stack_node().
 
-When CONFIG_PRINTK is not set, the CMPXCHG_BUGCHECK() macro calls
-_printk(), but _printk() is a static inline function, not available
-as an extern.
-Since the purpose of the macro is to print the BUGCHECK info,
-make this config option depend on PRINTK.
-
-Fixes multiple occurrences of this build error:
-
-../include/linux/printk.h:208:5: error: static declaration of '_printk' follows non-static declaration
-  208 | int _printk(const char *s, ...)
-      |     ^~~~~~~
-In file included from ../arch/ia64/include/asm/cmpxchg.h:5,
-../arch/ia64/include/uapi/asm/cmpxchg.h:146:28: note: previous declaration of '_printk' with type 'int(const char *, ...)'
-  146 |                 extern int _printk(const char *fmt, ...);
-
-Cc: linux-ia64@vger.kernel.org
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Chris Down <chris@chrisdown.name>
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
-Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
-Signed-off-by: Petr Mladek <pmladek@suse.com>
-Signed-off-by: Sasha Levin <sashal@kernel.org>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- arch/ia64/Kconfig.debug | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ kernel/fork.c | 69 +++++++++++++++++++++++++++------------------------
+ 1 file changed, 36 insertions(+), 33 deletions(-)
 
-diff --git a/arch/ia64/Kconfig.debug b/arch/ia64/Kconfig.debug
-index 677c409425df2..c27c13ca77f47 100644
---- a/arch/ia64/Kconfig.debug
-+++ b/arch/ia64/Kconfig.debug
-@@ -42,7 +42,7 @@ config DISABLE_VHPT
+diff --git a/kernel/fork.c b/kernel/fork.c
+index 5e58e0a923f85..cdbfc9280f3b1 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -210,6 +210,32 @@ static int free_vm_stack_cache(unsigned int cpu)
+ 	return 0;
+ }
  
- config IA64_DEBUG_CMPXCHG
- 	bool "Turn on compare-and-exchange bug checking (slow!)"
--	depends on DEBUG_KERNEL
-+	depends on DEBUG_KERNEL && PRINTK
- 	help
- 	  Selecting this option turns on bug checking for the IA-64
- 	  compare-and-exchange instructions.  This is slow!  Itaniums
++static int memcg_charge_kernel_stack(struct task_struct *tsk)
++{
++	struct vm_struct *vm = task_stack_vm_area(tsk);
++	int i;
++	int ret;
++
++	BUILD_BUG_ON(IS_ENABLED(CONFIG_VMAP_STACK) && PAGE_SIZE % 1024 != 0);
++	BUG_ON(vm->nr_pages != THREAD_SIZE / PAGE_SIZE);
++
++	for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++) {
++		ret = memcg_kmem_charge_page(vm->pages[i], GFP_KERNEL, 0);
++		if (ret)
++			goto err;
++	}
++	return 0;
++err:
++	/*
++	 * If memcg_kmem_charge_page() fails, page's memory cgroup pointer is
++	 * NULL, and memcg_kmem_uncharge_page() in free_thread_stack() will
++	 * ignore this page.
++	 */
++	for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++)
++		memcg_kmem_uncharge_page(vm->pages[i], 0);
++	return ret;
++}
++
+ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ {
+ 	void *stack;
+@@ -229,6 +255,11 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 		/* Clear stale pointers from reused stack. */
+ 		memset(s->addr, 0, THREAD_SIZE);
+ 
++		if (memcg_charge_kernel_stack(tsk)) {
++			vfree(s->addr);
++			return -ENOMEM;
++		}
++
+ 		tsk->stack_vm_area = s;
+ 		tsk->stack = s->addr;
+ 		return 0;
+@@ -246,6 +277,11 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 				     0, node, __builtin_return_address(0));
+ 	if (!stack)
+ 		return -ENOMEM;
++
++	if (memcg_charge_kernel_stack(tsk)) {
++		vfree(stack);
++		return -ENOMEM;
++	}
+ 	/*
+ 	 * We can't call find_vm_area() in interrupt context, and
+ 	 * free_thread_stack() can be called in interrupt context,
+@@ -414,36 +450,6 @@ static void account_kernel_stack(struct task_struct *tsk, int account)
+ 	}
+ }
+ 
+-static int memcg_charge_kernel_stack(struct task_struct *tsk)
+-{
+-#ifdef CONFIG_VMAP_STACK
+-	struct vm_struct *vm = task_stack_vm_area(tsk);
+-	int ret;
+-
+-	BUILD_BUG_ON(IS_ENABLED(CONFIG_VMAP_STACK) && PAGE_SIZE % 1024 != 0);
+-
+-	if (vm) {
+-		int i;
+-
+-		BUG_ON(vm->nr_pages != THREAD_SIZE / PAGE_SIZE);
+-
+-		for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++) {
+-			/*
+-			 * If memcg_kmem_charge_page() fails, page's
+-			 * memory cgroup pointer is NULL, and
+-			 * memcg_kmem_uncharge_page() in free_thread_stack()
+-			 * will ignore this page.
+-			 */
+-			ret = memcg_kmem_charge_page(vm->pages[i], GFP_KERNEL,
+-						     0);
+-			if (ret)
+-				return ret;
+-		}
+-	}
+-#endif
+-	return 0;
+-}
+-
+ static void release_task_stack(struct task_struct *tsk)
+ {
+ 	if (WARN_ON(READ_ONCE(tsk->__state) != TASK_DEAD))
+@@ -907,9 +913,6 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ 	if (err)
+ 		goto free_tsk;
+ 
+-	if (memcg_charge_kernel_stack(tsk))
+-		goto free_stack;
+-
+ #ifdef CONFIG_THREAD_INFO_IN_TASK
+ 	refcount_set(&tsk->stack_refcount, 1);
+ #endif
 -- 
-2.33.0
+2.33.1
