@@ -1,41 +1,61 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Mon, 08 Nov 2021 07:47:10 +0000
-Subject: Re: [PATCH v3 21/25] m68k: Switch to new sys-off handler API
-Message-Id: <CAMuHMdXpW0389_uJR2xg+HCstXanutPxrcRdvgu8kxH1J9T++w@mail.gmail.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 18 Nov 2021 14:34:46 +0000
+Subject: [PATCH 2/8] kernel/fork: Duplicate task_struct before stack allocation.
+Message-Id: <20211118143452.136421-3-bigeasy@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211108004524.29465-1-digetx@gmail.com> <20211108004524.29465-22-digetx@gmail.com>
-In-Reply-To: <20211108004524.29465-22-digetx@gmail.com>
+References: <20211118143452.136421-1-bigeasy@linutronix.de>
+In-Reply-To: <20211118143452.136421-1-bigeasy@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Dmitry Osipenko <digetx@gmail.com>
-Cc: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, the arch/x86 maintainers <x86@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Andy Lutomirski <luto@kernel.org>, Juri Lelli <juri.lelli@redhat.com>, Vincent Guittot <vincent.guittot@linaro.org>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Steven Rostedt <rostedt@goodmis.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-On Mon, Nov 8, 2021 at 1:48 AM Dmitry Osipenko <digetx@gmail.com> wrote:
-> Kernel now supports chained power-off handlers. Use
-> register_power_off_handler() that registers power-off handlers and
-> do_kernel_power_off() that invokes chained power-off handlers. Legacy
-> pm_power_off() will be removed once all drivers will be converted to
-> the new power-off API.
->
-> Normally arch code should adopt only the do_kernel_power_off() at first,
-> but m68k is a special case because it uses pm_power_off() "inside out",
-> i.e. pm_power_off() invokes machine_power_off() [in fact it does nothing],
-> while it's machine_power_off() that should invoke the pm_power_off(), and
-> thus, we can't convert platforms to the new API separately. There are only
-> two platforms changed here, so it's not a big deal.
->
-> Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
+alloc_thread_stack_node() already populates the task_struct::stack
+member except on IA64. The stack pointer is saved and populated again
+because IA64 needs it and arch_dup_task_struct() overwrites it.
 
-Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Allocate thread's stack after task_struct has been duplicated as a
+preparation.
 
-Gr{oetje,eeting}s,
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/fork.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+diff --git a/kernel/fork.c b/kernel/fork.c
+index bb3f2980f94fb..ce320d4b8e1f4 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -887,6 +887,10 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ 	if (!tsk)
+ 		return NULL;
+ 
++	err = arch_dup_task_struct(tsk, orig);
++	if (err)
++		goto free_tsk;
++
+ 	stack = alloc_thread_stack_node(tsk, node);
+ 	if (!stack)
+ 		goto free_tsk;
+@@ -896,8 +900,6 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ 
+ 	stack_vm_area = task_stack_vm_area(tsk);
+ 
+-	err = arch_dup_task_struct(tsk, orig);
+-
+ 	/*
+ 	 * arch_dup_task_struct() clobbers the stack-related fields.  Make
+ 	 * sure they're properly initialized before using any stack-related
+@@ -911,9 +913,6 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ 	refcount_set(&tsk->stack_refcount, 1);
+ #endif
+ 
+-	if (err)
+-		goto free_stack;
+-
+ 	err = scs_prepare(tsk, node);
+ 	if (err)
+ 		goto free_stack;
+-- 
+2.33.1
