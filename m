@@ -1,21 +1,23 @@
-From: davidcomponentone@gmail.com
-Date: Thu, 04 Nov 2021 06:26:42 +0000
+From: cgel.zte@gmail.com
+Date: Thu, 18 Nov 2021 06:20:02 +0000
 Subject: [PATCH] ia64: module: use swap() to make code cleaner
-Message-Id: <20211104062642.1506539-1-yang.guang5@zte.com.cn>
+Message-Id: <20211118062002.164121-1-yao.jing2@zte.com.cn>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20211104062642.1506539-1-yang.guang5@zte.com.cn>
+In-Reply-To: <20211104062642.1506539-1-yang.guang5@zte.com.cn>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: slyfox@gentoo.org
-Cc: davidcomponentone@gmail.com, akpm@linux-foundation.org, yang.guang5@zte.com.cn, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Zeal Robot <zealci@zte.com.cn>
+To: akpm@linux-foundation.org
+Cc: slyfox@gentoo.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Yao Jing <yao.jing2@zte.com.cn>, Zeal Robot <zealci@zte.com.cn>
 
-From: Yang Guang <yang.guang5@zte.com.cn>
+From: Yao Jing <yao.jing2@zte.com.cn>
 
 Use the macro 'swap()' defined in 'include/linux/minmax.h' to avoid
 opencoding it.
 
 Reported-by: Zeal Robot <zealci@zte.com.cn>
-Signed-off-by: Yang Guang <yang.guang5@zte.com.cn>
+Signed-off-by: Yao Jing <yao.jing2@zte.com.cn>
 ---
  arch/ia64/kernel/module.c | 6 ++----
  1 file changed, 2 insertions(+), 4 deletions(-)
@@ -45,4 +47,4 @@ index 2cba53c1da82..360f36b0eb3f 100644
  		}
  	}
 -- 
-2.30.2
+2.25.1
