@@ -1,36 +1,248 @@
-From: Dmitry Osipenko <digetx@gmail.com>
-Date: Fri, 26 Nov 2021 18:00:42 +0000
-Subject: [PATCH v4 06/25] reboot: Warn if unregister_restart_handler() fails
-Message-Id: <20211126180101.27818-7-digetx@gmail.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 18 Nov 2021 14:34:51 +0000
+Subject: [PATCH 7/8] kernel/fork: Only cache the VMAP stack in finish_task_switch().
+Message-Id: <20211118143452.136421-8-bigeasy@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211126180101.27818-1-digetx@gmail.com>
-In-Reply-To: <20211126180101.27818-1-digetx@gmail.com>
+References: <20211118143452.136421-1-bigeasy@linutronix.de>
+In-Reply-To: <20211118143452.136421-1-bigeasy@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>
-Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Andy Lutomirski <luto@kernel.org>, Juri Lelli <juri.lelli@redhat.com>, Vincent Guittot <vincent.guittot@linaro.org>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Steven Rostedt <rostedt@goodmis.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-Emit warning if unregister_restart_handler() fails since it never should
-fail. This will ease further API development by catching mistakes early.
+The task stack could be deallocated later in delayed_put_task_struct().
+For fork()/exec() kind of workloads (say a shell script executing
+several commands) it is important that the stack is released in
+finish_task_switch() so that in VMAP_STACK case it can be cached and
+reused in the new task.
+If the free/caching is RCU-delayed then a new stack has to be allocated
+because the cache is filled in batches of which only two stacks, out of
+many, are recycled.
 
-Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
+For PREEMPT_RT it would be good if the wake-up in vfree_atomic() could
+be avoided in the scheduling path. Far worse are the other
+free_thread_stack() implementations which invoke __free_pages()/
+kmem_cache_free() with disabled preemption.
+
+Introduce put_task_stack_sched() which is invoked from the
+finish_task_switch() and only caches the VMAP stack. If the cache is
+full or !CONFIG_VMAP_STACK is used than the stack is freed from
+delayed_put_task_struct(). In the VMAP case this is another opportunity
+to fill the cache.
+
+The stack is finally released in delayed_put_task_struct() which means
+that a valid stack reference can be held during its invocation. As such
+there can be made no assumption whether the task_struct::stack pointer
+can be freed if non-NULL.
+Set the lowest bit of task_struct::stack if the stack was released via
+put_task_stack_sched() and needs a final free in
+delayed_put_task_struct(). If the bit is missing then a reference is
+held and put_task_stack() will release it.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- kernel/reboot.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/linux/sched/task_stack.h |  8 +++++
+ kernel/exit.c                    |  1 +
+ kernel/fork.c                    | 60 ++++++++++++++++++++++++++------
+ kernel/sched/core.c              |  7 ++--
+ 4 files changed, 64 insertions(+), 12 deletions(-)
 
-diff --git a/kernel/reboot.c b/kernel/reboot.c
-index e6659ae329f1..f0e7b9c13f6b 100644
---- a/kernel/reboot.c
-+++ b/kernel/reboot.c
-@@ -210,7 +210,7 @@ EXPORT_SYMBOL(register_restart_handler);
-  */
- int unregister_restart_handler(struct notifier_block *nb)
- {
--	return atomic_notifier_chain_unregister(&restart_handler_list, nb);
-+	return WARN_ON(atomic_notifier_chain_unregister(&restart_handler_list, nb));
+diff --git a/include/linux/sched/task_stack.h b/include/linux/sched/task_stack.h
+index 892562ebbd3aa..ccd1336aa7f42 100644
+--- a/include/linux/sched/task_stack.h
++++ b/include/linux/sched/task_stack.h
+@@ -70,6 +70,7 @@ static inline void *try_get_task_stack(struct task_struct *tsk)
  }
- EXPORT_SYMBOL(unregister_restart_handler);
  
+ extern void put_task_stack(struct task_struct *tsk);
++extern void put_task_stack_sched(struct task_struct *tsk);
+ #else
+ static inline void *try_get_task_stack(struct task_struct *tsk)
+ {
+@@ -77,6 +78,13 @@ static inline void *try_get_task_stack(struct task_struct *tsk)
+ }
+ 
+ static inline void put_task_stack(struct task_struct *tsk) {}
++static inline void put_task_stack_sched(struct task_struct *tsk) {}
++#endif
++
++#ifdef CONFIG_ARCH_THREAD_STACK_ALLOCATOR
++static inline void task_stack_cleanup(struct task_struct *tsk) {}
++#else
++extern void task_stack_cleanup(struct task_struct *tsk);
+ #endif
+ 
+ void exit_task_stack_account(struct task_struct *tsk);
+diff --git a/kernel/exit.c b/kernel/exit.c
+index 41236da175d56..383a56795e82a 100644
+--- a/kernel/exit.c
++++ b/kernel/exit.c
+@@ -171,6 +171,7 @@ static void delayed_put_task_struct(struct rcu_head *rhp)
+ 	kprobe_flush_task(tsk);
+ 	perf_event_delayed_put(tsk);
+ 	trace_sched_process_free(tsk);
++	task_stack_cleanup(tsk);
+ 	put_task_struct(tsk);
+ }
+ 
+diff --git a/kernel/fork.c b/kernel/fork.c
+index 257cd048359fd..0aa079e56e3b4 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -178,6 +178,16 @@ static inline void free_task_struct(struct task_struct *tsk)
+ 
+ #ifndef CONFIG_ARCH_THREAD_STACK_ALLOCATOR
+ 
++#define THREAD_STACK_DELAYED_FREE	1UL
++
++static void thread_stack_mark_delayed_free(struct task_struct *tsk)
++{
++	unsigned long val = (unsigned long)tsk->stack;
++
++	val |= THREAD_STACK_DELAYED_FREE;
++	WRITE_ONCE(tsk->stack, (void *)val);
++}
++
+ /*
+  * Allocate pages if THREAD_SIZE is >= PAGE_SIZE, otherwise use a
+  * kmemcache based allocator.
+@@ -293,7 +303,7 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 	return 0;
+ }
+ 
+-static void free_thread_stack(struct task_struct *tsk)
++static void free_thread_stack(struct task_struct *tsk, bool cache_only)
+ {
+ 	int i;
+ 
+@@ -306,7 +316,12 @@ static void free_thread_stack(struct task_struct *tsk)
+ 		tsk->stack_vm_area = NULL;
+ 		return;
+ 	}
+-	vfree_atomic(tsk->stack);
++	if (cache_only) {
++		thread_stack_mark_delayed_free(tsk);
++		return;
++	}
++
++	vfree(tsk->stack);
+ 	tsk->stack = NULL;
+ 	tsk->stack_vm_area = NULL;
+ }
+@@ -325,8 +340,12 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 	return -ENOMEM;
+ }
+ 
+-static void free_thread_stack(struct task_struct *tsk)
++static void free_thread_stack(struct task_struct *tsk, bool cache_only)
+ {
++	if (cache_only) {
++		thread_stack_mark_delayed_free(tsk);
++		return;
++	}
+ 	__free_pages(virt_to_page(tsk->stack), THREAD_SIZE_ORDER);
+ 	tsk->stack = NULL;
+ }
+@@ -345,8 +364,12 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 	return stack ? 0 : -ENOMEM;
+ }
+ 
+-static void free_thread_stack(struct task_struct *tsk)
++static void free_thread_stack(struct task_struct *tsk, bool cache_only)
+ {
++	if (cache_only) {
++		thread_stack_mark_delayed_free(tsk);
++		return;
++	}
+ 	kmem_cache_free(thread_stack_cache, tsk->stack);
+ 	tsk->stack = NULL;
+ }
+@@ -360,8 +383,19 @@ void thread_stack_cache_init(void)
+ }
+ 
+ # endif /* THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK) */
+-#else /* CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
+ 
++void task_stack_cleanup(struct task_struct *tsk)
++{
++	unsigned long val = (unsigned long)tsk->stack;
++
++	if (!(val & THREAD_STACK_DELAYED_FREE))
++		return;
++
++	WRITE_ONCE(tsk->stack, (void *)(val & ~THREAD_STACK_DELAYED_FREE));
++	free_thread_stack(tsk, false);
++}
++
++#else /* CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
+ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ {
+ 	unsigned long *stack;
+@@ -461,19 +495,25 @@ void exit_task_stack_account(struct task_struct *tsk)
+ 	}
+ }
+ 
+-static void release_task_stack(struct task_struct *tsk)
++static void release_task_stack(struct task_struct *tsk, bool cache_only)
+ {
+ 	if (WARN_ON(READ_ONCE(tsk->__state) != TASK_DEAD))
+ 		return;  /* Better to leak the stack than to free prematurely */
+ 
+-	free_thread_stack(tsk);
++	free_thread_stack(tsk, cache_only);
+ }
+ 
+ #ifdef CONFIG_THREAD_INFO_IN_TASK
+ void put_task_stack(struct task_struct *tsk)
+ {
+ 	if (refcount_dec_and_test(&tsk->stack_refcount))
+-		release_task_stack(tsk);
++		release_task_stack(tsk, false);
++}
++
++void put_task_stack_sched(struct task_struct *tsk)
++{
++	if (refcount_dec_and_test(&tsk->stack_refcount))
++		release_task_stack(tsk, true);
+ }
+ #endif
+ 
+@@ -487,7 +527,7 @@ void free_task(struct task_struct *tsk)
+ 	 * The task is finally done with both the stack and thread_info,
+ 	 * so free both.
+ 	 */
+-	release_task_stack(tsk);
++	release_task_stack(tsk, false);
+ #else
+ 	/*
+ 	 * If the task had a separate stack allocation, it should be gone
+@@ -989,7 +1029,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ 
+ free_stack:
+ 	exit_task_stack_account(tsk);
+-	free_thread_stack(tsk);
++	free_thread_stack(tsk, false);
+ free_tsk:
+ 	free_task_struct(tsk);
+ 	return NULL;
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 3c9b0fda64ac0..435f633f6f365 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -4880,8 +4880,11 @@ static struct rq *finish_task_switch(struct task_struct *prev)
+ 		if (prev->sched_class->task_dead)
+ 			prev->sched_class->task_dead(prev);
+ 
+-		/* Task is done with its stack. */
+-		put_task_stack(prev);
++		/*
++		 * Cache only the VMAP stack. The final deallocation is in
++		 * delayed_put_task_struct.
++		 */
++		put_task_stack_sched(prev);
+ 
+ 		put_task_struct_rcu_user(prev);
+ 	}
 -- 
 2.33.1
