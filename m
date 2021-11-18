@@ -1,193 +1,70 @@
-From: Dmitry Osipenko <digetx@gmail.com>
-Date: Mon, 08 Nov 2021 01:14:30 +0000
-Subject: Re: [PATCH v3 00/25] Introduce power-off+restart call chain API
-Message-Id: <a4cf1410-564b-ced5-1209-fa55ba672431@gmail.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 18 Nov 2021 14:34:44 +0000
+Subject: [PATCH 0/8] kernel/fork: Move thread stack free otu of the scheduler path.
+Message-Id: <20211118143452.136421-1-bigeasy@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211108004524.29465-1-digetx@gmail.com>
-In-Reply-To: <20211108004524.29465-1-digetx@gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>
-Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Andy Lutomirski <luto@kernel.org>, Juri Lelli <juri.lelli@redhat.com>, Vincent Guittot <vincent.guittot@linaro.org>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Steven Rostedt <rostedt@goodmis.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>
 
-08.11.2021 03:44, Dmitry Osipenko пишет:
-> Problem
-> -------
-> 
-> SoC devices require power-off call chaining functionality from kernel.
-> We have a widely used restart chaining provided by restart notifier API,
-> but nothing for power-off.
-> 
-> Solution
-> --------
-> 
-> Introduce new API that provides both restart and power-off call chains.
-> 
-> Why combine restart with power-off? Because drivers often do both.
-> More practical to have API that provides both under the same roof.
-> 
-> The new API is designed with simplicity and extensibility in mind.
-> It's built upon the existing restart and reboot APIs. The simplicity
-> is in new helper functions that are convenient for drivers. The
-> extensibility is in the design that doesn't hardcode callback
-> arguments, making easy to add new parameters and remove old.
-> 
-> This is a third attempt to introduce the new API. First was made by
-> Guenter Roeck back in 2014, second was made by Thierry Reding in 2017.
-> In fact the work didn't stop and recently arm_pm_restart() was removed
-> from v5.14 kernel, which was a part of preparatory work started by
-> Guenter Roeck. I took into account experience and ideas from the
-> previous attempts, extended and polished them.
-> 
-> Adoption plan
-> -------------
-> 
-> This patchset introduces the new API. It also converts multiple drivers
-> and arch code to the new API to demonstrate how it all looks in practice.
-> 
-> The plan is:
-> 
-> 1. Merge new API (patches 1-8). This API will co-exist with the old APIs.
-> 
-> 2. Convert arch code to do_kernel_power_off() (patches 9-21).
-> 
-> 3. Convert drivers and platform code to the new API.
-> 
-> 4. Remove obsolete pm_power_off and pm_power_off_prepare variables.
-> 
-> 5. Make restart-notifier API private to kernel/reboot.c once no users left.
-> 
-> It's fully implemented here:
-> 
-> [1] https://github.com/grate-driver/linux/commits/sys-off-handler
-> 
-> For now I'm sending only the first 25 base patches out of ~180. It's
-> preferable to squash 1-2, partially 3 and 4 points of the plan into a
-> single patchset to ease and speed up applying of the rest of the patches.
-> Majority of drivers and platform patches depend on the base, hence they
-> will come later (and per subsystem), once base will land.
-> 
-> All [1] patches are compile-tested. Tegra and x86 ACPI patches are tested
-> on hardware. The remaining should be covered by unit tests (unpublished).
-> 
-> Results
-> -------
-> 
-> 1. Devices can be powered off properly.
-> 
-> 2. Global variables are removed from drivers.
-> 
-> 3. Global pm_power_off and pm_power_off_prepare callback variables are
-> removed once all users are converted to the new API. The latter callback
-> is removed by patch #25 of this series.
-> 
-> 4. Ambiguous call chain ordering is prohibited. See patch #5 which adds
-> verification of restart handlers priorities, ensuring that they are unique.
-> 
-> Changelog:
-> 
-> v3: - Renamed power_handler to sys_off_handler as was suggested by
->       Rafael Wysocki.
-> 
->     - Improved doc-comments as was suggested by Rafael Wysocki. Added more
->       doc-comments.
-> 
->     - Implemented full set of 180 patches which convert whole kernel in
->       accordance to the plan, see link [1] above. Slightly adjusted API to
->       better suit for the remaining converted drivers.
-> 
->       * Added unregister_sys_off_handler() that is handy for a couple old
->         platform drivers.
-> 
->       * Dropped devm_register_trivial_restart_handler(), 'simple' variant
->         is enough to have.
-> 
->     - Improved "Add atomic/blocking_notifier_has_unique_priority()" patch,
->       as was suggested by Andy Shevchenko. Also replaced down_write() with
->       down_read() and factored out common notifier_has_unique_priority().
-> 
->     - Added stop_chain field to struct restart_data and reboot_prep_data
->       after discovering couple drivers wanting that feature.
-> 
->     - Added acks that were given to v2.
-> 
-> v2: - Replaced standalone power-off call chain demo-API with the combined
->       power-off+restart API because this is what drivers want. It's a more
->       comprehensive solution.
-> 
->     - Converted multiple drivers and arch code to the new API. Suggested by
->       Andy Shevchenko. I skimmed through the rest of drivers, verifying that
->       new API suits them. The rest of the drivers will be converted once we
->       will settle on the new API, otherwise will be too many patches here.
-> 
->     - v2 API doesn't expose notifier to users and require handlers to
->       have unique priority. Suggested by Guenter Roeck.
-> 
->     - v2 API has power-off chaining disabled by default and require
->       drivers to explicitly opt-in to the chaining. This preserves old
->       behaviour for existing drivers once they are converted to the new
->       API.
-> 
-> Dmitry Osipenko (25):
->   notifier: Remove extern annotation from function prototypes
->   notifier: Add blocking_notifier_call_chain_is_empty()
->   notifier: Add atomic/blocking_notifier_has_unique_priority()
->   reboot: Correct typo in a comment
->   reboot: Warn if restart handler has duplicated priority
->   reboot: Warn if unregister_restart_handler() fails
->   reboot: Remove extern annotation from function prototypes
->   kernel: Add combined power-off+restart handler call chain API
->   ARM: Use do_kernel_power_off()
->   csky: Use do_kernel_power_off()
->   riscv: Use do_kernel_power_off()
->   arm64: Use do_kernel_power_off()
->   parisc: Use do_kernel_power_off()
->   xen/x86: Use do_kernel_power_off()
->   sh: Use do_kernel_power_off()
->   x86: Use do_kernel_power_off()
->   ia64: Use do_kernel_power_off()
->   mips: Use do_kernel_power_off()
->   nds32: Use do_kernel_power_off()
->   powerpc: Use do_kernel_power_off()
->   m68k: Switch to new sys-off handler API
->   memory: emif: Use kernel_can_power_off()
->   ACPI: power: Switch to sys-off handler API
->   regulator: pfuze100: Use devm_register_sys_off_handler()
->   reboot: Remove pm_power_off_prepare()
-> 
->  arch/arm/kernel/reboot.c               |   4 +-
->  arch/arm64/kernel/process.c            |   3 +-
->  arch/csky/kernel/power.c               |   6 +-
->  arch/ia64/kernel/process.c             |   4 +-
->  arch/m68k/emu/natfeat.c                |   3 +-
->  arch/m68k/include/asm/machdep.h        |   1 -
->  arch/m68k/kernel/process.c             |   5 +-
->  arch/m68k/kernel/setup_mm.c            |   1 -
->  arch/m68k/kernel/setup_no.c            |   1 -
->  arch/m68k/mac/config.c                 |   4 +-
->  arch/mips/kernel/reset.c               |   3 +-
->  arch/nds32/kernel/process.c            |   3 +-
->  arch/parisc/kernel/process.c           |   4 +-
->  arch/powerpc/kernel/setup-common.c     |   4 +-
->  arch/powerpc/xmon/xmon.c               |   3 +-
->  arch/riscv/kernel/reset.c              |  12 +-
->  arch/sh/kernel/reboot.c                |   3 +-
->  arch/x86/kernel/reboot.c               |   4 +-
->  arch/x86/xen/enlighten_pv.c            |   4 +-
->  drivers/acpi/sleep.c                   |  25 +-
->  drivers/memory/emif.c                  |   2 +-
->  drivers/regulator/pfuze100-regulator.c |  38 +-
->  include/linux/notifier.h               |  37 +-
->  include/linux/pm.h                     |   1 -
->  include/linux/reboot.h                 | 305 ++++++++++++--
->  kernel/notifier.c                      |  83 ++++
->  kernel/power/hibernate.c               |   2 +-
->  kernel/reboot.c                        | 556 ++++++++++++++++++++++++-
->  28 files changed, 985 insertions(+), 136 deletions(-)
-> 
 
-+CC Linus Walleij, Sebastian Reichel and Philipp Zabel; whom I missed to
-include by accident.
+This is a follup-up on the patch
+    sched: Delay task stack freeing on RT 
+    https://lkml.kernel.org/r/20210928122411.593486363@linutronix.de
 
-https://lore.kernel.org/all/20211108004524.29465-1-digetx@gmail.com/T/#t
+It addresses the review feedback:
+- Decouple stack accounting from its free invocation. The accounting
+  happens in do_exit(), the final free call happens later.
+
+- Add put_task_stack_sched() to finish_task_switch(). Here the VMAP
+  stack is cached only. If it fails, or in the !VMAP case then the final
+  free happens in delayed_put_task_struct(). This is also an oportunity
+  to cache the stack.
+
+From testing I observe the following:
+
+|            bash-1715    [006] .....   124.901510: copy_process: allocC ffffc90007e70000
+|      sh-cmds.sh-1746    [007] .....   124.907389: copy_process: allocC ffffc90007dc4000
+|          <idle>-0       [019] ...1.   124.918126: free_thread_stack: cache ffffc90007dc4000
+|      sh-cmds.sh-1746    [007] .....   124.918279: copy_process: allocC ffffc90007de8000
+|          <idle>-0       [004] ...1.   124.920121: free_thread_stack: delay ffffc90007de8001
+|          <idle>-0       [007] ...1.   124.920299: free_thread_stack: cache ffffc90007e70000
+|          <idle>-0       [007] ..s1.   124.945433: free_thread_stack: cache ffffc90007de8000
+
+TS 124.901510, bash started sh-cmds.sh, obtained stack from cache.
+TS 124.907389, script invokes its first command, obtained stacak from
+cache. As you can see bash was running on CPU6 but its child was moved
+CPU7. This happens a lot, maybe because my test system is too idle.
+TS 124.918126, the first command is done, stack is ached on CPU19.
+TS 124.918279, script's second command, stack from cache.
+TS 124.920121, the command is done. The stack cache on CPU4 is full.
+TS 124.920299, the script is done, caches stack on CPU7.
+TS 124.945433, the RCU-callback of last command is now happening. On
+CPU7, which is where the command was invoked (but not running). Instead
+of freeing the stack, it was cached since CPU7 had an empty slot. \o/.
+
+If I pin the script to CPU5 and run it with multiple commands then it
+works as expected:
+
+|            bash-1799    [005] .....   993.608131: copy_process: allocC ffffc90007fa0000
+|      sh-cmds.sh-1827    [005] .....   993.608888: copy_process: allocC ffffc90007fa8000
+|      sh-cmds.sh-1827    [005] .....   993.610734: copy_process: allocV ffffc90007ff4000
+|      sh-cmds.sh-1829    [005] ...1.   993.610757: free_thread_stack: cache ffffc90007fa8000
+|      sh-cmds.sh-1827    [005] .....   993.612401: copy_process: allocC ffffc90007fa8000
+|           <...>-1830    [005] ...1.   993.612416: free_thread_stack: cache ffffc90007ff4000
+|      sh-cmds.sh-1827    [005] .....   993.613707: copy_process: allocC ffffc90007ff4000
+|      sh-cmds.sh-1831    [005] ...1.   993.613723: free_thread_stack: cache ffffc90007fa8000
+|      sh-cmds.sh-1827    [005] .....   993.615024: copy_process: allocC ffffc90007fa8000
+|           <...>-1832    [005] ...1.   993.615040: free_thread_stack: cache ffffc90007ff4000
+|      sh-cmds.sh-1827    [005] .....   993.616380: copy_process: allocC ffffc90007ff4000
+|           <...>-1833    [005] ...1.   993.616397: free_thread_stack: cache ffffc90007fa8000
+|            bash-1799    [005] ...1.   993.617759: free_thread_stack: cache ffffc90007fa0000
+|          <idle>-0       [005] ...1.   993.617871: free_thread_stack: delay ffffc90007ff4001
+|          <idle>-0       [005] ..s1.   993.638311: free_thread_stack: free ffffc90007ff4000
+
+and after a warm up no new stack is allocated during its runtime and a
+cached stack is used instead.
+
+Sebastian
