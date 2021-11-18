@@ -1,40 +1,179 @@
-From: Dmitry Osipenko <digetx@gmail.com>
-Date: Fri, 26 Nov 2021 18:00:48 +0000
-Subject: [PATCH v4 12/25] arm64: Use do_kernel_power_off()
-Message-Id: <20211126180101.27818-13-digetx@gmail.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 18 Nov 2021 14:34:50 +0000
+Subject: [PATCH 6/8] kernel/fork: Move task stack account to do_exit().
+Message-Id: <20211118143452.136421-7-bigeasy@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211126180101.27818-1-digetx@gmail.com>
-In-Reply-To: <20211126180101.27818-1-digetx@gmail.com>
+References: <20211118143452.136421-1-bigeasy@linutronix.de>
+In-Reply-To: <20211118143452.136421-1-bigeasy@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>
-Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Andy Lutomirski <luto@kernel.org>, Juri Lelli <juri.lelli@redhat.com>, Vincent Guittot <vincent.guittot@linaro.org>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Steven Rostedt <rostedt@goodmis.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-Kernel now supports chained power-off handlers. Use do_kernel_power_off()
-that invokes chained power-off handlers. It also invokes legacy
-pm_power_off() for now, which will be removed once all drivers will
-be converted to the new power-off API.
+There is no need to perform the stack accounting of the outgoing task in
+its final schedule() invocation which happens with disabled preemption.
+The task is leaving, the resources will be freed and the accounting can
+happen in do_exit() before the actual schedule invocation which
+frees the stack memory.
 
-Acked-by: Catalin Marinas <catalin.marinas@arm.com>
-Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
+Move the accounting of the stack memory from release_task_stack() to
+exit_task_stack_account() which then can be invoked from do_exit().
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- arch/arm64/kernel/process.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ include/linux/sched/task_stack.h |  2 ++
+ kernel/exit.c                    |  1 +
+ kernel/fork.c                    | 35 +++++++++++++++++++++-----------
+ 3 files changed, 26 insertions(+), 12 deletions(-)
 
-diff --git a/arch/arm64/kernel/process.c b/arch/arm64/kernel/process.c
-index aacf2f5559a8..f8db031afa7d 100644
---- a/arch/arm64/kernel/process.c
-+++ b/arch/arm64/kernel/process.c
-@@ -110,8 +110,7 @@ void machine_power_off(void)
- {
- 	local_irq_disable();
- 	smp_send_stop();
--	if (pm_power_off)
--		pm_power_off();
-+	do_kernel_power_off();
+diff --git a/include/linux/sched/task_stack.h b/include/linux/sched/task_stack.h
+index d10150587d819..892562ebbd3aa 100644
+--- a/include/linux/sched/task_stack.h
++++ b/include/linux/sched/task_stack.h
+@@ -79,6 +79,8 @@ static inline void *try_get_task_stack(struct task_struct *tsk)
+ static inline void put_task_stack(struct task_struct *tsk) {}
+ #endif
+ 
++void exit_task_stack_account(struct task_struct *tsk);
++
+ #define task_stack_end_corrupted(task) \
+ 		(*(end_of_stack(task)) != STACK_END_MAGIC)
+ 
+diff --git a/kernel/exit.c b/kernel/exit.c
+index f702a6a63686e..41236da175d56 100644
+--- a/kernel/exit.c
++++ b/kernel/exit.c
+@@ -871,6 +871,7 @@ void __noreturn do_exit(long code)
+ 		put_page(tsk->task_frag.page);
+ 
+ 	validate_creds_for_do_exit(tsk);
++	exit_task_stack_account(tsk);
+ 
+ 	check_stack_usage();
+ 	preempt_disable();
+diff --git a/kernel/fork.c b/kernel/fork.c
+index cdbfc9280f3b1..257cd048359fd 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -210,9 +210,8 @@ static int free_vm_stack_cache(unsigned int cpu)
+ 	return 0;
  }
  
- /*
+-static int memcg_charge_kernel_stack(struct task_struct *tsk)
++static int memcg_charge_kernel_stack(struct vm_struct *vm)
+ {
+-	struct vm_struct *vm = task_stack_vm_area(tsk);
+ 	int i;
+ 	int ret;
+ 
+@@ -238,6 +237,7 @@ static int memcg_charge_kernel_stack(struct task_struct *tsk)
+ 
+ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ {
++	struct vm_struct *vm;
+ 	void *stack;
+ 	int i;
+ 
+@@ -255,7 +255,7 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 		/* Clear stale pointers from reused stack. */
+ 		memset(s->addr, 0, THREAD_SIZE);
+ 
+-		if (memcg_charge_kernel_stack(tsk)) {
++		if (memcg_charge_kernel_stack(s)) {
+ 			vfree(s->addr);
+ 			return -ENOMEM;
+ 		}
+@@ -278,7 +278,8 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 	if (!stack)
+ 		return -ENOMEM;
+ 
+-	if (memcg_charge_kernel_stack(tsk)) {
++	vm = find_vm_area(stack);
++	if (memcg_charge_kernel_stack(vm)) {
+ 		vfree(stack);
+ 		return -ENOMEM;
+ 	}
+@@ -287,19 +288,15 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 	 * free_thread_stack() can be called in interrupt context,
+ 	 * so cache the vm_struct.
+ 	 */
+-	tsk->stack_vm_area = find_vm_area(stack);
++	tsk->stack_vm_area = vm;
+ 	tsk->stack = stack;
+ 	return 0;
+ }
+ 
+ static void free_thread_stack(struct task_struct *tsk)
+ {
+-	struct vm_struct *vm = task_stack_vm_area(tsk);
+ 	int i;
+ 
+-	for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++)
+-		memcg_kmem_uncharge_page(vm->pages[i], 0);
+-
+ 	for (i = 0; i < NR_CACHED_STACKS; i++) {
+ 		if (this_cpu_cmpxchg(cached_stacks[i], NULL,
+ 				     tsk->stack_vm_area) != NULL)
+@@ -450,12 +447,25 @@ static void account_kernel_stack(struct task_struct *tsk, int account)
+ 	}
+ }
+ 
++void exit_task_stack_account(struct task_struct *tsk)
++{
++	account_kernel_stack(tsk, -1);
++
++	if (IS_ENABLED(CONFIG_VMAP_STACK)) {
++		struct vm_struct *vm;
++		int i;
++
++		vm = task_stack_vm_area(tsk);
++		for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++)
++			memcg_kmem_uncharge_page(vm->pages[i], 0);
++	}
++}
++
+ static void release_task_stack(struct task_struct *tsk)
+ {
+ 	if (WARN_ON(READ_ONCE(tsk->__state) != TASK_DEAD))
+ 		return;  /* Better to leak the stack than to free prematurely */
+ 
+-	account_kernel_stack(tsk, -1);
+ 	free_thread_stack(tsk);
+ }
+ 
+@@ -916,6 +926,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ #ifdef CONFIG_THREAD_INFO_IN_TASK
+ 	refcount_set(&tsk->stack_refcount, 1);
+ #endif
++	account_kernel_stack(tsk, 1);
+ 
+ 	err = scs_prepare(tsk, node);
+ 	if (err)
+@@ -959,8 +970,6 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ 	tsk->wake_q.next = NULL;
+ 	tsk->pf_io_worker = NULL;
+ 
+-	account_kernel_stack(tsk, 1);
+-
+ 	kcov_task_init(tsk);
+ 	kmap_local_fork(tsk);
+ 
+@@ -979,6 +988,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ 	return tsk;
+ 
+ free_stack:
++	exit_task_stack_account(tsk);
+ 	free_thread_stack(tsk);
+ free_tsk:
+ 	free_task_struct(tsk);
+@@ -2475,6 +2485,7 @@ static __latent_entropy struct task_struct *copy_process(
+ 	exit_creds(p);
+ bad_fork_free:
+ 	WRITE_ONCE(p->__state, TASK_DEAD);
++	exit_task_stack_account(p);
+ 	put_task_stack(p);
+ 	delayed_free_task(p);
+ fork_out:
 -- 
 2.33.1
