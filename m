@@ -1,42 +1,160 @@
-From: Dmitry Osipenko <digetx@gmail.com>
-Date: Mon, 08 Nov 2021 00:45:15 +0000
-Subject: [PATCH v3 16/25] x86: Use do_kernel_power_off()
-Message-Id: <20211108004524.29465-17-digetx@gmail.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 18 Nov 2021 14:34:48 +0000
+Subject: [PATCH 4/8] kernel/fork: Don't assign the stack pointer in dup_task_struct().
+Message-Id: <20211118143452.136421-5-bigeasy@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211108004524.29465-1-digetx@gmail.com>
-In-Reply-To: <20211108004524.29465-1-digetx@gmail.com>
+References: <20211118143452.136421-1-bigeasy@linutronix.de>
+In-Reply-To: <20211118143452.136421-1-bigeasy@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
-Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Andy Lutomirski <luto@kernel.org>, Juri Lelli <juri.lelli@redhat.com>, Vincent Guittot <vincent.guittot@linaro.org>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Steven Rostedt <rostedt@goodmis.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-Kernel now supports chained power-off handlers. Use do_kernel_power_off()
-that invokes chained power-off handlers. It also invokes legacy
-pm_power_off() for now, which will be removed once all drivers will
-be converted to the new power-off API.
+All four versions of alloc_thread_stack_node() assign now
+task_struct::stack in case the allocation was successful.
 
-Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
+Let alloc_thread_stack_node() return an error code instead of the stack
+pointer and remove the stack assignment in dup_task_struct().
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- arch/x86/kernel/reboot.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ kernel/fork.c | 47 ++++++++++++++++-------------------------------
+ 1 file changed, 16 insertions(+), 31 deletions(-)
 
-diff --git a/arch/x86/kernel/reboot.c b/arch/x86/kernel/reboot.c
-index 0a40df66a40d..cd7d9416d81a 100644
---- a/arch/x86/kernel/reboot.c
-+++ b/arch/x86/kernel/reboot.c
-@@ -747,10 +747,10 @@ static void native_machine_halt(void)
+diff --git a/kernel/fork.c b/kernel/fork.c
+index d1681a415cdf1..5e58e0a923f85 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -210,7 +210,7 @@ static int free_vm_stack_cache(unsigned int cpu)
+ 	return 0;
+ }
  
- static void native_machine_power_off(void)
+-static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
++static int alloc_thread_stack_node(struct task_struct *tsk, int node)
  {
--	if (pm_power_off) {
-+	if (kernel_can_power_off()) {
- 		if (!reboot_force)
- 			machine_shutdown();
--		pm_power_off();
-+		do_kernel_power_off();
+ 	void *stack;
+ 	int i;
+@@ -231,7 +231,7 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 
+ 		tsk->stack_vm_area = s;
+ 		tsk->stack = s->addr;
+-		return s->addr;
++		return 0;
  	}
- 	/* A fallback in case there is no PM info available */
- 	tboot_shutdown(TB_SHUTDOWN_HALT);
+ 
+ 	/*
+@@ -244,17 +244,16 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 				     THREADINFO_GFP & ~__GFP_ACCOUNT,
+ 				     PAGE_KERNEL,
+ 				     0, node, __builtin_return_address(0));
+-
++	if (!stack)
++		return -ENOMEM;
+ 	/*
+ 	 * We can't call find_vm_area() in interrupt context, and
+ 	 * free_thread_stack() can be called in interrupt context,
+ 	 * so cache the vm_struct.
+ 	 */
+-	if (stack) {
+-		tsk->stack_vm_area = find_vm_area(stack);
+-		tsk->stack = stack;
+-	}
+-	return stack;
++	tsk->stack_vm_area = find_vm_area(stack);
++	tsk->stack = stack;
++	return 0;
+ }
+ 
+ static void free_thread_stack(struct task_struct *tsk)
+@@ -281,16 +280,16 @@ static void free_thread_stack(struct task_struct *tsk)
+ 
+ #  else /* !CONFIG_VMAP_STACK */
+ 
+-static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
++static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ {
+ 	struct page *page = alloc_pages_node(node, THREADINFO_GFP,
+ 					     THREAD_SIZE_ORDER);
+ 
+ 	if (likely(page)) {
+ 		tsk->stack = kasan_reset_tag(page_address(page));
+-		return tsk->stack;
++		return 0;
+ 	}
+-	return NULL;
++	return -ENOMEM;
+ }
+ 
+ static void free_thread_stack(struct task_struct *tsk)
+@@ -304,14 +303,13 @@ static void free_thread_stack(struct task_struct *tsk)
+ 
+ static struct kmem_cache *thread_stack_cache;
+ 
+-static unsigned long *alloc_thread_stack_node(struct task_struct *tsk,
+-						  int node)
++static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ {
+ 	unsigned long *stack;
+ 	stack = kmem_cache_alloc_node(thread_stack_cache, THREADINFO_GFP, node);
+ 	stack = kasan_reset_tag(stack);
+ 	tsk->stack = stack;
+-	return stack;
++	return stack ? 0 : -ENOMEM;
+ }
+ 
+ static void free_thread_stack(struct task_struct *tsk)
+@@ -331,13 +329,13 @@ void thread_stack_cache_init(void)
+ # endif /* THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK) */
+ #else /* CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
+ 
+-static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
++static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ {
+ 	unsigned long *stack;
+ 
+ 	stack = arch_alloc_thread_stack_node(tsk, node);
+ 	tsk->stack = stack;
+-	return stack;
++	return stack ? 0 : -ENOMEM;
+ }
+ 
+ static void free_thread_stack(struct task_struct *tsk, bool cache_only)
+@@ -893,8 +891,6 @@ void set_task_stack_end_magic(struct task_struct *tsk)
+ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ {
+ 	struct task_struct *tsk;
+-	unsigned long *stack;
+-	struct vm_struct *stack_vm_area __maybe_unused;
+ 	int err;
+ 
+ 	if (node == NUMA_NO_NODE)
+@@ -907,24 +903,13 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ 	if (err)
+ 		goto free_tsk;
+ 
+-	stack = alloc_thread_stack_node(tsk, node);
+-	if (!stack)
++	err = alloc_thread_stack_node(tsk, node);
++	if (err)
+ 		goto free_tsk;
+ 
+ 	if (memcg_charge_kernel_stack(tsk))
+ 		goto free_stack;
+ 
+-	stack_vm_area = task_stack_vm_area(tsk);
+-
+-	/*
+-	 * arch_dup_task_struct() clobbers the stack-related fields.  Make
+-	 * sure they're properly initialized before using any stack-related
+-	 * functions again.
+-	 */
+-	tsk->stack = stack;
+-#ifdef CONFIG_VMAP_STACK
+-	tsk->stack_vm_area = stack_vm_area;
+-#endif
+ #ifdef CONFIG_THREAD_INFO_IN_TASK
+ 	refcount_set(&tsk->stack_refcount, 1);
+ #endif
 -- 
 2.33.1
