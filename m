@@ -1,87 +1,33 @@
-From: =?UTF-8?q?Andr=C3=A9=20Almeida?= <andrealmeid@collabora.com>
-Date: Wed, 24 Nov 2021 13:21:12 +0000
-Subject: [PATCH 1/1] futex: Wireup futex_waitv syscall
-Message-Id: <20211124132112.11641-1-andrealmeid@collabora.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Wed, 24 Nov 2021 13:49:53 +0000
+Subject: Re: [PATCH 1/1] futex: Wireup futex_waitv syscall
+Message-Id: <CAMuHMdViovyQ2xBeKaMRbAmYF5eMWKdYhQEPmnTyLJoF7a+xsg@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <CAK8P3a3pQW59NVF=5P+ZiBjNJmnWh+iTZUHvqHBrXkHA6pMd4g@mail.gmail.com>
-In-Reply-To: <CAK8P3a3pQW59NVF=5P+ZiBjNJmnWh+iTZUHvqHBrXkHA6pMd4g@mail.gmail.com>
+ <20211124132112.11641-1-andrealmeid@collabora.com>
+In-Reply-To: <20211124132112.11641-1-andrealmeid@collabora.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: linux-kernel@vger.kernel.org, arnd@arndb.de, geert@linux-m68k.org, monstr@monstr.eu, mpe@ellerman.id.au, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, chris@zankel.net, jcmvbkbc@gmail.com, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org
-Cc: sfr@canb.auug.org.au, senozhatsky@chromium.org, peterz@infradead.org, will@kernel.org, boqun.feng@gmail.com, lkft-triage@lists.linaro.org, minchan@kernel.org, naresh.kamboju@linaro.org, linux-next@vger.kernel.org, umgwanakikbuti@gmail.com, rob@landley.net, andrealmeid@collabora.com, longman@redhat.com, akpm@linux-foundation.org, mingo@redhat.com, bigeasy@linutronix.de
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: =?UTF-8?Q?Andr=C3=A9_Almeida?= <andrealmeid@collabora.com>
+Cc: Rich Felker <dalias@libc.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Linux-sh list <linux-sh@vger.kernel.org>, Peter Zijlstra <peterz@infradead.org>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, lkft-triage@lists.linaro.org, Max Filippov <jcmvbkbc@gmail.com>, Mike Galbraith <umgwanakikbuti@gmail.com>, sparclinux <sparclinux@vger.kernel.org>, Will Deacon <will@kernel.org>, Stephen Rothwell <sfr@canb.auug.org.au>, Yoshinori Sato <ysato@users.sourceforge.jp>, Sergey Senozhatsky <senozhatsky@chromium.org>, Naresh Kamboju <naresh.kamboju@linaro.org>, Linux-Next <linux-next@vger.kernel.org>, Waiman Long <longman@redhat.com>, "open list:TENSILICA XTENSA PORT (xtensa)" <linux-xtensa@linux-xtensa.org>, Arnd Bergmann <arnd@arndb.de>, Boqun Feng <boqun.feng@gmail.com>, linux-m68k <linux-m68k@lists.linux-m68k.org>, Ingo Molnar <mingo@redhat.com>, Chris Zankel <chris@zankel.net>, Michal Simek <monstr@monstr.eu>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Minchan Kim <minchan@kernel.org>, Rob Landley <rob@landley.net>, alpha <linux-alpha@vger.kernel.org>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, "David S. Miller" <davem@davemloft.net>
 
-V2lyZXVwIGZ1dGV4X3dhaXR2IHN5c2NhbGwgZm9yIGFsbCByZW1haW5pbmcgYXJjaHMuCgpTaWdu
-ZWQtb2ZmLWJ5OiBBbmRyw6kgQWxtZWlkYSA8YW5kcmVhbG1laWRAY29sbGFib3JhLmNvbT4KLS0t
-CiBhcmNoL2FscGhhL2tlcm5lbC9zeXNjYWxscy9zeXNjYWxsLnRibCAgICAgIHwgMSArCiBhcmNo
-L2lhNjQva2VybmVsL3N5c2NhbGxzL3N5c2NhbGwudGJsICAgICAgIHwgMSArCiBhcmNoL202OGsv
-a2VybmVsL3N5c2NhbGxzL3N5c2NhbGwudGJsICAgICAgIHwgMSArCiBhcmNoL21pY3JvYmxhemUv
-a2VybmVsL3N5c2NhbGxzL3N5c2NhbGwudGJsIHwgMSArCiBhcmNoL3Bvd2VycGMva2VybmVsL3N5
-c2NhbGxzL3N5c2NhbGwudGJsICAgIHwgMSArCiBhcmNoL3NoL2tlcm5lbC9zeXNjYWxscy9zeXNj
-YWxsLnRibCAgICAgICAgIHwgMSArCiBhcmNoL3NwYXJjL2tlcm5lbC9zeXNjYWxscy9zeXNjYWxs
-LnRibCAgICAgIHwgMSArCiBhcmNoL3h0ZW5zYS9rZXJuZWwvc3lzY2FsbHMvc3lzY2FsbC50Ymwg
-ICAgIHwgMSArCiA4IGZpbGVzIGNoYW5nZWQsIDggaW5zZXJ0aW9ucygrKQoKZGlmZiAtLWdpdCBh
-L2FyY2gvYWxwaGEva2VybmVsL3N5c2NhbGxzL3N5c2NhbGwudGJsIGIvYXJjaC9hbHBoYS9rZXJu
-ZWwvc3lzY2FsbHMvc3lzY2FsbC50YmwKaW5kZXggZTRhMDQxY2Q1NzE1Li5jYTVhMzIyMjhjZDYg
-MTAwNjQ0Ci0tLSBhL2FyY2gvYWxwaGEva2VybmVsL3N5c2NhbGxzL3N5c2NhbGwudGJsCisrKyBi
-L2FyY2gvYWxwaGEva2VybmVsL3N5c2NhbGxzL3N5c2NhbGwudGJsCkBAIC00ODgsMyArNDg4LDQg
-QEAKIDU1Ngljb21tb24JbGFuZGxvY2tfcmVzdHJpY3Rfc2VsZgkJc3lzX2xhbmRsb2NrX3Jlc3Ry
-aWN0X3NlbGYKICMgNTU3IHJlc2VydmVkIGZvciBtZW1mZF9zZWNyZXQKIDU1OAljb21tb24JcHJv
-Y2Vzc19tcmVsZWFzZQkJc3lzX3Byb2Nlc3NfbXJlbGVhc2UKKzU1OQljb21tb24gIGZ1dGV4X3dh
-aXR2ICAgICAgICAgICAgICAgICAgICAgc3lzX2Z1dGV4X3dhaXR2CmRpZmYgLS1naXQgYS9hcmNo
-L2lhNjQva2VybmVsL3N5c2NhbGxzL3N5c2NhbGwudGJsIGIvYXJjaC9pYTY0L2tlcm5lbC9zeXNj
-YWxscy9zeXNjYWxsLnRibAppbmRleCA2ZmVhMTg0NGZiOTUuLjcwN2FlMTIxZjZkMyAxMDA2NDQK
-LS0tIGEvYXJjaC9pYTY0L2tlcm5lbC9zeXNjYWxscy9zeXNjYWxsLnRibAorKysgYi9hcmNoL2lh
-NjQva2VybmVsL3N5c2NhbGxzL3N5c2NhbGwudGJsCkBAIC0zNjksMyArMzY5LDQgQEAKIDQ0Nglj
-b21tb24JbGFuZGxvY2tfcmVzdHJpY3Rfc2VsZgkJc3lzX2xhbmRsb2NrX3Jlc3RyaWN0X3NlbGYK
-ICMgNDQ3IHJlc2VydmVkIGZvciBtZW1mZF9zZWNyZXQKIDQ0OAljb21tb24JcHJvY2Vzc19tcmVs
-ZWFzZQkJc3lzX3Byb2Nlc3NfbXJlbGVhc2UKKzQ0OQljb21tb24gIGZ1dGV4X3dhaXR2ICAgICAg
-ICAgICAgICAgICAgICAgc3lzX2Z1dGV4X3dhaXR2CmRpZmYgLS1naXQgYS9hcmNoL202OGsva2Vy
-bmVsL3N5c2NhbGxzL3N5c2NhbGwudGJsIGIvYXJjaC9tNjhrL2tlcm5lbC9zeXNjYWxscy9zeXNj
-YWxsLnRibAppbmRleCA3OTc2ZGZmOGY4NzkuLjQ1YmMzMmE0MWI5MCAxMDA2NDQKLS0tIGEvYXJj
-aC9tNjhrL2tlcm5lbC9zeXNjYWxscy9zeXNjYWxsLnRibAorKysgYi9hcmNoL202OGsva2VybmVs
-L3N5c2NhbGxzL3N5c2NhbGwudGJsCkBAIC00NDgsMyArNDQ4LDQgQEAKIDQ0Ngljb21tb24JbGFu
-ZGxvY2tfcmVzdHJpY3Rfc2VsZgkJc3lzX2xhbmRsb2NrX3Jlc3RyaWN0X3NlbGYKICMgNDQ3IHJl
-c2VydmVkIGZvciBtZW1mZF9zZWNyZXQKIDQ0OAljb21tb24JcHJvY2Vzc19tcmVsZWFzZQkJc3lz
-X3Byb2Nlc3NfbXJlbGVhc2UKKzQ0OQljb21tb24gIGZ1dGV4X3dhaXR2ICAgICAgICAgICAgICAg
-ICAgICAgc3lzX2Z1dGV4X3dhaXR2CmRpZmYgLS1naXQgYS9hcmNoL21pY3JvYmxhemUva2VybmVs
-L3N5c2NhbGxzL3N5c2NhbGwudGJsIGIvYXJjaC9taWNyb2JsYXplL2tlcm5lbC9zeXNjYWxscy9z
-eXNjYWxsLnRibAppbmRleCA2YjBlMTEzNjJiZDIuLjIyMDRiZGUzY2U0YSAxMDA2NDQKLS0tIGEv
-YXJjaC9taWNyb2JsYXplL2tlcm5lbC9zeXNjYWxscy9zeXNjYWxsLnRibAorKysgYi9hcmNoL21p
-Y3JvYmxhemUva2VybmVsL3N5c2NhbGxzL3N5c2NhbGwudGJsCkBAIC00NTQsMyArNDU0LDQgQEAK
-IDQ0Ngljb21tb24JbGFuZGxvY2tfcmVzdHJpY3Rfc2VsZgkJc3lzX2xhbmRsb2NrX3Jlc3RyaWN0
-X3NlbGYKICMgNDQ3IHJlc2VydmVkIGZvciBtZW1mZF9zZWNyZXQKIDQ0OAljb21tb24JcHJvY2Vz
-c19tcmVsZWFzZQkJc3lzX3Byb2Nlc3NfbXJlbGVhc2UKKzQ0OQljb21tb24gIGZ1dGV4X3dhaXR2
-ICAgICAgICAgICAgICAgICAgICAgc3lzX2Z1dGV4X3dhaXR2CmRpZmYgLS1naXQgYS9hcmNoL3Bv
-d2VycGMva2VybmVsL3N5c2NhbGxzL3N5c2NhbGwudGJsIGIvYXJjaC9wb3dlcnBjL2tlcm5lbC9z
-eXNjYWxscy9zeXNjYWxsLnRibAppbmRleCA3YmVmOTE3Y2M4NGUuLjE1MTA5YWY5ZDA3NSAxMDA2
-NDQKLS0tIGEvYXJjaC9wb3dlcnBjL2tlcm5lbC9zeXNjYWxscy9zeXNjYWxsLnRibAorKysgYi9h
-cmNoL3Bvd2VycGMva2VybmVsL3N5c2NhbGxzL3N5c2NhbGwudGJsCkBAIC01MjgsMyArNTI4LDQg
-QEAKIDQ0Ngljb21tb24JbGFuZGxvY2tfcmVzdHJpY3Rfc2VsZgkJc3lzX2xhbmRsb2NrX3Jlc3Ry
-aWN0X3NlbGYKICMgNDQ3IHJlc2VydmVkIGZvciBtZW1mZF9zZWNyZXQKIDQ0OAljb21tb24JcHJv
-Y2Vzc19tcmVsZWFzZQkJc3lzX3Byb2Nlc3NfbXJlbGVhc2UKKzQ0OQljb21tb24gIGZ1dGV4X3dh
-aXR2ICAgICAgICAgICAgICAgICAgICAgc3lzX2Z1dGV4X3dhaXR2CmRpZmYgLS1naXQgYS9hcmNo
-L3NoL2tlcm5lbC9zeXNjYWxscy9zeXNjYWxsLnRibCBiL2FyY2gvc2gva2VybmVsL3N5c2NhbGxz
-L3N5c2NhbGwudGJsCmluZGV4IDIwOGYxMzE2NTljNS4uZDk1MzlkMjhiZGFhIDEwMDY0NAotLS0g
-YS9hcmNoL3NoL2tlcm5lbC9zeXNjYWxscy9zeXNjYWxsLnRibAorKysgYi9hcmNoL3NoL2tlcm5l
-bC9zeXNjYWxscy9zeXNjYWxsLnRibApAQCAtNDUxLDMgKzQ1MSw0IEBACiA0NDYJY29tbW9uCWxh
-bmRsb2NrX3Jlc3RyaWN0X3NlbGYJCXN5c19sYW5kbG9ja19yZXN0cmljdF9zZWxmCiAjIDQ0NyBy
-ZXNlcnZlZCBmb3IgbWVtZmRfc2VjcmV0CiA0NDgJY29tbW9uCXByb2Nlc3NfbXJlbGVhc2UJCXN5
-c19wcm9jZXNzX21yZWxlYXNlCis0NDkJY29tbW9uICBmdXRleF93YWl0diAgICAgICAgICAgICAg
-ICAgICAgIHN5c19mdXRleF93YWl0dgpkaWZmIC0tZ2l0IGEvYXJjaC9zcGFyYy9rZXJuZWwvc3lz
-Y2FsbHMvc3lzY2FsbC50YmwgYi9hcmNoL3NwYXJjL2tlcm5lbC9zeXNjYWxscy9zeXNjYWxsLnRi
-bAppbmRleCBjMzc3NjRkYzc2NGQuLjQ2YWRhYmNiMTcyMCAxMDA2NDQKLS0tIGEvYXJjaC9zcGFy
-Yy9rZXJuZWwvc3lzY2FsbHMvc3lzY2FsbC50YmwKKysrIGIvYXJjaC9zcGFyYy9rZXJuZWwvc3lz
-Y2FsbHMvc3lzY2FsbC50YmwKQEAgLTQ5NCwzICs0OTQsNCBAQAogNDQ2CWNvbW1vbglsYW5kbG9j
-a19yZXN0cmljdF9zZWxmCQlzeXNfbGFuZGxvY2tfcmVzdHJpY3Rfc2VsZgogIyA0NDcgcmVzZXJ2
-ZWQgZm9yIG1lbWZkX3NlY3JldAogNDQ4CWNvbW1vbglwcm9jZXNzX21yZWxlYXNlCQlzeXNfcHJv
-Y2Vzc19tcmVsZWFzZQorNDQ5CWNvbW1vbiAgZnV0ZXhfd2FpdHYgICAgICAgICAgICAgICAgICAg
-ICBzeXNfZnV0ZXhfd2FpdHYKZGlmZiAtLWdpdCBhL2FyY2gveHRlbnNhL2tlcm5lbC9zeXNjYWxs
-cy9zeXNjYWxsLnRibCBiL2FyY2gveHRlbnNhL2tlcm5lbC9zeXNjYWxscy9zeXNjYWxsLnRibApp
-bmRleCAxMDRiMzI3ZjhhYzkuLjNlM2UxYTUwNmJlZCAxMDA2NDQKLS0tIGEvYXJjaC94dGVuc2Ev
-a2VybmVsL3N5c2NhbGxzL3N5c2NhbGwudGJsCisrKyBiL2FyY2gveHRlbnNhL2tlcm5lbC9zeXNj
-YWxscy9zeXNjYWxsLnRibApAQCAtNDE5LDMgKzQxOSw0IEBACiA0NDYJY29tbW9uCWxhbmRsb2Nr
-X3Jlc3RyaWN0X3NlbGYJCXN5c19sYW5kbG9ja19yZXN0cmljdF9zZWxmCiAjIDQ0NyByZXNlcnZl
-ZCBmb3IgbWVtZmRfc2VjcmV0CiA0NDgJY29tbW9uCXByb2Nlc3NfbXJlbGVhc2UJCXN5c19wcm9j
-ZXNzX21yZWxlYXNlCis0NDkJY29tbW9uICBmdXRleF93YWl0diAgICAgICAgICAgICAgICAgICAg
-IHN5c19mdXRleF93YWl0dgotLSAKMi4zMy4xCg==
+On Wed, Nov 24, 2021 at 2:21 PM André Almeida <andrealmeid@collabora.com> wrote:
+> Wireup futex_waitv syscall for all remaining archs.
+>
+> Signed-off-by: André Almeida <andrealmeid@collabora.com>
+
+>  arch/m68k/kernel/syscalls/syscall.tbl       | 1 +
+
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
