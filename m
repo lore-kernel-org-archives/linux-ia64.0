@@ -1,7 +1,7 @@
 From: Dmitry Osipenko <digetx@gmail.com>
-Date: Fri, 26 Nov 2021 18:00:39 +0000
-Subject: [PATCH v4 03/25] notifier: Add atomic/blocking_notifier_has_unique_priority()
-Message-Id: <20211126180101.27818-4-digetx@gmail.com>
+Date: Fri, 26 Nov 2021 18:00:43 +0000
+Subject: [PATCH v4 07/25] reboot: Remove extern annotation from function prototypes
+Message-Id: <20211126180101.27818-8-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20211126180101.27818-1-digetx@gmail.com>
 In-Reply-To: <20211126180101.27818-1-digetx@gmail.com>
@@ -11,124 +11,89 @@ Content-Transfer-Encoding: 7bit
 To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>
 Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-Add atomic/blocking_notifier_has_unique_priority() helpers which return
-true if given handler has unique priority.
+There is no need to annotate function prototypes with 'extern', it makes
+code less readable. Remove unnecessary annotations from <reboot.h>.
 
 Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- include/linux/notifier.h |  5 +++
- kernel/notifier.c        | 69 ++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 74 insertions(+)
+ include/linux/reboot.h | 38 +++++++++++++++++++-------------------
+ 1 file changed, 19 insertions(+), 19 deletions(-)
 
-diff --git a/include/linux/notifier.h b/include/linux/notifier.h
-index 924c9d7c8e73..2c4036f225e1 100644
---- a/include/linux/notifier.h
-+++ b/include/linux/notifier.h
-@@ -175,6 +175,11 @@ int raw_notifier_call_chain_robust(struct raw_notifier_head *nh,
+diff --git a/include/linux/reboot.h b/include/linux/reboot.h
+index 7c288013a3ca..b7fa25726323 100644
+--- a/include/linux/reboot.h
++++ b/include/linux/reboot.h
+@@ -40,36 +40,36 @@ extern int reboot_cpu;
+ extern int reboot_force;
  
- bool blocking_notifier_call_chain_is_empty(struct blocking_notifier_head *nh);
  
-+bool atomic_notifier_has_unique_priority(struct atomic_notifier_head *nh,
-+		struct notifier_block *nb);
-+bool blocking_notifier_has_unique_priority(struct blocking_notifier_head *nh,
-+		struct notifier_block *nb);
-+
- #define NOTIFY_DONE		0x0000		/* Don't care */
- #define NOTIFY_OK		0x0001		/* Suits me */
- #define NOTIFY_STOP_MASK	0x8000		/* Don't call further */
-diff --git a/kernel/notifier.c b/kernel/notifier.c
-index b20cb7b9b1f0..7a325b742104 100644
---- a/kernel/notifier.c
-+++ b/kernel/notifier.c
-@@ -122,6 +122,19 @@ static int notifier_call_chain_robust(struct notifier_block **nl,
- 	return ret;
- }
+-extern int register_reboot_notifier(struct notifier_block *);
+-extern int unregister_reboot_notifier(struct notifier_block *);
++int register_reboot_notifier(struct notifier_block *);
++int unregister_reboot_notifier(struct notifier_block *);
  
-+static int notifier_has_unique_priority(struct notifier_block **nl,
-+					struct notifier_block *n)
-+{
-+	while (*nl && (*nl)->priority >= n->priority) {
-+		if ((*nl)->priority = n->priority && *nl != n)
-+			return false;
-+
-+		nl = &((*nl)->next);
-+	}
-+
-+	return true;
-+}
-+
+-extern int devm_register_reboot_notifier(struct device *, struct notifier_block *);
++int devm_register_reboot_notifier(struct device *, struct notifier_block *);
+ 
+-extern int register_restart_handler(struct notifier_block *);
+-extern int unregister_restart_handler(struct notifier_block *);
+-extern void do_kernel_restart(char *cmd);
++int register_restart_handler(struct notifier_block *);
++int unregister_restart_handler(struct notifier_block *);
++void do_kernel_restart(char *cmd);
+ 
  /*
-  *	Atomic notifier chain routines.  Registration and unregistration
-  *	use a spinlock, and call_chain is synchronized by RCU (no locks).
-@@ -203,6 +216,30 @@ int atomic_notifier_call_chain(struct atomic_notifier_head *nh,
- EXPORT_SYMBOL_GPL(atomic_notifier_call_chain);
- NOKPROBE_SYMBOL(atomic_notifier_call_chain);
+  * Architecture-specific implementations of sys_reboot commands.
+  */
  
-+/**
-+ *	atomic_notifier_has_unique_priority - Checks whether notifier's priority is unique
-+ *	@nh: Pointer to head of the atomic notifier chain
-+ *	@n: Entry in notifier chain to check
-+ *
-+ *	Checks whether there is another notifier in the chain with the same priority.
-+ *	Must be called in process context.
-+ *
-+ *	Returns true if priority is unique, false otherwise.
-+ */
-+bool atomic_notifier_has_unique_priority(struct atomic_notifier_head *nh,
-+		struct notifier_block *n)
-+{
-+	unsigned long flags;
-+	bool ret;
-+
-+	spin_lock_irqsave(&nh->lock, flags);
-+	ret = notifier_has_unique_priority(&nh->head, n);
-+	spin_unlock_irqrestore(&nh->lock, flags);
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL_GPL(atomic_notifier_has_unique_priority);
-+
- /*
-  *	Blocking notifier chain routines.  All access to the chain is
-  *	synchronized by an rwsem.
-@@ -336,6 +373,38 @@ bool blocking_notifier_call_chain_is_empty(struct blocking_notifier_head *nh)
- }
- EXPORT_SYMBOL_GPL(blocking_notifier_call_chain_is_empty);
+-extern void migrate_to_reboot_cpu(void);
+-extern void machine_restart(char *cmd);
+-extern void machine_halt(void);
+-extern void machine_power_off(void);
++void migrate_to_reboot_cpu(void);
++void machine_restart(char *cmd);
++void machine_halt(void);
++void machine_power_off(void);
  
-+/**
-+ *	blocking_notifier_has_unique_priority - Checks whether notifier's priority is unique
-+ *	@nh: Pointer to head of the blocking notifier chain
-+ *	@n: Entry in notifier chain to check
-+ *
-+ *	Checks whether there is another notifier in the chain with the same priority.
-+ *	Must be called in process context.
-+ *
-+ *	Returns true if priority is unique, false otherwise.
-+ */
-+bool blocking_notifier_has_unique_priority(struct blocking_notifier_head *nh,
-+		struct notifier_block *n)
-+{
-+	bool ret;
-+
-+	/*
-+	 * This code gets used during boot-up, when task switching is
-+	 * not yet working and interrupts must remain disabled. At such
-+	 * times we must not call down_read().
-+	 */
-+	if (system_state != SYSTEM_BOOTING)
-+		down_read(&nh->rwsem);
-+
-+	ret = notifier_has_unique_priority(&nh->head, n);
-+
-+	if (system_state != SYSTEM_BOOTING)
-+		up_read(&nh->rwsem);
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL_GPL(blocking_notifier_has_unique_priority);
-+
+-extern void machine_shutdown(void);
++void machine_shutdown(void);
+ struct pt_regs;
+-extern void machine_crash_shutdown(struct pt_regs *);
++void machine_crash_shutdown(struct pt_regs *);
+ 
  /*
-  *	Raw notifier chain routines.  There is no protection;
-  *	the caller must provide it.  Use at your own risk!
+  * Architecture independent implementations of sys_reboot commands.
+  */
+ 
+-extern void kernel_restart_prepare(char *cmd);
+-extern void kernel_restart(char *cmd);
+-extern void kernel_halt(void);
+-extern void kernel_power_off(void);
++void kernel_restart_prepare(char *cmd);
++void kernel_restart(char *cmd);
++void kernel_halt(void);
++void kernel_power_off(void);
+ 
+ extern int C_A_D; /* for sysctl */
+ void ctrl_alt_del(void);
+@@ -77,15 +77,15 @@ void ctrl_alt_del(void);
+ #define POWEROFF_CMD_PATH_LEN	256
+ extern char poweroff_cmd[POWEROFF_CMD_PATH_LEN];
+ 
+-extern void orderly_poweroff(bool force);
+-extern void orderly_reboot(void);
++void orderly_poweroff(bool force);
++void orderly_reboot(void);
+ void hw_protection_shutdown(const char *reason, int ms_until_forced);
+ 
+ /*
+  * Emergency restart, callable from an interrupt handler.
+  */
+ 
+-extern void emergency_restart(void);
++void emergency_restart(void);
+ #include <asm/emergency-restart.h>
+ 
+ #endif /* _LINUX_REBOOT_H */
 -- 
 2.33.1
