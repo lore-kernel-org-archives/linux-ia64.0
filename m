@@ -1,62 +1,142 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Mon, 15 Nov 2021 16:58:44 +0000
-Subject: [PATCH 5.10 199/575] ia64: dont do IA64_CMPXCHG_DEBUG without CONFIG_PRINTK
-Message-Id: <20211115165350.589442470@linuxfoundation.org>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Fri, 26 Nov 2021 18:00:52 +0000
+Subject: [PATCH v4 16/25] m68k: Switch to new sys-off handler API
+Message-Id: <20211126180101.27818-17-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211115165343.579890274@linuxfoundation.org>
-In-Reply-To: <20211115165343.579890274@linuxfoundation.org>
+References: <20211126180101.27818-1-digetx@gmail.com>
+In-Reply-To: <20211126180101.27818-1-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, stable@vger.kernel.org, linux-ia64@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Chris Down <chris@chrisdown.name>, Paul Gortmaker <paul.gortmaker@windriver.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Randy Dunlap <rdunlap@infradead.org>, Petr Mladek <pmladek@suse.com>, Sasha Levin <sashal@kernel.org>
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-From: Randy Dunlap <rdunlap@infradead.org>
+Kernel now supports chained power-off handlers. Use
+register_power_off_handler() that registers power-off handlers and
+do_kernel_power_off() that invokes chained power-off handlers. Legacy
+pm_power_off() will be removed once all drivers will be converted to
+the new power-off API.
 
-[ Upstream commit c15b5fc054c3d6c97e953617605235c5cb8ce979 ]
+Normally arch code should adopt only the do_kernel_power_off() at first,
+but m68k is a special case because it uses pm_power_off() "inside out",
+i.e. pm_power_off() invokes machine_power_off() [in fact it does nothing],
+while it's machine_power_off() that should invoke the pm_power_off(), and
+thus, we can't convert platforms to the new API separately. There are only
+two platforms changed here, so it's not a big deal.
 
-When CONFIG_PRINTK is not set, the CMPXCHG_BUGCHECK() macro calls
-_printk(), but _printk() is a static inline function, not available
-as an extern.
-Since the purpose of the macro is to print the BUGCHECK info,
-make this config option depend on PRINTK.
-
-Fixes multiple occurrences of this build error:
-
-../include/linux/printk.h:208:5: error: static declaration of '_printk' follows non-static declaration
-  208 | int _printk(const char *s, ...)
-      |     ^~~~~~~
-In file included from ../arch/ia64/include/asm/cmpxchg.h:5,
-../arch/ia64/include/uapi/asm/cmpxchg.h:146:28: note: previous declaration of '_printk' with type 'int(const char *, ...)'
-  146 |                 extern int _printk(const char *fmt, ...);
-
-Cc: linux-ia64@vger.kernel.org
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Chris Down <chris@chrisdown.name>
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
-Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
-Signed-off-by: Petr Mladek <pmladek@suse.com>
-Signed-off-by: Sasha Levin <sashal@kernel.org>
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- arch/ia64/Kconfig.debug | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/m68k/emu/natfeat.c         | 3 ++-
+ arch/m68k/include/asm/machdep.h | 1 -
+ arch/m68k/kernel/process.c      | 5 ++---
+ arch/m68k/kernel/setup_mm.c     | 1 -
+ arch/m68k/kernel/setup_no.c     | 1 -
+ arch/m68k/mac/config.c          | 4 +++-
+ 6 files changed, 7 insertions(+), 8 deletions(-)
 
-diff --git a/arch/ia64/Kconfig.debug b/arch/ia64/Kconfig.debug
-index 40ca23bd228d6..2ce008e2d1644 100644
---- a/arch/ia64/Kconfig.debug
-+++ b/arch/ia64/Kconfig.debug
-@@ -39,7 +39,7 @@ config DISABLE_VHPT
+diff --git a/arch/m68k/emu/natfeat.c b/arch/m68k/emu/natfeat.c
+index 71b78ecee75c..b19dc00026d9 100644
+--- a/arch/m68k/emu/natfeat.c
++++ b/arch/m68k/emu/natfeat.c
+@@ -15,6 +15,7 @@
+ #include <linux/string.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
++#include <linux/reboot.h>
+ #include <linux/io.h>
+ #include <asm/machdep.h>
+ #include <asm/natfeat.h>
+@@ -90,5 +91,5 @@ void __init nf_init(void)
+ 	pr_info("NatFeats found (%s, %lu.%lu)\n", buf, version >> 16,
+ 		version & 0xffff);
  
- config IA64_DEBUG_CMPXCHG
- 	bool "Turn on compare-and-exchange bug checking (slow!)"
--	depends on DEBUG_KERNEL
-+	depends on DEBUG_KERNEL && PRINTK
- 	help
- 	  Selecting this option turns on bug checking for the IA-64
- 	  compare-and-exchange instructions.  This is slow!  Itaniums
+-	mach_power_off = nf_poweroff;
++	register_platform_power_off(nf_poweroff);
+ }
+diff --git a/arch/m68k/include/asm/machdep.h b/arch/m68k/include/asm/machdep.h
+index 8fd80ef1b77e..8d8c3ee2069f 100644
+--- a/arch/m68k/include/asm/machdep.h
++++ b/arch/m68k/include/asm/machdep.h
+@@ -24,7 +24,6 @@ extern int (*mach_get_rtc_pll)(struct rtc_pll_info *);
+ extern int (*mach_set_rtc_pll)(struct rtc_pll_info *);
+ extern void (*mach_reset)( void );
+ extern void (*mach_halt)( void );
+-extern void (*mach_power_off)( void );
+ extern unsigned long (*mach_hd_init) (unsigned long, unsigned long);
+ extern void (*mach_hd_setup)(char *, int *);
+ extern void (*mach_heartbeat) (int);
+diff --git a/arch/m68k/kernel/process.c b/arch/m68k/kernel/process.c
+index a6030dbaa089..e160a7c57bd3 100644
+--- a/arch/m68k/kernel/process.c
++++ b/arch/m68k/kernel/process.c
+@@ -67,12 +67,11 @@ void machine_halt(void)
+ 
+ void machine_power_off(void)
+ {
+-	if (mach_power_off)
+-		mach_power_off();
++	do_kernel_power_off();
+ 	for (;;);
+ }
+ 
+-void (*pm_power_off)(void) = machine_power_off;
++void (*pm_power_off)(void);
+ EXPORT_SYMBOL(pm_power_off);
+ 
+ void show_regs(struct pt_regs * regs)
+diff --git a/arch/m68k/kernel/setup_mm.c b/arch/m68k/kernel/setup_mm.c
+index 4b51bfd38e5f..50f4f120a4ff 100644
+--- a/arch/m68k/kernel/setup_mm.c
++++ b/arch/m68k/kernel/setup_mm.c
+@@ -98,7 +98,6 @@ EXPORT_SYMBOL(mach_get_rtc_pll);
+ EXPORT_SYMBOL(mach_set_rtc_pll);
+ void (*mach_reset)( void );
+ void (*mach_halt)( void );
+-void (*mach_power_off)( void );
+ #ifdef CONFIG_HEARTBEAT
+ void (*mach_heartbeat) (int);
+ EXPORT_SYMBOL(mach_heartbeat);
+diff --git a/arch/m68k/kernel/setup_no.c b/arch/m68k/kernel/setup_no.c
+index 5e4104f07a44..00bf82258233 100644
+--- a/arch/m68k/kernel/setup_no.c
++++ b/arch/m68k/kernel/setup_no.c
+@@ -55,7 +55,6 @@ int (*mach_hwclk) (int, struct rtc_time*);
+ /* machine dependent reboot functions */
+ void (*mach_reset)(void);
+ void (*mach_halt)(void);
+-void (*mach_power_off)(void);
+ 
+ #ifdef CONFIG_M68000
+ #if defined(CONFIG_M68328)
+diff --git a/arch/m68k/mac/config.c b/arch/m68k/mac/config.c
+index 5d16f9b47aa9..727320dedf08 100644
+--- a/arch/m68k/mac/config.c
++++ b/arch/m68k/mac/config.c
+@@ -12,6 +12,7 @@
+ 
+ #include <linux/errno.h>
+ #include <linux/module.h>
++#include <linux/reboot.h>
+ #include <linux/types.h>
+ #include <linux/mm.h>
+ #include <linux/tty.h>
+@@ -139,7 +140,6 @@ void __init config_mac(void)
+ 	mach_hwclk = mac_hwclk;
+ 	mach_reset = mac_reset;
+ 	mach_halt = mac_poweroff;
+-	mach_power_off = mac_poweroff;
+ #if IS_ENABLED(CONFIG_INPUT_M68K_BEEP)
+ 	mach_beep = mac_mksound;
+ #endif
+@@ -159,6 +159,8 @@ void __init config_mac(void)
+ 
+ 	if (macintosh_config->ident = MAC_MODEL_IICI)
+ 		mach_l2_flush = via_l2_flush;
++
++	register_platform_power_off(mac_poweroff);
+ }
+ 
+ 
 -- 
-2.33.0
-
-
+2.33.1
