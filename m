@@ -1,7 +1,7 @@
 From: Dmitry Osipenko <digetx@gmail.com>
-Date: Fri, 26 Nov 2021 18:00:43 +0000
-Subject: [PATCH v4 07/25] reboot: Remove extern annotation from function prototypes
-Message-Id: <20211126180101.27818-8-digetx@gmail.com>
+Date: Fri, 26 Nov 2021 18:00:54 +0000
+Subject: [PATCH v4 18/25] x86: Use do_kernel_power_off()
+Message-Id: <20211126180101.27818-19-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20211126180101.27818-1-digetx@gmail.com>
 In-Reply-To: <20211126180101.27818-1-digetx@gmail.com>
@@ -11,89 +11,32 @@ Content-Transfer-Encoding: 7bit
 To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>
 Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-There is no need to annotate function prototypes with 'extern', it makes
-code less readable. Remove unnecessary annotations from <reboot.h>.
+Kernel now supports chained power-off handlers. Use do_kernel_power_off()
+that invokes chained power-off handlers. It also invokes legacy
+pm_power_off() for now, which will be removed once all drivers will
+be converted to the new power-off API.
 
 Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- include/linux/reboot.h | 38 +++++++++++++++++++-------------------
- 1 file changed, 19 insertions(+), 19 deletions(-)
+ arch/x86/kernel/reboot.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/reboot.h b/include/linux/reboot.h
-index 7c288013a3ca..b7fa25726323 100644
---- a/include/linux/reboot.h
-+++ b/include/linux/reboot.h
-@@ -40,36 +40,36 @@ extern int reboot_cpu;
- extern int reboot_force;
+diff --git a/arch/x86/kernel/reboot.c b/arch/x86/kernel/reboot.c
+index 0a40df66a40d..cd7d9416d81a 100644
+--- a/arch/x86/kernel/reboot.c
++++ b/arch/x86/kernel/reboot.c
+@@ -747,10 +747,10 @@ static void native_machine_halt(void)
  
- 
--extern int register_reboot_notifier(struct notifier_block *);
--extern int unregister_reboot_notifier(struct notifier_block *);
-+int register_reboot_notifier(struct notifier_block *);
-+int unregister_reboot_notifier(struct notifier_block *);
- 
--extern int devm_register_reboot_notifier(struct device *, struct notifier_block *);
-+int devm_register_reboot_notifier(struct device *, struct notifier_block *);
- 
--extern int register_restart_handler(struct notifier_block *);
--extern int unregister_restart_handler(struct notifier_block *);
--extern void do_kernel_restart(char *cmd);
-+int register_restart_handler(struct notifier_block *);
-+int unregister_restart_handler(struct notifier_block *);
-+void do_kernel_restart(char *cmd);
- 
- /*
-  * Architecture-specific implementations of sys_reboot commands.
-  */
- 
--extern void migrate_to_reboot_cpu(void);
--extern void machine_restart(char *cmd);
--extern void machine_halt(void);
--extern void machine_power_off(void);
-+void migrate_to_reboot_cpu(void);
-+void machine_restart(char *cmd);
-+void machine_halt(void);
-+void machine_power_off(void);
- 
--extern void machine_shutdown(void);
-+void machine_shutdown(void);
- struct pt_regs;
--extern void machine_crash_shutdown(struct pt_regs *);
-+void machine_crash_shutdown(struct pt_regs *);
- 
- /*
-  * Architecture independent implementations of sys_reboot commands.
-  */
- 
--extern void kernel_restart_prepare(char *cmd);
--extern void kernel_restart(char *cmd);
--extern void kernel_halt(void);
--extern void kernel_power_off(void);
-+void kernel_restart_prepare(char *cmd);
-+void kernel_restart(char *cmd);
-+void kernel_halt(void);
-+void kernel_power_off(void);
- 
- extern int C_A_D; /* for sysctl */
- void ctrl_alt_del(void);
-@@ -77,15 +77,15 @@ void ctrl_alt_del(void);
- #define POWEROFF_CMD_PATH_LEN	256
- extern char poweroff_cmd[POWEROFF_CMD_PATH_LEN];
- 
--extern void orderly_poweroff(bool force);
--extern void orderly_reboot(void);
-+void orderly_poweroff(bool force);
-+void orderly_reboot(void);
- void hw_protection_shutdown(const char *reason, int ms_until_forced);
- 
- /*
-  * Emergency restart, callable from an interrupt handler.
-  */
- 
--extern void emergency_restart(void);
-+void emergency_restart(void);
- #include <asm/emergency-restart.h>
- 
- #endif /* _LINUX_REBOOT_H */
+ static void native_machine_power_off(void)
+ {
+-	if (pm_power_off) {
++	if (kernel_can_power_off()) {
+ 		if (!reboot_force)
+ 			machine_shutdown();
+-		pm_power_off();
++		do_kernel_power_off();
+ 	}
+ 	/* A fallback in case there is no PM info available */
+ 	tboot_shutdown(TB_SHUTDOWN_HALT);
 -- 
 2.33.1
