@@ -1,7 +1,7 @@
 From: Dmitry Osipenko <digetx@gmail.com>
-Date: Fri, 26 Nov 2021 18:00:53 +0000
-Subject: [PATCH v4 17/25] sh: Use do_kernel_power_off()
-Message-Id: <20211126180101.27818-18-digetx@gmail.com>
+Date: Fri, 26 Nov 2021 18:00:47 +0000
+Subject: [PATCH v4 11/25] riscv: Use do_kernel_power_off()
+Message-Id: <20211126180101.27818-12-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20211126180101.27818-1-digetx@gmail.com>
 In-Reply-To: <20211126180101.27818-1-digetx@gmail.com>
@@ -16,24 +16,36 @@ that invokes chained power-off handlers. It also invokes legacy
 pm_power_off() for now, which will be removed once all drivers will
 be converted to the new power-off API.
 
+Acked-by: Palmer Dabbelt <palmer@dabbelt.com>
 Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- arch/sh/kernel/reboot.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ arch/riscv/kernel/reset.c | 12 ++++--------
+ 1 file changed, 4 insertions(+), 8 deletions(-)
 
-diff --git a/arch/sh/kernel/reboot.c b/arch/sh/kernel/reboot.c
-index 5c33f036418b..e8eeedc9b182 100644
---- a/arch/sh/kernel/reboot.c
-+++ b/arch/sh/kernel/reboot.c
-@@ -46,8 +46,7 @@ static void native_machine_shutdown(void)
+diff --git a/arch/riscv/kernel/reset.c b/arch/riscv/kernel/reset.c
+index 9c842c41684a..912288572226 100644
+--- a/arch/riscv/kernel/reset.c
++++ b/arch/riscv/kernel/reset.c
+@@ -23,16 +23,12 @@ void machine_restart(char *cmd)
  
- static void native_machine_power_off(void)
+ void machine_halt(void)
  {
--	if (pm_power_off)
+-	if (pm_power_off != NULL)
 -		pm_power_off();
+-	else
+-		default_power_off();
 +	do_kernel_power_off();
++	default_power_off();
  }
  
- static void native_machine_halt(void)
+ void machine_power_off(void)
+ {
+-	if (pm_power_off != NULL)
+-		pm_power_off();
+-	else
+-		default_power_off();
++	do_kernel_power_off();
++	default_power_off();
+ }
 -- 
 2.33.1
