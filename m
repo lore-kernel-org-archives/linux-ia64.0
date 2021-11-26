@@ -1,7 +1,7 @@
 From: Dmitry Osipenko <digetx@gmail.com>
-Date: Fri, 26 Nov 2021 18:00:50 +0000
-Subject: [PATCH v4 14/25] xen/x86: Use do_kernel_power_off()
-Message-Id: <20211126180101.27818-15-digetx@gmail.com>
+Date: Fri, 26 Nov 2021 18:00:45 +0000
+Subject: [PATCH v4 09/25] ARM: Use do_kernel_power_off()
+Message-Id: <20211126180101.27818-10-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20211126180101.27818-1-digetx@gmail.com>
 In-Reply-To: <20211126180101.27818-1-digetx@gmail.com>
@@ -16,33 +16,26 @@ that invokes chained power-off handlers. It also invokes legacy
 pm_power_off() for now, which will be removed once all drivers will
 be converted to the new power-off API.
 
-Acked-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
 Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- arch/x86/xen/enlighten_pv.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ arch/arm/kernel/reboot.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/arch/x86/xen/enlighten_pv.c b/arch/x86/xen/enlighten_pv.c
-index 5004feb16783..527fa545eb1f 100644
---- a/arch/x86/xen/enlighten_pv.c
-+++ b/arch/x86/xen/enlighten_pv.c
-@@ -31,6 +31,7 @@
- #include <linux/gfp.h>
- #include <linux/edd.h>
- #include <linux/objtool.h>
-+#include <linux/reboot.h>
- 
- #include <xen/xen.h>
- #include <xen/events.h>
-@@ -1068,8 +1069,7 @@ static void xen_machine_halt(void)
- 
- static void xen_machine_power_off(void)
+diff --git a/arch/arm/kernel/reboot.c b/arch/arm/kernel/reboot.c
+index 3044fcb8d073..2cb943422554 100644
+--- a/arch/arm/kernel/reboot.c
++++ b/arch/arm/kernel/reboot.c
+@@ -116,9 +116,7 @@ void machine_power_off(void)
  {
+ 	local_irq_disable();
+ 	smp_send_stop();
+-
 -	if (pm_power_off)
 -		pm_power_off();
 +	do_kernel_power_off();
- 	xen_reboot(SHUTDOWN_poweroff);
  }
  
+ /*
 -- 
 2.33.1
