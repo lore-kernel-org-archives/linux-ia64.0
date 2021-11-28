@@ -1,248 +1,70 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Date: Thu, 18 Nov 2021 14:34:51 +0000
-Subject: [PATCH 7/8] kernel/fork: Only cache the VMAP stack in finish_task_switch().
-Message-Id: <20211118143452.136421-8-bigeasy@linutronix.de>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Date: Sun, 28 Nov 2021 08:01:41 +0000
+Subject: Re: [PATCH 3/9] all: replace bitmap_weigth() with bitmap_{empty,full,eq,gt,le}
+Message-Id: <YaM3ZeQS4tHzsRkK@kroah.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211118143452.136421-1-bigeasy@linutronix.de>
-In-Reply-To: <20211118143452.136421-1-bigeasy@linutronix.de>
+References: <20211128035704.270739-1-yury.norov@gmail.com>
+ <20211128035704.270739-4-yury.norov@gmail.com>
+In-Reply-To: <20211128035704.270739-4-yury.norov@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-Cc: Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Andy Lutomirski <luto@kernel.org>, Juri Lelli <juri.lelli@redhat.com>, Vincent Guittot <vincent.guittot@linaro.org>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Steven Rostedt <rostedt@goodmis.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+To: Yury Norov <yury.norov@gmail.com>
+Cc: linux-kernel@vger.kernel.org, "James E.J. Bottomley" <jejb@linux.ibm.com>, "Martin K. Petersen" <martin.petersen@oracle.com>, "Paul E. McKenney" <paulmck@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Alexey Klimov <aklimov@redhat.com>, Amitkumar Karwar <amitkarwar@gmail.com>, Andi Kleen <ak@linux.intel.com>, Andrew Lunn <andrew@lunn.ch>, Andrew Morton <akpm@linux-foundation.org>, Andy Gross <agross@kernel.org>, Andy Lutomirski <luto@kernel.org>, Andy Shevchenko <andy@infradead.org>, Anup Patel <anup.patel@wdc.com>, Ard Biesheuvel <ardb@kernel.org>, Arnaldo Carvalho de Melo <acme@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Borislav Petkov <bp@alien8.de>, Catalin Marinas <catalin.marinas@arm.com>, Christoph Hellwig <hch@lst.de>, Christoph Lameter <cl@linux.com>, Daniel Vetter <daniel@ffwll.ch>, Dave Hansen <dave.hansen@linux.intel.com>, David Airlie <airlied@linux.ie>, David Laight <David.Laight@aculab.com>, Dennis Zhou <dennis@kernel.org>, Dinh Nguyen <dinguyen@kernel.org>, Geetha sowjanya <gakula@marvell.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Guo Ren <guoren@kernel.org>, Hans de Goede <hdegoede@redhat.com>, Heiko Carstens <hca@linux.ibm.com>, Ian Rogers <irogers@google.com>, Ingo Molnar <mingo@redhat.com>, Jakub Kicinski <kuba@kernel.org>, Jason Wessel <jason.wessel@windriver.com>, Jens Axboe <axboe@fb.com>, Jiri Olsa <jolsa@redhat.com>, Jonathan Cameron <jic23@kernel.org>, Juri Lelli <juri.lelli@redhat.com>, Kalle Valo <kvalo@codeaurora.org>, Kees Cook <keescook@chromium.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Lee Jones <lee.jones@linaro.org>, Marc Zyngier <maz@kernel.org>, Marcin Wojtas <mw@semihalf.com>, Mark Gross <markgross@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Matti Vaittinen <mazziesaccount@gmail.com>, Mauro Carvalho Chehab <mchehab@kernel.org>, Mel Gorman <mgorman@suse.de>, Michael Ellerman <mpe@ellerman.id.au>, Mike Marciniszyn <mike.marciniszyn@cornelisnetworks.com>, Nicholas Piggin <npiggin@gmail.com>, Palmer Dabbelt <palmer@dabbelt.com>, Peter Zijlstra <peterz@infradead.org>, Petr Mladek <pmladek@suse.com>, Randy Dunlap <rdunlap@infradead.org>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Roy Pledge <Roy.Pledge@nxp.com>, Russell King <linux@armlinux.org.uk>, Saeed Mahameed <saeedm@nvidia.com>, Sagi Grimberg <sagi@grimberg.me>, Sergey Senozhatsky <senozhatsky@chromium.org>, Solomon Peachy <pizza@shaftnet.org>, Stephen Boyd <sboyd@kernel.org>, Stephen Rothwell <sfr@canb.auug.org.au>, Steven Rostedt <rostedt@goodmis.org>, Subbaraya Sundeep <sbhatta@marvell.com>, Sudeep Holla <sudeep.holla@arm.com>, Sunil Goutham <sgoutham@marvell.com>, Tariq Toukan <tariqt@nvidia.com>, Tejun Heo <tj@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Thomas Gleixner <tglx@linutronix.de>, Ulf Hansson <ulf.hansson@linaro.org>, Vincent Guittot <vincent.guittot@linaro.org>, Vineet Gupta <vgupta@kernel.org>, Viresh Kumar <viresh.kumar@linaro.org>, Vivien Didelot <vivien.didelot@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Will Deacon <will@kernel.org>, bcm-kernel-feedback-list@broadcom.com, kvm@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-crypto@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-mm@kvack.org, linux-perf-users@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-snps-arc@lists.infradead.org, linuxppc-dev@lists.ozlabs.org
 
-The task stack could be deallocated later in delayed_put_task_struct().
-For fork()/exec() kind of workloads (say a shell script executing
-several commands) it is important that the stack is released in
-finish_task_switch() so that in VMAP_STACK case it can be cached and
-reused in the new task.
-If the free/caching is RCU-delayed then a new stack has to be allocated
-because the cache is filled in batches of which only two stacks, out of
-many, are recycled.
+On Sat, Nov 27, 2021 at 07:56:58PM -0800, Yury Norov wrote:
+> bitmap_weight() counts all set bits in the bitmap unconditionally.
+> However in some cases we can traverse a part of bitmap when we
+> only need to check if number of set bits is greater, less or equal
+> to some number.
+> 
+> This patch replaces bitmap_weight() with one of
+> bitmap_{empty,full,eq,gt,le), as appropriate.
+> 
+> In some places driver code has been optimized further, where it's
+> trivial.
+> 
+> Signed-off-by: Yury Norov <yury.norov@gmail.com>
+> ---
+>  arch/nds32/kernel/perf_event_cpu.c                 |  4 +---
+>  arch/x86/kernel/cpu/resctrl/rdtgroup.c             |  4 ++--
+>  arch/x86/kvm/hyperv.c                              |  8 ++++----
+>  drivers/crypto/ccp/ccp-dev-v5.c                    |  5 +----
+>  drivers/gpu/drm/msm/disp/mdp5/mdp5_smp.c           |  2 +-
+>  drivers/iio/adc/mxs-lradc-adc.c                    |  3 +--
+>  drivers/iio/dummy/iio_simple_dummy_buffer.c        |  4 ++--
+>  drivers/iio/industrialio-buffer.c                  |  2 +-
+>  drivers/iio/industrialio-trigger.c                 |  2 +-
+>  drivers/memstick/core/ms_block.c                   |  4 ++--
+>  drivers/net/dsa/b53/b53_common.c                   |  2 +-
+>  drivers/net/ethernet/broadcom/bcmsysport.c         |  6 +-----
+>  drivers/net/ethernet/intel/ice/ice_virtchnl_pf.c   |  4 ++--
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     |  2 +-
+>  .../ethernet/marvell/octeontx2/nic/otx2_ethtool.c  |  2 +-
+>  .../ethernet/marvell/octeontx2/nic/otx2_flows.c    |  8 ++++----
+>  .../net/ethernet/marvell/octeontx2/nic/otx2_pf.c   |  2 +-
+>  drivers/net/ethernet/mellanox/mlx4/cmd.c           | 10 +++-------
+>  drivers/net/ethernet/mellanox/mlx4/eq.c            |  4 ++--
+>  drivers/net/ethernet/mellanox/mlx4/main.c          |  2 +-
+>  .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  2 +-
+>  drivers/net/ethernet/qlogic/qed/qed_dev.c          |  3 +--
+>  drivers/net/ethernet/qlogic/qed/qed_rdma.c         |  4 ++--
+>  drivers/net/ethernet/qlogic/qed/qed_roce.c         |  2 +-
+>  drivers/perf/arm-cci.c                             |  2 +-
+>  drivers/perf/arm_pmu.c                             |  4 ++--
+>  drivers/perf/hisilicon/hisi_uncore_pmu.c           |  2 +-
+>  drivers/perf/thunderx2_pmu.c                       |  3 +--
+>  drivers/perf/xgene_pmu.c                           |  2 +-
+>  drivers/pwm/pwm-pca9685.c                          |  2 +-
+>  drivers/staging/media/tegra-video/vi.c             |  2 +-
+>  drivers/thermal/intel/intel_powerclamp.c           | 10 ++++------
+>  fs/ocfs2/cluster/heartbeat.c                       | 14 +++++++-------
+>  33 files changed, 57 insertions(+), 75 deletions(-)
 
-For PREEMPT_RT it would be good if the wake-up in vfree_atomic() could
-be avoided in the scheduling path. Far worse are the other
-free_thread_stack() implementations which invoke __free_pages()/
-kmem_cache_free() with disabled preemption.
+After you get the new functions added to the kernel tree, this patch
+should be broken up into one-patch-per-subsystem and submitted through
+the various subsystem trees.
 
-Introduce put_task_stack_sched() which is invoked from the
-finish_task_switch() and only caches the VMAP stack. If the cache is
-full or !CONFIG_VMAP_STACK is used than the stack is freed from
-delayed_put_task_struct(). In the VMAP case this is another opportunity
-to fill the cache.
+thanks,
 
-The stack is finally released in delayed_put_task_struct() which means
-that a valid stack reference can be held during its invocation. As such
-there can be made no assumption whether the task_struct::stack pointer
-can be freed if non-NULL.
-Set the lowest bit of task_struct::stack if the stack was released via
-put_task_stack_sched() and needs a final free in
-delayed_put_task_struct(). If the bit is missing then a reference is
-held and put_task_stack() will release it.
-
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
----
- include/linux/sched/task_stack.h |  8 +++++
- kernel/exit.c                    |  1 +
- kernel/fork.c                    | 60 ++++++++++++++++++++++++++------
- kernel/sched/core.c              |  7 ++--
- 4 files changed, 64 insertions(+), 12 deletions(-)
-
-diff --git a/include/linux/sched/task_stack.h b/include/linux/sched/task_stack.h
-index 892562ebbd3aa..ccd1336aa7f42 100644
---- a/include/linux/sched/task_stack.h
-+++ b/include/linux/sched/task_stack.h
-@@ -70,6 +70,7 @@ static inline void *try_get_task_stack(struct task_struct *tsk)
- }
- 
- extern void put_task_stack(struct task_struct *tsk);
-+extern void put_task_stack_sched(struct task_struct *tsk);
- #else
- static inline void *try_get_task_stack(struct task_struct *tsk)
- {
-@@ -77,6 +78,13 @@ static inline void *try_get_task_stack(struct task_struct *tsk)
- }
- 
- static inline void put_task_stack(struct task_struct *tsk) {}
-+static inline void put_task_stack_sched(struct task_struct *tsk) {}
-+#endif
-+
-+#ifdef CONFIG_ARCH_THREAD_STACK_ALLOCATOR
-+static inline void task_stack_cleanup(struct task_struct *tsk) {}
-+#else
-+extern void task_stack_cleanup(struct task_struct *tsk);
- #endif
- 
- void exit_task_stack_account(struct task_struct *tsk);
-diff --git a/kernel/exit.c b/kernel/exit.c
-index 41236da175d56..383a56795e82a 100644
---- a/kernel/exit.c
-+++ b/kernel/exit.c
-@@ -171,6 +171,7 @@ static void delayed_put_task_struct(struct rcu_head *rhp)
- 	kprobe_flush_task(tsk);
- 	perf_event_delayed_put(tsk);
- 	trace_sched_process_free(tsk);
-+	task_stack_cleanup(tsk);
- 	put_task_struct(tsk);
- }
- 
-diff --git a/kernel/fork.c b/kernel/fork.c
-index 257cd048359fd..0aa079e56e3b4 100644
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -178,6 +178,16 @@ static inline void free_task_struct(struct task_struct *tsk)
- 
- #ifndef CONFIG_ARCH_THREAD_STACK_ALLOCATOR
- 
-+#define THREAD_STACK_DELAYED_FREE	1UL
-+
-+static void thread_stack_mark_delayed_free(struct task_struct *tsk)
-+{
-+	unsigned long val = (unsigned long)tsk->stack;
-+
-+	val |= THREAD_STACK_DELAYED_FREE;
-+	WRITE_ONCE(tsk->stack, (void *)val);
-+}
-+
- /*
-  * Allocate pages if THREAD_SIZE is >= PAGE_SIZE, otherwise use a
-  * kmemcache based allocator.
-@@ -293,7 +303,7 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
- 	return 0;
- }
- 
--static void free_thread_stack(struct task_struct *tsk)
-+static void free_thread_stack(struct task_struct *tsk, bool cache_only)
- {
- 	int i;
- 
-@@ -306,7 +316,12 @@ static void free_thread_stack(struct task_struct *tsk)
- 		tsk->stack_vm_area = NULL;
- 		return;
- 	}
--	vfree_atomic(tsk->stack);
-+	if (cache_only) {
-+		thread_stack_mark_delayed_free(tsk);
-+		return;
-+	}
-+
-+	vfree(tsk->stack);
- 	tsk->stack = NULL;
- 	tsk->stack_vm_area = NULL;
- }
-@@ -325,8 +340,12 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
- 	return -ENOMEM;
- }
- 
--static void free_thread_stack(struct task_struct *tsk)
-+static void free_thread_stack(struct task_struct *tsk, bool cache_only)
- {
-+	if (cache_only) {
-+		thread_stack_mark_delayed_free(tsk);
-+		return;
-+	}
- 	__free_pages(virt_to_page(tsk->stack), THREAD_SIZE_ORDER);
- 	tsk->stack = NULL;
- }
-@@ -345,8 +364,12 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
- 	return stack ? 0 : -ENOMEM;
- }
- 
--static void free_thread_stack(struct task_struct *tsk)
-+static void free_thread_stack(struct task_struct *tsk, bool cache_only)
- {
-+	if (cache_only) {
-+		thread_stack_mark_delayed_free(tsk);
-+		return;
-+	}
- 	kmem_cache_free(thread_stack_cache, tsk->stack);
- 	tsk->stack = NULL;
- }
-@@ -360,8 +383,19 @@ void thread_stack_cache_init(void)
- }
- 
- # endif /* THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK) */
--#else /* CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
- 
-+void task_stack_cleanup(struct task_struct *tsk)
-+{
-+	unsigned long val = (unsigned long)tsk->stack;
-+
-+	if (!(val & THREAD_STACK_DELAYED_FREE))
-+		return;
-+
-+	WRITE_ONCE(tsk->stack, (void *)(val & ~THREAD_STACK_DELAYED_FREE));
-+	free_thread_stack(tsk, false);
-+}
-+
-+#else /* CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
- static int alloc_thread_stack_node(struct task_struct *tsk, int node)
- {
- 	unsigned long *stack;
-@@ -461,19 +495,25 @@ void exit_task_stack_account(struct task_struct *tsk)
- 	}
- }
- 
--static void release_task_stack(struct task_struct *tsk)
-+static void release_task_stack(struct task_struct *tsk, bool cache_only)
- {
- 	if (WARN_ON(READ_ONCE(tsk->__state) != TASK_DEAD))
- 		return;  /* Better to leak the stack than to free prematurely */
- 
--	free_thread_stack(tsk);
-+	free_thread_stack(tsk, cache_only);
- }
- 
- #ifdef CONFIG_THREAD_INFO_IN_TASK
- void put_task_stack(struct task_struct *tsk)
- {
- 	if (refcount_dec_and_test(&tsk->stack_refcount))
--		release_task_stack(tsk);
-+		release_task_stack(tsk, false);
-+}
-+
-+void put_task_stack_sched(struct task_struct *tsk)
-+{
-+	if (refcount_dec_and_test(&tsk->stack_refcount))
-+		release_task_stack(tsk, true);
- }
- #endif
- 
-@@ -487,7 +527,7 @@ void free_task(struct task_struct *tsk)
- 	 * The task is finally done with both the stack and thread_info,
- 	 * so free both.
- 	 */
--	release_task_stack(tsk);
-+	release_task_stack(tsk, false);
- #else
- 	/*
- 	 * If the task had a separate stack allocation, it should be gone
-@@ -989,7 +1029,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
- 
- free_stack:
- 	exit_task_stack_account(tsk);
--	free_thread_stack(tsk);
-+	free_thread_stack(tsk, false);
- free_tsk:
- 	free_task_struct(tsk);
- 	return NULL;
-diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 3c9b0fda64ac0..435f633f6f365 100644
---- a/kernel/sched/core.c
-+++ b/kernel/sched/core.c
-@@ -4880,8 +4880,11 @@ static struct rq *finish_task_switch(struct task_struct *prev)
- 		if (prev->sched_class->task_dead)
- 			prev->sched_class->task_dead(prev);
- 
--		/* Task is done with its stack. */
--		put_task_stack(prev);
-+		/*
-+		 * Cache only the VMAP stack. The final deallocation is in
-+		 * delayed_put_task_struct.
-+		 */
-+		put_task_stack_sched(prev);
- 
- 		put_task_struct_rcu_user(prev);
- 	}
--- 
-2.33.1
+greg k-h
