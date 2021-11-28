@@ -1,108 +1,45 @@
-From: Kefeng Wang <wangkefeng.wang@huawei.com>
-Date: Tue, 30 Nov 2021 06:27:24 +0000
-Subject: Re: [PATCH RFC 3/4] mm: percpu: Add generic pcpu_fc_alloc/free funciton
-Message-Id: <ab9b7446-e955-67da-b9f3-1e1c15566fdb@huawei.com>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Sun, 28 Nov 2021 21:04:43 +0000
+Subject: Re: [PATCH v4 22/25] memory: emif: Use kernel_can_power_off()
+Message-Id: <98c5c3d3-1635-3a06-b57f-8facd409796a@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211121093557.139034-1-wangkefeng.wang@huawei.com>
- <20211121093557.139034-4-wangkefeng.wang@huawei.com>
- <YaVYGCB+I7QLZo0+@fedora>
-In-Reply-To: <YaVYGCB+I7QLZo0+@fedora>
+References: <20211126180101.27818-1-digetx@gmail.com>
+ <20211126180101.27818-23-digetx@gmail.com> <YaLaH3Yt2M/Gko//@qmqm.qmqm.pl>
+In-Reply-To: <YaLaH3Yt2M/Gko//@qmqm.qmqm.pl>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Dennis Zhou <dennis@kernel.org>
-Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org, tj@kernel.org, gregkh@linuxfoundation.org, cl@linux.com, catalin.marinas@arm.com, will@kernel.org, tsbogend@alpha.franken.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, paul.walmsley@sifive.com, palmer@dabbelt.com, aou@eecs.berkeley.edu, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, hpa@zytor.com, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, sparclinux@vger.kernel.org, x86@kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
+Cc: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-
-On 2021/11/30 6:45, Dennis Zhou wrote:
-> On Sun, Nov 21, 2021 at 05:35:56PM +0800, Kefeng Wang wrote:
->> With previous patch, we could add a generic pcpu first chunk
->> allocation and free function to cleanup the duplicated definations
->> on each architecture.
+28.11.2021 04:23, Michał Mirosław пишет:
+> On Fri, Nov 26, 2021 at 09:00:58PM +0300, Dmitry Osipenko wrote:
+>> Replace legacy pm_power_off with kernel_can_power_off() helper that
+>> is aware about chained power-off handlers.
 >>
->> Signed-off-by: Kefeng Wang <wangkefeng.wang@huawei.com>
+>> Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 >> ---
->>   arch/mips/mm/init.c            | 16 +--------
->>   arch/powerpc/kernel/setup_64.c | 51 ++------------------------
->>   arch/sparc/kernel/smp_64.c     | 50 +-------------------------
->>   arch/x86/kernel/setup_percpu.c | 59 +-----------------------------
->>   drivers/base/arch_numa.c       | 19 +---------
->>   include/linux/percpu.h         |  9 +----
->>   mm/percpu.c                    | 66 ++++++++++++++++++----------------
->>   7 files changed, 42 insertions(+), 228 deletions(-)
-...
->> diff --git a/include/linux/percpu.h b/include/linux/percpu.h
->> index 41bb54715b0c..d73c97ef4ff4 100644
->> --- a/include/linux/percpu.h
->> +++ b/include/linux/percpu.h
->> @@ -95,9 +95,6 @@ extern const char * const pcpu_fc_names[PCPU_FC_NR];
->>   extern enum pcpu_fc pcpu_chosen_fc;
->>  =20
->>   typedef int (pcpu_fc_cpu_to_node_fn_t)(int cpu);
->> -typedef void * (*pcpu_fc_alloc_fn_t)(unsigned int cpu, size_t size, siz=
-e_t align,
->> -				     pcpu_fc_cpu_to_node_fn_t cpu_to_nd_fn);
->> -typedef void (*pcpu_fc_free_fn_t)(void *ptr, size_t size);
->>   typedef void (*pcpu_fc_populate_pte_fn_t)(unsigned long addr);
->>   typedef int (pcpu_fc_cpu_distance_fn_t)(unsigned int from, unsigned in=
-t to);
->>  =20
->> @@ -112,15 +109,11 @@ extern void __init pcpu_setup_first_chunk(const st=
-ruct pcpu_alloc_info *ai,
->>   extern int __init pcpu_embed_first_chunk(size_t reserved_size, size_t =
-dyn_size,
->>   				size_t atom_size,
->>   				pcpu_fc_cpu_distance_fn_t cpu_distance_fn,
->> -				pcpu_fc_cpu_to_node_fn_t cpu_to_nd_fn,
->> -				pcpu_fc_alloc_fn_t alloc_fn,
->> -				pcpu_fc_free_fn_t free_fn);
->> +				pcpu_fc_cpu_to_node_fn_t cpu_to_nd_fn);
->>   #endif
->>  =20
->>   #ifdef CONFIG_NEED_PER_CPU_PAGE_FIRST_CHUNK
->>   extern int __init pcpu_page_first_chunk(size_t reserved_size,
->> -				pcpu_fc_alloc_fn_t alloc_fn,
->> -				pcpu_fc_free_fn_t free_fn,
->>   				pcpu_fc_cpu_to_node_fn_t cpu_to_nd_fn,
->>   				pcpu_fc_populate_pte_fn_t populate_pte_fn);
->>   #endif
->> diff --git a/mm/percpu.c b/mm/percpu.c
->> index 3f6cf1ff0be2..efaa1cbaf73d 100644
->> --- a/mm/percpu.c
->> +++ b/mm/percpu.c
->> @@ -2992,6 +2992,30 @@ static struct pcpu_alloc_info * __init __flatten =
-pcpu_build_alloc_info(
->>  =20
->>   	return ai;
->>   }
->> +
->> +static void * __init pcpu_fc_alloc(unsigned int cpu, size_t size, size_=
-t align,
->> +				   pcpu_fc_cpu_to_node_fn_t cpu_to_nd_fn)
->> +{
->> +	const unsigned long goal =3D __pa(MAX_DMA_ADDRESS);
->> +	int node =3D NUMA_NO_NODE;
->> +	void *ptr;
->> +
->> +	if (cpu_to_nd_fn)
->> +		node =3D cpu_to_nd_fn(cpu);
->> +
->> +	if (node =3D NUMA_NO_NODE || !node_online(node) || !NODE_DATA(node)) {
->> +		ptr =3D memblock_alloc_from(size, align, goal);
->> +	} else {
->> +		ptr =3D memblock_alloc_try_nid(size, align, goal,
->> +					     MEMBLOCK_ALLOC_ACCESSIBLE, node);
->> +	}
->> +	return ptr;
->> +}
-> My preference here would be to keep this identical to the x86
-> implementation where we #ifdef CONFIG_NUMA.
+>>  drivers/memory/emif.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/memory/emif.c b/drivers/memory/emif.c
+>> index 762d0c0f0716..cab10d5274a0 100644
+>> --- a/drivers/memory/emif.c
+>> +++ b/drivers/memory/emif.c
+>> @@ -630,7 +630,7 @@ static irqreturn_t emif_threaded_isr(int irq, void *dev_id)
+>>  		dev_emerg(emif->dev, "SDRAM temperature exceeds operating limit.. Needs shut down!!!\n");
+>>  
+>>  		/* If we have Power OFF ability, use it, else try restarting */
+>> -		if (pm_power_off) {
+>> +		if (kernel_can_power_off()) {
+>>  			kernel_power_off();
+>>  		} else {
+>>  			WARN(1, "FIXME: NO pm_power_off!!! trying restart\n");
+> 
+> BTW, this part of the code seems to be better moved to generic code that
+> could replace POWER_OFF request with REBOOT like it is done for reboot()
+> syscall.
 
-I will add back '#ifdef CONFIG_NUMA',=C2=A0 also will add back the=20
-pr_debug/pr_info part as x86 does,
-
-> Overall this makes sense.
->
-> Thanks,
-> Dennis
-> .
+Not sure that it can be done. Somebody will have to verify that it won't
+break all those platform power-off handlers. Better to keep this code
+as-is in the context of this patchset.
