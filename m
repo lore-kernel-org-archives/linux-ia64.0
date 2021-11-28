@@ -1,35 +1,27 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Wed, 24 Nov 2021 23:18:00 +0000
-Subject: Re: [PATCH 1/1] futex: Wireup futex_waitv syscall
-Message-Id: <87v90hjg7r.ffs@tglx>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Sun, 28 Nov 2021 21:53:51 +0000
+Subject: Re: [PATCH v4 08/25] kernel: Add combined power-off+restart handler call chain API
+Message-Id: <1fa2d9d5-f5f6-77f5-adf6-827921acce49@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <CAK8P3a3pQW59NVF=5P+ZiBjNJmnWh+iTZUHvqHBrXkHA6pMd4g@mail.gmail.com>
- <20211124132112.11641-1-andrealmeid@collabora.com>
- <CAK8P3a2BXefTw68yoZ9U0F=ASC3=EZDc5PDQCJ16MmXtynd59g@mail.gmail.com>
-In-Reply-To: <CAK8P3a2BXefTw68yoZ9U0F=ASC3=EZDc5PDQCJ16MmXtynd59g@mail.gmail.com>
+References: <20211126180101.27818-1-digetx@gmail.com>
+ <20211126180101.27818-9-digetx@gmail.com> <YaLQqks8cB0vWp6Q@qmqm.qmqm.pl>
+ <9213569e-0f40-0df1-4710-8dab564e12d6@gmail.com>
+ <YaPx0kY7poGpwCL9@qmqm.qmqm.pl>
+In-Reply-To: <YaPx0kY7poGpwCL9@qmqm.qmqm.pl>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
-To: Arnd Bergmann <arnd@arndb.de>, =?utf-8?Q?Andr=C3=A9?= Almeida <andrealmeid@collabora.com>
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Michael Ellerman <mpe@ellerman.id.au>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, David Miller <davem@davemloft.net>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, alpha <linux-alpha@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-m68k <linux-m68k@lists.linux-m68k.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, Linux-sh list <linux-sh@vger.kernel.org>, sparclinux <sparclinux@vger.kernel.org>, "open list:TENSILICA XTENSA PORT (xtensa)" <linux-xtensa@linux-xtensa.org>, Andrew Morton <akpm@linux-foundation.org>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Boqun Feng <boqun.feng@gmail.com>, Linux-Next Mailing List <linux-next@vger.kernel.org>, lkft-triage@lists.linaro.org, Waiman Long <longman@redhat.com>, Minchan Kim <minchan@kernel.org>, Ingo Molnar <mingo@redhat.com>, Naresh Kamboju <naresh.kamboju@linaro.org>, Peter Zijlstra <peterz@infradead.org>, Rob Landley <rob@landley.net>, Sergey Senozhatsky <senozhatsky@chromium.org>, Stephen Rothwell <sfr@canb.auug.org.au>, Mike Galbraith <umgwanakikbuti@gmail.com>, Will Deacon <will@kernel.org>
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
+Cc: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-On Wed, Nov 24 2021 at 15:29, Arnd Bergmann wrote:
-> On Wed, Nov 24, 2021 at 2:21 PM André Almeida <andrealmeid@collabora.com> wrote:
->>
->> Wireup futex_waitv syscall for all remaining archs.
->>
->> Signed-off-by: André Almeida <andrealmeid@collabora.com>
->
-> Reviewed-by: Arnd Bergmann <arnd@arndb.de>
->
-> I double-checked that futex_waitv() doesn't need any architecture specific
-> hacks, and that the list above is complete.
->
-> Should I take this through the asm-generic tree, or would you send it
-> through the tip tree?
+29.11.2021 00:17, Michał Mirosław пишет:
+>> I'm having trouble with parsing this comment. Could you please try to
+>> rephrase it? I don't see how you could check whether power-off handler
+>> is available if you'll mix all handlers together.
+> If notify_call_chain() would be fixed to return NOTIFY_OK if any call
+> returned NOTIFY_OK, then this would be a clear way to gather the
+> answer if any of the handlers will attempt the final action (reboot or
+> power off).
+> 
 
-Feel free to pick it up.
-
-Thanks,
-
-        tglx
+Could you please show a code snippet that implements your suggestion?
