@@ -1,59 +1,34 @@
-From: Anton Ivanov <anton.ivanov@cambridgegreys.com>
-Date: Fri, 26 Nov 2021 18:22:30 +0000
-Subject: Re: [PATCH 4.9] hugetlbfs: flush TLBs correctly after huge_pmd_unshare
-Message-Id: <5e2db11a-46ac-9b15-7b76-f27b718606c5@cambridgegreys.com>
+From: Lee Jones <lee.jones@linaro.org>
+Date: Mon, 29 Nov 2021 11:55:01 +0000
+Subject: Re: [PATCH v2 28/45] mfd: rn5t618: Use devm_register_power_handler()
+Message-Id: <YaS/lStp2b8GhVxw@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <3BD89231-2CB9-4CE5-B0FA-5B58419D7CB8@gmail.com>
- <7a2feed4-7c73-c7ad-881e-c980235c8293@cambridgegreys.com>
- <C1607574-0A6F-4CEC-B488-795750EEF968@gmail.com>
-In-Reply-To: <C1607574-0A6F-4CEC-B488-795750EEF968@gmail.com>
+References: <20211027211715.12671-1-digetx@gmail.com>
+ <20211027211715.12671-29-digetx@gmail.com>
+In-Reply-To: <20211027211715.12671-29-digetx@gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Nadav Amit <nadav.amit@gmail.com>
-Cc: Nick Piggin <npiggin@gmail.com>, Peter Zijlstra <peterz@infradead.org>, Will Deacon <will@kernel.org>, "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>, LKML <linux-kernel@vger.kernel.org>, Linux-MM <linux-mm@kvack.org>, linux-s390 <linux-s390@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, linux-um@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-arch <linux-arch@vger.kernel.org>, Mike Kravetz <mike.kravetz@oracle.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Dmitry Osipenko <digetx@gmail.com>
+Cc: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, "Rafael J . Wysocki" <rafael@kernel.org>, Mark Brown <broonie@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Russell King <linux@armlinux.org.uk>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Linus Walleij <linus.walleij@linaro.org>, Chen-Yu Tsai <wens@csie.org>, Jonathan =?iso-8859-1?Q?Neusch=E4fer?= <j.neuschaefer@gmx.net>, Tony Lindgren <tony@atomide.com>, Liam Girdwood <lgirdwood@gmail.com>, Philipp Zabel <p.zabel@pengutronix.de>, Vladimir Zapolskiy <vz@mleia.com>, Avi Fishman <avifishman70@gmail.com>, Tomer Maimon <tmaimon77@gmail.com>, Tali Perry <tali.perry1@gmail.com>, Patrick Venture <venture@google.com>, Nancy Yuen <yuenn@google.com>, Benjamin Fair <benjaminfair@google.com>, Pavel Machek <pavel@ucw.cz>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-omap@vger.kernel.org, openbmc@lists.ozlabs.org, linux-tegra@vger.kernel.org, linux-pm@vger.kernel.org
 
-On 26/11/2021 17:49, Nadav Amit wrote:
-> 
->> On Nov 26, 2021, at 2:21 AM, Anton Ivanov <anton.ivanov@cambridgegreys.com> wrote:
->>
->>
->>
->> On 26/11/2021 06:08, Nadav Amit wrote:
->>> Below is a patch to address CVE-2021-4002 [1] that I created to backport
->>> to 4.9. The stable kernels of 4.14 and prior ones do not have unified
->>> TLB flushing code, and I managed to mess up the arch code a couple of
->>> times.
->>> Now that the CVE is public, I would appreciate your review of this
->>> patch. I send 4.9 for review - the other ones (4.14 and prior) are
->>> pretty similar.
->>> [1] https://www.openwall.com/lists/oss-security/2021/11/25/1
->>> Thanks,
->>> Nadav
->>
->> I do not quite see the rationale for patching um
->>
->> It supports only standard size pages. You should not be able to map a huge page there (and hugetlbfs).
->>
->> I have "non-standard page size" somewhere towards the end of my queue, but it keeps falling through - not enough spare time to work on it.
-> 
-> Thanks for your review.
-> 
-> I did not look at the dependencies, so I did not even look if
-> hugetlbfs depends on !um.
-> 
-> Do you prefer that for um, I will just do a BUG()? I prefer
-> to have a stub just to avoid potential build issues.
-> 
-> 
+On Thu, 28 Oct 2021, Dmitry Osipenko wrote:
 
-Stub will be fine.
+> Use devm_register_power_handler() that replaces global pm_power_off
+> variable and allows to register multiple power-off handlers. It also
+> provides restart-handler support, i.e. all in one API.
+> 
+> Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
+> ---
+>  drivers/mfd/rn5t618.c | 56 ++++++++++++++++---------------------------
+>  1 file changed, 21 insertions(+), 35 deletions(-)
 
-I was just checking in case I missed something.
+For my own reference (apply this as-is to your sign-off block):
 
-Brgds,
+  Acked-for-MFD-by: Lee Jones <lee.jones@linaro.org>
 
 -- 
-Anton R. Ivanov
-Cambridgegreys Limited. Registered in England. Company Number 10273661
-https://www.cambridgegreys.com/
+Lee Jones [李琼斯]
+Senior Technical Lead - Developer Services
+Linaro.org │ Open source software for Arm SoCs
+Follow Linaro: Facebook | Twitter | Blog
