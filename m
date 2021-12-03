@@ -1,48 +1,82 @@
-From: Dmitry Osipenko <digetx@gmail.com>
-Date: Sun, 12 Dec 2021 21:02:57 +0000
-Subject: [PATCH v5 09/21] parisc: Use do_kernel_power_off()
-Message-Id: <20211212210309.9851-10-digetx@gmail.com>
+From: Amit Daniel Kachhap <amit.kachhap@arm.com>
+Date: Fri, 03 Dec 2021 10:54:29 +0000
+Subject: [RFC PATCH 12/14] ia64/crash_dump: Use the new interface copy_oldmem_page_buf
+Message-Id: <20211203104231.17597-13-amit.kachhap@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211212210309.9851-1-digetx@gmail.com>
-In-Reply-To: <20211212210309.9851-1-digetx@gmail.com>
+References: <20211203104231.17597-1-amit.kachhap@arm.com>
+In-Reply-To: <20211203104231.17597-1-amit.kachhap@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: Christoph Hellwig <hch@lst.de>, Vincenzo Frascino <Vincenzo.Frascino@arm.com>, Kevin Brodsky <kevin.brodsky@arm.com>, linux-fsdevel <linux-fsdevel@vger.kernel.org>, kexec <kexec@lists.infradead.org>, Amit Daniel Kachhap <amit.kachhap@arm.com>, linux-ia64 <linux-ia64@vger.kernel.org>
 
-Kernel now supports chained power-off handlers. Use do_kernel_power_off()
-that invokes chained power-off handlers. It also invokes legacy
-pm_power_off() for now, which will be removed once all drivers will
-be converted to the new power-off API.
+The current interface copy_oldmem_page() passes user pointer without
+__user annotation and hence does unnecessary user/kernel pointer
+conversions during its implementation.
 
-Acked-by: Helge Deller <deller@gmx.de> # parisc
-Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
+Use the interface copy_oldmem_page_buf() to avoid this issue.
+
+Cc: linux-ia64 <linux-ia64@vger.kernel.org>
+Signed-off-by: Amit Daniel Kachhap <amit.kachhap@arm.com>
 ---
- arch/parisc/kernel/process.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ arch/ia64/kernel/crash_dump.c | 25 +++++++++++++------------
+ 1 file changed, 13 insertions(+), 12 deletions(-)
 
-diff --git a/arch/parisc/kernel/process.c b/arch/parisc/kernel/process.c
-index ea3d83b6fb62..928201b1f58f 100644
---- a/arch/parisc/kernel/process.c
-+++ b/arch/parisc/kernel/process.c
-@@ -26,6 +26,7 @@
- #include <linux/module.h>
- #include <linux/personality.h>
- #include <linux/ptrace.h>
-+#include <linux/reboot.h>
- #include <linux/sched.h>
- #include <linux/sched/debug.h>
- #include <linux/sched/task.h>
-@@ -114,8 +115,7 @@ void machine_power_off(void)
- 	pdc_chassis_send_status(PDC_CHASSIS_DIRECT_SHUTDOWN);
+diff --git a/arch/ia64/kernel/crash_dump.c b/arch/ia64/kernel/crash_dump.c
+index 0ed3c3dee4cd..1aea8dbe06de 100644
+--- a/arch/ia64/kernel/crash_dump.c
++++ b/arch/ia64/kernel/crash_dump.c
+@@ -15,37 +15,38 @@
+ #include <linux/uaccess.h>
  
- 	/* ipmi_poweroff may have been installed. */
--	if (pm_power_off)
--		pm_power_off();
-+	do_kernel_power_off();
- 		
- 	/* It seems we have no way to power the system off via
- 	 * software. The user has to press the button himself. */
+ /**
+- * copy_oldmem_page - copy one page from "oldmem"
++ * copy_oldmem_page_buf - copy one page from "oldmem"
+  * @pfn: page frame number to be copied
+- * @buf: target memory address for the copy; this can be in kernel address
+- *	space or user address space (see @userbuf)
++ * @ubuf: target user memory pointer for the copy; use copy_to_user() if this
++ * pointer is not NULL
++ * @kbuf: target kernel memory pointer for the copy; use memcpy() if this
++ * pointer is not NULL
+  * @csize: number of bytes to copy
+  * @offset: offset in bytes into the page (based on pfn) to begin the copy
+- * @userbuf: if set, @buf is in user address space, use copy_to_user(),
+- *	otherwise @buf is in kernel address space, use memcpy().
+  *
+- * Copy a page from "oldmem". For this page, there is no pte mapped
+- * in the current kernel. We stitch up a pte, similar to kmap_atomic.
++ * Copy a page from "oldmem" into the buffer pointed by either @ubuf or @kbuf.
++ * For this page, there is no pte mapped in the current kernel. We stitch up a
++ * pte, similar to kmap_atomic.
+  *
+  * Calling copy_to_user() in atomic context is not desirable. Hence first
+  * copying the data to a pre-allocated kernel page and then copying to user
+  * space in non-atomic context.
+  */
+ ssize_t
+-copy_oldmem_page(unsigned long pfn, char *buf,
+-		size_t csize, unsigned long offset, int userbuf)
++copy_oldmem_page_buf(unsigned long pfn, char __user *ubuf, char *kbuf,
++		     size_t csize, unsigned long offset)
+ {
+ 	void  *vaddr;
+ 
+ 	if (!csize)
+ 		return 0;
+ 	vaddr = __va(pfn<<PAGE_SHIFT);
+-	if (userbuf) {
+-		if (copy_to_user(buf, (vaddr + offset), csize)) {
++	if (ubuf) {
++		if (copy_to_user(ubuf, (vaddr + offset), csize)) {
+ 			return -EFAULT;
+ 		}
+ 	} else
+-		memcpy(buf, (vaddr + offset), csize);
++		memcpy(kbuf, (vaddr + offset), csize);
+ 	return csize;
+ }
+ 
 -- 
-2.33.1
+2.17.1
