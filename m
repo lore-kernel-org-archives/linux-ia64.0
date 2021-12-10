@@ -1,59 +1,150 @@
-From: Matthew Wilcox <willy@infradead.org>
-Date: Tue, 14 Dec 2021 13:14:48 +0000
-Subject: Re: [PATCH v2 0/2] kdump: simplify code
-Message-Id: <YbiYyDRW9aB9jFMD@casper.infradead.org>
+From: "Rafael J. Wysocki" <rafael@kernel.org>
+Date: Fri, 10 Dec 2021 18:19:52 +0000
+Subject: Re: [PATCH v4 03/25] notifier: Add atomic/blocking_notifier_has_unique_priority()
+Message-Id: <CAJZ5v0jTJ3f7oUUR690PGaPJsxA8yzua9XDa8MONBHMzHnDfOQ@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1639193588-7027-1-git-send-email-yangtiezhu@loongson.cn>
- <0c5cb37139af4f3e85cc2c5115d7d006@AcuMS.aculab.com>
- <YbXhVxRJfjvKw++W@casper.infradead.org>
- <b7a75ae9253445af81ff2fedd5268af4@AcuMS.aculab.com>
- <YbdcKK3Cq6ITTg/l@casper.infradead.org>
- <36440c0f-8b8a-c401-684f-6f54ce9c061e@loongson.cn>
-In-Reply-To: <36440c0f-8b8a-c401-684f-6f54ce9c061e@loongson.cn>
+References: <20211126180101.27818-1-digetx@gmail.com> <20211126180101.27818-4-digetx@gmail.com>
+In-Reply-To: <20211126180101.27818-4-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tiezhu Yang <yangtiezhu@loongson.cn>
-Cc: David Laight <David.Laight@aculab.com>, Dave Young <dyoung@redhat.com>, Baoquan He <bhe@redhat.com>, Vivek Goyal <vgoyal@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "x86@kernel.org" <x86@kernel.org>, "linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>, "kexec@lists.infradead.org" <kexec@lists.infradead.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Xuefeng Li <lixuefeng@loongson.cn>, Christophe Leroy <christophe.leroy@csgroup.eu>
+To: Dmitry Osipenko <digetx@gmail.com>
+Cc: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, the arch/x86 maintainers <x86@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>, Linux ARM <linux-arm-kernel@lists.infradead.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, linux-riscv@lists.infradead.org, Linux-sh list <linux-sh@vger.kernel.org>, xen-devel@lists.xenproject.org, ACPI Devel Maling List <linux-acpi@vger.kernel.org>, Linux PM <linux-pm@vger.kernel.org>, linux-tegra <linux-tegra@vger.kernel.org>
 
-On Tue, Dec 14, 2021 at 06:03:11PM +0800, Tiezhu Yang wrote:
-> On 12/13/2021 10:43 PM, Matthew Wilcox wrote:
-> > On Mon, Dec 13, 2021 at 08:30:33AM +0000, David Laight wrote:
-> > > From: Matthew Wilcox
-> > > > Sent: 12 December 2021 11:48
-> > > > 
-> > > > On Sat, Dec 11, 2021 at 05:53:46PM +0000, David Laight wrote:
-> > > > > From: Tiezhu Yang
-> > > > > > Sent: 11 December 2021 03:33
-> > > > > > 
-> > > > > > v2:
-> > > > > >   -- add copy_to_user_or_kernel() in lib/usercopy.c
-> > > > > >   -- define userbuf as bool type
-> > > > > 
-> > > > > Instead of having a flag to indicate whether the buffer is user or kernel,
-> > > > > would it be better to have two separate buffer pointers.
-> > > > > One for a user space buffer, the other for a kernel space buffer.
-> > > > > Exactly one of the buffers should always be NULL.
-> > > > 
-> > > > No.  You should be using an iov_iter instead.  See
-> > > > https://lore.kernel.org/all/Ya4bdB0UBJCZhUSo@casper.infradead.org/
-> > > > for a start on this.
-> > > 
-> > > iov_iter gets horribly expensive...
-> > 
-> > Oh, right.  Reading the kcore is a high-performance path, my mistake.
-> > 
-> 
-> Hi,
-> 
-> Thank you for your discussions.
-> 
-> The intention of this patchset is to simplify the related code with no
-> functional changes and no side effects.
-> 
-> At this moment, if you are OK, I will send v3 used with inline function
-> copy_to_user_or_kernel() to keep it simple, maybe other more changes can
-> be done in the future if no any side effect.
+On Fri, Nov 26, 2021 at 7:02 PM Dmitry Osipenko <digetx@gmail.com> wrote:
+>
+> Add atomic/blocking_notifier_has_unique_priority() helpers which return
+> true if given handler has unique priority.
+>
+> Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
+> ---
+>  include/linux/notifier.h |  5 +++
+>  kernel/notifier.c        | 69 ++++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 74 insertions(+)
+>
+> diff --git a/include/linux/notifier.h b/include/linux/notifier.h
+> index 924c9d7c8e73..2c4036f225e1 100644
+> --- a/include/linux/notifier.h
+> +++ b/include/linux/notifier.h
+> @@ -175,6 +175,11 @@ int raw_notifier_call_chain_robust(struct raw_notifier_head *nh,
+>
+>  bool blocking_notifier_call_chain_is_empty(struct blocking_notifier_head *nh);
+>
+> +bool atomic_notifier_has_unique_priority(struct atomic_notifier_head *nh,
+> +               struct notifier_block *nb);
+> +bool blocking_notifier_has_unique_priority(struct blocking_notifier_head *nh,
+> +               struct notifier_block *nb);
+> +
+>  #define NOTIFY_DONE            0x0000          /* Don't care */
+>  #define NOTIFY_OK              0x0001          /* Suits me */
+>  #define NOTIFY_STOP_MASK       0x8000          /* Don't call further */
+> diff --git a/kernel/notifier.c b/kernel/notifier.c
+> index b20cb7b9b1f0..7a325b742104 100644
+> --- a/kernel/notifier.c
+> +++ b/kernel/notifier.c
+> @@ -122,6 +122,19 @@ static int notifier_call_chain_robust(struct notifier_block **nl,
+>         return ret;
+>  }
+>
+> +static int notifier_has_unique_priority(struct notifier_block **nl,
+> +                                       struct notifier_block *n)
+> +{
+> +       while (*nl && (*nl)->priority >= n->priority) {
+> +               if ((*nl)->priority = n->priority && *nl != n)
+> +                       return false;
+> +
+> +               nl = &((*nl)->next);
+> +       }
+> +
+> +       return true;
+> +}
+> +
+>  /*
+>   *     Atomic notifier chain routines.  Registration and unregistration
+>   *     use a spinlock, and call_chain is synchronized by RCU (no locks).
+> @@ -203,6 +216,30 @@ int atomic_notifier_call_chain(struct atomic_notifier_head *nh,
+>  EXPORT_SYMBOL_GPL(atomic_notifier_call_chain);
+>  NOKPROBE_SYMBOL(atomic_notifier_call_chain);
+>
+> +/**
+> + *     atomic_notifier_has_unique_priority - Checks whether notifier's priority is unique
+> + *     @nh: Pointer to head of the atomic notifier chain
+> + *     @n: Entry in notifier chain to check
+> + *
+> + *     Checks whether there is another notifier in the chain with the same priority.
+> + *     Must be called in process context.
+> + *
+> + *     Returns true if priority is unique, false otherwise.
+> + */
+> +bool atomic_notifier_has_unique_priority(struct atomic_notifier_head *nh,
+> +               struct notifier_block *n)
+> +{
+> +       unsigned long flags;
+> +       bool ret;
+> +
+> +       spin_lock_irqsave(&nh->lock, flags);
+> +       ret = notifier_has_unique_priority(&nh->head, n);
+> +       spin_unlock_irqrestore(&nh->lock, flags);
 
-That would be pointless.  I already sent a series to remove this,
-which you were cc'd on.
+This only works if the caller can prevent new entries from being added
+to the list at this point or if the caller knows that they cannot be
+added for some reason, but the kerneldoc doesn't mention this
+limitation.
+
+> +
+> +       return ret;
+> +}
+> +EXPORT_SYMBOL_GPL(atomic_notifier_has_unique_priority);
+> +
+>  /*
+>   *     Blocking notifier chain routines.  All access to the chain is
+>   *     synchronized by an rwsem.
+> @@ -336,6 +373,38 @@ bool blocking_notifier_call_chain_is_empty(struct blocking_notifier_head *nh)
+>  }
+>  EXPORT_SYMBOL_GPL(blocking_notifier_call_chain_is_empty);
+>
+> +/**
+> + *     blocking_notifier_has_unique_priority - Checks whether notifier's priority is unique
+> + *     @nh: Pointer to head of the blocking notifier chain
+> + *     @n: Entry in notifier chain to check
+> + *
+> + *     Checks whether there is another notifier in the chain with the same priority.
+> + *     Must be called in process context.
+> + *
+> + *     Returns true if priority is unique, false otherwise.
+> + */
+> +bool blocking_notifier_has_unique_priority(struct blocking_notifier_head *nh,
+> +               struct notifier_block *n)
+> +{
+> +       bool ret;
+> +
+> +       /*
+> +        * This code gets used during boot-up, when task switching is
+> +        * not yet working and interrupts must remain disabled. At such
+> +        * times we must not call down_read().
+> +        */
+> +       if (system_state != SYSTEM_BOOTING)
+
+No, please don't do this, it makes the whole thing error-prone.
+
+> +               down_read(&nh->rwsem);
+> +
+> +       ret = notifier_has_unique_priority(&nh->head, n);
+> +
+> +       if (system_state != SYSTEM_BOOTING)
+> +               up_read(&nh->rwsem);
+
+And still what if a new entry with a non-unique priority is added to
+the chain at this point?
+
+> +
+> +       return ret;
+> +}
+> +EXPORT_SYMBOL_GPL(blocking_notifier_has_unique_priority);
+> +
+>  /*
+>   *     Raw notifier chain routines.  There is no protection;
+>   *     the caller must provide it.  Use at your own risk!
+> --
+> 2.33.1
+>
