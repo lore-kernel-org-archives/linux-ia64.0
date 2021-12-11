@@ -1,48 +1,144 @@
-From: Dmitry Osipenko <digetx@gmail.com>
-Date: Fri, 10 Dec 2021 18:56:31 +0000
-Subject: Re: [PATCH v4 07/25] reboot: Remove extern annotation from function prototypes
-Message-Id: <bafcaa92-5bd1-874c-c5ff-a72ebc98945d@gmail.com>
+From: Tiezhu Yang <yangtiezhu@loongson.cn>
+Date: Sat, 11 Dec 2021 03:33:07 +0000
+Subject: [PATCH v2 1/2] kdump: vmcore: remove copy_to() and add copy_to_user_or_kernel()
+Message-Id: <1639193588-7027-2-git-send-email-yangtiezhu@loongson.cn>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211126180101.27818-1-digetx@gmail.com>
- <20211126180101.27818-8-digetx@gmail.com>
- <CAJZ5v0i=zgubEtF5-Wnaqa5FMnfVUdSnEmD11-LAuYCH8ZCwrA@mail.gmail.com>
- <acf8289e-6ab8-6eda-ec06-e9044ddd9a92@gmail.com>
- <CAJZ5v0gvuteY4EtXWTKmh4-Wt-Z_dPcqfDLwc-ja1uovbV3rpw@mail.gmail.com>
-In-Reply-To: <CAJZ5v0gvuteY4EtXWTKmh4-Wt-Z_dPcqfDLwc-ja1uovbV3rpw@mail.gmail.com>
+References: <1639193588-7027-1-git-send-email-yangtiezhu@loongson.cn>
+In-Reply-To: <1639193588-7027-1-git-send-email-yangtiezhu@loongson.cn>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: "Rafael J. Wysocki" <rafael@kernel.org>
-Cc: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, the arch/x86 maintainers <x86@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>, Linux ARM <linux-arm-kernel@lists.infradead.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, linux-riscv@lists.infradead.org, Linux-sh list <linux-sh@vger.kernel.org>, xen-devel@lists.xenproject.org, ACPI Devel Maling List <linux-acpi@vger.kernel.org>, Linux PM <linux-pm@vger.kernel.org>, linux-tegra <linux-tegra@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Dave Young <dyoung@redhat.com>, Baoquan He <bhe@redhat.com>, Vivek Goyal <vgoyal@redhat.com>, Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, x86@kernel.org, linux-fsdevel@vger.kernel.org, kexec@lists.infradead.org, linux-kernel@vger.kernel.org, Xuefeng Li <lixuefeng@loongson.cn>
 
-10.12.2021 21:35, Rafael J. Wysocki пишет:
-> On Fri, Dec 10, 2021 at 7:16 PM Dmitry Osipenko <digetx@gmail.com> wrote:
->>
->> 10.12.2021 21:09, Rafael J. Wysocki пишет:
->>> On Fri, Nov 26, 2021 at 7:02 PM Dmitry Osipenko <digetx@gmail.com> wrote:
->>>>
->>>> There is no need to annotate function prototypes with 'extern', it makes
->>>> code less readable. Remove unnecessary annotations from <reboot.h>.
->>>>
->>>> Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
->>>
->>> I'm not sure that this is really useful.
->>>
->>> Personally, I tend to respect the existing conventions like this.
->>>
->>> Surely, this change is not required for the rest of the series to work.
->>
->> Problem that such things start to spread all over the kernel with a
->> copy-paste approach if there is nobody to clean up the code.
->>
->> This is not a common convention and sometimes it's getting corrected [1].
->>
->> [1] https://git.kernel.org/linus/6d7434931
-> 
-> In separate patches outside of series adding new features, if one is
-> so inclined.
-> 
+In arch/*/kernel/crash_dump*.c, there exist many similar code
+about copy_oldmem_page(), remove copy_to() in fs/proc/vmcore.c
+and add copy_to_user_or_kernel() in lib/usercopy.c, then we can
+use copy_to_user_or_kernel() to simplify the related code.
 
-Alright, I'll drop this patch then because it can't be done in parallel
-without creating the merge conflict. I'll try not to forget to come back
-to this later on.
+Signed-off-by: Tiezhu Yang <yangtiezhu@loongson.cn>
+---
+ fs/proc/vmcore.c        | 28 +++++++---------------------
+ include/linux/uaccess.h |  1 +
+ lib/usercopy.c          | 15 +++++++++++++++
+ 3 files changed, 23 insertions(+), 21 deletions(-)
+
+diff --git a/fs/proc/vmcore.c b/fs/proc/vmcore.c
+index 509f851..f67fd77 100644
+--- a/fs/proc/vmcore.c
++++ b/fs/proc/vmcore.c
+@@ -238,22 +238,8 @@ copy_oldmem_page_encrypted(unsigned long pfn, char *buf, size_t csize,
+ 	return copy_oldmem_page(pfn, buf, csize, offset, userbuf);
+ }
+ 
+-/*
+- * Copy to either kernel or user space
+- */
+-static int copy_to(void *target, void *src, size_t size, int userbuf)
+-{
+-	if (userbuf) {
+-		if (copy_to_user((char __user *) target, src, size))
+-			return -EFAULT;
+-	} else {
+-		memcpy(target, src, size);
+-	}
+-	return 0;
+-}
+-
+ #ifdef CONFIG_PROC_VMCORE_DEVICE_DUMP
+-static int vmcoredd_copy_dumps(void *dst, u64 start, size_t size, int userbuf)
++static int vmcoredd_copy_dumps(void *dst, u64 start, size_t size, bool userbuf)
+ {
+ 	struct vmcoredd_node *dump;
+ 	u64 offset = 0;
+@@ -266,7 +252,7 @@ static int vmcoredd_copy_dumps(void *dst, u64 start, size_t size, int userbuf)
+ 		if (start < offset + dump->size) {
+ 			tsz = min(offset + (u64)dump->size - start, (u64)size);
+ 			buf = dump->buf + start - offset;
+-			if (copy_to(dst, buf, tsz, userbuf)) {
++			if (copy_to_user_or_kernel(dst, buf, tsz, userbuf)) {
+ 				ret = -EFAULT;
+ 				goto out_unlock;
+ 			}
+@@ -330,7 +316,7 @@ static int vmcoredd_mmap_dumps(struct vm_area_struct *vma, unsigned long dst,
+  * returned otherwise number of bytes read are returned.
+  */
+ static ssize_t __read_vmcore(char *buffer, size_t buflen, loff_t *fpos,
+-			     int userbuf)
++			     bool userbuf)
+ {
+ 	ssize_t acc = 0, tmp;
+ 	size_t tsz;
+@@ -347,7 +333,7 @@ static ssize_t __read_vmcore(char *buffer, size_t buflen, loff_t *fpos,
+ 	/* Read ELF core header */
+ 	if (*fpos < elfcorebuf_sz) {
+ 		tsz = min(elfcorebuf_sz - (size_t)*fpos, buflen);
+-		if (copy_to(buffer, elfcorebuf + *fpos, tsz, userbuf))
++		if (copy_to_user_or_kernel(buffer, elfcorebuf + *fpos, tsz, userbuf))
+ 			return -EFAULT;
+ 		buflen -= tsz;
+ 		*fpos += tsz;
+@@ -395,7 +381,7 @@ static ssize_t __read_vmcore(char *buffer, size_t buflen, loff_t *fpos,
+ 		/* Read remaining elf notes */
+ 		tsz = min(elfcorebuf_sz + elfnotes_sz - (size_t)*fpos, buflen);
+ 		kaddr = elfnotes_buf + *fpos - elfcorebuf_sz - vmcoredd_orig_sz;
+-		if (copy_to(buffer, kaddr, tsz, userbuf))
++		if (copy_to_user_or_kernel(buffer, kaddr, tsz, userbuf))
+ 			return -EFAULT;
+ 
+ 		buflen -= tsz;
+@@ -435,7 +421,7 @@ static ssize_t __read_vmcore(char *buffer, size_t buflen, loff_t *fpos,
+ static ssize_t read_vmcore(struct file *file, char __user *buffer,
+ 			   size_t buflen, loff_t *fpos)
+ {
+-	return __read_vmcore((__force char *) buffer, buflen, fpos, 1);
++	return __read_vmcore((__force char *) buffer, buflen, fpos, true);
+ }
+ 
+ /*
+@@ -461,7 +447,7 @@ static vm_fault_t mmap_vmcore_fault(struct vm_fault *vmf)
+ 	if (!PageUptodate(page)) {
+ 		offset = (loff_t) index << PAGE_SHIFT;
+ 		buf = __va((page_to_pfn(page) << PAGE_SHIFT));
+-		rc = __read_vmcore(buf, PAGE_SIZE, &offset, 0);
++		rc = __read_vmcore(buf, PAGE_SIZE, &offset, false);
+ 		if (rc < 0) {
+ 			unlock_page(page);
+ 			put_page(page);
+diff --git a/include/linux/uaccess.h b/include/linux/uaccess.h
+index ac03940..a25e682e 100644
+--- a/include/linux/uaccess.h
++++ b/include/linux/uaccess.h
+@@ -283,6 +283,7 @@ __copy_from_user_inatomic_nocache(void *to, const void __user *from,
+ #endif		/* ARCH_HAS_NOCACHE_UACCESS */
+ 
+ extern __must_check int check_zeroed_user(const void __user *from, size_t size);
++extern __must_check int copy_to_user_or_kernel(void *target, void *src, size_t size, bool userbuf);
+ 
+ /**
+  * copy_struct_from_user: copy a struct from userspace
+diff --git a/lib/usercopy.c b/lib/usercopy.c
+index 7413dd3..7431b1b 100644
+--- a/lib/usercopy.c
++++ b/lib/usercopy.c
+@@ -90,3 +90,18 @@ int check_zeroed_user(const void __user *from, size_t size)
+ 	return -EFAULT;
+ }
+ EXPORT_SYMBOL(check_zeroed_user);
++
++/*
++ * Copy to either user or kernel space
++ */
++int copy_to_user_or_kernel(void *target, void *src, size_t size, bool userbuf)
++{
++	if (userbuf) {
++		if (copy_to_user((char __user *) target, src, size))
++			return -EFAULT;
++	} else {
++		memcpy(target, src, size);
++	}
++	return 0;
++}
++EXPORT_SYMBOL(copy_to_user_or_kernel);
+-- 
+2.1.0
