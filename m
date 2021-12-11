@@ -1,144 +1,170 @@
-From: Tiezhu Yang <yangtiezhu@loongson.cn>
-Date: Sat, 11 Dec 2021 03:33:07 +0000
-Subject: [PATCH v2 1/2] kdump: vmcore: remove copy_to() and add copy_to_user_or_kernel()
-Message-Id: <1639193588-7027-2-git-send-email-yangtiezhu@loongson.cn>
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Sat, 11 Dec 2021 10:32:30 +0000
+Subject: Re: [PATCH v2 1/2] kdump: vmcore: remove copy_to() and add copy_to_user_or_kernel()
+Message-Id: <be0e4730-55d5-6837-65ea-fe6675342309@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1639193588-7027-1-git-send-email-yangtiezhu@loongson.cn>
-In-Reply-To: <1639193588-7027-1-git-send-email-yangtiezhu@loongson.cn>
+ <1639193588-7027-2-git-send-email-yangtiezhu@loongson.cn>
+In-Reply-To: <1639193588-7027-2-git-send-email-yangtiezhu@loongson.cn>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Dave Young <dyoung@redhat.com>, Baoquan He <bhe@redhat.com>, Vivek Goyal <vgoyal@redhat.com>, Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, x86@kernel.org, linux-fsdevel@vger.kernel.org, kexec@lists.infradead.org, linux-kernel@vger.kernel.org, Xuefeng Li <lixuefeng@loongson.cn>
+To: Tiezhu Yang <yangtiezhu@loongson.cn>, Dave Young <dyoung@redhat.com>, Baoquan He <bhe@redhat.com>, Vivek Goyal <vgoyal@redhat.com>, Andrew Morton <akpm@linux-foundation.org>
+Cc: "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, Xuefeng Li <lixuefeng@loongson.cn>, "x86@kernel.org" <x86@kernel.org>, "kexec@lists.infradead.org" <kexec@lists.infradead.org>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>, "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
 
-In arch/*/kernel/crash_dump*.c, there exist many similar code
-about copy_oldmem_page(), remove copy_to() in fs/proc/vmcore.c
-and add copy_to_user_or_kernel() in lib/usercopy.c, then we can
-use copy_to_user_or_kernel() to simplify the related code.
-
-Signed-off-by: Tiezhu Yang <yangtiezhu@loongson.cn>
----
- fs/proc/vmcore.c        | 28 +++++++---------------------
- include/linux/uaccess.h |  1 +
- lib/usercopy.c          | 15 +++++++++++++++
- 3 files changed, 23 insertions(+), 21 deletions(-)
-
-diff --git a/fs/proc/vmcore.c b/fs/proc/vmcore.c
-index 509f851..f67fd77 100644
---- a/fs/proc/vmcore.c
-+++ b/fs/proc/vmcore.c
-@@ -238,22 +238,8 @@ copy_oldmem_page_encrypted(unsigned long pfn, char *buf, size_t csize,
- 	return copy_oldmem_page(pfn, buf, csize, offset, userbuf);
- }
- 
--/*
-- * Copy to either kernel or user space
-- */
--static int copy_to(void *target, void *src, size_t size, int userbuf)
--{
--	if (userbuf) {
--		if (copy_to_user((char __user *) target, src, size))
--			return -EFAULT;
--	} else {
--		memcpy(target, src, size);
--	}
--	return 0;
--}
--
- #ifdef CONFIG_PROC_VMCORE_DEVICE_DUMP
--static int vmcoredd_copy_dumps(void *dst, u64 start, size_t size, int userbuf)
-+static int vmcoredd_copy_dumps(void *dst, u64 start, size_t size, bool userbuf)
- {
- 	struct vmcoredd_node *dump;
- 	u64 offset = 0;
-@@ -266,7 +252,7 @@ static int vmcoredd_copy_dumps(void *dst, u64 start, size_t size, int userbuf)
- 		if (start < offset + dump->size) {
- 			tsz = min(offset + (u64)dump->size - start, (u64)size);
- 			buf = dump->buf + start - offset;
--			if (copy_to(dst, buf, tsz, userbuf)) {
-+			if (copy_to_user_or_kernel(dst, buf, tsz, userbuf)) {
- 				ret = -EFAULT;
- 				goto out_unlock;
- 			}
-@@ -330,7 +316,7 @@ static int vmcoredd_mmap_dumps(struct vm_area_struct *vma, unsigned long dst,
-  * returned otherwise number of bytes read are returned.
-  */
- static ssize_t __read_vmcore(char *buffer, size_t buflen, loff_t *fpos,
--			     int userbuf)
-+			     bool userbuf)
- {
- 	ssize_t acc = 0, tmp;
- 	size_t tsz;
-@@ -347,7 +333,7 @@ static ssize_t __read_vmcore(char *buffer, size_t buflen, loff_t *fpos,
- 	/* Read ELF core header */
- 	if (*fpos < elfcorebuf_sz) {
- 		tsz = min(elfcorebuf_sz - (size_t)*fpos, buflen);
--		if (copy_to(buffer, elfcorebuf + *fpos, tsz, userbuf))
-+		if (copy_to_user_or_kernel(buffer, elfcorebuf + *fpos, tsz, userbuf))
- 			return -EFAULT;
- 		buflen -= tsz;
- 		*fpos += tsz;
-@@ -395,7 +381,7 @@ static ssize_t __read_vmcore(char *buffer, size_t buflen, loff_t *fpos,
- 		/* Read remaining elf notes */
- 		tsz = min(elfcorebuf_sz + elfnotes_sz - (size_t)*fpos, buflen);
- 		kaddr = elfnotes_buf + *fpos - elfcorebuf_sz - vmcoredd_orig_sz;
--		if (copy_to(buffer, kaddr, tsz, userbuf))
-+		if (copy_to_user_or_kernel(buffer, kaddr, tsz, userbuf))
- 			return -EFAULT;
- 
- 		buflen -= tsz;
-@@ -435,7 +421,7 @@ static ssize_t __read_vmcore(char *buffer, size_t buflen, loff_t *fpos,
- static ssize_t read_vmcore(struct file *file, char __user *buffer,
- 			   size_t buflen, loff_t *fpos)
- {
--	return __read_vmcore((__force char *) buffer, buflen, fpos, 1);
-+	return __read_vmcore((__force char *) buffer, buflen, fpos, true);
- }
- 
- /*
-@@ -461,7 +447,7 @@ static vm_fault_t mmap_vmcore_fault(struct vm_fault *vmf)
- 	if (!PageUptodate(page)) {
- 		offset = (loff_t) index << PAGE_SHIFT;
- 		buf = __va((page_to_pfn(page) << PAGE_SHIFT));
--		rc = __read_vmcore(buf, PAGE_SIZE, &offset, 0);
-+		rc = __read_vmcore(buf, PAGE_SIZE, &offset, false);
- 		if (rc < 0) {
- 			unlock_page(page);
- 			put_page(page);
-diff --git a/include/linux/uaccess.h b/include/linux/uaccess.h
-index ac03940..a25e682e 100644
---- a/include/linux/uaccess.h
-+++ b/include/linux/uaccess.h
-@@ -283,6 +283,7 @@ __copy_from_user_inatomic_nocache(void *to, const void __user *from,
- #endif		/* ARCH_HAS_NOCACHE_UACCESS */
- 
- extern __must_check int check_zeroed_user(const void __user *from, size_t size);
-+extern __must_check int copy_to_user_or_kernel(void *target, void *src, size_t size, bool userbuf);
- 
- /**
-  * copy_struct_from_user: copy a struct from userspace
-diff --git a/lib/usercopy.c b/lib/usercopy.c
-index 7413dd3..7431b1b 100644
---- a/lib/usercopy.c
-+++ b/lib/usercopy.c
-@@ -90,3 +90,18 @@ int check_zeroed_user(const void __user *from, size_t size)
- 	return -EFAULT;
- }
- EXPORT_SYMBOL(check_zeroed_user);
-+
-+/*
-+ * Copy to either user or kernel space
-+ */
-+int copy_to_user_or_kernel(void *target, void *src, size_t size, bool userbuf)
-+{
-+	if (userbuf) {
-+		if (copy_to_user((char __user *) target, src, size))
-+			return -EFAULT;
-+	} else {
-+		memcpy(target, src, size);
-+	}
-+	return 0;
-+}
-+EXPORT_SYMBOL(copy_to_user_or_kernel);
--- 
-2.1.0
+DQoNCkxlIDExLzEyLzIwMjEgw6AgMDQ6MzMsIFRpZXpodSBZYW5nIGEgw6ljcml0wqA6DQo+IElu
+IGFyY2gvKi9rZXJuZWwvY3Jhc2hfZHVtcCouYywgdGhlcmUgZXhpc3QgbWFueSBzaW1pbGFyIGNv
+ZGUNCj4gYWJvdXQgY29weV9vbGRtZW1fcGFnZSgpLCByZW1vdmUgY29weV90bygpIGluIGZzL3By
+b2Mvdm1jb3JlLmMNCj4gYW5kIGFkZCBjb3B5X3RvX3VzZXJfb3Jfa2VybmVsKCkgaW4gbGliL3Vz
+ZXJjb3B5LmMsIHRoZW4gd2UgY2FuDQo+IHVzZSBjb3B5X3RvX3VzZXJfb3Jfa2VybmVsKCkgdG8g
+c2ltcGxpZnkgdGhlIHJlbGF0ZWQgY29kZS4NCg0KSXQgc2hvdWxkIGJlIGFuIGlubGluZSBmdW5j
+dGlvbiBpbiB1YWNjZXNzLmgsIHNlZSBiZWxvdyB3aHkuDQoNCj4gDQo+IFNpZ25lZC1vZmYtYnk6
+IFRpZXpodSBZYW5nIDx5YW5ndGllemh1QGxvb25nc29uLmNuPg0KPiAtLS0NCj4gICBmcy9wcm9j
+L3ZtY29yZS5jICAgICAgICB8IDI4ICsrKysrKystLS0tLS0tLS0tLS0tLS0tLS0tLS0NCj4gICBp
+bmNsdWRlL2xpbnV4L3VhY2Nlc3MuaCB8ICAxICsNCj4gICBsaWIvdXNlcmNvcHkuYyAgICAgICAg
+ICB8IDE1ICsrKysrKysrKysrKysrKw0KPiAgIDMgZmlsZXMgY2hhbmdlZCwgMjMgaW5zZXJ0aW9u
+cygrKSwgMjEgZGVsZXRpb25zKC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEvZnMvcHJvYy92bWNvcmUu
+YyBiL2ZzL3Byb2Mvdm1jb3JlLmMNCj4gaW5kZXggNTA5Zjg1MS4uZjY3ZmQ3NyAxMDA2NDQNCj4g
+LS0tIGEvZnMvcHJvYy92bWNvcmUuYw0KPiArKysgYi9mcy9wcm9jL3ZtY29yZS5jDQo+IEBAIC0y
+MzgsMjIgKzIzOCw4IEBAIGNvcHlfb2xkbWVtX3BhZ2VfZW5jcnlwdGVkKHVuc2lnbmVkIGxvbmcg
+cGZuLCBjaGFyICpidWYsIHNpemVfdCBjc2l6ZSwNCj4gICAJcmV0dXJuIGNvcHlfb2xkbWVtX3Bh
+Z2UocGZuLCBidWYsIGNzaXplLCBvZmZzZXQsIHVzZXJidWYpOw0KPiAgIH0NCj4gICANCj4gLS8q
+DQo+IC0gKiBDb3B5IHRvIGVpdGhlciBrZXJuZWwgb3IgdXNlciBzcGFjZQ0KPiAtICovDQo+IC1z
+dGF0aWMgaW50IGNvcHlfdG8odm9pZCAqdGFyZ2V0LCB2b2lkICpzcmMsIHNpemVfdCBzaXplLCBp
+bnQgdXNlcmJ1ZikNCj4gLXsNCj4gLQlpZiAodXNlcmJ1Zikgew0KPiAtCQlpZiAoY29weV90b191
+c2VyKChjaGFyIF9fdXNlciAqKSB0YXJnZXQsIHNyYywgc2l6ZSkpDQo+IC0JCQlyZXR1cm4gLUVG
+QVVMVDsNCj4gLQl9IGVsc2Ugew0KPiAtCQltZW1jcHkodGFyZ2V0LCBzcmMsIHNpemUpOw0KPiAt
+CX0NCj4gLQlyZXR1cm4gMDsNCj4gLX0NCj4gLQ0KPiAgICNpZmRlZiBDT05GSUdfUFJPQ19WTUNP
+UkVfREVWSUNFX0RVTVANCj4gLXN0YXRpYyBpbnQgdm1jb3JlZGRfY29weV9kdW1wcyh2b2lkICpk
+c3QsIHU2NCBzdGFydCwgc2l6ZV90IHNpemUsIGludCB1c2VyYnVmKQ0KPiArc3RhdGljIGludCB2
+bWNvcmVkZF9jb3B5X2R1bXBzKHZvaWQgKmRzdCwgdTY0IHN0YXJ0LCBzaXplX3Qgc2l6ZSwgYm9v
+bCB1c2VyYnVmKQ0KDQpDaGFuZ2luZyBpbnQgdG8gYm9vbCBpbiBhbGwgdGhlIGNhbGxlcnMgc2hv
+dWxkIGJlIGFub3RoZXIgcGF0Y2guIFlvdSBjYW4gDQpoYXZlIGNvcHlfdG9fdXNlcl9vcl9rZXJu
+ZWwoKSB0YWtlIGEgYm9vbCBpbiB0aGUgcGF0Y2ggd2hpbGUgc3RpbGwgDQpoYXZpbmcgYWxsIHRo
+ZSBjYWxsZXJzIHVzaW5nIGFuIGludC4NCg0KPiAgIHsNCj4gICAJc3RydWN0IHZtY29yZWRkX25v
+ZGUgKmR1bXA7DQo+ICAgCXU2NCBvZmZzZXQgPSAwOw0KPiBAQCAtMjY2LDcgKzI1Miw3IEBAIHN0
+YXRpYyBpbnQgdm1jb3JlZGRfY29weV9kdW1wcyh2b2lkICpkc3QsIHU2NCBzdGFydCwgc2l6ZV90
+IHNpemUsIGludCB1c2VyYnVmKQ0KPiAgIAkJaWYgKHN0YXJ0IDwgb2Zmc2V0ICsgZHVtcC0+c2l6
+ZSkgew0KPiAgIAkJCXRzeiA9IG1pbihvZmZzZXQgKyAodTY0KWR1bXAtPnNpemUgLSBzdGFydCwg
+KHU2NClzaXplKTsNCj4gICAJCQlidWYgPSBkdW1wLT5idWYgKyBzdGFydCAtIG9mZnNldDsNCj4g
+LQkJCWlmIChjb3B5X3RvKGRzdCwgYnVmLCB0c3osIHVzZXJidWYpKSB7DQo+ICsJCQlpZiAoY29w
+eV90b191c2VyX29yX2tlcm5lbChkc3QsIGJ1ZiwgdHN6LCB1c2VyYnVmKSkgew0KPiAgIAkJCQly
+ZXQgPSAtRUZBVUxUOw0KPiAgIAkJCQlnb3RvIG91dF91bmxvY2s7DQo+ICAgCQkJfQ0KPiBAQCAt
+MzMwLDcgKzMxNiw3IEBAIHN0YXRpYyBpbnQgdm1jb3JlZGRfbW1hcF9kdW1wcyhzdHJ1Y3Qgdm1f
+YXJlYV9zdHJ1Y3QgKnZtYSwgdW5zaWduZWQgbG9uZyBkc3QsDQo+ICAgICogcmV0dXJuZWQgb3Ro
+ZXJ3aXNlIG51bWJlciBvZiBieXRlcyByZWFkIGFyZSByZXR1cm5lZC4NCj4gICAgKi8NCj4gICBz
+dGF0aWMgc3NpemVfdCBfX3JlYWRfdm1jb3JlKGNoYXIgKmJ1ZmZlciwgc2l6ZV90IGJ1Zmxlbiwg
+bG9mZl90ICpmcG9zLA0KPiAtCQkJICAgICBpbnQgdXNlcmJ1ZikNCj4gKwkJCSAgICAgYm9vbCB1
+c2VyYnVmKQ0KPiAgIHsNCj4gICAJc3NpemVfdCBhY2MgPSAwLCB0bXA7DQo+ICAgCXNpemVfdCB0
+c3o7DQo+IEBAIC0zNDcsNyArMzMzLDcgQEAgc3RhdGljIHNzaXplX3QgX19yZWFkX3ZtY29yZShj
+aGFyICpidWZmZXIsIHNpemVfdCBidWZsZW4sIGxvZmZfdCAqZnBvcywNCj4gICAJLyogUmVhZCBF
+TEYgY29yZSBoZWFkZXIgKi8NCj4gICAJaWYgKCpmcG9zIDwgZWxmY29yZWJ1Zl9zeikgew0KPiAg
+IAkJdHN6ID0gbWluKGVsZmNvcmVidWZfc3ogLSAoc2l6ZV90KSpmcG9zLCBidWZsZW4pOw0KPiAt
+CQlpZiAoY29weV90byhidWZmZXIsIGVsZmNvcmVidWYgKyAqZnBvcywgdHN6LCB1c2VyYnVmKSkN
+Cj4gKwkJaWYgKGNvcHlfdG9fdXNlcl9vcl9rZXJuZWwoYnVmZmVyLCBlbGZjb3JlYnVmICsgKmZw
+b3MsIHRzeiwgdXNlcmJ1ZikpDQo+ICAgCQkJcmV0dXJuIC1FRkFVTFQ7DQo+ICAgCQlidWZsZW4g
+LT0gdHN6Ow0KPiAgIAkJKmZwb3MgKz0gdHN6Ow0KPiBAQCAtMzk1LDcgKzM4MSw3IEBAIHN0YXRp
+YyBzc2l6ZV90IF9fcmVhZF92bWNvcmUoY2hhciAqYnVmZmVyLCBzaXplX3QgYnVmbGVuLCBsb2Zm
+X3QgKmZwb3MsDQo+ICAgCQkvKiBSZWFkIHJlbWFpbmluZyBlbGYgbm90ZXMgKi8NCj4gICAJCXRz
+eiA9IG1pbihlbGZjb3JlYnVmX3N6ICsgZWxmbm90ZXNfc3ogLSAoc2l6ZV90KSpmcG9zLCBidWZs
+ZW4pOw0KPiAgIAkJa2FkZHIgPSBlbGZub3Rlc19idWYgKyAqZnBvcyAtIGVsZmNvcmVidWZfc3og
+LSB2bWNvcmVkZF9vcmlnX3N6Ow0KPiAtCQlpZiAoY29weV90byhidWZmZXIsIGthZGRyLCB0c3os
+IHVzZXJidWYpKQ0KPiArCQlpZiAoY29weV90b191c2VyX29yX2tlcm5lbChidWZmZXIsIGthZGRy
+LCB0c3osIHVzZXJidWYpKQ0KPiAgIAkJCXJldHVybiAtRUZBVUxUOw0KPiAgIA0KPiAgIAkJYnVm
+bGVuIC09IHRzejsNCj4gQEAgLTQzNSw3ICs0MjEsNyBAQCBzdGF0aWMgc3NpemVfdCBfX3JlYWRf
+dm1jb3JlKGNoYXIgKmJ1ZmZlciwgc2l6ZV90IGJ1ZmxlbiwgbG9mZl90ICpmcG9zLA0KPiAgIHN0
+YXRpYyBzc2l6ZV90IHJlYWRfdm1jb3JlKHN0cnVjdCBmaWxlICpmaWxlLCBjaGFyIF9fdXNlciAq
+YnVmZmVyLA0KPiAgIAkJCSAgIHNpemVfdCBidWZsZW4sIGxvZmZfdCAqZnBvcykNCj4gICB7DQo+
+IC0JcmV0dXJuIF9fcmVhZF92bWNvcmUoKF9fZm9yY2UgY2hhciAqKSBidWZmZXIsIGJ1Zmxlbiwg
+ZnBvcywgMSk7DQo+ICsJcmV0dXJuIF9fcmVhZF92bWNvcmUoKF9fZm9yY2UgY2hhciAqKSBidWZm
+ZXIsIGJ1ZmxlbiwgZnBvcywgdHJ1ZSk7DQo+ICAgfQ0KPiAgIA0KPiAgIC8qDQo+IEBAIC00NjEs
+NyArNDQ3LDcgQEAgc3RhdGljIHZtX2ZhdWx0X3QgbW1hcF92bWNvcmVfZmF1bHQoc3RydWN0IHZt
+X2ZhdWx0ICp2bWYpDQo+ICAgCWlmICghUGFnZVVwdG9kYXRlKHBhZ2UpKSB7DQo+ICAgCQlvZmZz
+ZXQgPSAobG9mZl90KSBpbmRleCA8PCBQQUdFX1NISUZUOw0KPiAgIAkJYnVmID0gX192YSgocGFn
+ZV90b19wZm4ocGFnZSkgPDwgUEFHRV9TSElGVCkpOw0KPiAtCQlyYyA9IF9fcmVhZF92bWNvcmUo
+YnVmLCBQQUdFX1NJWkUsICZvZmZzZXQsIDApOw0KPiArCQlyYyA9IF9fcmVhZF92bWNvcmUoYnVm
+LCBQQUdFX1NJWkUsICZvZmZzZXQsIGZhbHNlKTsNCj4gICAJCWlmIChyYyA8IDApIHsNCj4gICAJ
+CQl1bmxvY2tfcGFnZShwYWdlKTsNCj4gICAJCQlwdXRfcGFnZShwYWdlKTsNCj4gZGlmZiAtLWdp
+dCBhL2luY2x1ZGUvbGludXgvdWFjY2Vzcy5oIGIvaW5jbHVkZS9saW51eC91YWNjZXNzLmgNCj4g
+aW5kZXggYWMwMzk0MC4uYTI1ZTY4MmUgMTAwNjQ0DQo+IC0tLSBhL2luY2x1ZGUvbGludXgvdWFj
+Y2Vzcy5oDQo+ICsrKyBiL2luY2x1ZGUvbGludXgvdWFjY2Vzcy5oDQo+IEBAIC0yODMsNiArMjgz
+LDcgQEAgX19jb3B5X2Zyb21fdXNlcl9pbmF0b21pY19ub2NhY2hlKHZvaWQgKnRvLCBjb25zdCB2
+b2lkIF9fdXNlciAqZnJvbSwNCj4gICAjZW5kaWYJCS8qIEFSQ0hfSEFTX05PQ0FDSEVfVUFDQ0VT
+UyAqLw0KPiAgIA0KPiAgIGV4dGVybiBfX211c3RfY2hlY2sgaW50IGNoZWNrX3plcm9lZF91c2Vy
+KGNvbnN0IHZvaWQgX191c2VyICpmcm9tLCBzaXplX3Qgc2l6ZSk7DQo+ICtleHRlcm4gX19tdXN0
+X2NoZWNrIGludCBjb3B5X3RvX3VzZXJfb3Jfa2VybmVsKHZvaWQgKnRhcmdldCwgdm9pZCAqc3Jj
+LCBzaXplX3Qgc2l6ZSwgYm9vbCB1c2VyYnVmKTsNCg0KZXh0ZXJuIGtleXdvcmQgaXMgcG9pbnRs
+ZXNzIGZvciBmdW5jdGlvbiBwcm90b3R5cGVzLCBwbGVhc2UgZG9uJ3QgYWRkIA0KbmV3IG9uZXMu
+DQoNCj4gICANCj4gICAvKioNCj4gICAgKiBjb3B5X3N0cnVjdF9mcm9tX3VzZXI6IGNvcHkgYSBz
+dHJ1Y3QgZnJvbSB1c2Vyc3BhY2UNCj4gZGlmZiAtLWdpdCBhL2xpYi91c2VyY29weS5jIGIvbGli
+L3VzZXJjb3B5LmMNCj4gaW5kZXggNzQxM2RkMy4uNzQzMWIxYiAxMDA2NDQNCj4gLS0tIGEvbGli
+L3VzZXJjb3B5LmMNCj4gKysrIGIvbGliL3VzZXJjb3B5LmMNCj4gQEAgLTkwLDMgKzkwLDE4IEBA
+IGludCBjaGVja196ZXJvZWRfdXNlcihjb25zdCB2b2lkIF9fdXNlciAqZnJvbSwgc2l6ZV90IHNp
+emUpDQo+ICAgCXJldHVybiAtRUZBVUxUOw0KPiAgIH0NCj4gICBFWFBPUlRfU1lNQk9MKGNoZWNr
+X3plcm9lZF91c2VyKTsNCj4gKw0KPiArLyoNCj4gKyAqIENvcHkgdG8gZWl0aGVyIHVzZXIgb3Ig
+a2VybmVsIHNwYWNlDQo+ICsgKi8NCj4gK2ludCBjb3B5X3RvX3VzZXJfb3Jfa2VybmVsKHZvaWQg
+KnRhcmdldCwgdm9pZCAqc3JjLCBzaXplX3Qgc2l6ZSwgYm9vbCB1c2VyYnVmKQ0KPiArew0KPiAr
+CWlmICh1c2VyYnVmKSB7DQo+ICsJCWlmIChjb3B5X3RvX3VzZXIoKGNoYXIgX191c2VyICopIHRh
+cmdldCwgc3JjLCBzaXplKSkNCj4gKwkJCXJldHVybiAtRUZBVUxUOw0KPiArCX0gZWxzZSB7DQo+
+ICsJCW1lbWNweSh0YXJnZXQsIHNyYywgc2l6ZSk7DQo+ICsJfQ0KPiArCXJldHVybiAwOw0KPiAr
+fQ0KPiArRVhQT1JUX1NZTUJPTChjb3B5X3RvX3VzZXJfb3Jfa2VybmVsKTsNCj4gDQoNClJlZiBt
+eSBhbnN3ZXIgdG8gQW5kcmV3LCBJIGRvbid0IHRoaW5rIG91dGxpbmluZyB0aGlzIGZvbmN0aW9u
+IGlzIGEgDQp3b3J0aCBpdC4gQXMgc2hvd24gaW4gdGhhdCBtYWlsLCB0aGUgc2l6ZSBvZiB0aGUg
+Y2FsbGVyIGlzIGluY3JlYXNlZCBieSANCjQgaW5zdHJ1Y3Rpb25zICh3aGljaCBpcyBpbiB0aGUg
+bm9pc2UpIGJ1dCBhbHNvIHRoaXMgbmV3IGZ1bmN0aW9uIGlzIG5vdCANCnNtYWxsLiBTbyBJIHNl
+ZSBubyBiZW5lZml0IGluIHRlcm0gb2Ygc2l6ZSwgYW5kIEkgZG9uJ3QgdGhpbmsgdGhlcmUgaXMg
+DQphbnkgYmVuZWZpdCBpbiB0ZXJtcyBvZiBwZXJmb3JtYW5jZSBlaXRoZXIuDQoNCkluIHRoaXMg
+cGF0Y2ggdGhhdCdzIHRoZSBzYW1lLiBCZWZvcmUgdGhlIHBhdGNoLCByZWFkX3ZtY29yZSgpIGhh
+cyBhIA0Kc2l6ZSBvZiAweDMzOC4NCldpdGggdGhpcyBwYXRjaCwgcmVhZF92bWNvcmUoKSBoYXMg
+YSBzaXplIG9mIDB4MzQwLiBTbyB0aGF0J3MgMiANCmluc3RydWN0aW9ucyBtb3JlLCBzbyBubyBi
+ZW5lZml0IGVpdGhlci4NCg0KU28gSSB0aGluayB0aGlzIHNob3VsZCByZW1haW4gYW4gaW5saW5l
+IGZ1bmN0aW9uIGxpa2UgaW4geW91ciBmaXJzdCANCnBhdGNoIChidXQgd2l0aCB0aGUgbmV3IG5h
+bWUpLg0KDQowMDAwMDFhNCA8Y29weV90b191c2VyX29yX2tlcm5lbD46DQogIDFhNDoJMmMgMDYg
+MDAgMDAgCWNtcHdpICAgcjYsMA0KICAxYTg6CTk0IDIxIGZmIGYwIAlzdHd1ICAgIHIxLC0xNihy
+MSkNCiAgMWFjOgk0MSA4MiAwMCA1MCAJYmVxICAgICAxZmMgPGNvcHlfdG9fdXNlcl9vcl9rZXJu
+ZWwrMHg1OD4NCiAgMWIwOgkyYyAwNSAwMCAwMCAJY21wd2kgICByNSwwDQogIDFiNDoJNDEgODAg
+MDAgN2MgCWJsdCAgICAgMjMwIDxjb3B5X3RvX3VzZXJfb3Jfa2VybmVsKzB4OGM+DQogIDFiODoJ
+M2QgMDAgYjAgMDAgCWxpcyAgICAgcjgsLTIwNDgwDQogIDFiYzoJN2YgODMgNDAgNDAgCWNtcGx3
+ICAgY3I3LHIzLHI4DQogIDFjMDoJNDEgOWMgMDAgMTQgCWJsdCAgICAgY3I3LDFkNCA8Y29weV90
+b191c2VyX29yX2tlcm5lbCsweDMwPg0KICAxYzQ6CTQwIDgyIDAwIDY0IAlibmUgICAgIDIyOCA8
+Y29weV90b191c2VyX29yX2tlcm5lbCsweDg0Pg0KICAxYzg6CTM4IDYwIDAwIDAwIAlsaSAgICAg
+IHIzLDANCiAgMWNjOgkzOCAyMSAwMCAxMCAJYWRkaSAgICByMSxyMSwxNg0KICAxZDA6CTRlIDgw
+IDAwIDIwIAlibHINCiAgMWQ0Ogk3ZCAyMyA0MCA1MCAJc3ViZiAgICByOSxyMyxyOA0KICAxZDg6
+CTdmIDg1IDQ4IDQwIAljbXBsdyAgIGNyNyxyNSxyOQ0KICAxZGM6CTdjIDA4IDAyIGE2IAltZmxy
+ICAgIHIwDQogIDFlMDoJOTAgMDEgMDAgMTQgCXN0dyAgICAgcjAsMjAocjEpDQogIDFlNDoJNDEg
+OWQgMDAgMzggCWJndCAgICAgY3I3LDIxYyA8Y29weV90b191c2VyX29yX2tlcm5lbCsweDc4Pg0K
+ICAxZTg6CTQ4IDAwIDAwIDAxIAlibCAgICAgIDFlOCA8Y29weV90b191c2VyX29yX2tlcm5lbCsw
+eDQ0Pg0KCQkJMWU4OiBSX1BQQ19SRUwyNAlfX2NvcHlfdG9mcm9tX3VzZXINCiAgMWVjOgk4MCAw
+MSAwMCAxNCAJbHd6ICAgICByMCwyMChyMSkNCiAgMWYwOgkyYyAwMyAwMCAwMCAJY21wd2kgICBy
+MywwDQogIDFmNDoJN2MgMDggMDMgYTYgCW10bHIgICAgcjANCiAgMWY4Ogk0YiBmZiBmZiBjYyAJ
+YiAgICAgICAxYzQgPGNvcHlfdG9fdXNlcl9vcl9rZXJuZWwrMHgyMD4NCiAgMWZjOgk3YyAwOCAw
+MiBhNiAJbWZsciAgICByMA0KICAyMDA6CTkwIDAxIDAwIDE0IAlzdHcgICAgIHIwLDIwKHIxKQ0K
+ICAyMDQ6CTQ4IDAwIDAwIDAxIAlibCAgICAgIDIwNCA8Y29weV90b191c2VyX29yX2tlcm5lbCsw
+eDYwPg0KCQkJMjA0OiBSX1BQQ19SRUwyNAltZW1jcHkNCiAgMjA4OgkzOCA2MCAwMCAwMCAJbGkg
+ICAgICByMywwDQogIDIwYzoJODAgMDEgMDAgMTQgCWx3eiAgICAgcjAsMjAocjEpDQogIDIxMDoJ
+MzggMjEgMDAgMTAgCWFkZGkgICAgcjEscjEsMTYNCiAgMjE0Ogk3YyAwOCAwMyBhNiAJbXRsciAg
+ICByMA0KICAyMTg6CTRlIDgwIDAwIDIwIAlibHINCiAgMjFjOgk4MCAwMSAwMCAxNCAJbHd6ICAg
+ICByMCwyMChyMSkNCiAgMjIwOgk3YyAwOCAwMyBhNiAJbXRsciAgICByMA0KICAyMjQ6CTRiIGZm
+IGZmIGEwIAliICAgICAgIDFjNCA8Y29weV90b191c2VyX29yX2tlcm5lbCsweDIwPg0KICAyMjg6
+CTM4IDYwIGZmIGYyIAlsaSAgICAgIHIzLC0xNA0KICAyMmM6CTRiIGZmIGZmIGEwIAliICAgICAg
+IDFjYyA8Y29weV90b191c2VyX29yX2tlcm5lbCsweDI4Pg0KICAyMzA6CTBmIGUwIDAwIDAwIAl0
+d3VpICAgIHIwLDANCiAgMjM0Ogk3YyAwOCAwMiBhNiAJbWZsciAgICByMA0KICAyMzg6CTkwIDAx
+IDAwIDE0IAlzdHcgICAgIHIwLDIwKHIxKQ0KDQoNCkFsc28gbm90ZSB0aGF0IGNoZWNrcGF0Y2gu
+cGwgcHJvdmlkZXMgdGhlIGZvbGxvd2luZyBvbiB5b3VyIHBhdGNoOg0KDQpDSEVDSzogTm8gc3Bh
+Y2UgaXMgbmVjZXNzYXJ5IGFmdGVyIGEgY2FzdA0KIzg4OiBGSUxFOiBmcy9wcm9jL3ZtY29yZS5j
+OjQyNDoNCisJcmV0dXJuIF9fcmVhZF92bWNvcmUoKF9fZm9yY2UgY2hhciAqKSBidWZmZXIsIGJ1
+ZmxlbiwgZnBvcywgdHJ1ZSk7DQoNCkNIRUNLOiBleHRlcm4gcHJvdG90eXBlcyBzaG91bGQgYmUg
+YXZvaWRlZCBpbiAuaCBmaWxlcw0KIzEwOTogRklMRTogaW5jbHVkZS9saW51eC91YWNjZXNzLmg6
+Mjg2Og0KK2V4dGVybiBfX211c3RfY2hlY2sgaW50IGNvcHlfdG9fdXNlcl9vcl9rZXJuZWwodm9p
+ZCAqdGFyZ2V0LCB2b2lkICpzcmMsIA0Kc2l6ZV90IHNpemUsIGJvb2wgdXNlcmJ1Zik7DQoNCkNI
+RUNLOiBObyBzcGFjZSBpcyBuZWNlc3NhcnkgYWZ0ZXIgYSBjYXN0DQojMTI4OiBGSUxFOiBsaWIv
+dXNlcmNvcHkuYzoxMDA6DQorCQlpZiAoY29weV90b191c2VyKChjaGFyIF9fdXNlciAqKSB0YXJn
+ZXQsIHNyYywgc2l6ZSkpDQoNCnRvdGFsOiAwIGVycm9ycywgMCB3YXJuaW5ncywgMyBjaGVja3Ms
+IDk2IGxpbmVzIGNoZWNrZWQNCg0KTk9URTogRm9yIHNvbWUgb2YgdGhlIHJlcG9ydGVkIGRlZmVj
+dHMsIGNoZWNrcGF0Y2ggbWF5IGJlIGFibGUgdG8NCiAgICAgICBtZWNoYW5pY2FsbHkgY29udmVy
+dCB0byB0aGUgdHlwaWNhbCBzdHlsZSB1c2luZyAtLWZpeCBvciANCi0tZml4LWlucGxhY2UuDQoN
+CkNvbW1pdCAyYzk0NzY3ZmE3NjggKCJrZHVtcDogdm1jb3JlOiByZW1vdmUgY29weV90bygpIGFu
+ZCBhZGQgDQpjb3B5X3RvX3VzZXJfb3Jfa2VybmVsKCkiKSBoYXMgc3R5bGUgcHJvYmxlbXMsIHBs
+ZWFzZSByZXZpZXcuDQoNCk5PVEU6IElmIGFueSBvZiB0aGUgZXJyb3JzIGFyZSBmYWxzZSBwb3Np
+dGl2ZXMsIHBsZWFzZSByZXBvcnQNCiAgICAgICB0aGVtIHRvIHRoZSBtYWludGFpbmVyLCBzZWUg
+Q0hFQ0tQQVRDSCBpbiBNQUlOVEFJTkVSUy4NCg0KDQpDaHJpc3RvcGhl
