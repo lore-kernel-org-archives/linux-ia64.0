@@ -1,7 +1,7 @@
 From: Dmitry Osipenko <digetx@gmail.com>
-Date: Sun, 12 Dec 2021 21:03:05 +0000
-Subject: [PATCH v5 17/21] nds32: Use do_kernel_power_off()
-Message-Id: <20211212210309.9851-18-digetx@gmail.com>
+Date: Sun, 12 Dec 2021 21:02:58 +0000
+Subject: [PATCH v5 10/21] xen/x86: Use do_kernel_power_off()
+Message-Id: <20211212210309.9851-11-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20211212210309.9851-1-digetx@gmail.com>
 In-Reply-To: <20211212210309.9851-1-digetx@gmail.com>
@@ -16,24 +16,33 @@ that invokes chained power-off handlers. It also invokes legacy
 pm_power_off() for now, which will be removed once all drivers will
 be converted to the new power-off API.
 
+Acked-by: Juergen Gross <jgross@suse.com>
 Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- arch/nds32/kernel/process.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ arch/x86/xen/enlighten_pv.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/nds32/kernel/process.c b/arch/nds32/kernel/process.c
-index 49fab9e39cbf..0936dcd7db1b 100644
---- a/arch/nds32/kernel/process.c
-+++ b/arch/nds32/kernel/process.c
-@@ -54,8 +54,7 @@ EXPORT_SYMBOL(machine_halt);
+diff --git a/arch/x86/xen/enlighten_pv.c b/arch/x86/xen/enlighten_pv.c
+index 5004feb16783..527fa545eb1f 100644
+--- a/arch/x86/xen/enlighten_pv.c
++++ b/arch/x86/xen/enlighten_pv.c
+@@ -31,6 +31,7 @@
+ #include <linux/gfp.h>
+ #include <linux/edd.h>
+ #include <linux/objtool.h>
++#include <linux/reboot.h>
  
- void machine_power_off(void)
+ #include <xen/xen.h>
+ #include <xen/events.h>
+@@ -1068,8 +1069,7 @@ static void xen_machine_halt(void)
+ 
+ static void xen_machine_power_off(void)
  {
 -	if (pm_power_off)
 -		pm_power_off();
 +	do_kernel_power_off();
+ 	xen_reboot(SHUTDOWN_poweroff);
  }
  
- EXPORT_SYMBOL(machine_power_off);
 -- 
 2.33.1
