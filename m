@@ -1,7 +1,7 @@
 From: Dmitry Osipenko <digetx@gmail.com>
-Date: Sun, 12 Dec 2021 21:03:04 +0000
-Subject: [PATCH v5 16/21] mips: Use do_kernel_power_off()
-Message-Id: <20211212210309.9851-17-digetx@gmail.com>
+Date: Sun, 12 Dec 2021 21:02:57 +0000
+Subject: [PATCH v5 09/21] parisc: Use do_kernel_power_off()
+Message-Id: <20211212210309.9851-10-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20211212210309.9851-1-digetx@gmail.com>
 In-Reply-To: <20211212210309.9851-1-digetx@gmail.com>
@@ -16,24 +16,33 @@ that invokes chained power-off handlers. It also invokes legacy
 pm_power_off() for now, which will be removed once all drivers will
 be converted to the new power-off API.
 
+Acked-by: Helge Deller <deller@gmx.de> # parisc
 Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- arch/mips/kernel/reset.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ arch/parisc/kernel/process.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/mips/kernel/reset.c b/arch/mips/kernel/reset.c
-index 6288780b779e..e7ce07b3e79b 100644
---- a/arch/mips/kernel/reset.c
-+++ b/arch/mips/kernel/reset.c
-@@ -114,8 +114,7 @@ void machine_halt(void)
+diff --git a/arch/parisc/kernel/process.c b/arch/parisc/kernel/process.c
+index ea3d83b6fb62..928201b1f58f 100644
+--- a/arch/parisc/kernel/process.c
++++ b/arch/parisc/kernel/process.c
+@@ -26,6 +26,7 @@
+ #include <linux/module.h>
+ #include <linux/personality.h>
+ #include <linux/ptrace.h>
++#include <linux/reboot.h>
+ #include <linux/sched.h>
+ #include <linux/sched/debug.h>
+ #include <linux/sched/task.h>
+@@ -114,8 +115,7 @@ void machine_power_off(void)
+ 	pdc_chassis_send_status(PDC_CHASSIS_DIRECT_SHUTDOWN);
  
- void machine_power_off(void)
- {
+ 	/* ipmi_poweroff may have been installed. */
 -	if (pm_power_off)
 -		pm_power_off();
 +	do_kernel_power_off();
- 
- #ifdef CONFIG_SMP
- 	preempt_disable();
+ 		
+ 	/* It seems we have no way to power the system off via
+ 	 * software. The user has to press the button himself. */
 -- 
 2.33.1
