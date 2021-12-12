@@ -1,130 +1,40 @@
-From: Yury Norov <yury.norov@gmail.com>
-Date: Sat, 18 Dec 2021 21:20:12 +0000
-Subject: [PATCH 16/17] tools/bitmap: sync bitmap_weight
-Message-Id: <20211218212014.1315894-17-yury.norov@gmail.com>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Sun, 12 Dec 2021 21:02:56 +0000
+Subject: [PATCH v5 08/21] arm64: Use do_kernel_power_off()
+Message-Id: <20211212210309.9851-9-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211218212014.1315894-1-yury.norov@gmail.com>
-In-Reply-To: <20211218212014.1315894-1-yury.norov@gmail.com>
+References: <20211212210309.9851-1-digetx@gmail.com>
+In-Reply-To: <20211212210309.9851-1-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, Yury Norov <yury.norov@gmail.com>, "James E.J. Bottomley" <jejb@linux.ibm.com>, "Martin K. Petersen" <martin.petersen@oracle.com>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>, "Paul E. McKenney" <paulmck@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Alexey Klimov <aklimov@redhat.com>, Amitkumar Karwar <amitkarwar@gmail.com>, Andi Kleen <ak@linux.intel.com>, Andrew Lunn <andrew@lunn.ch>, Andrew Morton <akpm@linux-foundation.org>, Andy Gross <agross@kernel.org>, Andy Lutomirski <luto@kernel.org>, Andy Shevchenko <andy@infradead.org>, Anup Patel <anup.patel@wdc.com>, Ard Biesheuvel <ardb@kernel.org>, Arnaldo Carvalho de Melo <acme@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Borislav Petkov <bp@alien8.de>, Catalin Marinas <catalin.marinas@arm.com>, Christoph Hellwig <hch@lst.de>, Christoph Lameter <cl@linux.com>, Daniel Vetter <daniel@ffwll.ch>, Dave Hansen <dave.hansen@linux.intel.com>, David Airlie <airlied@linux.ie>, David Laight <David.Laight@ACULAB.COM>, Dennis Zhou <dennis@kernel.org>, Emil Renner Berthing <kernel@esmil.dk>, Geert Uytterhoeven <geert@linux-m68k.org>, Geetha sowjanya <gakula@marvell.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Guo Ren <guoren@kernel.org>, Hans de Goede <hdegoede@redhat.com>, Heiko Carstens <hca@linux.ibm.com>, Ian Rogers <irogers@google.com>, Ingo Molnar <mingo@redhat.com>, Jakub Kicinski <kuba@kernel.org>, Jason Wessel <jason.wessel@windriver.com>, Jens Axboe <axboe@fb.com>, Jiri Olsa <jolsa@redhat.com>, Joe Perches <joe@perches.com>, Jonathan Cameron <jic23@kernel.org>, Juri Lelli <juri.lelli@redhat.com>, Kees Cook <keescook@chromium.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Lee Jones <lee.jones@linaro.org>, Marc Zyngier <maz@kernel.org>, Marcin Wojtas <mw@semihalf.com>, Mark Gross <markgross@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Matti Vaittinen <mazziesaccount@gmail.com>, Mauro Carvalho Chehab <mchehab@kernel.org>, Mel Gorman <mgorman@suse.de>, Michael Ellerman <mpe@ellerman.id.au>, Mike Marciniszyn <mike.marciniszyn@cornelisnetworks.com>, Nicholas Piggin <npiggin@gmail.com>, Palmer Dabbelt <palmer@dabbelt.com>, Peter Zijlstra <peterz@infradead.org>, Petr Mladek <pmladek@suse.com>, Randy Dunlap <rdunlap@infradead.org>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Russell King <linux@armlinux.org.uk>, Saeed Mahameed <saeedm@nvidia.com>, Sagi Grimberg <sagi@grimberg.me>, Sergey Senozhatsky <senozhatsky@chromium.org>, Solomon Peachy <pizza@shaftnet.org>, Stephen Boyd <sboyd@kernel.org>, Stephen Rothwell <sfr@canb.auug.org.au>, Steven Rostedt <rostedt@goodmis.org>, Subbaraya Sundeep <sbhatta@marvell.com>, Sudeep Holla <sudeep.holla@arm.com>, Sunil Goutham <sgoutham@marvell.com>, Tariq Toukan <tariqt@nvidia.com>, Tejun Heo <tj@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Thomas Gleixner <tglx@linutronix.de>, Ulf Hansson <ulf.hansson@linaro.org>, Vincent Guittot <vincent.guittot@linaro.org>, Vineet Gupta <vgupta@kernel.org>, Viresh Kumar <viresh.kumar@linaro.org>, Vivien Didelot <vivien.didelot@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Will Deacon <will@kernel.org>, bcm-kernel-feedback-list@broadcom.com, kvm@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-crypto@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-mm@kvack.org, linux-perf-users@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-snps-arc@lists.infradead.org, linuxppc-dev@lists.ozlabs.org
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-Pull bitmap_weight_{cmp,eq,gt,ge,lt,le} from mother kernel and
-use where applicable.
+Kernel now supports chained power-off handlers. Use do_kernel_power_off()
+that invokes chained power-off handlers. It also invokes legacy
+pm_power_off() for now, which will be removed once all drivers will
+be converted to the new power-off API.
 
-Signed-off-by: Yury Norov <yury.norov@gmail.com>
+Acked-by: Catalin Marinas <catalin.marinas@arm.com>
+Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- tools/include/linux/bitmap.h | 44 ++++++++++++++++++++++++++++++++++++
- tools/lib/bitmap.c           | 20 ++++++++++++++++
- tools/perf/util/pmu.c        |  2 +-
- 3 files changed, 65 insertions(+), 1 deletion(-)
+ arch/arm64/kernel/process.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/tools/include/linux/bitmap.h b/tools/include/linux/bitmap.h
-index ea97804d04d4..e8ae9a85d555 100644
---- a/tools/include/linux/bitmap.h
-+++ b/tools/include/linux/bitmap.h
-@@ -12,6 +12,8 @@
- 	unsigned long name[BITS_TO_LONGS(bits)]
- 
- int __bitmap_weight(const unsigned long *bitmap, int bits);
-+int __bitmap_weight_cmp(const unsigned long *bitmap, unsigned int bits,
-+			 unsigned int num);
- void __bitmap_or(unsigned long *dst, const unsigned long *bitmap1,
- 		 const unsigned long *bitmap2, int bits);
- int __bitmap_and(unsigned long *dst, const unsigned long *bitmap1,
-@@ -68,6 +70,48 @@ static inline int bitmap_weight(const unsigned long *src, unsigned int nbits)
- 	return __bitmap_weight(src, nbits);
+diff --git a/arch/arm64/kernel/process.c b/arch/arm64/kernel/process.c
+index aacf2f5559a8..f8db031afa7d 100644
+--- a/arch/arm64/kernel/process.c
++++ b/arch/arm64/kernel/process.c
+@@ -110,8 +110,7 @@ void machine_power_off(void)
+ {
+ 	local_irq_disable();
+ 	smp_send_stop();
+-	if (pm_power_off)
+-		pm_power_off();
++	do_kernel_power_off();
  }
  
-+static __always_inline
-+int bitmap_weight_cmp(const unsigned long *src, unsigned int nbits, int num)
-+{
-+	if (num > (int)nbits || num < 0)
-+		return -num;
-+
-+	if (small_const_nbits(nbits))
-+		return hweight_long(*src & BITMAP_LAST_WORD_MASK(nbits)) - num;
-+
-+	return __bitmap_weight_cmp(src, nbits, num);
-+}
-+
-+static __always_inline
-+bool bitmap_weight_eq(const unsigned long *src, unsigned int nbits, int num)
-+{
-+	return bitmap_weight_cmp(src, nbits, num) = 0;
-+}
-+
-+static __always_inline
-+bool bitmap_weight_gt(const unsigned long *src, unsigned int nbits, int num)
-+{
-+	return bitmap_weight_cmp(src, nbits, num) > 0;
-+}
-+
-+static __always_inline
-+bool bitmap_weight_ge(const unsigned long *src, unsigned int nbits, int num)
-+{
-+	return bitmap_weight_cmp(src, nbits, num - 1) > 0;
-+}
-+
-+static __always_inline
-+bool bitmap_weight_lt(const unsigned long *src, unsigned int nbits, int num)
-+{
-+	return bitmap_weight_cmp(src, nbits, num - 1) <= 0;
-+}
-+
-+static __always_inline
-+bool bitmap_weight_le(const unsigned long *src, unsigned int nbits, int num)
-+{
-+	return bitmap_weight_cmp(src, nbits, num) <= 0;
-+}
-+
- static inline void bitmap_or(unsigned long *dst, const unsigned long *src1,
- 			     const unsigned long *src2, unsigned int nbits)
- {
-diff --git a/tools/lib/bitmap.c b/tools/lib/bitmap.c
-index db466ef7be9d..06e58fee8523 100644
---- a/tools/lib/bitmap.c
-+++ b/tools/lib/bitmap.c
-@@ -18,6 +18,26 @@ int __bitmap_weight(const unsigned long *bitmap, int bits)
- 	return w;
- }
- 
-+int __bitmap_weight_cmp(const unsigned long *bitmap, unsigned int bits, int num)
-+{
-+	unsigned int k, w, lim = bits / BITS_PER_LONG;
-+
-+	for (k = 0, w = 0; k < lim; k++) {
-+		if (w + bits - k * BITS_PER_LONG < num)
-+			goto out;
-+
-+		w += hweight_long(bitmap[k]);
-+
-+		if (w > num)
-+			goto out;
-+	}
-+
-+	if (bits % BITS_PER_LONG)
-+		w += hweight_long(bitmap[k] & BITMAP_LAST_WORD_MASK(bits));
-+out:
-+	return w - num;
-+}
-+
- void __bitmap_or(unsigned long *dst, const unsigned long *bitmap1,
- 		 const unsigned long *bitmap2, int bits)
- {
-diff --git a/tools/perf/util/pmu.c b/tools/perf/util/pmu.c
-index 6ae58406f4fc..015ee1321c7c 100644
---- a/tools/perf/util/pmu.c
-+++ b/tools/perf/util/pmu.c
-@@ -1314,7 +1314,7 @@ static int pmu_config_term(const char *pmu_name,
- 	 */
- 	if (term->type_val = PARSE_EVENTS__TERM_TYPE_NUM) {
- 		if (term->no_value &&
--		    bitmap_weight(format->bits, PERF_PMU_FORMAT_BITS) > 1) {
-+		    bitmap_weight_gt(format->bits, PERF_PMU_FORMAT_BITS, 1)) {
- 			if (err) {
- 				parse_events_error__handle(err, term->err_val,
- 					   strdup("no value assigned for term"),
+ /*
 -- 
-2.30.2
+2.33.1
