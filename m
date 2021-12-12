@@ -1,7 +1,7 @@
 From: Dmitry Osipenko <digetx@gmail.com>
-Date: Sun, 12 Dec 2021 21:02:58 +0000
-Subject: [PATCH v5 10/21] xen/x86: Use do_kernel_power_off()
-Message-Id: <20211212210309.9851-11-digetx@gmail.com>
+Date: Sun, 12 Dec 2021 21:03:03 +0000
+Subject: [PATCH v5 15/21] ia64: Use do_kernel_power_off()
+Message-Id: <20211212210309.9851-16-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20211212210309.9851-1-digetx@gmail.com>
 In-Reply-To: <20211212210309.9851-1-digetx@gmail.com>
@@ -16,32 +16,31 @@ that invokes chained power-off handlers. It also invokes legacy
 pm_power_off() for now, which will be removed once all drivers will
 be converted to the new power-off API.
 
-Acked-by: Juergen Gross <jgross@suse.com>
 Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- arch/x86/xen/enlighten_pv.c | 4 ++--
+ arch/ia64/kernel/process.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/x86/xen/enlighten_pv.c b/arch/x86/xen/enlighten_pv.c
-index 5004feb16783..527fa545eb1f 100644
---- a/arch/x86/xen/enlighten_pv.c
-+++ b/arch/x86/xen/enlighten_pv.c
-@@ -31,6 +31,7 @@
- #include <linux/gfp.h>
- #include <linux/edd.h>
- #include <linux/objtool.h>
+diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
+index 834df24a88f1..cee4d7db2143 100644
+--- a/arch/ia64/kernel/process.c
++++ b/arch/ia64/kernel/process.c
+@@ -19,6 +19,7 @@
+ #include <linux/module.h>
+ #include <linux/notifier.h>
+ #include <linux/personality.h>
 +#include <linux/reboot.h>
- 
- #include <xen/xen.h>
- #include <xen/events.h>
-@@ -1068,8 +1069,7 @@ static void xen_machine_halt(void)
- 
- static void xen_machine_power_off(void)
+ #include <linux/sched.h>
+ #include <linux/sched/debug.h>
+ #include <linux/sched/hotplug.h>
+@@ -599,8 +600,7 @@ machine_halt (void)
+ void
+ machine_power_off (void)
  {
 -	if (pm_power_off)
 -		pm_power_off();
 +	do_kernel_power_off();
- 	xen_reboot(SHUTDOWN_poweroff);
+ 	machine_halt();
  }
  
 -- 
