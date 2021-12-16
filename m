@@ -1,42 +1,98 @@
-From: Yury Norov <yury.norov@gmail.com>
-Date: Sat, 18 Dec 2021 21:20:13 +0000
-Subject: [PATCH 17/17] MAINTAINERS: add cpumask and nodemask files to BITMAP_API
-Message-Id: <20211218212014.1315894-18-yury.norov@gmail.com>
+From: Kefeng Wang <wangkefeng.wang@huawei.com>
+Date: Thu, 16 Dec 2021 11:23:55 +0000
+Subject: [PATCH 0/4] mm: percpu: Cleanup percpu first chunk function
+Message-Id: <20211216112359.103822-1-wangkefeng.wang@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211218212014.1315894-1-yury.norov@gmail.com>
-In-Reply-To: <20211218212014.1315894-1-yury.norov@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, Yury Norov <yury.norov@gmail.com>, "James E.J. Bottomley" <jejb@linux.ibm.com>, "Martin K. Petersen" <martin.petersen@oracle.com>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>, "Paul E. McKenney" <paulmck@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Alexey Klimov <aklimov@redhat.com>, Amitkumar Karwar <amitkarwar@gmail.com>, Andi Kleen <ak@linux.intel.com>, Andrew Lunn <andrew@lunn.ch>, Andrew Morton <akpm@linux-foundation.org>, Andy Gross <agross@kernel.org>, Andy Lutomirski <luto@kernel.org>, Andy Shevchenko <andy@infradead.org>, Anup Patel <anup.patel@wdc.com>, Ard Biesheuvel <ardb@kernel.org>, Arnaldo Carvalho de Melo <acme@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Borislav Petkov <bp@alien8.de>, Catalin Marinas <catalin.marinas@arm.com>, Christoph Hellwig <hch@lst.de>, Christoph Lameter <cl@linux.com>, Daniel Vetter <daniel@ffwll.ch>, Dave Hansen <dave.hansen@linux.intel.com>, David Airlie <airlied@linux.ie>, David Laight <David.Laight@ACULAB.COM>, Dennis Zhou <dennis@kernel.org>, Emil Renner Berthing <kernel@esmil.dk>, Geert Uytterhoeven <geert@linux-m68k.org>, Geetha sowjanya <gakula@marvell.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Guo Ren <guoren@kernel.org>, Hans de Goede <hdegoede@redhat.com>, Heiko Carstens <hca@linux.ibm.com>, Ian Rogers <irogers@google.com>, Ingo Molnar <mingo@redhat.com>, Jakub Kicinski <kuba@kernel.org>, Jason Wessel <jason.wessel@windriver.com>, Jens Axboe <axboe@fb.com>, Jiri Olsa <jolsa@redhat.com>, Joe Perches <joe@perches.com>, Jonathan Cameron <jic23@kernel.org>, Juri Lelli <juri.lelli@redhat.com>, Kees Cook <keescook@chromium.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Lee Jones <lee.jones@linaro.org>, Marc Zyngier <maz@kernel.org>, Marcin Wojtas <mw@semihalf.com>, Mark Gross <markgross@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Matti Vaittinen <mazziesaccount@gmail.com>, Mauro Carvalho Chehab <mchehab@kernel.org>, Mel Gorman <mgorman@suse.de>, Michael Ellerman <mpe@ellerman.id.au>, Mike Marciniszyn <mike.marciniszyn@cornelisnetworks.com>, Nicholas Piggin <npiggin@gmail.com>, Palmer Dabbelt <palmer@dabbelt.com>, Peter Zijlstra <peterz@infradead.org>, Petr Mladek <pmladek@suse.com>, Randy Dunlap <rdunlap@infradead.org>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Russell King <linux@armlinux.org.uk>, Saeed Mahameed <saeedm@nvidia.com>, Sagi Grimberg <sagi@grimberg.me>, Sergey Senozhatsky <senozhatsky@chromium.org>, Solomon Peachy <pizza@shaftnet.org>, Stephen Boyd <sboyd@kernel.org>, Stephen Rothwell <sfr@canb.auug.org.au>, Steven Rostedt <rostedt@goodmis.org>, Subbaraya Sundeep <sbhatta@marvell.com>, Sudeep Holla <sudeep.holla@arm.com>, Sunil Goutham <sgoutham@marvell.com>, Tariq Toukan <tariqt@nvidia.com>, Tejun Heo <tj@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Thomas Gleixner <tglx@linutronix.de>, Ulf Hansson <ulf.hansson@linaro.org>, Vincent Guittot <vincent.guittot@linaro.org>, Vineet Gupta <vgupta@kernel.org>, Viresh Kumar <viresh.kumar@linaro.org>, Vivien Didelot <vivien.didelot@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Will Deacon <will@kernel.org>, bcm-kernel-feedback-list@broadcom.com, kvm@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-crypto@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-mm@kvack.org, linux-perf-users@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-snps-arc@lists.infradead.org, linuxppc-dev@lists.ozlabs.org
+To: dennis@kernel.org, akpm@linux-foundation.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
+Cc: tj@kernel.org, gregkh@linuxfoundation.org, cl@linux.com, catalin.marinas@arm.com, will@kernel.org, tsbogend@alpha.franken.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, paul.walmsley@sifive.com, palmer@dabbelt.com, aou@eecs.berkeley.edu, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, hpa@zytor.com, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, sparclinux@vger.kernel.org, x86@kernel.org, wangkefeng.wang@huawei.com
 
-cpumask and nodemask APIs are thin wrappers around basic bitmap API, and
-corresponding files are not formally maintained. This patch adds them to
-BITMAP_API section, so that bitmap folks would have closer look at it.
+When support page mapping percpu first chunk allocator on arm64, we
+found there are lots of duplicated codes in percpu embed/page first
+chunk allocator. This patchset is aimed to cleanup them and should
+no function change. 
 
-Signed-off-by: Yury Norov <yury.norov@gmail.com>
----
- MAINTAINERS | 4 ++++
- 1 file changed, 4 insertions(+)
+The currently supported status about 'embed' and 'page' in Archs shows
+below,
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 5964e047bc04..ecd41988c871 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -3392,10 +3392,14 @@ R:	Andy Shevchenko <andriy.shevchenko@linux.intel.com>
- R:	Rasmus Villemoes <linux@rasmusvillemoes.dk>
- S:	Maintained
- F:	include/linux/bitmap.h
-+F:	include/linux/cpumask.h
- F:	include/linux/find.h
-+F:	include/linux/nodemask.h
- F:	lib/bitmap.c
-+F:	lib/cpumask.c
- F:	lib/find_bit.c
- F:	lib/find_bit_benchmark.c
-+F:	lib/nodemask.c
- F:	lib/test_bitmap.c
- F:	tools/include/linux/bitmap.h
- F:	tools/include/linux/find.h
+embed: NEED_PER_CPU_PAGE_FIRST_CHUNK
+page:  NEED_PER_CPU_EMBED_FIRST_CHUNK
+
+	embed	page
+------------------------
+arm64	  Y	 Y
+mips	  Y	 N
+powerpc	  Y	 Y
+riscv	  Y	 N
+sparc	  Y	 Y
+x86	  Y	 Y
+------------------------
+
+There are two interfaces about percpu first chunk allocator,
+
+ extern int __init pcpu_embed_first_chunk(size_t reserved_size, size_t dyn_size,
+                                size_t atom_size,
+                                pcpu_fc_cpu_distance_fn_t cpu_distance_fn,
+-                               pcpu_fc_alloc_fn_t alloc_fn,
+-                               pcpu_fc_free_fn_t free_fn);
++                               pcpu_fc_cpu_to_node_fn_t cpu_to_nd_fn);
+
+
+ extern int __init pcpu_page_first_chunk(size_t reserved_size,
+-                               pcpu_fc_alloc_fn_t alloc_fn,
+-                               pcpu_fc_free_fn_t free_fn,
+-                               pcpu_fc_populate_pte_fn_t populate_pte_fn);
++                               pcpu_fc_cpu_to_node_fn_t cpu_to_nd_fn);
+
+
+The pcpu_fc_alloc_fn_t/pcpu_fc_free_fn_t is killed, we provide generic
+pcpu_fc_alloc() and pcpu_fc_free() function, which are called in the
+pcpu_embed/page_first_chunk().
+
+1) For pcpu_embed_first_chunk(), pcpu_fc_cpu_to_node_fn_t is needed to be
+   provided when archs supported NUMA.
+2) For pcpu_page_first_chunk(), the pcpu_fc_populate_pte_fn_t is killed too,
+   a generic pcpu_populate_pte() which marked '__weak' is provided, if you
+   need a different function to populate pte on the arch(like x86), please
+   provide its own implementation.
+
+I have been built test on arm64/ia64/mips/powerpc/sparcx86/riscv based
+on v5.16-rc4 on my machine, also all patches are in[1], which checked
+by lkp too,
+  [kevin78:percpu-cleanup] BUILD SUCCESS c14a59a0aad7db88ebddbeb5e914ddcccb406e1c.
+
+[1] https://github.com/kevin78/linux.git percpu-cleanup
+
+Changes since RFC
+- Address Dennis's comments 
+
+RFC:
+https://lore.kernel.org/linux-mm/4fecd1ac-6c0a-f0fa-1ffb-18f3f266809d@huawei.com/T/
+
+Kefeng Wang (4):
+  mm: percpu: Generalize percpu related config
+  mm: percpu: Add pcpu_fc_cpu_to_node_fn_t typedef
+  mm: percpu: Add generic pcpu_fc_alloc/free funciton
+  mm: percpu: Add generic pcpu_populate_pte() function
+
+ arch/arm64/Kconfig             |  20 +----
+ arch/ia64/Kconfig              |   9 +-
+ arch/mips/Kconfig              |  10 +--
+ arch/mips/mm/init.c            |  14 +--
+ arch/powerpc/Kconfig           |  17 +---
+ arch/powerpc/kernel/setup_64.c |  97 ++-------------------
+ arch/riscv/Kconfig             |  10 +--
+ arch/sparc/Kconfig             |  12 +--
+ arch/sparc/kernel/smp_64.c     | 103 +---------------------
+ arch/x86/Kconfig               |  17 +---
+ arch/x86/kernel/setup_percpu.c |  66 ++------------
+ drivers/base/arch_numa.c       |  68 +--------------
+ include/linux/percpu.h         |  13 +--
+ mm/Kconfig                     |  12 +++
+ mm/percpu.c                    | 154 +++++++++++++++++++++++++--------
+ 15 files changed, 180 insertions(+), 442 deletions(-)
+
 -- 
-2.30.2
+2.18.0.huawei.25
