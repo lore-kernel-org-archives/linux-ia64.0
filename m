@@ -1,42 +1,56 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Date: Mon, 13 Dec 2021 15:18:32 +0000
-Subject: Re: [PATCH 0/8] kernel/fork: Move thread stack free otu of the scheduler path.
-Message-Id: <YbdkSLFdBL/xeRbA@linutronix.de>
+From: Yury Norov <yury.norov@gmail.com>
+Date: Sat, 18 Dec 2021 23:28:29 +0000
+Subject: Re: [PATCH 01/17] all: don't use bitmap_weight() where possible
+Message-Id: <CAAH8bW9uWW+t5TvkMt_e-sKp71hiLpXhXeuGuSZPK-3kds-GgQ@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211118143452.136421-1-bigeasy@linutronix.de>
- <20211118143850.ygpp7xetpz3pt2nj@linutronix.de>
- <20211203162211.qvcnvbj4cdsa5g3a@linutronix.de>
-In-Reply-To: <20211203162211.qvcnvbj4cdsa5g3a@linutronix.de>
+References: <20211218212014.1315894-1-yury.norov@gmail.com>
+ <20211218212014.1315894-2-yury.norov@gmail.com> <Yb5dmqlYd3owtH29@qmqm.qmqm.pl>
+In-Reply-To: <Yb5dmqlYd3owtH29@qmqm.qmqm.pl>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tglx@linutronix.de
-Cc: Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Andy Lutomirski <luto@kernel.org>, Juri Lelli <juri.lelli@redhat.com>, Vincent Guittot <vincent.guittot@linaro.org>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Steven Rostedt <rostedt@goodmis.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, "James E.J. Bottomley" <jejb@linux.ibm.com>, "Martin K. Petersen" <martin.petersen@oracle.com>, "Paul E. McKenney" <paulmck@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Alexey Klimov <aklimov@redhat.com>, Amitkumar Karwar <amitkarwar@gmail.com>, Andi Kleen <ak@linux.intel.com>, Andrew Lunn <andrew@lunn.ch>, Andrew Morton <akpm@linux-foundation.org>, Andy Gross <agross@kernel.org>, Andy Lutomirski <luto@kernel.org>, Andy Shevchenko <andy@infradead.org>, Anup Patel <anup.patel@wdc.com>, Ard Biesheuvel <ardb@kernel.org>, Arnaldo Carvalho de Melo <acme@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Borislav Petkov <bp@alien8.de>, Catalin Marinas <catalin.marinas@arm.com>, Christoph Hellwig <hch@lst.de>, Christoph Lameter <cl@linux.com>, Daniel Vetter <daniel@ffwll.ch>, Dave Hansen <dave.hansen@linux.intel.com>, David Airlie <airlied@linux.ie>, David Laight <David.Laight@aculab.com>, Dennis Zhou <dennis@kernel.org>, Emil Renner Berthing <kernel@esmil.dk>, Geert Uytterhoeven <geert@linux-m68k.org>, Geetha sowjanya <gakula@marvell.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Guo Ren <guoren@kernel.org>, Hans de Goede <hdegoede@redhat.com>, Heiko Carstens <hca@linux.ibm.com>, Ian Rogers <irogers@google.com>, Ingo Molnar <mingo@redhat.com>, Jakub Kicinski <kuba@kernel.org>, Jason Wessel <jason.wessel@windriver.com>, Jens Axboe <axboe@fb.com>, Jiri Olsa <jolsa@redhat.com>, Joe Perches <joe@perches.com>, Jonathan Cameron <jic23@kernel.org>, Juri Lelli <juri.lelli@redhat.com>, Kees Cook <keescook@chromium.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Lee Jones <lee.jones@linaro.org>, Marc Zyngier <maz@kernel.org>, Marcin Wojtas <mw@semihalf.com>, Mark Gross <markgross@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Matti Vaittinen <mazziesaccount@gmail.com>, Mauro Carvalho Chehab <mchehab@kernel.org>, Mel Gorman <mgorman@suse.de>, Michael Ellerman <mpe@ellerman.id.au>, Mike Marciniszyn <mike.marciniszyn@cornelisnetworks.com>, Nicholas Piggin <npiggin@gmail.com>, Palmer Dabbelt <palmer@dabbelt.com>, Peter Zijlstra <peterz@infradead.org>, Petr Mladek <pmladek@suse.com>, Randy Dunlap <rdunlap@infradead.org>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Russell King <linux@armlinux.org.uk>, Saeed Mahameed <saeedm@nvidia.com>, Sagi Grimberg <sagi@grimberg.me>, Sergey Senozhatsky <senozhatsky@chromium.org>, Solomon Peachy <pizza@shaftnet.org>, Stephen Boyd <sboyd@kernel.org>, Stephen Rothwell <sfr@canb.auug.org.au>, Steven Rostedt <rostedt@goodmis.org>, Subbaraya Sundeep <sbhatta@marvell.com>, Sudeep Holla <sudeep.holla@arm.com>, Sunil Goutham <sgoutham@marvell.com>, Tariq Toukan <tariqt@nvidia.com>, Tejun Heo <tj@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Thomas Gleixner <tglx@linutronix.de>, Ulf Hansson <ulf.hansson@linaro.org>, Vincent Guittot <vincent.guittot@linaro.org>, Vineet Gupta <vgupta@kernel.org>, Viresh Kumar <viresh.kumar@linaro.org>, Vivien Didelot <vivien.didelot@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Will Deacon <will@kernel.org>, bcm-kernel-feedback-list@broadcom.com, kvm@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-crypto@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-mm@kvack.org, linux-perf-users@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-snps-arc@lists.infradead.org, linuxppc-dev@lists.ozlabs.org
 
-On 2021-12-03 17:22:13 [+0100], To linux-kernel@vger.kernel.org wrote:
-> On 2021-11-18 15:38:50 [+0100], To linux-kernel@vger.kernel.org wrote:
-> > + tglx.
-> > 
-> > It starts at
-> >    https://lore.kernel.org/all/20211118143452.136421-1-bigeasy@linutronix.de/
-> > 
-> > On 2021-11-18 15:34:44 [+0100], To linux-kernel@vger.kernel.org wrote:
-> > > 
-> > > This is a follup-up on the patch
-> > >     sched: Delay task stack freeing on RT 
-> > >     https://lkml.kernel.org/r/20210928122411.593486363@linutronix.de
-> > > 
-> > > It addresses the review feedback:
-> > > - Decouple stack accounting from its free invocation. The accounting
-> > >   happens in do_exit(), the final free call happens later.
-> > > 
-> > > - Add put_task_stack_sched() to finish_task_switch(). Here the VMAP
-> > >   stack is cached only. If it fails, or in the !VMAP case then the final
-> > >   free happens in delayed_put_task_struct(). This is also an oportunity
-> > >   to cache the stack.
-> 
-> ping ;)
+On Sat, Dec 18, 2021 at 2:16 PM Michał Mirosław <mirq-linux@rere.qmqm.pl> wrote:
+>
+> On Sat, Dec 18, 2021 at 01:19:57PM -0800, Yury Norov wrote:
+> > Don't call bitmap_weight() if the following code can get by
+> > without it.
+> >
+> > Signed-off-by: Yury Norov <yury.norov@gmail.com>
+> > ---
+> >  drivers/net/dsa/b53/b53_common.c           | 6 +-----
+> >  drivers/net/ethernet/broadcom/bcmsysport.c | 6 +-----
+> >  drivers/thermal/intel/intel_powerclamp.c   | 9 +++------
+> >  3 files changed, 5 insertions(+), 16 deletions(-)
+> [...]
+>
+> Looks good,
 
-ping.
+Does it mean Acked-by, Reviewed-by, or something else?
 
-Sebastian
+> but I think this needs to be split per subsystem.
+
+What you ask breaks rules:
+
+Documentation/process/submitting-patches.rst:
+
+Separate each **logical change** into a separate patch.
+
+For example, if your changes include both bug fixes and performance
+enhancements for a single driver, separate those changes into two
+or more patches.  If your changes include an API update, and a new
+driver which uses that new API, separate those into two patches.
+
+On the other hand, if you make a single change to numerous files,
+group those changes into a single patch.  Thus a single logical change
+is contained within a single patch.
+
+This is not a dead rule, refer for example the 96d4f267e40f9 ("Remove
+'type' argument from access_ok() functioin.")
+
+Or this: https://lkml.org/lkml/2021/6/14/1736
+
+Thanks,
+Yury
