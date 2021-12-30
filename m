@@ -1,95 +1,49 @@
-From: Michael Schmitz <schmitzmic@gmail.com>
-Date: Wed, 29 Dec 2021 04:15:23 +0000
+From: Arnd Bergmann <arnd@kernel.org>
+Date: Thu, 30 Dec 2021 01:48:23 +0000
 Subject: Re: [RFC 02/32] Kconfig: introduce HAS_IOPORT option and select it as necessary
-Message-Id: <1f90f145-219e-1cad-6162-9959d43a27ad@gmail.com>
+Message-Id: <CAK8P3a3NqU-3nUZ9ve=QyPPB5Uep3eK+_hicjjSiP8VuL4FYfA@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20211227164317.4146918-1-schnelle@linux.ibm.com>
- <20211227164317.4146918-3-schnelle@linux.ibm.com>
- <CAMuHMdXk6VcDryekkMJ3aGFnw4LLWOWMi8M2PwjT81PsOsOBMQ@mail.gmail.com>
- <d406b93a-0f76-d056-3380-65d459d05ea9@gmail.com>
- <CAK8P3a2j-OFUUp+haHoV4PyL-On4EASZ9+59SDqNqmL8Gv_k7Q@mail.gmail.com>
-In-Reply-To: <CAK8P3a2j-OFUUp+haHoV4PyL-On4EASZ9+59SDqNqmL8Gv_k7Q@mail.gmail.com>
+ <20211227164317.4146918-3-schnelle@linux.ibm.com> <CAMuHMdXk6VcDryekkMJ3aGFnw4LLWOWMi8M2PwjT81PsOsOBMQ@mail.gmail.com>
+ <d406b93a-0f76-d056-3380-65d459d05ea9@gmail.com> <CAK8P3a2j-OFUUp+haHoV4PyL-On4EASZ9+59SDqNqmL8Gv_k7Q@mail.gmail.com>
+ <1f90f145-219e-1cad-6162-9959d43a27ad@gmail.com>
+In-Reply-To: <1f90f145-219e-1cad-6162-9959d43a27ad@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@kernel.org>
+To: Michael Schmitz <schmitzmic@gmail.com>
 Cc: Geert Uytterhoeven <geert@linux-m68k.org>, Niklas Schnelle <schnelle@linux.ibm.com>, Bjorn Helgaas <bhelgaas@google.com>, John Garry <john.garry@huawei.com>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Guo Ren <guoren@kernel.org>, Dinh Nguyen <dinguyen@kernel.org>, Chris Zankel <chris@zankel.net>, Karol Gugala <kgugala@antmicro.com>, Jeff Dike <jdike@addtoit.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Brian Cain <bcain@codeaurora.org>, Heiko Carstens <hca@linux.ibm.com>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Vineet Gupta <vgupta@kernel.org>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-pci@vger.kernel.org, linux-riscv@lists.infradead.org, linux-csky@vger.kernel.org, linux-xtensa@linux-xtensa.org, openrisc@lists.librecores.org, linux-s390@vger.kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Greg Ungerer <gerg@linux-m68k.org>
 
-Hi Arnd,
+On Tue, Dec 28, 2021 at 11:15 PM Michael Schmitz <schmitzmic@gmail.com> wrote:
+> Am 29.12.2021 um 16:41 schrieb Arnd Bergmann:
+> > On Tue, Dec 28, 2021 at 8:20 PM Michael Schmitz <schmitzmic@gmail.com> wrote:
+> I'd hope not - we spent some effort to make sure setting ATARI_ROM_ISA
+> does not affect other m68k platforms when e.g. building multiplatform
+> kernels.
 
-Am 29.12.2021 um 16:41 schrieb Arnd Bergmann:
-> On Tue, Dec 28, 2021 at 8:20 PM Michael Schmitz <schmitzmic@gmail.com> wrote:
->> Am 28.12.2021 um 23:08 schrieb Geert Uytterhoeven:
->>> On Mon, Dec 27, 2021 at 5:44 PM Niklas Schnelle <schnelle@linux.ibm.com> wrote:
->>>> We introduce a new HAS_IOPORT Kconfig option to gate support for
->>>> I/O port access. In a future patch HAS_IOPORT=n will disable compilation
->>>> of the I/O accessor functions inb()/outb() and friends on architectures
->>>> which can not meaningfully support legacy I/O spaces. On these platforms
->>>> inb()/outb() etc are currently just stubs in asm-generic/io.h which when
->>>> called will cause a NULL pointer access which some compilers actually
->>>> detect and warn about.
->>>>
->>>> The dependencies on HAS_IOPORT in drivers as well as ifdefs for
->>>> HAS_IOPORT specific sections will be added in subsequent patches on
->>>> a per subsystem basis. Then a final patch will ifdef the I/O access
->>>> functions on HAS_IOPORT thus turning any use not gated by HAS_IOPORT
->>>> into a compile-time warning.
->>>>
->>>> Link: https://lore.kernel.org/lkml/CAHk-=wg80je=K7madF4e7WrRNp37e3qh6y10Svhdc7O8SZ_-8g@mail.gmail.com/
->>>> Co-developed-by: Arnd Bergmann <arnd@kernel.org>
->>>> Signed-off-by: Arnd Bergmann <arnd@kernel.org>
->>>> Signed-off-by: Niklas Schnelle <schnelle@linux.ibm.com>
->>>
->>> Thanks for your patch!
->>>
->>>> --- a/arch/m68k/Kconfig
->>>> +++ b/arch/m68k/Kconfig
->>>> @@ -16,6 +16,7 @@ config M68K
->>>>         select GENERIC_CPU_DEVICES
->>>>         select GENERIC_IOMAP
->>>>         select GENERIC_IRQ_SHOW
->>>> +       select HAS_IOPORT
->>>>         select HAVE_AOUT if MMU
->>>>         select HAVE_ASM_MODVERSIONS
->>>>         select HAVE_DEBUG_BUGVERBOSE
->>>
->>> This looks way too broad to me: most m68k platform do not have I/O
->>> port access support.
->>>
->>> My gut feeling says:
->>>
->>>     select HAS_IOPORT if PCI || ISA
->>>
->>> but that might miss some intricate details...
->>
->> In particular, this misses the Atari ROM port ISA adapter case -
->>
->>         select HAS_IOPORT if PCI || ISA || ATARI_ROM_ISA
->>
->> might do instead.
->
-> Right, makes sense. I had suggested to go the easy way and assume that
-> each architecture would select HAS_IOPORT if any configuration supports
-> it, but it looks like for m68k there is a clearly defined set of platforms that
-> do.
->
-> Note that for the platforms that don't set any of the three symbols, the
-> fallback makes inb() an alias for readb() with a different argument type,
-> so there may be m68k specific drivers that rely on this, but those would
-> already be broken if ATARI_ROM_ISA is set.
+Ok
 
-I'd hope not - we spent some effort to make sure setting ATARI_ROM_ISA 
-does not affect other m68k platforms when e.g. building multiplatform 
-kernels.
+> Replacing inb() by readb() without any address translation won't do much
+> good for m68k though - addresses in the traditional ISA I/O port range
+> would hit the (unmapped) zero page.
 
-Replacing inb() by readb() without any address translation won't do much 
-good for m68k though - addresses in the traditional ISA I/O port range 
-would hit the (unmapped) zero page.
+Correct, this is exactly the problem that Niklas is trying to solve here:
+we do have drivers that hit this bug, and on s390 clang actually produces
+a compile-time error for drivers that cause a NULL pointer dereference
+this way.
 
-Cheers,
+What some other architectures do is to rely on inb()/outb() to have a
+zero-based offset, and use an io_offset in PCI buses to ensure that a
+low port number on the bus gets translated into a pointer value for the
+virtual mapping in the kernel, which is then represented as an unsigned
+int.
 
-	Michael
+As this is indistinguishable from architectures that just don't have
+a base address for I/O ports (we unfortunately picked 0 as the default
+PCI_IOBASE value), my suggestion was to start marking architectures
+that may have this problem as using HAS_IOPORT in order to keep
+the existing behavior unchanged. If m68k does not suffer from this,
+making HAS_IOPORT conditional on those config options that actually
+need it would of course be best.
 
->
->           Arnd
->
+         Arnd
