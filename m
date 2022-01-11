@@ -1,149 +1,146 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Wed, 19 Jan 2022 21:58:36 +0000
-Subject: Re: [PATCH v3 11/12] lkdtm: Fix execute_[user]_location()
-Message-Id: <202201191359.5E67E74A@keescook>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Tue, 11 Jan 2022 07:57:13 +0000
+Subject: Re: [PATCH v5 04/21] kernel: Add combined power-off+restart handler call chain API
+Message-Id: <80f5a739-0850-a8db-7493-e8c387109ce0@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1634457599.git.christophe.leroy@csgroup.eu>
- <d4688c2af08dda706d3b6786ae5ec5a74e6171f1.1634457599.git.christophe.leroy@csgroup.eu>
- <e7793192-6879-490d-1f37-3d6d6908a121@csgroup.eu>
- <c635dff6-2bca-3486-014f-12ae00bd1777@csgroup.eu>
-In-Reply-To: <c635dff6-2bca-3486-014f-12ae00bd1777@csgroup.eu>
+References: <20211212210309.9851-1-digetx@gmail.com>
+ <20211212210309.9851-5-digetx@gmail.com> <Ydofs2CIfA+r5KAz@qmqm.qmqm.pl>
+In-Reply-To: <Ydofs2CIfA+r5KAz@qmqm.qmqm.pl>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Christophe Leroy <christophe.leroy@csgroup.eu>
-Cc: Helge Deller <deller@gmx.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Paul Mackerras <paulus@samba.org>, Arnd Bergmann <arnd@arndb.de>, Michael Ellerman <mpe@ellerman.id.au>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
+Cc: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-On Wed, Jan 19, 2022 at 08:28:54PM +0100, Christophe Leroy wrote:
-> Hi Kees,
->=20
->=20
-> Le 17/12/2021 =E0 12:49, Christophe Leroy a =E9crit=A0:
-> > Hi Kees,
-> >=20
-> > Le 17/10/2021 =E0 14:38, Christophe Leroy a =E9crit=A0:
-> > > execute_location() and execute_user_location() intent
-> > > to copy do_nothing() text and execute it at a new location.
-> > > However, at the time being it doesn't copy do_nothing() function
-> > > but do_nothing() function descriptor which still points to the
-> > > original text. So at the end it still executes do_nothing() at
-> > > its original location allthough using a copied function descriptor.
-> > >=20
-> > > So, fix that by really copying do_nothing() text and build a new
-> > > function descriptor by copying do_nothing() function descriptor and
-> > > updating the target address with the new location.
-> > >=20
-> > > Also fix the displayed addresses by dereferencing do_nothing()
-> > > function descriptor.
-> > >=20
-> > > Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
-> >=20
-> > Do you have any comment to this patch and to patch 12 ?
-> >=20
-> > If not, is it ok to get your acked-by ?
->=20
-> Any feedback please, even if it's to say no feedback ?
+09.01.2022 02:35, Michał Mirosław пишет:
+> On Mon, Dec 13, 2021 at 12:02:52AM +0300, Dmitry Osipenko wrote:
+> [...]
+>> +/**
+>> + * struct power_off_data - Power-off callback argument
+>> + *
+>> + * @cb_data: Callback data.
+>> + */
+>> +struct power_off_data {
+>> +	void *cb_data;
+>> +};
+>> +
+>> +/**
+>> + * struct power_off_prep_data - Power-off preparation callback argument
+>> + *
+>> + * @cb_data: Callback data.
+>> + */
+>> +struct power_off_prep_data {
+>> +	void *cb_data;
+>> +};
+> 
+> Why two exactly same structures? Why only a single pointer instead? If
+> it just to enable type-checking callbacks, then thouse could be opaque
+> or zero-sized structs that would be embedded or casted away in
+> respective callbacks.
 
-Hi! Thanks for the ping; I haven't had time yet to look at this, but
-with -rc1 coming, I should be able to task-switch back to LKDTM for the
-dev cycle and I can give some feedback.
+Preparation and final execution are two different operations, it's much
+cleaner from a user's perspective to have same separated, IMO. In the
+future we may would want to extend one of the structs, and not the
+other. Type-checking is another benefit, of course.
 
--Kees
+The single callback pointer is what is utilized by all current kernel
+users. This may change in the future and then it won't be a problem to
+extend the power-off API without disrupting whole kernel.
 
->=20
-> Many thanks,
-> Christophe
->=20
-> >=20
-> > Thanks
-> > Christophe
-> >=20
-> > > ---
-> > > =A0 drivers/misc/lkdtm/perms.c | 37 ++++++++++++++++++++++++++++-----=
-----
-> > > =A0 1 file changed, 28 insertions(+), 9 deletions(-)
-> > >=20
-> > > diff --git a/drivers/misc/lkdtm/perms.c b/drivers/misc/lkdtm/perms.c
-> > > index 035fcca441f0..1cf24c4a79e9 100644
-> > > --- a/drivers/misc/lkdtm/perms.c
-> > > +++ b/drivers/misc/lkdtm/perms.c
-> > > @@ -44,19 +44,34 @@ static noinline void do_overwritten(void)
-> > > =A0=A0=A0=A0=A0 return;
-> > > =A0 }
-> > > +static void *setup_function_descriptor(func_desc_t *fdesc, void *dst)
-> > > +{
-> > > +=A0=A0=A0 if (!have_function_descriptors())
-> > > +=A0=A0=A0=A0=A0=A0=A0 return dst;
-> > > +
-> > > +=A0=A0=A0 memcpy(fdesc, do_nothing, sizeof(*fdesc));
-> > > +=A0=A0=A0 fdesc->addr =3D (unsigned long)dst;
-> > > +=A0=A0=A0 barrier();
-> > > +
-> > > +=A0=A0=A0 return fdesc;
-> > > +}
-> > > +
-> > > =A0 static noinline void execute_location(void *dst, bool write)
-> > > =A0 {
-> > > -=A0=A0=A0 void (*func)(void) =3D dst;
-> > > +=A0=A0=A0 void (*func)(void);
-> > > +=A0=A0=A0 func_desc_t fdesc;
-> > > +=A0=A0=A0 void *do_nothing_text =3D dereference_function_descriptor(=
-do_nothing);
-> > > -=A0=A0=A0 pr_info("attempting ok execution at %px\n", do_nothing);
-> > > +=A0=A0=A0 pr_info("attempting ok execution at %px\n", do_nothing_tex=
-t);
-> > > =A0=A0=A0=A0=A0 do_nothing();
-> > > =A0=A0=A0=A0=A0 if (write =3D CODE_WRITE) {
-> > > -=A0=A0=A0=A0=A0=A0=A0 memcpy(dst, do_nothing, EXEC_SIZE);
-> > > +=A0=A0=A0=A0=A0=A0=A0 memcpy(dst, do_nothing_text, EXEC_SIZE);
-> > > =A0=A0=A0=A0=A0=A0=A0=A0=A0 flush_icache_range((unsigned long)dst,
-> > > =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 (unsigne=
-d long)dst + EXEC_SIZE);
-> > > =A0=A0=A0=A0=A0 }
-> > > -=A0=A0=A0 pr_info("attempting bad execution at %px\n", func);
-> > > +=A0=A0=A0 pr_info("attempting bad execution at %px\n", dst);
-> > > +=A0=A0=A0 func =3D setup_function_descriptor(&fdesc, dst);
-> > > =A0=A0=A0=A0=A0 func();
-> > > =A0=A0=A0=A0=A0 pr_err("FAIL: func returned\n");
-> > > =A0 }
-> > > @@ -66,16 +81,19 @@ static void execute_user_location(void *dst)
-> > > =A0=A0=A0=A0=A0 int copied;
-> > > =A0=A0=A0=A0=A0 /* Intentionally crossing kernel/user memory boundary=
-. */
-> > > -=A0=A0=A0 void (*func)(void) =3D dst;
-> > > +=A0=A0=A0 void (*func)(void);
-> > > +=A0=A0=A0 func_desc_t fdesc;
-> > > +=A0=A0=A0 void *do_nothing_text =3D dereference_function_descriptor(=
-do_nothing);
-> > > -=A0=A0=A0 pr_info("attempting ok execution at %px\n", do_nothing);
-> > > +=A0=A0=A0 pr_info("attempting ok execution at %px\n", do_nothing_tex=
-t);
-> > > =A0=A0=A0=A0=A0 do_nothing();
-> > > -=A0=A0=A0 copied =3D access_process_vm(current, (unsigned long)dst, =
-do_nothing,
-> > > +=A0=A0=A0 copied =3D access_process_vm(current, (unsigned long)dst,
-> > > do_nothing_text,
-> > > =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 EXEC_SIZ=
-E, FOLL_WRITE);
-> > > =A0=A0=A0=A0=A0 if (copied < EXEC_SIZE)
-> > > =A0=A0=A0=A0=A0=A0=A0=A0=A0 return;
-> > > -=A0=A0=A0 pr_info("attempting bad execution at %px\n", func);
-> > > +=A0=A0=A0 pr_info("attempting bad execution at %px\n", dst);
-> > > +=A0=A0=A0 func =3D setup_function_descriptor(&fdesc, dst);
-> > > =A0=A0=A0=A0=A0 func();
-> > > =A0=A0=A0=A0=A0 pr_err("FAIL: func returned\n");
-> > > =A0 }
-> > > @@ -153,7 +171,8 @@ void lkdtm_EXEC_VMALLOC(void)
-> > > =A0 void lkdtm_EXEC_RODATA(void)
-> > > =A0 {
-> > > -=A0=A0=A0 execute_location(lkdtm_rodata_do_nothing, CODE_AS_IS);
-> > > +    execute_location(dereference_function_descriptor(lkdtm_rodata_do=
-_nothing),
-> > >=20
-> > > +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 CODE_AS_IS);
-> > > =A0 }
-> > > =A0 void lkdtm_EXEC_USERSPACE(void)
-> > >=20
+>> +
+>> +/**
+>> + * struct restart_data - Restart callback argument
+>> + *
+>> + * @cb_data: Callback data.
+>> + * @cmd: Restart command string.
+>> + * @stop_chain: Further lower priority callbacks won't be executed if set to
+>> + *		true. Can be changed within callback. Default is false.
+>> + * @mode: Reboot mode ID.
+>> + */
+>> +struct restart_data {
+>> +	void *cb_data;
+>> +	const char *cmd;
+>> +	bool stop_chain;
+>> +	enum reboot_mode mode;
+>> +};
+>> +
+>> +/**
+>> + * struct reboot_prep_data - Reboot and shutdown preparation callback argument
+>> + *
+>> + * @cb_data: Callback data.
+>> + * @cmd: Restart command string.
+>> + * @stop_chain: Further lower priority callbacks won't be executed if set to
+>> + *		true. Can be changed within callback. Default is false.
+> 
+> Why would we want to stop power-off or erboot chain? If the callback
+> succeded, then further calls won't be made. If it doesn't succeed, but
+> possibly breaks the system somehow, it shouldn't return. Then the only
+> case left would be to just try the next method of shutting down.
 
---=20
-Kees Cook
+This is what some of the API users were doing for years. I don't know
+for sure why they want to stop the chain, it indeed looks like an
+incorrect behaviour, but that's up to developers to decide. I only
+retained the old behaviour for those users.
+
+>> + * @mode: Preparation mode ID.
+>> + */
+>> +struct reboot_prep_data {
+>> +	void *cb_data;
+>> +	const char *cmd;
+>> +	bool stop_chain;
+>> +	enum reboot_prepare_mode mode;
+>> +};
+>> +
+>> +struct sys_off_handler_private_data {
+>> +	struct notifier_block power_off_nb;
+>> +	struct notifier_block restart_nb;
+>> +	struct notifier_block reboot_nb;
+> 
+> What's the difference between restart and reboot?
+
+Reboot is always executed before restart and power-off callbacks. This
+is explained in the doc-comment of the struct sys_off_handler.
+
++ * @reboot_prepare_cb: Reboot/shutdown preparation callback. All reboot
++ * preparation callbacks are invoked before @restart_cb or @power_off_cb,
++ * depending on the mode. It's registered with register_reboot_notifier().
++ * The point is to remove boilerplate code from drivers which use this
++ * callback in conjunction with the restart/power-off callbacks.
++ *
+
+This reboot callback usually performs early preparations that are need
+to be done before machine is placed into reset state, please see [1] for
+the examples.
+
+[1] https://elixir.bootlin.com/linux/v5.16/A/ident/register_reboot_notifier
+
+I agree that "reboot" sounds like a misnomer. This name was coined long
+time ago, perhaps not worth to rename it at this point. I'm also not
+sure what could be a better name.
+
+>> +	void (*platform_power_off_cb)(void);
+>> +	void (*simple_power_off_cb)(void *data);
+>> +	void *simple_power_off_cb_data;
+>> +	bool registered;
+>> +};
+> 
+> BTW, I couldn't find a right description of my idea of unifying the
+> chains before, so let me sketch it now.
+> 
+> The idea is to have a single system-off chain in which the callback
+> gets a mode ({QUERY_*, PREP_*, DO_*} for each of {*_REBOOT, *_POWEROFF, ...?).
+> The QUERY_* calls would be made in can_kernel_reboot/poweroff(): all
+> would be called, and if at least one returned true, then the shutdown
+> mode would continue. All of PREP_* would be called then. After that
+> all DO_* would be tried until one doesn't return (succeeded or broke
+> the system hard). Classic for(;;); could be a final fallback for the
+> case where arch/machine (lowest priority) call would return instead
+> of halting the system in machine-dependent way. The QUERY and PREP
+> stages could be combined, but I haven't thought about it enough to
+> see what conditions would need to be imposed on the callbacks in
+> that case (maybe it's not worth the trouble, since it isn't a fast
+> path anyway?). The goal here is to have less (duplicated) code in
+> kernel, but otherwise it seems equivalent to your API proposal.
+
+Michał, thank you for the review and suggestions! I'll take another look
+at yours proposal during this merge window, in a preparation to v6.
