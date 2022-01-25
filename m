@@ -1,51 +1,80 @@
-From: Dmitry Osipenko <digetx@gmail.com>
-Date: Sun, 30 Jan 2022 23:37:04 +0000
-Subject: [PATCH v6 07/21] riscv: Use do_kernel_power_off()
-Message-Id: <20220130233718.21544-8-digetx@gmail.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Tue, 25 Jan 2022 15:26:47 +0000
+Subject: [PATCH 3/8] kernel/fork, IA64: Provide a alloc_thread_stack_node() for IA64.
+Message-Id: <20220125152652.1963111-4-bigeasy@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220130233718.21544-1-digetx@gmail.com>
-In-Reply-To: <20220130233718.21544-1-digetx@gmail.com>
+References: <20220125152652.1963111-1-bigeasy@linutronix.de>
+In-Reply-To: <20220125152652.1963111-1-bigeasy@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Andy Lutomirski <luto@kernel.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Ingo Molnar <mingo@redhat.com>, Juri Lelli <juri.lelli@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Steven Rostedt <rostedt@goodmis.org>, Thomas Gleixner <tglx@linutronix.de>, Vincent Guittot <vincent.guittot@linaro.org>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-Kernel now supports chained power-off handlers. Use do_kernel_power_off()
-that invokes chained power-off handlers. It also invokes legacy
-pm_power_off() for now, which will be removed once all drivers will
-be converted to the new power-off API.
+Provide a generic alloc_thread_stack_node() for IA64/
+CONFIG_ARCH_THREAD_STACK_ALLOCATOR which returns stack pointer and sets
+task_struct::stack so it behaves exactly like the other implementations.
 
-Acked-by: Palmer Dabbelt <palmer@dabbelt.com>
-Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
+Rename IA64's alloc_thread_stack_node() and add the generic version to
+the fork code so it is in one place _and_ to drastically lower chances
+of fat fingering the IA64 code.
+Do the same for free_thread_stack().
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- arch/riscv/kernel/reset.c | 12 ++++--------
- 1 file changed, 4 insertions(+), 8 deletions(-)
+ arch/ia64/include/asm/thread_info.h |  6 +++---
+ kernel/fork.c                       | 16 ++++++++++++++++
+ 2 files changed, 19 insertions(+), 3 deletions(-)
 
-diff --git a/arch/riscv/kernel/reset.c b/arch/riscv/kernel/reset.c
-index 9c842c41684a..912288572226 100644
---- a/arch/riscv/kernel/reset.c
-+++ b/arch/riscv/kernel/reset.c
-@@ -23,16 +23,12 @@ void machine_restart(char *cmd)
+diff --git a/arch/ia64/include/asm/thread_info.h b/arch/ia64/include/asm/thread_info.h
+index 51d20cb377062..1684716f08201 100644
+--- a/arch/ia64/include/asm/thread_info.h
++++ b/arch/ia64/include/asm/thread_info.h
+@@ -55,15 +55,15 @@ struct thread_info {
+ #ifndef ASM_OFFSETS_C
+ /* how to get the thread information struct from C */
+ #define current_thread_info()	((struct thread_info *) ((char *) current + IA64_TASK_SIZE))
+-#define alloc_thread_stack_node(tsk, node)	\
++#define arch_alloc_thread_stack_node(tsk, node)	\
+ 		((unsigned long *) ((char *) (tsk) + IA64_TASK_SIZE))
+ #define task_thread_info(tsk)	((struct thread_info *) ((char *) (tsk) + IA64_TASK_SIZE))
+ #else
+ #define current_thread_info()	((struct thread_info *) 0)
+-#define alloc_thread_stack_node(tsk, node)	((unsigned long *) 0)
++#define arch_alloc_thread_stack_node(tsk, node)	((unsigned long *) 0)
+ #define task_thread_info(tsk)	((struct thread_info *) 0)
+ #endif
+-#define free_thread_stack(tsk)	/* nothing */
++#define arch_free_thread_stack(tsk)	/* nothing */
+ #define task_stack_page(tsk)	((void *)(tsk))
  
- void machine_halt(void)
- {
--	if (pm_power_off != NULL)
--		pm_power_off();
--	else
--		default_power_off();
-+	do_kernel_power_off();
-+	default_power_off();
+ #define __HAVE_THREAD_FUNCTIONS
+diff --git a/kernel/fork.c b/kernel/fork.c
+index c47dcba5d66d2..a0d58ae6fac76 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -330,6 +330,22 @@ void thread_stack_cache_init(void)
  }
  
- void machine_power_off(void)
- {
--	if (pm_power_off != NULL)
--		pm_power_off();
--	else
--		default_power_off();
-+	do_kernel_power_off();
-+	default_power_off();
- }
+ # endif /* THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK) */
++#else /* CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
++
++static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
++{
++	unsigned long *stack;
++
++	stack = arch_alloc_thread_stack_node(tsk, node);
++	tsk->stack = stack;
++	return stack;
++}
++
++static void free_thread_stack(struct task_struct *tsk, bool cache_only)
++{
++	arch_free_thread_stack(tsk);
++}
++
+ #endif /* !CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
+ 
+ /* SLAB cache for signal_struct structures (tsk->signal) */
 -- 
 2.34.1
