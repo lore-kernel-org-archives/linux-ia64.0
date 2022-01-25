@@ -1,45 +1,61 @@
-From: Stafford Horne <shorne@gmail.com>
-Date: Tue, 18 Jan 2022 11:48:17 +0000
-Subject: Re: architectures that still need to remove set_fs()
-Message-Id: <YeapAai1NIuy0zV4@antec>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Tue, 25 Jan 2022 15:26:46 +0000
+Subject: [PATCH 2/8] kernel/fork: Duplicate task_struct before stack allocation.
+Message-Id: <20220125152652.1963111-3-bigeasy@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220118074836.GA20994@lst.de>
-In-Reply-To: <20220118074836.GA20994@lst.de>
+References: <20220125152652.1963111-1-bigeasy@linutronix.de>
+In-Reply-To: <20220125152652.1963111-1-bigeasy@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>
-Cc: Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Vineet Gupta <vgupta@kernel.org>, Guo Ren <guoren@kernel.org>, Brian Cain <bcain@codeaurora.org>, Michal Simek <monstr@monstr.eu>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Dinh Nguyen <dinguyen@kernel.org>, Jonas Bonn <jonas@southpole.se>, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, openrisc@lists.librecores.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@linux-xtensa.org, linux-kernel@linux-xtensa.org
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Andy Lutomirski <luto@kernel.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Ingo Molnar <mingo@redhat.com>, Juri Lelli <juri.lelli@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Steven Rostedt <rostedt@goodmis.org>, Thomas Gleixner <tglx@linutronix.de>, Vincent Guittot <vincent.guittot@linaro.org>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-Hi,
+alloc_thread_stack_node() already populates the task_struct::stack
+member except on IA64. The stack pointer is saved and populated again
+because IA64 needs it and arch_dup_task_struct() overwrites it.
 
-On Tue, Jan 18, 2022 at 08:48:36AM +0100, Christoph Hellwig wrote:
-> Hi all,
-> 
-> you are in this list because your architecture still implements and
-> uses address space overrides using set_fs(), which are deprecated and
-> have been removed from all mainstream architecture ports.  To help
-> cleanup the core kernel it would be great to make progress on removing
-> set_fs entirely.
-> 
-> The following steps are required:
-> 
->  (1) implement the __get_kernel_nofault and __put_kernel_nofault
->      helper to access kernel memory without page faults, replacing
->      the get/put_user under set_fs(KERNEL_DS) abuse.  Mips has a good
->      example for a trivial implementation for architectures that use
->      a common address space in commit 04324f44cb69
+Allocate thread's stack after task_struct has been duplicated as a
+preparation.
 
-Also see commit 08ee3a009f49a which is preparation for removing set_fs/get_fs
-this commit implements __get_kernel_nofault/__put_kernel_nofault for mips.
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/fork.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
->  (2) remove any architecture specific use of such constructs.  This
->      only affects ia64 and sh.
->  (3) stop selecting the SET_FS and remove all the set_fs-related
->      infrastructure.  The above mips commit is a good guide once again.
-> 
-> Thanks!
-
-I will look into this for OpenRISC.
-
--Stafford
+diff --git a/kernel/fork.c b/kernel/fork.c
+index f63c0af6002da..c47dcba5d66d2 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -888,6 +888,10 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ 	if (!tsk)
+ 		return NULL;
+ 
++	err = arch_dup_task_struct(tsk, orig);
++	if (err)
++		goto free_tsk;
++
+ 	stack = alloc_thread_stack_node(tsk, node);
+ 	if (!stack)
+ 		goto free_tsk;
+@@ -897,8 +901,6 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ 
+ 	stack_vm_area = task_stack_vm_area(tsk);
+ 
+-	err = arch_dup_task_struct(tsk, orig);
+-
+ 	/*
+ 	 * arch_dup_task_struct() clobbers the stack-related fields.  Make
+ 	 * sure they're properly initialized before using any stack-related
+@@ -912,9 +914,6 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ 	refcount_set(&tsk->stack_refcount, 1);
+ #endif
+ 
+-	if (err)
+-		goto free_stack;
+-
+ 	err = scs_prepare(tsk, node);
+ 	if (err)
+ 		goto free_stack;
+-- 
+2.34.1
