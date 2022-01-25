@@ -1,115 +1,133 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Date: Sat, 08 Jan 2022 23:35:15 +0000
-Subject: Re: [PATCH v5 04/21] kernel: Add combined power-off+restart handler call chain API
-Message-Id: <Ydofs2CIfA+r5KAz@qmqm.qmqm.pl>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Tue, 25 Jan 2022 15:26:49 +0000
+Subject: [PATCH 5/8] kernel/fork: Move memcg_charge_kernel_stack() into CONFIG_VMAP_STACK.
+Message-Id: <20220125152652.1963111-6-bigeasy@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20211212210309.9851-1-digetx@gmail.com>
- <20211212210309.9851-5-digetx@gmail.com>
-In-Reply-To: <20211212210309.9851-5-digetx@gmail.com>
+References: <20220125152652.1963111-1-bigeasy@linutronix.de>
+In-Reply-To: <20220125152652.1963111-1-bigeasy@linutronix.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Dmitry Osipenko <digetx@gmail.com>
-Cc: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Andy Lutomirski <luto@kernel.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Ingo Molnar <mingo@redhat.com>, Juri Lelli <juri.lelli@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Steven Rostedt <rostedt@goodmis.org>, Thomas Gleixner <tglx@linutronix.de>, Vincent Guittot <vincent.guittot@linaro.org>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-On Mon, Dec 13, 2021 at 12:02:52AM +0300, Dmitry Osipenko wrote:
-[...]
-> +/**
-> + * struct power_off_data - Power-off callback argument
-> + *
-> + * @cb_data: Callback data.
-> + */
-> +struct power_off_data {
-> +	void *cb_data;
-> +};
-> +
-> +/**
-> + * struct power_off_prep_data - Power-off preparation callback argument
-> + *
-> + * @cb_data: Callback data.
-> + */
-> +struct power_off_prep_data {
-> +	void *cb_data;
-> +};
+memcg_charge_kernel_stack() is only used in the CONFIG_VMAP_STACK case.
 
-Why two exactly same structures? Why only a single pointer instead? If
-it just to enable type-checking callbacks, then thouse could be opaque
-or zero-sized structs that would be embedded or casted away in
-respective callbacks.
+Move memcg_charge_kernel_stack() into the CONFIG_VMAP_STACK block and
+invoke it from within alloc_thread_stack_node().
 
-> +
-> +/**
-> + * struct restart_data - Restart callback argument
-> + *
-> + * @cb_data: Callback data.
-> + * @cmd: Restart command string.
-> + * @stop_chain: Further lower priority callbacks won't be executed if se=
-t to
-> + *		true. Can be changed within callback. Default is false.
-> + * @mode: Reboot mode ID.
-> + */
-> +struct restart_data {
-> +	void *cb_data;
-> +	const char *cmd;
-> +	bool stop_chain;
-> +	enum reboot_mode mode;
-> +};
-> +
-> +/**
-> + * struct reboot_prep_data - Reboot and shutdown preparation callback ar=
-gument
-> + *
-> + * @cb_data: Callback data.
-> + * @cmd: Restart command string.
-> + * @stop_chain: Further lower priority callbacks won't be executed if se=
-t to
-> + *		true. Can be changed within callback. Default is false.
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/fork.c | 69 +++++++++++++++++++++++++++------------------------
+ 1 file changed, 36 insertions(+), 33 deletions(-)
 
-Why would we want to stop power-off or erboot chain? If the callback
-succeded, then further calls won't be made. If it doesn't succeed, but
-possibly breaks the system somehow, it shouldn't return. Then the only
-case left would be to just try the next method of shutting down.
-
-> + * @mode: Preparation mode ID.
-> + */
-> +struct reboot_prep_data {
-> +	void *cb_data;
-> +	const char *cmd;
-> +	bool stop_chain;
-> +	enum reboot_prepare_mode mode;
-> +};
-> +
-> +struct sys_off_handler_private_data {
-> +	struct notifier_block power_off_nb;
-> +	struct notifier_block restart_nb;
-> +	struct notifier_block reboot_nb;
-
-What's the difference between restart and reboot?
-
-> +	void (*platform_power_off_cb)(void);
-> +	void (*simple_power_off_cb)(void *data);
-> +	void *simple_power_off_cb_data;
-> +	bool registered;
-> +};
-
-BTW, I couldn't find a right description of my idea of unifying the
-chains before, so let me sketch it now.
-
-The idea is to have a single system-off chain in which the callback
-gets a mode ({QUERY_*, PREP_*, DO_*} for each of {*_REBOOT, *_POWEROFF, ...=
-?).
-The QUERY_* calls would be made in can_kernel_reboot/poweroff(): all
-would be called, and if at least one returned true, then the shutdown
-mode would continue. All of PREP_* would be called then. After that
-all DO_* would be tried until one doesn't return (succeeded or broke
-the system hard). Classic for(;;); could be a final fallback for the
-case where arch/machine (lowest priority) call would return instead
-of halting the system in machine-dependent way. The QUERY and PREP
-stages could be combined, but I haven't thought about it enough to
-see what conditions would need to be imposed on the callbacks in
-that case (maybe it's not worth the trouble, since it isn't a fast
-path anyway?). The goal here is to have less (duplicated) code in
-kernel, but otherwise it seems equivalent to your API proposal.
-
-Best Regards
-Micha=B3 Miros=B3aw
+diff --git a/kernel/fork.c b/kernel/fork.c
+index e6337b3c34ff7..73f644482e932 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -211,6 +211,32 @@ static int free_vm_stack_cache(unsigned int cpu)
+ 	return 0;
+ }
+ 
++static int memcg_charge_kernel_stack(struct task_struct *tsk)
++{
++	struct vm_struct *vm = task_stack_vm_area(tsk);
++	int i;
++	int ret;
++
++	BUILD_BUG_ON(IS_ENABLED(CONFIG_VMAP_STACK) && PAGE_SIZE % 1024 != 0);
++	BUG_ON(vm->nr_pages != THREAD_SIZE / PAGE_SIZE);
++
++	for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++) {
++		ret = memcg_kmem_charge_page(vm->pages[i], GFP_KERNEL, 0);
++		if (ret)
++			goto err;
++	}
++	return 0;
++err:
++	/*
++	 * If memcg_kmem_charge_page() fails, page's memory cgroup pointer is
++	 * NULL, and memcg_kmem_uncharge_page() in free_thread_stack() will
++	 * ignore this page.
++	 */
++	for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++)
++		memcg_kmem_uncharge_page(vm->pages[i], 0);
++	return ret;
++}
++
+ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ {
+ 	void *stack;
+@@ -230,6 +256,11 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 		/* Clear stale pointers from reused stack. */
+ 		memset(s->addr, 0, THREAD_SIZE);
+ 
++		if (memcg_charge_kernel_stack(tsk)) {
++			vfree(s->addr);
++			return -ENOMEM;
++		}
++
+ 		tsk->stack_vm_area = s;
+ 		tsk->stack = s->addr;
+ 		return 0;
+@@ -247,6 +278,11 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 				     0, node, __builtin_return_address(0));
+ 	if (!stack)
+ 		return -ENOMEM;
++
++	if (memcg_charge_kernel_stack(tsk)) {
++		vfree(stack);
++		return -ENOMEM;
++	}
+ 	/*
+ 	 * We can't call find_vm_area() in interrupt context, and
+ 	 * free_thread_stack() can be called in interrupt context,
+@@ -417,36 +453,6 @@ static void account_kernel_stack(struct task_struct *tsk, int account)
+ 	}
+ }
+ 
+-static int memcg_charge_kernel_stack(struct task_struct *tsk)
+-{
+-#ifdef CONFIG_VMAP_STACK
+-	struct vm_struct *vm = task_stack_vm_area(tsk);
+-	int ret;
+-
+-	BUILD_BUG_ON(IS_ENABLED(CONFIG_VMAP_STACK) && PAGE_SIZE % 1024 != 0);
+-
+-	if (vm) {
+-		int i;
+-
+-		BUG_ON(vm->nr_pages != THREAD_SIZE / PAGE_SIZE);
+-
+-		for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++) {
+-			/*
+-			 * If memcg_kmem_charge_page() fails, page's
+-			 * memory cgroup pointer is NULL, and
+-			 * memcg_kmem_uncharge_page() in free_thread_stack()
+-			 * will ignore this page.
+-			 */
+-			ret = memcg_kmem_charge_page(vm->pages[i], GFP_KERNEL,
+-						     0);
+-			if (ret)
+-				return ret;
+-		}
+-	}
+-#endif
+-	return 0;
+-}
+-
+ static void release_task_stack(struct task_struct *tsk)
+ {
+ 	if (WARN_ON(READ_ONCE(tsk->__state) != TASK_DEAD))
+@@ -908,9 +914,6 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ 	if (err)
+ 		goto free_tsk;
+ 
+-	if (memcg_charge_kernel_stack(tsk))
+-		goto free_stack;
+-
+ #ifdef CONFIG_THREAD_INFO_IN_TASK
+ 	refcount_set(&tsk->stack_refcount, 1);
+ #endif
+-- 
+2.34.1
