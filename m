@@ -1,72 +1,172 @@
-From: Oscar Salvador <osalvador@suse.de>
-Date: Mon, 31 Jan 2022 09:41:26 +0000
-Subject: Re: [PATCH RFC v1] drivers/base/node: consolidate node device subsystem initialization in node_dev_i
-Message-Id: <20220131094125.GB15392@linux>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Tue, 25 Jan 2022 15:26:45 +0000
+Subject: [PATCH 1/8] kernel/fork: Redo ifdefs around task's handling.
+Message-Id: <20220125152652.1963111-2-bigeasy@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220128151540.164759-1-david@redhat.com>
-In-Reply-To: <20220128151540.164759-1-david@redhat.com>
+References: <20220125152652.1963111-1-bigeasy@linutronix.de>
+In-Reply-To: <20220125152652.1963111-1-bigeasy@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>
-Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Michal Hocko <mhocko@suse.com>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "Rafael J. Wysocki" <rafael@kernel.org>, x86@kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Andy Lutomirski <luto@kernel.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Ingo Molnar <mingo@redhat.com>, Juri Lelli <juri.lelli@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Steven Rostedt <rostedt@goodmis.org>, Thomas Gleixner <tglx@linutronix.de>, Vincent Guittot <vincent.guittot@linaro.org>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-On Fri, Jan 28, 2022 at 04:15:40PM +0100, David Hildenbrand wrote:
-> ... and call node_dev_init() after memory_dev_init() from driver_init(),
-> so before any of the existing arch/subsys calls. All online nodes should
-> be known at that point.
-> 
-> This is in line with memory_dev_init(), which initializes the memory
-> device subsystem and creates all memory block devices.
-> 
-> Similar to memory_dev_init(), panic() if anything goes wrong, we don't
-> want to continue with such basic initialization errors.
-> 
-> The important part is that node_dev_init() gets called after
-> memory_dev_init() and after cpu_dev_init(), but before any of the
-> relevant archs call register_cpu() to register the new cpu device under
-> the node device. The latter should be the case for the current users
-> of topology_init().
-> 
-> Cc: Andrew Morton <akpm@linux-foundation.org>
-> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> Cc: Michal Hocko <mhocko@suse.com>
-> Cc: Oscar Salvador <osalvador@suse.de>
-> Cc: Catalin Marinas <catalin.marinas@arm.com>
-> Cc: Will Deacon <will@kernel.org>
-> Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-> Cc: Michael Ellerman <mpe@ellerman.id.au>
-> Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> Cc: Paul Mackerras <paulus@samba.org>
-> Cc: Paul Walmsley <paul.walmsley@sifive.com>
-> Cc: Palmer Dabbelt <palmer@dabbelt.com>
-> Cc: Albert Ou <aou@eecs.berkeley.edu>
-> Cc: Heiko Carstens <hca@linux.ibm.com>
-> Cc: Vasily Gorbik <gor@linux.ibm.com>
-> Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
-> Cc: Rich Felker <dalias@libc.org>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Thomas Gleixner <tglx@linutronix.de>
-> Cc: Ingo Molnar <mingo@redhat.com>
-> Cc: Borislav Petkov <bp@alien8.de>
-> Cc: Dave Hansen <dave.hansen@linux.intel.com>
-> Cc: "Rafael J. Wysocki" <rafael@kernel.org>
-> Cc: x86@kernel.org
-> Cc: linux-arm-kernel@lists.infradead.org
-> Cc: linux-kernel@vger.kernel.org
-> Cc: linux-ia64@vger.kernel.org
-> Cc: linux-mips@vger.kernel.org
-> Cc: linuxppc-dev@lists.ozlabs.org
-> Cc: linux-riscv@lists.infradead.org
-> Cc: linux-s390@vger.kernel.org
-> Cc: linux-sh@vger.kernel.org
-> Cc: sparclinux@vger.kernel.org
-> Cc: linux-mm@kvack.org
-> Signed-off-by: David Hildenbrand <david@redhat.com>
+The use of ifdef CONFIG_VMAP_STACK is confusing in terms what is
+actually happenning and what can happen.
+For instance from reading free_thread_stack() it appears that in the
+CONFIG_VMAP_STACK case we may receive a non-NULL vm pointer but it may
+also be NULL in which case __free_pages() is used to free the stack.
+This is however not the case because in the VMAP case a non-NULL pointer
+is always returned here.
+Since it looks like this might happen, the compiler creates the correct
+dead code with the invocation to __free_pages() and everything around
+it. Twice.
 
-Reviewed-by: Oscar Salvador <osalvador@suse.de>
+Add spaces between the ifdef and the identifer to recognize the ifdef
+level that we are currently in.
+Add the current identifer as a comment behind #else and #endif.
+Move the code within free_thread_stack() and alloc_thread_stack_node()
+into the relavant ifdef block.
 
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ kernel/fork.c | 74 +++++++++++++++++++++++++++------------------------
+ 1 file changed, 39 insertions(+), 35 deletions(-)
 
+diff --git a/kernel/fork.c b/kernel/fork.c
+index d75a528f7b219..f63c0af6002da 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -185,7 +185,7 @@ static inline void free_task_struct(struct task_struct *tsk)
+  */
+ # if THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK)
+ 
+-#ifdef CONFIG_VMAP_STACK
++#  ifdef CONFIG_VMAP_STACK
+ /*
+  * vmalloc() is a bit slow, and calling vfree() enough times will force a TLB
+  * flush.  Try to minimize the number of calls by caching stacks.
+@@ -210,11 +210,9 @@ static int free_vm_stack_cache(unsigned int cpu)
+ 
+ 	return 0;
+ }
+-#endif
+ 
+ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
+ {
+-#ifdef CONFIG_VMAP_STACK
+ 	void *stack;
+ 	int i;
+ 
+@@ -258,7 +256,34 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 		tsk->stack = stack;
+ 	}
+ 	return stack;
+-#else
++}
++
++static void free_thread_stack(struct task_struct *tsk)
++{
++	struct vm_struct *vm = task_stack_vm_area(tsk);
++	int i;
++
++	for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++)
++		memcg_kmem_uncharge_page(vm->pages[i], 0);
++
++	for (i = 0; i < NR_CACHED_STACKS; i++) {
++		if (this_cpu_cmpxchg(cached_stacks[i], NULL,
++				     tsk->stack_vm_area) != NULL)
++			continue;
++
++		tsk->stack = NULL;
++		tsk->stack_vm_area = NULL;
++		return;
++	}
++	vfree_atomic(tsk->stack);
++	tsk->stack = NULL;
++	tsk->stack_vm_area = NULL;
++}
++
++#  else /* !CONFIG_VMAP_STACK */
++
++static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
++{
+ 	struct page *page = alloc_pages_node(node, THREADINFO_GFP,
+ 					     THREAD_SIZE_ORDER);
+ 
+@@ -267,36 +292,17 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 		return tsk->stack;
+ 	}
+ 	return NULL;
+-#endif
+ }
+ 
+-static inline void free_thread_stack(struct task_struct *tsk)
++static void free_thread_stack(struct task_struct *tsk)
+ {
+-#ifdef CONFIG_VMAP_STACK
+-	struct vm_struct *vm = task_stack_vm_area(tsk);
+-
+-	if (vm) {
+-		int i;
+-
+-		for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++)
+-			memcg_kmem_uncharge_page(vm->pages[i], 0);
+-
+-		for (i = 0; i < NR_CACHED_STACKS; i++) {
+-			if (this_cpu_cmpxchg(cached_stacks[i],
+-					NULL, tsk->stack_vm_area) != NULL)
+-				continue;
+-
+-			return;
+-		}
+-
+-		vfree_atomic(tsk->stack);
+-		return;
+-	}
+-#endif
+-
+ 	__free_pages(virt_to_page(tsk->stack), THREAD_SIZE_ORDER);
++	tsk->stack = NULL;
+ }
+-# else
++
++#  endif /* CONFIG_VMAP_STACK */
++# else /* !(THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK)) */
++
+ static struct kmem_cache *thread_stack_cache;
+ 
+ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk,
+@@ -312,6 +318,7 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk,
+ static void free_thread_stack(struct task_struct *tsk)
+ {
+ 	kmem_cache_free(thread_stack_cache, tsk->stack);
++	tsk->stack = NULL;
+ }
+ 
+ void thread_stack_cache_init(void)
+@@ -321,8 +328,9 @@ void thread_stack_cache_init(void)
+ 					THREAD_SIZE, NULL);
+ 	BUG_ON(thread_stack_cache == NULL);
+ }
+-# endif
+-#endif
++
++# endif /* THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK) */
++#endif /* !CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
+ 
+ /* SLAB cache for signal_struct structures (tsk->signal) */
+ static struct kmem_cache *signal_cachep;
+@@ -432,10 +440,6 @@ static void release_task_stack(struct task_struct *tsk)
+ 
+ 	account_kernel_stack(tsk, -1);
+ 	free_thread_stack(tsk);
+-	tsk->stack = NULL;
+-#ifdef CONFIG_VMAP_STACK
+-	tsk->stack_vm_area = NULL;
+-#endif
+ }
+ 
+ #ifdef CONFIG_THREAD_INFO_IN_TASK
 -- 
-Oscar Salvador
-SUSE Labs
+2.34.1
