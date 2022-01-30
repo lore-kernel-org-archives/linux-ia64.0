@@ -1,133 +1,47 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Date: Tue, 25 Jan 2022 15:26:49 +0000
-Subject: [PATCH 5/8] kernel/fork: Move memcg_charge_kernel_stack() into CONFIG_VMAP_STACK.
-Message-Id: <20220125152652.1963111-6-bigeasy@linutronix.de>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Sun, 30 Jan 2022 23:37:12 +0000
+Subject: [PATCH v6 15/21] ia64: Use do_kernel_power_off()
+Message-Id: <20220130233718.21544-16-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220125152652.1963111-1-bigeasy@linutronix.de>
-In-Reply-To: <20220125152652.1963111-1-bigeasy@linutronix.de>
+References: <20220130233718.21544-1-digetx@gmail.com>
+In-Reply-To: <20220130233718.21544-1-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-Cc: Andy Lutomirski <luto@kernel.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Ingo Molnar <mingo@redhat.com>, Juri Lelli <juri.lelli@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Steven Rostedt <rostedt@goodmis.org>, Thomas Gleixner <tglx@linutronix.de>, Vincent Guittot <vincent.guittot@linaro.org>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-memcg_charge_kernel_stack() is only used in the CONFIG_VMAP_STACK case.
+Kernel now supports chained power-off handlers. Use do_kernel_power_off()
+that invokes chained power-off handlers. It also invokes legacy
+pm_power_off() for now, which will be removed once all drivers will
+be converted to the new power-off API.
 
-Move memcg_charge_kernel_stack() into the CONFIG_VMAP_STACK block and
-invoke it from within alloc_thread_stack_node().
-
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- kernel/fork.c | 69 +++++++++++++++++++++++++++------------------------
- 1 file changed, 36 insertions(+), 33 deletions(-)
+ arch/ia64/kernel/process.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/kernel/fork.c b/kernel/fork.c
-index e6337b3c34ff7..73f644482e932 100644
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -211,6 +211,32 @@ static int free_vm_stack_cache(unsigned int cpu)
- 	return 0;
+diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
+index 834df24a88f1..cee4d7db2143 100644
+--- a/arch/ia64/kernel/process.c
++++ b/arch/ia64/kernel/process.c
+@@ -19,6 +19,7 @@
+ #include <linux/module.h>
+ #include <linux/notifier.h>
+ #include <linux/personality.h>
++#include <linux/reboot.h>
+ #include <linux/sched.h>
+ #include <linux/sched/debug.h>
+ #include <linux/sched/hotplug.h>
+@@ -599,8 +600,7 @@ machine_halt (void)
+ void
+ machine_power_off (void)
+ {
+-	if (pm_power_off)
+-		pm_power_off();
++	do_kernel_power_off();
+ 	machine_halt();
  }
  
-+static int memcg_charge_kernel_stack(struct task_struct *tsk)
-+{
-+	struct vm_struct *vm = task_stack_vm_area(tsk);
-+	int i;
-+	int ret;
-+
-+	BUILD_BUG_ON(IS_ENABLED(CONFIG_VMAP_STACK) && PAGE_SIZE % 1024 != 0);
-+	BUG_ON(vm->nr_pages != THREAD_SIZE / PAGE_SIZE);
-+
-+	for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++) {
-+		ret = memcg_kmem_charge_page(vm->pages[i], GFP_KERNEL, 0);
-+		if (ret)
-+			goto err;
-+	}
-+	return 0;
-+err:
-+	/*
-+	 * If memcg_kmem_charge_page() fails, page's memory cgroup pointer is
-+	 * NULL, and memcg_kmem_uncharge_page() in free_thread_stack() will
-+	 * ignore this page.
-+	 */
-+	for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++)
-+		memcg_kmem_uncharge_page(vm->pages[i], 0);
-+	return ret;
-+}
-+
- static int alloc_thread_stack_node(struct task_struct *tsk, int node)
- {
- 	void *stack;
-@@ -230,6 +256,11 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
- 		/* Clear stale pointers from reused stack. */
- 		memset(s->addr, 0, THREAD_SIZE);
- 
-+		if (memcg_charge_kernel_stack(tsk)) {
-+			vfree(s->addr);
-+			return -ENOMEM;
-+		}
-+
- 		tsk->stack_vm_area = s;
- 		tsk->stack = s->addr;
- 		return 0;
-@@ -247,6 +278,11 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
- 				     0, node, __builtin_return_address(0));
- 	if (!stack)
- 		return -ENOMEM;
-+
-+	if (memcg_charge_kernel_stack(tsk)) {
-+		vfree(stack);
-+		return -ENOMEM;
-+	}
- 	/*
- 	 * We can't call find_vm_area() in interrupt context, and
- 	 * free_thread_stack() can be called in interrupt context,
-@@ -417,36 +453,6 @@ static void account_kernel_stack(struct task_struct *tsk, int account)
- 	}
- }
- 
--static int memcg_charge_kernel_stack(struct task_struct *tsk)
--{
--#ifdef CONFIG_VMAP_STACK
--	struct vm_struct *vm = task_stack_vm_area(tsk);
--	int ret;
--
--	BUILD_BUG_ON(IS_ENABLED(CONFIG_VMAP_STACK) && PAGE_SIZE % 1024 != 0);
--
--	if (vm) {
--		int i;
--
--		BUG_ON(vm->nr_pages != THREAD_SIZE / PAGE_SIZE);
--
--		for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++) {
--			/*
--			 * If memcg_kmem_charge_page() fails, page's
--			 * memory cgroup pointer is NULL, and
--			 * memcg_kmem_uncharge_page() in free_thread_stack()
--			 * will ignore this page.
--			 */
--			ret = memcg_kmem_charge_page(vm->pages[i], GFP_KERNEL,
--						     0);
--			if (ret)
--				return ret;
--		}
--	}
--#endif
--	return 0;
--}
--
- static void release_task_stack(struct task_struct *tsk)
- {
- 	if (WARN_ON(READ_ONCE(tsk->__state) != TASK_DEAD))
-@@ -908,9 +914,6 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
- 	if (err)
- 		goto free_tsk;
- 
--	if (memcg_charge_kernel_stack(tsk))
--		goto free_stack;
--
- #ifdef CONFIG_THREAD_INFO_IN_TASK
- 	refcount_set(&tsk->stack_refcount, 1);
- #endif
 -- 
 2.34.1
