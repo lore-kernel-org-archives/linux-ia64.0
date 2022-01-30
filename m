@@ -1,37 +1,42 @@
-From: Yury Norov <yury.norov@gmail.com>
-Date: Sun, 23 Jan 2022 18:39:08 +0000
-Subject: [PATCH 37/54] arch/ia64: replace cpumask_weight with cpumask_weight_eq in mm/tlb.c
-Message-Id: <20220123183925.1052919-38-yury.norov@gmail.com>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Sun, 30 Jan 2022 23:37:11 +0000
+Subject: [PATCH v6 14/21] x86: Use do_kernel_power_off()
+Message-Id: <20220130233718.21544-15-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220123183925.1052919-1-yury.norov@gmail.com>
-In-Reply-To: <20220123183925.1052919-1-yury.norov@gmail.com>
+References: <20220130233718.21544-1-digetx@gmail.com>
+In-Reply-To: <20220130233718.21544-1-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Yury Norov <yury.norov@gmail.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Andrew Morton <akpm@linux-foundation.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Peter Zijlstra <peterz@infradead.org>, David Laight <David.Laight@aculab.com>, Joe Perches <joe@perches.com>, Dennis Zhou <dennis@kernel.org>, Emil Renner Berthing <kernel@esmil.dk>, Nicholas Piggin <npiggin@gmail.com>, Matti Vaittinen <matti.vaittinen@fi.rohmeurope.com>, Alexey Klimov <aklimov@redhat.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-__flush_tlb_range() code calls cpumask_weight() to compare the
-weight of cpumask with a given number. We can do it more efficiently with
-cpumask_weight_eq because conditional cpumask_weight may stop traversing
-the cpumask earlier, as soon as condition is met.
+Kernel now supports chained power-off handlers. Use do_kernel_power_off()
+that invokes chained power-off handlers. It also invokes legacy
+pm_power_off() for now, which will be removed once all drivers will
+be converted to the new power-off API.
 
-Signed-off-by: Yury Norov <yury.norov@gmail.com>
+Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- arch/ia64/mm/tlb.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/x86/kernel/reboot.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/mm/tlb.c b/arch/ia64/mm/tlb.c
-index 135b5135cace..a5bce13ab047 100644
---- a/arch/ia64/mm/tlb.c
-+++ b/arch/ia64/mm/tlb.c
-@@ -332,7 +332,7 @@ __flush_tlb_range (struct vm_area_struct *vma, unsigned long start,
+diff --git a/arch/x86/kernel/reboot.c b/arch/x86/kernel/reboot.c
+index fa700b46588e..c3636ea4aa71 100644
+--- a/arch/x86/kernel/reboot.c
++++ b/arch/x86/kernel/reboot.c
+@@ -739,10 +739,10 @@ static void native_machine_halt(void)
  
- 	preempt_disable();
- #ifdef CONFIG_SMP
--	if (mm != current->active_mm || cpumask_weight(mm_cpumask(mm)) != 1) {
-+	if (mm != current->active_mm || !cpumask_weight_eq(mm_cpumask(mm), 1)) {
- 		ia64_global_tlb_purge(mm, start, end, nbits);
- 		preempt_enable();
- 		return;
+ static void native_machine_power_off(void)
+ {
+-	if (pm_power_off) {
++	if (kernel_can_power_off()) {
+ 		if (!reboot_force)
+ 			machine_shutdown();
+-		pm_power_off();
++		do_kernel_power_off();
+ 	}
+ 	/* A fallback in case there is no PM info available */
+ 	tboot_shutdown(TB_SHUTDOWN_HALT);
 -- 
-2.30.2
+2.34.1
