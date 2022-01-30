@@ -1,7 +1,7 @@
 From: Dmitry Osipenko <digetx@gmail.com>
-Date: Sun, 30 Jan 2022 23:37:14 +0000
-Subject: [PATCH v6 17/21] nds32: Use do_kernel_power_off()
-Message-Id: <20220130233718.21544-18-digetx@gmail.com>
+Date: Sun, 30 Jan 2022 23:37:04 +0000
+Subject: [PATCH v6 07/21] riscv: Use do_kernel_power_off()
+Message-Id: <20220130233718.21544-8-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220130233718.21544-1-digetx@gmail.com>
 In-Reply-To: <20220130233718.21544-1-digetx@gmail.com>
@@ -16,24 +16,36 @@ that invokes chained power-off handlers. It also invokes legacy
 pm_power_off() for now, which will be removed once all drivers will
 be converted to the new power-off API.
 
+Acked-by: Palmer Dabbelt <palmer@dabbelt.com>
 Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- arch/nds32/kernel/process.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ arch/riscv/kernel/reset.c | 12 ++++--------
+ 1 file changed, 4 insertions(+), 8 deletions(-)
 
-diff --git a/arch/nds32/kernel/process.c b/arch/nds32/kernel/process.c
-index 49fab9e39cbf..0936dcd7db1b 100644
---- a/arch/nds32/kernel/process.c
-+++ b/arch/nds32/kernel/process.c
-@@ -54,8 +54,7 @@ EXPORT_SYMBOL(machine_halt);
+diff --git a/arch/riscv/kernel/reset.c b/arch/riscv/kernel/reset.c
+index 9c842c41684a..912288572226 100644
+--- a/arch/riscv/kernel/reset.c
++++ b/arch/riscv/kernel/reset.c
+@@ -23,16 +23,12 @@ void machine_restart(char *cmd)
+ 
+ void machine_halt(void)
+ {
+-	if (pm_power_off != NULL)
+-		pm_power_off();
+-	else
+-		default_power_off();
++	do_kernel_power_off();
++	default_power_off();
+ }
  
  void machine_power_off(void)
  {
--	if (pm_power_off)
+-	if (pm_power_off != NULL)
 -		pm_power_off();
+-	else
+-		default_power_off();
 +	do_kernel_power_off();
++	default_power_off();
  }
- 
- EXPORT_SYMBOL(machine_power_off);
 -- 
 2.34.1
