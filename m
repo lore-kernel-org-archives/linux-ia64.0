@@ -1,119 +1,65 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Date: Wed, 26 Jan 2022 15:40:01 +0000
-Subject: [PATCH v1] PCI/sysfs: Find shadow ROM before static attribute initialization
-Message-Id: <20220126154001.16895-1-helgaas@kernel.org>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Sun, 30 Jan 2022 23:37:18 +0000
+Subject: [PATCH v6 21/21] reboot: Remove pm_power_off_prepare()
+Message-Id: <20220130233718.21544-22-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20220130233718.21544-1-digetx@gmail.com>
+In-Reply-To: <20220130233718.21544-1-digetx@gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: linux-pci@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org, Bjorn Helgaas <bhelgaas@google.com>, =?UTF-8?q?Ville=20Syrj=C3=A4l=C3=A4?= <ville.syrjala@linux.intel.com>, Huacai Chen <chenhuacai@kernel.org>, Jiaxun Yang <jiaxun.yang@flygoat.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, =?UTF-8?q?Krzysztof=20Wilczy=C5=84ski?= <kw@linux.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-From: Bjorn Helgaas <bhelgaas@google.com>
+All pm_power_off_prepare() users were converted to sys-off handler API.
+Remove the obsolete callback.
 
-Ville reported that the sysfs "rom" file for VGA devices disappeared after
-527139d738d7 ("PCI/sysfs: Convert "rom" to static attribute").
-
-Prior to 527139d738d7, FINAL fixups, including pci_fixup_video() where we
-find shadow ROMs, were run before pci_create_sysfs_dev_files() created the
-sysfs "rom" file.
-
-After 527139d738d7, "rom" is a static attribute and is created before FINAL
-fixups are run, so we didn't create "rom" files for shadow ROMs:
-
-  acpi_pci_root_add
-    ...
-      pci_scan_single_device
-        pci_device_add
-          pci_fixup_video                    # <-- new HEADER fixup
-          device_add
-            ...
-              if (grp->is_visible())
-                pci_dev_rom_attr_is_visible  # after 527139d738d7
-    pci_bus_add_devices
-      pci_bus_add_device
-        pci_fixup_device(pci_fixup_final)
-          pci_fixup_video                    # <-- previous FINAL fixup
-        pci_create_sysfs_dev_files
-          if (pci_resource_len(pdev, PCI_ROM_RESOURCE))
-            sysfs_create_bin_file("rom")     # before 527139d738d7
-
-Change pci_fixup_video() to be a HEADER fixup so it runs before sysfs
-static attributes are initialized.
-
-Rename the Loongson pci_fixup_radeon() to pci_fixup_video() and make its
-dmesg logging identical to the others since it is doing the same job.
-
-Fixes: 527139d738d7 ("PCI/sysfs: Convert "rom" to static attribute")
-Link: https://lore.kernel.org/r/YbxqIyrkv3GhZVxx@intel.com
-Reported-by: Ville Syrjälä <ville.syrjala@linux.intel.com>
-Tested-by: Ville Syrjälä <ville.syrjala@linux.intel.com>
-Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Huacai Chen <chenhuacai@kernel.org>
-Cc: Jiaxun Yang <jiaxun.yang@flygoat.com>
-Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: Borislav Petkov <bp@alien8.de>
-Cc: Dave Hansen <dave.hansen@linux.intel.com>
-Cc: Krzysztof Wilczyński <kw@linux.com>
+Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- arch/ia64/pci/fixup.c              | 4 ++--
- arch/mips/loongson64/vbios_quirk.c | 9 ++++-----
- arch/x86/pci/fixup.c               | 4 ++--
- 3 files changed, 8 insertions(+), 9 deletions(-)
+ include/linux/pm.h |  1 -
+ kernel/reboot.c    | 11 -----------
+ 2 files changed, 12 deletions(-)
 
-diff --git a/arch/ia64/pci/fixup.c b/arch/ia64/pci/fixup.c
-index acb55a41260d..2bcdd7d3a1ad 100644
---- a/arch/ia64/pci/fixup.c
-+++ b/arch/ia64/pci/fixup.c
-@@ -76,5 +76,5 @@ static void pci_fixup_video(struct pci_dev *pdev)
- 		}
- 	}
- }
--DECLARE_PCI_FIXUP_CLASS_FINAL(PCI_ANY_ID, PCI_ANY_ID,
--				PCI_CLASS_DISPLAY_VGA, 8, pci_fixup_video);
-+DECLARE_PCI_FIXUP_CLASS_HEADER(PCI_ANY_ID, PCI_ANY_ID,
-+			       PCI_CLASS_DISPLAY_VGA, 8, pci_fixup_video);
-diff --git a/arch/mips/loongson64/vbios_quirk.c b/arch/mips/loongson64/vbios_quirk.c
-index 9a29e94d3db1..3115d4de982c 100644
---- a/arch/mips/loongson64/vbios_quirk.c
-+++ b/arch/mips/loongson64/vbios_quirk.c
-@@ -3,7 +3,7 @@
- #include <linux/pci.h>
- #include <loongson.h>
+diff --git a/include/linux/pm.h b/include/linux/pm.h
+index f7d2be686359..62879bfc4b8e 100644
+--- a/include/linux/pm.h
++++ b/include/linux/pm.h
+@@ -21,7 +21,6 @@
+  * Callbacks for platform drivers to implement.
+  */
+ extern void (*pm_power_off)(void);
+-extern void (*pm_power_off_prepare)(void);
  
--static void pci_fixup_radeon(struct pci_dev *pdev)
-+static void pci_fixup_video(struct pci_dev *pdev)
+ struct device; /* we have a circular dep with device.h */
+ #ifdef CONFIG_VT_CONSOLE_SLEEP
+diff --git a/kernel/reboot.c b/kernel/reboot.c
+index 1ae5ba86b150..6e0d4deda987 100644
+--- a/kernel/reboot.c
++++ b/kernel/reboot.c
+@@ -48,13 +48,6 @@ int reboot_cpu;
+ enum reboot_type reboot_type = BOOT_ACPI;
+ int reboot_force;
+ 
+-/*
+- * If set, this is used for preparing the system to power off.
+- */
+-
+-void (*pm_power_off_prepare)(void);
+-EXPORT_SYMBOL_GPL(pm_power_off_prepare);
+-
+ /**
+  *	emergency_restart - reboot the system
+  *
+@@ -828,10 +821,6 @@ void do_kernel_power_off(void)
+ 
+ static void do_kernel_power_off_prepare(void)
  {
- 	struct resource *res = &pdev->resource[PCI_ROM_RESOURCE];
- 
-@@ -22,8 +22,7 @@ static void pci_fixup_radeon(struct pci_dev *pdev)
- 	res->flags = IORESOURCE_MEM | IORESOURCE_ROM_SHADOW |
- 		     IORESOURCE_PCI_FIXED;
- 
--	dev_info(&pdev->dev, "BAR %d: assigned %pR for Radeon ROM\n",
--		 PCI_ROM_RESOURCE, res);
-+	dev_info(&pdev->dev, "Video device with shadowed ROM at %pR\n", res);
+-	/* legacy pm_power_off_prepare() is unchained and has highest priority */
+-	if (pm_power_off_prepare)
+-		return pm_power_off_prepare();
+-
+ 	blocking_notifier_call_chain(&power_off_handler_list, POWEROFF_PREPARE,
+ 				     NULL);
  }
--DECLARE_PCI_FIXUP_CLASS_FINAL(PCI_VENDOR_ID_ATI, 0x9615,
--				PCI_CLASS_DISPLAY_VGA, 8, pci_fixup_radeon);
-+DECLARE_PCI_FIXUP_CLASS_HEADER(PCI_VENDOR_ID_ATI, 0x9615,
-+			       PCI_CLASS_DISPLAY_VGA, 8, pci_fixup_video);
-diff --git a/arch/x86/pci/fixup.c b/arch/x86/pci/fixup.c
-index 2edd86649468..615a76d70019 100644
---- a/arch/x86/pci/fixup.c
-+++ b/arch/x86/pci/fixup.c
-@@ -353,8 +353,8 @@ static void pci_fixup_video(struct pci_dev *pdev)
- 		}
- 	}
- }
--DECLARE_PCI_FIXUP_CLASS_FINAL(PCI_ANY_ID, PCI_ANY_ID,
--				PCI_CLASS_DISPLAY_VGA, 8, pci_fixup_video);
-+DECLARE_PCI_FIXUP_CLASS_HEADER(PCI_ANY_ID, PCI_ANY_ID,
-+			       PCI_CLASS_DISPLAY_VGA, 8, pci_fixup_video);
- 
- 
- static const struct dmi_system_id msi_k8t_dmi_table[] = {
 -- 
-2.25.1
+2.34.1
