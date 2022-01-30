@@ -1,248 +1,218 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Date: Tue, 25 Jan 2022 15:26:51 +0000
-Subject: [PATCH 7/8] kernel/fork: Only cache the VMAP stack in finish_task_switch().
-Message-Id: <20220125152652.1963111-8-bigeasy@linutronix.de>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Sun, 30 Jan 2022 23:36:57 +0000
+Subject: [PATCH v6 00/21] Introduce power-off+restart call chain API
+Message-Id: <20220130233718.21544-1-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220125152652.1963111-1-bigeasy@linutronix.de>
-In-Reply-To: <20220125152652.1963111-1-bigeasy@linutronix.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-Cc: Andy Lutomirski <luto@kernel.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Ingo Molnar <mingo@redhat.com>, Juri Lelli <juri.lelli@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Steven Rostedt <rostedt@goodmis.org>, Thomas Gleixner <tglx@linutronix.de>, Vincent Guittot <vincent.guittot@linaro.org>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-The task stack could be deallocated later in delayed_put_task_struct().
-For fork()/exec() kind of workloads (say a shell script executing
-several commands) it is important that the stack is released in
-finish_task_switch() so that in VMAP_STACK case it can be cached and
-reused in the new task.
-If the free/ caching is RCU-delayed then a new stack has to be allocated
-because the cache is filled in batches of which only two stacks, out of
-many, are recycled.
+Problem
+-------
 
-For PREEMPT_RT it would be good if the wake-up in vfree_atomic() could
-be avoided in the scheduling path. Far worse are the other
-free_thread_stack() implementations which invoke __free_pages()/
-kmem_cache_free() with disabled preemption.
+SoC devices require power-off call chaining functionality from kernel.
+We have a widely used restart chaining provided by restart notifier API,
+but nothing for power-off.
 
-Introduce put_task_stack_sched() which is invoked from the
-finish_task_switch() and only caches the VMAP stack. If the cache is
-full or !CONFIG_VMAP_STACK is used than the stack is freed from
-delayed_put_task_struct(). In the VMAP case this is another opportunity
-to fill the cache.
+Solution
+--------
 
-The stack is finally released in delayed_put_task_struct() which means
-that a valid stack reference can be held during its invocation. As such
-there can be made no assumption whether the task_struct::stack pointer
-can be freed if non-NULL.
-Set the lowest bit of task_struct::stack if the stack was released via
-put_task_stack_sched() and needs a final free in
-delayed_put_task_struct(). If the bit is missing then a reference is
-held and put_task_stack() will release it.
+Introduce new API that provides both restart and power-off call chains.
 
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
----
- include/linux/sched/task_stack.h |  8 +++++
- kernel/exit.c                    |  1 +
- kernel/fork.c                    | 60 ++++++++++++++++++++++++++------
- kernel/sched/core.c              |  7 ++--
- 4 files changed, 64 insertions(+), 12 deletions(-)
+Why combine restart with power-off? Because drivers often do both.
+More practical to have API that provides both under the same roof.
 
-diff --git a/include/linux/sched/task_stack.h b/include/linux/sched/task_stack.h
-index 892562ebbd3aa..ccd1336aa7f42 100644
---- a/include/linux/sched/task_stack.h
-+++ b/include/linux/sched/task_stack.h
-@@ -70,6 +70,7 @@ static inline void *try_get_task_stack(struct task_struct *tsk)
- }
- 
- extern void put_task_stack(struct task_struct *tsk);
-+extern void put_task_stack_sched(struct task_struct *tsk);
- #else
- static inline void *try_get_task_stack(struct task_struct *tsk)
- {
-@@ -77,6 +78,13 @@ static inline void *try_get_task_stack(struct task_struct *tsk)
- }
- 
- static inline void put_task_stack(struct task_struct *tsk) {}
-+static inline void put_task_stack_sched(struct task_struct *tsk) {}
-+#endif
-+
-+#ifdef CONFIG_ARCH_THREAD_STACK_ALLOCATOR
-+static inline void task_stack_cleanup(struct task_struct *tsk) {}
-+#else
-+extern void task_stack_cleanup(struct task_struct *tsk);
- #endif
- 
- void exit_task_stack_account(struct task_struct *tsk);
-diff --git a/kernel/exit.c b/kernel/exit.c
-index c303cffe7fdb4..293b280d23192 100644
---- a/kernel/exit.c
-+++ b/kernel/exit.c
-@@ -171,6 +171,7 @@ static void delayed_put_task_struct(struct rcu_head *rhp)
- 	kprobe_flush_task(tsk);
- 	perf_event_delayed_put(tsk);
- 	trace_sched_process_free(tsk);
-+	task_stack_cleanup(tsk);
- 	put_task_struct(tsk);
- }
- 
-diff --git a/kernel/fork.c b/kernel/fork.c
-index 5f4e659a922e1..f48f666582b09 100644
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -179,6 +179,16 @@ static inline void free_task_struct(struct task_struct *tsk)
- 
- #ifndef CONFIG_ARCH_THREAD_STACK_ALLOCATOR
- 
-+#define THREAD_STACK_DELAYED_FREE	1UL
-+
-+static void thread_stack_mark_delayed_free(struct task_struct *tsk)
-+{
-+	unsigned long val = (unsigned long)tsk->stack;
-+
-+	val |= THREAD_STACK_DELAYED_FREE;
-+	WRITE_ONCE(tsk->stack, (void *)val);
-+}
-+
- /*
-  * Allocate pages if THREAD_SIZE is >= PAGE_SIZE, otherwise use a
-  * kmemcache based allocator.
-@@ -294,7 +304,7 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
- 	return 0;
- }
- 
--static void free_thread_stack(struct task_struct *tsk)
-+static void free_thread_stack(struct task_struct *tsk, bool cache_only)
- {
- 	int i;
- 
-@@ -307,7 +317,12 @@ static void free_thread_stack(struct task_struct *tsk)
- 		tsk->stack_vm_area = NULL;
- 		return;
- 	}
--	vfree_atomic(tsk->stack);
-+	if (cache_only) {
-+		thread_stack_mark_delayed_free(tsk);
-+		return;
-+	}
-+
-+	vfree(tsk->stack);
- 	tsk->stack = NULL;
- 	tsk->stack_vm_area = NULL;
- }
-@@ -326,8 +341,12 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
- 	return -ENOMEM;
- }
- 
--static void free_thread_stack(struct task_struct *tsk)
-+static void free_thread_stack(struct task_struct *tsk, bool cache_only)
- {
-+	if (cache_only) {
-+		thread_stack_mark_delayed_free(tsk);
-+		return;
-+	}
- 	__free_pages(virt_to_page(tsk->stack), THREAD_SIZE_ORDER);
- 	tsk->stack = NULL;
- }
-@@ -346,8 +365,12 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
- 	return stack ? 0 : -ENOMEM;
- }
- 
--static void free_thread_stack(struct task_struct *tsk)
-+static void free_thread_stack(struct task_struct *tsk, bool cache_only)
- {
-+	if (cache_only) {
-+		thread_stack_mark_delayed_free(tsk);
-+		return;
-+	}
- 	kmem_cache_free(thread_stack_cache, tsk->stack);
- 	tsk->stack = NULL;
- }
-@@ -361,8 +384,19 @@ void thread_stack_cache_init(void)
- }
- 
- # endif /* THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK) */
--#else /* CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
- 
-+void task_stack_cleanup(struct task_struct *tsk)
-+{
-+	unsigned long val = (unsigned long)tsk->stack;
-+
-+	if (!(val & THREAD_STACK_DELAYED_FREE))
-+		return;
-+
-+	WRITE_ONCE(tsk->stack, (void *)(val & ~THREAD_STACK_DELAYED_FREE));
-+	free_thread_stack(tsk, false);
-+}
-+
-+#else /* CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
- static int alloc_thread_stack_node(struct task_struct *tsk, int node)
- {
- 	unsigned long *stack;
-@@ -464,19 +498,25 @@ void exit_task_stack_account(struct task_struct *tsk)
- 	}
- }
- 
--static void release_task_stack(struct task_struct *tsk)
-+static void release_task_stack(struct task_struct *tsk, bool cache_only)
- {
- 	if (WARN_ON(READ_ONCE(tsk->__state) != TASK_DEAD))
- 		return;  /* Better to leak the stack than to free prematurely */
- 
--	free_thread_stack(tsk);
-+	free_thread_stack(tsk, cache_only);
- }
- 
- #ifdef CONFIG_THREAD_INFO_IN_TASK
- void put_task_stack(struct task_struct *tsk)
- {
- 	if (refcount_dec_and_test(&tsk->stack_refcount))
--		release_task_stack(tsk);
-+		release_task_stack(tsk, false);
-+}
-+
-+void put_task_stack_sched(struct task_struct *tsk)
-+{
-+	if (refcount_dec_and_test(&tsk->stack_refcount))
-+		release_task_stack(tsk, true);
- }
- #endif
- 
-@@ -490,7 +530,7 @@ void free_task(struct task_struct *tsk)
- 	 * The task is finally done with both the stack and thread_info,
- 	 * so free both.
- 	 */
--	release_task_stack(tsk);
-+	release_task_stack(tsk, false);
- #else
- 	/*
- 	 * If the task had a separate stack allocation, it should be gone
-@@ -990,7 +1030,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
- 
- free_stack:
- 	exit_task_stack_account(tsk);
--	free_thread_stack(tsk);
-+	free_thread_stack(tsk, false);
- free_tsk:
- 	free_task_struct(tsk);
- 	return NULL;
-diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 2e4ae00e52d14..bfcb45c3e59dc 100644
---- a/kernel/sched/core.c
-+++ b/kernel/sched/core.c
-@@ -4894,8 +4894,11 @@ static struct rq *finish_task_switch(struct task_struct *prev)
- 		if (prev->sched_class->task_dead)
- 			prev->sched_class->task_dead(prev);
- 
--		/* Task is done with its stack. */
--		put_task_stack(prev);
-+		/*
-+		 * Cache only the VMAP stack. The final deallocation is in
-+		 * delayed_put_task_struct.
-+		 */
-+		put_task_stack_sched(prev);
- 
- 		put_task_struct_rcu_user(prev);
- 	}
+The new API is designed with simplicity and extensibility in mind.
+It's built upon the existing restart and reboot APIs. The simplicity
+is in new helper functions that are convenient for drivers. The
+extensibility is in the design that doesn't hardcode callback
+arguments, making easy to add new parameters and remove old.
+
+This is a third attempt to introduce the new API. First was made by
+Guenter Roeck back in 2014, second was made by Thierry Reding in 2017.
+In fact the work didn't stop and recently arm_pm_restart() was removed
+from v5.14 kernel, which was a part of preparatory work started by
+Guenter Roeck. I took into account experience and ideas from the
+previous attempts, extended and polished them.
+
+Adoption plan
+-------------
+
+This patchset introduces the new API. It also converts multiple drivers
+and arch code to the new API to demonstrate how it all looks in practice.
+
+The plan is:
+
+1. Merge new API (patches 1-8). This API will co-exist with the old APIs.
+
+2. Convert arch code to do_kernel_power_off() (patches 9-21).
+
+3. Convert drivers and platform code to the new API.
+
+4. Remove obsolete pm_power_off and pm_power_off_prepare variables.
+
+5. Make restart-notifier API private to kernel/reboot.c once no users left.
+
+6. Make uniqueness of the handlers' priority a mandatory requirement.
+
+It's fully implemented here:
+
+[1] https://github.com/grate-driver/linux/commits/sys-off-handler
+
+For now I'm sending only the first 25 base patches out of ~180. It's
+preferable to squash 1-2, partially 3 and 4 points of the plan into a
+single patchset to ease and speed up applying of the rest of the patches.
+Majority of drivers and platform patches depend on the base, hence they
+will come later (and per subsystem), once base will land.
+
+All [1] patches are compile-tested. Tegra and x86 ACPI patches are tested
+on hardware. The remaining should be covered by unit tests (unpublished).
+
+Results
+-------
+
+1. Devices can be powered off properly.
+
+2. Global variables are removed from drivers.
+
+3. Global pm_power_off and pm_power_off_prepare callback variables are
+removed once all users are converted to the new API. The latter callback
+is removed by patch #25 of this series.
+
+4. Ambiguous call chain ordering is prohibited. See patch #5 which adds
+verification of restart handlers priorities, ensuring that they are unique.
+
+Changelog:
+
+v6: - Rebased on a recent linux-next.
+
+    - Made minor couple cosmetic changes.
+
+v5: - Dropped patches which cleaned up notifier/reboot headers, as was
+      requested by Rafael Wysocki.
+
+    - Dropped WARN_ON() from the code, as was requested by Rafael Wysocki.
+      Replaced it with pr_err() appropriately.
+
+    - Dropped *_notifier_has_unique_priority() functions and added
+      *_notifier_chain_register_unique_prio() instead, as was suggested
+      by Michał Mirosław and Rafael Wysocki.
+
+    - Dropped export of blocking_notifier_call_chain_is_empty() symbol,
+      as was suggested by Rafael Wysocki.
+
+    - Michał Mirosław suggested that will be better to split up patch
+      that adds the new API to ease reviewing, but Rafael Wysocki asked
+      not add more patches, so I kept it as a single patch.
+
+    - Added temporary "weak" stub for pm_power_off() which fixes linkage
+      failure once symbol is removed from arch/* code. Previously I missed
+      this problem because was only compile-testing object files.
+
+v4: - Made a very minor improvement to doc comments, clarifying couple
+      default values.
+
+    - Corrected list of emails recipient by adding Linus, Sebastian,
+      Philipp and more NDS people. Removed bouncing emails.
+
+    - Added acks that were given to v3.
+
+v3: - Renamed power_handler to sys_off_handler as was suggested by
+      Rafael Wysocki.
+
+    - Improved doc-comments as was suggested by Rafael Wysocki. Added more
+      doc-comments.
+
+    - Implemented full set of 180 patches which convert whole kernel in
+      accordance to the plan, see link [1] above. Slightly adjusted API to
+      better suit for the remaining converted drivers.
+
+      * Added unregister_sys_off_handler() that is handy for a couple old
+        platform drivers.
+
+      * Dropped devm_register_trivial_restart_handler(), 'simple' variant
+        is enough to have.
+
+    - Improved "Add atomic/blocking_notifier_has_unique_priority()" patch,
+      as was suggested by Andy Shevchenko. Also replaced down_write() with
+      down_read() and factored out common notifier_has_unique_priority().
+
+    - Added stop_chain field to struct restart_data and reboot_prep_data
+      after discovering couple drivers wanting that feature.
+
+    - Added acks that were given to v2.
+
+v2: - Replaced standalone power-off call chain demo-API with the combined
+      power-off+restart API because this is what drivers want. It's a more
+      comprehensive solution.
+
+    - Converted multiple drivers and arch code to the new API. Suggested by
+      Andy Shevchenko. I skimmed through the rest of drivers, verifying that
+      new API suits them. The rest of the drivers will be converted once we
+      will settle on the new API, otherwise will be too many patches here.
+
+    - v2 API doesn't expose notifier to users and require handlers to
+      have unique priority. Suggested by Guenter Roeck.
+
+    - v2 API has power-off chaining disabled by default and require
+      drivers to explicitly opt-in to the chaining. This preserves old
+      behaviour for existing drivers once they are converted to the new
+      API.
+
+Dmitry Osipenko (21):
+  notifier: Add blocking_notifier_call_chain_is_empty()
+  notifier: Add atomic/blocking_notifier_chain_register_unique_prio()
+  reboot: Print error message if restart handler has duplicated priority
+  kernel: Add combined power-off+restart handler call chain API
+  ARM: Use do_kernel_power_off()
+  csky: Use do_kernel_power_off()
+  riscv: Use do_kernel_power_off()
+  arm64: Use do_kernel_power_off()
+  parisc: Use do_kernel_power_off()
+  xen/x86: Use do_kernel_power_off()
+  powerpc: Use do_kernel_power_off()
+  m68k: Switch to new sys-off handler API
+  sh: Use do_kernel_power_off()
+  x86: Use do_kernel_power_off()
+  ia64: Use do_kernel_power_off()
+  mips: Use do_kernel_power_off()
+  nds32: Use do_kernel_power_off()
+  memory: emif: Use kernel_can_power_off()
+  ACPI: power: Switch to sys-off handler API
+  regulator: pfuze100: Use devm_register_sys_off_handler()
+  reboot: Remove pm_power_off_prepare()
+
+ arch/arm/kernel/reboot.c               |   4 +-
+ arch/arm64/kernel/process.c            |   3 +-
+ arch/csky/kernel/power.c               |   6 +-
+ arch/ia64/kernel/process.c             |   4 +-
+ arch/m68k/emu/natfeat.c                |   3 +-
+ arch/m68k/include/asm/machdep.h        |   1 -
+ arch/m68k/kernel/process.c             |   5 +-
+ arch/m68k/kernel/setup_mm.c            |   1 -
+ arch/m68k/kernel/setup_no.c            |   1 -
+ arch/m68k/mac/config.c                 |   4 +-
+ arch/mips/kernel/reset.c               |   3 +-
+ arch/nds32/kernel/process.c            |   3 +-
+ arch/parisc/kernel/process.c           |   4 +-
+ arch/powerpc/kernel/setup-common.c     |   4 +-
+ arch/powerpc/xmon/xmon.c               |   3 +-
+ arch/riscv/kernel/reset.c              |  12 +-
+ arch/sh/kernel/reboot.c                |   3 +-
+ arch/x86/kernel/reboot.c               |   4 +-
+ arch/x86/xen/enlighten_pv.c            |   4 +-
+ drivers/acpi/sleep.c                   |  25 +-
+ drivers/memory/emif.c                  |   2 +-
+ drivers/regulator/pfuze100-regulator.c |  38 +-
+ include/linux/notifier.h               |   7 +
+ include/linux/pm.h                     |   1 -
+ include/linux/reboot.h                 | 265 +++++++++++-
+ kernel/notifier.c                      | 101 ++++-
+ kernel/power/hibernate.c               |   2 +-
+ kernel/reboot.c                        | 573 ++++++++++++++++++++++++-
+ 28 files changed, 968 insertions(+), 118 deletions(-)
+
 -- 
 2.34.1
