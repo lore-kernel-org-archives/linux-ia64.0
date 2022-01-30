@@ -1,7 +1,7 @@
 From: Dmitry Osipenko <digetx@gmail.com>
-Date: Sun, 30 Jan 2022 23:37:10 +0000
-Subject: [PATCH v6 13/21] sh: Use do_kernel_power_off()
-Message-Id: <20220130233718.21544-14-digetx@gmail.com>
+Date: Sun, 30 Jan 2022 23:37:13 +0000
+Subject: [PATCH v6 16/21] mips: Use do_kernel_power_off()
+Message-Id: <20220130233718.21544-17-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220130233718.21544-1-digetx@gmail.com>
 In-Reply-To: <20220130233718.21544-1-digetx@gmail.com>
@@ -18,22 +18,22 @@ be converted to the new power-off API.
 
 Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- arch/sh/kernel/reboot.c | 3 +--
+ arch/mips/kernel/reset.c | 3 +--
  1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/arch/sh/kernel/reboot.c b/arch/sh/kernel/reboot.c
-index 5c33f036418b..e8eeedc9b182 100644
---- a/arch/sh/kernel/reboot.c
-+++ b/arch/sh/kernel/reboot.c
-@@ -46,8 +46,7 @@ static void native_machine_shutdown(void)
+diff --git a/arch/mips/kernel/reset.c b/arch/mips/kernel/reset.c
+index 6288780b779e..e7ce07b3e79b 100644
+--- a/arch/mips/kernel/reset.c
++++ b/arch/mips/kernel/reset.c
+@@ -114,8 +114,7 @@ void machine_halt(void)
  
- static void native_machine_power_off(void)
+ void machine_power_off(void)
  {
 -	if (pm_power_off)
 -		pm_power_off();
 +	do_kernel_power_off();
- }
  
- static void native_machine_halt(void)
+ #ifdef CONFIG_SMP
+ 	preempt_disable();
 -- 
 2.34.1
