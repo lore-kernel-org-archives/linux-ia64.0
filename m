@@ -1,7 +1,7 @@
 From: Dmitry Osipenko <digetx@gmail.com>
-Date: Sun, 30 Jan 2022 23:37:05 +0000
-Subject: [PATCH v6 08/21] arm64: Use do_kernel_power_off()
-Message-Id: <20220130233718.21544-9-digetx@gmail.com>
+Date: Sun, 30 Jan 2022 23:37:02 +0000
+Subject: [PATCH v6 05/21] ARM: Use do_kernel_power_off()
+Message-Id: <20220130233718.21544-6-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220130233718.21544-1-digetx@gmail.com>
 In-Reply-To: <20220130233718.21544-1-digetx@gmail.com>
@@ -16,20 +16,21 @@ that invokes chained power-off handlers. It also invokes legacy
 pm_power_off() for now, which will be removed once all drivers will
 be converted to the new power-off API.
 
-Acked-by: Catalin Marinas <catalin.marinas@arm.com>
+Reviewed-by: Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
 Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- arch/arm64/kernel/process.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ arch/arm/kernel/reboot.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/arch/arm64/kernel/process.c b/arch/arm64/kernel/process.c
-index 5369e649fa79..6816a23bacc2 100644
---- a/arch/arm64/kernel/process.c
-+++ b/arch/arm64/kernel/process.c
-@@ -111,8 +111,7 @@ void machine_power_off(void)
+diff --git a/arch/arm/kernel/reboot.c b/arch/arm/kernel/reboot.c
+index 3044fcb8d073..2cb943422554 100644
+--- a/arch/arm/kernel/reboot.c
++++ b/arch/arm/kernel/reboot.c
+@@ -116,9 +116,7 @@ void machine_power_off(void)
  {
  	local_irq_disable();
  	smp_send_stop();
+-
 -	if (pm_power_off)
 -		pm_power_off();
 +	do_kernel_power_off();
