@@ -1,172 +1,61 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Date: Tue, 25 Jan 2022 15:26:45 +0000
-Subject: [PATCH 1/8] kernel/fork: Redo ifdefs around task's handling.
-Message-Id: <20220125152652.1963111-2-bigeasy@linutronix.de>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Sun, 30 Jan 2022 23:36:58 +0000
+Subject: [PATCH v6 01/21] notifier: Add blocking_notifier_call_chain_is_empty()
+Message-Id: <20220130233718.21544-2-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220125152652.1963111-1-bigeasy@linutronix.de>
-In-Reply-To: <20220125152652.1963111-1-bigeasy@linutronix.de>
+References: <20220130233718.21544-1-digetx@gmail.com>
+In-Reply-To: <20220130233718.21544-1-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-Cc: Andy Lutomirski <luto@kernel.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Ingo Molnar <mingo@redhat.com>, Juri Lelli <juri.lelli@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Steven Rostedt <rostedt@goodmis.org>, Thomas Gleixner <tglx@linutronix.de>, Vincent Guittot <vincent.guittot@linaro.org>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-The use of ifdef CONFIG_VMAP_STACK is confusing in terms what is
-actually happenning and what can happen.
-For instance from reading free_thread_stack() it appears that in the
-CONFIG_VMAP_STACK case we may receive a non-NULL vm pointer but it may
-also be NULL in which case __free_pages() is used to free the stack.
-This is however not the case because in the VMAP case a non-NULL pointer
-is always returned here.
-Since it looks like this might happen, the compiler creates the correct
-dead code with the invocation to __free_pages() and everything around
-it. Twice.
+Add blocking_notifier_call_chain_is_empty() that returns true if call
+chain is empty.
 
-Add spaces between the ifdef and the identifer to recognize the ifdef
-level that we are currently in.
-Add the current identifer as a comment behind #else and #endif.
-Move the code within free_thread_stack() and alloc_thread_stack_node()
-into the relavant ifdef block.
-
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- kernel/fork.c | 74 +++++++++++++++++++++++++++------------------------
- 1 file changed, 39 insertions(+), 35 deletions(-)
+ include/linux/notifier.h |  2 ++
+ kernel/notifier.c        | 13 +++++++++++++
+ 2 files changed, 15 insertions(+)
 
-diff --git a/kernel/fork.c b/kernel/fork.c
-index d75a528f7b219..f63c0af6002da 100644
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -185,7 +185,7 @@ static inline void free_task_struct(struct task_struct *tsk)
-  */
- # if THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK)
+diff --git a/include/linux/notifier.h b/include/linux/notifier.h
+index 87069b8459af..d4717bc0ab85 100644
+--- a/include/linux/notifier.h
++++ b/include/linux/notifier.h
+@@ -173,6 +173,8 @@ extern int blocking_notifier_call_chain_robust(struct blocking_notifier_head *nh
+ extern int raw_notifier_call_chain_robust(struct raw_notifier_head *nh,
+ 		unsigned long val_up, unsigned long val_down, void *v);
  
--#ifdef CONFIG_VMAP_STACK
-+#  ifdef CONFIG_VMAP_STACK
++extern bool blocking_notifier_call_chain_is_empty(struct blocking_notifier_head *nh);
++
+ #define NOTIFY_DONE		0x0000		/* Don't care */
+ #define NOTIFY_OK		0x0001		/* Suits me */
+ #define NOTIFY_STOP_MASK	0x8000		/* Don't call further */
+diff --git a/kernel/notifier.c b/kernel/notifier.c
+index ba005ebf4730..4ed6bda8f127 100644
+--- a/kernel/notifier.c
++++ b/kernel/notifier.c
+@@ -323,6 +323,19 @@ int blocking_notifier_call_chain(struct blocking_notifier_head *nh,
+ }
+ EXPORT_SYMBOL_GPL(blocking_notifier_call_chain);
+ 
++/**
++ *	blocking_notifier_call_chain_is_empty - Check whether notifier chain is empty
++ *	@nh: Pointer to head of the blocking notifier chain
++ *
++ *	Checks whether notifier chain is empty.
++ *
++ *	Returns true is notifier chain is empty, false otherwise.
++ */
++bool blocking_notifier_call_chain_is_empty(struct blocking_notifier_head *nh)
++{
++	return !rcu_access_pointer(nh->head);
++}
++
  /*
-  * vmalloc() is a bit slow, and calling vfree() enough times will force a TLB
-  * flush.  Try to minimize the number of calls by caching stacks.
-@@ -210,11 +210,9 @@ static int free_vm_stack_cache(unsigned int cpu)
- 
- 	return 0;
- }
--#endif
- 
- static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
- {
--#ifdef CONFIG_VMAP_STACK
- 	void *stack;
- 	int i;
- 
-@@ -258,7 +256,34 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
- 		tsk->stack = stack;
- 	}
- 	return stack;
--#else
-+}
-+
-+static void free_thread_stack(struct task_struct *tsk)
-+{
-+	struct vm_struct *vm = task_stack_vm_area(tsk);
-+	int i;
-+
-+	for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++)
-+		memcg_kmem_uncharge_page(vm->pages[i], 0);
-+
-+	for (i = 0; i < NR_CACHED_STACKS; i++) {
-+		if (this_cpu_cmpxchg(cached_stacks[i], NULL,
-+				     tsk->stack_vm_area) != NULL)
-+			continue;
-+
-+		tsk->stack = NULL;
-+		tsk->stack_vm_area = NULL;
-+		return;
-+	}
-+	vfree_atomic(tsk->stack);
-+	tsk->stack = NULL;
-+	tsk->stack_vm_area = NULL;
-+}
-+
-+#  else /* !CONFIG_VMAP_STACK */
-+
-+static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
-+{
- 	struct page *page = alloc_pages_node(node, THREADINFO_GFP,
- 					     THREAD_SIZE_ORDER);
- 
-@@ -267,36 +292,17 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
- 		return tsk->stack;
- 	}
- 	return NULL;
--#endif
- }
- 
--static inline void free_thread_stack(struct task_struct *tsk)
-+static void free_thread_stack(struct task_struct *tsk)
- {
--#ifdef CONFIG_VMAP_STACK
--	struct vm_struct *vm = task_stack_vm_area(tsk);
--
--	if (vm) {
--		int i;
--
--		for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++)
--			memcg_kmem_uncharge_page(vm->pages[i], 0);
--
--		for (i = 0; i < NR_CACHED_STACKS; i++) {
--			if (this_cpu_cmpxchg(cached_stacks[i],
--					NULL, tsk->stack_vm_area) != NULL)
--				continue;
--
--			return;
--		}
--
--		vfree_atomic(tsk->stack);
--		return;
--	}
--#endif
--
- 	__free_pages(virt_to_page(tsk->stack), THREAD_SIZE_ORDER);
-+	tsk->stack = NULL;
- }
--# else
-+
-+#  endif /* CONFIG_VMAP_STACK */
-+# else /* !(THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK)) */
-+
- static struct kmem_cache *thread_stack_cache;
- 
- static unsigned long *alloc_thread_stack_node(struct task_struct *tsk,
-@@ -312,6 +318,7 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk,
- static void free_thread_stack(struct task_struct *tsk)
- {
- 	kmem_cache_free(thread_stack_cache, tsk->stack);
-+	tsk->stack = NULL;
- }
- 
- void thread_stack_cache_init(void)
-@@ -321,8 +328,9 @@ void thread_stack_cache_init(void)
- 					THREAD_SIZE, NULL);
- 	BUG_ON(thread_stack_cache == NULL);
- }
--# endif
--#endif
-+
-+# endif /* THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK) */
-+#endif /* !CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
- 
- /* SLAB cache for signal_struct structures (tsk->signal) */
- static struct kmem_cache *signal_cachep;
-@@ -432,10 +440,6 @@ static void release_task_stack(struct task_struct *tsk)
- 
- 	account_kernel_stack(tsk, -1);
- 	free_thread_stack(tsk);
--	tsk->stack = NULL;
--#ifdef CONFIG_VMAP_STACK
--	tsk->stack_vm_area = NULL;
--#endif
- }
- 
- #ifdef CONFIG_THREAD_INFO_IN_TASK
+  *	Raw notifier chain routines.  There is no protection;
+  *	the caller must provide it.  Use at your own risk!
 -- 
 2.34.1
