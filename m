@@ -1,71 +1,39 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Date: Tue, 25 Jan 2022 15:26:44 +0000
-Subject: [PATCH REPOST 0/8] kernel/fork: Move thread stack free otu of the scheduler path.
-Message-Id: <20220125152652.1963111-1-bigeasy@linutronix.de>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Sun, 30 Jan 2022 23:37:14 +0000
+Subject: [PATCH v6 17/21] nds32: Use do_kernel_power_off()
+Message-Id: <20220130233718.21544-18-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20220130233718.21544-1-digetx@gmail.com>
+In-Reply-To: <20220130233718.21544-1-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-Cc: Andy Lutomirski <luto@kernel.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Ingo Molnar <mingo@redhat.com>, Juri Lelli <juri.lelli@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Steven Rostedt <rostedt@goodmis.org>, Thomas Gleixner <tglx@linutronix.de>, Vincent Guittot <vincent.guittot@linaro.org>
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-[ This is a repost of https://lkml.kernel.org/r/20211118143452.136421-1-bigeasy@linutronix.de ]
+Kernel now supports chained power-off handlers. Use do_kernel_power_off()
+that invokes chained power-off handlers. It also invokes legacy
+pm_power_off() for now, which will be removed once all drivers will
+be converted to the new power-off API.
 
-This is a follup-up on the patch
-    sched: Delay task stack freeing on RT 
-    https://lkml.kernel.org/r/20210928122411.593486363@linutronix.de
+Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
+---
+ arch/nds32/kernel/process.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-It addresses the review feedback:
-- Decouple stack accounting from its free invocation. The accounting
-  happens in do_exit(), the final free call happens later.
-
-- Add put_task_stack_sched() to finish_task_switch(). Here the VMAP
-  stack is cached only. If it fails, or in the !VMAP case then the final
-  free happens in delayed_put_task_struct(). This is also an oportunity
-  to cache the stack.
-
-From testing I observe the following:
-
-|            bash-1715    [006] .....   124.901510: copy_process: allocC ffffc90007e70000
-|      sh-cmds.sh-1746    [007] .....   124.907389: copy_process: allocC ffffc90007dc4000
-|          <idle>-0       [019] ...1.   124.918126: free_thread_stack: cache ffffc90007dc4000
-|      sh-cmds.sh-1746    [007] .....   124.918279: copy_process: allocC ffffc90007de8000
-|          <idle>-0       [004] ...1.   124.920121: free_thread_stack: delay ffffc90007de8001
-|          <idle>-0       [007] ...1.   124.920299: free_thread_stack: cache ffffc90007e70000
-|          <idle>-0       [007] ..s1.   124.945433: free_thread_stack: cache ffffc90007de8000
-
-TS 124.901510, bash started sh-cmds.sh, obtained stack from cache.
-TS 124.907389, script invokes its first command, obtained stacak from
-cache. As you can see bash was running on CPU6 but its child was moved
-CPU7. 
-TS 124.918126, the first command is done, stack is ached on CPU19.
-TS 124.918279, script's second command, ache from stack.
-TS 124.920121, the command is done. The stack cache on CPU4 is full.
-TS 124.920299, the script is done, caches stack on CPU7.
-TS 124.945433, the RCU-callback of last command is now happening. On
-CPU7, which is where the command was invoked (but not running). Instead
-of freeing the stack, it was cached since CPU7 had an empty slot.
-
-If I pin the script to CPU5 and run it with multiple commands then it
-works as expected:
-
-|            bash-1799    [005] .....   993.608131: copy_process: allocC ffffc90007fa0000
-|      sh-cmds.sh-1827    [005] .....   993.608888: copy_process: allocC ffffc90007fa8000
-|      sh-cmds.sh-1827    [005] .....   993.610734: copy_process: allocV ffffc90007ff4000
-|      sh-cmds.sh-1829    [005] ...1.   993.610757: free_thread_stack: cache ffffc90007fa8000
-|      sh-cmds.sh-1827    [005] .....   993.612401: copy_process: allocC ffffc90007fa8000
-|           <...>-1830    [005] ...1.   993.612416: free_thread_stack: cache ffffc90007ff4000
-|      sh-cmds.sh-1827    [005] .....   993.613707: copy_process: allocC ffffc90007ff4000
-|      sh-cmds.sh-1831    [005] ...1.   993.613723: free_thread_stack: cache ffffc90007fa8000
-|      sh-cmds.sh-1827    [005] .....   993.615024: copy_process: allocC ffffc90007fa8000
-|           <...>-1832    [005] ...1.   993.615040: free_thread_stack: cache ffffc90007ff4000
-|      sh-cmds.sh-1827    [005] .....   993.616380: copy_process: allocC ffffc90007ff4000
-|           <...>-1833    [005] ...1.   993.616397: free_thread_stack: cache ffffc90007fa8000
-|            bash-1799    [005] ...1.   993.617759: free_thread_stack: cache ffffc90007fa0000
-|          <idle>-0       [005] ...1.   993.617871: free_thread_stack: delay ffffc90007ff4001
-|          <idle>-0       [005] ..s1.   993.638311: free_thread_stack: free ffffc90007ff4000
-
-and no new is allocated during its runtime and a cached stack is used.
-
-Sebastian
-
+diff --git a/arch/nds32/kernel/process.c b/arch/nds32/kernel/process.c
+index 49fab9e39cbf..0936dcd7db1b 100644
+--- a/arch/nds32/kernel/process.c
++++ b/arch/nds32/kernel/process.c
+@@ -54,8 +54,7 @@ EXPORT_SYMBOL(machine_halt);
+ 
+ void machine_power_off(void)
+ {
+-	if (pm_power_off)
+-		pm_power_off();
++	do_kernel_power_off();
+ }
+ 
+ EXPORT_SYMBOL(machine_power_off);
+-- 
+2.34.1
