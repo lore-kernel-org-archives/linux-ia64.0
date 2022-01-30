@@ -1,50 +1,117 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Tue, 04 Jan 2022 15:48:00 +0000
-Subject: [PATCH] ia64: topology: use default_groups in kobj_type
-Message-Id: <20220104154800.1287947-1-gregkh@linuxfoundation.org>
+From: Dmitry Osipenko <digetx@gmail.com>
+Date: Sun, 30 Jan 2022 23:37:17 +0000
+Subject: [PATCH v6 20/21] regulator: pfuze100: Use devm_register_sys_off_handler()
+Message-Id: <20220130233718.21544-21-digetx@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20220130233718.21544-1-digetx@gmail.com>
+In-Reply-To: <20220130233718.21544-1-digetx@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Andrew Morton <akpm@linux-foundation.org>, Mike Rapoport <rppt@kernel.org>, David Hildenbrand <david@redhat.com>, linux-ia64@vger.kernel.org
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-There are currently 2 ways to create a set of sysfs files for a
-kobj_type, through the default_attrs field, and the default_groups
-field.  Move the ia64 topology sysfs code to use default_groups field
-which has been the preferred way since aa30f47cf666 ("kobject: Add
-support for default attribute groups to kobj_type") so that we can soon
-get rid of the obsolete default_attrs field.
+Use devm_register_sys_off_handler() that replaces global
+pm_power_off_prepare variable and allows to register multiple
+power-off handlers.
 
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Mike Rapoport <rppt@kernel.org>
-Cc: David Hildenbrand <david@redhat.com>
-Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Acked-by: Mark Brown <broonie@kernel.org>
+Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
 ---
- arch/ia64/kernel/topology.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/regulator/pfuze100-regulator.c | 38 ++++++++++----------------
+ 1 file changed, 14 insertions(+), 24 deletions(-)
 
-diff --git a/arch/ia64/kernel/topology.c b/arch/ia64/kernel/topology.c
-index 3639e0a7cb3b..e4992917a24b 100644
---- a/arch/ia64/kernel/topology.c
-+++ b/arch/ia64/kernel/topology.c
-@@ -264,6 +264,7 @@ static struct attribute * cache_default_attrs[] = {
- 	&shared_cpu_map.attr,
- 	NULL
+diff --git a/drivers/regulator/pfuze100-regulator.c b/drivers/regulator/pfuze100-regulator.c
+index d60d7d1b7fa2..2eca8d43a097 100644
+--- a/drivers/regulator/pfuze100-regulator.c
++++ b/drivers/regulator/pfuze100-regulator.c
+@@ -10,6 +10,7 @@
+ #include <linux/of_device.h>
+ #include <linux/regulator/of_regulator.h>
+ #include <linux/platform_device.h>
++#include <linux/reboot.h>
+ #include <linux/regulator/driver.h>
+ #include <linux/regulator/machine.h>
+ #include <linux/regulator/pfuze100.h>
+@@ -76,6 +77,7 @@ struct pfuze_chip {
+ 	struct pfuze_regulator regulator_descs[PFUZE100_MAX_REGULATOR];
+ 	struct regulator_dev *regulators[PFUZE100_MAX_REGULATOR];
+ 	struct pfuze_regulator *pfuze_regulators;
++	struct sys_off_handler sys_off;
  };
-+ATTRIBUTE_GROUPS(cache_default);
  
- #define to_object(k) container_of(k, struct cache_info, kobj)
- #define to_attr(a) container_of(a, struct cache_attr, attr)
-@@ -284,7 +285,7 @@ static const struct sysfs_ops cache_sysfs_ops = {
+ static const int pfuze100_swbst[] = {
+@@ -569,10 +571,10 @@ static inline struct device_node *match_of_node(int index)
+ 	return pfuze_matches[index].of_node;
+ }
  
- static struct kobj_type cache_ktype = {
- 	.sysfs_ops	= &cache_sysfs_ops,
--	.default_attrs	= cache_default_attrs,
-+	.default_groups	= cache_default_groups,
+-static struct pfuze_chip *syspm_pfuze_chip;
+-
+-static void pfuze_power_off_prepare(void)
++static void pfuze_power_off_prepare(struct power_off_prep_data *data)
+ {
++	struct pfuze_chip *syspm_pfuze_chip = data->cb_data;
++
+ 	dev_info(syspm_pfuze_chip->dev, "Configure standby mode for power off");
+ 
+ 	/* Switch from default mode: APS/APS to APS/Off */
+@@ -611,24 +613,23 @@ static void pfuze_power_off_prepare(void)
+ 
+ static int pfuze_power_off_prepare_init(struct pfuze_chip *pfuze_chip)
+ {
++	int err;
++
+ 	if (pfuze_chip->chip_id != PFUZE100) {
+ 		dev_warn(pfuze_chip->dev, "Requested pm_power_off_prepare handler for not supported chip\n");
+ 		return -ENODEV;
+ 	}
+ 
+-	if (pm_power_off_prepare) {
+-		dev_warn(pfuze_chip->dev, "pm_power_off_prepare is already registered.\n");
+-		return -EBUSY;
+-	}
++	pfuze_chip->sys_off.power_off_prepare_cb = pfuze_power_off_prepare;
++	pfuze_chip->sys_off.cb_data = pfuze_chip;
+ 
+-	if (syspm_pfuze_chip) {
+-		dev_warn(pfuze_chip->dev, "syspm_pfuze_chip is already set.\n");
+-		return -EBUSY;
++	err = devm_register_sys_off_handler(pfuze_chip->dev, &pfuze_chip->sys_off);
++	if (err) {
++		dev_err(pfuze_chip->dev,
++			"failed to register sys-off handler: %d\n", err);
++		return err;
+ 	}
+ 
+-	syspm_pfuze_chip = pfuze_chip;
+-	pm_power_off_prepare = pfuze_power_off_prepare;
+-
+ 	return 0;
+ }
+ 
+@@ -837,23 +838,12 @@ static int pfuze100_regulator_probe(struct i2c_client *client,
+ 	return 0;
+ }
+ 
+-static int pfuze100_regulator_remove(struct i2c_client *client)
+-{
+-	if (syspm_pfuze_chip) {
+-		syspm_pfuze_chip = NULL;
+-		pm_power_off_prepare = NULL;
+-	}
+-
+-	return 0;
+-}
+-
+ static struct i2c_driver pfuze_driver = {
+ 	.driver = {
+ 		.name = "pfuze100-regulator",
+ 		.of_match_table = pfuze_dt_ids,
+ 	},
+ 	.probe = pfuze100_regulator_probe,
+-	.remove = pfuze100_regulator_remove,
  };
+ module_i2c_driver(pfuze_driver);
  
- static struct kobj_type cache_ktype_percpu_entry = {
 -- 
 2.34.1
