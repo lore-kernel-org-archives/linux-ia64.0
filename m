@@ -1,73 +1,37 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Sun, 27 Feb 2022 14:30:50 +0000
-Subject: [PATCH 06/11] MIPS/octeon: use swiotlb_init instead of open coding it
-Message-Id: <20220227143055.335596-7-hch@lst.de>
+From: Anatoly Pugachev <matorola@gmail.com>
+Date: Tue, 01 Feb 2022 10:02:45 +0000
+Subject: Re: [PATCH RFC v1] drivers/base/node: consolidate node device subsystem initialization in node_dev_i
+Message-Id: <CADxRZqx_rAkwFVwSc1ohm-RqKD=-pcBsR+rBrRaw9KazQncANQ@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220227143055.335596-1-hch@lst.de>
-In-Reply-To: <20220227143055.335596-1-hch@lst.de>
+References: <20220128151540.164759-1-david@redhat.com>
+In-Reply-To: <20220128151540.164759-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: x86@kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Stefano Stabellini <sstabellini@kernel.org>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Robin Murphy <robin.murphy@arm.com>, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-hyperv@vger.kernel.org, tboot-devel@lists.sourceforge.net, linux-pci@vger.kernel.org
+To: David Hildenbrand <david@redhat.com>
+Cc: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, Andrew Morton <akpm@linux-foundation.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Michal Hocko <mhocko@suse.com>, Oscar Salvador <osalvador@suse.de>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "Rafael J. Wysocki" <rafael@kernel.org>, x86@kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390 <linux-s390@vger.kernel.org>, linux-sh@vger.kernel.org, Sparc kernel list <sparclinux@vger.kernel.org>
 
-Use the generic swiotlb initialization helper instead of open coding it.
+On Mon, Jan 31, 2022 at 2:11 PM David Hildenbrand <david@redhat.com> wrote:
+>
+> ... and call node_dev_init() after memory_dev_init() from driver_init(),
+> so before any of the existing arch/subsys calls. All online nodes should
+> be known at that point.
+>
+> This is in line with memory_dev_init(), which initializes the memory
+> device subsystem and creates all memory block devices.
+>
+> Similar to memory_dev_init(), panic() if anything goes wrong, we don't
+> want to continue with such basic initialization errors.
+>
+> The important part is that node_dev_init() gets called after
+> memory_dev_init() and after cpu_dev_init(), but before any of the
+> relevant archs call register_cpu() to register the new cpu device under
+> the node device. The latter should be the case for the current users
+> of topology_init().
+>
+> RFC because I tested only on x86-64 and s390x, I think I cross-compiled all
+> applicable architectures except riscv and sparc.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
----
- arch/mips/cavium-octeon/dma-octeon.c | 15 ++-------------
- arch/mips/pci/pci-octeon.c           |  2 +-
- 2 files changed, 3 insertions(+), 14 deletions(-)
+Compiled and boot tested on sparc.
 
-diff --git a/arch/mips/cavium-octeon/dma-octeon.c b/arch/mips/cavium-octeon/dma-octeon.c
-index df70308db0e69..fb7547e217263 100644
---- a/arch/mips/cavium-octeon/dma-octeon.c
-+++ b/arch/mips/cavium-octeon/dma-octeon.c
-@@ -186,15 +186,12 @@ phys_addr_t dma_to_phys(struct device *dev, dma_addr_t daddr)
- 	return daddr;
- }
- 
--char *octeon_swiotlb;
--
- void __init plat_swiotlb_setup(void)
- {
- 	phys_addr_t start, end;
- 	phys_addr_t max_addr;
- 	phys_addr_t addr_size;
- 	size_t swiotlbsize;
--	unsigned long swiotlb_nslabs;
- 	u64 i;
- 
- 	max_addr = 0;
-@@ -236,15 +233,7 @@ void __init plat_swiotlb_setup(void)
- 	if (OCTEON_IS_OCTEON2() && max_addr >= 0x100000000ul)
- 		swiotlbsize = 64 * (1<<20);
- #endif
--	swiotlb_nslabs = swiotlbsize >> IO_TLB_SHIFT;
--	swiotlb_nslabs = ALIGN(swiotlb_nslabs, IO_TLB_SEGSIZE);
--	swiotlbsize = swiotlb_nslabs << IO_TLB_SHIFT;
--
--	octeon_swiotlb = memblock_alloc_low(swiotlbsize, PAGE_SIZE);
--	if (!octeon_swiotlb)
--		panic("%s: Failed to allocate %zu bytes align=%lx\n",
--		      __func__, swiotlbsize, PAGE_SIZE);
- 
--	if (swiotlb_init_with_tbl(octeon_swiotlb, swiotlb_nslabs, 1) = -ENOMEM)
--		panic("Cannot allocate SWIOTLB buffer");
-+	swiotlb_adjust_size(swiotlbsize);
-+	swiotlb_init(1);
- }
-diff --git a/arch/mips/pci/pci-octeon.c b/arch/mips/pci/pci-octeon.c
-index fc29b85cfa926..e457a18cbdc59 100644
---- a/arch/mips/pci/pci-octeon.c
-+++ b/arch/mips/pci/pci-octeon.c
-@@ -664,7 +664,7 @@ static int __init octeon_pci_setup(void)
- 
- 		/* BAR1 movable regions contiguous to cover the swiotlb */
- 		octeon_bar1_pci_phys -			virt_to_phys(octeon_swiotlb) & ~((1ull << 22) - 1);
-+			io_tlb_default_mem.start & ~((1ull << 22) - 1);
- 
- 		for (index = 0; index < 32; index++) {
- 			union cvmx_pci_bar1_indexx bar1_index;
--- 
-2.30.2
+Tested-by: Anatoly Pugachev <matorola@gmail.com> (sparc64)
