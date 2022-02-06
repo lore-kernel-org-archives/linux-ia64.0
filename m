@@ -1,355 +1,74 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Thu, 03 Feb 2022 10:52:12 +0000
-Subject: [PATCH v1] drivers/base/node: consolidate node device subsystem initialization in node_dev_init()
-Message-Id: <20220203105212.30385-1-david@redhat.com>
+From: Walt Drummond <walt@drummond.us>
+Date: Sun, 06 Feb 2022 15:48:51 +0000
+Subject: [PATCH v2 0/3] vstatus: TTY status message request
+Message-Id: <20220206154856.2355838-1-walt@drummond.us>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: David Hildenbrand <david@redhat.com>, Oscar Salvador <osalvador@suse.de>, Anatoly Pugachev <matorola@gmail.com>, Andrew Morton <akpm@linux-foundation.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Michal Hocko <mhocko@suse.com>, Mike Rapoport <rppt@kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "Rafael J. Wysocki" <rafael@kernel.org>, x86@kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-mm@kvack.org
+To: agordeev@linux.ibm.com, arnd@arndb.de, benh@kernel.crashing.org, borntraeger@de.ibm.com, chris@zankel.net, davem@davemloft.net, gregkh@linuxfoundation.org, hca@linux.ibm.com, deller@gmx.de, ink@jurassic.park.msu.ru, James.Bottomley@HansenPartnership.com, jirislaby@kernel.org, mattst88@gmail.com, jcmvbkbc@gmail.com, mpe@ellerman.id.au, paulus@samba.org, rth@twiddle.net, dalias@libc.org, tsbogend@alpha.franken.de, gor@linux.ibm.com, ysato@users.osdn.me
+Cc: linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, walt@drummond.us, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, ar@cs.msu.ru, linuxppc-dev@lists.ozlabs.org
 
-... and call node_dev_init() after memory_dev_init() from driver_init(),
-so before any of the existing arch/subsys calls. All online nodes should
-be known at that point: early during boot, arch code determines node and
-zone ranges and sets the relevant nodes online; usually this happens in
-setup_arch().
+This patchset adds TTY status message request feature to the n_tty
+line dicipline.  This feature prints a brief message containing basic
+system and process group information to a user's TTY in response to a
+new control character in the line dicipline (default Ctrl-T) or the
+TIOCSTAT ioctl.  The message contains the current system load, the
+name and PID of an interesting process in the forground process group,
+it's run time, percent CPU usage and RSS.  An example of this message
+is:
 
-This is in line with memory_dev_init(), which initializes the memory
-device subsystem and creates all memory block devices.
+  load: 0.31  cmd: sleep 3616843 [sleeping] 0.36r 0.00u 0.00s 0% 696k
 
-Similar to memory_dev_init(), panic() if anything goes wrong, we don't
-want to continue with such basic initialization errors.
+This feature is in many other Unix systems, both current and
+historical.  In other implementations, this feature would also send
+SIGINFO to the process group; this implementation does not.
 
-The important part is that node_dev_init() gets called after
-memory_dev_init() and after cpu_dev_init(), but before any of the
-relevant archs call register_cpu() to register the new cpu device under
-the node device. The latter should be the case for the current users
-of topology_init().
+User API visible changes are limited to:
+ - The addition of VSTATUS in termios.c_cc[]
+ - The addition of NOKERNINFO bit in termios.l_cflags
+ - The addition of the TIOCSTAT ioctl number
 
-Reviewed-by: Oscar Salvador <osalvador@suse.de>
-Tested-by: Anatoly Pugachev <matorola@gmail.com> (sparc64)
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Michal Hocko <mhocko@suse.com>
-Cc: Oscar Salvador <osalvador@suse.de>
-Cc: Mike Rapoport <rppt@kernel.org>
-Cc: Catalin Marinas <catalin.marinas@arm.com>
-Cc: Will Deacon <will@kernel.org>
-Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-Cc: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: Paul Walmsley <paul.walmsley@sifive.com>
-Cc: Palmer Dabbelt <palmer@dabbelt.com>
-Cc: Albert Ou <aou@eecs.berkeley.edu>
-Cc: Heiko Carstens <hca@linux.ibm.com>
-Cc: Vasily Gorbik <gor@linux.ibm.com>
-Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
-Cc: Rich Felker <dalias@libc.org>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: Borislav Petkov <bp@alien8.de>
-Cc: Dave Hansen <dave.hansen@linux.intel.com>
-Cc: "Rafael J. Wysocki" <rafael@kernel.org>
-Cc: x86@kernel.org
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: linux-kernel@vger.kernel.org
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-mips@vger.kernel.org
-Cc: linuxppc-dev@lists.ozlabs.org
-Cc: linux-riscv@lists.infradead.org
-Cc: linux-s390@vger.kernel.org
-Cc: linux-sh@vger.kernel.org
-Cc: sparclinux@vger.kernel.org
-Cc: linux-mm@kvack.org
-Signed-off-by: David Hildenbrand <david@redhat.com>
----
+None of these changes break the existing kernel api as the termios
+structure on all architectures has enough space in the control
+character array (.c_cc) for the new character.
 
-RFC v1 -> v1:
-* Extended patch description slighly
-* Tested on x86-64, s390x, ppc64 and aarch64
-* Added Rb and Tested-by.
+Walt Drummond (3):
+  vstatus: Allow the n_tty line dicipline to write to a user tty
+  status: Add user space API definitions for VSTATUS, NOKERNINFO and
+    TIOCSTAT
+  vstatus: Display an informational message when the VSTATUS character
+    is pressed or TIOCSTAT ioctl is called.
 
----
- arch/arm64/kernel/setup.c   |  3 ---
- arch/ia64/kernel/topology.c | 10 ----------
- arch/mips/kernel/topology.c |  5 -----
- arch/powerpc/kernel/sysfs.c | 17 -----------------
- arch/riscv/kernel/setup.c   |  3 ---
- arch/s390/kernel/numa.c     |  7 -------
- arch/sh/kernel/topology.c   |  5 -----
- arch/sparc/kernel/sysfs.c   | 12 ------------
- arch/x86/kernel/topology.c  |  5 -----
- drivers/base/init.c         |  1 +
- drivers/base/node.c         | 30 +++++++++++++++++-------------
- include/linux/node.h        |  4 ++++
- 12 files changed, 22 insertions(+), 80 deletions(-)
+ arch/alpha/include/asm/termios.h         |   4 +-
+ arch/alpha/include/uapi/asm/ioctls.h     |   1 +
+ arch/alpha/include/uapi/asm/termbits.h   |   2 +
+ arch/ia64/include/asm/termios.h          |   4 +-
+ arch/ia64/include/uapi/asm/termbits.h    |   2 +
+ arch/mips/include/asm/termios.h          |   4 +-
+ arch/mips/include/uapi/asm/ioctls.h      |   1 +
+ arch/mips/include/uapi/asm/termbits.h    |   2 +
+ arch/parisc/include/asm/termios.h        |   4 +-
+ arch/parisc/include/uapi/asm/ioctls.h    |   1 +
+ arch/parisc/include/uapi/asm/termbits.h  |   2 +
+ arch/powerpc/include/asm/termios.h       |   4 +-
+ arch/powerpc/include/uapi/asm/ioctls.h   |   2 +
+ arch/powerpc/include/uapi/asm/termbits.h |   2 +
+ arch/s390/include/asm/termios.h          |   4 +-
+ arch/sh/include/uapi/asm/ioctls.h        |   1 +
+ arch/sparc/include/uapi/asm/ioctls.h     |   1 +
+ arch/sparc/include/uapi/asm/termbits.h   |   2 +
+ arch/xtensa/include/uapi/asm/ioctls.h    |   1 +
+ drivers/tty/Makefile                     |   2 +-
+ drivers/tty/n_tty.c                      | 103 +++++++++----
+ drivers/tty/n_tty_status.c               | 181 +++++++++++++++++++++++
+ drivers/tty/tty_io.c                     |   2 +-
+ include/asm-generic/termios.h            |   4 +-
+ include/linux/tty.h                      |   7 +-
+ include/uapi/asm-generic/ioctls.h        |   1 +
+ include/uapi/asm-generic/termbits.h      |   2 +
+ 27 files changed, 301 insertions(+), 45 deletions(-)
+ create mode 100644 drivers/tty/n_tty_status.c
 
-diff --git a/arch/arm64/kernel/setup.c b/arch/arm64/kernel/setup.c
-index f70573928f1b..3505789cf4bd 100644
---- a/arch/arm64/kernel/setup.c
-+++ b/arch/arm64/kernel/setup.c
-@@ -406,9 +406,6 @@ static int __init topology_init(void)
- {
- 	int i;
- 
--	for_each_online_node(i)
--		register_one_node(i);
--
- 	for_each_possible_cpu(i) {
- 		struct cpu *cpu = &per_cpu(cpu_data.cpu, i);
- 		cpu->hotpluggable = cpu_can_disable(i);
-diff --git a/arch/ia64/kernel/topology.c b/arch/ia64/kernel/topology.c
-index e4992917a24b..94a848b06f15 100644
---- a/arch/ia64/kernel/topology.c
-+++ b/arch/ia64/kernel/topology.c
-@@ -70,16 +70,6 @@ static int __init topology_init(void)
- {
- 	int i, err = 0;
- 
--#ifdef CONFIG_NUMA
--	/*
--	 * MCD - Do we want to register all ONLINE nodes, or all POSSIBLE nodes?
--	 */
--	for_each_online_node(i) {
--		if ((err = register_one_node(i)))
--			goto out;
--	}
--#endif
--
- 	sysfs_cpus = kcalloc(NR_CPUS, sizeof(struct ia64_cpu), GFP_KERNEL);
- 	if (!sysfs_cpus)
- 		panic("kzalloc in topology_init failed - NR_CPUS too big?");
-diff --git a/arch/mips/kernel/topology.c b/arch/mips/kernel/topology.c
-index 08ad6371fbe0..9429d85a4703 100644
---- a/arch/mips/kernel/topology.c
-+++ b/arch/mips/kernel/topology.c
-@@ -12,11 +12,6 @@ static int __init topology_init(void)
- {
- 	int i, ret;
- 
--#ifdef CONFIG_NUMA
--	for_each_online_node(i)
--		register_one_node(i);
--#endif /* CONFIG_NUMA */
--
- 	for_each_present_cpu(i) {
- 		struct cpu *c = &per_cpu(cpu_devices, i);
- 
-diff --git a/arch/powerpc/kernel/sysfs.c b/arch/powerpc/kernel/sysfs.c
-index d45a415d5374..2069bbb90a9a 100644
---- a/arch/powerpc/kernel/sysfs.c
-+++ b/arch/powerpc/kernel/sysfs.c
-@@ -1110,14 +1110,6 @@ EXPORT_SYMBOL_GPL(cpu_remove_dev_attr_group);
- /* NUMA stuff */
- 
- #ifdef CONFIG_NUMA
--static void __init register_nodes(void)
--{
--	int i;
--
--	for (i = 0; i < MAX_NUMNODES; i++)
--		register_one_node(i);
--}
--
- int sysfs_add_device_to_node(struct device *dev, int nid)
- {
- 	struct node *node = node_devices[nid];
-@@ -1132,13 +1124,6 @@ void sysfs_remove_device_from_node(struct device *dev, int nid)
- 	sysfs_remove_link(&node->dev.kobj, kobject_name(&dev->kobj));
- }
- EXPORT_SYMBOL_GPL(sysfs_remove_device_from_node);
--
--#else
--static void __init register_nodes(void)
--{
--	return;
--}
--
- #endif
- 
- /* Only valid if CPU is present. */
-@@ -1155,8 +1140,6 @@ static int __init topology_init(void)
- {
- 	int cpu, r;
- 
--	register_nodes();
--
- 	for_each_possible_cpu(cpu) {
- 		struct cpu *c = &per_cpu(cpu_devices, cpu);
- 
-diff --git a/arch/riscv/kernel/setup.c b/arch/riscv/kernel/setup.c
-index b42bfdc67482..834eb652a7b9 100644
---- a/arch/riscv/kernel/setup.c
-+++ b/arch/riscv/kernel/setup.c
-@@ -301,9 +301,6 @@ static int __init topology_init(void)
- {
- 	int i, ret;
- 
--	for_each_online_node(i)
--		register_one_node(i);
--
- 	for_each_possible_cpu(i) {
- 		struct cpu *cpu = &per_cpu(cpu_devices, i);
- 
-diff --git a/arch/s390/kernel/numa.c b/arch/s390/kernel/numa.c
-index 51c5a9f6e525..23ab9f02f278 100644
---- a/arch/s390/kernel/numa.c
-+++ b/arch/s390/kernel/numa.c
-@@ -33,10 +33,3 @@ void __init numa_setup(void)
- 	NODE_DATA(0)->node_spanned_pages = memblock_end_of_DRAM() >> PAGE_SHIFT;
- 	NODE_DATA(0)->node_id = 0;
- }
--
--static int __init numa_init_late(void)
--{
--	register_one_node(0);
--	return 0;
--}
--arch_initcall(numa_init_late);
-diff --git a/arch/sh/kernel/topology.c b/arch/sh/kernel/topology.c
-index 76af6db9daa2..2d2a7509b565 100644
---- a/arch/sh/kernel/topology.c
-+++ b/arch/sh/kernel/topology.c
-@@ -46,11 +46,6 @@ static int __init topology_init(void)
- {
- 	int i, ret;
- 
--#ifdef CONFIG_NUMA
--	for_each_online_node(i)
--		register_one_node(i);
--#endif
--
- 	for_each_present_cpu(i) {
- 		struct cpu *c = &per_cpu(cpu_devices, i);
- 
-diff --git a/arch/sparc/kernel/sysfs.c b/arch/sparc/kernel/sysfs.c
-index 6d60d416f0dd..f19487e4cc71 100644
---- a/arch/sparc/kernel/sysfs.c
-+++ b/arch/sparc/kernel/sysfs.c
-@@ -244,22 +244,10 @@ static void __init check_mmu_stats(void)
- 		mmu_stats_supported = 1;
- }
- 
--static void register_nodes(void)
--{
--#ifdef CONFIG_NUMA
--	int i;
--
--	for (i = 0; i < MAX_NUMNODES; i++)
--		register_one_node(i);
--#endif
--}
--
- static int __init topology_init(void)
- {
- 	int cpu, ret;
- 
--	register_nodes();
--
- 	check_mmu_stats();
- 
- 	for_each_possible_cpu(cpu) {
-diff --git a/arch/x86/kernel/topology.c b/arch/x86/kernel/topology.c
-index bd83748e2bde..8617d1ed9d31 100644
---- a/arch/x86/kernel/topology.c
-+++ b/arch/x86/kernel/topology.c
-@@ -154,11 +154,6 @@ static int __init topology_init(void)
- {
- 	int i;
- 
--#ifdef CONFIG_NUMA
--	for_each_online_node(i)
--		register_one_node(i);
--#endif
--
- 	for_each_present_cpu(i)
- 		arch_register_cpu(i);
- 
-diff --git a/drivers/base/init.c b/drivers/base/init.c
-index a9f57c22fb9e..d8d0fe687111 100644
---- a/drivers/base/init.c
-+++ b/drivers/base/init.c
-@@ -35,5 +35,6 @@ void __init driver_init(void)
- 	auxiliary_bus_init();
- 	cpu_dev_init();
- 	memory_dev_init();
-+	node_dev_init();
- 	container_dev_init();
- }
-diff --git a/drivers/base/node.c b/drivers/base/node.c
-index 87acc47e8951..a133981a12fc 100644
---- a/drivers/base/node.c
-+++ b/drivers/base/node.c
-@@ -1065,26 +1065,30 @@ static const struct attribute_group *cpu_root_attr_groups[] = {
- };
- 
- #define NODE_CALLBACK_PRI	2	/* lower than SLAB */
--static int __init register_node_type(void)
-+void __init node_dev_init(void)
- {
--	int ret;
-+	static struct notifier_block node_memory_callback_nb = {
-+		.notifier_call = node_memory_callback,
-+		.priority = NODE_CALLBACK_PRI,
-+	};
-+	int ret, i;
- 
-  	BUILD_BUG_ON(ARRAY_SIZE(node_state_attr) != NR_NODE_STATES);
-  	BUILD_BUG_ON(ARRAY_SIZE(node_state_attrs)-1 != NR_NODE_STATES);
- 
- 	ret = subsys_system_register(&node_subsys, cpu_root_attr_groups);
--	if (!ret) {
--		static struct notifier_block node_memory_callback_nb = {
--			.notifier_call = node_memory_callback,
--			.priority = NODE_CALLBACK_PRI,
--		};
--		register_hotmemory_notifier(&node_memory_callback_nb);
--	}
-+	if (ret)
-+		panic("%s() failed to register subsystem: %d\n", __func__, ret);
-+
-+	register_hotmemory_notifier(&node_memory_callback_nb);
- 
- 	/*
--	 * Note:  we're not going to unregister the node class if we fail
--	 * to register the node state class attribute files.
-+	 * Create all node devices, which will properly link the node
-+	 * to applicable memory block devices and already created cpu devices.
- 	 */
--	return ret;
-+	for_each_online_node(i) {
-+		ret = register_one_node(i);
-+		if (ret)
-+			panic("%s() failed to add node: %d\n", __func__, ret);
-+	}
- }
--postcore_initcall(register_node_type);
-diff --git a/include/linux/node.h b/include/linux/node.h
-index bb21fd631b16..f3be6ccfebed 100644
---- a/include/linux/node.h
-+++ b/include/linux/node.h
-@@ -112,6 +112,7 @@ static inline void link_mem_sections(int nid, unsigned long start_pfn,
- 
- extern void unregister_node(struct node *node);
- #ifdef CONFIG_NUMA
-+extern void node_dev_init(void);
- /* Core of the node registration - only memory hotplug should use this */
- extern int __register_one_node(int nid);
- 
-@@ -149,6 +150,9 @@ extern void register_hugetlbfs_with_node(node_registration_func_t doregister,
- 					 node_registration_func_t unregister);
- #endif
- #else
-+static inline void node_dev_init(void)
-+{
-+}
- static inline int __register_one_node(int nid)
- {
- 	return 0;
-
-base-commit: 26291c54e111ff6ba87a164d85d4a4e134b7315c
 -- 
-2.34.1
+2.30.2
