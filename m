@@ -1,124 +1,143 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Mon, 14 Feb 2022 02:42:51 +0000
-Subject: [PATCH 28/30] ia64/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <1644805853-21338-29-git-send-email-anshuman.khandual@arm.com>
+From: Walt Drummond <walt@drummond.us>
+Date: Sun, 06 Feb 2022 15:48:52 +0000
+Subject: [PATCH v2 1/3] vstatus: Allow the n_tty line dicipline to write to a user tty
+Message-Id: <20220206154856.2355838-2-walt@drummond.us>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1644805853-21338-1-git-send-email-anshuman.khandual@arm.com>
-In-Reply-To: <1644805853-21338-1-git-send-email-anshuman.khandual@arm.com>
+References: <20220206154856.2355838-1-walt@drummond.us>
+In-Reply-To: <20220206154856.2355838-1-walt@drummond.us>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org
-Cc: linux-kernel@vger.kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Christoph Hellwig <hch@infradead.org>, Andrew Morton <akpm@linux-foundation.org>, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org
+To: agordeev@linux.ibm.com, arnd@arndb.de, benh@kernel.crashing.org, borntraeger@de.ibm.com, chris@zankel.net, davem@davemloft.net, gregkh@linuxfoundation.org, hca@linux.ibm.com, deller@gmx.de, ink@jurassic.park.msu.ru, James.Bottomley@HansenPartnership.com, jirislaby@kernel.org, mattst88@gmail.com, jcmvbkbc@gmail.com, mpe@ellerman.id.au, paulus@samba.org, rth@twiddle.net, dalias@libc.org, tsbogend@alpha.franken.de, gor@linux.ibm.com, ysato@users.osdn.me
+Cc: linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, walt@drummond.us, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, ar@cs.msu.ru, linuxppc-dev@lists.ozlabs.org
 
-This defines and exports a platform specific custom vm_get_page_prot() via
-subscribing ARCH_HAS_VM_GET_PAGE_PROT. Subsequently all __SXXX and __PXXX
-macros can be dropped which are no longer needed.
+Refactor the implementation of n_tty_write() into do_n_tty_write(),
+and change n_tty_write() to call do_n_tty_write() after acquiring
+tty.termios_rwsem.
 
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+This allows the n_tty line dicipline to write to a user tty via
+do_n_tty_write() when already holding tty.termios_rwsem.
+
+Signed-off-by: Walt Drummond <walt@drummond.us>
 ---
- arch/ia64/Kconfig               |  1 +
- arch/ia64/include/asm/pgtable.h | 17 --------------
- arch/ia64/mm/init.c             | 41 ++++++++++++++++++++++++++++++++-
- 3 files changed, 41 insertions(+), 18 deletions(-)
+ drivers/tty/n_tty.c | 69 +++++++++++++++++++++++++++------------------
+ include/linux/tty.h |  2 +-
+ 2 files changed, 42 insertions(+), 29 deletions(-)
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index a7e01573abd8..0ab15e8d5783 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -11,6 +11,7 @@ config IA64
- 	select ARCH_HAS_DMA_MARK_CLEAN
- 	select ARCH_HAS_STRNCPY_FROM_USER
- 	select ARCH_HAS_STRNLEN_USER
-+	select ARCH_HAS_VM_GET_PAGE_PROT
- 	select ARCH_MIGHT_HAVE_PC_PARPORT
- 	select ARCH_MIGHT_HAVE_PC_SERIO
- 	select ACPI
-diff --git a/arch/ia64/include/asm/pgtable.h b/arch/ia64/include/asm/pgtable.h
-index 9584b2c5f394..8154c78bba56 100644
---- a/arch/ia64/include/asm/pgtable.h
-+++ b/arch/ia64/include/asm/pgtable.h
-@@ -161,23 +161,6 @@
-  * attempts to write to the page.
-  */
- 	/* xwr */
--#define __P000	PAGE_NONE
--#define __P001	PAGE_READONLY
--#define __P010	PAGE_READONLY	/* write to priv pg -> copy & make writable */
--#define __P011	PAGE_READONLY	/* ditto */
--#define __P100	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_X_RX)
--#define __P101	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RX)
--#define __P110	PAGE_COPY_EXEC
--#define __P111	PAGE_COPY_EXEC
+diff --git a/drivers/tty/n_tty.c b/drivers/tty/n_tty.c
+index 0ec93f1a61f5..64a058a4c63b 100644
+--- a/drivers/tty/n_tty.c
++++ b/drivers/tty/n_tty.c
+@@ -2231,45 +2231,24 @@ static ssize_t n_tty_read(struct tty_struct *tty, struct file *file,
+ 	return retval;
+ }
+ 
+-/**
+- *	n_tty_write		-	write function for tty
+- *	@tty: tty device
+- *	@file: file object
+- *	@buf: userspace buffer pointer
+- *	@nr: size of I/O
+- *
+- *	Write function of the terminal device.  This is serialized with
+- *	respect to other write callers but not to termios changes, reads
+- *	and other such events.  Since the receive code will echo characters,
+- *	thus calling driver write methods, the output_lock is used in
+- *	the output processing functions called here as well as in the
+- *	echo processing function to protect the column state and space
+- *	left in the buffer.
+- *
+- *	This code must be sure never to sleep through a hangup.
+- *
+- *	Locking: output_lock to protect column state and space left
+- *		 (note that the process_output*() functions take this
+- *		  lock themselves)
+- */
 -
--#define __S000	PAGE_NONE
--#define __S001	PAGE_READONLY
--#define __S010	PAGE_SHARED	/* we don't have (and don't need) write-only */
--#define __S011	PAGE_SHARED
--#define __S100	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_X_RX)
--#define __S101	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RX)
--#define __S110	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RWX)
--#define __S111	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RWX)
+-static ssize_t n_tty_write(struct tty_struct *tty, struct file *file,
+-			   const unsigned char *buf, size_t nr)
++static ssize_t do_n_tty_write(struct tty_struct *tty, struct file *file,
++			      const unsigned char *buf, size_t nr)
+ {
+ 	const unsigned char *b = buf;
+ 	DEFINE_WAIT_FUNC(wait, woken_wake_function);
+ 	int c;
+ 	ssize_t retval = 0;
  
- #define pgd_ERROR(e)	printk("%s:%d: bad pgd %016lx.\n", __FILE__, __LINE__, pgd_val(e))
- #if CONFIG_PGTABLE_LEVELS = 4
-diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-index 5d165607bf35..2a922883e30f 100644
---- a/arch/ia64/mm/init.c
-+++ b/arch/ia64/mm/init.c
-@@ -273,7 +273,7 @@ static int __init gate_vma_init(void)
- 	gate_vma.vm_start = FIXADDR_USER_START;
- 	gate_vma.vm_end = FIXADDR_USER_END;
- 	gate_vma.vm_flags = VM_READ | VM_MAYREAD | VM_EXEC | VM_MAYEXEC;
--	gate_vma.vm_page_prot = __P101;
-+	gate_vma.vm_page_prot = __pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RX);
- 
- 	return 0;
- }
-@@ -492,3 +492,42 @@ void arch_remove_memory(u64 start, u64 size, struct vmem_altmap *altmap)
- 	__remove_pages(start_pfn, nr_pages, altmap);
- }
- #endif
++	lockdep_assert_held_read(&tty->termios_rwsem);
 +
-+pgprot_t vm_get_page_prot(unsigned long vm_flags)
+ 	/* Job control check -- must be done at start (POSIX.1 7.1.1.4). */
+-	if (L_TOSTOP(tty) && file->f_op->write_iter != redirected_tty_write) {
++	if (L_TOSTOP(tty) &&
++	    !(file && file->f_op->write_iter != redirected_tty_write)) {
+ 		retval = tty_check_change(tty);
+ 		if (retval)
+ 			return retval;
+ 	}
+ 
+-	down_read(&tty->termios_rwsem);
+-
+ 	/* Write out any echoed characters that are still pending */
+ 	process_echoes(tty);
+ 
+@@ -2336,10 +2315,44 @@ static ssize_t n_tty_write(struct tty_struct *tty, struct file *file,
+ 	remove_wait_queue(&tty->write_wait, &wait);
+ 	if (nr && tty->fasync)
+ 		set_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
+-	up_read(&tty->termios_rwsem);
++
+ 	return (b - buf) ? b - buf : retval;
+ }
+ 
++/**
++ *	n_tty_write		-	write function for tty
++ *	@tty: tty device
++ *	@file: file object
++ *	@buf: userspace buffer pointer
++ *	@nr: size of I/O
++ *
++ *	Write function of the terminal device.  This is serialized with
++ *	respect to other write callers but not to termios changes, reads
++ *	and other such events.  Since the receive code will echo characters,
++ *	thus calling driver write methods, the output_lock is used in
++ *	the output processing functions called here as well as in the
++ *	echo processing function to protect the column state and space
++ *	left in the buffer.
++ *
++ *	This code must be sure never to sleep through a hangup.
++ *
++ *	Locking: output_lock to protect column state and space left
++ *		 (note that the process_output*() functions take this
++ *		  lock themselves)
++ */
++
++static ssize_t n_tty_write(struct tty_struct *tty, struct file *file,
++			   const unsigned char *buf, size_t nr)
 +{
-+	switch (vm_flags & (VM_READ | VM_WRITE | VM_EXEC | VM_SHARED)) {
-+	case VM_NONE:
-+		return PAGE_NONE;
-+	case VM_READ:
-+	/* write to priv pg -> copy & make writable */
-+	case VM_WRITE:
-+	/* write to priv pg -> copy & make writable */
-+	case VM_WRITE | VM_READ:
-+		return PAGE_READONLY;
-+	case VM_EXEC:
-+		return __pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_X_RX);
-+	case VM_EXEC | VM_READ:
-+		return __pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RX);
-+	case VM_EXEC | VM_WRITE:
-+	case VM_EXEC | VM_WRITE | VM_READ:
-+		return PAGE_COPY_EXEC;
-+	case VM_SHARED:
-+		return PAGE_NONE;
-+	case VM_SHARED | VM_READ:
-+		return PAGE_READONLY;
-+	/* we don't have (and don't need) write-only */
-+	case VM_SHARED | VM_WRITE:
-+	case VM_SHARED | VM_WRITE | VM_READ:
-+		return PAGE_SHARED;
-+	case VM_SHARED | VM_EXEC:
-+		return __pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_X_RX);
-+	case VM_SHARED | VM_EXEC | VM_READ:
-+		return __pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RX);
-+	case VM_SHARED | VM_EXEC | VM_WRITE:
-+	case VM_SHARED | VM_EXEC | VM_WRITE | VM_READ:
-+		return __pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RWX);
-+	default:
-+		BUILD_BUG();
-+	}
++	ssize_t retval = 0;
++
++	down_read(&tty->termios_rwsem);
++	retval = do_n_tty_write(tty, file, buf, nr);
++	up_read(&tty->termios_rwsem);
++
++	return retval;
 +}
-+EXPORT_SYMBOL(vm_get_page_prot);
++
+ /**
+  *	n_tty_poll		-	poll method for N_TTY
+  *	@tty: terminal device
+diff --git a/include/linux/tty.h b/include/linux/tty.h
+index 168e57e40bbb..cbe5d535a69d 100644
+--- a/include/linux/tty.h
++++ b/include/linux/tty.h
+@@ -237,7 +237,7 @@ struct tty_file_private {
+ 
+ static inline bool tty_io_nonblock(struct tty_struct *tty, struct file *file)
+ {
+-	return file->f_flags & O_NONBLOCK ||
++	return (file && file->f_flags & O_NONBLOCK) ||
+ 		test_bit(TTY_LDISC_CHANGING, &tty->flags);
+ }
+ 
 -- 
-2.25.1
+2.30.2
