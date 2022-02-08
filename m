@@ -1,7 +1,7 @@
 From: kernel test robot <lkp@intel.com>
-Date: Tue, 08 Feb 2022 21:48:36 +0000
+Date: Tue, 08 Feb 2022 23:10:39 +0000
 Subject: Re: [PATCH v2] include: linux: Reorganize timekeeping and ktime headers
-Message-Id: <202202090554.VWOt2B2w-lkp@intel.com>
+Message-Id: <202202090656.Bx5FpSa7-lkp@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220208161049.865402-1-carlos.bilbao@amd.com>
 In-Reply-To: <20220208161049.865402-1-carlos.bilbao@amd.com>
@@ -9,7 +9,7 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Carlos Bilbao <carlos.bilbao@amd.com>, john.stultz@linaro.org, tglx@linutronix.de, sboyd@kernel.org, alexandre.belloni@bootlin.com, gregkh@linuxfoundation.org
-Cc: linux-rtc@vger.kernel.org, jgross@suse.com, kbuild-all@lists.01.org, kernel test robot <lkp@intel.com>, linux-kernel@vger.kernel.org, rostedt@goodmis.org, Carlos Bilbao <carlos.bilbao@amd.com>, linux-m68k@lists.linux-m68k.org, geert@linux-m68k.org, bilbao@vt.edu, boon.leong.ong@intel.com, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-stm32@st-md-mailman.stormreply.com, linux-arm-kernel@lists.infradead.org, mhiramat@kernel.org
+Cc: kbuild-all@lists.01.org, linux-kernel@vger.kernel.org, bilbao@vt.edu, geert@linux-m68k.org, linux-arm-kernel@lists.infradead.org, rostedt@goodmis.org, boon.leong.ong@intel.com, mhiramat@kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-rtc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-stm32@st-md-mailman.stormreply.com, jgross@suse.com, Carlos Bilbao <carlos.bilbao@amd.com>, kernel test robot <lkp@intel.com>
 
 Hi Carlos,
 
@@ -24,8 +24,8 @@ https://git-scm.com/docs/git-format-patch]
 
 url:    https://github.com/0day-ci/linux/commits/Carlos-Bilbao/include-linux-Reorganize-timekeeping-and-ktime-headers/20220209-001309
 base:   https://git.kernel.org/pub/scm/linux/kernel/git/geert/linux-m68k.git for-next
-config: m68k-randconfig-r024-20220208 (https://download.01.org/0day-ci/archive/20220209/202202090554.VWOt2B2w-lkp@intel.com/config)
-compiler: m68k-linux-gcc (GCC) 11.2.0
+config: alpha-randconfig-r001-20220208 (https://download.01.org/0day-ci/archive/20220209/202202090656.Bx5FpSa7-lkp@intel.com/config)
+compiler: alpha-linux-gcc (GCC) 11.2.0
 reproduce (this is a W=1 build):
         wget https://raw.githubusercontent.com/intel/lkp-tests/master/sbin/make.cross -O ~/bin/make.cross
         chmod +x ~/bin/make.cross
@@ -35,37 +35,42 @@ reproduce (this is a W=1 build):
         git checkout 5ed7d76f2d6aabedc437bc0b99020dc655ab5719
         # save the config file to linux build tree
         mkdir build_dir
-        COMPILER_INSTALL_PATH=$HOME/0day COMPILER=gcc-11.2.0 make.cross O=build_dir ARCH=m68k SHELL=/bin/bash
+        COMPILER_INSTALL_PATH=$HOME/0day COMPILER=gcc-11.2.0 make.cross O=build_dir ARCH=alpha SHELL=/bin/bash arch/alpha/kernel/
 
 If you fix the issue, kindly add following tag as appropriate
 Reported-by: kernel test robot <lkp@intel.com>
 
 All errors (new ones prefixed by >>):
 
-   arch/m68k/68000/timers.c: In function 'hw_tick':
->> arch/m68k/68000/timers.c:64:9: error: implicit declaration of function 'legacy_timer_tick' [-Werror=implicit-function-declaration]
-      64 |         legacy_timer_tick(1);
-         |         ^~~~~~~~~~~~~~~~~
-   arch/m68k/68000/timers.c: At top level:
-   arch/m68k/68000/timers.c:120:5: warning: no previous prototype for 'm68328_hwclk' [-Wmissing-prototypes]
-     120 | int m68328_hwclk(int set, struct rtc_time *t)
-         |     ^~~~~~~~~~~~
+   arch/alpha/kernel/osf_sys.c: In function '__do_sys_osf_settimeofday':
+>> arch/alpha/kernel/osf_sys.c:1013:16: error: implicit declaration of function 'do_sys_settimeofday64'; did you mean 'sys_settimeofday'? [-Werror=implicit-function-declaration]
+    1013 |         return do_sys_settimeofday64(tv ? &kts : NULL, tz ? &ktz : NULL);
+         |                ^~~~~~~~~~~~~~~~~~~~~
+         |                sys_settimeofday
    cc1: some warnings being treated as errors
 
 
-vim +/legacy_timer_tick +64 arch/m68k/68000/timers.c
+vim +1013 arch/alpha/kernel/osf_sys.c
 
-36a90f26aa24c5 arch/m68knommu/platform/68328/timers.c Greg Ungerer  2008-02-01  57  
-36a90f26aa24c5 arch/m68knommu/platform/68328/timers.c Greg Ungerer  2008-02-01  58  static irqreturn_t hw_tick(int irq, void *dummy)
-36a90f26aa24c5 arch/m68knommu/platform/68328/timers.c Greg Ungerer  2008-02-01  59  {
-36a90f26aa24c5 arch/m68knommu/platform/68328/timers.c Greg Ungerer  2008-02-01  60  	/* Reset Timer1 */
-36a90f26aa24c5 arch/m68knommu/platform/68328/timers.c Greg Ungerer  2008-02-01  61  	TSTAT &= 0;
-36a90f26aa24c5 arch/m68knommu/platform/68328/timers.c Greg Ungerer  2008-02-01  62  
-36a90f26aa24c5 arch/m68knommu/platform/68328/timers.c Greg Ungerer  2008-02-01  63  	m68328_tick_cnt += TICKS_PER_JIFFY;
-09323308f63708 arch/m68k/68000/timers.c               Arnd Bergmann 2020-09-24 @64  	legacy_timer_tick(1);
-09323308f63708 arch/m68k/68000/timers.c               Arnd Bergmann 2020-09-24  65  	return IRQ_HANDLED;
-36a90f26aa24c5 arch/m68knommu/platform/68328/timers.c Greg Ungerer  2008-02-01  66  }
-36a90f26aa24c5 arch/m68knommu/platform/68328/timers.c Greg Ungerer  2008-02-01  67  
+^1da177e4c3f415 Linus Torvalds  2005-04-16   997  
+e5d9a90c36e05dd Ivan Kokshaysky 2009-01-29   998  SYSCALL_DEFINE2(osf_settimeofday, struct timeval32 __user *, tv,
+e5d9a90c36e05dd Ivan Kokshaysky 2009-01-29   999  		struct timezone __user *, tz)
+^1da177e4c3f415 Linus Torvalds  2005-04-16  1000  {
+ce4c253573ad184 Arnd Bergmann   2017-11-08  1001  	struct timespec64 kts;
+^1da177e4c3f415 Linus Torvalds  2005-04-16  1002  	struct timezone ktz;
+^1da177e4c3f415 Linus Torvalds  2005-04-16  1003  
+^1da177e4c3f415 Linus Torvalds  2005-04-16  1004   	if (tv) {
+ce4c253573ad184 Arnd Bergmann   2017-11-08  1005  		if (get_tv32(&kts, tv))
+^1da177e4c3f415 Linus Torvalds  2005-04-16  1006  			return -EFAULT;
+^1da177e4c3f415 Linus Torvalds  2005-04-16  1007  	}
+^1da177e4c3f415 Linus Torvalds  2005-04-16  1008  	if (tz) {
+^1da177e4c3f415 Linus Torvalds  2005-04-16  1009  		if (copy_from_user(&ktz, tz, sizeof(*tz)))
+^1da177e4c3f415 Linus Torvalds  2005-04-16  1010  			return -EFAULT;
+^1da177e4c3f415 Linus Torvalds  2005-04-16  1011  	}
+^1da177e4c3f415 Linus Torvalds  2005-04-16  1012  
+ce4c253573ad184 Arnd Bergmann   2017-11-08 @1013  	return do_sys_settimeofday64(tv ? &kts : NULL, tz ? &ktz : NULL);
+^1da177e4c3f415 Linus Torvalds  2005-04-16  1014  }
+^1da177e4c3f415 Linus Torvalds  2005-04-16  1015  
 
 ---
 0-DAY CI Kernel Test Service, Intel Corporation
