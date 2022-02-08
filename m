@@ -1,74 +1,72 @@
-From: Yury Norov <yury.norov@gmail.com>
-Date: Tue, 01 Feb 2022 18:30:22 +0000
-Subject: Re: [PATCH] kernel/cpu.c: fix init_cpu_online
-Message-Id: <CAAH8bW_y4+edCY9viJayfmfvAFuJ1A7jqwDQCL++_Qv2Bo5Kew@mail.gmail.com>
+From: kernel test robot <lkp@intel.com>
+Date: Tue, 08 Feb 2022 21:48:36 +0000
+Subject: Re: [PATCH v2] include: linux: Reorganize timekeeping and ktime headers
+Message-Id: <202202090554.VWOt2B2w-lkp@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220131014648.941629-1-yury.norov@gmail.com> <YffF3e+uUIDVO7hm@FVFF7649Q05P>
-In-Reply-To: <YffF3e+uUIDVO7hm@FVFF7649Q05P>
+References: <20220208161049.865402-1-carlos.bilbao@amd.com>
+In-Reply-To: <20220208161049.865402-1-carlos.bilbao@amd.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Vincent Donnefort <vincent.donnefort@arm.com>
-Cc: Thomas Gleixner <tglx@linutronix.de>, Peter Zijlstra <peterz@infradead.org>, Valentin Schneider <valentin.schneider@arm.com>, Ingo Molnar <mingo@kernel.org>, YueHaibing <yuehaibing@huawei.com>, Yuan ZhaoXiong <yuanzhaoxiong@baidu.com>, Randy Dunlap <rdunlap@infradead.org>, Mathieu Desnoyers <mathieu.desnoyers@efficios.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Carlos Bilbao <carlos.bilbao@amd.com>, john.stultz@linaro.org, tglx@linutronix.de, sboyd@kernel.org, alexandre.belloni@bootlin.com, gregkh@linuxfoundation.org
+Cc: linux-rtc@vger.kernel.org, jgross@suse.com, kbuild-all@lists.01.org, kernel test robot <lkp@intel.com>, linux-kernel@vger.kernel.org, rostedt@goodmis.org, Carlos Bilbao <carlos.bilbao@amd.com>, linux-m68k@lists.linux-m68k.org, geert@linux-m68k.org, bilbao@vt.edu, boon.leong.ong@intel.com, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-stm32@st-md-mailman.stormreply.com, linux-arm-kernel@lists.infradead.org, mhiramat@kernel.org
 
-On Mon, Jan 31, 2022 at 3:20 AM Vincent Donnefort
-<vincent.donnefort@arm.com> wrote:
->
-> Hi Yury,
->
-> On Sun, Jan 30, 2022 at 05:46:48PM -0800, Yury Norov wrote:
-> > cpu_online_mask has an associate counter of online cpus, which must be
-> > initialized in init_cpu_online().
-> >
-> > Fixes: 0c09ab96fc82010 (cpu/hotplug: Cache number of online CPUs)
->
-> Aren't the increments/decrements from set_cpu_online() enough?
+Hi Carlos,
 
-It will only count cpus onlined by this function . Those onlined before will
-never be counted.
+Thank you for the patch! Yet something to improve:
 
-> I guess we could argue that this isn't a private function and the
-> num_online_cpus should be updated here. But unless I missed something,
-> init_cpu_online() is only called in ia64 arch, in the !SMP case.
+[auto build test ERROR on geert-m68k/for-next]
+[also build test ERROR on tip/timers/core tip/x86/core linus/master v5.17-rc3]
+[cannot apply to next-20220208]
+[If your patch is applied to the wrong git tree, kindly drop us a note.
+And when submitting patch, we suggest to use '--base' as documented in
+https://git-scm.com/docs/git-format-patch]
 
-Yes, this looks weird. In !SMP case this counter and function are not needed
-at all, and this is  the only case when the function is used.
+url:    https://github.com/0day-ci/linux/commits/Carlos-Bilbao/include-linux-Reorganize-timekeeping-and-ktime-headers/20220209-001309
+base:   https://git.kernel.org/pub/scm/linux/kernel/git/geert/linux-m68k.git for-next
+config: m68k-randconfig-r024-20220208 (https://download.01.org/0day-ci/archive/20220209/202202090554.VWOt2B2w-lkp@intel.com/config)
+compiler: m68k-linux-gcc (GCC) 11.2.0
+reproduce (this is a W=1 build):
+        wget https://raw.githubusercontent.com/intel/lkp-tests/master/sbin/make.cross -O ~/bin/make.cross
+        chmod +x ~/bin/make.cross
+        # https://github.com/0day-ci/linux/commit/5ed7d76f2d6aabedc437bc0b99020dc655ab5719
+        git remote add linux-review https://github.com/0day-ci/linux
+        git fetch --no-tags linux-review Carlos-Bilbao/include-linux-Reorganize-timekeeping-and-ktime-headers/20220209-001309
+        git checkout 5ed7d76f2d6aabedc437bc0b99020dc655ab5719
+        # save the config file to linux build tree
+        mkdir build_dir
+        COMPILER_INSTALL_PATH=$HOME/0day COMPILER=gcc-11.2.0 make.cross O=build_dir ARCH=m68k SHELL=/bin/bash
 
-In SMP case, things work just because the cpu_online_mask and
-num_online_cpus are both initialized to 0. If this is the intentional behavior,
-and it would be like this forever, then the init_cpu_online() must be dropped,
-otherwise it needs to be fixed. Isn't?
+If you fix the issue, kindly add following tag as appropriate
+Reported-by: kernel test robot <lkp@intel.com>
 
-> Is this the problem you're trying to tackle?
+All errors (new ones prefixed by >>):
 
-It was initially a part of a bigger series that added 3 more counters like this:
+   arch/m68k/68000/timers.c: In function 'hw_tick':
+>> arch/m68k/68000/timers.c:64:9: error: implicit declaration of function 'legacy_timer_tick' [-Werror=implicit-function-declaration]
+      64 |         legacy_timer_tick(1);
+         |         ^~~~~~~~~~~~~~~~~
+   arch/m68k/68000/timers.c: At top level:
+   arch/m68k/68000/timers.c:120:5: warning: no previous prototype for 'm68328_hwclk' [-Wmissing-prototypes]
+     120 | int m68328_hwclk(int set, struct rtc_time *t)
+         |     ^~~~~~~~~~~~
+   cc1: some warnings being treated as errors
 
-https://lkml.org/lkml/2021/12/18/253
 
-But now it's postponed.
+vim +/legacy_timer_tick +64 arch/m68k/68000/timers.c
 
-> If not, I'm not sure that warrants a "Fixes:" tag
+36a90f26aa24c5 arch/m68knommu/platform/68328/timers.c Greg Ungerer  2008-02-01  57  
+36a90f26aa24c5 arch/m68knommu/platform/68328/timers.c Greg Ungerer  2008-02-01  58  static irqreturn_t hw_tick(int irq, void *dummy)
+36a90f26aa24c5 arch/m68knommu/platform/68328/timers.c Greg Ungerer  2008-02-01  59  {
+36a90f26aa24c5 arch/m68knommu/platform/68328/timers.c Greg Ungerer  2008-02-01  60  	/* Reset Timer1 */
+36a90f26aa24c5 arch/m68knommu/platform/68328/timers.c Greg Ungerer  2008-02-01  61  	TSTAT &= 0;
+36a90f26aa24c5 arch/m68knommu/platform/68328/timers.c Greg Ungerer  2008-02-01  62  
+36a90f26aa24c5 arch/m68knommu/platform/68328/timers.c Greg Ungerer  2008-02-01  63  	m68328_tick_cnt += TICKS_PER_JIFFY;
+09323308f63708 arch/m68k/68000/timers.c               Arnd Bergmann 2020-09-24 @64  	legacy_timer_tick(1);
+09323308f63708 arch/m68k/68000/timers.c               Arnd Bergmann 2020-09-24  65  	return IRQ_HANDLED;
+36a90f26aa24c5 arch/m68knommu/platform/68328/timers.c Greg Ungerer  2008-02-01  66  }
+36a90f26aa24c5 arch/m68knommu/platform/68328/timers.c Greg Ungerer  2008-02-01  67  
 
-The patch 0c09ab96fc82010 adds the counter but does not initialize it properly.
-For me it sounds like a fix.
-
-> > Signed-off-by: Yury Norov <yury.norov@gmail.com>
-> > ---
-> >  kernel/cpu.c | 1 +
-> >  1 file changed, 1 insertion(+)
-> >
-> > diff --git a/kernel/cpu.c b/kernel/cpu.c
-> > index 407a2568f35e..cd7605204d4d 100644
-> > --- a/kernel/cpu.c
-> > +++ b/kernel/cpu.c
-> > @@ -2616,6 +2616,7 @@ void init_cpu_possible(const struct cpumask *src)
-> >  void init_cpu_online(const struct cpumask *src)
-> >  {
-> >       cpumask_copy(&__cpu_online_mask, src);
-> > +     atomic_set(&__num_online_cpus, cpumask_weight(cpu_online_mask));
-> >  }
-> >
-> >  void set_cpu_online(unsigned int cpu, bool online)
-> > --
-> > 2.30.2
-> >
+---
+0-DAY CI Kernel Test Service, Intel Corporation
+https://lists.01.org/hyperkitty/list/kbuild-all@lists.01.org
