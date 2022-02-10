@@ -1,92 +1,37 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Tue, 15 Feb 2022 12:41:00 +0000
-Subject: [PATCH v4 05/13] powerpc: Prepare func_desc_t for refactorisation
-Message-Id: <5c36105e08b27b98450535bff48d71b690c19739.1644928018.git.christophe.leroy@csgroup.eu>
+From: Yury Norov <yury.norov@gmail.com>
+Date: Thu, 10 Feb 2022 22:49:20 +0000
+Subject: [PATCH 36/49] arch/ia64: replace cpumask_weight with cpumask_weight_eq in mm/tlb.c
+Message-Id: <20220210224933.379149-37-yury.norov@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1644928018.git.christophe.leroy@csgroup.eu>
-In-Reply-To: <cover.1644928018.git.christophe.leroy@csgroup.eu>
+References: <20220210224933.379149-1-yury.norov@gmail.com>
+In-Reply-To: <20220210224933.379149-1-yury.norov@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, Nicholas Piggin <npiggin@gmail.com>
+To: Yury Norov <yury.norov@gmail.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Andrew Morton <akpm@linux-foundation.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Peter Zijlstra <peterz@infradead.org>, David Laight <David.Laight@aculab.com>, Joe Perches <joe@perches.com>, Dennis Zhou <dennis@kernel.org>, Emil Renner Berthing <kernel@esmil.dk>, Nicholas Piggin <npiggin@gmail.com>, Matti Vaittinen <matti.vaittinen@fi.rohmeurope.com>, Alexey Klimov <aklimov@redhat.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-In preparation of making func_desc_t generic, change the ELFv2
-version to a struct containing 'addr' element.
+__flush_tlb_range() code calls cpumask_weight() to compare the
+weight of cpumask with a given number. We can do it more efficiently with
+cpumask_weight_eq because conditional cpumask_weight may stop traversing
+the cpumask earlier, as soon as condition is (or can't be) met.
 
-This allows using single helpers common to ELFv1 and ELFv2 and
-reduces the amount of #ifdef's
-
-Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
-Acked-by: Nicholas Piggin <npiggin@gmail.com>
-Reviewed-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: Yury Norov <yury.norov@gmail.com>
 ---
- arch/powerpc/kernel/module_64.c | 36 ++++++++++++++++-----------------
- 1 file changed, 18 insertions(+), 18 deletions(-)
+ arch/ia64/mm/tlb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/powerpc/kernel/module_64.c b/arch/powerpc/kernel/module_64.c
-index 46e8eeb7c432..ff93ef4cb5a2 100644
---- a/arch/powerpc/kernel/module_64.c
-+++ b/arch/powerpc/kernel/module_64.c
-@@ -33,19 +33,17 @@
- #ifdef PPC64_ELF_ABI_v2
+diff --git a/arch/ia64/mm/tlb.c b/arch/ia64/mm/tlb.c
+index 135b5135cace..a5bce13ab047 100644
+--- a/arch/ia64/mm/tlb.c
++++ b/arch/ia64/mm/tlb.c
+@@ -332,7 +332,7 @@ __flush_tlb_range (struct vm_area_struct *vma, unsigned long start,
  
- /* An address is simply the address of the function. */
--typedef unsigned long func_desc_t;
-+typedef struct {
-+	unsigned long addr;
-+} func_desc_t;
- 
- static func_desc_t func_desc(unsigned long addr)
- {
--	return addr;
--}
--static unsigned long func_addr(unsigned long addr)
--{
--	return addr;
--}
--static unsigned long stub_func_addr(func_desc_t func)
--{
--	return func;
-+	func_desc_t desc = {
-+		.addr = addr,
-+	};
-+
-+	return desc;
- }
- 
- /* PowerPC64 specific values for the Elf64_Sym st_other field.  */
-@@ -70,14 +68,6 @@ static func_desc_t func_desc(unsigned long addr)
- {
- 	return *(struct func_desc *)addr;
- }
--static unsigned long func_addr(unsigned long addr)
--{
--	return func_desc(addr).addr;
--}
--static unsigned long stub_func_addr(func_desc_t func)
--{
--	return func.addr;
--}
- static unsigned int local_entry_offset(const Elf64_Sym *sym)
- {
- 	return 0;
-@@ -93,6 +83,16 @@ void *dereference_module_function_descriptor(struct module *mod, void *ptr)
- }
- #endif
- 
-+static unsigned long func_addr(unsigned long addr)
-+{
-+	return func_desc(addr).addr;
-+}
-+
-+static unsigned long stub_func_addr(func_desc_t func)
-+{
-+	return func.addr;
-+}
-+
- #define STUB_MAGIC 0x73747562 /* stub */
- 
- /* Like PPC32, we need little trampolines to do > 24-bit jumps (into
+ 	preempt_disable();
+ #ifdef CONFIG_SMP
+-	if (mm != current->active_mm || cpumask_weight(mm_cpumask(mm)) != 1) {
++	if (mm != current->active_mm || !cpumask_weight_eq(mm_cpumask(mm), 1)) {
+ 		ia64_global_tlb_purge(mm, start, end, nbits);
+ 		preempt_enable();
+ 		return;
 -- 
-2.34.1
+2.32.0
