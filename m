@@ -1,37 +1,45 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Sun, 27 Feb 2022 14:30:45 +0000
-Subject: [PATCH 01/11] dma-direct: use is_swiotlb_active in dma_direct_map_page
-Message-Id: <20220227143055.335596-2-hch@lst.de>
+From: Michael Ellerman <mpe@ellerman.id.au>
+Date: Thu, 10 Feb 2022 10:30:43 +0000
+Subject: Re: [PATCH v3 08/12] asm-generic: Refactor dereference_[kernel]_function_descriptor()
+Message-Id: <8735kr814c.fsf@mpe.ellerman.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220227143055.335596-1-hch@lst.de>
-In-Reply-To: <20220227143055.335596-1-hch@lst.de>
+References: <cover.1634457599.git.christophe.leroy@csgroup.eu>
+ <93a2006a5d90292baf69cb1c34af5785da53efde.1634457599.git.christophe.leroy@csgroup.eu>
+In-Reply-To: <93a2006a5d90292baf69cb1c34af5785da53efde.1634457599.git.christophe.leroy@csgroup.eu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: x86@kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Stefano Stabellini <sstabellini@kernel.org>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Robin Murphy <robin.murphy@arm.com>, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-hyperv@vger.kernel.org, tboot-devel@lists.sourceforge.net, linux-pci@vger.kernel.org
+To: Christophe Leroy <christophe.leroy@csgroup.eu>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-Use the more specific is_swiotlb_active check instead of checking the
-global swiotlb_force variable.
+Christophe Leroy <christophe.leroy@csgroup.eu> writes:
+> diff --git a/kernel/extable.c b/kernel/extable.c
+> index b0ea5eb0c3b4..1ef13789bea9 100644
+> --- a/kernel/extable.c
+> +++ b/kernel/extable.c
+> @@ -159,12 +160,32 @@ int kernel_text_address(unsigned long addr)
+>  }
+>  
+>  /*
+> - * On some architectures (PPC64, IA64) function pointers
+> + * On some architectures (PPC64, IA64, PARISC) function pointers
+>   * are actually only tokens to some data that then holds the
+>   * real function address. As a result, to find if a function
+>   * pointer is part of the kernel text, we need to do some
+>   * special dereferencing first.
+>   */
+> +#ifdef CONFIG_HAVE_FUNCTION_DESCRIPTORS
+> +void *dereference_function_descriptor(void *ptr)
+> +{
+> +	func_desc_t *desc = ptr;
+> +	void *p;
+> +
+> +	if (!get_kernel_nofault(p, (void *)&desc->addr))
+> +		ptr = p;
+> +	return ptr;
+> +}
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
-Reviewed-by: Anshuman Khandual <anshuman.khandual@arm.com>
----
- kernel/dma/direct.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+This needs an EXPORT_SYMBOL_GPL(), otherwise the build breaks after
+patch 10 with CONFIG_LKDTM=m.
 
-diff --git a/kernel/dma/direct.h b/kernel/dma/direct.h
-index 4632b0f4f72eb..4dc16e08c7e1a 100644
---- a/kernel/dma/direct.h
-+++ b/kernel/dma/direct.h
-@@ -91,7 +91,7 @@ static inline dma_addr_t dma_direct_map_page(struct device *dev,
- 		return swiotlb_map(dev, phys, size, dir, attrs);
- 
- 	if (unlikely(!dma_capable(dev, dma_addr, size, true))) {
--		if (swiotlb_force != SWIOTLB_NO_FORCE)
-+		if (is_swiotlb_active(dev))
- 			return swiotlb_map(dev, phys, size, dir, attrs);
- 
- 		dev_WARN_ONCE(dev, 1,
--- 
-2.30.2
+cheers
