@@ -1,31 +1,37 @@
-From: "Gustavo A. R. Silva" <gustavoars@kernel.org>
-Date: Wed, 16 Feb 2022 19:46:09 +0000
-Subject: Re: [PATCH][next] treewide: Replace zero-length arrays with flexible-array members
-Message-Id: <20220216194609.GA903947@embeddedor>
+From: Kees Cook <keescook@chromium.org>
+Date: Fri, 11 Feb 2022 00:51:59 +0000
+Subject: Re: [PATCH v3 01/12] powerpc: Move and rename func_descr_t
+Message-Id: <202202101651.E6AACB3D4F@keescook>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220215174743.GA878920@embeddedor>
- <202202151016.C0471D6E@keescook>
- <20220215192110.GA883653@embeddedor>
- <Ygv8wY75hNqS7zO6@unreal>
- <20220215193221.GA884407@embeddedor>
- <CAJZ5v0jpAnQk+Hub6ue6t712RW+W0YBjb_gAcZZbUeuYMGv7mg@mail.gmail.com>
-In-Reply-To: <CAJZ5v0jpAnQk+Hub6ue6t712RW+W0YBjb_gAcZZbUeuYMGv7mg@mail.gmail.com>
+References: <cover.1634457599.git.christophe.leroy@csgroup.eu>
+ <637a9a11263afa216fdfa7fb470a54479c67c61c.1634457599.git.christophe.leroy@csgroup.eu>
+In-Reply-To: <637a9a11263afa216fdfa7fb470a54479c67c61c.1634457599.git.christophe.leroy@csgroup.eu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Rafael J. Wysocki" <rafael@kernel.org>
-Cc: Leon Romanovsky <leon@kernel.org>, Kees Cook <keescook@chromium.org>, GR-QLogic-Storage-Upstream@marvell.com, linux-alpha@vger.kernel.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, Linux-sh list <linux-sh@vger.kernel.org>, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, Linux Crypto Mailing List <linux-crypto@vger.kernel.org>, intel-gfx <intel-gfx@lists.freedesktop.org>, dri-devel <dri-devel@lists.freedesktop.org>, nouveau <nouveau@lists.freedesktop.org>, coresight@lists.linaro.org, Linux ARM <linux-arm-kernel@lists.infradead.org>, bcm-kernel-feedback-list <bcm-kernel-feedback-list@broadcom.com>, netdev <netdev@vger.kernel.org>, Linux OMAP Mailing List <linux-omap@vger.kernel.org>, "open list:TARGET SUBSYSTEM" <linux-scsi@vger.kernel.org>, target-devel@vger.kernel.org, mpi3mr-linuxdrv.pdl@broadcom.com, linux-staging@lists.linux.dev, linux-rpi-kernel@lists.infradead.org, sparmaintainer@unisys.com, linux-cifs@vger.kernel.org, samba-technical@lists.samba.org, Ext4 Developers List <linux-ext4@vger.kernel.org>, ACPI Devel Maling List <linux-acpi@vger.kernel.org>, "open list:ACPI COMPONENT ARCHITECTURE (ACPICA)" <devel@acpica.org>, linux-arch <linux-arch@vger.kernel.org>, Linux Memory Management List <linux-mm@kvack.org>, greybus-dev@lists.linaro.org, linux-i3c@lists.infradead.org, linux-rdma@vger.kernel.org, "open list:BLUETOOTH DRIVERS" <linux-bluetooth@vger.kernel.org>, "moderated list:SOUND - SOC LAYER / DYNAMIC AUDIO POWER MANAGEM..." <alsa-devel@alsa-project.org>, "open list:OPEN FIRMWARE AND FLATTENED DEVICE TREE BINDINGS" <devicetree@vger.kernel.org>, linux-perf-users@vger.kernel.org, linux-hardening@vger.kernel.org
+To: Christophe Leroy <christophe.leroy@csgroup.eu>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-On Wed, Feb 16, 2022 at 08:05:47PM +0100, Rafael J. Wysocki wrote:
-> On Tue, Feb 15, 2022 at 8:24 PM Gustavo A. R. Silva
-> <gustavoars@kernel.org> wrote:
+On Sun, Oct 17, 2021 at 02:38:14PM +0200, Christophe Leroy wrote:
+> There are three architectures with function descriptors, try to
+> have common names for the address they contain in order to
+> refactor some functions into generic functions later.
 > 
-> Can you also send the ACPI patch separately, please?
+> powerpc has 'entry'
+> ia64 has 'ip'
+> parisc has 'addr'
 > 
-> We would like to route it through the upstream ACPICA code base.
+> Vote for 'addr' and update 'func_descr_t' accordingly.
+> 
+> Move it in asm/elf.h to have it at the same place on all
+> three architectures, remove the typedef which hides its real
+> type, and change it to a smoother name 'struct func_desc'.
+> 
+> Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
 
-Yeah; no problem.
+I like the name. :)
 
-Thanks
---
-Gustavo
+Reviewed-by: Kees Cook <keescook@chromium.org>
+
+-- 
+Kees Cook
