@@ -1,113 +1,66 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Mon, 28 Feb 2022 22:53:25 +0000
-Subject: Re: [PATCH 5.16 v2] binfmt_elf: Avoid total_mapping_size for ET_EXEC
-Message-Id: <202202281452.93E321A39@keescook>
+From: Andy Lutomirski <luto@kernel.org>
+Date: Fri, 11 Feb 2022 23:55:01 +0000
+Subject: Re: [PATCH 7/8] kernel/fork: Only cache the VMAP stack in finish_task_switch().
+Message-Id: <00f9c7a6-2d1d-f871-e9bc-00e2217f40f9@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220228205518.1265798-1-keescook@chromium.org>
- <ce8af9c13bcea9230c7689f3c1e0e2cd@matoro.tk>
-In-Reply-To: <ce8af9c13bcea9230c7689f3c1e0e2cd@matoro.tk>
+References: <20220125152652.1963111-1-bigeasy@linutronix.de>
+ <20220125152652.1963111-8-bigeasy@linutronix.de>
+In-Reply-To: <20220125152652.1963111-8-bigeasy@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: matoro <matoro_mailinglist_kernel@matoro.tk>
-Cc: Alexander Viro <viro@zeniv.linux.org.uk>, Eric Biederman <ebiederm@xmission.com>, linux-fsdevel@vger.kernel.org, linux-mm@kvack.org, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, stable@vger.kernel.org, Magnus =?iso-8859-1?Q?Gro=DF?= <magnus.gross@rwth-aachen.de>, Thorsten Leemhuis <regressions@leemhuis.info>, Anthony Yznaga <anthony.yznaga@oracle.com>, Andrew Morton <akpm@linux-foundation.org>, regressions@lists.linux.dev, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-hardening@vger.kernel.org
+To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Ingo Molnar <mingo@redhat.com>, Juri Lelli <juri.lelli@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Steven Rostedt <rostedt@goodmis.org>, Thomas Gleixner <tglx@linutronix.de>, Vincent Guittot <vincent.guittot@linaro.org>
 
-On Mon, Feb 28, 2022 at 05:14:26PM -0500, matoro wrote:
-> On 2022-02-28 15:55, Kees Cook wrote:
-> > Partially revert commit 5f501d555653 ("binfmt_elf: reintroduce using
-> > MAP_FIXED_NOREPLACE").
-> > 
-> > At least ia64 has ET_EXEC PT_LOAD segments that are not virtual-address
-> > contiguous (but _are_ file-offset contiguous). This would result in
-> > giant mapping attempts to cover the entire span, including the virtual
-> > address range hole. Disable total_mapping_size for ET_EXEC, which
-> > reduces the MAP_FIXED_NOREPLACE coverage to only the first PT_LOAD:
-> > 
-> > $ readelf -lW /usr/bin/gcc
-> > ...
-> > Program Headers:
-> >   Type Offset   VirtAddr           PhysAddr           FileSiz  MemSiz
-> > ...
-> > ...
-> >   LOAD 0x000000 0x4000000000000000 0x4000000000000000 0x00b5a0 0x00b5a0
-> > ...
-> >   LOAD 0x00b5a0 0x600000000000b5a0 0x600000000000b5a0 0x0005ac 0x000710
-> > ...
-> > ...
-> >        ^^^^^^^^ ^^^^^^^^^^^^^^^^^^                    ^^^^^^^^ ^^^^^^^^
-> > 
-> > File offset range     : 0x000000-0x00bb4c
-> > 			0x00bb4c bytes
-> > 
-> > Virtual address range : 0x4000000000000000-0x600000000000bcb0
-> > 			0x200000000000bcb0 bytes
-> > 
-> > Ironically, this is the reverse of the problem that originally caused
-> > problems with ET_EXEC and MAP_FIXED_NOREPLACE: overlaps. This problem is
-> > with holes. Future work could restore full coverage if load_elf_binary()
-> > were to perform mappings in a separate phase from the loading (where
-> > it could resolve both overlaps and holes).
-> > 
-> > Cc: Alexander Viro <viro@zeniv.linux.org.uk>
-> > Cc: Eric Biederman <ebiederm@xmission.com>
-> > Cc: linux-fsdevel@vger.kernel.org
-> > Cc: linux-mm@kvack.org
-> > Reported-by: matoro <matoro_mailinglist_kernel@matoro.tk>
-> > Reported-by: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-> > Fixes: 5f501d555653 ("binfmt_elf: reintroduce using
-> > MAP_FIXED_NOREPLACE")
-> > Link:
-> > https://lore.kernel.org/r/a3edd529-c42d-3b09-135c-7e98a15b150f@leemhuis.info
-> > Cc: stable@vger.kernel.org
-> > Signed-off-by: Kees Cook <keescook@chromium.org>
-> > ---
-> > Here's the v5.16 backport.
-> > ---
-> >  fs/binfmt_elf.c | 25 ++++++++++++++++++-------
-> >  1 file changed, 18 insertions(+), 7 deletions(-)
-> > 
-> > diff --git a/fs/binfmt_elf.c b/fs/binfmt_elf.c
-> > index f8c7f26f1fbb..911a9e7044f4 100644
-> > --- a/fs/binfmt_elf.c
-> > +++ b/fs/binfmt_elf.c
-> > @@ -1135,14 +1135,25 @@ static int load_elf_binary(struct linux_binprm
-> > *bprm)
-> >  			 * is then page aligned.
-> >  			 */
-> >  			load_bias = ELF_PAGESTART(load_bias - vaddr);
-> > -		}
-> > 
-> > -		/*
-> > -		 * Calculate the entire size of the ELF mapping (total_size).
-> > -		 * (Note that load_addr_set is set to true later once the
-> > -		 * initial mapping is performed.)
-> > -		 */
-> > -		if (!load_addr_set) {
-> > +			/*
-> > +			 * Calculate the entire size of the ELF mapping
-> > +			 * (total_size), used for the initial mapping,
-> > +			 * due to first_pt_load which is set to false later
-> > +			 * once the initial mapping is performed.
-> > +			 *
-> > +			 * Note that this is only sensible when the LOAD
-> > +			 * segments are contiguous (or overlapping). If
-> > +			 * used for LOADs that are far apart, this would
-> > +			 * cause the holes between LOADs to be mapped,
-> > +			 * running the risk of having the mapping fail,
-> > +			 * as it would be larger than the ELF file itself.
-> > +			 *
-> > +			 * As a result, only ET_DYN does this, since
-> > +			 * some ET_EXEC (e.g. ia64) may have virtual
-> > +			 * memory holes between LOADs.
-> > +			 *
-> > +			 */
-> >  			total_size = total_mapping_size(elf_phdata,
-> >  							elf_ex->e_phnum);
-> >  			if (!total_size) {
+On 1/25/22 07:26, Sebastian Andrzej Siewior wrote:
+> The task stack could be deallocated later in delayed_put_task_struct().
+> For fork()/exec() kind of workloads (say a shell script executing
+> several commands) it is important that the stack is released in
+> finish_task_switch() so that in VMAP_STACK case it can be cached and
+> reused in the new task.
+> If the free/ caching is RCU-delayed then a new stack has to be allocated
+> because the cache is filled in batches of which only two stacks, out of
+> many, are recycled.
 > 
-> This does the trick!  Thank you so much!!
+> For PREEMPT_RT it would be good if the wake-up in vfree_atomic() could
+> be avoided in the scheduling path. Far worse are the other
+> free_thread_stack() implementations which invoke __free_pages()/
+> kmem_cache_free() with disabled preemption.
+> 
+> Introduce put_task_stack_sched() which is invoked from the
+> finish_task_switch() and only caches the VMAP stack. If the cache is
+> full or !CONFIG_VMAP_STACK is used than the stack is freed from
+> delayed_put_task_struct(). In the VMAP case this is another opportunity
+> to fill the cache.
+> 
+> The stack is finally released in delayed_put_task_struct() which means
+> that a valid stack reference can be held during its invocation. As such
+> there can be made no assumption whether the task_struct::stack pointer
+> can be freed if non-NULL.
+> Set the lowest bit of task_struct::stack if the stack was released via
+> put_task_stack_sched() and needs a final free in
+> delayed_put_task_struct(). If the bit is missing then a reference is
+> held and put_task_stack() will release it.
 
-Excellent; thank you for testing! I'll send this to Linus shortly.
+I don't understand what this bit is for or why the logic needs to be 
+this complicated.  Can you set ->stack to NULL if and only if you freed 
+it early?
 
--- 
-Kees Cook
+> +static void free_thread_stack(struct task_struct *tsk, bool cache_only)
+
+This is messy.  Please clean it up for real:
+
+static bool try_release_thread_stack_to_cache(struct vm_struct *vm)
+{
+   for (...) try to put it in this slot;
+}
+
+And the callers can do things like:
+
+if (try_release_thread_stack_to_cache(...))
+   return;
+
+/* need to free for real */
+free it or delayed-free it.
+
+--Andy
