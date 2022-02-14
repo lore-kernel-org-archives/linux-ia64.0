@@ -1,62 +1,166 @@
-From: Dinh Nguyen <dinguyen@kernel.org>
-Date: Fri, 25 Feb 2022 04:31:04 +0000
-Subject: Re: [PATCH v2 13/18] uaccess: generalize access_ok()
-Message-Id: <d12e6bcc-089d-568b-62cf-036c68c08ca0@kernel.org>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Mon, 14 Feb 2022 18:15:16 +0000
+Subject: [PATCH v2 7/8] kernel/fork: Only cache the VMAP stack in finish_task_switch().
+Message-Id: <YgqcNFrCsXi/XCCh@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220216131332.1489939-1-arnd@kernel.org>
- <20220216131332.1489939-14-arnd@kernel.org>
-In-Reply-To: <20220216131332.1489939-14-arnd@kernel.org>
+References: <20220125152652.1963111-1-bigeasy@linutronix.de>
+ <20220125152652.1963111-8-bigeasy@linutronix.de>
+ <00f9c7a6-2d1d-f871-e9bc-00e2217f40f9@kernel.org>
+ <YgpGnFlTS+2Ugfw4@linutronix.de>
+ <YgpJ41q35k+KCsk4@linutronix.de>
+ <YgqJV0LREU9IDJxl@linutronix.de>
+ <YgqV1BLbCx5V+6tq@linutronix.de>
+In-Reply-To: <YgqV1BLbCx5V+6tq@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hellwig <hch@lst.de>, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-api@vger.kernel.org, arnd@arndb.de, linux-kernel@vger.kernel.org, viro@zeniv.linux.org.uk
-Cc: linux@armlinux.org.uk, will@kernel.org, guoren@kernel.org, bcain@codeaurora.org, geert@linux-m68k.org, monstr@monstr.eu, tsbogend@alpha.franken.de, nickhu@andestech.com, green.hu@gmail.com, shorne@gmail.com, deller@gmx.de, mpe@ellerman.id.au, peterz@infradead.org, mingo@redhat.com, mark.rutland@arm.com, hca@linux.ibm.com, dalias@libc.org, davem@davemloft.net, richard@nod.at, x86@kernel.org, jcmvbkbc@gmail.com, ebiederm@xmission.com, akpm@linux-foundation.org, ardb@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org
+To: Andy Lutomirski <luto@kernel.org>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Ingo Molnar <mingo@redhat.com>, Juri Lelli <juri.lelli@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Steven Rostedt <rostedt@goodmis.org>, Thomas Gleixner <tglx@linutronix.de>, Vincent Guittot <vincent.guittot@linaro.org>
 
+The task stack could be deallocated later. For fork()/exec() kind of
+workloads (say a shell script executing several commands) it is
+important that the stack is released in finish_task_switch() so that in
+VMAP_STACK case it can be cached and reused in the new task.
 
+For PREEMPT_RT it would be good if the wake-up in vfree_atomic() could
+be avoided in the scheduling path. Far worse are the other
+free_thread_stack() implementations which invoke __free_pages()/
+kmem_cache_free() with disabled preemption.
 
-On 2/16/22 07:13, Arnd Bergmann wrote:
-> From: Arnd Bergmann <arnd@arndb.de>
-> 
-> There are many different ways that access_ok() is defined across
-> architectures, but in the end, they all just compare against the
-> user_addr_max() value or they accept anything.
-> 
-> Provide one definition that works for most architectures, checking
-> against TASK_SIZE_MAX for user processes or skipping the check inside
-> of uaccess_kernel() sections.
-> 
-> For architectures without CONFIG_SET_FS(), this should be the fastest
-> check, as it comes down to a single comparison of a pointer against a
-> compile-time constant, while the architecture specific versions tend to
-> do something more complex for historic reasons or get something wrong.
-> 
-> Type checking for __user annotations is handled inconsistently across
-> architectures, but this is easily simplified as well by using an inline
-> function that takes a 'const void __user *' argument. A handful of
-> callers need an extra __user annotation for this.
-> 
-> Some architectures had trick to use 33-bit or 65-bit arithmetic on the
-> addresses to calculate the overflow, however this simpler version uses
-> fewer registers, which means it can produce better object code in the
-> end despite needing a second (statically predicted) branch.
-> 
-> Reviewed-by: Christoph Hellwig <hch@lst.de>
-> Acked-by: Mark Rutland <mark.rutland@arm.com> [arm64, asm-generic]
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
->   arch/Kconfig                          |  7 ++++
->   arch/alpha/include/asm/uaccess.h      | 34 +++------------
->   arch/arc/include/asm/uaccess.h        | 29 -------------
->   arch/arm/include/asm/uaccess.h        | 20 +--------
->   arch/arm64/include/asm/uaccess.h      | 11 ++---
->   arch/csky/include/asm/uaccess.h       |  8 ----
->   arch/hexagon/include/asm/uaccess.h    | 25 ------------
->   arch/ia64/include/asm/uaccess.h       |  5 +--
->   arch/m68k/Kconfig.cpu                 |  1 +
->   arch/m68k/include/asm/uaccess.h       | 19 +--------
->   arch/microblaze/include/asm/uaccess.h |  8 +---
->   arch/mips/include/asm/uaccess.h       | 29 +------------
->   arch/nds32/include/asm/uaccess.h      |  7 +---
->   arch/nios2/include/asm/uaccess.h      | 11 +----
+Cache the stack in free_thread_stack() in the VMAP_STACK case and
+RCU-delay the free path otherwise. Free the stack in the RCU callback.
+In the VMAP_STACK case this is another opportunity to fill the cache.
 
-Acked-by: Dinh Nguyen <dinguyen@kernel.org>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+
+If that works and there are no other objection then I'm going to repost
+the complete series.
+
+ kernel/fork.c | 76 ++++++++++++++++++++++++++++++++++++++++++---------
+ 1 file changed, 63 insertions(+), 13 deletions(-)
+
+diff --git a/kernel/fork.c b/kernel/fork.c
+index 984f69d6f211f..aa17ed2a2afc7 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -193,6 +193,41 @@ static inline void free_task_struct(struct task_struct *tsk)
+ #define NR_CACHED_STACKS 2
+ static DEFINE_PER_CPU(struct vm_struct *, cached_stacks[NR_CACHED_STACKS]);
+ 
++struct vm_stack {
++	struct rcu_head rcu;
++	struct vm_struct *stack_vm_area;
++};
++
++static bool try_release_thread_stack_to_cache(struct vm_struct *vm)
++{
++	unsigned int i;
++
++	for (i = 0; i < NR_CACHED_STACKS; i++) {
++		if (this_cpu_cmpxchg(cached_stacks[i], NULL, vm) != NULL)
++			continue;
++		return true;
++	}
++	return false;
++}
++
++static void thread_stack_free_rcu(struct rcu_head *rh)
++{
++	struct vm_stack *vm_stack = container_of(rh, struct vm_stack, rcu);
++
++	if (try_release_thread_stack_to_cache(vm_stack->stack_vm_area))
++		return;
++
++	vfree(vm_stack);
++}
++
++static void thread_stack_delayed_free(struct task_struct *tsk)
++{
++	struct vm_stack *vm_stack = tsk->stack;
++
++	vm_stack->stack_vm_area = tsk->stack_vm_area;
++	call_rcu(&vm_stack->rcu, thread_stack_free_rcu);
++}
++
+ static int free_vm_stack_cache(unsigned int cpu)
+ {
+ 	struct vm_struct **cached_vm_stacks = per_cpu_ptr(cached_stacks, cpu);
+@@ -296,24 +331,27 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 
+ static void free_thread_stack(struct task_struct *tsk)
+ {
+-	int i;
++	if (!try_release_thread_stack_to_cache(tsk->stack_vm_area))
++		thread_stack_delayed_free(tsk);
+ 
+-	for (i = 0; i < NR_CACHED_STACKS; i++) {
+-		if (this_cpu_cmpxchg(cached_stacks[i], NULL,
+-				     tsk->stack_vm_area) != NULL)
+-			continue;
+-
+-		tsk->stack = NULL;
+-		tsk->stack_vm_area = NULL;
+-		return;
+-	}
+-	vfree_atomic(tsk->stack);
+ 	tsk->stack = NULL;
+ 	tsk->stack_vm_area = NULL;
+ }
+ 
+ #  else /* !CONFIG_VMAP_STACK */
+ 
++static void thread_stack_free_rcu(struct rcu_head *rh)
++{
++	__free_pages(virt_to_page(rh), THREAD_SIZE_ORDER);
++}
++
++static void thread_stack_delayed_free(struct task_struct *tsk)
++{
++	struct rcu_head *rh = tsk->stack;
++
++	call_rcu(rh, thread_stack_free_rcu);
++}
++
+ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ {
+ 	struct page *page = alloc_pages_node(node, THREADINFO_GFP,
+@@ -328,7 +366,7 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 
+ static void free_thread_stack(struct task_struct *tsk)
+ {
+-	__free_pages(virt_to_page(tsk->stack), THREAD_SIZE_ORDER);
++	thread_stack_delayed_free(tsk);
+ 	tsk->stack = NULL;
+ }
+ 
+@@ -337,6 +375,18 @@ static void free_thread_stack(struct task_struct *tsk)
+ 
+ static struct kmem_cache *thread_stack_cache;
+ 
++static void thread_stack_free_rcu(struct rcu_head *rh)
++{
++	kmem_cache_free(thread_stack_cache, rh);
++}
++
++static void thread_stack_delayed_free(struct task_struct *tsk)
++{
++	struct rcu_head *rh = tsk->stack;
++
++	call_rcu(rh, thread_stack_free_rcu);
++}
++
+ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ {
+ 	unsigned long *stack;
+@@ -348,7 +398,7 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 
+ static void free_thread_stack(struct task_struct *tsk)
+ {
+-	kmem_cache_free(thread_stack_cache, tsk->stack);
++	thread_stack_delayed_free(tsk);
+ 	tsk->stack = NULL;
+ }
+ 
+-- 
+2.34.1
