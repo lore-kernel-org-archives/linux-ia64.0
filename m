@@ -1,37 +1,24 @@
-From: Yury Norov <yury.norov@gmail.com>
-Date: Thu, 10 Feb 2022 22:48:59 +0000
-Subject: [PATCH 15/49] arch/ia64: replace cpumask_weight with cpumask_empty where appropriate
-Message-Id: <20220210224933.379149-16-yury.norov@gmail.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Mon, 14 Feb 2022 18:00:26 +0000
+Subject: Re: [PATCH 3/8] kernel/fork, IA64: Provide a alloc_thread_stack_node() for IA64.
+Message-Id: <YgqYun8tmIJQZmuN@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220210224933.379149-1-yury.norov@gmail.com>
-In-Reply-To: <20220210224933.379149-1-yury.norov@gmail.com>
+References: <20220125152652.1963111-1-bigeasy@linutronix.de>
+ <20220125152652.1963111-4-bigeasy@linutronix.de>
+In-Reply-To: <20220125152652.1963111-4-bigeasy@linutronix.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Yury Norov <yury.norov@gmail.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Andrew Morton <akpm@linux-foundation.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Peter Zijlstra <peterz@infradead.org>, David Laight <David.Laight@aculab.com>, Joe Perches <joe@perches.com>, Dennis Zhou <dennis@kernel.org>, Emil Renner Berthing <kernel@esmil.dk>, Nicholas Piggin <npiggin@gmail.com>, Matti Vaittinen <matti.vaittinen@fi.rohmeurope.com>, Alexey Klimov <aklimov@redhat.com>, linux-kernel@vger.kernel.org, Geert Uytterhoeven <geert+renesas@glider.be>, Yang Guang <yang.guang5@zte.com.cn>, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="windows-1254"
+Content-Transfer-Encoding: base64
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Andy Lutomirski <luto@kernel.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Ingo Molnar <mingo@redhat.com>, Juri Lelli <juri.lelli@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Steven Rostedt <rostedt@goodmis.org>, Thomas Gleixner <tglx@linutronix.de>, Vincent Guittot <vincent.guittot@linaro.org>
 
-setup_arch() calls cpumask_weight() to check if any bit of a given cpumask
-is set. We can do it more efficiently with cpumask_empty() because
-cpumask_empty() stops traversing the cpumask as soon as it finds first set
-bit, while cpumask_weight() counts all bits unconditionally.
-
-Signed-off-by: Yury Norov <yury.norov@gmail.com>
----
- arch/ia64/kernel/setup.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
-index 5010348fa21b..fd6301eafa9d 100644
---- a/arch/ia64/kernel/setup.c
-+++ b/arch/ia64/kernel/setup.c
-@@ -572,7 +572,7 @@ setup_arch (char **cmdline_p)
- #ifdef CONFIG_ACPI_HOTPLUG_CPU
- 	prefill_possible_map();
- #endif
--	per_cpu_scan_finalize((cpumask_weight(&early_cpu_possible_map) = 0 ?
-+	per_cpu_scan_finalize((cpumask_empty(&early_cpu_possible_map) ?
- 		32 : cpumask_weight(&early_cpu_possible_map)),
- 		additional_cpus > 0 ? additional_cpus : 0);
- #endif /* CONFIG_ACPI_NUMA */
--- 
-2.32.0
+T24gMjAyMi0wMS0yNSAxNjoyNjo0NyBbKzAxMDBdLCBUbyBsaW51eC1rZXJuZWxAdmdlci5rZXJu
+ZWwub3JnIHdyb3RlOgo+IGRpZmYgLS1naXQgYS9rZXJuZWwvZm9yay5jIGIva2VybmVsL2Zvcmsu
+Ywo+IGluZGV4IGM0N2RjYmE1ZDY2ZDIuLmEwZDU4YWU2ZmFjNzYgMTAwNjQ0Cj4gLS0tIGEva2Vy
+bmVsL2ZvcmsuYwo+ICsrKyBiL2tlcm5lbC9mb3JrLmMKPiBAQCAtMzMwLDYgKzMzMCwyMiBAQCB2
+b2lkIHRocmVhZF9zdGFja19jYWNoZV9pbml0KHZvaWQpCuKApgo+ICAKPiArc3RhdGljIHZvaWQg
+ZnJlZV90aHJlYWRfc3RhY2soc3RydWN0IHRhc2tfc3RydWN0ICp0c2ssIGJvb2wgY2FjaGVfb25s
+eSkKClRoaXMgY2FjaGVfb25seSBwYXJhbWV0ZXIgc2hvdWxkbid0IGJlIGhlcmXigKYKCj4gK3sK
+PiArCWFyY2hfZnJlZV90aHJlYWRfc3RhY2sodHNrKTsKPiArfQo+ICsKPiAgI2VuZGlmIC8qICFD
+T05GSUdfQVJDSF9USFJFQURfU1RBQ0tfQUxMT0NBVE9SICovCj4gIAo+ICAvKiBTTEFCIGNhY2hl
+IGZvciBzaWduYWxfc3RydWN0IHN0cnVjdHVyZXMgKHRzay0+c2lnbmFsKSAqLwoKU2ViYXN0aWFu
