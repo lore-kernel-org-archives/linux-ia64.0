@@ -1,19 +1,33 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Mon, 14 Feb 2022 17:02:13 +0000
+From: Arnd Bergmann <arnd@kernel.org>
+Date: Mon, 14 Feb 2022 19:45:52 +0000
 Subject: Re: [PATCH 04/14] x86: use more conventional access_ok() definition
-Message-Id: <YgqLFYqIqkIsNC92@infradead.org>
+Message-Id: <CAK8P3a1F3JaYaJPy9bSCG1+YV6EN05PE0DbwpD_GT1qRwFSJ-w@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220214163452.1568807-1-arnd@kernel.org>
  <20220214163452.1568807-5-arnd@kernel.org>
-In-Reply-To: <20220214163452.1568807-5-arnd@kernel.org>
+ <YgqLFYqIqkIsNC92@infradead.org>
+In-Reply-To: <YgqLFYqIqkIsNC92@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@kernel.org>
-Cc: Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hellwig <hch@lst.de>, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-api@vger.kernel.org, arnd@arndb.de, linux-kernel@vger.kernel.org, mark.rutland@arm.com, dalias@libc.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, peterz@infradead.org, jcmvbkbc@gmail.com, guoren@kernel.org, sparclinux@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-riscv@lists.infradead.org, will@kernel.org, ardb@kernel.org, linux-s390@vger.kernel.org, bcain@codeaurora.org, deller@gmx.de, x86@kernel.org, linux@armlinux.org.uk, linux-csky@vger.kernel.org, mingo@redhat.com, geert@linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-xtensa@linux-xtensa.org, hca@linux.ibm.com, linux-alpha@vger.kernel.org, linux-um@lists.infradead.org, linux-m68k@lists.linux-m68k.org, openrisc@lists.librecores.org, green.hu@gmail.com, shorne@gmail.com, linux-arm-kernel@lists.infradead.org, monstr@monstr.eu, tsbogend@alpha.franken.de, linux-parisc@vger.kernel.org, nickhu@andestech.com, linux-mips@vger.kernel.org, dinguyen@kernel.org, ebiederm@xmission.com, richard@nod.at, akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org, davem@davemloft.net
+To: Christoph Hellwig <hch@infradead.org>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hellwig <hch@lst.de>, linux-arch <linux-arch@vger.kernel.org>, Linux-MM <linux-mm@kvack.org>, Linux API <linux-api@vger.kernel.org>, Arnd Bergmann <arnd@arndb.de>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Mark Rutland <mark.rutland@arm.com>, Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Linux-sh list <linux-sh@vger.kernel.org>, Peter Zijlstra <peterz@infradead.org>, Max Filippov <jcmvbkbc@gmail.com>, Guo Ren <guoren@kernel.org>, sparclinux <sparclinux@vger.kernel.org>, "open list:QUALCOMM HEXAGON..." <linux-hexagon@vger.kernel.org>, linux-riscv <linux-riscv@lists.infradead.org>, Will Deacon <will@kernel.org>, Ard Biesheuvel <ardb@kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, Brian Cain <bcain@codeaurora.org>, Helge Deller <deller@gmx.de>, the arch/x86 maintainers <x86@kernel.org>, Russell King - ARM Linux <linux@armlinux.org.uk>, linux-csky@vger.kernel.org, Ingo Molnar <mingo@redhat.com>, Geert Uytterhoeven <geert@linux-m68k.org>, "open list:SYNOPSYS ARC ARCHITECTURE" <linux-snps-arc@lists.infradead.org>, "open list:TENSILICA XTENSA PORT (xtensa)" <linux-xtensa@linux-xtensa.org>, Heiko Carstens <hca@linux.ibm.com>, alpha <linux-alpha@vger.kernel.org>, linux-um <linux-um@lists.infradead.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, Openrisc <openrisc@lists.librecores.org>, Greentime Hu <green.hu@gmail.com>, Stafford Horne <shorne@gmail.com>, Linux ARM <linux-arm-kernel@lists.infradead.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Parisc List <linux-parisc@vger.kernel.org>, Nick Hu <nickhu@andestech.com>, "open list:BROADCOM NVRAM DRIVER" <linux-mips@vger.kernel.org>, Dinh Nguyen <dinguyen@kernel.org>, "Eric W . Biederman" <ebiederm@xmission.com>, Richard Weinberger <richard@nod.at>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, David Miller <davem@davemloft.net>, Al Viro <viro@zeniv.linux.org.uk>
 
-On Mon, Feb 14, 2022 at 05:34:42PM +0100, Arnd Bergmann wrote:
-> +#define __range_not_ok(addr, size, limit)	(!__access_ok(addr, size))
-> +#define __chk_range_not_ok(addr, size, limit)	(!__access_ok((void __user *)addr, size))
+On Mon, Feb 14, 2022 at 6:02 PM Christoph Hellwig <hch@infradead.org> wrote:
+>
+> On Mon, Feb 14, 2022 at 05:34:42PM +0100, Arnd Bergmann wrote:
+> > +#define __range_not_ok(addr, size, limit)    (!__access_ok(addr, size))
+> > +#define __chk_range_not_ok(addr, size, limit)        (!__access_ok((void __user *)addr, size))
+>
+> Can we just kill these off insted of letting themm obsfucate the code?
 
-Can we just kill these off insted of letting themm obsfucate the code?
+As Al pointed out, they turned out to be necessary on sparc64, but the only
+definitions are on sparc64 and x86, so it's possible that they serve a similar
+purpose here, in which case changing the limit from TASK_SIZE to
+TASK_SIZE_MAX is probably wrong as well.
+
+So either I need to revert the original definition as I did on sparc64, or
+they can be removed completely. Hopefully Al or the x86 maintainers
+can clarify.
+
+         Arnd
