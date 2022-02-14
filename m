@@ -1,265 +1,87 @@
-From: =?UTF-8?q?Ilpo=20J=C3=A4rvinen?= <ilpo.jarvinen@linux.intel.com>
-Date: Tue, 22 Feb 2022 11:56:03 +0000
-Subject: [PATCH 1/2] ia64: termbits.h is identical to asm-generic one
-Message-Id: <20220222115604.7351-2-ilpo.jarvinen@linux.intel.com>
+From: Arnd Bergmann <arnd@kernel.org>
+Date: Mon, 14 Feb 2022 16:34:44 +0000
+Subject: [PATCH 06/14] mips: use simpler access_ok()
+Message-Id: <20220214163452.1568807-7-arnd@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220222115604.7351-1-ilpo.jarvinen@linux.intel.com>
-In-Reply-To: <20220222115604.7351-1-ilpo.jarvinen@linux.intel.com>
+References: <20220214163452.1568807-1-arnd@kernel.org>
+In-Reply-To: <20220214163452.1568807-1-arnd@kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Jiri Slaby <jirislaby@kernel.org>, linux-serial@vger.kernel.org, linux-ia64@vger.kernel.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hellwig <hch@lst.de>, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-api@vger.kernel.org, arnd@arndb.de, linux-kernel@vger.kernel.org
+Cc: linux@armlinux.org.uk, will@kernel.org, guoren@kernel.org, bcain@codeaurora.org, geert@linux-m68k.org, monstr@monstr.eu, tsbogend@alpha.franken.de, nickhu@andestech.com, green.hu@gmail.com, dinguyen@kernel.org, shorne@gmail.com, deller@gmx.de, mpe@ellerman.id.au, peterz@infradead.org, mingo@redhat.com, mark.rutland@arm.com, hca@linux.ibm.com, dalias@libc.org, davem@davemloft.net, richard@nod.at, x86@kernel.org, jcmvbkbc@gmail.com, ebiederm@xmission.com, akpm@linux-foundation.org, ardb@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org
 
-Remove arch specific termbits.h as there are only trivial space
-differences between include/uapi/asm-generic/termbits.h and
-arch/ia64/include/uapi/asm/termbits.h:
+From: Arnd Bergmann <arnd@arndb.de>
 
-$ diff -u0 -b -B include/uapi/asm-generic/termbits.h arch/ia64/include/uapi=
-/asm/termbits.h
-. --- include/uapi/asm-generic/termbits.h         2022-01-10 13:44:42.81410=
-7461 +0200
-. +++ arch/ia64/include/uapi/asm/termbits.h       2022-01-10 13:44:42.67810=
-6874 +0200
-. @@ -2,2 +2,11 @@
-. -#ifndef __ASM_GENERIC_TERMBITS_H
-. -#define __ASM_GENERIC_TERMBITS_H
-. +#ifndef _ASM_IA64_TERMBITS_H
-. +#define _ASM_IA64_TERMBITS_H
-. +
-. +/*
-. + * Based on <asm-i386/termbits.h>.
-. + *
-. + * Modified 1999
-. + *     David Mosberger-Tang <davidm@hpl.hp.com>, Hewlett-Packard Co
-. + *
-. + * 99/01/28    Added new baudrates
-. + */
-. @@ -200 +209 @@
-. -#endif /* __ASM_GENERIC_TERMBITS_H */
-. +#endif /* _ASM_IA64_TERMBITS_H */
+Before unifying the mips version of __access_ok() with the generic
+code, this converts it to the same algorithm. This is a change in
+behavior on mips64, as now address in the user segment, the lower
+2^62 bytes, is taken to be valid, relying on a page fault for
+addresses that are within that segment but not valid on that CPU.
 
-Signed-off-by: Ilpo J=C3=A4rvinen <ilpo.jarvinen@linux.intel.com>
-Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+The new version should be the most effecient way to do this, but
+it gets rid of the special handling for size=0 that most other
+architectures ignore as well.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- arch/ia64/include/uapi/asm/termbits.h | 209 --------------------------
- 1 file changed, 209 deletions(-)
- delete mode 100644 arch/ia64/include/uapi/asm/termbits.h
+ arch/mips/include/asm/uaccess.h | 22 ++++------------------
+ 1 file changed, 4 insertions(+), 18 deletions(-)
 
-diff --git a/arch/ia64/include/uapi/asm/termbits.h b/arch/ia64/include/uapi=
-/asm/termbits.h
-deleted file mode 100644
-index 000a1a297c75..000000000000
---- a/arch/ia64/include/uapi/asm/termbits.h
-+++ /dev/null
-@@ -1,209 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
--#ifndef _ASM_IA64_TERMBITS_H
--#define _ASM_IA64_TERMBITS_H
--
+diff --git a/arch/mips/include/asm/uaccess.h b/arch/mips/include/asm/uaccess.h
+index db9a8e002b62..d7c89dc3426c 100644
+--- a/arch/mips/include/asm/uaccess.h
++++ b/arch/mips/include/asm/uaccess.h
+@@ -19,6 +19,7 @@
+ #ifdef CONFIG_32BIT
+ 
+ #define __UA_LIMIT 0x80000000UL
++#define TASK_SIZE_MAX	__UA_LIMIT
+ 
+ #define __UA_ADDR	".word"
+ #define __UA_LA		"la"
+@@ -33,6 +34,7 @@
+ extern u64 __ua_limit;
+ 
+ #define __UA_LIMIT	__ua_limit
++#define TASK_SIZE_MAX	XKSSEG
+ 
+ #define __UA_ADDR	".dword"
+ #define __UA_LA		"dla"
+@@ -42,22 +44,6 @@ extern u64 __ua_limit;
+ 
+ #endif /* CONFIG_64BIT */
+ 
 -/*
-- * Based on <asm-i386/termbits.h>.
+- * Is a address valid? This does a straightforward calculation rather
+- * than tests.
 - *
-- * Modified 1999
-- *	David Mosberger-Tang <davidm@hpl.hp.com>, Hewlett-Packard Co
+- * Address valid if:
+- *  - "addr" doesn't have any high-bits set
+- *  - AND "size" doesn't have any high-bits set
+- *  - AND "addr+size" doesn't have any high-bits set
+- *  - OR we are in kernel mode.
 - *
-- * 99/01/28	Added new baudrates
+- * __ua_size() is a trick to avoid runtime checking of positive constant
+- * sizes; for those we already know at compile time that the size is ok.
 - */
+-#define __ua_size(size)							\
+-	((__builtin_constant_p(size) && (signed long) (size) > 0) ? 0 : (size))
 -
--#include <linux/posix_types.h>
--
--typedef unsigned char	cc_t;
--typedef unsigned int	speed_t;
--typedef unsigned int	tcflag_t;
--
--#define NCCS 19
--struct termios {
--	tcflag_t c_iflag;		/* input mode flags */
--	tcflag_t c_oflag;		/* output mode flags */
--	tcflag_t c_cflag;		/* control mode flags */
--	tcflag_t c_lflag;		/* local mode flags */
--	cc_t c_line;			/* line discipline */
--	cc_t c_cc[NCCS];		/* control characters */
--};
--
--struct termios2 {
--	tcflag_t c_iflag;		/* input mode flags */
--	tcflag_t c_oflag;		/* output mode flags */
--	tcflag_t c_cflag;		/* control mode flags */
--	tcflag_t c_lflag;		/* local mode flags */
--	cc_t c_line;			/* line discipline */
--	cc_t c_cc[NCCS];		/* control characters */
--	speed_t c_ispeed;		/* input speed */
--	speed_t c_ospeed;		/* output speed */
--};
--
--struct ktermios {
--	tcflag_t c_iflag;		/* input mode flags */
--	tcflag_t c_oflag;		/* output mode flags */
--	tcflag_t c_cflag;		/* control mode flags */
--	tcflag_t c_lflag;		/* local mode flags */
--	cc_t c_line;			/* line discipline */
--	cc_t c_cc[NCCS];		/* control characters */
--	speed_t c_ispeed;		/* input speed */
--	speed_t c_ospeed;		/* output speed */
--};
--
--/* c_cc characters */
--#define VINTR 0
--#define VQUIT 1
--#define VERASE 2
--#define VKILL 3
--#define VEOF 4
--#define VTIME 5
--#define VMIN 6
--#define VSWTC 7
--#define VSTART 8
--#define VSTOP 9
--#define VSUSP 10
--#define VEOL 11
--#define VREPRINT 12
--#define VDISCARD 13
--#define VWERASE 14
--#define VLNEXT 15
--#define VEOL2 16
--
--/* c_iflag bits */
--#define IGNBRK	0000001
--#define BRKINT	0000002
--#define IGNPAR	0000004
--#define PARMRK	0000010
--#define INPCK	0000020
--#define ISTRIP	0000040
--#define INLCR	0000100
--#define IGNCR	0000200
--#define ICRNL	0000400
--#define IUCLC	0001000
--#define IXON	0002000
--#define IXANY	0004000
--#define IXOFF	0010000
--#define IMAXBEL	0020000
--#define IUTF8	0040000
--
--/* c_oflag bits */
--#define OPOST	0000001
--#define OLCUC	0000002
--#define ONLCR	0000004
--#define OCRNL	0000010
--#define ONOCR	0000020
--#define ONLRET	0000040
--#define OFILL	0000100
--#define OFDEL	0000200
--#define NLDLY	0000400
--#define   NL0	0000000
--#define   NL1	0000400
--#define CRDLY	0003000
--#define   CR0	0000000
--#define   CR1	0001000
--#define   CR2	0002000
--#define   CR3	0003000
--#define TABDLY	0014000
--#define   TAB0	0000000
--#define   TAB1	0004000
--#define   TAB2	0010000
--#define   TAB3	0014000
--#define   XTABS	0014000
--#define BSDLY	0020000
--#define   BS0	0000000
--#define   BS1	0020000
--#define VTDLY	0040000
--#define   VT0	0000000
--#define   VT1	0040000
--#define FFDLY	0100000
--#define   FF0	0000000
--#define   FF1	0100000
--
--/* c_cflag bit meaning */
--#define CBAUD	0010017
--#define  B0	0000000		/* hang up */
--#define  B50	0000001
--#define  B75	0000002
--#define  B110	0000003
--#define  B134	0000004
--#define  B150	0000005
--#define  B200	0000006
--#define  B300	0000007
--#define  B600	0000010
--#define  B1200	0000011
--#define  B1800	0000012
--#define  B2400	0000013
--#define  B4800	0000014
--#define  B9600	0000015
--#define  B19200	0000016
--#define  B38400	0000017
--#define EXTA B19200
--#define EXTB B38400
--#define CSIZE	0000060
--#define   CS5	0000000
--#define   CS6	0000020
--#define   CS7	0000040
--#define   CS8	0000060
--#define CSTOPB	0000100
--#define CREAD	0000200
--#define PARENB	0000400
--#define PARODD	0001000
--#define HUPCL	0002000
--#define CLOCAL	0004000
--#define CBAUDEX 0010000
--#define    BOTHER 0010000
--#define    B57600 0010001
--#define   B115200 0010002
--#define   B230400 0010003
--#define   B460800 0010004
--#define   B500000 0010005
--#define   B576000 0010006
--#define   B921600 0010007
--#define  B1000000 0010010
--#define  B1152000 0010011
--#define  B1500000 0010012
--#define  B2000000 0010013
--#define  B2500000 0010014
--#define  B3000000 0010015
--#define  B3500000 0010016
--#define  B4000000 0010017
--#define CIBAUD	  002003600000		/* input baud rate */
--#define CMSPAR	  010000000000		/* mark or space (stick) parity */
--#define CRTSCTS	  020000000000		/* flow control */
--
--#define IBSHIFT	16		/* Shift from CBAUD to CIBAUD */
--
--/* c_lflag bits */
--#define ISIG	0000001
--#define ICANON	0000002
--#define XCASE	0000004
--#define ECHO	0000010
--#define ECHOE	0000020
--#define ECHOK	0000040
--#define ECHONL	0000100
--#define NOFLSH	0000200
--#define TOSTOP	0000400
--#define ECHOCTL	0001000
--#define ECHOPRT	0002000
--#define ECHOKE	0004000
--#define FLUSHO	0010000
--#define PENDIN	0040000
--#define IEXTEN	0100000
--#define EXTPROC	0200000
--
--/* tcflow() and TCXONC use these */
--#define	TCOOFF		0
--#define	TCOON		1
--#define	TCIOFF		2
--#define	TCION		3
--
--/* tcflush() and TCFLSH use these */
--#define	TCIFLUSH	0
--#define	TCOFLUSH	1
--#define	TCIOFLUSH	2
--
--/* tcsetattr uses these */
--#define	TCSANOW		0
--#define	TCSADRAIN	1
--#define	TCSAFLUSH	2
--
--#endif /* _ASM_IA64_TERMBITS_H */
---=20
-2.30.2
+ /*
+  * access_ok: - Checks if a user space pointer is valid
+  * @addr: User space pointer to start of block to check
+@@ -79,9 +65,9 @@ extern u64 __ua_limit;
+ static inline int __access_ok(const void __user *p, unsigned long size)
+ {
+ 	unsigned long addr = (unsigned long)p;
+-	unsigned long end = addr + size - !!size;
++	unsigned long limit = TASK_SIZE_MAX;
+ 
+-	return (__UA_LIMIT & (addr | end | __ua_size(size))) = 0;
++	return (size <= limit) && (addr <= (limit - size));
+ }
+ 
+ #define access_ok(addr, size)					\
+-- 
+2.29.2
