@@ -1,54 +1,44 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Fri, 11 Feb 2022 00:56:55 +0000
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Mon, 14 Feb 2022 10:32:08 +0000
 Subject: Re: [PATCH v3 08/12] asm-generic: Refactor dereference_[kernel]_function_descriptor()
-Message-Id: <202202101655.13C794F0F@keescook>
+Message-Id: <5bb6160d-0f7b-ad2b-8933-3cb97a535b54@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <cover.1634457599.git.christophe.leroy@csgroup.eu>
  <93a2006a5d90292baf69cb1c34af5785da53efde.1634457599.git.christophe.leroy@csgroup.eu>
- <8735kr814c.fsf@mpe.ellerman.id.au>
-In-Reply-To: <8735kr814c.fsf@mpe.ellerman.id.au>
+ <8735kr814c.fsf@mpe.ellerman.id.au> <202202101655.13C794F0F@keescook>
+In-Reply-To: <202202101655.13C794F0F@keescook>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+To: Kees Cook <keescook@chromium.org>, Michael Ellerman <mpe@ellerman.id.au>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>
 
-On Thu, Feb 10, 2022 at 09:30:43PM +1100, Michael Ellerman wrote:
-> Christophe Leroy <christophe.leroy@csgroup.eu> writes:
-> > diff --git a/kernel/extable.c b/kernel/extable.c
-> > index b0ea5eb0c3b4..1ef13789bea9 100644
-> > --- a/kernel/extable.c
-> > +++ b/kernel/extable.c
-> > @@ -159,12 +160,32 @@ int kernel_text_address(unsigned long addr)
-> >  }
-> >  
-> >  /*
-> > - * On some architectures (PPC64, IA64) function pointers
-> > + * On some architectures (PPC64, IA64, PARISC) function pointers
-> >   * are actually only tokens to some data that then holds the
-> >   * real function address. As a result, to find if a function
-> >   * pointer is part of the kernel text, we need to do some
-> >   * special dereferencing first.
-> >   */
-> > +#ifdef CONFIG_HAVE_FUNCTION_DESCRIPTORS
-> > +void *dereference_function_descriptor(void *ptr)
-> > +{
-> > +	func_desc_t *desc = ptr;
-> > +	void *p;
-> > +
-> > +	if (!get_kernel_nofault(p, (void *)&desc->addr))
-> > +		ptr = p;
-> > +	return ptr;
-> > +}
-> 
-> This needs an EXPORT_SYMBOL_GPL(), otherwise the build breaks after
-> patch 10 with CONFIG_LKDTM=m.
-
-Oh good catch!
-
-(There have been a few cases of LKDTM=m being the only thing needed a
-symbol, so I've pondered giving it a namespace or constructing a little
-ifdef wrapper... but this seems ok to export...)
-
--- 
-Kees Cook
+DQoNCkxlIDExLzAyLzIwMjIgw6AgMDE6NTYsIEtlZXMgQ29vayBhIMOpY3JpdMKgOg0KPiBPbiBU
+aHUsIEZlYiAxMCwgMjAyMiBhdCAwOTozMDo0M1BNICsxMTAwLCBNaWNoYWVsIEVsbGVybWFuIHdy
+b3RlOg0KPj4gQ2hyaXN0b3BoZSBMZXJveSA8Y2hyaXN0b3BoZS5sZXJveUBjc2dyb3VwLmV1PiB3
+cml0ZXM6DQo+Pj4gZGlmZiAtLWdpdCBhL2tlcm5lbC9leHRhYmxlLmMgYi9rZXJuZWwvZXh0YWJs
+ZS5jDQo+Pj4gaW5kZXggYjBlYTVlYjBjM2I0Li4xZWYxMzc4OWJlYTkgMTAwNjQ0DQo+Pj4gLS0t
+IGEva2VybmVsL2V4dGFibGUuYw0KPj4+ICsrKyBiL2tlcm5lbC9leHRhYmxlLmMNCj4+PiBAQCAt
+MTU5LDEyICsxNjAsMzIgQEAgaW50IGtlcm5lbF90ZXh0X2FkZHJlc3ModW5zaWduZWQgbG9uZyBh
+ZGRyKQ0KPj4+ICAgfQ0KPj4+ICAgDQo+Pj4gICAvKg0KPj4+IC0gKiBPbiBzb21lIGFyY2hpdGVj
+dHVyZXMgKFBQQzY0LCBJQTY0KSBmdW5jdGlvbiBwb2ludGVycw0KPj4+ICsgKiBPbiBzb21lIGFy
+Y2hpdGVjdHVyZXMgKFBQQzY0LCBJQTY0LCBQQVJJU0MpIGZ1bmN0aW9uIHBvaW50ZXJzDQo+Pj4g
+ICAgKiBhcmUgYWN0dWFsbHkgb25seSB0b2tlbnMgdG8gc29tZSBkYXRhIHRoYXQgdGhlbiBob2xk
+cyB0aGUNCj4+PiAgICAqIHJlYWwgZnVuY3Rpb24gYWRkcmVzcy4gQXMgYSByZXN1bHQsIHRvIGZp
+bmQgaWYgYSBmdW5jdGlvbg0KPj4+ICAgICogcG9pbnRlciBpcyBwYXJ0IG9mIHRoZSBrZXJuZWwg
+dGV4dCwgd2UgbmVlZCB0byBkbyBzb21lDQo+Pj4gICAgKiBzcGVjaWFsIGRlcmVmZXJlbmNpbmcg
+Zmlyc3QuDQo+Pj4gICAgKi8NCj4+PiArI2lmZGVmIENPTkZJR19IQVZFX0ZVTkNUSU9OX0RFU0NS
+SVBUT1JTDQo+Pj4gK3ZvaWQgKmRlcmVmZXJlbmNlX2Z1bmN0aW9uX2Rlc2NyaXB0b3Iodm9pZCAq
+cHRyKQ0KPj4+ICt7DQo+Pj4gKwlmdW5jX2Rlc2NfdCAqZGVzYyA9IHB0cjsNCj4+PiArCXZvaWQg
+KnA7DQo+Pj4gKw0KPj4+ICsJaWYgKCFnZXRfa2VybmVsX25vZmF1bHQocCwgKHZvaWQgKikmZGVz
+Yy0+YWRkcikpDQo+Pj4gKwkJcHRyID0gcDsNCj4+PiArCXJldHVybiBwdHI7DQo+Pj4gK30NCj4+
+DQo+PiBUaGlzIG5lZWRzIGFuIEVYUE9SVF9TWU1CT0xfR1BMKCksIG90aGVyd2lzZSB0aGUgYnVp
+bGQgYnJlYWtzIGFmdGVyDQo+PiBwYXRjaCAxMCB3aXRoIENPTkZJR19MS0RUTT1tLg0KPiANCj4g
+T2ggZ29vZCBjYXRjaCENCj4gDQo+IChUaGVyZSBoYXZlIGJlZW4gYSBmZXcgY2FzZXMgb2YgTEtE
+VE09bSBiZWluZyB0aGUgb25seSB0aGluZyBuZWVkZWQgYQ0KPiBzeW1ib2wsIHNvIEkndmUgcG9u
+ZGVyZWQgZ2l2aW5nIGl0IGEgbmFtZXNwYWNlIG9yIGNvbnN0cnVjdGluZyBhIGxpdHRsZQ0KPiBp
+ZmRlZiB3cmFwcGVyLi4uIGJ1dCB0aGlzIHNlZW1zIG9rIHRvIGV4cG9ydC4uLikNCj4gDQoNCnBv
+d2VycGMgYW5kIGlhNjQgaGFkIGl0IGFzIGEgc3RhdGljIGlubGluZSwgYnV0IHBhcmlzYyBoYWQg
+aXQgYXMgYSBwbGFpbiANCmZ1bmN0aW9uIGFuZCBkaWRuJ3QgZXhwb3J0IGl0LiBTbyBJIGd1ZXNz
+IHRoZSBleHBvcnQgaXMgbm90IHJlcXVpcmVkIGF0IA0KdGhpcyBwb2ludC4gSSB3aWxsIGV4cG9y
+dCBpdCBpbiBwYXRjaCAxMCB3aGVuIGl0IGJlY29tZXMgbmVjZXNzYXJ5Lg0KDQpDaHJpc3RvcGhl
