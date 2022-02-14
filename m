@@ -1,140 +1,92 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Fri, 11 Feb 2022 01:09:21 +0000
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Mon, 14 Feb 2022 10:34:30 +0000
 Subject: Re: [PATCH v3 12/12] lkdtm: Add a test for function descriptors protection
-Message-Id: <202202101703.993CA9BC@keescook>
+Message-Id: <211f5ad4-a832-8fa5-8e2a-e7997516702c@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <cover.1634457599.git.christophe.leroy@csgroup.eu>
  <67f9545c9ad15048bfe0104278ef9595d051dbc8.1634457599.git.christophe.leroy@csgroup.eu>
-In-Reply-To: <67f9545c9ad15048bfe0104278ef9595d051dbc8.1634457599.git.christophe.leroy@csgroup.eu>
+ <202202101703.993CA9BC@keescook>
+In-Reply-To: <202202101703.993CA9BC@keescook>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christophe Leroy <christophe.leroy@csgroup.eu>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+To: Kees Cook <keescook@chromium.org>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>
 
-On Sun, Oct 17, 2021 at 02:38:25PM +0200, Christophe Leroy wrote:
-> Add WRITE_OPD to check that you can't modify function
-> descriptors.
-> 
-> Gives the following result when function descriptors are
-> not protected:
-> 
-> 	lkdtm: Performing direct entry WRITE_OPD
-> 	lkdtm: attempting bad 16 bytes write at c00000000269b358
-> 	lkdtm: FAIL: survived bad write
-> 	lkdtm: do_nothing was hijacked!
-> 
-> Looks like a standard compiler barrier() is not enough to force
-> GCC to use the modified function descriptor. Had to add a fake empty
-> inline assembly to force GCC to reload the function descriptor.
-> 
-> Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
-> ---
->  drivers/misc/lkdtm/core.c  |  1 +
->  drivers/misc/lkdtm/lkdtm.h |  1 +
->  drivers/misc/lkdtm/perms.c | 22 ++++++++++++++++++++++
->  3 files changed, 24 insertions(+)
-> 
-> diff --git a/drivers/misc/lkdtm/core.c b/drivers/misc/lkdtm/core.c
-> index fe6fd34b8caf..de092aa03b5d 100644
-> --- a/drivers/misc/lkdtm/core.c
-> +++ b/drivers/misc/lkdtm/core.c
-> @@ -148,6 +148,7 @@ static const struct crashtype crashtypes[] = {
->  	CRASHTYPE(WRITE_RO),
->  	CRASHTYPE(WRITE_RO_AFTER_INIT),
->  	CRASHTYPE(WRITE_KERN),
-> +	CRASHTYPE(WRITE_OPD),
->  	CRASHTYPE(REFCOUNT_INC_OVERFLOW),
->  	CRASHTYPE(REFCOUNT_ADD_OVERFLOW),
->  	CRASHTYPE(REFCOUNT_INC_NOT_ZERO_OVERFLOW),
-> diff --git a/drivers/misc/lkdtm/lkdtm.h b/drivers/misc/lkdtm/lkdtm.h
-> index c212a253edde..188bd0fd6575 100644
-> --- a/drivers/misc/lkdtm/lkdtm.h
-> +++ b/drivers/misc/lkdtm/lkdtm.h
-> @@ -105,6 +105,7 @@ void __init lkdtm_perms_init(void);
->  void lkdtm_WRITE_RO(void);
->  void lkdtm_WRITE_RO_AFTER_INIT(void);
->  void lkdtm_WRITE_KERN(void);
-> +void lkdtm_WRITE_OPD(void);
->  void lkdtm_EXEC_DATA(void);
->  void lkdtm_EXEC_STACK(void);
->  void lkdtm_EXEC_KMALLOC(void);
-> diff --git a/drivers/misc/lkdtm/perms.c b/drivers/misc/lkdtm/perms.c
-> index 1cf24c4a79e9..2c6aba3ff32b 100644
-> --- a/drivers/misc/lkdtm/perms.c
-> +++ b/drivers/misc/lkdtm/perms.c
-> @@ -44,6 +44,11 @@ static noinline void do_overwritten(void)
->  	return;
->  }
->  
-> +static noinline void do_almost_nothing(void)
-> +{
-> +	pr_info("do_nothing was hijacked!\n");
-> +}
-> +
->  static void *setup_function_descriptor(func_desc_t *fdesc, void *dst)
->  {
->  	if (!have_function_descriptors())
-> @@ -144,6 +149,23 @@ void lkdtm_WRITE_KERN(void)
->  	do_overwritten();
->  }
->  
-> +void lkdtm_WRITE_OPD(void)
-> +{
-> +	size_t size = sizeof(func_desc_t);
-> +	void (*func)(void) = do_nothing;
-> +
-> +	if (!have_function_descriptors()) {
-> +		pr_info("XFAIL: Platform doesn't use function descriptors.\n");
-> +		return;
-> +	}
-> +	pr_info("attempting bad %zu bytes write at %px\n", size, do_nothing);
-> +	memcpy(do_nothing, do_almost_nothing, size);
-> +	pr_err("FAIL: survived bad write\n");
-
-Non-function-descriptor architectures would successfully crash at the
-memcpy too, right? (i.e. for them this is just repeating WRITE_KERN)
-
-I'm pondering the utility of the XFAIL vs just letting is succeed, but I
-think it more accurate to say "hey, no OPD" as you have it.
-
-> +
-> +	asm("" : "=m"(func));
-> +	func();
-> +}
-> +
->  void lkdtm_EXEC_DATA(void)
->  {
->  	execute_location(data_area, CODE_WRITE);
-> -- 
-> 2.31.1
-> 
-
-One tiny suggestion, since I think you need to respin for the
-EXPORT_SYMBOL_GPL() anyway. Please update the selftests too:
-
-diff --git a/tools/testing/selftests/lkdtm/tests.txt b/tools/testing/selftests/lkdtm/tests.txt
-index 6b36b7f5dcf9..243c781f0780 100644
---- a/tools/testing/selftests/lkdtm/tests.txt
-+++ b/tools/testing/selftests/lkdtm/tests.txt
-@@ -44,6 +44,7 @@ ACCESS_NULL
- WRITE_RO
- WRITE_RO_AFTER_INIT
- WRITE_KERN
-+WRITE_OPD
- REFCOUNT_INC_OVERFLOW
- REFCOUNT_ADD_OVERFLOW
- REFCOUNT_INC_NOT_ZERO_OVERFLOW
-
-(Though for the future I've been considering making the selftests an
-opt-out list so the "normal" stuff doesn't need to keep getting added
-there.)
-
-Thanks!
-
-Acked-by: Kees Cook <keescook@chromium.org>
-
--Kees
-
--- 
-Kees Cook
+DQoNCkxlIDExLzAyLzIwMjIgw6AgMDI6MDksIEtlZXMgQ29vayBhIMOpY3JpdMKgOg0KPiBPbiBT
+dW4sIE9jdCAxNywgMjAyMSBhdCAwMjozODoyNVBNICswMjAwLCBDaHJpc3RvcGhlIExlcm95IHdy
+b3RlOg0KPj4gQWRkIFdSSVRFX09QRCB0byBjaGVjayB0aGF0IHlvdSBjYW4ndCBtb2RpZnkgZnVu
+Y3Rpb24NCj4+IGRlc2NyaXB0b3JzLg0KPj4NCj4+IEdpdmVzIHRoZSBmb2xsb3dpbmcgcmVzdWx0
+IHdoZW4gZnVuY3Rpb24gZGVzY3JpcHRvcnMgYXJlDQo+PiBub3QgcHJvdGVjdGVkOg0KPj4NCj4+
+IAlsa2R0bTogUGVyZm9ybWluZyBkaXJlY3QgZW50cnkgV1JJVEVfT1BEDQo+PiAJbGtkdG06IGF0
+dGVtcHRpbmcgYmFkIDE2IGJ5dGVzIHdyaXRlIGF0IGMwMDAwMDAwMDI2OWIzNTgNCj4+IAlsa2R0
+bTogRkFJTDogc3Vydml2ZWQgYmFkIHdyaXRlDQo+PiAJbGtkdG06IGRvX25vdGhpbmcgd2FzIGhp
+amFja2VkIQ0KPj4NCj4+IExvb2tzIGxpa2UgYSBzdGFuZGFyZCBjb21waWxlciBiYXJyaWVyKCkg
+aXMgbm90IGVub3VnaCB0byBmb3JjZQ0KPj4gR0NDIHRvIHVzZSB0aGUgbW9kaWZpZWQgZnVuY3Rp
+b24gZGVzY3JpcHRvci4gSGFkIHRvIGFkZCBhIGZha2UgZW1wdHkNCj4+IGlubGluZSBhc3NlbWJs
+eSB0byBmb3JjZSBHQ0MgdG8gcmVsb2FkIHRoZSBmdW5jdGlvbiBkZXNjcmlwdG9yLg0KPj4NCj4+
+IFNpZ25lZC1vZmYtYnk6IENocmlzdG9waGUgTGVyb3kgPGNocmlzdG9waGUubGVyb3lAY3Nncm91
+cC5ldT4NCj4+IC0tLQ0KPj4gICBkcml2ZXJzL21pc2MvbGtkdG0vY29yZS5jICB8ICAxICsNCj4+
+ICAgZHJpdmVycy9taXNjL2xrZHRtL2xrZHRtLmggfCAgMSArDQo+PiAgIGRyaXZlcnMvbWlzYy9s
+a2R0bS9wZXJtcy5jIHwgMjIgKysrKysrKysrKysrKysrKysrKysrKw0KPj4gICAzIGZpbGVzIGNo
+YW5nZWQsIDI0IGluc2VydGlvbnMoKykNCj4+DQo+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9taXNj
+L2xrZHRtL2NvcmUuYyBiL2RyaXZlcnMvbWlzYy9sa2R0bS9jb3JlLmMNCj4+IGluZGV4IGZlNmZk
+MzRiOGNhZi4uZGUwOTJhYTAzYjVkIDEwMDY0NA0KPj4gLS0tIGEvZHJpdmVycy9taXNjL2xrZHRt
+L2NvcmUuYw0KPj4gKysrIGIvZHJpdmVycy9taXNjL2xrZHRtL2NvcmUuYw0KPj4gQEAgLTE0OCw2
+ICsxNDgsNyBAQCBzdGF0aWMgY29uc3Qgc3RydWN0IGNyYXNodHlwZSBjcmFzaHR5cGVzW10gPSB7
+DQo+PiAgIAlDUkFTSFRZUEUoV1JJVEVfUk8pLA0KPj4gICAJQ1JBU0hUWVBFKFdSSVRFX1JPX0FG
+VEVSX0lOSVQpLA0KPj4gICAJQ1JBU0hUWVBFKFdSSVRFX0tFUk4pLA0KPj4gKwlDUkFTSFRZUEUo
+V1JJVEVfT1BEKSwNCj4+ICAgCUNSQVNIVFlQRShSRUZDT1VOVF9JTkNfT1ZFUkZMT1cpLA0KPj4g
+ICAJQ1JBU0hUWVBFKFJFRkNPVU5UX0FERF9PVkVSRkxPVyksDQo+PiAgIAlDUkFTSFRZUEUoUkVG
+Q09VTlRfSU5DX05PVF9aRVJPX09WRVJGTE9XKSwNCj4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL21p
+c2MvbGtkdG0vbGtkdG0uaCBiL2RyaXZlcnMvbWlzYy9sa2R0bS9sa2R0bS5oDQo+PiBpbmRleCBj
+MjEyYTI1M2VkZGUuLjE4OGJkMGZkNjU3NSAxMDA2NDQNCj4+IC0tLSBhL2RyaXZlcnMvbWlzYy9s
+a2R0bS9sa2R0bS5oDQo+PiArKysgYi9kcml2ZXJzL21pc2MvbGtkdG0vbGtkdG0uaA0KPj4gQEAg
+LTEwNSw2ICsxMDUsNyBAQCB2b2lkIF9faW5pdCBsa2R0bV9wZXJtc19pbml0KHZvaWQpOw0KPj4g
+ICB2b2lkIGxrZHRtX1dSSVRFX1JPKHZvaWQpOw0KPj4gICB2b2lkIGxrZHRtX1dSSVRFX1JPX0FG
+VEVSX0lOSVQodm9pZCk7DQo+PiAgIHZvaWQgbGtkdG1fV1JJVEVfS0VSTih2b2lkKTsNCj4+ICt2
+b2lkIGxrZHRtX1dSSVRFX09QRCh2b2lkKTsNCj4+ICAgdm9pZCBsa2R0bV9FWEVDX0RBVEEodm9p
+ZCk7DQo+PiAgIHZvaWQgbGtkdG1fRVhFQ19TVEFDSyh2b2lkKTsNCj4+ICAgdm9pZCBsa2R0bV9F
+WEVDX0tNQUxMT0Modm9pZCk7DQo+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9taXNjL2xrZHRtL3Bl
+cm1zLmMgYi9kcml2ZXJzL21pc2MvbGtkdG0vcGVybXMuYw0KPj4gaW5kZXggMWNmMjRjNGE3OWU5
+Li4yYzZhYmEzZmYzMmIgMTAwNjQ0DQo+PiAtLS0gYS9kcml2ZXJzL21pc2MvbGtkdG0vcGVybXMu
+Yw0KPj4gKysrIGIvZHJpdmVycy9taXNjL2xrZHRtL3Blcm1zLmMNCj4+IEBAIC00NCw2ICs0NCwx
+MSBAQCBzdGF0aWMgbm9pbmxpbmUgdm9pZCBkb19vdmVyd3JpdHRlbih2b2lkKQ0KPj4gICAJcmV0
+dXJuOw0KPj4gICB9DQo+PiAgIA0KPj4gK3N0YXRpYyBub2lubGluZSB2b2lkIGRvX2FsbW9zdF9u
+b3RoaW5nKHZvaWQpDQo+PiArew0KPj4gKwlwcl9pbmZvKCJkb19ub3RoaW5nIHdhcyBoaWphY2tl
+ZCFcbiIpOw0KPj4gK30NCj4+ICsNCj4+ICAgc3RhdGljIHZvaWQgKnNldHVwX2Z1bmN0aW9uX2Rl
+c2NyaXB0b3IoZnVuY19kZXNjX3QgKmZkZXNjLCB2b2lkICpkc3QpDQo+PiAgIHsNCj4+ICAgCWlm
+ICghaGF2ZV9mdW5jdGlvbl9kZXNjcmlwdG9ycygpKQ0KPj4gQEAgLTE0NCw2ICsxNDksMjMgQEAg
+dm9pZCBsa2R0bV9XUklURV9LRVJOKHZvaWQpDQo+PiAgIAlkb19vdmVyd3JpdHRlbigpOw0KPj4g
+ICB9DQo+PiAgIA0KPj4gK3ZvaWQgbGtkdG1fV1JJVEVfT1BEKHZvaWQpDQo+PiArew0KPj4gKwlz
+aXplX3Qgc2l6ZSA9IHNpemVvZihmdW5jX2Rlc2NfdCk7DQo+PiArCXZvaWQgKCpmdW5jKSh2b2lk
+KSA9IGRvX25vdGhpbmc7DQo+PiArDQo+PiArCWlmICghaGF2ZV9mdW5jdGlvbl9kZXNjcmlwdG9y
+cygpKSB7DQo+PiArCQlwcl9pbmZvKCJYRkFJTDogUGxhdGZvcm0gZG9lc24ndCB1c2UgZnVuY3Rp
+b24gZGVzY3JpcHRvcnMuXG4iKTsNCj4+ICsJCXJldHVybjsNCj4+ICsJfQ0KPj4gKwlwcl9pbmZv
+KCJhdHRlbXB0aW5nIGJhZCAlenUgYnl0ZXMgd3JpdGUgYXQgJXB4XG4iLCBzaXplLCBkb19ub3Ro
+aW5nKTsNCj4+ICsJbWVtY3B5KGRvX25vdGhpbmcsIGRvX2FsbW9zdF9ub3RoaW5nLCBzaXplKTsN
+Cj4+ICsJcHJfZXJyKCJGQUlMOiBzdXJ2aXZlZCBiYWQgd3JpdGVcbiIpOw0KPiANCj4gTm9uLWZ1
+bmN0aW9uLWRlc2NyaXB0b3IgYXJjaGl0ZWN0dXJlcyB3b3VsZCBzdWNjZXNzZnVsbHkgY3Jhc2gg
+YXQgdGhlDQo+IG1lbWNweSB0b28sIHJpZ2h0PyAoaS5lLiBmb3IgdGhlbSB0aGlzIGlzIGp1c3Qg
+cmVwZWF0aW5nIFdSSVRFX0tFUk4pDQoNClllcyBpdCBzaG91bGQuIEJ1dCBub3QgZm9yIHRoZSBn
+b29kIHJlYXNvbi4NCg0KPiANCj4gSSdtIHBvbmRlcmluZyB0aGUgdXRpbGl0eSBvZiB0aGUgWEZB
+SUwgdnMganVzdCBsZXR0aW5nIGlzIHN1Y2NlZWQsIGJ1dCBJDQo+IHRoaW5rIGl0IG1vcmUgYWNj
+dXJhdGUgdG8gc2F5ICJoZXksIG5vIE9QRCIgYXMgeW91IGhhdmUgaXQuDQo+IA0KPj4gKw0KPj4g
+Kwlhc20oIiIgOiAiPW0iKGZ1bmMpKTsNCj4+ICsJZnVuYygpOw0KPj4gK30NCj4+ICsNCj4+ICAg
+dm9pZCBsa2R0bV9FWEVDX0RBVEEodm9pZCkNCj4+ICAgew0KPj4gICAJZXhlY3V0ZV9sb2NhdGlv
+bihkYXRhX2FyZWEsIENPREVfV1JJVEUpOw0KPj4gLS0gDQo+PiAyLjMxLjENCj4+DQo+IA0KPiBP
+bmUgdGlueSBzdWdnZXN0aW9uLCBzaW5jZSBJIHRoaW5rIHlvdSBuZWVkIHRvIHJlc3BpbiBmb3Ig
+dGhlDQo+IEVYUE9SVF9TWU1CT0xfR1BMKCkgYW55d2F5LiBQbGVhc2UgdXBkYXRlIHRoZSBzZWxm
+dGVzdHMgdG9vOg0KPiANCj4gZGlmZiAtLWdpdCBhL3Rvb2xzL3Rlc3Rpbmcvc2VsZnRlc3RzL2xr
+ZHRtL3Rlc3RzLnR4dCBiL3Rvb2xzL3Rlc3Rpbmcvc2VsZnRlc3RzL2xrZHRtL3Rlc3RzLnR4dA0K
+PiBpbmRleCA2YjM2YjdmNWRjZjkuLjI0M2M3ODFmMDc4MCAxMDA2NDQNCj4gLS0tIGEvdG9vbHMv
+dGVzdGluZy9zZWxmdGVzdHMvbGtkdG0vdGVzdHMudHh0DQo+ICsrKyBiL3Rvb2xzL3Rlc3Rpbmcv
+c2VsZnRlc3RzL2xrZHRtL3Rlc3RzLnR4dA0KPiBAQCAtNDQsNiArNDQsNyBAQCBBQ0NFU1NfTlVM
+TA0KPiAgIFdSSVRFX1JPDQo+ICAgV1JJVEVfUk9fQUZURVJfSU5JVA0KPiAgIFdSSVRFX0tFUk4N
+Cj4gK1dSSVRFX09QRA0KPiAgIFJFRkNPVU5UX0lOQ19PVkVSRkxPVw0KPiAgIFJFRkNPVU5UX0FE
+RF9PVkVSRkxPVw0KPiAgIFJFRkNPVU5UX0lOQ19OT1RfWkVST19PVkVSRkxPVw0KPiANCj4gKFRo
+b3VnaCBmb3IgdGhlIGZ1dHVyZSBJJ3ZlIGJlZW4gY29uc2lkZXJpbmcgbWFraW5nIHRoZSBzZWxm
+dGVzdHMgYW4NCj4gb3B0LW91dCBsaXN0IHNvIHRoZSAibm9ybWFsIiBzdHVmZiBkb2Vzbid0IG5l
+ZWQgdG8ga2VlcCBnZXR0aW5nIGFkZGVkDQo+IHRoZXJlLikNCj4gDQo+IFRoYW5rcyENCj4gDQo+
+IEFja2VkLWJ5OiBLZWVzIENvb2sgPGtlZXNjb29rQGNocm9taXVtLm9yZz4NCj4gDQoNCkRvbmUu
+DQoNClRoYW5rcw0KQ2hyaXN0b3BoZQ=
