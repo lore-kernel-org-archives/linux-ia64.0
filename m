@@ -1,179 +1,80 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Date: Thu, 17 Feb 2022 10:24:04 +0000
-Subject: [PATCH v2 6/8] kernel/fork: Move task stack account to do_exit().
-Message-Id: <20220217102406.3697941-7-bigeasy@linutronix.de>
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Tue, 15 Feb 2022 12:41:06 +0000
+Subject: [PATCH v4 11/13] lkdtm: Really write into kernel text in WRITE_KERN
+Message-Id: <31e58eaffb5bc51c07d8d4891d1982100ade8cfc.1644928018.git.christophe.leroy@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220217102406.3697941-1-bigeasy@linutronix.de>
-In-Reply-To: <20220217102406.3697941-1-bigeasy@linutronix.de>
+References: <cover.1644928018.git.christophe.leroy@csgroup.eu>
+In-Reply-To: <cover.1644928018.git.christophe.leroy@csgroup.eu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-Cc: Andy Lutomirski <luto@kernel.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Ingo Molnar <mingo@redhat.com>, Juri Lelli <juri.lelli@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Steven Rostedt <rostedt@goodmis.org>, Thomas Gleixner <tglx@linutronix.de>, Vincent Guittot <vincent.guittot@linaro.org>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-There is no need to perform the stack accounting of the outgoing task in
-its final schedule() invocation which happens with disabled preemption.
-The task is leaving, the resources will be freed and the accounting can
-happen in do_exit() before the actual schedule invocation which
-frees the stack memory.
+WRITE_KERN is supposed to overwrite some kernel text, namely
+do_overwritten() function.
 
-Move the accounting of the stack memory from release_task_stack() to
-exit_task_stack_account() which then can be invoked from do_exit().
+But at the time being it overwrites do_overwritten() function
+descriptor, not function text.
 
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Fix it by dereferencing the function descriptor to obtain
+function text pointer. Export dereference_function_descriptor()
+for when LKDTM is built as a module.
+
+And make do_overwritten() noinline so that it is really
+do_overwritten() which is called by lkdtm_WRITE_KERN().
+
+Acked-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
 ---
- include/linux/sched/task_stack.h |  2 ++
- kernel/exit.c                    |  1 +
- kernel/fork.c                    | 35 +++++++++++++++++++++-----------
- 3 files changed, 26 insertions(+), 12 deletions(-)
+ drivers/misc/lkdtm/perms.c | 8 +++++---
+ kernel/extable.c           | 1 +
+ 2 files changed, 6 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/sched/task_stack.h b/include/linux/sched/task_stack.h
-index d10150587d819..892562ebbd3aa 100644
---- a/include/linux/sched/task_stack.h
-+++ b/include/linux/sched/task_stack.h
-@@ -79,6 +79,8 @@ static inline void *try_get_task_stack(struct task_struct *tsk)
- static inline void put_task_stack(struct task_struct *tsk) {}
- #endif
+diff --git a/drivers/misc/lkdtm/perms.c b/drivers/misc/lkdtm/perms.c
+index 60b3b2fe929d..035fcca441f0 100644
+--- a/drivers/misc/lkdtm/perms.c
++++ b/drivers/misc/lkdtm/perms.c
+@@ -10,6 +10,7 @@
+ #include <linux/mman.h>
+ #include <linux/uaccess.h>
+ #include <asm/cacheflush.h>
++#include <asm/sections.h>
  
-+void exit_task_stack_account(struct task_struct *tsk);
-+
- #define task_stack_end_corrupted(task) \
- 		(*(end_of_stack(task)) != STACK_END_MAGIC)
- 
-diff --git a/kernel/exit.c b/kernel/exit.c
-index b00a25bb4ab93..c303cffe7fdb4 100644
---- a/kernel/exit.c
-+++ b/kernel/exit.c
-@@ -845,6 +845,7 @@ void __noreturn do_exit(long code)
- 		put_page(tsk->task_frag.page);
- 
- 	validate_creds_for_do_exit(tsk);
-+	exit_task_stack_account(tsk);
- 
- 	check_stack_usage();
- 	preempt_disable();
-diff --git a/kernel/fork.c b/kernel/fork.c
-index 919bdcf21b8e5..984f69d6f211f 100644
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -211,9 +211,8 @@ static int free_vm_stack_cache(unsigned int cpu)
- 	return 0;
+ /* Whether or not to fill the target memory area with do_nothing(). */
+ #define CODE_WRITE	true
+@@ -37,7 +38,7 @@ static noinline void do_nothing(void)
  }
  
--static int memcg_charge_kernel_stack(struct task_struct *tsk)
-+static int memcg_charge_kernel_stack(struct vm_struct *vm)
+ /* Must immediately follow do_nothing for size calculuations to work out. */
+-static void do_overwritten(void)
++static noinline void do_overwritten(void)
  {
--	struct vm_struct *vm = task_stack_vm_area(tsk);
- 	int i;
- 	int ret;
+ 	pr_info("do_overwritten wasn't overwritten!\n");
+ 	return;
+@@ -113,8 +114,9 @@ void lkdtm_WRITE_KERN(void)
+ 	size_t size;
+ 	volatile unsigned char *ptr;
  
-@@ -239,6 +238,7 @@ static int memcg_charge_kernel_stack(struct task_struct *tsk)
+-	size = (unsigned long)do_overwritten - (unsigned long)do_nothing;
+-	ptr = (unsigned char *)do_overwritten;
++	size = (unsigned long)dereference_function_descriptor(do_overwritten) -
++	       (unsigned long)dereference_function_descriptor(do_nothing);
++	ptr = dereference_function_descriptor(do_overwritten);
  
- static int alloc_thread_stack_node(struct task_struct *tsk, int node)
- {
-+	struct vm_struct *vm;
- 	void *stack;
- 	int i;
- 
-@@ -256,7 +256,7 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
- 		/* Clear stale pointers from reused stack. */
- 		memset(s->addr, 0, THREAD_SIZE);
- 
--		if (memcg_charge_kernel_stack(tsk)) {
-+		if (memcg_charge_kernel_stack(s)) {
- 			vfree(s->addr);
- 			return -ENOMEM;
- 		}
-@@ -279,7 +279,8 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
- 	if (!stack)
- 		return -ENOMEM;
- 
--	if (memcg_charge_kernel_stack(tsk)) {
-+	vm = find_vm_area(stack);
-+	if (memcg_charge_kernel_stack(vm)) {
- 		vfree(stack);
- 		return -ENOMEM;
- 	}
-@@ -288,19 +289,15 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
- 	 * free_thread_stack() can be called in interrupt context,
- 	 * so cache the vm_struct.
- 	 */
--	tsk->stack_vm_area = find_vm_area(stack);
-+	tsk->stack_vm_area = vm;
- 	tsk->stack = stack;
- 	return 0;
+ 	pr_info("attempting bad %zu byte write at %px\n", size, ptr);
+ 	memcpy((void *)ptr, (unsigned char *)do_nothing, size);
+diff --git a/kernel/extable.c b/kernel/extable.c
+index 394c39b86e38..bda5e9761541 100644
+--- a/kernel/extable.c
++++ b/kernel/extable.c
+@@ -149,6 +149,7 @@ void *dereference_function_descriptor(void *ptr)
+ 		ptr = p;
+ 	return ptr;
  }
++EXPORT_SYMBOL_GPL(dereference_function_descriptor);
  
- static void free_thread_stack(struct task_struct *tsk)
+ void *dereference_kernel_function_descriptor(void *ptr)
  {
--	struct vm_struct *vm = task_stack_vm_area(tsk);
- 	int i;
- 
--	for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++)
--		memcg_kmem_uncharge_page(vm->pages[i], 0);
--
- 	for (i = 0; i < NR_CACHED_STACKS; i++) {
- 		if (this_cpu_cmpxchg(cached_stacks[i], NULL,
- 				     tsk->stack_vm_area) != NULL)
-@@ -454,12 +451,25 @@ static void account_kernel_stack(struct task_struct *tsk, int account)
- 	}
- }
- 
-+void exit_task_stack_account(struct task_struct *tsk)
-+{
-+	account_kernel_stack(tsk, -1);
-+
-+	if (IS_ENABLED(CONFIG_VMAP_STACK)) {
-+		struct vm_struct *vm;
-+		int i;
-+
-+		vm = task_stack_vm_area(tsk);
-+		for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++)
-+			memcg_kmem_uncharge_page(vm->pages[i], 0);
-+	}
-+}
-+
- static void release_task_stack(struct task_struct *tsk)
- {
- 	if (WARN_ON(READ_ONCE(tsk->__state) != TASK_DEAD))
- 		return;  /* Better to leak the stack than to free prematurely */
- 
--	account_kernel_stack(tsk, -1);
- 	free_thread_stack(tsk);
- }
- 
-@@ -918,6 +928,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
- #ifdef CONFIG_THREAD_INFO_IN_TASK
- 	refcount_set(&tsk->stack_refcount, 1);
- #endif
-+	account_kernel_stack(tsk, 1);
- 
- 	err = scs_prepare(tsk, node);
- 	if (err)
-@@ -961,8 +972,6 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
- 	tsk->wake_q.next = NULL;
- 	tsk->worker_private = NULL;
- 
--	account_kernel_stack(tsk, 1);
--
- 	kcov_task_init(tsk);
- 	kmap_local_fork(tsk);
- 
-@@ -981,6 +990,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
- 	return tsk;
- 
- free_stack:
-+	exit_task_stack_account(tsk);
- 	free_thread_stack(tsk);
- free_tsk:
- 	free_task_struct(tsk);
-@@ -2449,6 +2459,7 @@ static __latent_entropy struct task_struct *copy_process(
- 	exit_creds(p);
- bad_fork_free:
- 	WRITE_ONCE(p->__state, TASK_DEAD);
-+	exit_task_stack_account(p);
- 	put_task_stack(p);
- 	delayed_free_task(p);
- fork_out:
 -- 
 2.34.1
