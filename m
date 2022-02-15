@@ -1,125 +1,115 @@
-From: Arnd Bergmann <arnd@kernel.org>
-Date: Wed, 16 Feb 2022 13:13:15 +0000
-Subject: [PATCH v2 01/18] uaccess: fix integer overflow on access_ok()
-Message-Id: <20220216131332.1489939-2-arnd@kernel.org>
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Tue, 15 Feb 2022 12:41:08 +0000
+Subject: [PATCH v4 13/13] lkdtm: Add a test for function descriptors protection
+Message-Id: <7eeba50d16a35e9d799820e43304150225f20197.1644928018.git.christophe.leroy@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220216131332.1489939-1-arnd@kernel.org>
-In-Reply-To: <20220216131332.1489939-1-arnd@kernel.org>
+References: <cover.1644928018.git.christophe.leroy@csgroup.eu>
+In-Reply-To: <cover.1644928018.git.christophe.leroy@csgroup.eu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hellwig <hch@lst.de>, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-api@vger.kernel.org, arnd@arndb.de, linux-kernel@vger.kernel.org, viro@zeniv.linux.org.uk
-Cc: linux@armlinux.org.uk, will@kernel.org, guoren@kernel.org, bcain@codeaurora.org, geert@linux-m68k.org, monstr@monstr.eu, tsbogend@alpha.franken.de, nickhu@andestech.com, green.hu@gmail.com, dinguyen@kernel.org, shorne@gmail.com, deller@gmx.de, mpe@ellerman.id.au, peterz@infradead.org, mingo@redhat.com, mark.rutland@arm.com, hca@linux.ibm.com, dalias@libc.org, davem@davemloft.net, richard@nod.at, x86@kernel.org, jcmvbkbc@gmail.com, ebiederm@xmission.com, akpm@linux-foundation.org, ardb@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, stable@vger.kernel.org, David Laight <David.Laight@aculab.com>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-From: Arnd Bergmann <arnd@arndb.de>
+Add WRITE_OPD to check that you can't modify function
+descriptors.
 
-Three architectures check the end of a user access against the
-address limit without taking a possible overflow into account.
-Passing a negative length or another overflow in here returns
-success when it should not.
+Gives the following result when function descriptors are
+not protected:
 
-Use the most common correct implementation here, which optimizes
-for a constant 'size' argument, and turns the common case into a
-single comparison.
+	lkdtm: Performing direct entry WRITE_OPD
+	lkdtm: attempting bad 16 bytes write at c00000000269b358
+	lkdtm: FAIL: survived bad write
+	lkdtm: do_nothing was hijacked!
 
-Cc: stable@vger.kernel.org
-Fixes: da551281947c ("csky: User access")
-Fixes: f663b60f5215 ("microblaze: Fix uaccess_ok macro")
-Fixes: 7567746e1c0d ("Hexagon: Add user access functions")
-Reported-by: David Laight <David.Laight@aculab.com>
-Reviewed-by: Christoph Hellwig <hch@lst.de>
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Looks like a standard compiler barrier() is not enough to force
+GCC to use the modified function descriptor. Had to add a fake empty
+inline assembly to force GCC to reload the function descriptor.
+
+Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
+Acked-by: Kees Cook <keescook@chromium.org>
 ---
- arch/csky/include/asm/uaccess.h       |  7 +++----
- arch/hexagon/include/asm/uaccess.h    | 18 +++++++++---------
- arch/microblaze/include/asm/uaccess.h | 19 ++++---------------
- 3 files changed, 16 insertions(+), 28 deletions(-)
+ drivers/misc/lkdtm/core.c               |  1 +
+ drivers/misc/lkdtm/lkdtm.h              |  1 +
+ drivers/misc/lkdtm/perms.c              | 22 ++++++++++++++++++++++
+ tools/testing/selftests/lkdtm/tests.txt |  1 +
+ 4 files changed, 25 insertions(+)
 
-diff --git a/arch/csky/include/asm/uaccess.h b/arch/csky/include/asm/uaccess.h
-index c40f06ee8d3e..ac5a54f57d40 100644
---- a/arch/csky/include/asm/uaccess.h
-+++ b/arch/csky/include/asm/uaccess.h
-@@ -3,14 +3,13 @@
- #ifndef __ASM_CSKY_UACCESS_H
- #define __ASM_CSKY_UACCESS_H
- 
--#define user_addr_max() \
--	(uaccess_kernel() ? KERNEL_DS.seg : get_fs().seg)
-+#define user_addr_max() (current_thread_info()->addr_limit.seg)
- 
- static inline int __access_ok(unsigned long addr, unsigned long size)
- {
--	unsigned long limit = current_thread_info()->addr_limit.seg;
-+	unsigned long limit = user_addr_max();
- 
--	return ((addr < limit) && ((addr + size) < limit));
-+	return (size <= limit) && (addr <= (limit - size));
+diff --git a/drivers/misc/lkdtm/core.c b/drivers/misc/lkdtm/core.c
+index f69b964b9952..e2228b6fc09b 100644
+--- a/drivers/misc/lkdtm/core.c
++++ b/drivers/misc/lkdtm/core.c
+@@ -149,6 +149,7 @@ static const struct crashtype crashtypes[] = {
+ 	CRASHTYPE(WRITE_RO),
+ 	CRASHTYPE(WRITE_RO_AFTER_INIT),
+ 	CRASHTYPE(WRITE_KERN),
++	CRASHTYPE(WRITE_OPD),
+ 	CRASHTYPE(REFCOUNT_INC_OVERFLOW),
+ 	CRASHTYPE(REFCOUNT_ADD_OVERFLOW),
+ 	CRASHTYPE(REFCOUNT_INC_NOT_ZERO_OVERFLOW),
+diff --git a/drivers/misc/lkdtm/lkdtm.h b/drivers/misc/lkdtm/lkdtm.h
+index d6137c70ebbe..305fc2ec3f25 100644
+--- a/drivers/misc/lkdtm/lkdtm.h
++++ b/drivers/misc/lkdtm/lkdtm.h
+@@ -106,6 +106,7 @@ void __init lkdtm_perms_init(void);
+ void lkdtm_WRITE_RO(void);
+ void lkdtm_WRITE_RO_AFTER_INIT(void);
+ void lkdtm_WRITE_KERN(void);
++void lkdtm_WRITE_OPD(void);
+ void lkdtm_EXEC_DATA(void);
+ void lkdtm_EXEC_STACK(void);
+ void lkdtm_EXEC_KMALLOC(void);
+diff --git a/drivers/misc/lkdtm/perms.c b/drivers/misc/lkdtm/perms.c
+index 1cf24c4a79e9..2c6aba3ff32b 100644
+--- a/drivers/misc/lkdtm/perms.c
++++ b/drivers/misc/lkdtm/perms.c
+@@ -44,6 +44,11 @@ static noinline void do_overwritten(void)
+ 	return;
  }
- #define __access_ok __access_ok
  
-diff --git a/arch/hexagon/include/asm/uaccess.h b/arch/hexagon/include/asm/uaccess.h
-index ef5bfef8d490..719ba3f3c45c 100644
---- a/arch/hexagon/include/asm/uaccess.h
-+++ b/arch/hexagon/include/asm/uaccess.h
-@@ -25,17 +25,17 @@
-  * Returns true (nonzero) if the memory block *may* be valid, false (zero)
-  * if it is definitely invalid.
-  *
-- * User address space in Hexagon, like x86, goes to 0xbfffffff, so the
-- * simple MSB-based tests used by MIPS won't work.  Some further
-- * optimization is probably possible here, but for now, keep it
-- * reasonably simple and not *too* slow.  After all, we've got the
-- * MMU for backup.
-  */
-+#define uaccess_kernel() (get_fs().seg = KERNEL_DS.seg)
-+#define user_addr_max() (uaccess_kernel() ? ~0UL : TASK_SIZE)
- 
--#define __access_ok(addr, size) \
--	((get_fs().seg = KERNEL_DS.seg) || \
--	(((unsigned long)addr < get_fs().seg) && \
--	  (unsigned long)size < (get_fs().seg - (unsigned long)addr)))
-+static inline int __access_ok(unsigned long addr, unsigned long size)
++static noinline void do_almost_nothing(void)
 +{
-+	unsigned long limit = TASK_SIZE;
-+
-+	return (size <= limit) && (addr <= (limit - size));
++	pr_info("do_nothing was hijacked!\n");
 +}
-+#define __access_ok __access_ok
- 
- /*
-  * When a kernel-mode page fault is taken, the faulting instruction
-diff --git a/arch/microblaze/include/asm/uaccess.h b/arch/microblaze/include/asm/uaccess.h
-index d2a8ef9f8978..5b6e0e7788f4 100644
---- a/arch/microblaze/include/asm/uaccess.h
-+++ b/arch/microblaze/include/asm/uaccess.h
-@@ -39,24 +39,13 @@
- 
- # define uaccess_kernel()	(get_fs().seg = KERNEL_DS.seg)
- 
--static inline int access_ok(const void __user *addr, unsigned long size)
-+static inline int __access_ok(unsigned long addr, unsigned long size)
++
+ static void *setup_function_descriptor(func_desc_t *fdesc, void *dst)
  {
--	if (!size)
--		goto ok;
-+	unsigned long limit = user_addr_max();
- 
--	if ((get_fs().seg < ((unsigned long)addr)) ||
--			(get_fs().seg < ((unsigned long)addr + size - 1))) {
--		pr_devel("ACCESS fail at 0x%08x (size 0x%x), seg 0x%08x\n",
--			(__force u32)addr, (u32)size,
--			(u32)get_fs().seg);
--		return 0;
--	}
--ok:
--	pr_devel("ACCESS OK at 0x%08x (size 0x%x), seg 0x%08x\n",
--			(__force u32)addr, (u32)size,
--			(u32)get_fs().seg);
--	return 1;
-+	return (size <= limit) && (addr <= (limit - size));
+ 	if (!have_function_descriptors())
+@@ -144,6 +149,23 @@ void lkdtm_WRITE_KERN(void)
+ 	do_overwritten();
  }
-+#define access_ok(addr, size) __access_ok((unsigned long)addr, size)
  
- # define __FIXUP_SECTION	".section .fixup,\"ax\"\n"
- # define __EX_TABLE_SECTION	".section __ex_table,\"a\"\n"
++void lkdtm_WRITE_OPD(void)
++{
++	size_t size = sizeof(func_desc_t);
++	void (*func)(void) = do_nothing;
++
++	if (!have_function_descriptors()) {
++		pr_info("XFAIL: Platform doesn't use function descriptors.\n");
++		return;
++	}
++	pr_info("attempting bad %zu bytes write at %px\n", size, do_nothing);
++	memcpy(do_nothing, do_almost_nothing, size);
++	pr_err("FAIL: survived bad write\n");
++
++	asm("" : "=m"(func));
++	func();
++}
++
+ void lkdtm_EXEC_DATA(void)
+ {
+ 	execute_location(data_area, CODE_WRITE);
+diff --git a/tools/testing/selftests/lkdtm/tests.txt b/tools/testing/selftests/lkdtm/tests.txt
+index 6b36b7f5dcf9..243c781f0780 100644
+--- a/tools/testing/selftests/lkdtm/tests.txt
++++ b/tools/testing/selftests/lkdtm/tests.txt
+@@ -44,6 +44,7 @@ ACCESS_NULL
+ WRITE_RO
+ WRITE_RO_AFTER_INIT
+ WRITE_KERN
++WRITE_OPD
+ REFCOUNT_INC_OVERFLOW
+ REFCOUNT_ADD_OVERFLOW
+ REFCOUNT_INC_NOT_ZERO_OVERFLOW
 -- 
-2.29.2
+2.34.1
