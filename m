@@ -1,47 +1,50 @@
-From: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-Date: Mon, 21 Feb 2022 14:42:02 +0000
-Subject: Re: [PATCH v6 16/21] mips: Use do_kernel_power_off()
-Message-Id: <20220221144202.GA17239@alpha.franken.de>
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Tue, 15 Feb 2022 12:41:05 +0000
+Subject: [PATCH v4 10/13] lkdtm: Force do_nothing() out of line
+Message-Id: <a5dcf4d2088e6aca47ab3b4c6d5c0f7fa064e25a.1644928018.git.christophe.leroy@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220130233718.21544-1-digetx@gmail.com>
- <20220130233718.21544-17-digetx@gmail.com>
-In-Reply-To: <20220130233718.21544-17-digetx@gmail.com>
+References: <cover.1644928018.git.christophe.leroy@csgroup.eu>
+In-Reply-To: <cover.1644928018.git.christophe.leroy@csgroup.eu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Dmitry Osipenko <digetx@gmail.com>
-Cc: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, alankao@andestech.com, "K . C . Kuen-Chern Lin" <kclin@andestech.com>, =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>, linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-On Mon, Jan 31, 2022 at 02:37:13AM +0300, Dmitry Osipenko wrote:
-> Kernel now supports chained power-off handlers. Use do_kernel_power_off()
-> that invokes chained power-off handlers. It also invokes legacy
-> pm_power_off() for now, which will be removed once all drivers will
-> be converted to the new power-off API.
-> 
-> Signed-off-by: Dmitry Osipenko <digetx@gmail.com>
-> ---
->  arch/mips/kernel/reset.c | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
-> 
-> diff --git a/arch/mips/kernel/reset.c b/arch/mips/kernel/reset.c
-> index 6288780b779e..e7ce07b3e79b 100644
-> --- a/arch/mips/kernel/reset.c
-> +++ b/arch/mips/kernel/reset.c
-> @@ -114,8 +114,7 @@ void machine_halt(void)
->  
->  void machine_power_off(void)
->  {
-> -	if (pm_power_off)
-> -		pm_power_off();
-> +	do_kernel_power_off();
->  
->  #ifdef CONFIG_SMP
->  	preempt_disable();
-> -- 
-> 2.34.1
+LKDTM tests display that the run do_nothing() at a given
+address, but in reality do_nothing() is inlined into the
+caller.
 
-Ackey-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+Force it out of line so that it really runs text at the
+displayed address.
 
+Acked-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
+---
+ drivers/misc/lkdtm/perms.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/misc/lkdtm/perms.c b/drivers/misc/lkdtm/perms.c
+index 2dede2ef658f..60b3b2fe929d 100644
+--- a/drivers/misc/lkdtm/perms.c
++++ b/drivers/misc/lkdtm/perms.c
+@@ -21,7 +21,7 @@
+ /* This is non-const, so it will end up in the .data section. */
+ static u8 data_area[EXEC_SIZE];
+ 
+-/* This is cost, so it will end up in the .rodata section. */
++/* This is const, so it will end up in the .rodata section. */
+ static const unsigned long rodata = 0xAA55AA55;
+ 
+ /* This is marked __ro_after_init, so it should ultimately be .rodata. */
+@@ -31,7 +31,7 @@ static unsigned long ro_after_init __ro_after_init = 0x55AA5500;
+  * This just returns to the caller. It is designed to be copied into
+  * non-executable memory regions.
+  */
+-static void do_nothing(void)
++static noinline void do_nothing(void)
+ {
+ 	return;
+ }
 -- 
-Crap can work. Given enough thrust pigs will fly, but it's not necessarily a
-good idea.                                                [ RFC1925, 2.3 ]
+2.34.1
