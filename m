@@ -1,87 +1,206 @@
-From: Arnd Bergmann <arnd@kernel.org>
-Date: Mon, 14 Feb 2022 16:34:44 +0000
-Subject: [PATCH 06/14] mips: use simpler access_ok()
-Message-Id: <20220214163452.1568807-7-arnd@kernel.org>
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Tue, 15 Feb 2022 12:41:04 +0000
+Subject: [PATCH v4 09/13] asm-generic: Refactor dereference_[kernel]_function_descriptor()
+Message-Id: <449db09b2eba57f4ab05f80102a67d8675bc8bcd.1644928018.git.christophe.leroy@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220214163452.1568807-1-arnd@kernel.org>
-In-Reply-To: <20220214163452.1568807-1-arnd@kernel.org>
+References: <cover.1644928018.git.christophe.leroy@csgroup.eu>
+In-Reply-To: <cover.1644928018.git.christophe.leroy@csgroup.eu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hellwig <hch@lst.de>, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-api@vger.kernel.org, arnd@arndb.de, linux-kernel@vger.kernel.org
-Cc: linux@armlinux.org.uk, will@kernel.org, guoren@kernel.org, bcain@codeaurora.org, geert@linux-m68k.org, monstr@monstr.eu, tsbogend@alpha.franken.de, nickhu@andestech.com, green.hu@gmail.com, dinguyen@kernel.org, shorne@gmail.com, deller@gmx.de, mpe@ellerman.id.au, peterz@infradead.org, mingo@redhat.com, mark.rutland@arm.com, hca@linux.ibm.com, dalias@libc.org, davem@davemloft.net, richard@nod.at, x86@kernel.org, jcmvbkbc@gmail.com, ebiederm@xmission.com, akpm@linux-foundation.org, ardb@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-From: Arnd Bergmann <arnd@arndb.de>
+dereference_function_descriptor() and
+dereference_kernel_function_descriptor() are identical on the
+three architectures implementing them.
 
-Before unifying the mips version of __access_ok() with the generic
-code, this converts it to the same algorithm. This is a change in
-behavior on mips64, as now address in the user segment, the lower
-2^62 bytes, is taken to be valid, relying on a page fault for
-addresses that are within that segment but not valid on that CPU.
+Make them common and put them out-of-line in kernel/extable.c
+which is one of the users and has similar type of functions.
 
-The new version should be the most effecient way to do this, but
-it gets rid of the special handling for size=0 that most other
-architectures ignore as well.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Reviewed-by: Kees Cook <keescook@chromium.org>
+Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
+Acked-by: Helge Deller <deller@gmx.de>
 ---
- arch/mips/include/asm/uaccess.h | 22 ++++------------------
- 1 file changed, 4 insertions(+), 18 deletions(-)
+ arch/ia64/include/asm/sections.h    | 19 -------------------
+ arch/parisc/include/asm/sections.h  |  9 ---------
+ arch/parisc/kernel/process.c        | 21 ---------------------
+ arch/powerpc/include/asm/sections.h | 23 -----------------------
+ include/asm-generic/sections.h      |  2 ++
+ kernel/extable.c                    | 23 ++++++++++++++++++++++-
+ 6 files changed, 24 insertions(+), 73 deletions(-)
 
-diff --git a/arch/mips/include/asm/uaccess.h b/arch/mips/include/asm/uaccess.h
-index db9a8e002b62..d7c89dc3426c 100644
---- a/arch/mips/include/asm/uaccess.h
-+++ b/arch/mips/include/asm/uaccess.h
-@@ -19,6 +19,7 @@
- #ifdef CONFIG_32BIT
+diff --git a/arch/ia64/include/asm/sections.h b/arch/ia64/include/asm/sections.h
+index 3abe0562b01a..8e0875cf6071 100644
+--- a/arch/ia64/include/asm/sections.h
++++ b/arch/ia64/include/asm/sections.h
+@@ -30,23 +30,4 @@ extern char __start_gate_brl_fsys_bubble_down_patchlist[], __end_gate_brl_fsys_b
+ extern char __start_unwind[], __end_unwind[];
+ extern char __start_ivt_text[], __end_ivt_text[];
  
- #define __UA_LIMIT 0x80000000UL
-+#define TASK_SIZE_MAX	__UA_LIMIT
- 
- #define __UA_ADDR	".word"
- #define __UA_LA		"la"
-@@ -33,6 +34,7 @@
- extern u64 __ua_limit;
- 
- #define __UA_LIMIT	__ua_limit
-+#define TASK_SIZE_MAX	XKSSEG
- 
- #define __UA_ADDR	".dword"
- #define __UA_LA		"dla"
-@@ -42,22 +44,6 @@ extern u64 __ua_limit;
- 
- #endif /* CONFIG_64BIT */
- 
--/*
-- * Is a address valid? This does a straightforward calculation rather
-- * than tests.
-- *
-- * Address valid if:
-- *  - "addr" doesn't have any high-bits set
-- *  - AND "size" doesn't have any high-bits set
-- *  - AND "addr+size" doesn't have any high-bits set
-- *  - OR we are in kernel mode.
-- *
-- * __ua_size() is a trick to avoid runtime checking of positive constant
-- * sizes; for those we already know at compile time that the size is ok.
-- */
--#define __ua_size(size)							\
--	((__builtin_constant_p(size) && (signed long) (size) > 0) ? 0 : (size))
+-#undef dereference_function_descriptor
+-static inline void *dereference_function_descriptor(void *ptr)
+-{
+-	struct fdesc *desc = ptr;
+-	void *p;
 -
- /*
-  * access_ok: - Checks if a user space pointer is valid
-  * @addr: User space pointer to start of block to check
-@@ -79,9 +65,9 @@ extern u64 __ua_limit;
- static inline int __access_ok(const void __user *p, unsigned long size)
- {
- 	unsigned long addr = (unsigned long)p;
--	unsigned long end = addr + size - !!size;
-+	unsigned long limit = TASK_SIZE_MAX;
+-	if (!get_kernel_nofault(p, (void *)&desc->addr))
+-		ptr = p;
+-	return ptr;
+-}
+-
+-#undef dereference_kernel_function_descriptor
+-static inline void *dereference_kernel_function_descriptor(void *ptr)
+-{
+-	if (ptr < (void *)__start_opd || ptr >= (void *)__end_opd)
+-		return ptr;
+-	return dereference_function_descriptor(ptr);
+-}
+-
+ #endif /* _ASM_IA64_SECTIONS_H */
+diff --git a/arch/parisc/include/asm/sections.h b/arch/parisc/include/asm/sections.h
+index ace1d4047a0b..33df42b5cc6d 100644
+--- a/arch/parisc/include/asm/sections.h
++++ b/arch/parisc/include/asm/sections.h
+@@ -12,13 +12,4 @@ typedef Elf64_Fdesc func_desc_t;
  
--	return (__UA_LIMIT & (addr | end | __ua_size(size))) = 0;
-+	return (size <= limit) && (addr <= (limit - size));
+ extern char __alt_instructions[], __alt_instructions_end[];
+ 
+-#ifdef CONFIG_64BIT
+-
+-#undef dereference_function_descriptor
+-void *dereference_function_descriptor(void *);
+-
+-#undef dereference_kernel_function_descriptor
+-void *dereference_kernel_function_descriptor(void *);
+-#endif
+-
+ #endif
+diff --git a/arch/parisc/kernel/process.c b/arch/parisc/kernel/process.c
+index ea3d83b6fb62..2030c77592d3 100644
+--- a/arch/parisc/kernel/process.c
++++ b/arch/parisc/kernel/process.c
+@@ -263,27 +263,6 @@ __get_wchan(struct task_struct *p)
+ 	return 0;
  }
  
- #define access_ok(addr, size)					\
+-#ifdef CONFIG_64BIT
+-void *dereference_function_descriptor(void *ptr)
+-{
+-	Elf64_Fdesc *desc = ptr;
+-	void *p;
+-
+-	if (!get_kernel_nofault(p, (void *)&desc->addr))
+-		ptr = p;
+-	return ptr;
+-}
+-
+-void *dereference_kernel_function_descriptor(void *ptr)
+-{
+-	if (ptr < (void *)__start_opd ||
+-			ptr >= (void *)__end_opd)
+-		return ptr;
+-
+-	return dereference_function_descriptor(ptr);
+-}
+-#endif
+-
+ static inline unsigned long brk_rnd(void)
+ {
+ 	return (get_random_int() & BRK_RND_MASK) << PAGE_SHIFT;
+diff --git a/arch/powerpc/include/asm/sections.h b/arch/powerpc/include/asm/sections.h
+index fddfb3937868..8be2c491c733 100644
+--- a/arch/powerpc/include/asm/sections.h
++++ b/arch/powerpc/include/asm/sections.h
+@@ -58,29 +58,6 @@ static inline int overlaps_kernel_text(unsigned long start, unsigned long end)
+ 		(unsigned long)_stext < end;
+ }
+ 
+-#ifdef PPC64_ELF_ABI_v1
+-
+-#undef dereference_function_descriptor
+-static inline void *dereference_function_descriptor(void *ptr)
+-{
+-	struct func_desc *desc = ptr;
+-	void *p;
+-
+-	if (!get_kernel_nofault(p, (void *)&desc->addr))
+-		ptr = p;
+-	return ptr;
+-}
+-
+-#undef dereference_kernel_function_descriptor
+-static inline void *dereference_kernel_function_descriptor(void *ptr)
+-{
+-	if (ptr < (void *)__start_opd || ptr >= (void *)__end_opd)
+-		return ptr;
+-
+-	return dereference_function_descriptor(ptr);
+-}
+-#endif /* PPC64_ELF_ABI_v1 */
+-
+ #endif
+ 
+ #endif /* __KERNEL__ */
+diff --git a/include/asm-generic/sections.h b/include/asm-generic/sections.h
+index bbf97502470c..d0f7bdd2fdf2 100644
+--- a/include/asm-generic/sections.h
++++ b/include/asm-generic/sections.h
+@@ -60,6 +60,8 @@ extern __visible const void __nosave_begin, __nosave_end;
+ 
+ /* Function descriptor handling (if any).  Override in asm/sections.h */
+ #ifdef CONFIG_HAVE_FUNCTION_DESCRIPTORS
++void *dereference_function_descriptor(void *ptr);
++void *dereference_kernel_function_descriptor(void *ptr);
+ #else
+ #define dereference_function_descriptor(p) ((void *)(p))
+ #define dereference_kernel_function_descriptor(p) ((void *)(p))
+diff --git a/kernel/extable.c b/kernel/extable.c
+index b6f330f0fe74..394c39b86e38 100644
+--- a/kernel/extable.c
++++ b/kernel/extable.c
+@@ -3,6 +3,7 @@
+    Copyright (C) 2001 Rusty Russell, 2002 Rusty Russell IBM.
+ 
+ */
++#include <linux/elf.h>
+ #include <linux/ftrace.h>
+ #include <linux/memory.h>
+ #include <linux/extable.h>
+@@ -132,12 +133,32 @@ int kernel_text_address(unsigned long addr)
+ }
+ 
+ /*
+- * On some architectures (PPC64, IA64) function pointers
++ * On some architectures (PPC64, IA64, PARISC) function pointers
+  * are actually only tokens to some data that then holds the
+  * real function address. As a result, to find if a function
+  * pointer is part of the kernel text, we need to do some
+  * special dereferencing first.
+  */
++#ifdef CONFIG_HAVE_FUNCTION_DESCRIPTORS
++void *dereference_function_descriptor(void *ptr)
++{
++	func_desc_t *desc = ptr;
++	void *p;
++
++	if (!get_kernel_nofault(p, (void *)&desc->addr))
++		ptr = p;
++	return ptr;
++}
++
++void *dereference_kernel_function_descriptor(void *ptr)
++{
++	if (ptr < (void *)__start_opd || ptr >= (void *)__end_opd)
++		return ptr;
++
++	return dereference_function_descriptor(ptr);
++}
++#endif
++
+ int func_ptr_is_kernel_text(void *ptr)
+ {
+ 	unsigned long addr;
 -- 
-2.29.2
+2.34.1
