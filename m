@@ -1,36 +1,84 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Mon, 28 Feb 2022 20:41:47 +0000
-Subject: Re: regression: Bug 215601 - gcc segv at startup on ia64
-Message-Id: <202202281240.8BCFBB47ED@keescook>
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Tue, 15 Feb 2022 12:40:55 +0000
+Subject: [PATCH v4 00/13] Fix LKDTM for PPC64/IA64/PARISC v4
+Message-Id: <cover.1644928018.git.christophe.leroy@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <202202260344.63C15C3356@keescook>
- <Yhyn9cjDV8XfXLHm@fractal.localdomain>
-In-Reply-To: <Yhyn9cjDV8XfXLHm@fractal.localdomain>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Magnus =?iso-8859-1?Q?Gro=DF?= <magnus.gross@rwth-aachen.de>
-Cc: akpm@linux-foundation.org, anthony.yznaga@oracle.com, glaubitz@physik.fu-berlin.de, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, matoro_bugzilla_kernel@matoro.tk, matoro_mailinglist_kernel@matoro.tk, regressions@leemhuis.info, regressions@lists.linux.dev, viro@zeniv.linux.org.uk
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-On Mon, Feb 28, 2022 at 11:46:13AM +0100, Magnus Gro=DF wrote:
-> > When the kernel tries to map these with a combined allocation, it asks
-> > for a giant mmap of the file, but the file is, of course, not at all
-> > that large, and the mapping is rejected.
->=20
-> > So... I'm trying to think about how best to deal with this. If I or
-> > anyone else can't think of an elegant solution, I'll send a revert for
-> > the offending patch next week.
->=20
-> Shouldn't we just be able to patch total_mapping_size() again to instead
-> sum up all p_memsz fields, instead of comparing minimum and maximum
-> p_vaddr?
+PPC64/IA64/PARISC have function descriptors. LKDTM doesn't work
+on those three architectures because LKDTM messes up function
+descriptors with functions.
 
-I don't think so, and I need to have a "minimal change" to fix this so
-it's more obviously correct.
+This series does some cleanup in the three architectures and
+refactors function descriptors so that it can then easily use it
+in a generic way in LKDTM.
 
-And, apologies, I failed to Cc you on this patch:
-https://lore.kernel.org/linux-hardening/20220228194613.1149432-1-keescook@c=
-hromium.org/
+Changes in v4:
+- Added patch 1 which Fixes 'sparse' for powerpc64le after wrong report on previous series, refer https://github.com/ruscur/linux-ci/actions/runs/1351427671
+- Exported dereference_function_descriptor() to modules
+- Addressed other received comments
+- Rebased on latest powerpc/next (5a72345e6a78120368fcc841b570331b6c5a50da)
 
---=20
-Kees Cook
+Changes in v3:
+- Addressed received comments
+- Swapped some of the powerpc patches to keep func_descr_t renamed as struct func_desc and remove 'struct ppc64_opd_entry'
+- Changed HAVE_FUNCTION_DESCRIPTORS macro to a config item CONFIG_HAVE_FUNCTION_DESCRIPTORS
+- Dropped patch 11 ("Fix lkdtm_EXEC_RODATA()")
+
+Changes in v2:
+- Addressed received comments
+- Moved dereference_[kernel]_function_descriptor() out of line
+- Added patches to remove func_descr_t and func_desc_t in powerpc
+- Using func_desc_t instead of funct_descr_t
+- Renamed HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR to HAVE_FUNCTION_DESCRIPTORS
+- Added a new lkdtm test to check protection of function descriptors
+
+Christophe Leroy (13):
+  powerpc: Fix 'sparse' checking on PPC64le
+  powerpc: Move and rename func_descr_t
+  powerpc: Use 'struct func_desc' instead of 'struct ppc64_opd_entry'
+  powerpc: Remove 'struct ppc64_opd_entry'
+  powerpc: Prepare func_desc_t for refactorisation
+  ia64: Rename 'ip' to 'addr' in 'struct fdesc'
+  asm-generic: Define CONFIG_HAVE_FUNCTION_DESCRIPTORS
+  asm-generic: Define 'func_desc_t' to commonly describe function
+    descriptors
+  asm-generic: Refactor dereference_[kernel]_function_descriptor()
+  lkdtm: Force do_nothing() out of line
+  lkdtm: Really write into kernel text in WRITE_KERN
+  lkdtm: Fix execute_[user]_location()
+  lkdtm: Add a test for function descriptors protection
+
+ arch/Kconfig                             |  3 +
+ arch/ia64/Kconfig                        |  1 +
+ arch/ia64/include/asm/elf.h              |  2 +-
+ arch/ia64/include/asm/sections.h         | 24 +-------
+ arch/ia64/kernel/module.c                |  6 +-
+ arch/parisc/Kconfig                      |  1 +
+ arch/parisc/include/asm/sections.h       | 16 ++----
+ arch/parisc/kernel/process.c             | 21 -------
+ arch/powerpc/Kconfig                     |  1 +
+ arch/powerpc/Makefile                    |  2 +-
+ arch/powerpc/include/asm/code-patching.h |  2 +-
+ arch/powerpc/include/asm/elf.h           |  6 ++
+ arch/powerpc/include/asm/sections.h      | 29 ++--------
+ arch/powerpc/include/asm/types.h         |  6 --
+ arch/powerpc/include/uapi/asm/elf.h      |  8 ---
+ arch/powerpc/kernel/module_64.c          | 42 ++++++--------
+ arch/powerpc/kernel/ptrace/ptrace.c      |  6 ++
+ arch/powerpc/kernel/signal_64.c          |  8 +--
+ drivers/misc/lkdtm/core.c                |  1 +
+ drivers/misc/lkdtm/lkdtm.h               |  1 +
+ drivers/misc/lkdtm/perms.c               | 71 +++++++++++++++++++-----
+ include/asm-generic/sections.h           | 15 ++++-
+ include/linux/kallsyms.h                 |  2 +-
+ kernel/extable.c                         | 24 +++++++-
+ tools/testing/selftests/lkdtm/tests.txt  |  1 +
+ 25 files changed, 155 insertions(+), 144 deletions(-)
+
+-- 
+2.34.1
