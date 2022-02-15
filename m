@@ -1,81 +1,82 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Date: Thu, 17 Feb 2022 10:24:01 +0000
-Subject: [PATCH v2 3/8] kernel/fork, IA64: Provide a alloc_thread_stack_node() for IA64.
-Message-Id: <20220217102406.3697941-4-bigeasy@linutronix.de>
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Tue, 15 Feb 2022 12:41:01 +0000
+Subject: [PATCH v4 06/13] ia64: Rename 'ip' to 'addr' in 'struct fdesc'
+Message-Id: <65b73ac614e4c002c5819d40b42f6f426d2ee52b.1644928018.git.christophe.leroy@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220217102406.3697941-1-bigeasy@linutronix.de>
-In-Reply-To: <20220217102406.3697941-1-bigeasy@linutronix.de>
+References: <cover.1644928018.git.christophe.leroy@csgroup.eu>
+In-Reply-To: <cover.1644928018.git.christophe.leroy@csgroup.eu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-Cc: Andy Lutomirski <luto@kernel.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Ingo Molnar <mingo@redhat.com>, Juri Lelli <juri.lelli@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Steven Rostedt <rostedt@goodmis.org>, Thomas Gleixner <tglx@linutronix.de>, Vincent Guittot <vincent.guittot@linaro.org>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-Provide a generic alloc_thread_stack_node() for IA64/
-CONFIG_ARCH_THREAD_STACK_ALLOCATOR which returns stack pointer and sets
-task_struct::stack so it behaves exactly like the other implementations.
+There are three architectures with function descriptors, try to
+have common names for the address they contain in order to
+refactor some functions into generic functions later.
 
-Rename IA64's alloc_thread_stack_node() and add the generic version to
-the fork code so it is in one place _and_ to drastically lower chances
-of fat fingering the IA64 code.
-Do the same for free_thread_stack().
+powerpc has 'entry'
+ia64 has 'ip'
+parisc has 'addr'
 
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Vote for 'addr' and update 'struct fdesc' accordingly.
+
+Reviewed-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
 ---
- arch/ia64/include/asm/thread_info.h |  6 +++---
- kernel/fork.c                       | 17 +++++++++++++++++
- 2 files changed, 20 insertions(+), 3 deletions(-)
+ arch/ia64/include/asm/elf.h      | 2 +-
+ arch/ia64/include/asm/sections.h | 2 +-
+ arch/ia64/kernel/module.c        | 6 +++---
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/arch/ia64/include/asm/thread_info.h b/arch/ia64/include/asm/thread_info.h
-index 51d20cb377062..1684716f08201 100644
---- a/arch/ia64/include/asm/thread_info.h
-+++ b/arch/ia64/include/asm/thread_info.h
-@@ -55,15 +55,15 @@ struct thread_info {
- #ifndef ASM_OFFSETS_C
- /* how to get the thread information struct from C */
- #define current_thread_info()	((struct thread_info *) ((char *) current + IA64_TASK_SIZE))
--#define alloc_thread_stack_node(tsk, node)	\
-+#define arch_alloc_thread_stack_node(tsk, node)	\
- 		((unsigned long *) ((char *) (tsk) + IA64_TASK_SIZE))
- #define task_thread_info(tsk)	((struct thread_info *) ((char *) (tsk) + IA64_TASK_SIZE))
- #else
- #define current_thread_info()	((struct thread_info *) 0)
--#define alloc_thread_stack_node(tsk, node)	((unsigned long *) 0)
-+#define arch_alloc_thread_stack_node(tsk, node)	((unsigned long *) 0)
- #define task_thread_info(tsk)	((struct thread_info *) 0)
- #endif
--#define free_thread_stack(tsk)	/* nothing */
-+#define arch_free_thread_stack(tsk)	/* nothing */
- #define task_stack_page(tsk)	((void *)(tsk))
+diff --git a/arch/ia64/include/asm/elf.h b/arch/ia64/include/asm/elf.h
+index 6629301a2620..2ef5f9966ad1 100644
+--- a/arch/ia64/include/asm/elf.h
++++ b/arch/ia64/include/asm/elf.h
+@@ -226,7 +226,7 @@ struct got_entry {
+  * Layout of the Function Descriptor
+  */
+ struct fdesc {
+-	uint64_t ip;
++	uint64_t addr;
+ 	uint64_t gp;
+ };
  
- #define __HAVE_THREAD_FUNCTIONS
-diff --git a/kernel/fork.c b/kernel/fork.c
-index c47dcba5d66d2..a6697215fe663 100644
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -330,6 +330,23 @@ void thread_stack_cache_init(void)
+diff --git a/arch/ia64/include/asm/sections.h b/arch/ia64/include/asm/sections.h
+index 3a033d2008b3..35f24e52149a 100644
+--- a/arch/ia64/include/asm/sections.h
++++ b/arch/ia64/include/asm/sections.h
+@@ -35,7 +35,7 @@ static inline void *dereference_function_descriptor(void *ptr)
+ 	struct fdesc *desc = ptr;
+ 	void *p;
+ 
+-	if (!get_kernel_nofault(p, (void *)&desc->ip))
++	if (!get_kernel_nofault(p, (void *)&desc->addr))
+ 		ptr = p;
+ 	return ptr;
  }
+diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
+index 360f36b0eb3f..8f62cf97f691 100644
+--- a/arch/ia64/kernel/module.c
++++ b/arch/ia64/kernel/module.c
+@@ -602,15 +602,15 @@ get_fdesc (struct module *mod, uint64_t value, int *okp)
+ 		return value;
  
- # endif /* THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK) */
-+#else /* CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
-+
-+static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
-+{
-+	unsigned long *stack;
-+
-+	stack = arch_alloc_thread_stack_node(tsk, node);
-+	tsk->stack = stack;
-+	return stack;
-+}
-+
-+static void free_thread_stack(struct task_struct *tsk)
-+{
-+	arch_free_thread_stack(tsk);
-+	tsk->stack = NULL;
-+}
-+
- #endif /* !CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
+ 	/* Look for existing function descriptor. */
+-	while (fdesc->ip) {
+-		if (fdesc->ip = value)
++	while (fdesc->addr) {
++		if (fdesc->addr = value)
+ 			return (uint64_t)fdesc;
+ 		if ((uint64_t) ++fdesc >= mod->arch.opd->sh_addr + mod->arch.opd->sh_size)
+ 			BUG();
+ 	}
  
- /* SLAB cache for signal_struct structures (tsk->signal) */
+ 	/* Create new one */
+-	fdesc->ip = value;
++	fdesc->addr = value;
+ 	fdesc->gp = mod->arch.gp;
+ 	return (uint64_t) fdesc;
+ }
 -- 
 2.34.1
