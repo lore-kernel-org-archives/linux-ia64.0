@@ -1,48 +1,243 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Mon, 14 Feb 2022 10:30:01 +0000
-Subject: Re: [PATCH v3 04/12] powerpc: Prepare func_desc_t for refactorisation
-Message-Id: <c06fb573-d133-11d5-c56a-0766f8f7e401@csgroup.eu>
+From: Arnd Bergmann <arnd@kernel.org>
+Date: Wed, 16 Feb 2022 13:13:29 +0000
+Subject: [PATCH v2 15/18] sparc64: remove CONFIG_SET_FS support
+Message-Id: <20220216131332.1489939-16-arnd@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1634457599.git.christophe.leroy@csgroup.eu>
- <86c393ce0a6f603f94e6d2ceca08d535f654bb23.1634457599.git.christophe.leroy@csgroup.eu>
- <202202101653.9128E58B84@keescook>
-In-Reply-To: <202202101653.9128E58B84@keescook>
+References: <20220216131332.1489939-1-arnd@kernel.org>
+In-Reply-To: <20220216131332.1489939-1-arnd@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Kees Cook <keescook@chromium.org>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hellwig <hch@lst.de>, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-api@vger.kernel.org, arnd@arndb.de, linux-kernel@vger.kernel.org, viro@zeniv.linux.org.uk
+Cc: linux@armlinux.org.uk, will@kernel.org, guoren@kernel.org, bcain@codeaurora.org, geert@linux-m68k.org, monstr@monstr.eu, tsbogend@alpha.franken.de, nickhu@andestech.com, green.hu@gmail.com, dinguyen@kernel.org, shorne@gmail.com, deller@gmx.de, mpe@ellerman.id.au, peterz@infradead.org, mingo@redhat.com, mark.rutland@arm.com, hca@linux.ibm.com, dalias@libc.org, davem@davemloft.net, richard@nod.at, x86@kernel.org, jcmvbkbc@gmail.com, ebiederm@xmission.com, akpm@linux-foundation.org, ardb@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org
 
-DQoNCkxlIDExLzAyLzIwMjIgw6AgMDE6NTQsIEtlZXMgQ29vayBhIMOpY3JpdMKgOg0KPiBPbiBT
-dW4sIE9jdCAxNywgMjAyMSBhdCAwMjozODoxN1BNICswMjAwLCBDaHJpc3RvcGhlIExlcm95IHdy
-b3RlOg0KPj4gSW4gcHJlcGFyYXRpb24gb2YgbWFraW5nIGZ1bmNfZGVzY190IGdlbmVyaWMsIGNo
-YW5nZSB0aGUgRUxGdjINCj4+IHZlcnNpb24gdG8gYSBzdHJ1Y3QgY29udGFpbmluZyAnYWRkcicg
-ZWxlbWVudC4NCj4+DQo+PiBUaGlzIGFsbG93cyB1c2luZyBzaW5nbGUgaGVscGVycyBjb21tb24g
-dG8gRUxGdjEgYW5kIEVMRnYyLg0KPj4NCj4+IFNpZ25lZC1vZmYtYnk6IENocmlzdG9waGUgTGVy
-b3kgPGNocmlzdG9waGUubGVyb3lAY3Nncm91cC5ldT4NCj4+IC0tLQ0KPj4gICBhcmNoL3Bvd2Vy
-cGMva2VybmVsL21vZHVsZV82NC5jIHwgMzIgKysrKysrKysrKysrKystLS0tLS0tLS0tLS0tLS0t
-LS0NCj4+ICAgMSBmaWxlIGNoYW5nZWQsIDE0IGluc2VydGlvbnMoKyksIDE4IGRlbGV0aW9ucygt
-KQ0KPj4NCj4+IGRpZmYgLS1naXQgYS9hcmNoL3Bvd2VycGMva2VybmVsL21vZHVsZV82NC5jIGIv
-YXJjaC9wb3dlcnBjL2tlcm5lbC9tb2R1bGVfNjQuYw0KPj4gaW5kZXggYTg5ZGEwZWUyNWUyLi5i
-Njg3ZWY4OGM0YzQgMTAwNjQ0DQo+PiAtLS0gYS9hcmNoL3Bvd2VycGMva2VybmVsL21vZHVsZV82
-NC5jDQo+PiArKysgYi9hcmNoL3Bvd2VycGMva2VybmVsL21vZHVsZV82NC5jDQo+PiBAQCAtMzMs
-MTkgKzMzLDEzIEBADQo+PiAgICNpZmRlZiBQUEM2NF9FTEZfQUJJX3YyDQo+PiAgIA0KPj4gICAv
-KiBBbiBhZGRyZXNzIGlzIHNpbXBseSB0aGUgYWRkcmVzcyBvZiB0aGUgZnVuY3Rpb24uICovDQo+
-PiAtdHlwZWRlZiB1bnNpZ25lZCBsb25nIGZ1bmNfZGVzY190Ow0KPj4gK3R5cGVkZWYgc3RydWN0
-IHsNCj4+ICsJdW5zaWduZWQgbG9uZyBhZGRyOw0KPj4gK30gZnVuY19kZXNjX3Q7DQo+PiAgIA0K
-Pj4gICBzdGF0aWMgZnVuY19kZXNjX3QgZnVuY19kZXNjKHVuc2lnbmVkIGxvbmcgYWRkcikNCj4+
-ICAgew0KPj4gLQlyZXR1cm4gYWRkcjsNCj4+IC19DQo+PiAtc3RhdGljIHVuc2lnbmVkIGxvbmcg
-ZnVuY19hZGRyKHVuc2lnbmVkIGxvbmcgYWRkcikNCj4+IC17DQo+PiAtCXJldHVybiBhZGRyOw0K
-Pj4gLX0NCj4+IC1zdGF0aWMgdW5zaWduZWQgbG9uZyBzdHViX2Z1bmNfYWRkcihmdW5jX2Rlc2Nf
-dCBmdW5jKQ0KPj4gLXsNCj4+IC0JcmV0dXJuIGZ1bmM7DQo+PiArCXJldHVybiAoZnVuY19kZXNj
-X3Qpe2FkZHJ9Ow0KPiANCj4gVGhlcmUncyBvbmx5IDEgZWxlbWVudCBpbiB0aGUgc3RydWN0LCBz
-byBva2F5LCBidXQgaXQgaHVydCBteSBleWVzIGENCj4gbGl0dGxlLiBJIHdvdWxkIGhhdmUgYmVl
-biBoYXBwaWVyIHdpdGg6DQo+IA0KPiAJcmV0dXJuIChmdW5jX2Rlc2NfdCl7IC5hZGRyID0gYWRk
-cjsgfTsNCj4gDQo+IEJ1dCBvZiBjb3Vyc2UgdGhhdCBhbHNvIGxvb2tzIGJvbmtlcnMgYmVjYXVz
-ZSBpdCBzdGFydHMgd2l0aCAicmV0dXJuIi4NCj4gU28gbm8gbWF0dGVyIHdoYXQgSSBkbyBteSBl
-eWVzIGJ1ZyBvdXQuIDspDQo+IA0KPiBTbyBpdCdzIGZpbmUgZWl0aGVyIHdheS4gOikNCj4gDQo+
-IFJldmlld2VkLWJ5OiBLZWVzIENvb2sgPGtlZXNjb29rQGNocm9taXVtLm9yZz4NCg0KSSBhbSBn
-b2luZyBmb3I6DQoNCiAgc3RhdGljIGZ1bmNfZGVzY190IGZ1bmNfZGVzYyh1bnNpZ25lZCBsb25n
-IGFkZHIpDQogIHsNCisgICAgICAgZnVuY19kZXNjX3QgZGVzYyA9IHsNCisgICAgICAgICAgICAg
-ICAuYWRkciA9IGFkZHIsDQorICAgICAgIH07DQorDQorICAgICAgIHJldHVybiBkZXNjOw0KICB9
-DQoNCg0KVGhhbmtzDQpDaHJpc3RvcGhl
+From: Arnd Bergmann <arnd@arndb.de>
+
+sparc64 uses address space identifiers to differentiate between kernel
+and user space, using ASI_P for kernel threads but ASI_AIUS for normal
+user space, with the option of changing between them.
+
+As nothing really changes the ASI any more, just hardcode ASI_AIUS
+everywhere. Kernel threads are not allowed to access __user pointers
+anyway.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ arch/sparc/include/asm/processor_64.h   |  4 ----
+ arch/sparc/include/asm/switch_to_64.h   |  4 +---
+ arch/sparc/include/asm/thread_info_64.h |  4 +---
+ arch/sparc/include/asm/uaccess_64.h     | 20 +-------------------
+ arch/sparc/kernel/process_64.c          | 12 ------------
+ arch/sparc/kernel/traps_64.c            |  2 --
+ arch/sparc/lib/NGmemcpy.S               |  3 +--
+ arch/sparc/mm/init_64.c                 |  7 ++++---
+ 8 files changed, 8 insertions(+), 48 deletions(-)
+
+diff --git a/arch/sparc/include/asm/processor_64.h b/arch/sparc/include/asm/processor_64.h
+index ae851e8fce4c..89850dff6b03 100644
+--- a/arch/sparc/include/asm/processor_64.h
++++ b/arch/sparc/include/asm/processor_64.h
+@@ -47,10 +47,6 @@
+ 
+ #ifndef __ASSEMBLY__
+ 
+-typedef struct {
+-	unsigned char seg;
+-} mm_segment_t;
+-
+ /* The Sparc processor specific thread struct. */
+ /* XXX This should die, everything can go into thread_info now. */
+ struct thread_struct {
+diff --git a/arch/sparc/include/asm/switch_to_64.h b/arch/sparc/include/asm/switch_to_64.h
+index b1d4e2e3210f..14f3c49bfdbc 100644
+--- a/arch/sparc/include/asm/switch_to_64.h
++++ b/arch/sparc/include/asm/switch_to_64.h
+@@ -20,10 +20,8 @@ do {						\
+ 	 */
+ #define switch_to(prev, next, last)					\
+ do {	save_and_clear_fpu();						\
+-	/* If you are tempted to conditionalize the following */	\
+-	/* so that ASI is only written if it changes, think again. */	\
+ 	__asm__ __volatile__("wr %%g0, %0, %%asi"			\
+-	: : "r" (task_thread_info(next)->current_ds));\
++	: : "r" (ASI_AIUS));						\
+ 	trap_block[current_thread_info()->cpu].thread =			\
+ 		task_thread_info(next);					\
+ 	__asm__ __volatile__(						\
+diff --git a/arch/sparc/include/asm/thread_info_64.h b/arch/sparc/include/asm/thread_info_64.h
+index 8047a9caab2f..1a44372e2bc0 100644
+--- a/arch/sparc/include/asm/thread_info_64.h
++++ b/arch/sparc/include/asm/thread_info_64.h
+@@ -46,7 +46,7 @@ struct thread_info {
+ 	struct pt_regs		*kregs;
+ 	int			preempt_count;	/* 0 => preemptable, <0 => BUG */
+ 	__u8			new_child;
+-	__u8			current_ds;
++	__u8			__pad;
+ 	__u16			cpu;
+ 
+ 	unsigned long		*utraps;
+@@ -81,7 +81,6 @@ struct thread_info {
+ #define TI_KREGS	0x00000028
+ #define TI_PRE_COUNT	0x00000030
+ #define TI_NEW_CHILD	0x00000034
+-#define TI_CURRENT_DS	0x00000035
+ #define TI_CPU		0x00000036
+ #define TI_UTRAPS	0x00000038
+ #define TI_REG_WINDOW	0x00000040
+@@ -116,7 +115,6 @@ struct thread_info {
+ #define INIT_THREAD_INFO(tsk)				\
+ {							\
+ 	.task		=	&tsk,			\
+-	.current_ds	=	ASI_P,			\
+ 	.preempt_count	=	INIT_PREEMPT_COUNT,	\
+ 	.kregs		=	(struct pt_regs *)(init_stack+THREAD_SIZE)-1 \
+ }
+diff --git a/arch/sparc/include/asm/uaccess_64.h b/arch/sparc/include/asm/uaccess_64.h
+index 59b9a545df23..94266a5c5b04 100644
+--- a/arch/sparc/include/asm/uaccess_64.h
++++ b/arch/sparc/include/asm/uaccess_64.h
+@@ -12,33 +12,15 @@
+ #include <asm/spitfire.h>
+ 
+ #include <asm/processor.h>
++#include <asm-generic/access_ok.h>
+ 
+ /*
+  * Sparc64 is segmented, though more like the M68K than the I386.
+  * We use the secondary ASI to address user memory, which references a
+  * completely different VM map, thus there is zero chance of the user
+  * doing something queer and tricking us into poking kernel memory.
+- *
+- * What is left here is basically what is needed for the other parts of
+- * the kernel that expect to be able to manipulate, erum, "segments".
+- * Or perhaps more properly, permissions.
+- *
+- * "For historical reasons, these macros are grossly misnamed." -Linus
+  */
+ 
+-#define KERNEL_DS   ((mm_segment_t) { ASI_P })
+-#define USER_DS     ((mm_segment_t) { ASI_AIUS })	/* har har har */
+-
+-#define get_fs() ((mm_segment_t){(current_thread_info()->current_ds)})
+-
+-#include <asm-generic/access_ok.h>
+-
+-#define set_fs(val)								\
+-do {										\
+-	current_thread_info()->current_ds = (val).seg;				\
+-	__asm__ __volatile__ ("wr %%g0, %0, %%asi" : : "r" ((val).seg));	\
+-} while(0)
+-
+ /*
+  * Test whether a block of memory is a valid user space address.
+  * Returns 0 if the range is valid, nonzero otherwise.
+diff --git a/arch/sparc/kernel/process_64.c b/arch/sparc/kernel/process_64.c
+index f5b2cac8669f..9a2ceb080ac9 100644
+--- a/arch/sparc/kernel/process_64.c
++++ b/arch/sparc/kernel/process_64.c
+@@ -106,18 +106,13 @@ static void show_regwindow32(struct pt_regs *regs)
+ {
+ 	struct reg_window32 __user *rw;
+ 	struct reg_window32 r_w;
+-	mm_segment_t old_fs;
+ 	
+ 	__asm__ __volatile__ ("flushw");
+ 	rw = compat_ptr((unsigned int)regs->u_regs[14]);
+-	old_fs = get_fs();
+-	set_fs (USER_DS);
+ 	if (copy_from_user (&r_w, rw, sizeof(r_w))) {
+-		set_fs (old_fs);
+ 		return;
+ 	}
+ 
+-	set_fs (old_fs);			
+ 	printk("l0: %08x l1: %08x l2: %08x l3: %08x "
+ 	       "l4: %08x l5: %08x l6: %08x l7: %08x\n",
+ 	       r_w.locals[0], r_w.locals[1], r_w.locals[2], r_w.locals[3],
+@@ -136,7 +131,6 @@ static void show_regwindow(struct pt_regs *regs)
+ 	struct reg_window __user *rw;
+ 	struct reg_window *rwk;
+ 	struct reg_window r_w;
+-	mm_segment_t old_fs;
+ 
+ 	if ((regs->tstate & TSTATE_PRIV) || !(test_thread_flag(TIF_32BIT))) {
+ 		__asm__ __volatile__ ("flushw");
+@@ -145,14 +139,10 @@ static void show_regwindow(struct pt_regs *regs)
+ 		rwk = (struct reg_window *)
+ 			(regs->u_regs[14] + STACK_BIAS);
+ 		if (!(regs->tstate & TSTATE_PRIV)) {
+-			old_fs = get_fs();
+-			set_fs (USER_DS);
+ 			if (copy_from_user (&r_w, rw, sizeof(r_w))) {
+-				set_fs (old_fs);
+ 				return;
+ 			}
+ 			rwk = &r_w;
+-			set_fs (old_fs);			
+ 		}
+ 	} else {
+ 		show_regwindow32(regs);
+@@ -598,7 +588,6 @@ int copy_thread(unsigned long clone_flags, unsigned long sp, unsigned long arg,
+ 		memset(child_trap_frame, 0, child_stack_sz);
+ 		__thread_flag_byte_ptr(t)[TI_FLAG_BYTE_CWP] = 
+ 			(current_pt_regs()->tstate + 1) & TSTATE_CWP;
+-		t->current_ds = ASI_P;
+ 		t->kregs->u_regs[UREG_G1] = sp; /* function */
+ 		t->kregs->u_regs[UREG_G2] = arg;
+ 		return 0;
+@@ -613,7 +602,6 @@ int copy_thread(unsigned long clone_flags, unsigned long sp, unsigned long arg,
+ 	t->kregs->u_regs[UREG_FP] = sp;
+ 	__thread_flag_byte_ptr(t)[TI_FLAG_BYTE_CWP] = 
+ 		(regs->tstate + 1) & TSTATE_CWP;
+-	t->current_ds = ASI_AIUS;
+ 	if (sp != regs->u_regs[UREG_FP]) {
+ 		unsigned long csp;
+ 
+diff --git a/arch/sparc/kernel/traps_64.c b/arch/sparc/kernel/traps_64.c
+index 21077821f427..5b4de4a89dec 100644
+--- a/arch/sparc/kernel/traps_64.c
++++ b/arch/sparc/kernel/traps_64.c
+@@ -2857,8 +2857,6 @@ void __init trap_init(void)
+ 		     TI_PRE_COUNT != offsetof(struct thread_info,
+ 					      preempt_count) ||
+ 		     TI_NEW_CHILD != offsetof(struct thread_info, new_child) ||
+-		     TI_CURRENT_DS != offsetof(struct thread_info,
+-						current_ds) ||
+ 		     TI_KUNA_REGS != offsetof(struct thread_info,
+ 					      kern_una_regs) ||
+ 		     TI_KUNA_INSN != offsetof(struct thread_info,
+diff --git a/arch/sparc/lib/NGmemcpy.S b/arch/sparc/lib/NGmemcpy.S
+index 8e4d22a6ba0b..ee51c1230689 100644
+--- a/arch/sparc/lib/NGmemcpy.S
++++ b/arch/sparc/lib/NGmemcpy.S
+@@ -10,8 +10,7 @@
+ #include <asm/thread_info.h>
+ #define GLOBAL_SPARE	%g7
+ #define RESTORE_ASI(TMP)	\
+-	ldub	[%g6 + TI_CURRENT_DS], TMP;  \
+-	wr	TMP, 0x0, %asi;
++	wr	%g0, ASI_AIUS, %asi
+ #else
+ #define GLOBAL_SPARE	%g5
+ #define RESTORE_ASI(TMP)	\
+diff --git a/arch/sparc/mm/init_64.c b/arch/sparc/mm/init_64.c
+index 1b23639e2fcd..8b1911591581 100644
+--- a/arch/sparc/mm/init_64.c
++++ b/arch/sparc/mm/init_64.c
+@@ -709,9 +709,10 @@ static void __init inherit_prom_mappings(void)
+ 
+ void prom_world(int enter)
+ {
+-	if (!enter)
+-		set_fs(get_fs());
+-
++	/*
++	 * No need to change the address space any more, just flush
++	 * the register windows
++	 */
+ 	__asm__ __volatile__("flushw");
+ }
+ 
+-- 
+2.29.2
