@@ -1,50 +1,125 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Tue, 15 Feb 2022 12:40:59 +0000
-Subject: [PATCH v4 04/13] powerpc: Remove 'struct ppc64_opd_entry'
-Message-Id: <c309ccee65ec2e3802df7a7fe761d0a298584809.1644928018.git.christophe.leroy@csgroup.eu>
+From: Arnd Bergmann <arnd@kernel.org>
+Date: Wed, 16 Feb 2022 13:13:15 +0000
+Subject: [PATCH v2 01/18] uaccess: fix integer overflow on access_ok()
+Message-Id: <20220216131332.1489939-2-arnd@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1644928018.git.christophe.leroy@csgroup.eu>
-In-Reply-To: <cover.1644928018.git.christophe.leroy@csgroup.eu>
+References: <20220216131332.1489939-1-arnd@kernel.org>
+In-Reply-To: <20220216131332.1489939-1-arnd@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, Nicholas Piggin <npiggin@gmail.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hellwig <hch@lst.de>, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-api@vger.kernel.org, arnd@arndb.de, linux-kernel@vger.kernel.org, viro@zeniv.linux.org.uk
+Cc: linux@armlinux.org.uk, will@kernel.org, guoren@kernel.org, bcain@codeaurora.org, geert@linux-m68k.org, monstr@monstr.eu, tsbogend@alpha.franken.de, nickhu@andestech.com, green.hu@gmail.com, dinguyen@kernel.org, shorne@gmail.com, deller@gmx.de, mpe@ellerman.id.au, peterz@infradead.org, mingo@redhat.com, mark.rutland@arm.com, hca@linux.ibm.com, dalias@libc.org, davem@davemloft.net, richard@nod.at, x86@kernel.org, jcmvbkbc@gmail.com, ebiederm@xmission.com, akpm@linux-foundation.org, ardb@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, stable@vger.kernel.org, David Laight <David.Laight@aculab.com>
 
-'struct ppc64_opd_entry' doesn't belong to uapi/asm/elf.h
+From: Arnd Bergmann <arnd@arndb.de>
 
-It was initially in module_64.c and commit 2d291e902791 ("Fix compile
-failure with non modular builds") moved it into asm/elf.h
+Three architectures check the end of a user access against the
+address limit without taking a possible overflow into account.
+Passing a negative length or another overflow in here returns
+success when it should not.
 
-But it was by mistake added outside of __KERNEL__ section,
-therefore commit c3617f72036c ("UAPI: (Scripted) Disintegrate
-arch/powerpc/include/asm") moved it to uapi/asm/elf.h
+Use the most common correct implementation here, which optimizes
+for a constant 'size' argument, and turns the common case into a
+single comparison.
 
-Now that it is not used anymore by the kernel, remove it.
-
-Reviewed-by: Kees Cook <keescook@chromium.org>
-Reviewed-by: Nicholas Piggin <npiggin@gmail.com>
-Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
+Cc: stable@vger.kernel.org
+Fixes: da551281947c ("csky: User access")
+Fixes: f663b60f5215 ("microblaze: Fix uaccess_ok macro")
+Fixes: 7567746e1c0d ("Hexagon: Add user access functions")
+Reported-by: David Laight <David.Laight@aculab.com>
+Reviewed-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- arch/powerpc/include/uapi/asm/elf.h | 8 --------
- 1 file changed, 8 deletions(-)
+ arch/csky/include/asm/uaccess.h       |  7 +++----
+ arch/hexagon/include/asm/uaccess.h    | 18 +++++++++---------
+ arch/microblaze/include/asm/uaccess.h | 19 ++++---------------
+ 3 files changed, 16 insertions(+), 28 deletions(-)
 
-diff --git a/arch/powerpc/include/uapi/asm/elf.h b/arch/powerpc/include/uapi/asm/elf.h
-index 860c59291bfc..308857123a08 100644
---- a/arch/powerpc/include/uapi/asm/elf.h
-+++ b/arch/powerpc/include/uapi/asm/elf.h
-@@ -289,12 +289,4 @@ typedef elf_fpreg_t elf_vsrreghalf_t32[ELF_NVSRHALFREG];
- /* Keep this the last entry.  */
- #define R_PPC64_NUM		253
+diff --git a/arch/csky/include/asm/uaccess.h b/arch/csky/include/asm/uaccess.h
+index c40f06ee8d3e..ac5a54f57d40 100644
+--- a/arch/csky/include/asm/uaccess.h
++++ b/arch/csky/include/asm/uaccess.h
+@@ -3,14 +3,13 @@
+ #ifndef __ASM_CSKY_UACCESS_H
+ #define __ASM_CSKY_UACCESS_H
  
--/* There's actually a third entry here, but it's unused */
--struct ppc64_opd_entry
--{
--	unsigned long funcaddr;
--	unsigned long r2;
--};
--
--
- #endif /* _UAPI_ASM_POWERPC_ELF_H */
+-#define user_addr_max() \
+-	(uaccess_kernel() ? KERNEL_DS.seg : get_fs().seg)
++#define user_addr_max() (current_thread_info()->addr_limit.seg)
+ 
+ static inline int __access_ok(unsigned long addr, unsigned long size)
+ {
+-	unsigned long limit = current_thread_info()->addr_limit.seg;
++	unsigned long limit = user_addr_max();
+ 
+-	return ((addr < limit) && ((addr + size) < limit));
++	return (size <= limit) && (addr <= (limit - size));
+ }
+ #define __access_ok __access_ok
+ 
+diff --git a/arch/hexagon/include/asm/uaccess.h b/arch/hexagon/include/asm/uaccess.h
+index ef5bfef8d490..719ba3f3c45c 100644
+--- a/arch/hexagon/include/asm/uaccess.h
++++ b/arch/hexagon/include/asm/uaccess.h
+@@ -25,17 +25,17 @@
+  * Returns true (nonzero) if the memory block *may* be valid, false (zero)
+  * if it is definitely invalid.
+  *
+- * User address space in Hexagon, like x86, goes to 0xbfffffff, so the
+- * simple MSB-based tests used by MIPS won't work.  Some further
+- * optimization is probably possible here, but for now, keep it
+- * reasonably simple and not *too* slow.  After all, we've got the
+- * MMU for backup.
+  */
++#define uaccess_kernel() (get_fs().seg = KERNEL_DS.seg)
++#define user_addr_max() (uaccess_kernel() ? ~0UL : TASK_SIZE)
+ 
+-#define __access_ok(addr, size) \
+-	((get_fs().seg = KERNEL_DS.seg) || \
+-	(((unsigned long)addr < get_fs().seg) && \
+-	  (unsigned long)size < (get_fs().seg - (unsigned long)addr)))
++static inline int __access_ok(unsigned long addr, unsigned long size)
++{
++	unsigned long limit = TASK_SIZE;
++
++	return (size <= limit) && (addr <= (limit - size));
++}
++#define __access_ok __access_ok
+ 
+ /*
+  * When a kernel-mode page fault is taken, the faulting instruction
+diff --git a/arch/microblaze/include/asm/uaccess.h b/arch/microblaze/include/asm/uaccess.h
+index d2a8ef9f8978..5b6e0e7788f4 100644
+--- a/arch/microblaze/include/asm/uaccess.h
++++ b/arch/microblaze/include/asm/uaccess.h
+@@ -39,24 +39,13 @@
+ 
+ # define uaccess_kernel()	(get_fs().seg = KERNEL_DS.seg)
+ 
+-static inline int access_ok(const void __user *addr, unsigned long size)
++static inline int __access_ok(unsigned long addr, unsigned long size)
+ {
+-	if (!size)
+-		goto ok;
++	unsigned long limit = user_addr_max();
+ 
+-	if ((get_fs().seg < ((unsigned long)addr)) ||
+-			(get_fs().seg < ((unsigned long)addr + size - 1))) {
+-		pr_devel("ACCESS fail at 0x%08x (size 0x%x), seg 0x%08x\n",
+-			(__force u32)addr, (u32)size,
+-			(u32)get_fs().seg);
+-		return 0;
+-	}
+-ok:
+-	pr_devel("ACCESS OK at 0x%08x (size 0x%x), seg 0x%08x\n",
+-			(__force u32)addr, (u32)size,
+-			(u32)get_fs().seg);
+-	return 1;
++	return (size <= limit) && (addr <= (limit - size));
+ }
++#define access_ok(addr, size) __access_ok((unsigned long)addr, size)
+ 
+ # define __FIXUP_SECTION	".section .fixup,\"ax\"\n"
+ # define __EX_TABLE_SECTION	".section __ex_table,\"a\"\n"
 -- 
-2.34.1
+2.29.2
