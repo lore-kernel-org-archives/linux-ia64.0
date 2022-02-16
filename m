@@ -1,96 +1,146 @@
-From: "Michael Kelley (LINUX)" <mikelley@microsoft.com>
-Date: Mon, 28 Feb 2022 17:21:08 +0000
-Subject: RE: [PATCH 08/11] swiotlb: make the swiotlb_init interface more useful
-Message-Id: <MN0PR21MB3098608AE81E444CC3C25B3ED7019@MN0PR21MB3098.namprd21.prod.outlook.com>
+From: Arnd Bergmann <arnd@kernel.org>
+Date: Wed, 16 Feb 2022 13:13:16 +0000
+Subject: [PATCH v2 02/18] uaccess: fix nios2 and microblaze get_user_8()
+Message-Id: <20220216131332.1489939-3-arnd@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220227143055.335596-1-hch@lst.de>
- <20220227143055.335596-9-hch@lst.de>
- <MN0PR21MB309816A344171B46735CA29CD7019@MN0PR21MB3098.namprd21.prod.outlook.com>
- <20220228113042.GA10570@lst.de>
-In-Reply-To: <20220228113042.GA10570@lst.de>
+References: <20220216131332.1489939-1-arnd@kernel.org>
+In-Reply-To: <20220216131332.1489939-1-arnd@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>
-Cc: "iommu@lists.linux-foundation.org" <iommu@lists.linux-foundation.org>, "x86@kernel.org" <x86@kernel.org>, Anshuman Khandual <anshuman.khandual@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Stefano Stabellini <sstabellini@kernel.org>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Robin Murphy <robin.murphy@arm.com>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>, "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>, "linux-hyperv@vger.kernel.org" <linux-hyperv@vger.kernel.org>, "tboot-devel@lists.sourceforge.net" <tboot-devel@lists.sourceforge.net>, "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hellwig <hch@lst.de>, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-api@vger.kernel.org, arnd@arndb.de, linux-kernel@vger.kernel.org, viro@zeniv.linux.org.uk
+Cc: linux@armlinux.org.uk, will@kernel.org, guoren@kernel.org, bcain@codeaurora.org, geert@linux-m68k.org, monstr@monstr.eu, tsbogend@alpha.franken.de, nickhu@andestech.com, green.hu@gmail.com, dinguyen@kernel.org, shorne@gmail.com, deller@gmx.de, mpe@ellerman.id.au, peterz@infradead.org, mingo@redhat.com, mark.rutland@arm.com, hca@linux.ibm.com, dalias@libc.org, davem@davemloft.net, richard@nod.at, x86@kernel.org, jcmvbkbc@gmail.com, ebiederm@xmission.com, akpm@linux-foundation.org, ardb@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org
 
-From: Christoph Hellwig <hch@lst.de> Sent: Monday, February 28, 2022 3:31 AM
-> 
-> On Mon, Feb 28, 2022 at 02:53:39AM +0000, Michael Kelley (LINUX) wrote:
-> > From: Christoph Hellwig <hch@lst.de> Sent: Sunday, February 27, 2022 6:31 AM
-> > >
-> > > Pass a bool to pass if swiotlb needs to be enabled based on the
-> > > addressing needs and replace the verbose argument with a set of
-> > > flags, including one to force enable bounce buffering.
-> > >
-> > > Note that this patch removes the possibility to force xen-swiotlb
-> > > use using swiotlb=force on the command line on x86 (arm and arm64
-> > > never supported that), but this interface will be restored shortly.
-> > >
-> > > Signed-off-by: Christoph Hellwig <hch@lst.de>
-> > > ---
-> > >  arch/arm/mm/init.c                     |  6 +----
-> > >  arch/arm64/mm/init.c                   |  6 +----
-> > >  arch/ia64/mm/init.c                    |  4 +--
-> > >  arch/mips/cavium-octeon/dma-octeon.c   |  2 +-
-> > >  arch/mips/loongson64/dma.c             |  2 +-
-> > >  arch/mips/sibyte/common/dma.c          |  2 +-
-> > >  arch/powerpc/include/asm/swiotlb.h     |  1 +
-> > >  arch/powerpc/mm/mem.c                  |  3 ++-
-> > >  arch/powerpc/platforms/pseries/setup.c |  3 ---
-> > >  arch/riscv/mm/init.c                   |  8 +-----
-> > >  arch/s390/mm/init.c                    |  3 +--
-> > >  arch/x86/kernel/cpu/mshyperv.c         |  8 ------
-> > >  arch/x86/kernel/pci-dma.c              | 15 ++++++-----
-> > >  arch/x86/mm/mem_encrypt_amd.c          |  3 ---
-> > >  drivers/xen/swiotlb-xen.c              |  4 +--
-> > >  include/linux/swiotlb.h                | 15 ++++++-----
-> > >  include/trace/events/swiotlb.h         | 29 ++++++++-------------
-> > >  kernel/dma/swiotlb.c                   | 35 ++++++++++++++------------
-> > >  18 files changed, 56 insertions(+), 93 deletions(-)
-> >
-> > [snip]
-> >
-> > >
-> > > diff --git a/arch/x86/kernel/cpu/mshyperv.c b/arch/x86/kernel/cpu/mshyperv.c
-> > > index 5a99f993e6392..568274917f1cd 100644
-> > > --- a/arch/x86/kernel/cpu/mshyperv.c
-> > > +++ b/arch/x86/kernel/cpu/mshyperv.c
-> > > @@ -336,14 +336,6 @@ static void __init ms_hyperv_init_platform(void)
-> > >  			swiotlb_unencrypted_base =
-> ms_hyperv.shared_gpa_boundary;
-> > >  #endif
-> > >  		}
-> > > -
-> > > -#ifdef CONFIG_SWIOTLB
-> > > -		/*
-> > > -		 * Enable swiotlb force mode in Isolation VM to
-> > > -		 * use swiotlb bounce buffer for dma transaction.
-> > > -		 */
-> > > -		swiotlb_force = SWIOTLB_FORCE;
-> > > -#endif
-> >
-> > With this code removed, it's not clear to me what forces the use of the
-> > swiotlb in a Hyper-V isolated VM.  The code in pci_swiotlb_detect_4g() doesn't
-> > catch this case because cc_platform_has(CC_ATTR_HOST_MEM_ENCRYPT)
-> > returns "false" in a Hyper-V guest.  In the Hyper-V guest, it's only
-> > cc_platform_has(CC_ATTR_GUEST_MEM_ENCRYPT) that returns "true".  I'm
-> > looking more closely at the meaning of the CC_ATTR_* values, and it may
-> > be that Hyper-V should also return "true" for CC_ATTR_MEM_ENCRYPT,
-> > but I don't think CC_ATTR_HOST_MEM_ENCRYPT should return "true".
-> 
-> Ok, I assumed that CC_ATTR_HOST_MEM_ENCRYPT returned true in this case.
-> I guess we just need to check for CC_ATTR_GUEST_MEM_ENCRYPT as well
-> there?
+From: Arnd Bergmann <arnd@arndb.de>
 
-I'm unsure.
+These two architectures implement 8-byte get_user() through
+a memcpy() into a four-byte variable, which won't fit.
 
-The comments for CC_ATTR_HOST_MEM_ENCRYPT indicates that it is for
-SME.   The comments for both CC_ATTR_MEM_ENCRYPT and
-CC_ATTR_GUEST_MEM_ENCRYPT mention SEV and SEV-ES (and presumably
-SEV-SNP).   But I haven't looked at the details of the core SNP patches from
-the AMD folks.   I'd say that they need to weigh in on the right approach
-here that will work for both SME and the various SEV flavors, and then
-hopefully the Hyper-V case will fit in.
+Use a temporary 64-bit variable instead here, and use a double
+cast the way that risc-v and openrisc do to avoid compile-time
+warnings.
 
-Michael
+Fixes: 6a090e97972d ("arch/microblaze: support get_user() of size 8 bytes")
+Fixes: 5ccc6af5e88e ("nios2: Memory management")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ arch/microblaze/include/asm/uaccess.h | 18 +++++++++---------
+ arch/nios2/include/asm/uaccess.h      | 26 ++++++++++++++++----------
+ 2 files changed, 25 insertions(+), 19 deletions(-)
+
+diff --git a/arch/microblaze/include/asm/uaccess.h b/arch/microblaze/include/asm/uaccess.h
+index 5b6e0e7788f4..3fe96979d2c6 100644
+--- a/arch/microblaze/include/asm/uaccess.h
++++ b/arch/microblaze/include/asm/uaccess.h
+@@ -130,27 +130,27 @@ extern long __user_bad(void);
+ 
+ #define __get_user(x, ptr)						\
+ ({									\
+-	unsigned long __gu_val = 0;					\
+ 	long __gu_err;							\
+ 	switch (sizeof(*(ptr))) {					\
+ 	case 1:								\
+-		__get_user_asm("lbu", (ptr), __gu_val, __gu_err);	\
++		__get_user_asm("lbu", (ptr), x, __gu_err);		\
+ 		break;							\
+ 	case 2:								\
+-		__get_user_asm("lhu", (ptr), __gu_val, __gu_err);	\
++		__get_user_asm("lhu", (ptr), x, __gu_err);		\
+ 		break;							\
+ 	case 4:								\
+-		__get_user_asm("lw", (ptr), __gu_val, __gu_err);	\
++		__get_user_asm("lw", (ptr), x, __gu_err);		\
+ 		break;							\
+-	case 8:								\
+-		__gu_err = __copy_from_user(&__gu_val, ptr, 8);		\
+-		if (__gu_err)						\
+-			__gu_err = -EFAULT;				\
++	case 8: {							\
++		__u64 __x = 0;						\
++		__gu_err = raw_copy_from_user(&__x, ptr, 8) ?		\
++							-EFAULT : 0;	\
++		(x) = (typeof(x))(typeof((x) - (x)))__x;		\
+ 		break;							\
++	}								\
+ 	default:							\
+ 		/* __gu_val = 0; __gu_err = -EINVAL;*/ __gu_err = __user_bad();\
+ 	}								\
+-	x = (__force __typeof__(*(ptr))) __gu_val;			\
+ 	__gu_err;							\
+ })
+ 
+diff --git a/arch/nios2/include/asm/uaccess.h b/arch/nios2/include/asm/uaccess.h
+index ba9340e96fd4..ca9285a915ef 100644
+--- a/arch/nios2/include/asm/uaccess.h
++++ b/arch/nios2/include/asm/uaccess.h
+@@ -88,6 +88,7 @@ extern __must_check long strnlen_user(const char __user *s, long n);
+ /* Optimized macros */
+ #define __get_user_asm(val, insn, addr, err)				\
+ {									\
++	unsigned long __gu_val;						\
+ 	__asm__ __volatile__(						\
+ 	"       movi    %0, %3\n"					\
+ 	"1:   " insn " %1, 0(%2)\n"					\
+@@ -96,14 +97,20 @@ extern __must_check long strnlen_user(const char __user *s, long n);
+ 	"       .section __ex_table,\"a\"\n"				\
+ 	"       .word 1b, 2b\n"						\
+ 	"       .previous"						\
+-	: "=&r" (err), "=r" (val)					\
++	: "=&r" (err), "=r" (__gu_val)					\
+ 	: "r" (addr), "i" (-EFAULT));					\
++	val = (__force __typeof__(*(addr)))__gu_val;			\
+ }
+ 
+-#define __get_user_unknown(val, size, ptr, err) do {			\
++extern void __get_user_unknown(void);
++
++#define __get_user_8(val, ptr, err) do {				\
++	u64 __val = 0;							\
+ 	err = 0;							\
+-	if (__copy_from_user(&(val), ptr, size)) {			\
++	if (raw_copy_from_user(&(__val), ptr, sizeof(val))) {		\
+ 		err = -EFAULT;						\
++	} else {							\
++		val = (typeof(val))(typeof((val) - (val)))__val;	\
+ 	}								\
+ 	} while (0)
+ 
+@@ -119,8 +126,11 @@ do {									\
+ 	case 4:								\
+ 		__get_user_asm(val, "ldw", ptr, err);			\
+ 		break;							\
++	case 8:								\
++		__get_user_8(val, ptr, err);				\
++		break;							\
+ 	default:							\
+-		__get_user_unknown(val, size, ptr, err);		\
++		__get_user_unknown();					\
+ 		break;							\
+ 	}								\
+ } while (0)
+@@ -129,9 +139,7 @@ do {									\
+ 	({								\
+ 	long __gu_err = -EFAULT;					\
+ 	const __typeof__(*(ptr)) __user *__gu_ptr = (ptr);		\
+-	unsigned long __gu_val = 0;					\
+-	__get_user_common(__gu_val, sizeof(*(ptr)), __gu_ptr, __gu_err);\
+-	(x) = (__force __typeof__(x))__gu_val;				\
++	__get_user_common(x, sizeof(*(ptr)), __gu_ptr, __gu_err);	\
+ 	__gu_err;							\
+ 	})
+ 
+@@ -139,11 +147,9 @@ do {									\
+ ({									\
+ 	long __gu_err = -EFAULT;					\
+ 	const __typeof__(*(ptr)) __user *__gu_ptr = (ptr);		\
+-	unsigned long __gu_val = 0;					\
+ 	if (access_ok( __gu_ptr, sizeof(*__gu_ptr)))	\
+-		__get_user_common(__gu_val, sizeof(*__gu_ptr),		\
++		__get_user_common(x, sizeof(*__gu_ptr),			\
+ 			__gu_ptr, __gu_err);				\
+-	(x) = (__force __typeof__(x))__gu_val;				\
+ 	__gu_err;							\
+ })
+ 
+-- 
+2.29.2
