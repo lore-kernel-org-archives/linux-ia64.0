@@ -1,172 +1,95 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Date: Thu, 17 Feb 2022 10:23:59 +0000
-Subject: [PATCH v2 1/8] kernel/fork: Redo ifdefs around task's handling.
-Message-Id: <20220217102406.3697941-2-bigeasy@linutronix.de>
+From: Arnd Bergmann <arnd@kernel.org>
+Date: Wed, 16 Feb 2022 13:13:25 +0000
+Subject: [PATCH v2 11/18] arm64: simplify access_ok()
+Message-Id: <20220216131332.1489939-12-arnd@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220217102406.3697941-1-bigeasy@linutronix.de>
-In-Reply-To: <20220217102406.3697941-1-bigeasy@linutronix.de>
+References: <20220216131332.1489939-1-arnd@kernel.org>
+In-Reply-To: <20220216131332.1489939-1-arnd@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-Cc: Andy Lutomirski <luto@kernel.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Ingo Molnar <mingo@redhat.com>, Juri Lelli <juri.lelli@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Steven Rostedt <rostedt@goodmis.org>, Thomas Gleixner <tglx@linutronix.de>, Vincent Guittot <vincent.guittot@linaro.org>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+To: Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hellwig <hch@lst.de>, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-api@vger.kernel.org, arnd@arndb.de, linux-kernel@vger.kernel.org, viro@zeniv.linux.org.uk
+Cc: linux@armlinux.org.uk, will@kernel.org, guoren@kernel.org, bcain@codeaurora.org, geert@linux-m68k.org, monstr@monstr.eu, tsbogend@alpha.franken.de, nickhu@andestech.com, green.hu@gmail.com, dinguyen@kernel.org, shorne@gmail.com, deller@gmx.de, mpe@ellerman.id.au, peterz@infradead.org, mingo@redhat.com, mark.rutland@arm.com, hca@linux.ibm.com, dalias@libc.org, davem@davemloft.net, richard@nod.at, x86@kernel.org, jcmvbkbc@gmail.com, ebiederm@xmission.com, akpm@linux-foundation.org, ardb@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, Robin Murphy <robin.murphy@arm.com>
 
-The use of ifdef CONFIG_VMAP_STACK is confusing in terms what is
-actually happenning and what can happen.
-For instance from reading free_thread_stack() it appears that in the
-CONFIG_VMAP_STACK case we may receive a non-NULL vm pointer but it may
-also be NULL in which case __free_pages() is used to free the stack.
-This is however not the case because in the VMAP case a non-NULL pointer
-is always returned here.
-Since it looks like this might happen, the compiler creates the correct
-dead code with the invocation to __free_pages() and everything around
-it. Twice.
+From: Arnd Bergmann <arnd@arndb.de>
 
-Add spaces between the ifdef and the identifer to recognize the ifdef
-level that we are currently in.
-Add the current identifer as a comment behind #else and #endif.
-Move the code within free_thread_stack() and alloc_thread_stack_node()
-into the relavant ifdef block.
+arm64 has an inline asm implementation of access_ok() that is derived from
+the 32-bit arm version and optimized for the case that both the limit and
+the size are variable. With set_fs() gone, the limit is always constant,
+and the size usually is as well, so just using the default implementation
+reduces the check into a comparison against a constant that can be
+scheduled by the compiler.
 
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+On a defconfig build, this saves over 28KB of .text.
+
+Acked-by: Robin Murphy <robin.murphy@arm.com>
+Acked-by: Mark Rutland <mark.rutland@arm.com>
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- kernel/fork.c | 74 +++++++++++++++++++++++++++------------------------
- 1 file changed, 39 insertions(+), 35 deletions(-)
+ arch/arm64/include/asm/uaccess.h | 34 ++++++++++----------------------
+ 1 file changed, 10 insertions(+), 24 deletions(-)
 
-diff --git a/kernel/fork.c b/kernel/fork.c
-index d75a528f7b219..f63c0af6002da 100644
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -185,7 +185,7 @@ static inline void free_task_struct(struct task_struct *tsk)
-  */
- # if THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK)
+diff --git a/arch/arm64/include/asm/uaccess.h b/arch/arm64/include/asm/uaccess.h
+index 2e20879fe3cf..199c553b740a 100644
+--- a/arch/arm64/include/asm/uaccess.h
++++ b/arch/arm64/include/asm/uaccess.h
+@@ -26,6 +26,14 @@
+ #include <asm/memory.h>
+ #include <asm/extable.h>
  
--#ifdef CONFIG_VMAP_STACK
-+#  ifdef CONFIG_VMAP_STACK
++static inline int __access_ok(const void __user *ptr, unsigned long size)
++{
++	unsigned long limit = TASK_SIZE_MAX;
++	unsigned long addr = (unsigned long)ptr;
++
++	return (size <= limit) && (addr <= (limit - size));
++}
++
  /*
-  * vmalloc() is a bit slow, and calling vfree() enough times will force a TLB
-  * flush.  Try to minimize the number of calls by caching stacks.
-@@ -210,11 +210,9 @@ static int free_vm_stack_cache(unsigned int cpu)
- 
- 	return 0;
- }
--#endif
- 
- static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
+  * Test whether a block of memory is a valid user space address.
+  * Returns 1 if the range is valid, 0 otherwise.
+@@ -33,10 +41,8 @@
+  * This is equivalent to the following test:
+  * (u65)addr + (u65)size <= (u65)TASK_SIZE_MAX
+  */
+-static inline unsigned long __range_ok(const void __user *addr, unsigned long size)
++static inline int access_ok(const void __user *addr, unsigned long size)
  {
--#ifdef CONFIG_VMAP_STACK
- 	void *stack;
- 	int i;
+-	unsigned long ret, limit = TASK_SIZE_MAX - 1;
+-
+ 	/*
+ 	 * Asynchronous I/O running in a kernel thread does not have the
+ 	 * TIF_TAGGED_ADDR flag of the process owning the mm, so always untag
+@@ -46,29 +52,9 @@ static inline unsigned long __range_ok(const void __user *addr, unsigned long si
+ 	    (current->flags & PF_KTHREAD || test_thread_flag(TIF_TAGGED_ADDR)))
+ 		addr = untagged_addr(addr);
  
-@@ -258,7 +256,34 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
- 		tsk->stack = stack;
- 	}
- 	return stack;
--#else
-+}
-+
-+static void free_thread_stack(struct task_struct *tsk)
-+{
-+	struct vm_struct *vm = task_stack_vm_area(tsk);
-+	int i;
-+
-+	for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++)
-+		memcg_kmem_uncharge_page(vm->pages[i], 0);
-+
-+	for (i = 0; i < NR_CACHED_STACKS; i++) {
-+		if (this_cpu_cmpxchg(cached_stacks[i], NULL,
-+				     tsk->stack_vm_area) != NULL)
-+			continue;
-+
-+		tsk->stack = NULL;
-+		tsk->stack_vm_area = NULL;
-+		return;
-+	}
-+	vfree_atomic(tsk->stack);
-+	tsk->stack = NULL;
-+	tsk->stack_vm_area = NULL;
-+}
-+
-+#  else /* !CONFIG_VMAP_STACK */
-+
-+static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
-+{
- 	struct page *page = alloc_pages_node(node, THREADINFO_GFP,
- 					     THREAD_SIZE_ORDER);
- 
-@@ -267,36 +292,17 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
- 		return tsk->stack;
- 	}
- 	return NULL;
--#endif
+-	__chk_user_ptr(addr);
+-	asm volatile(
+-	// A + B <= C + 1 for all A,B,C, in four easy steps:
+-	// 1: X = A + B; X' = X % 2^64
+-	"	adds	%0, %3, %2\n"
+-	// 2: Set C = 0 if X > 2^64, to guarantee X' > C in step 4
+-	"	csel	%1, xzr, %1, hi\n"
+-	// 3: Set X' = ~0 if X >= 2^64. For X = 2^64, this decrements X'
+-	//    to compensate for the carry flag being set in step 4. For
+-	//    X > 2^64, X' merely has to remain nonzero, which it does.
+-	"	csinv	%0, %0, xzr, cc\n"
+-	// 4: For X < 2^64, this gives us X' - C - 1 <= 0, where the -1
+-	//    comes from the carry in being clear. Otherwise, we are
+-	//    testing X' - C = 0, subject to the previous adjustments.
+-	"	sbcs	xzr, %0, %1\n"
+-	"	cset	%0, ls\n"
+-	: "=&r" (ret), "+r" (limit) : "Ir" (size), "0" (addr) : "cc");
+-
+-	return ret;
++	return likely(__access_ok(addr, size));
  }
  
--static inline void free_thread_stack(struct task_struct *tsk)
-+static void free_thread_stack(struct task_struct *tsk)
- {
--#ifdef CONFIG_VMAP_STACK
--	struct vm_struct *vm = task_stack_vm_area(tsk);
+-#define access_ok(addr, size)	__range_ok(addr, size)
 -
--	if (vm) {
--		int i;
--
--		for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++)
--			memcg_kmem_uncharge_page(vm->pages[i], 0);
--
--		for (i = 0; i < NR_CACHED_STACKS; i++) {
--			if (this_cpu_cmpxchg(cached_stacks[i],
--					NULL, tsk->stack_vm_area) != NULL)
--				continue;
--
--			return;
--		}
--
--		vfree_atomic(tsk->stack);
--		return;
--	}
--#endif
--
- 	__free_pages(virt_to_page(tsk->stack), THREAD_SIZE_ORDER);
-+	tsk->stack = NULL;
- }
--# else
-+
-+#  endif /* CONFIG_VMAP_STACK */
-+# else /* !(THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK)) */
-+
- static struct kmem_cache *thread_stack_cache;
- 
- static unsigned long *alloc_thread_stack_node(struct task_struct *tsk,
-@@ -312,6 +318,7 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk,
- static void free_thread_stack(struct task_struct *tsk)
- {
- 	kmem_cache_free(thread_stack_cache, tsk->stack);
-+	tsk->stack = NULL;
- }
- 
- void thread_stack_cache_init(void)
-@@ -321,8 +328,9 @@ void thread_stack_cache_init(void)
- 					THREAD_SIZE, NULL);
- 	BUG_ON(thread_stack_cache == NULL);
- }
--# endif
--#endif
-+
-+# endif /* THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK) */
-+#endif /* !CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
- 
- /* SLAB cache for signal_struct structures (tsk->signal) */
- static struct kmem_cache *signal_cachep;
-@@ -432,10 +440,6 @@ static void release_task_stack(struct task_struct *tsk)
- 
- 	account_kernel_stack(tsk, -1);
- 	free_thread_stack(tsk);
--	tsk->stack = NULL;
--#ifdef CONFIG_VMAP_STACK
--	tsk->stack_vm_area = NULL;
--#endif
- }
- 
- #ifdef CONFIG_THREAD_INFO_IN_TASK
+ /*
+  * User access enabling/disabling.
+  */
 -- 
-2.34.1
+2.29.2
