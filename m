@@ -1,31 +1,34 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Date: Wed, 16 Feb 2022 12:22:33 +0000
+From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Date: Wed, 16 Feb 2022 12:25:07 +0000
 Subject: Re: [PATCH v4 00/13] Fix LKDTM for PPC64/IA64/PARISC v4
-Message-Id: <87y22bm25y.fsf@mpe.ellerman.id.au>
+Message-Id: <9cac37da-f719-13f8-1a21-2aac7a574479@physik.fu-berlin.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <cover.1644928018.git.christophe.leroy@csgroup.eu>
- <202202150807.D584917D34@keescook>
-In-Reply-To: <202202150807.D584917D34@keescook>
+In-Reply-To: <cover.1644928018.git.christophe.leroy@csgroup.eu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Kees Cook <keescook@chromium.org>, Christophe Leroy <christophe.leroy@csgroup.eu>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+To: Christophe Leroy <christophe.leroy@csgroup.eu>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-Kees Cook <keescook@chromium.org> writes:
-> On Tue, Feb 15, 2022 at 01:40:55PM +0100, Christophe Leroy wrote:
->> PPC64/IA64/PARISC have function descriptors. LKDTM doesn't work
->> on those three architectures because LKDTM messes up function
->> descriptors with functions.
->> 
->> This series does some cleanup in the three architectures and
->> refactors function descriptors so that it can then easily use it
->> in a generic way in LKDTM.
->
-> Thanks for doing this! It looks good to me. :)
+Hi!
 
-How should we merge this series, it's a bit all over the map.
+On 2/15/22 13:40, Christophe Leroy wrote:
+> PPC64/IA64/PARISC have function descriptors. LKDTM doesn't work
+> on those three architectures because LKDTM messes up function
+> descriptors with functions.
+> 
+> This series does some cleanup in the three architectures and
+> refactors function descriptors so that it can then easily use it
+> in a generic way in LKDTM.
 
-I could put it in a topic branch?
+I'll test the series on ia64 later this week. I have an Itanium box at
+home for testing kernel patches.
 
-cheers
+Adrian
+
+-- 
+ .''`.  John Paul Adrian Glaubitz
+: :' :  Debian Developer - glaubitz@debian.org
+`. `'   Freie Universitaet Berlin - glaubitz@physik.fu-berlin.de
+  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
