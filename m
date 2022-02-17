@@ -1,131 +1,133 @@
-From: Arnd Bergmann <arnd@kernel.org>
-Date: Wed, 16 Feb 2022 13:13:18 +0000
-Subject: [PATCH v2 04/18] sparc64: add __{get,put}_kernel_nocheck()
-Message-Id: <20220216131332.1489939-5-arnd@kernel.org>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 17 Feb 2022 10:24:03 +0000
+Subject: [PATCH v2 5/8] kernel/fork: Move memcg_charge_kernel_stack() into CONFIG_VMAP_STACK.
+Message-Id: <20220217102406.3697941-6-bigeasy@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220216131332.1489939-1-arnd@kernel.org>
-In-Reply-To: <20220216131332.1489939-1-arnd@kernel.org>
+References: <20220217102406.3697941-1-bigeasy@linutronix.de>
+In-Reply-To: <20220217102406.3697941-1-bigeasy@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hellwig <hch@lst.de>, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-api@vger.kernel.org, arnd@arndb.de, linux-kernel@vger.kernel.org, viro@zeniv.linux.org.uk
-Cc: linux@armlinux.org.uk, will@kernel.org, guoren@kernel.org, bcain@codeaurora.org, geert@linux-m68k.org, monstr@monstr.eu, tsbogend@alpha.franken.de, nickhu@andestech.com, green.hu@gmail.com, dinguyen@kernel.org, shorne@gmail.com, deller@gmx.de, mpe@ellerman.id.au, peterz@infradead.org, mingo@redhat.com, mark.rutland@arm.com, hca@linux.ibm.com, dalias@libc.org, davem@davemloft.net, richard@nod.at, x86@kernel.org, jcmvbkbc@gmail.com, ebiederm@xmission.com, akpm@linux-foundation.org, ardb@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Andy Lutomirski <luto@kernel.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Ingo Molnar <mingo@redhat.com>, Juri Lelli <juri.lelli@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Steven Rostedt <rostedt@goodmis.org>, Thomas Gleixner <tglx@linutronix.de>, Vincent Guittot <vincent.guittot@linaro.org>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-From: Arnd Bergmann <arnd@arndb.de>
+memcg_charge_kernel_stack() is only used in the CONFIG_VMAP_STACK case.
 
-sparc64 is one of the architectures that uses separate address
-spaces for kernel and user addresses, so __get_kernel_nofault()
-can not just call into the normal __get_user() without the
-access_ok() check.
+Move memcg_charge_kernel_stack() into the CONFIG_VMAP_STACK block and
+invoke it from within alloc_thread_stack_node().
 
-Instead duplicate __get_user() and __put_user() into their
-in-kernel versions, with minor changes for the calling conventions
-and leaving out the address space modifier on the assembler
-instruction.
-
-This could surely be written more elegantly, but duplicating it
-gets the job done.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- arch/sparc/include/asm/uaccess_64.h | 78 +++++++++++++++++++++++++++++
- 1 file changed, 78 insertions(+)
+ kernel/fork.c | 69 +++++++++++++++++++++++++++------------------------
+ 1 file changed, 36 insertions(+), 33 deletions(-)
 
-diff --git a/arch/sparc/include/asm/uaccess_64.h b/arch/sparc/include/asm/uaccess_64.h
-index 30eb4c6414d1..b283798315b1 100644
---- a/arch/sparc/include/asm/uaccess_64.h
-+++ b/arch/sparc/include/asm/uaccess_64.h
-@@ -100,6 +100,42 @@ void __retl_efault(void);
- struct __large_struct { unsigned long buf[100]; };
- #define __m(x) ((struct __large_struct *)(x))
+diff --git a/kernel/fork.c b/kernel/fork.c
+index 546bea2e3b28a..919bdcf21b8e5 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -211,6 +211,32 @@ static int free_vm_stack_cache(unsigned int cpu)
+ 	return 0;
+ }
  
-+#define __put_kernel_nofault(dst, src, type, label)			\
-+do {									\
-+	type *addr = (type __force *)(dst);				\
-+	type data = *(type *)src;					\
-+	register int __pu_ret;						\
-+	switch (sizeof(type)) {						\
-+	case 1: __put_kernel_asm(data, b, addr, __pu_ret); break;	\
-+	case 2: __put_kernel_asm(data, h, addr, __pu_ret); break;	\
-+	case 4: __put_kernel_asm(data, w, addr, __pu_ret); break;	\
-+	case 8: __put_kernel_asm(data, x, addr, __pu_ret); break;	\
-+	default: __pu_ret = __put_user_bad(); break;			\
-+	}								\
-+	if (__pu_ret)							\
-+		goto label;						\
-+} while (0)
++static int memcg_charge_kernel_stack(struct task_struct *tsk)
++{
++	struct vm_struct *vm = task_stack_vm_area(tsk);
++	int i;
++	int ret;
 +
-+#define __put_kernel_asm(x, size, addr, ret)				\
-+__asm__ __volatile__(							\
-+		"/* Put kernel asm, inline. */\n"			\
-+	"1:\t"	"st"#size " %1, [%2]\n\t"				\
-+		"clr	%0\n"						\
-+	"2:\n\n\t"							\
-+		".section .fixup,#alloc,#execinstr\n\t"			\
-+		".align	4\n"						\
-+	"3:\n\t"							\
-+		"sethi	%%hi(2b), %0\n\t"				\
-+		"jmpl	%0 + %%lo(2b), %%g0\n\t"			\
-+		" mov	%3, %0\n\n\t"					\
-+		".previous\n\t"						\
-+		".section __ex_table,\"a\"\n\t"				\
-+		".align	4\n\t"						\
-+		".word	1b, 3b\n\t"					\
-+		".previous\n\n\t"					\
-+	       : "=r" (ret) : "r" (x), "r" (__m(addr)),			\
-+		 "i" (-EFAULT))
++	BUILD_BUG_ON(IS_ENABLED(CONFIG_VMAP_STACK) && PAGE_SIZE % 1024 != 0);
++	BUG_ON(vm->nr_pages != THREAD_SIZE / PAGE_SIZE);
 +
- #define __put_user_nocheck(data, addr, size) ({			\
- 	register int __pu_ret;					\
- 	switch (size) {						\
-@@ -134,6 +170,48 @@ __asm__ __volatile__(							\
++	for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++) {
++		ret = memcg_kmem_charge_page(vm->pages[i], GFP_KERNEL, 0);
++		if (ret)
++			goto err;
++	}
++	return 0;
++err:
++	/*
++	 * If memcg_kmem_charge_page() fails, page's memory cgroup pointer is
++	 * NULL, and memcg_kmem_uncharge_page() in free_thread_stack() will
++	 * ignore this page.
++	 */
++	for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++)
++		memcg_kmem_uncharge_page(vm->pages[i], 0);
++	return ret;
++}
++
+ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ {
+ 	void *stack;
+@@ -230,6 +256,11 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 		/* Clear stale pointers from reused stack. */
+ 		memset(s->addr, 0, THREAD_SIZE);
  
- int __put_user_bad(void);
++		if (memcg_charge_kernel_stack(tsk)) {
++			vfree(s->addr);
++			return -ENOMEM;
++		}
++
+ 		tsk->stack_vm_area = s;
+ 		tsk->stack = s->addr;
+ 		return 0;
+@@ -247,6 +278,11 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 				     0, node, __builtin_return_address(0));
+ 	if (!stack)
+ 		return -ENOMEM;
++
++	if (memcg_charge_kernel_stack(tsk)) {
++		vfree(stack);
++		return -ENOMEM;
++	}
+ 	/*
+ 	 * We can't call find_vm_area() in interrupt context, and
+ 	 * free_thread_stack() can be called in interrupt context,
+@@ -418,36 +454,6 @@ static void account_kernel_stack(struct task_struct *tsk, int account)
+ 	}
+ }
  
-+#define __get_kernel_nofault(dst, src, type, label)			     \
-+do {									     \
-+	type *addr = (type __force *)(src);		     		     \
-+	register int __gu_ret;						     \
-+	register unsigned long __gu_val;				     \
-+	switch (sizeof(type)) {						     \
-+		case 1: __get_kernel_asm(__gu_val, ub, addr, __gu_ret); break; \
-+		case 2: __get_kernel_asm(__gu_val, uh, addr, __gu_ret); break; \
-+		case 4: __get_kernel_asm(__gu_val, uw, addr, __gu_ret); break; \
-+		case 8: __get_kernel_asm(__gu_val, x, addr, __gu_ret); break;  \
-+		default:						     \
-+			__gu_val = 0;					     \
-+			__gu_ret = __get_user_bad();			     \
-+			break;						     \
-+	} 								     \
-+	if (__gu_ret)							     \
-+		goto label;						     \
-+	*(type *)dst = (__force type) __gu_val;				     \
-+} while (0)
-+#define __get_kernel_asm(x, size, addr, ret)				\
-+__asm__ __volatile__(							\
-+		"/* Get kernel asm, inline. */\n"			\
-+	"1:\t"	"ld"#size " [%2], %1\n\t"				\
-+		"clr	%0\n"						\
-+	"2:\n\n\t"							\
-+		".section .fixup,#alloc,#execinstr\n\t"			\
-+		".align	4\n"						\
-+	"3:\n\t"							\
-+		"sethi	%%hi(2b), %0\n\t"				\
-+		"clr	%1\n\t"						\
-+		"jmpl	%0 + %%lo(2b), %%g0\n\t"			\
-+		" mov	%3, %0\n\n\t"					\
-+		".previous\n\t"						\
-+		".section __ex_table,\"a\"\n\t"				\
-+		".align	4\n\t"						\
-+		".word	1b, 3b\n\n\t"					\
-+		".previous\n\t"						\
-+	       : "=r" (ret), "=r" (x) : "r" (__m(addr)),		\
-+		 "i" (-EFAULT))
-+
-+#define HAVE_GET_KERNEL_NOFAULT
-+
- #define __get_user_nocheck(data, addr, size, type) ({			     \
- 	register int __gu_ret;						     \
- 	register unsigned long __gu_val;				     \
+-static int memcg_charge_kernel_stack(struct task_struct *tsk)
+-{
+-#ifdef CONFIG_VMAP_STACK
+-	struct vm_struct *vm = task_stack_vm_area(tsk);
+-	int ret;
+-
+-	BUILD_BUG_ON(IS_ENABLED(CONFIG_VMAP_STACK) && PAGE_SIZE % 1024 != 0);
+-
+-	if (vm) {
+-		int i;
+-
+-		BUG_ON(vm->nr_pages != THREAD_SIZE / PAGE_SIZE);
+-
+-		for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++) {
+-			/*
+-			 * If memcg_kmem_charge_page() fails, page's
+-			 * memory cgroup pointer is NULL, and
+-			 * memcg_kmem_uncharge_page() in free_thread_stack()
+-			 * will ignore this page.
+-			 */
+-			ret = memcg_kmem_charge_page(vm->pages[i], GFP_KERNEL,
+-						     0);
+-			if (ret)
+-				return ret;
+-		}
+-	}
+-#endif
+-	return 0;
+-}
+-
+ static void release_task_stack(struct task_struct *tsk)
+ {
+ 	if (WARN_ON(READ_ONCE(tsk->__state) != TASK_DEAD))
+@@ -909,9 +915,6 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ 	if (err)
+ 		goto free_tsk;
+ 
+-	if (memcg_charge_kernel_stack(tsk))
+-		goto free_stack;
+-
+ #ifdef CONFIG_THREAD_INFO_IN_TASK
+ 	refcount_set(&tsk->stack_refcount, 1);
+ #endif
 -- 
-2.29.2
+2.34.1
