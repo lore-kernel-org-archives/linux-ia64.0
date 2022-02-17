@@ -1,118 +1,160 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Mon, 28 Feb 2022 10:59:41 +0000
-Subject: [PATCH V3 18/30] arc/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <1646045273-9343-19-git-send-email-anshuman.khandual@arm.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 17 Feb 2022 10:24:02 +0000
+Subject: [PATCH v2 4/8] kernel/fork: Don't assign the stack pointer in dup_task_struct().
+Message-Id: <20220217102406.3697941-5-bigeasy@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1646045273-9343-1-git-send-email-anshuman.khandual@arm.com>
-In-Reply-To: <1646045273-9343-1-git-send-email-anshuman.khandual@arm.com>
+References: <20220217102406.3697941-1-bigeasy@linutronix.de>
+In-Reply-To: <20220217102406.3697941-1-bigeasy@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, akpm@linux-foundation.org
-Cc: linux-kernel@vger.kernel.org, geert@linux-m68k.org, Anshuman Khandual <anshuman.khandual@arm.com>, Christoph Hellwig <hch@infradead.org>, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org, sparclinux@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-s390@vger.kernel.org, linux-riscv@lists.infradead.org, linux-alpha@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-parisc@vger.kernel.org, openrisc@lists.librecores.org, linux-um@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, Vineet Gupta <vgupta@kernel.org>
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Andy Lutomirski <luto@kernel.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Ingo Molnar <mingo@redhat.com>, Juri Lelli <juri.lelli@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Steven Rostedt <rostedt@goodmis.org>, Thomas Gleixner <tglx@linutronix.de>, Vincent Guittot <vincent.guittot@linaro.org>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-This defines and exports a platform specific custom vm_get_page_prot() via
-subscribing ARCH_HAS_VM_GET_PAGE_PROT. Subsequently all __SXXX and __PXXX
-macros can be dropped which are no longer needed.
+All four versions of alloc_thread_stack_node() assign now
+task_struct::stack in case the allocation was successful.
 
-Cc: Vineet Gupta <vgupta@kernel.org>
-Cc: linux-snps-arc@lists.infradead.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+Let alloc_thread_stack_node() return an error code instead of the stack
+pointer and remove the stack assignment in dup_task_struct().
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- arch/arc/Kconfig                          |  1 +
- arch/arc/include/asm/pgtable-bits-arcv2.h | 17 ----------
- arch/arc/mm/mmap.c                        | 41 +++++++++++++++++++++++
- 3 files changed, 42 insertions(+), 17 deletions(-)
+ kernel/fork.c | 47 ++++++++++++++++-------------------------------
+ 1 file changed, 16 insertions(+), 31 deletions(-)
 
-diff --git a/arch/arc/Kconfig b/arch/arc/Kconfig
-index 3c2a4753d09b..78ff0644b343 100644
---- a/arch/arc/Kconfig
-+++ b/arch/arc/Kconfig
-@@ -13,6 +13,7 @@ config ARC
- 	select ARCH_HAS_SETUP_DMA_OPS
- 	select ARCH_HAS_SYNC_DMA_FOR_CPU
- 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE
-+	select ARCH_HAS_VM_GET_PAGE_PROT
- 	select ARCH_SUPPORTS_ATOMIC_RMW if ARC_HAS_LLSC
- 	select ARCH_32BIT_OFF_T
- 	select BUILDTIME_TABLE_SORT
-diff --git a/arch/arc/include/asm/pgtable-bits-arcv2.h b/arch/arc/include/asm/pgtable-bits-arcv2.h
-index 183d23bc1e00..798308f4dbad 100644
---- a/arch/arc/include/asm/pgtable-bits-arcv2.h
-+++ b/arch/arc/include/asm/pgtable-bits-arcv2.h
-@@ -72,23 +72,6 @@
-  *     This is to enable COW mechanism
-  */
- 	/* xwr */
--#define __P000  PAGE_U_NONE
--#define __P001  PAGE_U_R
--#define __P010  PAGE_U_R	/* Pvt-W => !W */
--#define __P011  PAGE_U_R	/* Pvt-W => !W */
--#define __P100  PAGE_U_X_R	/* X => R */
--#define __P101  PAGE_U_X_R
--#define __P110  PAGE_U_X_R	/* Pvt-W => !W and X => R */
--#define __P111  PAGE_U_X_R	/* Pvt-W => !W */
--
--#define __S000  PAGE_U_NONE
--#define __S001  PAGE_U_R
--#define __S010  PAGE_U_W_R	/* W => R */
--#define __S011  PAGE_U_W_R
--#define __S100  PAGE_U_X_R	/* X => R */
--#define __S101  PAGE_U_X_R
--#define __S110  PAGE_U_X_W_R	/* X => R */
--#define __S111  PAGE_U_X_W_R
- 
- #ifndef __ASSEMBLY__
- 
-diff --git a/arch/arc/mm/mmap.c b/arch/arc/mm/mmap.c
-index 722d26b94307..d286894d7359 100644
---- a/arch/arc/mm/mmap.c
-+++ b/arch/arc/mm/mmap.c
-@@ -74,3 +74,44 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
- 	info.align_offset = pgoff << PAGE_SHIFT;
- 	return vm_unmapped_area(&info);
+diff --git a/kernel/fork.c b/kernel/fork.c
+index a6697215fe663..546bea2e3b28a 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -211,7 +211,7 @@ static int free_vm_stack_cache(unsigned int cpu)
+ 	return 0;
  }
-+
-+pgprot_t vm_get_page_prot(unsigned long vm_flags)
-+{
-+	switch (vm_flags & (VM_READ | VM_WRITE | VM_EXEC | VM_SHARED)) {
-+	case VM_NONE:
-+		return PAGE_U_NONE;
-+	case VM_READ:
-+	/* Pvt-W => !W */
-+	case VM_WRITE:
-+	/* Pvt-W => !W */
-+	case VM_WRITE | VM_READ:
-+		return PAGE_U_R;
-+	/* X => R */
-+	case VM_EXEC:
-+	case VM_EXEC | VM_READ:
-+	 /* Pvt-W => !W and X => R */
-+	case VM_EXEC | VM_WRITE:
-+	 /* Pvt-W => !W */
-+	case VM_EXEC | VM_WRITE | VM_READ:
-+		return PAGE_U_X_R;
-+	case VM_SHARED:
-+		return PAGE_U_NONE;
-+	case VM_SHARED | VM_READ:
-+		return PAGE_U_R;
-+	/* W => R */
-+	case VM_SHARED | VM_WRITE:
-+	case VM_SHARED | VM_WRITE | VM_READ:
-+		return PAGE_U_W_R;
-+	 /* X => R */
-+	case VM_SHARED | VM_EXEC:
-+	case VM_SHARED | VM_EXEC | VM_READ:
-+		return PAGE_U_X_R;
-+	/* X => R */
-+	case VM_SHARED | VM_EXEC | VM_WRITE:
-+	case VM_SHARED | VM_EXEC | VM_WRITE | VM_READ:
-+		return PAGE_U_X_W_R;
-+	default:
-+		BUILD_BUG();
-+	}
-+}
-+EXPORT_SYMBOL(vm_get_page_prot);
+ 
+-static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
++static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ {
+ 	void *stack;
+ 	int i;
+@@ -232,7 +232,7 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 
+ 		tsk->stack_vm_area = s;
+ 		tsk->stack = s->addr;
+-		return s->addr;
++		return 0;
+ 	}
+ 
+ 	/*
+@@ -245,17 +245,16 @@ static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 				     THREADINFO_GFP & ~__GFP_ACCOUNT,
+ 				     PAGE_KERNEL,
+ 				     0, node, __builtin_return_address(0));
+-
++	if (!stack)
++		return -ENOMEM;
+ 	/*
+ 	 * We can't call find_vm_area() in interrupt context, and
+ 	 * free_thread_stack() can be called in interrupt context,
+ 	 * so cache the vm_struct.
+ 	 */
+-	if (stack) {
+-		tsk->stack_vm_area = find_vm_area(stack);
+-		tsk->stack = stack;
+-	}
+-	return stack;
++	tsk->stack_vm_area = find_vm_area(stack);
++	tsk->stack = stack;
++	return 0;
+ }
+ 
+ static void free_thread_stack(struct task_struct *tsk)
+@@ -282,16 +281,16 @@ static void free_thread_stack(struct task_struct *tsk)
+ 
+ #  else /* !CONFIG_VMAP_STACK */
+ 
+-static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
++static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ {
+ 	struct page *page = alloc_pages_node(node, THREADINFO_GFP,
+ 					     THREAD_SIZE_ORDER);
+ 
+ 	if (likely(page)) {
+ 		tsk->stack = kasan_reset_tag(page_address(page));
+-		return tsk->stack;
++		return 0;
+ 	}
+-	return NULL;
++	return -ENOMEM;
+ }
+ 
+ static void free_thread_stack(struct task_struct *tsk)
+@@ -305,14 +304,13 @@ static void free_thread_stack(struct task_struct *tsk)
+ 
+ static struct kmem_cache *thread_stack_cache;
+ 
+-static unsigned long *alloc_thread_stack_node(struct task_struct *tsk,
+-						  int node)
++static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ {
+ 	unsigned long *stack;
+ 	stack = kmem_cache_alloc_node(thread_stack_cache, THREADINFO_GFP, node);
+ 	stack = kasan_reset_tag(stack);
+ 	tsk->stack = stack;
+-	return stack;
++	return stack ? 0 : -ENOMEM;
+ }
+ 
+ static void free_thread_stack(struct task_struct *tsk)
+@@ -332,13 +330,13 @@ void thread_stack_cache_init(void)
+ # endif /* THREAD_SIZE >= PAGE_SIZE || defined(CONFIG_VMAP_STACK) */
+ #else /* CONFIG_ARCH_THREAD_STACK_ALLOCATOR */
+ 
+-static unsigned long *alloc_thread_stack_node(struct task_struct *tsk, int node)
++static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ {
+ 	unsigned long *stack;
+ 
+ 	stack = arch_alloc_thread_stack_node(tsk, node);
+ 	tsk->stack = stack;
+-	return stack;
++	return stack ? 0 : -ENOMEM;
+ }
+ 
+ static void free_thread_stack(struct task_struct *tsk)
+@@ -895,8 +893,6 @@ void set_task_stack_end_magic(struct task_struct *tsk)
+ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ {
+ 	struct task_struct *tsk;
+-	unsigned long *stack;
+-	struct vm_struct *stack_vm_area __maybe_unused;
+ 	int err;
+ 
+ 	if (node == NUMA_NO_NODE)
+@@ -909,24 +905,13 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ 	if (err)
+ 		goto free_tsk;
+ 
+-	stack = alloc_thread_stack_node(tsk, node);
+-	if (!stack)
++	err = alloc_thread_stack_node(tsk, node);
++	if (err)
+ 		goto free_tsk;
+ 
+ 	if (memcg_charge_kernel_stack(tsk))
+ 		goto free_stack;
+ 
+-	stack_vm_area = task_stack_vm_area(tsk);
+-
+-	/*
+-	 * arch_dup_task_struct() clobbers the stack-related fields.  Make
+-	 * sure they're properly initialized before using any stack-related
+-	 * functions again.
+-	 */
+-	tsk->stack = stack;
+-#ifdef CONFIG_VMAP_STACK
+-	tsk->stack_vm_area = stack_vm_area;
+-#endif
+ #ifdef CONFIG_THREAD_INFO_IN_TASK
+ 	refcount_set(&tsk->stack_refcount, 1);
+ #endif
 -- 
-2.25.1
+2.34.1
