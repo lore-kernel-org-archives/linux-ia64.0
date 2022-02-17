@@ -1,131 +1,179 @@
-From: Arnd Bergmann <arnd@kernel.org>
-Date: Mon, 14 Feb 2022 16:34:40 +0000
-Subject: [PATCH 02/14] sparc64: add __{get,put}_kernel_nocheck()
-Message-Id: <20220214163452.1568807-3-arnd@kernel.org>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 17 Feb 2022 10:24:04 +0000
+Subject: [PATCH v2 6/8] kernel/fork: Move task stack account to do_exit().
+Message-Id: <20220217102406.3697941-7-bigeasy@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220214163452.1568807-1-arnd@kernel.org>
-In-Reply-To: <20220214163452.1568807-1-arnd@kernel.org>
+References: <20220217102406.3697941-1-bigeasy@linutronix.de>
+In-Reply-To: <20220217102406.3697941-1-bigeasy@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hellwig <hch@lst.de>, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-api@vger.kernel.org, arnd@arndb.de, linux-kernel@vger.kernel.org
-Cc: linux@armlinux.org.uk, will@kernel.org, guoren@kernel.org, bcain@codeaurora.org, geert@linux-m68k.org, monstr@monstr.eu, tsbogend@alpha.franken.de, nickhu@andestech.com, green.hu@gmail.com, dinguyen@kernel.org, shorne@gmail.com, deller@gmx.de, mpe@ellerman.id.au, peterz@infradead.org, mingo@redhat.com, mark.rutland@arm.com, hca@linux.ibm.com, dalias@libc.org, davem@davemloft.net, richard@nod.at, x86@kernel.org, jcmvbkbc@gmail.com, ebiederm@xmission.com, akpm@linux-foundation.org, ardb@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Andy Lutomirski <luto@kernel.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Ingo Molnar <mingo@redhat.com>, Juri Lelli <juri.lelli@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Steven Rostedt <rostedt@goodmis.org>, Thomas Gleixner <tglx@linutronix.de>, Vincent Guittot <vincent.guittot@linaro.org>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-From: Arnd Bergmann <arnd@arndb.de>
+There is no need to perform the stack accounting of the outgoing task in
+its final schedule() invocation which happens with disabled preemption.
+The task is leaving, the resources will be freed and the accounting can
+happen in do_exit() before the actual schedule invocation which
+frees the stack memory.
 
-sparc64 is one of the architectures that uses separate address
-spaces for kernel and user addresses, so __get_kernel_nofault()
-can not just call into the normal __get_user() without the
-access_ok() check.
+Move the accounting of the stack memory from release_task_stack() to
+exit_task_stack_account() which then can be invoked from do_exit().
 
-Instead duplicate __get_user() and __put_user() into their
-in-kernel versions, with minor changes for the calling conventions
-and leaving out the address space modifier on the assembler
-instruction.
-
-This could surely be written more elegantly, but duplicating it
-gets the job done.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- arch/sparc/include/asm/uaccess_64.h | 78 +++++++++++++++++++++++++++++
- 1 file changed, 78 insertions(+)
+ include/linux/sched/task_stack.h |  2 ++
+ kernel/exit.c                    |  1 +
+ kernel/fork.c                    | 35 +++++++++++++++++++++-----------
+ 3 files changed, 26 insertions(+), 12 deletions(-)
 
-diff --git a/arch/sparc/include/asm/uaccess_64.h b/arch/sparc/include/asm/uaccess_64.h
-index 30eb4c6414d1..b283798315b1 100644
---- a/arch/sparc/include/asm/uaccess_64.h
-+++ b/arch/sparc/include/asm/uaccess_64.h
-@@ -100,6 +100,42 @@ void __retl_efault(void);
- struct __large_struct { unsigned long buf[100]; };
- #define __m(x) ((struct __large_struct *)(x))
+diff --git a/include/linux/sched/task_stack.h b/include/linux/sched/task_stack.h
+index d10150587d819..892562ebbd3aa 100644
+--- a/include/linux/sched/task_stack.h
++++ b/include/linux/sched/task_stack.h
+@@ -79,6 +79,8 @@ static inline void *try_get_task_stack(struct task_struct *tsk)
+ static inline void put_task_stack(struct task_struct *tsk) {}
+ #endif
  
-+#define __put_kernel_nofault(dst, src, type, label)			\
-+do {									\
-+	type *addr = (type __force *)(dst);				\
-+	type data = *(type *)src;					\
-+	register int __pu_ret;						\
-+	switch (sizeof(type)) {						\
-+	case 1: __put_kernel_asm(data, b, addr, __pu_ret); break;	\
-+	case 2: __put_kernel_asm(data, h, addr, __pu_ret); break;	\
-+	case 4: __put_kernel_asm(data, w, addr, __pu_ret); break;	\
-+	case 8: __put_kernel_asm(data, x, addr, __pu_ret); break;	\
-+	default: __pu_ret = __put_user_bad(); break;			\
-+	}								\
-+	if (__pu_ret)							\
-+		goto label;						\
-+} while (0)
++void exit_task_stack_account(struct task_struct *tsk);
 +
-+#define __put_kernel_asm(x, size, addr, ret)				\
-+__asm__ __volatile__(							\
-+		"/* Put kernel asm, inline. */\n"			\
-+	"1:\t"	"st"#size " %1, [%2]\n\t"				\
-+		"clr	%0\n"						\
-+	"2:\n\n\t"							\
-+		".section .fixup,#alloc,#execinstr\n\t"			\
-+		".align	4\n"						\
-+	"3:\n\t"							\
-+		"sethi	%%hi(2b), %0\n\t"				\
-+		"jmpl	%0 + %%lo(2b), %%g0\n\t"			\
-+		" mov	%3, %0\n\n\t"					\
-+		".previous\n\t"						\
-+		".section __ex_table,\"a\"\n\t"				\
-+		".align	4\n\t"						\
-+		".word	1b, 3b\n\t"					\
-+		".previous\n\n\t"					\
-+	       : "=r" (ret) : "r" (x), "r" (__m(addr)),			\
-+		 "i" (-EFAULT))
-+
- #define __put_user_nocheck(data, addr, size) ({			\
- 	register int __pu_ret;					\
- 	switch (size) {						\
-@@ -134,6 +170,48 @@ __asm__ __volatile__(							\
+ #define task_stack_end_corrupted(task) \
+ 		(*(end_of_stack(task)) != STACK_END_MAGIC)
  
- int __put_user_bad(void);
+diff --git a/kernel/exit.c b/kernel/exit.c
+index b00a25bb4ab93..c303cffe7fdb4 100644
+--- a/kernel/exit.c
++++ b/kernel/exit.c
+@@ -845,6 +845,7 @@ void __noreturn do_exit(long code)
+ 		put_page(tsk->task_frag.page);
  
-+#define __get_kernel_nofault(dst, src, type, label)			     \
-+do {									     \
-+	type *addr = (type __force *)(src);		     		     \
-+	register int __gu_ret;						     \
-+	register unsigned long __gu_val;				     \
-+	switch (sizeof(type)) {						     \
-+		case 1: __get_kernel_asm(__gu_val, ub, addr, __gu_ret); break; \
-+		case 2: __get_kernel_asm(__gu_val, uh, addr, __gu_ret); break; \
-+		case 4: __get_kernel_asm(__gu_val, uw, addr, __gu_ret); break; \
-+		case 8: __get_kernel_asm(__gu_val, x, addr, __gu_ret); break;  \
-+		default:						     \
-+			__gu_val = 0;					     \
-+			__gu_ret = __get_user_bad();			     \
-+			break;						     \
-+	} 								     \
-+	if (__gu_ret)							     \
-+		goto label;						     \
-+	*(type *)dst = (__force type) __gu_val;				     \
-+} while (0)
-+#define __get_kernel_asm(x, size, addr, ret)				\
-+__asm__ __volatile__(							\
-+		"/* Get kernel asm, inline. */\n"			\
-+	"1:\t"	"ld"#size " [%2], %1\n\t"				\
-+		"clr	%0\n"						\
-+	"2:\n\n\t"							\
-+		".section .fixup,#alloc,#execinstr\n\t"			\
-+		".align	4\n"						\
-+	"3:\n\t"							\
-+		"sethi	%%hi(2b), %0\n\t"				\
-+		"clr	%1\n\t"						\
-+		"jmpl	%0 + %%lo(2b), %%g0\n\t"			\
-+		" mov	%3, %0\n\n\t"					\
-+		".previous\n\t"						\
-+		".section __ex_table,\"a\"\n\t"				\
-+		".align	4\n\t"						\
-+		".word	1b, 3b\n\n\t"					\
-+		".previous\n\t"						\
-+	       : "=r" (ret), "=r" (x) : "r" (__m(addr)),		\
-+		 "i" (-EFAULT))
+ 	validate_creds_for_do_exit(tsk);
++	exit_task_stack_account(tsk);
+ 
+ 	check_stack_usage();
+ 	preempt_disable();
+diff --git a/kernel/fork.c b/kernel/fork.c
+index 919bdcf21b8e5..984f69d6f211f 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -211,9 +211,8 @@ static int free_vm_stack_cache(unsigned int cpu)
+ 	return 0;
+ }
+ 
+-static int memcg_charge_kernel_stack(struct task_struct *tsk)
++static int memcg_charge_kernel_stack(struct vm_struct *vm)
+ {
+-	struct vm_struct *vm = task_stack_vm_area(tsk);
+ 	int i;
+ 	int ret;
+ 
+@@ -239,6 +238,7 @@ static int memcg_charge_kernel_stack(struct task_struct *tsk)
+ 
+ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ {
++	struct vm_struct *vm;
+ 	void *stack;
+ 	int i;
+ 
+@@ -256,7 +256,7 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 		/* Clear stale pointers from reused stack. */
+ 		memset(s->addr, 0, THREAD_SIZE);
+ 
+-		if (memcg_charge_kernel_stack(tsk)) {
++		if (memcg_charge_kernel_stack(s)) {
+ 			vfree(s->addr);
+ 			return -ENOMEM;
+ 		}
+@@ -279,7 +279,8 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 	if (!stack)
+ 		return -ENOMEM;
+ 
+-	if (memcg_charge_kernel_stack(tsk)) {
++	vm = find_vm_area(stack);
++	if (memcg_charge_kernel_stack(vm)) {
+ 		vfree(stack);
+ 		return -ENOMEM;
+ 	}
+@@ -288,19 +289,15 @@ static int alloc_thread_stack_node(struct task_struct *tsk, int node)
+ 	 * free_thread_stack() can be called in interrupt context,
+ 	 * so cache the vm_struct.
+ 	 */
+-	tsk->stack_vm_area = find_vm_area(stack);
++	tsk->stack_vm_area = vm;
+ 	tsk->stack = stack;
+ 	return 0;
+ }
+ 
+ static void free_thread_stack(struct task_struct *tsk)
+ {
+-	struct vm_struct *vm = task_stack_vm_area(tsk);
+ 	int i;
+ 
+-	for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++)
+-		memcg_kmem_uncharge_page(vm->pages[i], 0);
+-
+ 	for (i = 0; i < NR_CACHED_STACKS; i++) {
+ 		if (this_cpu_cmpxchg(cached_stacks[i], NULL,
+ 				     tsk->stack_vm_area) != NULL)
+@@ -454,12 +451,25 @@ static void account_kernel_stack(struct task_struct *tsk, int account)
+ 	}
+ }
+ 
++void exit_task_stack_account(struct task_struct *tsk)
++{
++	account_kernel_stack(tsk, -1);
 +
-+#define HAVE_GET_KERNEL_NOFAULT
++	if (IS_ENABLED(CONFIG_VMAP_STACK)) {
++		struct vm_struct *vm;
++		int i;
 +
- #define __get_user_nocheck(data, addr, size, type) ({			     \
- 	register int __gu_ret;						     \
- 	register unsigned long __gu_val;				     \
++		vm = task_stack_vm_area(tsk);
++		for (i = 0; i < THREAD_SIZE / PAGE_SIZE; i++)
++			memcg_kmem_uncharge_page(vm->pages[i], 0);
++	}
++}
++
+ static void release_task_stack(struct task_struct *tsk)
+ {
+ 	if (WARN_ON(READ_ONCE(tsk->__state) != TASK_DEAD))
+ 		return;  /* Better to leak the stack than to free prematurely */
+ 
+-	account_kernel_stack(tsk, -1);
+ 	free_thread_stack(tsk);
+ }
+ 
+@@ -918,6 +928,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ #ifdef CONFIG_THREAD_INFO_IN_TASK
+ 	refcount_set(&tsk->stack_refcount, 1);
+ #endif
++	account_kernel_stack(tsk, 1);
+ 
+ 	err = scs_prepare(tsk, node);
+ 	if (err)
+@@ -961,8 +972,6 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ 	tsk->wake_q.next = NULL;
+ 	tsk->worker_private = NULL;
+ 
+-	account_kernel_stack(tsk, 1);
+-
+ 	kcov_task_init(tsk);
+ 	kmap_local_fork(tsk);
+ 
+@@ -981,6 +990,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+ 	return tsk;
+ 
+ free_stack:
++	exit_task_stack_account(tsk);
+ 	free_thread_stack(tsk);
+ free_tsk:
+ 	free_task_struct(tsk);
+@@ -2449,6 +2459,7 @@ static __latent_entropy struct task_struct *copy_process(
+ 	exit_creds(p);
+ bad_fork_free:
+ 	WRITE_ONCE(p->__state, TASK_DEAD);
++	exit_task_stack_account(p);
+ 	put_task_stack(p);
+ 	delayed_free_task(p);
+ fork_out:
 -- 
-2.29.2
+2.34.1
