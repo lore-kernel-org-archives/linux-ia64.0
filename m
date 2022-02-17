@@ -1,77 +1,75 @@
-From: kernel test robot <lkp@intel.com>
-Date: Tue, 08 Feb 2022 23:10:39 +0000
-Subject: Re: [PATCH v2] include: linux: Reorganize timekeeping and ktime headers
-Message-Id: <202202090656.Bx5FpSa7-lkp@intel.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 17 Feb 2022 10:23:58 +0000
+Subject: [PATCH v2 0/8] kernel/fork: Move thread stack free otu of the scheduler path.
+Message-Id: <20220217102406.3697941-1-bigeasy@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220208161049.865402-1-carlos.bilbao@amd.com>
-In-Reply-To: <20220208161049.865402-1-carlos.bilbao@amd.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Carlos Bilbao <carlos.bilbao@amd.com>, john.stultz@linaro.org, tglx@linutronix.de, sboyd@kernel.org, alexandre.belloni@bootlin.com, gregkh@linuxfoundation.org
-Cc: kbuild-all@lists.01.org, linux-kernel@vger.kernel.org, bilbao@vt.edu, geert@linux-m68k.org, linux-arm-kernel@lists.infradead.org, rostedt@goodmis.org, boon.leong.ong@intel.com, mhiramat@kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-rtc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-stm32@st-md-mailman.stormreply.com, jgross@suse.com, Carlos Bilbao <carlos.bilbao@amd.com>, kernel test robot <lkp@intel.com>
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Andy Lutomirski <luto@kernel.org>, Ben Segall <bsegall@google.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Ingo Molnar <mingo@redhat.com>, Juri Lelli <juri.lelli@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Steven Rostedt <rostedt@goodmis.org>, Thomas Gleixner <tglx@linutronix.de>, Vincent Guittot <vincent.guittot@linaro.org>
 
-Hi Carlos,
+This is a follup-up on the patch
+    sched: Delay task stack freeing on RT 
+    https://lkml.kernel.org/r/20210928122411.593486363@linutronix.de
 
-Thank you for the patch! Yet something to improve:
+It addresses the review feedback:
+- Decouple stack accounting from its free invocation. The accounting
+  happens in do_exit(), the final free call happens later.
 
-[auto build test ERROR on geert-m68k/for-next]
-[also build test ERROR on tip/timers/core tip/x86/core linus/master v5.17-rc3]
-[cannot apply to next-20220208]
-[If your patch is applied to the wrong git tree, kindly drop us a note.
-And when submitting patch, we suggest to use '--base' as documented in
-https://git-scm.com/docs/git-format-patch]
+- Add put_task_stack_sched() to finish_task_switch(). Here the VMAP
+  stack is cached only. If it fails, or in the !VMAP case then the final
+  free happens in delayed_put_task_struct(). This is also an oportunity
+  to cache the stack.
 
-url:    https://github.com/0day-ci/linux/commits/Carlos-Bilbao/include-linux-Reorganize-timekeeping-and-ktime-headers/20220209-001309
-base:   https://git.kernel.org/pub/scm/linux/kernel/git/geert/linux-m68k.git for-next
-config: alpha-randconfig-r001-20220208 (https://download.01.org/0day-ci/archive/20220209/202202090656.Bx5FpSa7-lkp@intel.com/config)
-compiler: alpha-linux-gcc (GCC) 11.2.0
-reproduce (this is a W=1 build):
-        wget https://raw.githubusercontent.com/intel/lkp-tests/master/sbin/make.cross -O ~/bin/make.cross
-        chmod +x ~/bin/make.cross
-        # https://github.com/0day-ci/linux/commit/5ed7d76f2d6aabedc437bc0b99020dc655ab5719
-        git remote add linux-review https://github.com/0day-ci/linux
-        git fetch --no-tags linux-review Carlos-Bilbao/include-linux-Reorganize-timekeeping-and-ktime-headers/20220209-001309
-        git checkout 5ed7d76f2d6aabedc437bc0b99020dc655ab5719
-        # save the config file to linux build tree
-        mkdir build_dir
-        COMPILER_INSTALL_PATH=$HOME/0day COMPILER=gcc-11.2.0 make.cross O=build_dir ARCH=alpha SHELL=/bin/bash arch/alpha/kernel/
+Changes since v1:
+  - Drop the bit marked und use addtional RCU head to free the stack in
+  case that it can't be cached. Suggested by Andy Lutomirski.
 
-If you fix the issue, kindly add following tag as appropriate
-Reported-by: kernel test robot <lkp@intel.com>
+v1: https://lore.kernel.org/all/20220125152652.1963111-1-bigeasy@linutronix.de
 
-All errors (new ones prefixed by >>):
+From testing I observe the following:
 
-   arch/alpha/kernel/osf_sys.c: In function '__do_sys_osf_settimeofday':
->> arch/alpha/kernel/osf_sys.c:1013:16: error: implicit declaration of function 'do_sys_settimeofday64'; did you mean 'sys_settimeofday'? [-Werror=implicit-function-declaration]
-    1013 |         return do_sys_settimeofday64(tv ? &kts : NULL, tz ? &ktz : NULL);
-         |                ^~~~~~~~~~~~~~~~~~~~~
-         |                sys_settimeofday
-   cc1: some warnings being treated as errors
+|            bash-1715    [006] .....   124.901510: copy_process: allocC ffffc90007e70000
+|      sh-cmds.sh-1746    [007] .....   124.907389: copy_process: allocC ffffc90007dc4000
+|          <idle>-0       [019] ...1.   124.918126: free_thread_stack: cache ffffc90007dc4000
+|      sh-cmds.sh-1746    [007] .....   124.918279: copy_process: allocC ffffc90007de8000
+|          <idle>-0       [004] ...1.   124.920121: free_thread_stack: delay ffffc90007de8001
+|          <idle>-0       [007] ...1.   124.920299: free_thread_stack: cache ffffc90007e70000
+|          <idle>-0       [007] ..s1.   124.945433: free_thread_stack: cache ffffc90007de8000
 
+TS 124.901510, bash started sh-cmds.sh, obtained stack from cache.
+TS 124.907389, script invokes its first command, obtained stacak from
+cache. As you can see bash was running on CPU6 but its child was moved
+CPU7. 
+TS 124.918126, the first command is done, stack is ached on CPU19.
+TS 124.918279, script's second command, ache from stack.
+TS 124.920121, the command is done. The stack cache on CPU4 is full.
+TS 124.920299, the script is done, caches stack on CPU7.
+TS 124.945433, the RCU-callback of last command is now happening. On
+CPU7, which is where the command was invoked (but not running). Instead
+of freeing the stack, it was cached since CPU7 had an empty slot.
 
-vim +1013 arch/alpha/kernel/osf_sys.c
+If I pin the script to CPU5 and run it with multiple commands then it
+works as expected:
 
-^1da177e4c3f415 Linus Torvalds  2005-04-16   997  
-e5d9a90c36e05dd Ivan Kokshaysky 2009-01-29   998  SYSCALL_DEFINE2(osf_settimeofday, struct timeval32 __user *, tv,
-e5d9a90c36e05dd Ivan Kokshaysky 2009-01-29   999  		struct timezone __user *, tz)
-^1da177e4c3f415 Linus Torvalds  2005-04-16  1000  {
-ce4c253573ad184 Arnd Bergmann   2017-11-08  1001  	struct timespec64 kts;
-^1da177e4c3f415 Linus Torvalds  2005-04-16  1002  	struct timezone ktz;
-^1da177e4c3f415 Linus Torvalds  2005-04-16  1003  
-^1da177e4c3f415 Linus Torvalds  2005-04-16  1004   	if (tv) {
-ce4c253573ad184 Arnd Bergmann   2017-11-08  1005  		if (get_tv32(&kts, tv))
-^1da177e4c3f415 Linus Torvalds  2005-04-16  1006  			return -EFAULT;
-^1da177e4c3f415 Linus Torvalds  2005-04-16  1007  	}
-^1da177e4c3f415 Linus Torvalds  2005-04-16  1008  	if (tz) {
-^1da177e4c3f415 Linus Torvalds  2005-04-16  1009  		if (copy_from_user(&ktz, tz, sizeof(*tz)))
-^1da177e4c3f415 Linus Torvalds  2005-04-16  1010  			return -EFAULT;
-^1da177e4c3f415 Linus Torvalds  2005-04-16  1011  	}
-^1da177e4c3f415 Linus Torvalds  2005-04-16  1012  
-ce4c253573ad184 Arnd Bergmann   2017-11-08 @1013  	return do_sys_settimeofday64(tv ? &kts : NULL, tz ? &ktz : NULL);
-^1da177e4c3f415 Linus Torvalds  2005-04-16  1014  }
-^1da177e4c3f415 Linus Torvalds  2005-04-16  1015  
+|            bash-1799    [005] .....   993.608131: copy_process: allocC ffffc90007fa0000
+|      sh-cmds.sh-1827    [005] .....   993.608888: copy_process: allocC ffffc90007fa8000
+|      sh-cmds.sh-1827    [005] .....   993.610734: copy_process: allocV ffffc90007ff4000
+|      sh-cmds.sh-1829    [005] ...1.   993.610757: free_thread_stack: cache ffffc90007fa8000
+|      sh-cmds.sh-1827    [005] .....   993.612401: copy_process: allocC ffffc90007fa8000
+|           <...>-1830    [005] ...1.   993.612416: free_thread_stack: cache ffffc90007ff4000
+|      sh-cmds.sh-1827    [005] .....   993.613707: copy_process: allocC ffffc90007ff4000
+|      sh-cmds.sh-1831    [005] ...1.   993.613723: free_thread_stack: cache ffffc90007fa8000
+|      sh-cmds.sh-1827    [005] .....   993.615024: copy_process: allocC ffffc90007fa8000
+|           <...>-1832    [005] ...1.   993.615040: free_thread_stack: cache ffffc90007ff4000
+|      sh-cmds.sh-1827    [005] .....   993.616380: copy_process: allocC ffffc90007ff4000
+|           <...>-1833    [005] ...1.   993.616397: free_thread_stack: cache ffffc90007fa8000
+|            bash-1799    [005] ...1.   993.617759: free_thread_stack: cache ffffc90007fa0000
+|          <idle>-0       [005] ...1.   993.617871: free_thread_stack: delay ffffc90007ff4001
+|          <idle>-0       [005] ..s1.   993.638311: free_thread_stack: free ffffc90007ff4000
 
----
-0-DAY CI Kernel Test Service, Intel Corporation
-https://lists.01.org/hyperkitty/list/kbuild-all@lists.01.org
+and no new is allocated during its runtime and a cached stack is used.
+
+Sebastian
+
