@@ -1,7 +1,7 @@
 From: Andy Lutomirski <luto@kernel.org>
-Date: Mon, 21 Feb 2022 18:36:01 +0000
+Date: Mon, 21 Feb 2022 18:44:06 +0000
 Subject: Re: [PATCH v2 0/8] kernel/fork: Move thread stack free otu of the scheduler path.
-Message-Id: <215dc5af-5e81-fb64-9f00-b1e9e8d08297@kernel.org>
+Message-Id: <6ac2e2c8-798a-2b52-43f4-a4d940b39e2d@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220217102406.3697941-1-bigeasy@linutronix.de>
 In-Reply-To: <20220217102406.3697941-1-bigeasy@linutronix.de>
@@ -24,9 +24,13 @@ On 2/17/22 02:23, Sebastian Andrzej Siewior wrote:
 >    stack is cached only. If it fails, or in the !VMAP case then the final
 >    free happens in delayed_put_task_struct(). This is also an oportunity
 >    to cache the stack.
+> 
+> Changes since v1:
+>    - Drop the bit marked und use addtional RCU head to free the stack in
+>    case that it can't be cached. Suggested by Andy Lutomirski.
 
-My first two tries to apply this series to something failed.  What's it 
-based on?
+Acked-by: Andy Lutomirski <luto@kernel.org>
 
-The rest of my review will be based on diffs, not real code, since I 
-failed to apply it.
+This version is much nicer.  Thanks!
+
+--Andy
