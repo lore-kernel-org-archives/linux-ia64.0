@@ -1,102 +1,265 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Wed, 23 Feb 2022 17:17:56 +0000
-Subject: Re: [RFC PATCH] lkdtm: Replace lkdtm_rodata_do_nothing() by do_nothing()
-Message-Id: <26d37781-9824-3306-240d-6ce6044c2412@csgroup.eu>
+From: =?UTF-8?q?Ilpo=20J=C3=A4rvinen?= <ilpo.jarvinen@linux.intel.com>
+Date: Tue, 22 Feb 2022 11:56:03 +0000
+Subject: [PATCH 1/2] ia64: termbits.h is identical to asm-generic one
+Message-Id: <20220222115604.7351-2-ilpo.jarvinen@linux.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <fe36bf23fb14e7eff92a95a1092ed38edb01d5f5.1634491011.git.christophe.leroy@csgroup.eu>
-In-Reply-To: <fe36bf23fb14e7eff92a95a1092ed38edb01d5f5.1634491011.git.christophe.leroy@csgroup.eu>
+References: <20220222115604.7351-1-ilpo.jarvinen@linux.intel.com>
+In-Reply-To: <20220222115604.7351-1-ilpo.jarvinen@linux.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Jiri Slaby <jirislaby@kernel.org>, linux-serial@vger.kernel.org, linux-ia64@vger.kernel.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org
 
-SGkgS2VlcywNCg0KTGUgMTcvMTAvMjAyMSDDoCAxOToxOSwgQ2hyaXN0b3BoZSBMZXJveSBhIMOp
-Y3JpdMKgOg0KPiBBbGwgRVhFQyB0ZXN0cyBhcmUgYmFzZWQgb24gcnVubmluZyBhIGNvcHkgb2Yg
-ZG9fbm90aGluZygpDQo+IGV4Y2VwdCBsa2R0bV9FWEVDX1JPREFUQSB3aGljaCB1c2VzIGEgZGlm
-ZmVyZW50IGZ1bmN0aW9uDQo+IGNhbGxlZCBsa2R0bV9yb2RhdGFfZG9fbm90aGluZygpLg0KPiAN
-Cj4gT24gYXJjaGl0ZWN0dXJlcyB1c2luZyBmdW5jdGlvbiBkZXNjcmlwdG9ycywgRVhFQyB0ZXN0
-cyBhcmUNCj4gcGVyZm9ybWVkIHVzaW5nIGV4ZWN1dGVfbG9jYXRpb24oKSB3aGljaCBpcyBhIGZ1
-bmN0aW9uDQo+IHRoYXQgbW9zdCBvZiB0aGUgdGltZSBjb3BpZXMgZG9fbm90aGluZygpIGF0IHRo
-ZSB0ZXN0ZWQNCj4gbG9jYXRpb24gdGhlbiBkdXBsaWNhdGVzIGRvX25vdGhpbmcoKSBmdW5jdGlv
-biBkZXNjcmlwdG9yDQo+IGFuZCB1cGRhdGVzIGl0IHdpdGggdGhlIGFkZHJlc3Mgb2YgdGhlIGNv
-cHkgb2YgZG9fbm90aGluZygpLg0KPiANCj4gQnV0IGZvciBFWEVDX1JPREFUQSB0ZXN0LCBleGVj
-dXRlX2xvY2F0aW9uKCkgdXNlcw0KPiBsa2R0bV9yb2RhdGFfZG9fbm90aGluZygpIHdoaWNoIGlz
-IGFscmVhZHkgaW4gcm9kYXRhIHNlY3Rpb24NCj4gYXQgYnVpbGQgdGltZSBpbnN0ZWFkIG9mIHVz
-aW5nIGEgY29weSBvZiBkb19ub3RoaW5nKCkuIEhvd2V2ZXINCj4gaXQgc3RpbGwgdXNlcyB0aGUg
-ZnVuY3Rpb24gZGVzY3JpcHRvciBvZiBkb19ub3RoaW5nKCkuIFRoZXJlDQo+IGlzIGEgcmlzayB0
-aGF0IHJ1bm5pbmcgbGtkdG1fcm9kYXRhX2RvX25vdGhpbmcoKSB3aXRoIHRoZQ0KPiBmdW5jdGlv
-biBkZXNjcmlwdG9yIG9mIGRvX3RoaW5nKCkgaXMgd3JvbmcuDQo+IA0KPiBUbyByZW1vdmUgdGhl
-IGFib3ZlIHJpc2ssIGNoYW5nZSB0aGUgYXBwcm9hY2ggYW5kIGRvIHRoZSBzYW1lDQo+IGFzIGZv
-ciBvdGhlciBFWEVDIHRlc3RzOiB1c2UgYSBjb3B5IG9mIGRvX25vdGhpbmcoKS4gVGhlIGNvcHkN
-Cj4gY2Fubm90IGJlIGRvbmUgZHVyaW5nIHRoZSB0ZXN0IGJlY2F1c2UgUk9EQVRBIGFyZWEgaXMg
-d3JpdGUNCj4gcHJvdGVjdGVkLiBEbyB0aGUgY29weSBkdXJpbmcgaW5pdCwgYmVmb3JlIFJPREFU
-QSBiZWNvbWVzDQo+IHdyaXRlIHByb3RlY3RlZC4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IENocmlz
-dG9waGUgTGVyb3kgPGNocmlzdG9waGUubGVyb3lAY3Nncm91cC5ldT4NCg0KQW55IG9waW5pb24g
-b24gdGhpcyBwYXRjaCA/DQoNClRoYW5rcw0KQ2hyaXN0b3BoZQ0KDQo+IC0tLQ0KPiBUaGlzIGFw
-cGxpZXMgb24gdG9wIG9mIHNlcmllcyB2MyAiRml4IExLRFRNIGZvciBQUEM2NC9JQTY0L1BBUklT
-QyINCj4gDQo+ICAgZHJpdmVycy9taXNjL2xrZHRtL01ha2VmaWxlIHwgMTEgLS0tLS0tLS0tLS0N
-Cj4gICBkcml2ZXJzL21pc2MvbGtkdG0vbGtkdG0uaCAgfCAgMyAtLS0NCj4gICBkcml2ZXJzL21p
-c2MvbGtkdG0vcGVybXMuYyAgfCAgOSArKysrKysrLS0NCj4gICBkcml2ZXJzL21pc2MvbGtkdG0v
-cm9kYXRhLmMgfCAxMSAtLS0tLS0tLS0tLQ0KPiAgIDQgZmlsZXMgY2hhbmdlZCwgNyBpbnNlcnRp
-b25zKCspLCAyNyBkZWxldGlvbnMoLSkNCj4gICBkZWxldGUgbW9kZSAxMDA2NDQgZHJpdmVycy9t
-aXNjL2xrZHRtL3JvZGF0YS5jDQo+IA0KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9taXNjL2xrZHRt
-L01ha2VmaWxlIGIvZHJpdmVycy9taXNjL2xrZHRtL01ha2VmaWxlDQo+IGluZGV4IGUyOTg0Y2U1
-MWZlNC4uM2Q0NWEyYjMwMDdkIDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL21pc2MvbGtkdG0vTWFr
-ZWZpbGUNCj4gKysrIGIvZHJpdmVycy9taXNjL2xrZHRtL01ha2VmaWxlDQo+IEBAIC02LDIxICs2
-LDEwIEBAIGxrZHRtLSQoQ09ORklHX0xLRFRNKQkJKz0gYnVncy5vDQo+ICAgbGtkdG0tJChDT05G
-SUdfTEtEVE0pCQkrPSBoZWFwLm8NCj4gICBsa2R0bS0kKENPTkZJR19MS0RUTSkJCSs9IHBlcm1z
-Lm8NCj4gICBsa2R0bS0kKENPTkZJR19MS0RUTSkJCSs9IHJlZmNvdW50Lm8NCj4gLWxrZHRtLSQo
-Q09ORklHX0xLRFRNKQkJKz0gcm9kYXRhX29iamNvcHkubw0KPiAgIGxrZHRtLSQoQ09ORklHX0xL
-RFRNKQkJKz0gdXNlcmNvcHkubw0KPiAgIGxrZHRtLSQoQ09ORklHX0xLRFRNKQkJKz0gc3RhY2ts
-ZWFrLm8NCj4gICBsa2R0bS0kKENPTkZJR19MS0RUTSkJCSs9IGNmaS5vDQo+ICAgbGtkdG0tJChD
-T05GSUdfTEtEVE0pCQkrPSBmb3J0aWZ5Lm8NCj4gICBsa2R0bS0kKENPTkZJR19QUENfQk9PSzNT
-XzY0KQkrPSBwb3dlcnBjLm8NCj4gICANCj4gLUtBU0FOX1NBTklUSVpFX3JvZGF0YS5vCQk6PSBu
-DQo+ICAgS0FTQU5fU0FOSVRJWkVfc3RhY2tsZWFrLm8JOj0gbg0KPiAtS0NPVl9JTlNUUlVNRU5U
-X3JvZGF0YS5vCTo9IG4NCj4gLUNGTEFHU19SRU1PVkVfcm9kYXRhLm8JCSs9ICQoQ0NfRkxBR1Nf
-TFRPKQ0KPiAtDQo+IC1PQkpDT1BZRkxBR1MgOj0NCj4gLU9CSkNPUFlGTEFHU19yb2RhdGFfb2Jq
-Y29weS5vCTo9IFwNCj4gLQkJCS0tcmVuYW1lLXNlY3Rpb24gLm5vaW5zdHIudGV4dD0ucm9kYXRh
-LGFsbG9jLHJlYWRvbmx5LGxvYWQsY29udGVudHMNCj4gLXRhcmdldHMgKz0gcm9kYXRhLm8gcm9k
-YXRhX29iamNvcHkubw0KPiAtJChvYmopL3JvZGF0YV9vYmpjb3B5Lm86ICQob2JqKS9yb2RhdGEu
-byBGT1JDRQ0KPiAtCSQoY2FsbCBpZl9jaGFuZ2VkLG9iamNvcHkpDQo+IGRpZmYgLS1naXQgYS9k
-cml2ZXJzL21pc2MvbGtkdG0vbGtkdG0uaCBiL2RyaXZlcnMvbWlzYy9sa2R0bS9sa2R0bS5oDQo+
-IGluZGV4IDE4OGJkMGZkNjU3NS4uOTA1NTU1ZDRjMmNmIDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJz
-L21pc2MvbGtkdG0vbGtkdG0uaA0KPiArKysgYi9kcml2ZXJzL21pc2MvbGtkdG0vbGtkdG0uaA0K
-PiBAQCAtMTM3LDkgKzEzNyw2IEBAIHZvaWQgbGtkdG1fUkVGQ09VTlRfU1VCX0FORF9URVNUX1NB
-VFVSQVRFRCh2b2lkKTsNCj4gICB2b2lkIGxrZHRtX1JFRkNPVU5UX1RJTUlORyh2b2lkKTsNCj4g
-ICB2b2lkIGxrZHRtX0FUT01JQ19USU1JTkcodm9pZCk7DQo+ICAgDQo+IC0vKiByb2RhdGEuYyAq
-Lw0KPiAtdm9pZCBsa2R0bV9yb2RhdGFfZG9fbm90aGluZyh2b2lkKTsNCj4gLQ0KPiAgIC8qIHVz
-ZXJjb3B5LmMgKi8NCj4gICB2b2lkIF9faW5pdCBsa2R0bV91c2VyY29weV9pbml0KHZvaWQpOw0K
-PiAgIHZvaWQgX19leGl0IGxrZHRtX3VzZXJjb3B5X2V4aXQodm9pZCk7DQo+IGRpZmYgLS1naXQg
-YS9kcml2ZXJzL21pc2MvbGtkdG0vcGVybXMuYyBiL2RyaXZlcnMvbWlzYy9sa2R0bS9wZXJtcy5j
-DQo+IGluZGV4IDJjNmFiYTNmZjMyYi4uOWI5NTFjYTQ4MzYzIDEwMDY0NA0KPiAtLS0gYS9kcml2
-ZXJzL21pc2MvbGtkdG0vcGVybXMuYw0KPiArKysgYi9kcml2ZXJzL21pc2MvbGtkdG0vcGVybXMu
-Yw0KPiBAQCAtMjcsNiArMjcsNyBAQCBzdGF0aWMgY29uc3QgdW5zaWduZWQgbG9uZyByb2RhdGEg
-PSAweEFBNTVBQTU1Ow0KPiAgIA0KPiAgIC8qIFRoaXMgaXMgbWFya2VkIF9fcm9fYWZ0ZXJfaW5p
-dCwgc28gaXQgc2hvdWxkIHVsdGltYXRlbHkgYmUgLnJvZGF0YS4gKi8NCj4gICBzdGF0aWMgdW5z
-aWduZWQgbG9uZyByb19hZnRlcl9pbml0IF9fcm9fYWZ0ZXJfaW5pdCA9IDB4NTVBQTU1MDA7DQo+
-ICtzdGF0aWMgdTggcm9kYXRhX2FyZWFbRVhFQ19TSVpFXSBfX3JvX2FmdGVyX2luaXQ7DQo+ICAg
-DQo+ICAgLyoNCj4gICAgKiBUaGlzIGp1c3QgcmV0dXJucyB0byB0aGUgY2FsbGVyLiBJdCBpcyBk
-ZXNpZ25lZCB0byBiZSBjb3BpZWQgaW50bw0KPiBAQCAtMTkzLDggKzE5NCw3IEBAIHZvaWQgbGtk
-dG1fRVhFQ19WTUFMTE9DKHZvaWQpDQo+ICAgDQo+ICAgdm9pZCBsa2R0bV9FWEVDX1JPREFUQSh2
-b2lkKQ0KPiAgIHsNCj4gLQlleGVjdXRlX2xvY2F0aW9uKGRlcmVmZXJlbmNlX2Z1bmN0aW9uX2Rl
-c2NyaXB0b3IobGtkdG1fcm9kYXRhX2RvX25vdGhpbmcpLA0KPiAtCQkJIENPREVfQVNfSVMpOw0K
-PiArCWV4ZWN1dGVfbG9jYXRpb24ocm9kYXRhX2FyZWEsIENPREVfQVNfSVMpOw0KPiAgIH0NCj4g
-ICANCj4gICB2b2lkIGxrZHRtX0VYRUNfVVNFUlNQQUNFKHZvaWQpDQo+IEBAIC0yNjksNCArMjY5
-LDkgQEAgdm9pZCBfX2luaXQgbGtkdG1fcGVybXNfaW5pdCh2b2lkKQ0KPiAgIHsNCj4gICAJLyog
-TWFrZSBzdXJlIHdlIGNhbiB3cml0ZSB0byBfX3JvX2FmdGVyX2luaXQgdmFsdWVzIGR1cmluZyBf
-X2luaXQgKi8NCj4gICAJcm9fYWZ0ZXJfaW5pdCB8PSAweEFBOw0KPiArDQo+ICsJbWVtY3B5KHJv
-ZGF0YV9hcmVhLCBkZXJlZmVyZW5jZV9mdW5jdGlvbl9kZXNjcmlwdG9yKGRvX25vdGhpbmcpLA0K
-PiArCSAgICAgICBFWEVDX1NJWkUpOw0KPiArCWZsdXNoX2ljYWNoZV9yYW5nZSgodW5zaWduZWQg
-bG9uZylyb2RhdGFfYXJlYSwNCj4gKwkJCSAgICh1bnNpZ25lZCBsb25nKXJvZGF0YV9hcmVhICsg
-RVhFQ19TSVpFKTsNCj4gICB9DQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL21pc2MvbGtkdG0vcm9k
-YXRhLmMgYi9kcml2ZXJzL21pc2MvbGtkdG0vcm9kYXRhLmMNCj4gZGVsZXRlZCBmaWxlIG1vZGUg
-MTAwNjQ0DQo+IGluZGV4IGJhYWNiODc2ZDFkOS4uMDAwMDAwMDAwMDAwDQo+IC0tLSBhL2RyaXZl
-cnMvbWlzYy9sa2R0bS9yb2RhdGEuYw0KPiArKysgL2Rldi9udWxsDQo+IEBAIC0xLDExICswLDAg
-QEANCj4gLS8vIFNQRFgtTGljZW5zZS1JZGVudGlmaWVyOiBHUEwtMi4wDQo+IC0vKg0KPiAtICog
-VGhpcyBpbmNsdWRlcyBmdW5jdGlvbnMgdGhhdCBhcmUgbWVhbnQgdG8gbGl2ZSBlbnRpcmVseSBp
-biAucm9kYXRhDQo+IC0gKiAodmlhIG9iamNvcHkgdHJpY2tzKSwgdG8gdmFsaWRhdGUgdGhlIG5v
-bi1leGVjdXRhYmlsaXR5IG9mIC5yb2RhdGEuDQo+IC0gKi8NCj4gLSNpbmNsdWRlICJsa2R0bS5o
-Ig0KPiAtDQo+IC12b2lkIG5vaW5zdHIgbGtkdG1fcm9kYXRhX2RvX25vdGhpbmcodm9pZCkNCj4g
-LXsNCj4gLQkvKiBEb2VzIG5vdGhpbmcuIFdlIGp1c3Qgd2FudCBhbiBhcmNoaXRlY3R1cmUgYWdu
-b3N0aWMgInJldHVybiIuICovDQo+IC19
+Remove arch specific termbits.h as there are only trivial space
+differences between include/uapi/asm-generic/termbits.h and
+arch/ia64/include/uapi/asm/termbits.h:
+
+$ diff -u0 -b -B include/uapi/asm-generic/termbits.h arch/ia64/include/uapi=
+/asm/termbits.h
+. --- include/uapi/asm-generic/termbits.h         2022-01-10 13:44:42.81410=
+7461 +0200
+. +++ arch/ia64/include/uapi/asm/termbits.h       2022-01-10 13:44:42.67810=
+6874 +0200
+. @@ -2,2 +2,11 @@
+. -#ifndef __ASM_GENERIC_TERMBITS_H
+. -#define __ASM_GENERIC_TERMBITS_H
+. +#ifndef _ASM_IA64_TERMBITS_H
+. +#define _ASM_IA64_TERMBITS_H
+. +
+. +/*
+. + * Based on <asm-i386/termbits.h>.
+. + *
+. + * Modified 1999
+. + *     David Mosberger-Tang <davidm@hpl.hp.com>, Hewlett-Packard Co
+. + *
+. + * 99/01/28    Added new baudrates
+. + */
+. @@ -200 +209 @@
+. -#endif /* __ASM_GENERIC_TERMBITS_H */
+. +#endif /* _ASM_IA64_TERMBITS_H */
+
+Signed-off-by: Ilpo J=C3=A4rvinen <ilpo.jarvinen@linux.intel.com>
+Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+---
+ arch/ia64/include/uapi/asm/termbits.h | 209 --------------------------
+ 1 file changed, 209 deletions(-)
+ delete mode 100644 arch/ia64/include/uapi/asm/termbits.h
+
+diff --git a/arch/ia64/include/uapi/asm/termbits.h b/arch/ia64/include/uapi=
+/asm/termbits.h
+deleted file mode 100644
+index 000a1a297c75..000000000000
+--- a/arch/ia64/include/uapi/asm/termbits.h
++++ /dev/null
+@@ -1,209 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+-#ifndef _ASM_IA64_TERMBITS_H
+-#define _ASM_IA64_TERMBITS_H
+-
+-/*
+- * Based on <asm-i386/termbits.h>.
+- *
+- * Modified 1999
+- *	David Mosberger-Tang <davidm@hpl.hp.com>, Hewlett-Packard Co
+- *
+- * 99/01/28	Added new baudrates
+- */
+-
+-#include <linux/posix_types.h>
+-
+-typedef unsigned char	cc_t;
+-typedef unsigned int	speed_t;
+-typedef unsigned int	tcflag_t;
+-
+-#define NCCS 19
+-struct termios {
+-	tcflag_t c_iflag;		/* input mode flags */
+-	tcflag_t c_oflag;		/* output mode flags */
+-	tcflag_t c_cflag;		/* control mode flags */
+-	tcflag_t c_lflag;		/* local mode flags */
+-	cc_t c_line;			/* line discipline */
+-	cc_t c_cc[NCCS];		/* control characters */
+-};
+-
+-struct termios2 {
+-	tcflag_t c_iflag;		/* input mode flags */
+-	tcflag_t c_oflag;		/* output mode flags */
+-	tcflag_t c_cflag;		/* control mode flags */
+-	tcflag_t c_lflag;		/* local mode flags */
+-	cc_t c_line;			/* line discipline */
+-	cc_t c_cc[NCCS];		/* control characters */
+-	speed_t c_ispeed;		/* input speed */
+-	speed_t c_ospeed;		/* output speed */
+-};
+-
+-struct ktermios {
+-	tcflag_t c_iflag;		/* input mode flags */
+-	tcflag_t c_oflag;		/* output mode flags */
+-	tcflag_t c_cflag;		/* control mode flags */
+-	tcflag_t c_lflag;		/* local mode flags */
+-	cc_t c_line;			/* line discipline */
+-	cc_t c_cc[NCCS];		/* control characters */
+-	speed_t c_ispeed;		/* input speed */
+-	speed_t c_ospeed;		/* output speed */
+-};
+-
+-/* c_cc characters */
+-#define VINTR 0
+-#define VQUIT 1
+-#define VERASE 2
+-#define VKILL 3
+-#define VEOF 4
+-#define VTIME 5
+-#define VMIN 6
+-#define VSWTC 7
+-#define VSTART 8
+-#define VSTOP 9
+-#define VSUSP 10
+-#define VEOL 11
+-#define VREPRINT 12
+-#define VDISCARD 13
+-#define VWERASE 14
+-#define VLNEXT 15
+-#define VEOL2 16
+-
+-/* c_iflag bits */
+-#define IGNBRK	0000001
+-#define BRKINT	0000002
+-#define IGNPAR	0000004
+-#define PARMRK	0000010
+-#define INPCK	0000020
+-#define ISTRIP	0000040
+-#define INLCR	0000100
+-#define IGNCR	0000200
+-#define ICRNL	0000400
+-#define IUCLC	0001000
+-#define IXON	0002000
+-#define IXANY	0004000
+-#define IXOFF	0010000
+-#define IMAXBEL	0020000
+-#define IUTF8	0040000
+-
+-/* c_oflag bits */
+-#define OPOST	0000001
+-#define OLCUC	0000002
+-#define ONLCR	0000004
+-#define OCRNL	0000010
+-#define ONOCR	0000020
+-#define ONLRET	0000040
+-#define OFILL	0000100
+-#define OFDEL	0000200
+-#define NLDLY	0000400
+-#define   NL0	0000000
+-#define   NL1	0000400
+-#define CRDLY	0003000
+-#define   CR0	0000000
+-#define   CR1	0001000
+-#define   CR2	0002000
+-#define   CR3	0003000
+-#define TABDLY	0014000
+-#define   TAB0	0000000
+-#define   TAB1	0004000
+-#define   TAB2	0010000
+-#define   TAB3	0014000
+-#define   XTABS	0014000
+-#define BSDLY	0020000
+-#define   BS0	0000000
+-#define   BS1	0020000
+-#define VTDLY	0040000
+-#define   VT0	0000000
+-#define   VT1	0040000
+-#define FFDLY	0100000
+-#define   FF0	0000000
+-#define   FF1	0100000
+-
+-/* c_cflag bit meaning */
+-#define CBAUD	0010017
+-#define  B0	0000000		/* hang up */
+-#define  B50	0000001
+-#define  B75	0000002
+-#define  B110	0000003
+-#define  B134	0000004
+-#define  B150	0000005
+-#define  B200	0000006
+-#define  B300	0000007
+-#define  B600	0000010
+-#define  B1200	0000011
+-#define  B1800	0000012
+-#define  B2400	0000013
+-#define  B4800	0000014
+-#define  B9600	0000015
+-#define  B19200	0000016
+-#define  B38400	0000017
+-#define EXTA B19200
+-#define EXTB B38400
+-#define CSIZE	0000060
+-#define   CS5	0000000
+-#define   CS6	0000020
+-#define   CS7	0000040
+-#define   CS8	0000060
+-#define CSTOPB	0000100
+-#define CREAD	0000200
+-#define PARENB	0000400
+-#define PARODD	0001000
+-#define HUPCL	0002000
+-#define CLOCAL	0004000
+-#define CBAUDEX 0010000
+-#define    BOTHER 0010000
+-#define    B57600 0010001
+-#define   B115200 0010002
+-#define   B230400 0010003
+-#define   B460800 0010004
+-#define   B500000 0010005
+-#define   B576000 0010006
+-#define   B921600 0010007
+-#define  B1000000 0010010
+-#define  B1152000 0010011
+-#define  B1500000 0010012
+-#define  B2000000 0010013
+-#define  B2500000 0010014
+-#define  B3000000 0010015
+-#define  B3500000 0010016
+-#define  B4000000 0010017
+-#define CIBAUD	  002003600000		/* input baud rate */
+-#define CMSPAR	  010000000000		/* mark or space (stick) parity */
+-#define CRTSCTS	  020000000000		/* flow control */
+-
+-#define IBSHIFT	16		/* Shift from CBAUD to CIBAUD */
+-
+-/* c_lflag bits */
+-#define ISIG	0000001
+-#define ICANON	0000002
+-#define XCASE	0000004
+-#define ECHO	0000010
+-#define ECHOE	0000020
+-#define ECHOK	0000040
+-#define ECHONL	0000100
+-#define NOFLSH	0000200
+-#define TOSTOP	0000400
+-#define ECHOCTL	0001000
+-#define ECHOPRT	0002000
+-#define ECHOKE	0004000
+-#define FLUSHO	0010000
+-#define PENDIN	0040000
+-#define IEXTEN	0100000
+-#define EXTPROC	0200000
+-
+-/* tcflow() and TCXONC use these */
+-#define	TCOOFF		0
+-#define	TCOON		1
+-#define	TCIOFF		2
+-#define	TCION		3
+-
+-/* tcflush() and TCFLSH use these */
+-#define	TCIFLUSH	0
+-#define	TCOFLUSH	1
+-#define	TCIOFLUSH	2
+-
+-/* tcsetattr uses these */
+-#define	TCSANOW		0
+-#define	TCSADRAIN	1
+-#define	TCSAFLUSH	2
+-
+-#endif /* _ASM_IA64_TERMBITS_H */
+--=20
+2.30.2
