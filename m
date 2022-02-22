@@ -1,76 +1,36 @@
-From: Al Viro <viro@zeniv.linux.org.uk>
-Date: Tue, 15 Feb 2022 02:47:05 +0000
-Subject: Re: [PATCH 04/14] x86: use more conventional access_ok() definition
-Message-Id: <YgsUKcXGR7r4nINj@zeniv-ca.linux.org.uk>
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 22 Feb 2022 15:35:04 +0000
+Subject: [PATCH 01/11] dma-direct: use is_swiotlb_active in dma_direct_map_page
+Message-Id: <20220222153514.593231-2-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220214163452.1568807-1-arnd@kernel.org>
- <20220214163452.1568807-5-arnd@kernel.org>
- <YgqLFYqIqkIsNC92@infradead.org>
- <CAK8P3a1F3JaYaJPy9bSCG1+YV6EN05PE0DbwpD_GT1qRwFSJ-w@mail.gmail.com>
- <CAHk-=whq6_Nh3cB3FieP481VcRyCu69X3=wO1yLHGmcZEj69SA@mail.gmail.com>
- <Ygq4wy9fikDYmuHU@zeniv-ca.linux.org.uk>
-In-Reply-To: <Ygq4wy9fikDYmuHU@zeniv-ca.linux.org.uk>
+References: <20220222153514.593231-1-hch@lst.de>
+In-Reply-To: <20220222153514.593231-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: Arnd Bergmann <arnd@kernel.org>, Christoph Hellwig <hch@infradead.org>, Christoph Hellwig <hch@lst.de>, linux-arch <linux-arch@vger.kernel.org>, Linux-MM <linux-mm@kvack.org>, Linux API <linux-api@vger.kernel.org>, Arnd Bergmann <arnd@arndb.de>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Mark Rutland <mark.rutland@arm.com>, Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Linux-sh list <linux-sh@vger.kernel.org>, Peter Zijlstra <peterz@infradead.org>, Max Filippov <jcmvbkbc@gmail.com>, Guo Ren <guoren@kernel.org>, sparclinux <sparclinux@vger.kernel.org>, "open list:QUALCOMM HEXAGON..." <linux-hexagon@vger.kernel.org>, linux-riscv <linux-riscv@lists.infradead.org>, Will Deacon <will@kernel.org>, Ard Biesheuvel <ardb@kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, Brian Cain <bcain@codeaurora.org>, Helge Deller <deller@gmx.de>, the arch/x86 maintainers <x86@kernel.org>, Russell King - ARM Linux <linux@armlinux.org.uk>, linux-csky@vger.kernel.org, Ingo Molnar <mingo@redhat.com>, Geert Uytterhoeven <geert@linux-m68k.org>, "open list:SYNOPSYS ARC ARCHITECTURE" <linux-snps-arc@lists.infradead.org>, "open list:TENSILICA XTENSA PORT (xtensa)" <linux-xtensa@linux-xtensa.org>, Heiko Carstens <hca@linux.ibm.com>, alpha <linux-alpha@vger.kernel.org>, linux-um <linux-um@lists.infradead.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, Openrisc <openrisc@lists.librecores.org>, Greentime Hu <green.hu@gmail.com>, Stafford Horne <shorne@gmail.com>, Linux ARM <linux-arm-kernel@lists.infradead.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Parisc List <linux-parisc@vger.kernel.org>, Nick Hu <nickhu@andestech.com>, "open list:BROADCOM NVRAM DRIVER" <linux-mips@vger.kernel.org>, Dinh Nguyen <dinguyen@kernel.org>, "Eric W . Biederman" <ebiederm@xmission.com>, Richard Weinberger <richard@nod.at>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, David Miller <davem@davemloft.net>
+To: iommu@lists.linux-foundation.org
+Cc: Juergen Gross <jgross@suse.com>, linux-s390@vger.kernel.org, linux-hyperv@vger.kernel.org, Stefano Stabellini <sstabellini@kernel.org>, linux-ia64@vger.kernel.org, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, tboot-devel@lists.sourceforge.net, linux-pci@vger.kernel.org, xen-devel@lists.xenproject.org, Boris Ostrovsky <boris.ostrovsky@oracle.com>, David Woodhouse <dwmw2@infradead.org>, linux-riscv@lists.infradead.org, linux-arm-kernel@lists.infradead.org
 
-On Mon, Feb 14, 2022 at 08:17:07PM +0000, Al Viro wrote:
-> On Mon, Feb 14, 2022 at 12:01:05PM -0800, Linus Torvalds wrote:
-> > On Mon, Feb 14, 2022 at 11:46 AM Arnd Bergmann <arnd@kernel.org> wrote:
-> > >
-> > > As Al pointed out, they turned out to be necessary on sparc64, but the only
-> > > definitions are on sparc64 and x86, so it's possible that they serve a similar
-> > > purpose here, in which case changing the limit from TASK_SIZE to
-> > > TASK_SIZE_MAX is probably wrong as well.
-> > 
-> > x86-64 has always(*) used TASK_SIZE_MAX for access_ok(), and the
-> > get_user() assembler implementation does the same.
-> > 
-> > I think any __range_not_ok() users that use TASK_SIZE are entirely
-> > historical, and should be just fixed.
-> 
-> IIRC, that was mostly userland stack trace collection in perf.
-> I'll try to dig in archives and see what shows up - it's been
-> a while ago...
+Use the more specific is_swiotlb_active check instead of checking the
+global swiotlb_force variable.
 
-After some digging:
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ kernel/dma/direct.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-	access_ok() needs only to make sure that MMU won't go anywhere near
-the kernel page tables; address limit for 32bit threads is none of its
-concern, so TASK_SIZE_MAX is right for it.
-
-	valid_user_frame() in arch/x86/events/core.c: used while walking
-the userland call chain.  The reason it's not access_ok() is only that
-perf_callchain_user() might've been called from interrupt that came while
-we'd been under KERNEL_DS.
-	That had been back in 2015 and it had been obsoleted since 2017, commit
-88b0193d9418 (perf/callchain: Force USER_DS when invoking perf_callchain_user()).
-We had been guaranteed USER_DS ever since.
-	IOW, it could've reverted to use of access_ok() at any point after that.
-TASK_SIZE vs TASK_SIZE_MAX is pretty much an accident there - might've been
-TASK_SIZE_MAX from the very beginning.
-
-	copy_stack_frame() in arch/x86/kernel/stacktrace.c: similar story,
-except the commit that made sure callers will have USER_DS - cac9b9a4b083
-(stacktrace: Force USER_DS for stack_trace_save_user()) in this case.
-Also could've been using access_ok() just fine.  Amusingly, access_ok()
-used to be there, until it had been replaced with explicit check on
-Jul 22 2019 - 4 days after that had been made useless by fix in the caller...
-
-	copy_from_user_nmi().  That one is a bit more interesting.
-We have a call chain from perf_output_sample_ustack() (covered by
-force_uaccess_begin() these days, not that it mattered for x86 now),
-there's something odd in dumpstack.c:copy_code() (with explicit check
-for TASK_SIZE_MAX in the caller) and there's a couple of callers in
-Intel PMU code.
-	AFAICS, there's no reason whatsoever to use TASK_SIZE
-in that one - the point is to prevent copyin from the kernel
-memory, and in that respect TASK_SIZE_MAX isn't any worse.
-The check in copy_code() probably should go.
-
-	So all of those guys should be simply switched to access_ok().
-Might be worth making that a preliminary patch - it's independent
-from everything else and there's no point folding it into any of the
-patches in the series.
+diff --git a/kernel/dma/direct.h b/kernel/dma/direct.h
+index 4632b0f4f72eb..4dc16e08c7e1a 100644
+--- a/kernel/dma/direct.h
++++ b/kernel/dma/direct.h
+@@ -91,7 +91,7 @@ static inline dma_addr_t dma_direct_map_page(struct device *dev,
+ 		return swiotlb_map(dev, phys, size, dir, attrs);
+ 
+ 	if (unlikely(!dma_capable(dev, dma_addr, size, true))) {
+-		if (swiotlb_force != SWIOTLB_NO_FORCE)
++		if (is_swiotlb_active(dev))
+ 			return swiotlb_map(dev, phys, size, dir, attrs);
+ 
+ 		dev_WARN_ONCE(dev, 1,
+-- 
+2.30.2
