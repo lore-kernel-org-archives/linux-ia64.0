@@ -1,17 +1,26 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Mon, 14 Feb 2022 16:58:58 +0000
-Subject: Re: [PATCH 01/14] uaccess: fix integer overflow on access_ok()
-Message-Id: <YgqKUscD4Xx62bVt@infradead.org>
+From: =?UTF-8?q?Ilpo=20J=C3=A4rvinen?= <ilpo.jarvinen@linux.intel.com>
+Date: Tue, 22 Feb 2022 11:56:02 +0000
+Subject: [PATCH 0/2] termbits.h cleanup
+Message-Id: <20220222115604.7351-1-ilpo.jarvinen@linux.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220214163452.1568807-1-arnd@kernel.org>
- <20220214163452.1568807-2-arnd@kernel.org>
-In-Reply-To: <20220214163452.1568807-2-arnd@kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@kernel.org>
-Cc: Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hellwig <hch@lst.de>, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-api@vger.kernel.org, arnd@arndb.de, linux-kernel@vger.kernel.org, mark.rutland@arm.com, dalias@libc.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, peterz@infradead.org, jcmvbkbc@gmail.com, guoren@kernel.org, sparclinux@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-riscv@lists.infradead.org, will@kernel.org, ardb@kernel.org, linux-s390@vger.kernel.org, bcain@codeaurora.org, deller@gmx.de, x86@kernel.org, linux@armlinux.org.uk, linux-csky@vger.kernel.org, mingo@redhat.com, geert@linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-xtensa@linux-xtensa.org, hca@linux.ibm.com, linux-alpha@vger.kernel.org, linux-um@lists.infradead.org, linux-m68k@lists.linux-m68k.org, openrisc@lists.librecores.org, green.hu@gmail.com, shorne@gmail.com, linux-arm-kernel@lists.infradead.org, monstr@monstr.eu, tsbogend@alpha.franken.de, linux-parisc@vger.kernel.org, nickhu@andestech.com, linux-mips@vger.kernel.org, stable@vger.kernel.org, dinguyen@kernel.org, David Laight <David.Laight@aculab.com>, ebiederm@xmission.com, richard@nod.at, akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org, davem@davemloft.net
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Jiri Slaby <jirislaby@kernel.org>, linux-serial@vger.kernel.org, linux-ia64@vger.kernel.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org
 
-Looks good,
+Two simple cleanup patches to termbits.h. I prefer these to go
+in through tty-next as I've some other work based on them that
+I'll submit later.
 
-Reviewed-by: Christoph Hellwig <hch@lst.de>
+Ilpo J=C3=A4rvinen (2):
+  ia64: termbits.h is identical to asm-generic one
+  xtensa: termbits.h is identical to asm-generic one
+
+ arch/ia64/include/uapi/asm/termbits.h   | 209 ----------------------
+ arch/xtensa/include/uapi/asm/termbits.h | 221 ------------------------
+ 2 files changed, 430 deletions(-)
+ delete mode 100644 arch/ia64/include/uapi/asm/termbits.h
+ delete mode 100644 arch/xtensa/include/uapi/asm/termbits.h
+
+--=20
+2.30.2
