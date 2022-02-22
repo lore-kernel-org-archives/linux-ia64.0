@@ -1,115 +1,114 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Mon, 28 Feb 2022 20:46:09 +0000
-Subject: Re: [PATCH] binfmt_elf: Avoid total_mapping_size for ET_EXEC
-Message-Id: <202202281245.DF46393@keescook>
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 22 Feb 2022 15:35:06 +0000
+Subject: [PATCH 03/11] swiotlb: simplify swiotlb_max_segment
+Message-Id: <20220222153514.593231-4-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220228194613.1149432-1-keescook@chromium.org>
- <5d44f028b2d739395c92e4b3036e2bbf@matoro.tk>
-In-Reply-To: <5d44f028b2d739395c92e4b3036e2bbf@matoro.tk>
+References: <20220222153514.593231-1-hch@lst.de>
+In-Reply-To: <20220222153514.593231-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: matoro <matoro_mailinglist_kernel@matoro.tk>
-Cc: Alexander Viro <viro@zeniv.linux.org.uk>, Eric Biederman <ebiederm@xmission.com>, linux-fsdevel@vger.kernel.org, linux-mm@kvack.org, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, stable@vger.kernel.org, Thorsten Leemhuis <regressions@leemhuis.info>, Anthony Yznaga <anthony.yznaga@oracle.com>, Andrew Morton <akpm@linux-foundation.org>, regressions@lists.linux.dev, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-hardening@vger.kernel.org
+To: iommu@lists.linux-foundation.org
+Cc: Juergen Gross <jgross@suse.com>, linux-s390@vger.kernel.org, linux-hyperv@vger.kernel.org, Stefano Stabellini <sstabellini@kernel.org>, linux-ia64@vger.kernel.org, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, tboot-devel@lists.sourceforge.net, linux-pci@vger.kernel.org, xen-devel@lists.xenproject.org, Boris Ostrovsky <boris.ostrovsky@oracle.com>, David Woodhouse <dwmw2@infradead.org>, linux-riscv@lists.infradead.org, linux-arm-kernel@lists.infradead.org
 
-On Mon, Feb 28, 2022 at 03:31:00PM -0500, matoro wrote:
-> On 2022-02-28 14:46, Kees Cook wrote:
-> > Partially revert commit 5f501d555653 ("binfmt_elf: reintroduce using
-> > MAP_FIXED_NOREPLACE").
-> > 
-> > At least ia64 has ET_EXEC PT_LOAD segments that are not virtual-address
-> > contiguous (but _are_ file-offset contiguous). This would result in
-> > giant mapping attempts to cover the entire span, including the virtual
-> > address range hole. Disable total_mapping_size for ET_EXEC, which
-> > reduces the MAP_FIXED_NOREPLACE coverage to only the first PT_LOAD:
-> > 
-> > $ readelf -lW /usr/bin/gcc
-> > ...
-> > Program Headers:
-> >   Type Offset   VirtAddr           PhysAddr           FileSiz  MemSiz
-> > ...
-> > ...
-> >   LOAD 0x000000 0x4000000000000000 0x4000000000000000 0x00b5a0 0x00b5a0
-> > ...
-> >   LOAD 0x00b5a0 0x600000000000b5a0 0x600000000000b5a0 0x0005ac 0x000710
-> > ...
-> > ...
-> >        ^^^^^^^^ ^^^^^^^^^^^^^^^^^^                    ^^^^^^^^ ^^^^^^^^
-> > 
-> > File offset range     : 0x000000-0x00bb4c
-> > 			0x00bb4c bytes
-> > 
-> > Virtual address range : 0x4000000000000000-0x600000000000bcb0
-> > 			0x200000000000bcb0 bytes
-> > 
-> > Ironically, this is the reverse of the problem that originally caused
-> > problems with ET_EXEC and MAP_FIXED_NOREPLACE: overlaps. This problem is
-> > with holes. Future work could restore full coverage if load_elf_binary()
-> > were to perform mappings in a separate phase from the loading (where
-> > it could resolve both overlaps and holes).
-> > 
-> > Cc: Alexander Viro <viro@zeniv.linux.org.uk>
-> > Cc: Eric Biederman <ebiederm@xmission.com>
-> > Cc: linux-fsdevel@vger.kernel.org
-> > Cc: linux-mm@kvack.org
-> > Reported-by: matoro <matoro_mailinglist_kernel@matoro.tk>
-> > Reported-by: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-> > Fixes: 5f501d555653 ("binfmt_elf: reintroduce using
-> > MAP_FIXED_NOREPLACE")
-> > Link:
-> > https://lore.kernel.org/r/a3edd529-c42d-3b09-135c-7e98a15b150f@leemhuis.info
-> > Cc: stable@vger.kernel.org
-> > Signed-off-by: Kees Cook <keescook@chromium.org>
-> > ---
-> > matoro (or anyone else) can you please test this?
-> > ---
-> >  fs/binfmt_elf.c | 25 ++++++++++++++++++-------
-> >  1 file changed, 18 insertions(+), 7 deletions(-)
-> > 
-> > diff --git a/fs/binfmt_elf.c b/fs/binfmt_elf.c
-> > index 9bea703ed1c2..474b44032c65 100644
-> > --- a/fs/binfmt_elf.c
-> > +++ b/fs/binfmt_elf.c
-> > @@ -1136,14 +1136,25 @@ static int load_elf_binary(struct linux_binprm
-> > *bprm)
-> >  			 * is then page aligned.
-> >  			 */
-> >  			load_bias = ELF_PAGESTART(load_bias - vaddr);
-> > -		}
-> > 
-> > -		/*
-> > -		 * Calculate the entire size of the ELF mapping (total_size).
-> > -		 * (Note that first_pt_load is set to false later once the
-> > -		 * initial mapping is performed.)
-> > -		 */
-> > -		if (first_pt_load) {
-> > +			/*
-> > +			 * Calculate the entire size of the ELF mapping
-> > +			 * (total_size), used for the initial mapping,
-> > +			 * due to first_pt_load which is set to false later
-> > +			 * once the initial mapping is performed.
-> > +			 *
-> > +			 * Note that this is only sensible when the LOAD
-> > +			 * segments are contiguous (or overlapping). If
-> > +			 * used for LOADs that are far apart, this would
-> > +			 * cause the holes between LOADs to be mapped,
-> > +			 * running the risk of having the mapping fail,
-> > +			 * as it would be larger than the ELF file itself.
-> > +			 *
-> > +			 * As a result, only ET_DYN does this, since
-> > +			 * some ET_EXEC (e.g. ia64) may have virtual
-> > +			 * memory holes between LOADs.
-> > +			 *
-> > +			 */
-> >  			total_size = total_mapping_size(elf_phdata,
-> >  							elf_ex->e_phnum);
-> >  			if (!total_size) {
-> 
-> This does not apply for me, I'm looking around and can't find any reference
-> to the first_pt_load variable you're removing there?  What commit/tag are
-> you applying this on top of?
+Remove the bogus Xen override that was usually larger than the actual
+size and just calculate the value on demand.  Note that
+swiotlb_max_segment still doesn't make sense as an interface and should
+eventually be removed.
 
-Ah, yeah, this is against linux-next. Let me send a backport, one sec...
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ drivers/xen/swiotlb-xen.c |  2 --
+ include/linux/swiotlb.h   |  1 -
+ kernel/dma/swiotlb.c      | 20 +++-----------------
+ 3 files changed, 3 insertions(+), 20 deletions(-)
 
+diff --git a/drivers/xen/swiotlb-xen.c b/drivers/xen/swiotlb-xen.c
+index 47aebd98f52f5..485cd06ed39e7 100644
+--- a/drivers/xen/swiotlb-xen.c
++++ b/drivers/xen/swiotlb-xen.c
+@@ -202,7 +202,6 @@ int xen_swiotlb_init(void)
+ 	rc = swiotlb_late_init_with_tbl(start, nslabs);
+ 	if (rc)
+ 		return rc;
+-	swiotlb_set_max_segment(PAGE_SIZE);
+ 	return 0;
+ error:
+ 	if (nslabs > 1024 && repeat--) {
+@@ -254,7 +253,6 @@ void __init xen_swiotlb_init_early(void)
+ 
+ 	if (swiotlb_init_with_tbl(start, nslabs, true))
+ 		panic("Cannot allocate SWIOTLB buffer");
+-	swiotlb_set_max_segment(PAGE_SIZE);
+ }
+ #endif /* CONFIG_X86 */
+ 
+diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
+index f6c3638255d54..9fb3a568f0c51 100644
+--- a/include/linux/swiotlb.h
++++ b/include/linux/swiotlb.h
+@@ -164,7 +164,6 @@ static inline void swiotlb_adjust_size(unsigned long size)
+ #endif /* CONFIG_SWIOTLB */
+ 
+ extern void swiotlb_print_info(void);
+-extern void swiotlb_set_max_segment(unsigned int);
+ 
+ #ifdef CONFIG_DMA_RESTRICTED_POOL
+ struct page *swiotlb_alloc(struct device *dev, size_t size);
+diff --git a/kernel/dma/swiotlb.c b/kernel/dma/swiotlb.c
+index 36fbf1181d285..519e363097190 100644
+--- a/kernel/dma/swiotlb.c
++++ b/kernel/dma/swiotlb.c
+@@ -75,12 +75,6 @@ struct io_tlb_mem io_tlb_default_mem;
+ 
+ phys_addr_t swiotlb_unencrypted_base;
+ 
+-/*
+- * Max segment that we can provide which (if pages are contingous) will
+- * not be bounced (unless SWIOTLB_FORCE is set).
+- */
+-static unsigned int max_segment;
+-
+ static unsigned long default_nslabs = IO_TLB_DEFAULT_SIZE >> IO_TLB_SHIFT;
+ 
+ static int __init
+@@ -104,18 +98,12 @@ early_param("swiotlb", setup_io_tlb_npages);
+ 
+ unsigned int swiotlb_max_segment(void)
+ {
+-	return io_tlb_default_mem.nslabs ? max_segment : 0;
++	if (!io_tlb_default_mem.nslabs)
++		return 0;
++	return rounddown(io_tlb_default_mem.nslabs << IO_TLB_SHIFT, PAGE_SIZE);
+ }
+ EXPORT_SYMBOL_GPL(swiotlb_max_segment);
+ 
+-void swiotlb_set_max_segment(unsigned int val)
+-{
+-	if (swiotlb_force = SWIOTLB_FORCE)
+-		max_segment = 1;
+-	else
+-		max_segment = rounddown(val, PAGE_SIZE);
+-}
+-
+ unsigned long swiotlb_size_or_default(void)
+ {
+ 	return default_nslabs << IO_TLB_SHIFT;
+@@ -267,7 +255,6 @@ int __init swiotlb_init_with_tbl(char *tlb, unsigned long nslabs, int verbose)
+ 
+ 	if (verbose)
+ 		swiotlb_print_info();
+-	swiotlb_set_max_segment(mem->nslabs << IO_TLB_SHIFT);
+ 	return 0;
+ }
+ 
+@@ -368,7 +355,6 @@ swiotlb_late_init_with_tbl(char *tlb, unsigned long nslabs)
+ 	swiotlb_init_io_tlb_mem(mem, virt_to_phys(tlb), nslabs, true);
+ 
+ 	swiotlb_print_info();
+-	swiotlb_set_max_segment(mem->nslabs << IO_TLB_SHIFT);
+ 	return 0;
+ }
+ 
 -- 
-Kees Cook
+2.30.2
