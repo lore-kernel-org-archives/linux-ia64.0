@@ -1,115 +1,71 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Sun, 27 Feb 2022 14:30:47 +0000
-Subject: [PATCH 03/11] swiotlb: simplify swiotlb_max_segment
-Message-Id: <20220227143055.335596-4-hch@lst.de>
+Date: Tue, 22 Feb 2022 15:35:07 +0000
+Subject: [PATCH 04/11] swiotlb: rename swiotlb_late_init_with_default_size
+Message-Id: <20220222153514.593231-5-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220227143055.335596-1-hch@lst.de>
-In-Reply-To: <20220227143055.335596-1-hch@lst.de>
+References: <20220222153514.593231-1-hch@lst.de>
+In-Reply-To: <20220222153514.593231-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: iommu@lists.linux-foundation.org
-Cc: x86@kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Stefano Stabellini <sstabellini@kernel.org>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Robin Murphy <robin.murphy@arm.com>, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-hyperv@vger.kernel.org, tboot-devel@lists.sourceforge.net, linux-pci@vger.kernel.org
+Cc: Juergen Gross <jgross@suse.com>, linux-s390@vger.kernel.org, linux-hyperv@vger.kernel.org, Stefano Stabellini <sstabellini@kernel.org>, linux-ia64@vger.kernel.org, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, tboot-devel@lists.sourceforge.net, linux-pci@vger.kernel.org, xen-devel@lists.xenproject.org, Boris Ostrovsky <boris.ostrovsky@oracle.com>, David Woodhouse <dwmw2@infradead.org>, linux-riscv@lists.infradead.org, linux-arm-kernel@lists.infradead.org
 
-Remove the bogus Xen override that was usually larger than the actual
-size and just calculate the value on demand.  Note that
-swiotlb_max_segment still doesn't make sense as an interface and should
-eventually be removed.
+swiotlb_late_init_with_default_size is an overly verbose name that
+doesn't even catch what the function is doing, given that the size is
+not just a default but the actual requested size.
+
+Rename it to swiotlb_init_late.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
-Reviewed-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
- drivers/xen/swiotlb-xen.c |  2 --
- include/linux/swiotlb.h   |  1 -
- kernel/dma/swiotlb.c      | 20 +++-----------------
- 3 files changed, 3 insertions(+), 20 deletions(-)
+ arch/x86/pci/sta2x11-fixup.c | 2 +-
+ include/linux/swiotlb.h      | 2 +-
+ kernel/dma/swiotlb.c         | 6 ++----
+ 3 files changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/xen/swiotlb-xen.c b/drivers/xen/swiotlb-xen.c
-index 47aebd98f52f5..485cd06ed39e7 100644
---- a/drivers/xen/swiotlb-xen.c
-+++ b/drivers/xen/swiotlb-xen.c
-@@ -202,7 +202,6 @@ int xen_swiotlb_init(void)
- 	rc = swiotlb_late_init_with_tbl(start, nslabs);
- 	if (rc)
- 		return rc;
--	swiotlb_set_max_segment(PAGE_SIZE);
- 	return 0;
- error:
- 	if (nslabs > 1024 && repeat--) {
-@@ -254,7 +253,6 @@ void __init xen_swiotlb_init_early(void)
- 
- 	if (swiotlb_init_with_tbl(start, nslabs, true))
- 		panic("Cannot allocate SWIOTLB buffer");
--	swiotlb_set_max_segment(PAGE_SIZE);
- }
- #endif /* CONFIG_X86 */
- 
+diff --git a/arch/x86/pci/sta2x11-fixup.c b/arch/x86/pci/sta2x11-fixup.c
+index 101081ad64b6d..e0c039a75b2db 100644
+--- a/arch/x86/pci/sta2x11-fixup.c
++++ b/arch/x86/pci/sta2x11-fixup.c
+@@ -57,7 +57,7 @@ static void sta2x11_new_instance(struct pci_dev *pdev)
+ 		int size = STA2X11_SWIOTLB_SIZE;
+ 		/* First instance: register your own swiotlb area */
+ 		dev_info(&pdev->dev, "Using SWIOTLB (size %i)\n", size);
+-		if (swiotlb_late_init_with_default_size(size))
++		if (swiotlb_init_late(size))
+ 			dev_emerg(&pdev->dev, "init swiotlb failed\n");
+ 	}
+ 	list_add(&instance->list, &sta2x11_instance_list);
 diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
-index f6c3638255d54..9fb3a568f0c51 100644
+index 9fb3a568f0c51..b48b26bfa0edb 100644
 --- a/include/linux/swiotlb.h
 +++ b/include/linux/swiotlb.h
-@@ -164,7 +164,6 @@ static inline void swiotlb_adjust_size(unsigned long size)
- #endif /* CONFIG_SWIOTLB */
+@@ -40,7 +40,7 @@ extern void swiotlb_init(int verbose);
+ int swiotlb_init_with_tbl(char *tlb, unsigned long nslabs, int verbose);
+ unsigned long swiotlb_size_or_default(void);
+ extern int swiotlb_late_init_with_tbl(char *tlb, unsigned long nslabs);
+-extern int swiotlb_late_init_with_default_size(size_t default_size);
++int swiotlb_init_late(size_t size);
+ extern void __init swiotlb_update_mem_attributes(void);
  
- extern void swiotlb_print_info(void);
--extern void swiotlb_set_max_segment(unsigned int);
- 
- #ifdef CONFIG_DMA_RESTRICTED_POOL
- struct page *swiotlb_alloc(struct device *dev, size_t size);
+ phys_addr_t swiotlb_tbl_map_single(struct device *hwdev, phys_addr_t phys,
 diff --git a/kernel/dma/swiotlb.c b/kernel/dma/swiotlb.c
-index 36fbf1181d285..519e363097190 100644
+index 519e363097190..5f64b02fbb732 100644
 --- a/kernel/dma/swiotlb.c
 +++ b/kernel/dma/swiotlb.c
-@@ -75,12 +75,6 @@ struct io_tlb_mem io_tlb_default_mem;
- 
- phys_addr_t swiotlb_unencrypted_base;
- 
--/*
-- * Max segment that we can provide which (if pages are contingous) will
-- * not be bounced (unless SWIOTLB_FORCE is set).
-- */
--static unsigned int max_segment;
--
- static unsigned long default_nslabs = IO_TLB_DEFAULT_SIZE >> IO_TLB_SHIFT;
- 
- static int __init
-@@ -104,18 +98,12 @@ early_param("swiotlb", setup_io_tlb_npages);
- 
- unsigned int swiotlb_max_segment(void)
+@@ -290,11 +290,9 @@ swiotlb_init(int verbose)
+  * initialize the swiotlb later using the slab allocator if needed.
+  * This should be just like above, but with some error catching.
+  */
+-int
+-swiotlb_late_init_with_default_size(size_t default_size)
++int swiotlb_init_late(size_t size)
  {
--	return io_tlb_default_mem.nslabs ? max_segment : 0;
-+	if (!io_tlb_default_mem.nslabs)
-+		return 0;
-+	return rounddown(io_tlb_default_mem.nslabs << IO_TLB_SHIFT, PAGE_SIZE);
- }
- EXPORT_SYMBOL_GPL(swiotlb_max_segment);
- 
--void swiotlb_set_max_segment(unsigned int val)
--{
--	if (swiotlb_force = SWIOTLB_FORCE)
--		max_segment = 1;
--	else
--		max_segment = rounddown(val, PAGE_SIZE);
--}
--
- unsigned long swiotlb_size_or_default(void)
- {
- 	return default_nslabs << IO_TLB_SHIFT;
-@@ -267,7 +255,6 @@ int __init swiotlb_init_with_tbl(char *tlb, unsigned long nslabs, int verbose)
- 
- 	if (verbose)
- 		swiotlb_print_info();
--	swiotlb_set_max_segment(mem->nslabs << IO_TLB_SHIFT);
- 	return 0;
- }
- 
-@@ -368,7 +355,6 @@ swiotlb_late_init_with_tbl(char *tlb, unsigned long nslabs)
- 	swiotlb_init_io_tlb_mem(mem, virt_to_phys(tlb), nslabs, true);
- 
- 	swiotlb_print_info();
--	swiotlb_set_max_segment(mem->nslabs << IO_TLB_SHIFT);
- 	return 0;
- }
- 
+-	unsigned long nslabs -		ALIGN(default_size >> IO_TLB_SHIFT, IO_TLB_SEGSIZE);
++	unsigned long nslabs = ALIGN(size >> IO_TLB_SHIFT, IO_TLB_SEGSIZE);
+ 	unsigned long bytes;
+ 	unsigned char *vstart = NULL;
+ 	unsigned int order;
 -- 
 2.30.2
