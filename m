@@ -1,219 +1,102 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Mon, 28 Feb 2022 10:59:23 +0000
-Subject: [PATCH V3 00/30] mm/mmap: Drop protection_map[] and platform's __SXXX/__PXXX requirements
-Message-Id: <1646045273-9343-1-git-send-email-anshuman.khandual@arm.com>
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Wed, 23 Feb 2022 17:17:56 +0000
+Subject: Re: [RFC PATCH] lkdtm: Replace lkdtm_rodata_do_nothing() by do_nothing()
+Message-Id: <26d37781-9824-3306-240d-6ce6044c2412@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <fe36bf23fb14e7eff92a95a1092ed38edb01d5f5.1634491011.git.christophe.leroy@csgroup.eu>
+In-Reply-To: <fe36bf23fb14e7eff92a95a1092ed38edb01d5f5.1634491011.git.christophe.leroy@csgroup.eu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, akpm@linux-foundation.org
-Cc: linux-kernel@vger.kernel.org, geert@linux-m68k.org, Anshuman Khandual <anshuman.khandual@arm.com>, Christoph Hellwig <hch@infradead.org>, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org, sparclinux@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-s390@vger.kernel.org, linux-riscv@lists.infradead.org, linux-alpha@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-parisc@vger.kernel.org, openrisc@lists.librecores.org, linux-um@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>
 
-protection_map[] is an array based construct that translates given vm_flags
-combination. This array contains page protection map, which is populated by
-the platform via [__S000 .. __S111] and [__P000 .. __P111] exported macros.
-Primary usage for protection_map[] is for vm_get_page_prot(), which is used
-to determine page protection value for a given vm_flags. vm_get_page_prot()
-implementation, could again call platform overrides arch_vm_get_page_prot()
-and arch_filter_pgprot(). Some platforms override protection_map[] that was
-originally built with __SXXX/__PXXX with different runtime values.
-
-Currently there are multiple layers of abstraction i.e __SXXX/__PXXX macros
-, protection_map[], arch_vm_get_page_prot() and arch_filter_pgprot() built
-between the platform and generic MM, finally defining vm_get_page_prot().
-
-Hence this series proposes to drop all these abstraction levels and instead
-just move the responsibility of defining vm_get_page_prot() to the platform
-itself making it clean and simple.
-
-This first introduces ARCH_HAS_VM_GET_PAGE_PROT which enables the platforms
-to define custom vm_get_page_prot(). This starts converting platforms that
-either change protection_map[] or define the overrides arch_filter_pgprot()
-or arch_vm_get_page_prot() which enables for those constructs to be dropped
-off completely. This series then converts remaining platforms which enables
-for __SXXX/__PXXX constructs to be dropped off completely. Finally it drops
-the generic vm_get_page_prot() and then ARCH_HAS_VM_GET_PAGE_PROT as every
-platform now defines their own vm_get_page_prot().
-
-The series has been inspired from an earlier discuss with Christoph Hellwig
-
-https://lore.kernel.org/all/1632712920-8171-1-git-send-email-anshuman.khandual@arm.com/
-
-This series applies on 5.17-rc6 after the following patch.
-
-https://lore.kernel.org/all/1643004823-16441-1-git-send-email-anshuman.khandual@arm.com/
-
-This series has been cross built for multiple platforms.
-
-- Anshuman
-
-Cc: Christoph Hellwig <hch@infradead.org>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: linuxppc-dev@lists.ozlabs.org
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: sparclinux@vger.kernel.org
-Cc: linux-mips@vger.kernel.org
-Cc: linux-m68k@lists.linux-m68k.org
-Cc: linux-s390@vger.kernel.org
-Cc: linux-riscv@lists.infradead.org
-Cc: linux-alpha@vger.kernel.org
-Cc: linux-sh@vger.kernel.org
-Cc: linux-snps-arc@lists.infradead.org
-Cc: linux-csky@vger.kernel.org
-Cc: linux-xtensa@linux-xtensa.org
-Cc: linux-parisc@vger.kernel.org
-Cc: openrisc@lists.librecores.org
-Cc: linux-um@lists.infradead.org
-Cc: linux-hexagon@vger.kernel.org
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-mm@kvack.org
-Cc: linux-arch@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-
-Changes in V3:
-
-- Dropped variable 'i' from sme_early_init() on x86 platform
-- Moved CONFIG_COLDFIRE vm_get_page_prot() inside arch/m68k/mm/mcfmmu.c
-- Moved CONFIG_SUN3 vm_get_page_prot() inside arch/m68k/mm/sun3mmu.c
-- Dropped cachebits for vm_get_page_prot() inside arch/m68k/mm/motorola.c
-- Dropped PAGE_XXX_C definitions from arch/m68k/include/asm/motorola_pgtable.h
-- Used PAGE_XXX instead for vm_get_page_prot() inside arch/m68k/mm/motorola.c
-- Dropped all references to protection_map[] in the tree
-- Replaced s/extensa/xtensa/ on the patch title
-- Moved left over comments from pgtable.h into init.c on nios2 platform
-
-Changes in V2:
-
-https://lore.kernel.org/all/1645425519-9034-1-git-send-email-anshuman.khandual@arm.com/
-
-- Dropped the entire comment block in [PATCH 30/30] per Geert
-- Replaced __P010 (although commented) with __PAGE_COPY on arm platform
-- Replaced __P101 with PAGE_READONLY on um platform
-
-Changes in V1:
-
-https://lore.kernel.org/all/1644805853-21338-1-git-send-email-anshuman.khandual@arm.com/
-
-- Add white spaces around the | operators 
-- Moved powerpc_vm_get_page_prot() near vm_get_page_prot() on powerpc
-- Moved arm64_vm_get_page_prot() near vm_get_page_prot() on arm64
-- Moved sparc_vm_get_page_prot() near vm_get_page_prot() on sparc
-- Compacted vm_get_page_prot() switch cases on all platforms
--  _PAGE_CACHE040 inclusion is dependent on CPU_IS_040_OR_060
-- VM_SHARED case should return PAGE_NONE (not PAGE_COPY) on SH platform
-- Reorganized VM_SHARED, VM_EXEC, VM_WRITE, VM_READ
-- Dropped the last patch [RFC V1 31/31] which added macros for vm_flags combinations
-  https://lore.kernel.org/all/1643029028-12710-32-git-send-email-anshuman.khandual@arm.com/
-
-Changes in RFC:
-
-https://lore.kernel.org/all/1643029028-12710-1-git-send-email-anshuman.khandual@arm.com/
-
-Anshuman Khandual (29):
-  mm/debug_vm_pgtable: Drop protection_map[] usage
-  mm/mmap: Clarify protection_map[] indices
-  mm/mmap: Add new config ARCH_HAS_VM_GET_PAGE_PROT
-  powerpc/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-  arm64/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-  sparc/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-  mips/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-  m68k/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-  arm/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-  mm/mmap: Drop protection_map[]
-  mm/mmap: Drop arch_filter_pgprot()
-  mm/mmap: Drop arch_vm_get_page_pgprot()
-  s390/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-  riscv/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-  alpha/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-  sh/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-  arc/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-  csky/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-  xtensa/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-  parisc/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-  openrisc/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-  um/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-  microblaze/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-  nios2/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-  hexagon/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-  nds32/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-  ia64/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-  mm/mmap: Drop generic vm_get_page_prot()
-  mm/mmap: Drop ARCH_HAS_VM_GET_PAGE_PROT
-
-Christoph Hellwig (1):
-  x86/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-
- arch/alpha/include/asm/pgtable.h          | 17 -----
- arch/alpha/mm/init.c                      | 37 +++++++++++
- arch/arc/include/asm/pgtable-bits-arcv2.h | 17 -----
- arch/arc/mm/mmap.c                        | 41 ++++++++++++
- arch/arm/include/asm/pgtable.h            | 20 +-----
- arch/arm/lib/uaccess_with_memcpy.c        |  2 +-
- arch/arm/mm/mmu.c                         | 44 +++++++++++--
- arch/arm64/Kconfig                        |  1 -
- arch/arm64/include/asm/memory.h           |  3 +-
- arch/arm64/include/asm/mman.h             | 24 -------
- arch/arm64/include/asm/pgtable-prot.h     | 18 ------
- arch/arm64/include/asm/pgtable.h          | 11 ----
- arch/arm64/mm/mmap.c                      | 78 +++++++++++++++++++++++
- arch/csky/include/asm/pgtable.h           | 18 ------
- arch/csky/mm/init.c                       | 32 ++++++++++
- arch/hexagon/include/asm/pgtable.h        | 24 -------
- arch/hexagon/mm/init.c                    | 67 +++++++++++++++++++
- arch/ia64/include/asm/pgtable.h           | 17 -----
- arch/ia64/mm/init.c                       | 41 +++++++++++-
- arch/m68k/include/asm/mcf_pgtable.h       | 59 -----------------
- arch/m68k/include/asm/motorola_pgtable.h  | 29 ---------
- arch/m68k/include/asm/sun3_pgtable.h      | 22 -------
- arch/m68k/mm/mcfmmu.c                     | 59 +++++++++++++++++
- arch/m68k/mm/motorola.c                   | 43 ++++++++++++-
- arch/m68k/mm/sun3mmu.c                    | 39 ++++++++++++
- arch/microblaze/include/asm/pgtable.h     | 17 -----
- arch/microblaze/mm/init.c                 | 41 ++++++++++++
- arch/mips/include/asm/pgtable.h           | 22 -------
- arch/mips/mm/cache.c                      | 60 +++++++++--------
- arch/nds32/include/asm/pgtable.h          | 17 -----
- arch/nds32/mm/mmap.c                      | 37 +++++++++++
- arch/nios2/include/asm/pgtable.h          | 24 -------
- arch/nios2/mm/init.c                      | 47 ++++++++++++++
- arch/openrisc/include/asm/pgtable.h       | 18 ------
- arch/openrisc/mm/init.c                   | 41 ++++++++++++
- arch/parisc/include/asm/pgtable.h         | 20 ------
- arch/parisc/mm/init.c                     | 40 ++++++++++++
- arch/powerpc/include/asm/mman.h           | 12 ----
- arch/powerpc/include/asm/pgtable.h        | 19 ------
- arch/powerpc/mm/mmap.c                    | 59 +++++++++++++++++
- arch/riscv/include/asm/pgtable.h          | 16 -----
- arch/riscv/mm/init.c                      | 42 ++++++++++++
- arch/s390/include/asm/pgtable.h           | 17 -----
- arch/s390/mm/mmap.c                       | 33 ++++++++++
- arch/sh/include/asm/pgtable.h             | 17 -----
- arch/sh/mm/mmap.c                         | 38 +++++++++++
- arch/sparc/include/asm/mman.h             |  6 --
- arch/sparc/include/asm/pgtable_32.h       | 19 ------
- arch/sparc/include/asm/pgtable_64.h       | 19 ------
- arch/sparc/mm/init_32.c                   | 35 ++++++++++
- arch/sparc/mm/init_64.c                   | 70 ++++++++++++++------
- arch/um/include/asm/pgtable.h             | 17 -----
- arch/um/kernel/mem.c                      | 35 ++++++++++
- arch/x86/Kconfig                          |  1 -
- arch/x86/include/asm/pgtable.h            |  5 --
- arch/x86/include/asm/pgtable_types.h      | 19 ------
- arch/x86/include/uapi/asm/mman.h          | 14 ----
- arch/x86/mm/Makefile                      |  2 +-
- arch/x86/mm/mem_encrypt_amd.c             |  6 --
- arch/x86/mm/pgprot.c                      | 71 +++++++++++++++++++++
- arch/x86/um/mem_32.c                      |  2 +-
- arch/xtensa/include/asm/pgtable.h         | 19 ------
- arch/xtensa/mm/init.c                     | 35 ++++++++++
- drivers/gpu/drm/drm_vm.c                  |  4 +-
- include/linux/mm.h                        |  6 --
- include/linux/mman.h                      |  4 --
- mm/Kconfig                                |  3 -
- mm/debug_vm_pgtable.c                     | 31 +++++----
- mm/mmap.c                                 | 44 +------------
- 69 files changed, 1138 insertions(+), 729 deletions(-)
- create mode 100644 arch/x86/mm/pgprot.c
-
--- 
-2.25.1
+SGkgS2VlcywNCg0KTGUgMTcvMTAvMjAyMSDDoCAxOToxOSwgQ2hyaXN0b3BoZSBMZXJveSBhIMOp
+Y3JpdMKgOg0KPiBBbGwgRVhFQyB0ZXN0cyBhcmUgYmFzZWQgb24gcnVubmluZyBhIGNvcHkgb2Yg
+ZG9fbm90aGluZygpDQo+IGV4Y2VwdCBsa2R0bV9FWEVDX1JPREFUQSB3aGljaCB1c2VzIGEgZGlm
+ZmVyZW50IGZ1bmN0aW9uDQo+IGNhbGxlZCBsa2R0bV9yb2RhdGFfZG9fbm90aGluZygpLg0KPiAN
+Cj4gT24gYXJjaGl0ZWN0dXJlcyB1c2luZyBmdW5jdGlvbiBkZXNjcmlwdG9ycywgRVhFQyB0ZXN0
+cyBhcmUNCj4gcGVyZm9ybWVkIHVzaW5nIGV4ZWN1dGVfbG9jYXRpb24oKSB3aGljaCBpcyBhIGZ1
+bmN0aW9uDQo+IHRoYXQgbW9zdCBvZiB0aGUgdGltZSBjb3BpZXMgZG9fbm90aGluZygpIGF0IHRo
+ZSB0ZXN0ZWQNCj4gbG9jYXRpb24gdGhlbiBkdXBsaWNhdGVzIGRvX25vdGhpbmcoKSBmdW5jdGlv
+biBkZXNjcmlwdG9yDQo+IGFuZCB1cGRhdGVzIGl0IHdpdGggdGhlIGFkZHJlc3Mgb2YgdGhlIGNv
+cHkgb2YgZG9fbm90aGluZygpLg0KPiANCj4gQnV0IGZvciBFWEVDX1JPREFUQSB0ZXN0LCBleGVj
+dXRlX2xvY2F0aW9uKCkgdXNlcw0KPiBsa2R0bV9yb2RhdGFfZG9fbm90aGluZygpIHdoaWNoIGlz
+IGFscmVhZHkgaW4gcm9kYXRhIHNlY3Rpb24NCj4gYXQgYnVpbGQgdGltZSBpbnN0ZWFkIG9mIHVz
+aW5nIGEgY29weSBvZiBkb19ub3RoaW5nKCkuIEhvd2V2ZXINCj4gaXQgc3RpbGwgdXNlcyB0aGUg
+ZnVuY3Rpb24gZGVzY3JpcHRvciBvZiBkb19ub3RoaW5nKCkuIFRoZXJlDQo+IGlzIGEgcmlzayB0
+aGF0IHJ1bm5pbmcgbGtkdG1fcm9kYXRhX2RvX25vdGhpbmcoKSB3aXRoIHRoZQ0KPiBmdW5jdGlv
+biBkZXNjcmlwdG9yIG9mIGRvX3RoaW5nKCkgaXMgd3JvbmcuDQo+IA0KPiBUbyByZW1vdmUgdGhl
+IGFib3ZlIHJpc2ssIGNoYW5nZSB0aGUgYXBwcm9hY2ggYW5kIGRvIHRoZSBzYW1lDQo+IGFzIGZv
+ciBvdGhlciBFWEVDIHRlc3RzOiB1c2UgYSBjb3B5IG9mIGRvX25vdGhpbmcoKS4gVGhlIGNvcHkN
+Cj4gY2Fubm90IGJlIGRvbmUgZHVyaW5nIHRoZSB0ZXN0IGJlY2F1c2UgUk9EQVRBIGFyZWEgaXMg
+d3JpdGUNCj4gcHJvdGVjdGVkLiBEbyB0aGUgY29weSBkdXJpbmcgaW5pdCwgYmVmb3JlIFJPREFU
+QSBiZWNvbWVzDQo+IHdyaXRlIHByb3RlY3RlZC4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IENocmlz
+dG9waGUgTGVyb3kgPGNocmlzdG9waGUubGVyb3lAY3Nncm91cC5ldT4NCg0KQW55IG9waW5pb24g
+b24gdGhpcyBwYXRjaCA/DQoNClRoYW5rcw0KQ2hyaXN0b3BoZQ0KDQo+IC0tLQ0KPiBUaGlzIGFw
+cGxpZXMgb24gdG9wIG9mIHNlcmllcyB2MyAiRml4IExLRFRNIGZvciBQUEM2NC9JQTY0L1BBUklT
+QyINCj4gDQo+ICAgZHJpdmVycy9taXNjL2xrZHRtL01ha2VmaWxlIHwgMTEgLS0tLS0tLS0tLS0N
+Cj4gICBkcml2ZXJzL21pc2MvbGtkdG0vbGtkdG0uaCAgfCAgMyAtLS0NCj4gICBkcml2ZXJzL21p
+c2MvbGtkdG0vcGVybXMuYyAgfCAgOSArKysrKysrLS0NCj4gICBkcml2ZXJzL21pc2MvbGtkdG0v
+cm9kYXRhLmMgfCAxMSAtLS0tLS0tLS0tLQ0KPiAgIDQgZmlsZXMgY2hhbmdlZCwgNyBpbnNlcnRp
+b25zKCspLCAyNyBkZWxldGlvbnMoLSkNCj4gICBkZWxldGUgbW9kZSAxMDA2NDQgZHJpdmVycy9t
+aXNjL2xrZHRtL3JvZGF0YS5jDQo+IA0KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9taXNjL2xrZHRt
+L01ha2VmaWxlIGIvZHJpdmVycy9taXNjL2xrZHRtL01ha2VmaWxlDQo+IGluZGV4IGUyOTg0Y2U1
+MWZlNC4uM2Q0NWEyYjMwMDdkIDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL21pc2MvbGtkdG0vTWFr
+ZWZpbGUNCj4gKysrIGIvZHJpdmVycy9taXNjL2xrZHRtL01ha2VmaWxlDQo+IEBAIC02LDIxICs2
+LDEwIEBAIGxrZHRtLSQoQ09ORklHX0xLRFRNKQkJKz0gYnVncy5vDQo+ICAgbGtkdG0tJChDT05G
+SUdfTEtEVE0pCQkrPSBoZWFwLm8NCj4gICBsa2R0bS0kKENPTkZJR19MS0RUTSkJCSs9IHBlcm1z
+Lm8NCj4gICBsa2R0bS0kKENPTkZJR19MS0RUTSkJCSs9IHJlZmNvdW50Lm8NCj4gLWxrZHRtLSQo
+Q09ORklHX0xLRFRNKQkJKz0gcm9kYXRhX29iamNvcHkubw0KPiAgIGxrZHRtLSQoQ09ORklHX0xL
+RFRNKQkJKz0gdXNlcmNvcHkubw0KPiAgIGxrZHRtLSQoQ09ORklHX0xLRFRNKQkJKz0gc3RhY2ts
+ZWFrLm8NCj4gICBsa2R0bS0kKENPTkZJR19MS0RUTSkJCSs9IGNmaS5vDQo+ICAgbGtkdG0tJChD
+T05GSUdfTEtEVE0pCQkrPSBmb3J0aWZ5Lm8NCj4gICBsa2R0bS0kKENPTkZJR19QUENfQk9PSzNT
+XzY0KQkrPSBwb3dlcnBjLm8NCj4gICANCj4gLUtBU0FOX1NBTklUSVpFX3JvZGF0YS5vCQk6PSBu
+DQo+ICAgS0FTQU5fU0FOSVRJWkVfc3RhY2tsZWFrLm8JOj0gbg0KPiAtS0NPVl9JTlNUUlVNRU5U
+X3JvZGF0YS5vCTo9IG4NCj4gLUNGTEFHU19SRU1PVkVfcm9kYXRhLm8JCSs9ICQoQ0NfRkxBR1Nf
+TFRPKQ0KPiAtDQo+IC1PQkpDT1BZRkxBR1MgOj0NCj4gLU9CSkNPUFlGTEFHU19yb2RhdGFfb2Jq
+Y29weS5vCTo9IFwNCj4gLQkJCS0tcmVuYW1lLXNlY3Rpb24gLm5vaW5zdHIudGV4dD0ucm9kYXRh
+LGFsbG9jLHJlYWRvbmx5LGxvYWQsY29udGVudHMNCj4gLXRhcmdldHMgKz0gcm9kYXRhLm8gcm9k
+YXRhX29iamNvcHkubw0KPiAtJChvYmopL3JvZGF0YV9vYmpjb3B5Lm86ICQob2JqKS9yb2RhdGEu
+byBGT1JDRQ0KPiAtCSQoY2FsbCBpZl9jaGFuZ2VkLG9iamNvcHkpDQo+IGRpZmYgLS1naXQgYS9k
+cml2ZXJzL21pc2MvbGtkdG0vbGtkdG0uaCBiL2RyaXZlcnMvbWlzYy9sa2R0bS9sa2R0bS5oDQo+
+IGluZGV4IDE4OGJkMGZkNjU3NS4uOTA1NTU1ZDRjMmNmIDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJz
+L21pc2MvbGtkdG0vbGtkdG0uaA0KPiArKysgYi9kcml2ZXJzL21pc2MvbGtkdG0vbGtkdG0uaA0K
+PiBAQCAtMTM3LDkgKzEzNyw2IEBAIHZvaWQgbGtkdG1fUkVGQ09VTlRfU1VCX0FORF9URVNUX1NB
+VFVSQVRFRCh2b2lkKTsNCj4gICB2b2lkIGxrZHRtX1JFRkNPVU5UX1RJTUlORyh2b2lkKTsNCj4g
+ICB2b2lkIGxrZHRtX0FUT01JQ19USU1JTkcodm9pZCk7DQo+ICAgDQo+IC0vKiByb2RhdGEuYyAq
+Lw0KPiAtdm9pZCBsa2R0bV9yb2RhdGFfZG9fbm90aGluZyh2b2lkKTsNCj4gLQ0KPiAgIC8qIHVz
+ZXJjb3B5LmMgKi8NCj4gICB2b2lkIF9faW5pdCBsa2R0bV91c2VyY29weV9pbml0KHZvaWQpOw0K
+PiAgIHZvaWQgX19leGl0IGxrZHRtX3VzZXJjb3B5X2V4aXQodm9pZCk7DQo+IGRpZmYgLS1naXQg
+YS9kcml2ZXJzL21pc2MvbGtkdG0vcGVybXMuYyBiL2RyaXZlcnMvbWlzYy9sa2R0bS9wZXJtcy5j
+DQo+IGluZGV4IDJjNmFiYTNmZjMyYi4uOWI5NTFjYTQ4MzYzIDEwMDY0NA0KPiAtLS0gYS9kcml2
+ZXJzL21pc2MvbGtkdG0vcGVybXMuYw0KPiArKysgYi9kcml2ZXJzL21pc2MvbGtkdG0vcGVybXMu
+Yw0KPiBAQCAtMjcsNiArMjcsNyBAQCBzdGF0aWMgY29uc3QgdW5zaWduZWQgbG9uZyByb2RhdGEg
+PSAweEFBNTVBQTU1Ow0KPiAgIA0KPiAgIC8qIFRoaXMgaXMgbWFya2VkIF9fcm9fYWZ0ZXJfaW5p
+dCwgc28gaXQgc2hvdWxkIHVsdGltYXRlbHkgYmUgLnJvZGF0YS4gKi8NCj4gICBzdGF0aWMgdW5z
+aWduZWQgbG9uZyByb19hZnRlcl9pbml0IF9fcm9fYWZ0ZXJfaW5pdCA9IDB4NTVBQTU1MDA7DQo+
+ICtzdGF0aWMgdTggcm9kYXRhX2FyZWFbRVhFQ19TSVpFXSBfX3JvX2FmdGVyX2luaXQ7DQo+ICAg
+DQo+ICAgLyoNCj4gICAgKiBUaGlzIGp1c3QgcmV0dXJucyB0byB0aGUgY2FsbGVyLiBJdCBpcyBk
+ZXNpZ25lZCB0byBiZSBjb3BpZWQgaW50bw0KPiBAQCAtMTkzLDggKzE5NCw3IEBAIHZvaWQgbGtk
+dG1fRVhFQ19WTUFMTE9DKHZvaWQpDQo+ICAgDQo+ICAgdm9pZCBsa2R0bV9FWEVDX1JPREFUQSh2
+b2lkKQ0KPiAgIHsNCj4gLQlleGVjdXRlX2xvY2F0aW9uKGRlcmVmZXJlbmNlX2Z1bmN0aW9uX2Rl
+c2NyaXB0b3IobGtkdG1fcm9kYXRhX2RvX25vdGhpbmcpLA0KPiAtCQkJIENPREVfQVNfSVMpOw0K
+PiArCWV4ZWN1dGVfbG9jYXRpb24ocm9kYXRhX2FyZWEsIENPREVfQVNfSVMpOw0KPiAgIH0NCj4g
+ICANCj4gICB2b2lkIGxrZHRtX0VYRUNfVVNFUlNQQUNFKHZvaWQpDQo+IEBAIC0yNjksNCArMjY5
+LDkgQEAgdm9pZCBfX2luaXQgbGtkdG1fcGVybXNfaW5pdCh2b2lkKQ0KPiAgIHsNCj4gICAJLyog
+TWFrZSBzdXJlIHdlIGNhbiB3cml0ZSB0byBfX3JvX2FmdGVyX2luaXQgdmFsdWVzIGR1cmluZyBf
+X2luaXQgKi8NCj4gICAJcm9fYWZ0ZXJfaW5pdCB8PSAweEFBOw0KPiArDQo+ICsJbWVtY3B5KHJv
+ZGF0YV9hcmVhLCBkZXJlZmVyZW5jZV9mdW5jdGlvbl9kZXNjcmlwdG9yKGRvX25vdGhpbmcpLA0K
+PiArCSAgICAgICBFWEVDX1NJWkUpOw0KPiArCWZsdXNoX2ljYWNoZV9yYW5nZSgodW5zaWduZWQg
+bG9uZylyb2RhdGFfYXJlYSwNCj4gKwkJCSAgICh1bnNpZ25lZCBsb25nKXJvZGF0YV9hcmVhICsg
+RVhFQ19TSVpFKTsNCj4gICB9DQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL21pc2MvbGtkdG0vcm9k
+YXRhLmMgYi9kcml2ZXJzL21pc2MvbGtkdG0vcm9kYXRhLmMNCj4gZGVsZXRlZCBmaWxlIG1vZGUg
+MTAwNjQ0DQo+IGluZGV4IGJhYWNiODc2ZDFkOS4uMDAwMDAwMDAwMDAwDQo+IC0tLSBhL2RyaXZl
+cnMvbWlzYy9sa2R0bS9yb2RhdGEuYw0KPiArKysgL2Rldi9udWxsDQo+IEBAIC0xLDExICswLDAg
+QEANCj4gLS8vIFNQRFgtTGljZW5zZS1JZGVudGlmaWVyOiBHUEwtMi4wDQo+IC0vKg0KPiAtICog
+VGhpcyBpbmNsdWRlcyBmdW5jdGlvbnMgdGhhdCBhcmUgbWVhbnQgdG8gbGl2ZSBlbnRpcmVseSBp
+biAucm9kYXRhDQo+IC0gKiAodmlhIG9iamNvcHkgdHJpY2tzKSwgdG8gdmFsaWRhdGUgdGhlIG5v
+bi1leGVjdXRhYmlsaXR5IG9mIC5yb2RhdGEuDQo+IC0gKi8NCj4gLSNpbmNsdWRlICJsa2R0bS5o
+Ig0KPiAtDQo+IC12b2lkIG5vaW5zdHIgbGtkdG1fcm9kYXRhX2RvX25vdGhpbmcodm9pZCkNCj4g
+LXsNCj4gLQkvKiBEb2VzIG5vdGhpbmcuIFdlIGp1c3Qgd2FudCBhbiBhcmNoaXRlY3R1cmUgYWdu
+b3N0aWMgInJldHVybiIuICovDQo+IC19
