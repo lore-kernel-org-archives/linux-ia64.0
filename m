@@ -1,7 +1,7 @@
 From: Kees Cook <keescook@chromium.org>
-Date: Thu, 24 Feb 2022 03:58:58 +0000
+Date: Thu, 24 Feb 2022 05:16:05 +0000
 Subject: Re: regression: Bug 215601 - gcc segv at startup on ia64
-Message-Id: <202202231957.801F1780@keescook>
+Message-Id: <202202232030.B408F0E895@keescook>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <a3edd529-c42d-3b09-135c-7e98a15b150f@leemhuis.info>
  <823f70be-7661-0195-7c97-65673dc7c12a@leemhuis.info>
@@ -35,9 +35,14 @@ On Mon, Feb 21, 2022 at 10:57:01PM +0100, John Paul Adrian Glaubitz wrote:
 > You should be able to extract the binaries from this initrd image and the "mount" command,
 > for example, should be one of the affected binaries.
 
-I don't see anything immediately obvious here, but I'll keep looking. Is
-there any way to emulate ia64? I don't see anything that'll work under
-QEMU...
+In dmesg, do you see any of these reports?
+
+                pr_info("%d (%s): Uhuuh, elf segment at %px requested but the memory is mapped already\n",
+                        task_pid_nr(current), current->comm, (void *)addr);
+
+I don't see anything out of order in the "mount" binary from the above
+initrd. What does "readelf -lW" show for the GCC you're seeing failures
+on?
 
 -- 
 Kees Cook
