@@ -1,7 +1,7 @@
 From: Kees Cook <keescook@chromium.org>
-Date: Thu, 24 Feb 2022 16:33:43 +0000
+Date: Sat, 26 Feb 2022 11:52:27 +0000
 Subject: Re: regression: Bug 215601 - gcc segv at startup on ia64
-Message-Id: <202202240832.F40AEB20@keescook>
+Message-Id: <202202260344.63C15C3356@keescook>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <a3edd529-c42d-3b09-135c-7e98a15b150f@leemhuis.info>
  <823f70be-7661-0195-7c97-65673dc7c12a@leemhuis.info>
@@ -24,13 +24,24 @@ On Thu, Feb 24, 2022 at 09:22:04AM -0500, matoro wrote:
 > My system is a lot more stable due to using openrc rather than systemd, for
 > me GCC seems to be the only binary affected.  Would that be helpful?
 
-Yeah, that might be helpful. I have access to a Debian ia64 porter box,
-but it's not running the broken kernel, so I can only examine "normal"
-behavior.
+Thanks for this access! I think I see the problem. Non-PIE (i.e. normal
+ET_EXEC) ia64 binaries appear to have two very non-contiguous virtual
+memory PT_LOAD segments that are file-offset adjacent. As seen in
+readelf -lW:
 
-I'll switch to off-list email...
+  LOAD           0x000000 0x4000000000000000 0x4000000000000000 0x00b5a0 0x00b5a0 R E 0x10000
+  LOAD           0x00b5a0 0x600000000000b5a0 0x600000000000b5a0 0x0005ac 0x000710 RW  0x10000
+                 ^^^^^^^^ ^^^^^^^^^^^^^^^^^^
 
--Kees
+When the kernel tries to map these with a combined allocation, it asks
+for a giant mmap of the file, but the file is, of course, not at all
+that large, and the mapping is rejected.
+
+So... I'm trying to think about how best to deal with this. If I or
+anyone else can't think of an elegant solution, I'll send a revert for
+the offending patch next week.
+
+In the meantime now I've got another dimension to regression test. ;)
 
 -- 
 Kees Cook
