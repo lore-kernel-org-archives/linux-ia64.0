@@ -1,15 +1,15 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 22 Feb 2022 15:35:11 +0000
+Date: Sun, 27 Feb 2022 14:30:52 +0000
 Subject: [PATCH 08/11] swiotlb: make the swiotlb_init interface more useful
-Message-Id: <20220222153514.593231-9-hch@lst.de>
+Message-Id: <20220227143055.335596-9-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220222153514.593231-1-hch@lst.de>
-In-Reply-To: <20220222153514.593231-1-hch@lst.de>
+References: <20220227143055.335596-1-hch@lst.de>
+In-Reply-To: <20220227143055.335596-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: iommu@lists.linux-foundation.org
-Cc: Juergen Gross <jgross@suse.com>, linux-s390@vger.kernel.org, linux-hyperv@vger.kernel.org, Stefano Stabellini <sstabellini@kernel.org>, linux-ia64@vger.kernel.org, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, tboot-devel@lists.sourceforge.net, linux-pci@vger.kernel.org, xen-devel@lists.xenproject.org, Boris Ostrovsky <boris.ostrovsky@oracle.com>, David Woodhouse <dwmw2@infradead.org>, linux-riscv@lists.infradead.org, linux-arm-kernel@lists.infradead.org
+Cc: x86@kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Stefano Stabellini <sstabellini@kernel.org>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Robin Murphy <robin.murphy@arm.com>, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-hyperv@vger.kernel.org, tboot-devel@lists.sourceforge.net, linux-pci@vger.kernel.org
 
 Pass a bool to pass if swiotlb needs to be enabled based on the
 addressing needs and replace the verbose argument with a set of
@@ -33,13 +33,13 @@ Signed-off-by: Christoph Hellwig <hch@lst.de>
  arch/riscv/mm/init.c                   |  8 +-----
  arch/s390/mm/init.c                    |  3 +--
  arch/x86/kernel/cpu/mshyperv.c         |  8 ------
- arch/x86/kernel/pci-dma.c              | 17 ++++++-------
+ arch/x86/kernel/pci-dma.c              | 15 ++++++-----
  arch/x86/mm/mem_encrypt_amd.c          |  3 ---
  drivers/xen/swiotlb-xen.c              |  4 +--
  include/linux/swiotlb.h                | 15 ++++++-----
  include/trace/events/swiotlb.h         | 29 ++++++++-------------
  kernel/dma/swiotlb.c                   | 35 ++++++++++++++------------
- 18 files changed, 57 insertions(+), 94 deletions(-)
+ 18 files changed, 56 insertions(+), 93 deletions(-)
 
 diff --git a/arch/arm/mm/init.c b/arch/arm/mm/init.c
 index 6d0cb0f7bc54b..73f30d278b565 100644
@@ -223,7 +223,7 @@ index 5a99f993e6392..568274917f1cd 100644
  
  	if (hv_max_functions_eax >= HYPERV_CPUID_NESTED_FEATURES) {
 diff --git a/arch/x86/kernel/pci-dma.c b/arch/x86/kernel/pci-dma.c
-index 32c9cd9d7c257..9576a02a2590f 100644
+index 17bcac942ac49..bb08184a50e3a 100644
 --- a/arch/x86/kernel/pci-dma.c
 +++ b/arch/x86/kernel/pci-dma.c
 @@ -39,6 +39,7 @@ int iommu_detected __read_mostly = 0;
@@ -231,20 +231,10 @@ index 32c9cd9d7c257..9576a02a2590f 100644
  #ifdef CONFIG_SWIOTLB
  bool x86_swiotlb_enable;
 +static unsigned int x86_swiotlb_flags;
- static bool xen_swiotlb;
  
  /*
-@@ -49,8 +50,7 @@ static void __init pci_swiotlb_detect_4gb(void)
- {
- #ifdef CONFIG_SWIOTLB_XEN
- 	if (xen_pv_domain()) {
--		if (xen_initial_domain() || x86_swiotlb_enable ||
--		    swiotlb_force = SWIOTLB_FORCE) {
-+		if (xen_initial_domain() || x86_swiotlb_enable) {
- 			xen_swiotlb = true;
- 			xen_swiotlb_init_early();
- 			dma_ops = &xen_swiotlb_dma_ops;
-@@ -73,11 +73,10 @@ static void __init pci_swiotlb_detect_4gb(void)
+  * If 4GB or more detected (and iommu=off not set) or if SME is active
+@@ -54,16 +55,16 @@ static void __init pci_swiotlb_detect_4gb(void)
  	 * Set swiotlb to 1 so that bounce buffers are allocated and used for
  	 * devices that can't support DMA to encrypted memory.
  	 */
@@ -259,16 +249,29 @@ index 32c9cd9d7c257..9576a02a2590f 100644
  }
  #else
  static inline void __init pci_swiotlb_detect_4gb(void)
-@@ -91,9 +90,9 @@ void __init pci_iommu_alloc(void)
+ {
+ }
++#define x86_swiotlb_flags 0
+ #endif /* CONFIG_SWIOTLB */
+ 
+ #ifdef CONFIG_SWIOTLB_XEN
+@@ -71,8 +72,7 @@ static bool xen_swiotlb;
+ 
+ static void __init pci_xen_swiotlb_init(void)
+ {
+-	if (!xen_initial_domain() && !x86_swiotlb_enable &&
+-	    swiotlb_force != SWIOTLB_FORCE)
++	if (!xen_initial_domain() && !x86_swiotlb_enable)
+ 		return;
+ 	x86_swiotlb_enable = false;
+ 	xen_swiotlb = true;
+@@ -116,8 +116,7 @@ void __init pci_iommu_alloc(void)
  	gart_iommu_hole_init();
  	amd_iommu_detect();
  	detect_intel_iommu();
--
 -	if (x86_swiotlb_enable)
 -		swiotlb_init(0);
-+#ifdef CONFIG_SWIOTLB
 +	swiotlb_init(x86_swiotlb_enable, x86_swiotlb_flags);
-+#endif
  }
  
  /*
