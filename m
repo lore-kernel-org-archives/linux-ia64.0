@@ -1,143 +1,78 @@
-From: Walt Drummond <walt@drummond.us>
-Date: Sun, 06 Feb 2022 15:48:52 +0000
-Subject: [PATCH v2 1/3] vstatus: Allow the n_tty line dicipline to write to a user tty
-Message-Id: <20220206154856.2355838-2-walt@drummond.us>
+From: Christoph Hellwig <hch@lst.de>
+Date: Sun, 27 Feb 2022 14:30:44 +0000
+Subject: cleanup swiotlb initialization v2
+Message-Id: <20220227143055.335596-1-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220206154856.2355838-1-walt@drummond.us>
-In-Reply-To: <20220206154856.2355838-1-walt@drummond.us>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: agordeev@linux.ibm.com, arnd@arndb.de, benh@kernel.crashing.org, borntraeger@de.ibm.com, chris@zankel.net, davem@davemloft.net, gregkh@linuxfoundation.org, hca@linux.ibm.com, deller@gmx.de, ink@jurassic.park.msu.ru, James.Bottomley@HansenPartnership.com, jirislaby@kernel.org, mattst88@gmail.com, jcmvbkbc@gmail.com, mpe@ellerman.id.au, paulus@samba.org, rth@twiddle.net, dalias@libc.org, tsbogend@alpha.franken.de, gor@linux.ibm.com, ysato@users.osdn.me
-Cc: linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, walt@drummond.us, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, ar@cs.msu.ru, linuxppc-dev@lists.ozlabs.org
+To: iommu@lists.linux-foundation.org
+Cc: x86@kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Stefano Stabellini <sstabellini@kernel.org>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Robin Murphy <robin.murphy@arm.com>, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-hyperv@vger.kernel.org, tboot-devel@lists.sourceforge.net, linux-pci@vger.kernel.org
 
-Refactor the implementation of n_tty_write() into do_n_tty_write(),
-and change n_tty_write() to call do_n_tty_write() after acquiring
-tty.termios_rwsem.
+Hi all,
 
-This allows the n_tty line dicipline to write to a user tty via
-do_n_tty_write() when already holding tty.termios_rwsem.
+this series tries to clean up the swiotlb initialization, including
+that of swiotlb-xen.  To get there is also removes the x86 iommu table
+infrastructure that massively obsfucates the initialization path.
 
-Signed-off-by: Walt Drummond <walt@drummond.us>
----
- drivers/tty/n_tty.c | 69 +++++++++++++++++++++++++++------------------
- include/linux/tty.h |  2 +-
- 2 files changed, 42 insertions(+), 29 deletions(-)
+Git tree:
 
-diff --git a/drivers/tty/n_tty.c b/drivers/tty/n_tty.c
-index 0ec93f1a61f5..64a058a4c63b 100644
---- a/drivers/tty/n_tty.c
-+++ b/drivers/tty/n_tty.c
-@@ -2231,45 +2231,24 @@ static ssize_t n_tty_read(struct tty_struct *tty, struct file *file,
- 	return retval;
- }
- 
--/**
-- *	n_tty_write		-	write function for tty
-- *	@tty: tty device
-- *	@file: file object
-- *	@buf: userspace buffer pointer
-- *	@nr: size of I/O
-- *
-- *	Write function of the terminal device.  This is serialized with
-- *	respect to other write callers but not to termios changes, reads
-- *	and other such events.  Since the receive code will echo characters,
-- *	thus calling driver write methods, the output_lock is used in
-- *	the output processing functions called here as well as in the
-- *	echo processing function to protect the column state and space
-- *	left in the buffer.
-- *
-- *	This code must be sure never to sleep through a hangup.
-- *
-- *	Locking: output_lock to protect column state and space left
-- *		 (note that the process_output*() functions take this
-- *		  lock themselves)
-- */
--
--static ssize_t n_tty_write(struct tty_struct *tty, struct file *file,
--			   const unsigned char *buf, size_t nr)
-+static ssize_t do_n_tty_write(struct tty_struct *tty, struct file *file,
-+			      const unsigned char *buf, size_t nr)
- {
- 	const unsigned char *b = buf;
- 	DEFINE_WAIT_FUNC(wait, woken_wake_function);
- 	int c;
- 	ssize_t retval = 0;
- 
-+	lockdep_assert_held_read(&tty->termios_rwsem);
-+
- 	/* Job control check -- must be done at start (POSIX.1 7.1.1.4). */
--	if (L_TOSTOP(tty) && file->f_op->write_iter != redirected_tty_write) {
-+	if (L_TOSTOP(tty) &&
-+	    !(file && file->f_op->write_iter != redirected_tty_write)) {
- 		retval = tty_check_change(tty);
- 		if (retval)
- 			return retval;
- 	}
- 
--	down_read(&tty->termios_rwsem);
--
- 	/* Write out any echoed characters that are still pending */
- 	process_echoes(tty);
- 
-@@ -2336,10 +2315,44 @@ static ssize_t n_tty_write(struct tty_struct *tty, struct file *file,
- 	remove_wait_queue(&tty->write_wait, &wait);
- 	if (nr && tty->fasync)
- 		set_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
--	up_read(&tty->termios_rwsem);
-+
- 	return (b - buf) ? b - buf : retval;
- }
- 
-+/**
-+ *	n_tty_write		-	write function for tty
-+ *	@tty: tty device
-+ *	@file: file object
-+ *	@buf: userspace buffer pointer
-+ *	@nr: size of I/O
-+ *
-+ *	Write function of the terminal device.  This is serialized with
-+ *	respect to other write callers but not to termios changes, reads
-+ *	and other such events.  Since the receive code will echo characters,
-+ *	thus calling driver write methods, the output_lock is used in
-+ *	the output processing functions called here as well as in the
-+ *	echo processing function to protect the column state and space
-+ *	left in the buffer.
-+ *
-+ *	This code must be sure never to sleep through a hangup.
-+ *
-+ *	Locking: output_lock to protect column state and space left
-+ *		 (note that the process_output*() functions take this
-+ *		  lock themselves)
-+ */
-+
-+static ssize_t n_tty_write(struct tty_struct *tty, struct file *file,
-+			   const unsigned char *buf, size_t nr)
-+{
-+	ssize_t retval = 0;
-+
-+	down_read(&tty->termios_rwsem);
-+	retval = do_n_tty_write(tty, file, buf, nr);
-+	up_read(&tty->termios_rwsem);
-+
-+	return retval;
-+}
-+
- /**
-  *	n_tty_poll		-	poll method for N_TTY
-  *	@tty: terminal device
-diff --git a/include/linux/tty.h b/include/linux/tty.h
-index 168e57e40bbb..cbe5d535a69d 100644
---- a/include/linux/tty.h
-+++ b/include/linux/tty.h
-@@ -237,7 +237,7 @@ struct tty_file_private {
- 
- static inline bool tty_io_nonblock(struct tty_struct *tty, struct file *file)
- {
--	return file->f_flags & O_NONBLOCK ||
-+	return (file && file->f_flags & O_NONBLOCK) ||
- 		test_bit(TTY_LDISC_CHANGING, &tty->flags);
- }
- 
--- 
-2.30.2
+    git://git.infradead.org/users/hch/misc.git swiotlb-init-cleanup
+
+Gitweb:
+
+    http://git.infradead.org/users/hch/misc.git/shortlog/refs/heads/swiotlb-init-cleanup
+
+Changes since v1:
+ - skip IOMMU initialization on Xen PV kernels
+ - various small whitespace / typo fixes
+
+Diffstat:
+ arch/ia64/include/asm/iommu_table.h      |    7 -
+ arch/x86/include/asm/iommu_table.h       |  102 -------------------
+ arch/x86/include/asm/swiotlb.h           |   30 -----
+ arch/x86/kernel/pci-iommu_table.c        |   77 --------------
+ arch/x86/kernel/pci-swiotlb.c            |   77 --------------
+ arch/x86/xen/pci-swiotlb-xen.c           |   96 ------------------
+ b/arch/arm/mm/init.c                     |    6 -
+ b/arch/arm/xen/mm.c                      |   23 ++--
+ b/arch/arm64/mm/init.c                   |    6 -
+ b/arch/ia64/mm/init.c                    |    4 
+ b/arch/mips/cavium-octeon/dma-octeon.c   |   15 --
+ b/arch/mips/loongson64/dma.c             |    2 
+ b/arch/mips/pci/pci-octeon.c             |    2 
+ b/arch/mips/sibyte/common/dma.c          |    2 
+ b/arch/powerpc/include/asm/svm.h         |    4 
+ b/arch/powerpc/include/asm/swiotlb.h     |    1 
+ b/arch/powerpc/mm/mem.c                  |    6 -
+ b/arch/powerpc/platforms/pseries/setup.c |    3 
+ b/arch/powerpc/platforms/pseries/svm.c   |   26 ----
+ b/arch/riscv/mm/init.c                   |    8 -
+ b/arch/s390/mm/init.c                    |    3 
+ b/arch/x86/include/asm/dma-mapping.h     |   12 --
+ b/arch/x86/include/asm/gart.h            |    5 
+ b/arch/x86/include/asm/iommu.h           |    8 +
+ b/arch/x86/include/asm/xen/page.h        |    5 
+ b/arch/x86/include/asm/xen/swiotlb-xen.h |    2 
+ b/arch/x86/kernel/Makefile               |    2 
+ b/arch/x86/kernel/amd_gart_64.c          |    5 
+ b/arch/x86/kernel/aperture_64.c          |   14 --
+ b/arch/x86/kernel/cpu/mshyperv.c         |    8 -
+ b/arch/x86/kernel/pci-dma.c              |  109 ++++++++++++++++----
+ b/arch/x86/kernel/tboot.c                |    1 
+ b/arch/x86/kernel/vmlinux.lds.S          |   12 --
+ b/arch/x86/mm/mem_encrypt_amd.c          |    3 
+ b/arch/x86/pci/sta2x11-fixup.c           |    2 
+ b/arch/x86/xen/Makefile                  |    2 
+ b/drivers/iommu/amd/init.c               |    6 -
+ b/drivers/iommu/amd/iommu.c              |    5 
+ b/drivers/iommu/intel/dmar.c             |    6 -
+ b/drivers/xen/swiotlb-xen.c              |  132 -------------------------
+ b/include/linux/dmar.h                   |    6 -
+ b/include/linux/swiotlb.h                |   22 ++--
+ b/include/trace/events/swiotlb.h         |   29 +----
+ b/include/xen/arm/page.h                 |    1 
+ b/include/xen/swiotlb-xen.h              |    8 +
+ b/kernel/dma/direct.h                    |    2 
+ b/kernel/dma/swiotlb.c                   |  163 +++++++++++++++----------------
+ 47 files changed, 253 insertions(+), 817 deletions(-)
