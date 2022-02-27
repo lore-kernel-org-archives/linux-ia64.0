@@ -1,15 +1,15 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 22 Feb 2022 15:35:12 +0000
+Date: Sun, 27 Feb 2022 14:30:53 +0000
 Subject: [PATCH 09/11] swiotlb: add a SWIOTLB_ANY flag to lift the low memory restriction
-Message-Id: <20220222153514.593231-10-hch@lst.de>
+Message-Id: <20220227143055.335596-10-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220222153514.593231-1-hch@lst.de>
-In-Reply-To: <20220222153514.593231-1-hch@lst.de>
+References: <20220227143055.335596-1-hch@lst.de>
+In-Reply-To: <20220227143055.335596-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: iommu@lists.linux-foundation.org
-Cc: x86@kernel.org, Stefano Stabellini <sstabellini@kernel.org>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Robin Murphy <robin.murphy@arm.com>, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-hyperv@vger.kernel.org, tboot-devel@lists.sourceforge.net, linux-pci@vger.kernel.org
+Cc: x86@kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Stefano Stabellini <sstabellini@kernel.org>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Robin Murphy <robin.murphy@arm.com>, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-hyperv@vger.kernel.org, tboot-devel@lists.sourceforge.net, linux-pci@vger.kernel.org
 
 Power SVM wants to allocate a swiotlb buffer that is not restricted to
 low memory for the trusted hypervisor scheme.  Consolidate the support
