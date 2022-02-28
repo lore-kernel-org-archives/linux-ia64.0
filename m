@@ -1,82 +1,114 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Tue, 15 Feb 2022 12:41:01 +0000
-Subject: [PATCH v4 06/13] ia64: Rename 'ip' to 'addr' in 'struct fdesc'
-Message-Id: <65b73ac614e4c002c5819d40b42f6f426d2ee52b.1644928018.git.christophe.leroy@csgroup.eu>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Mon, 28 Feb 2022 10:59:39 +0000
+Subject: [PATCH V3 16/30] alpha/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <1646045273-9343-17-git-send-email-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1644928018.git.christophe.leroy@csgroup.eu>
-In-Reply-To: <cover.1644928018.git.christophe.leroy@csgroup.eu>
+References: <1646045273-9343-1-git-send-email-anshuman.khandual@arm.com>
+In-Reply-To: <1646045273-9343-1-git-send-email-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+To: linux-mm@kvack.org, akpm@linux-foundation.org
+Cc: linux-kernel@vger.kernel.org, geert@linux-m68k.org, Anshuman Khandual <anshuman.khandual@arm.com>, Christoph Hellwig <hch@infradead.org>, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org, sparclinux@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-s390@vger.kernel.org, linux-riscv@lists.infradead.org, linux-alpha@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-parisc@vger.kernel.org, openrisc@lists.librecores.org, linux-um@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, Richard Henderson <rth@twiddle.net>
 
-There are three architectures with function descriptors, try to
-have common names for the address they contain in order to
-refactor some functions into generic functions later.
+This defines and exports a platform specific custom vm_get_page_prot() via
+subscribing ARCH_HAS_VM_GET_PAGE_PROT. Subsequently all __SXXX and __PXXX
+macros can be dropped which are no longer needed.
 
-powerpc has 'entry'
-ia64 has 'ip'
-parisc has 'addr'
-
-Vote for 'addr' and update 'struct fdesc' accordingly.
-
-Reviewed-by: Kees Cook <keescook@chromium.org>
-Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
+Cc: Richard Henderson <rth@twiddle.net>
+Cc: linux-alpha@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
- arch/ia64/include/asm/elf.h      | 2 +-
- arch/ia64/include/asm/sections.h | 2 +-
- arch/ia64/kernel/module.c        | 6 +++---
- 3 files changed, 5 insertions(+), 5 deletions(-)
+ arch/alpha/Kconfig               |  1 +
+ arch/alpha/include/asm/pgtable.h | 17 ---------------
+ arch/alpha/mm/init.c             | 37 ++++++++++++++++++++++++++++++++
+ 3 files changed, 38 insertions(+), 17 deletions(-)
 
-diff --git a/arch/ia64/include/asm/elf.h b/arch/ia64/include/asm/elf.h
-index 6629301a2620..2ef5f9966ad1 100644
---- a/arch/ia64/include/asm/elf.h
-+++ b/arch/ia64/include/asm/elf.h
-@@ -226,7 +226,7 @@ struct got_entry {
-  * Layout of the Function Descriptor
+diff --git a/arch/alpha/Kconfig b/arch/alpha/Kconfig
+index 4e87783c90ad..73e82fe5c770 100644
+--- a/arch/alpha/Kconfig
++++ b/arch/alpha/Kconfig
+@@ -2,6 +2,7 @@
+ config ALPHA
+ 	bool
+ 	default y
++	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_32BIT_USTAT_F_TINODE
+ 	select ARCH_MIGHT_HAVE_PC_PARPORT
+ 	select ARCH_MIGHT_HAVE_PC_SERIO
+diff --git a/arch/alpha/include/asm/pgtable.h b/arch/alpha/include/asm/pgtable.h
+index 02f0429f1068..9fb5e9d10bb6 100644
+--- a/arch/alpha/include/asm/pgtable.h
++++ b/arch/alpha/include/asm/pgtable.h
+@@ -116,23 +116,6 @@ struct vm_area_struct;
+  * arch/alpha/mm/fault.c)
   */
- struct fdesc {
--	uint64_t ip;
-+	uint64_t addr;
- 	uint64_t gp;
- };
+ 	/* xwr */
+-#define __P000	_PAGE_P(_PAGE_FOE | _PAGE_FOW | _PAGE_FOR)
+-#define __P001	_PAGE_P(_PAGE_FOE | _PAGE_FOW)
+-#define __P010	_PAGE_P(_PAGE_FOE)
+-#define __P011	_PAGE_P(_PAGE_FOE)
+-#define __P100	_PAGE_P(_PAGE_FOW | _PAGE_FOR)
+-#define __P101	_PAGE_P(_PAGE_FOW)
+-#define __P110	_PAGE_P(0)
+-#define __P111	_PAGE_P(0)
+-
+-#define __S000	_PAGE_S(_PAGE_FOE | _PAGE_FOW | _PAGE_FOR)
+-#define __S001	_PAGE_S(_PAGE_FOE | _PAGE_FOW)
+-#define __S010	_PAGE_S(_PAGE_FOE)
+-#define __S011	_PAGE_S(_PAGE_FOE)
+-#define __S100	_PAGE_S(_PAGE_FOW | _PAGE_FOR)
+-#define __S101	_PAGE_S(_PAGE_FOW)
+-#define __S110	_PAGE_S(0)
+-#define __S111	_PAGE_S(0)
  
-diff --git a/arch/ia64/include/asm/sections.h b/arch/ia64/include/asm/sections.h
-index 3a033d2008b3..35f24e52149a 100644
---- a/arch/ia64/include/asm/sections.h
-+++ b/arch/ia64/include/asm/sections.h
-@@ -35,7 +35,7 @@ static inline void *dereference_function_descriptor(void *ptr)
- 	struct fdesc *desc = ptr;
- 	void *p;
- 
--	if (!get_kernel_nofault(p, (void *)&desc->ip))
-+	if (!get_kernel_nofault(p, (void *)&desc->addr))
- 		ptr = p;
- 	return ptr;
+ /*
+  * pgprot_noncached() is only for infiniband pci support, and a real
+diff --git a/arch/alpha/mm/init.c b/arch/alpha/mm/init.c
+index f6114d03357c..2e78008b2553 100644
+--- a/arch/alpha/mm/init.c
++++ b/arch/alpha/mm/init.c
+@@ -280,3 +280,40 @@ mem_init(void)
+ 	high_memory = (void *) __va(max_low_pfn * PAGE_SIZE);
+ 	memblock_free_all();
  }
-diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
-index 360f36b0eb3f..8f62cf97f691 100644
---- a/arch/ia64/kernel/module.c
-+++ b/arch/ia64/kernel/module.c
-@@ -602,15 +602,15 @@ get_fdesc (struct module *mod, uint64_t value, int *okp)
- 		return value;
- 
- 	/* Look for existing function descriptor. */
--	while (fdesc->ip) {
--		if (fdesc->ip = value)
-+	while (fdesc->addr) {
-+		if (fdesc->addr = value)
- 			return (uint64_t)fdesc;
- 		if ((uint64_t) ++fdesc >= mod->arch.opd->sh_addr + mod->arch.opd->sh_size)
- 			BUG();
- 	}
- 
- 	/* Create new one */
--	fdesc->ip = value;
-+	fdesc->addr = value;
- 	fdesc->gp = mod->arch.gp;
- 	return (uint64_t) fdesc;
- }
++
++pgprot_t vm_get_page_prot(unsigned long vm_flags)
++{
++	switch (vm_flags & (VM_READ | VM_WRITE | VM_EXEC | VM_SHARED)) {
++	case VM_NONE:
++		return _PAGE_P(_PAGE_FOE | _PAGE_FOW | _PAGE_FOR);
++	case VM_READ:
++		return _PAGE_P(_PAGE_FOE | _PAGE_FOW);
++	case VM_WRITE:
++	case VM_WRITE | VM_READ:
++		return _PAGE_P(_PAGE_FOE);
++	case VM_EXEC:
++		return _PAGE_P(_PAGE_FOW | _PAGE_FOR);
++	case VM_EXEC | VM_READ:
++		return _PAGE_P(_PAGE_FOW);
++	case VM_EXEC | VM_WRITE:
++	case VM_EXEC | VM_WRITE | VM_READ:
++		return _PAGE_P(0);
++	case VM_SHARED:
++		return _PAGE_S(_PAGE_FOE | _PAGE_FOW | _PAGE_FOR);
++	case VM_SHARED | VM_READ:
++		return _PAGE_S(_PAGE_FOE | _PAGE_FOW);
++	case VM_SHARED | VM_WRITE:
++	case VM_SHARED | VM_WRITE | VM_READ:
++		return _PAGE_S(_PAGE_FOE);
++	case VM_SHARED | VM_EXEC:
++		return _PAGE_S(_PAGE_FOW | _PAGE_FOR);
++	case VM_SHARED | VM_EXEC | VM_READ:
++		return _PAGE_S(_PAGE_FOW);
++	case VM_SHARED | VM_EXEC | VM_WRITE:
++	case VM_SHARED | VM_EXEC | VM_WRITE | VM_READ:
++		return _PAGE_S(0);
++	default:
++		BUILD_BUG();
++	}
++}
++EXPORT_SYMBOL(vm_get_page_prot);
 -- 
-2.34.1
+2.25.1
