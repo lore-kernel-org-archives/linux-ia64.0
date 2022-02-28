@@ -1,80 +1,152 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Tue, 15 Feb 2022 12:41:06 +0000
-Subject: [PATCH v4 11/13] lkdtm: Really write into kernel text in WRITE_KERN
-Message-Id: <31e58eaffb5bc51c07d8d4891d1982100ade8cfc.1644928018.git.christophe.leroy@csgroup.eu>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Mon, 28 Feb 2022 10:59:49 +0000
+Subject: [PATCH V3 26/30] hexagon/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <1646045273-9343-27-git-send-email-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1644928018.git.christophe.leroy@csgroup.eu>
-In-Reply-To: <cover.1644928018.git.christophe.leroy@csgroup.eu>
+References: <1646045273-9343-1-git-send-email-anshuman.khandual@arm.com>
+In-Reply-To: <1646045273-9343-1-git-send-email-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+To: linux-mm@kvack.org, akpm@linux-foundation.org
+Cc: linux-kernel@vger.kernel.org, geert@linux-m68k.org, Anshuman Khandual <anshuman.khandual@arm.com>, Christoph Hellwig <hch@infradead.org>, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org, sparclinux@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-s390@vger.kernel.org, linux-riscv@lists.infradead.org, linux-alpha@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-parisc@vger.kernel.org, openrisc@lists.librecores.org, linux-um@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, Brian Cain <bcain@codeaurora.org>
 
-WRITE_KERN is supposed to overwrite some kernel text, namely
-do_overwritten() function.
+This defines and exports a platform specific custom vm_get_page_prot() via
+subscribing ARCH_HAS_VM_GET_PAGE_PROT. Subsequently all __SXXX and __PXXX
+macros can be dropped which are no longer needed.
 
-But at the time being it overwrites do_overwritten() function
-descriptor, not function text.
-
-Fix it by dereferencing the function descriptor to obtain
-function text pointer. Export dereference_function_descriptor()
-for when LKDTM is built as a module.
-
-And make do_overwritten() noinline so that it is really
-do_overwritten() which is called by lkdtm_WRITE_KERN().
-
-Acked-by: Kees Cook <keescook@chromium.org>
-Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
+Cc: Brian Cain <bcain@codeaurora.org>
+Cc: linux-hexagon@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
- drivers/misc/lkdtm/perms.c | 8 +++++---
- kernel/extable.c           | 1 +
- 2 files changed, 6 insertions(+), 3 deletions(-)
+ arch/hexagon/Kconfig               |  1 +
+ arch/hexagon/include/asm/pgtable.h | 24 -----------
+ arch/hexagon/mm/init.c             | 67 ++++++++++++++++++++++++++++++
+ 3 files changed, 68 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/misc/lkdtm/perms.c b/drivers/misc/lkdtm/perms.c
-index 60b3b2fe929d..035fcca441f0 100644
---- a/drivers/misc/lkdtm/perms.c
-+++ b/drivers/misc/lkdtm/perms.c
-@@ -10,6 +10,7 @@
- #include <linux/mman.h>
- #include <linux/uaccess.h>
- #include <asm/cacheflush.h>
-+#include <asm/sections.h>
+diff --git a/arch/hexagon/Kconfig b/arch/hexagon/Kconfig
+index 15dd8f38b698..cdc5df32a1e3 100644
+--- a/arch/hexagon/Kconfig
++++ b/arch/hexagon/Kconfig
+@@ -6,6 +6,7 @@ config HEXAGON
+ 	def_bool y
+ 	select ARCH_32BIT_OFF_T
+ 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE
++	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_NO_PREEMPT
+ 	select DMA_GLOBAL_POOL
+ 	# Other pending projects/to-do items.
+diff --git a/arch/hexagon/include/asm/pgtable.h b/arch/hexagon/include/asm/pgtable.h
+index 18cd6ea9ab23..5eceddfe013d 100644
+--- a/arch/hexagon/include/asm/pgtable.h
++++ b/arch/hexagon/include/asm/pgtable.h
+@@ -127,31 +127,7 @@ extern unsigned long _dflt_cache_att;
+ #define CACHEDEF	(CACHE_DEFAULT << 6)
  
- /* Whether or not to fill the target memory area with do_nothing(). */
- #define CODE_WRITE	true
-@@ -37,7 +38,7 @@ static noinline void do_nothing(void)
+ /* Private (copy-on-write) page protections. */
+-#define __P000 __pgprot(_PAGE_PRESENT | _PAGE_USER | CACHEDEF)
+-#define __P001 __pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_READ | CACHEDEF)
+-#define __P010 __P000	/* Write-only copy-on-write */
+-#define __P011 __P001	/* Read/Write copy-on-write */
+-#define __P100 __pgprot(_PAGE_PRESENT | _PAGE_USER | \
+-			_PAGE_EXECUTE | CACHEDEF)
+-#define __P101 __pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_EXECUTE | \
+-			_PAGE_READ | CACHEDEF)
+-#define __P110 __P100	/* Write/execute copy-on-write */
+-#define __P111 __P101	/* Read/Write/Execute, copy-on-write */
+-
+ /* Shared page protections. */
+-#define __S000 __P000
+-#define __S001 __P001
+-#define __S010 __pgprot(_PAGE_PRESENT | _PAGE_USER | \
+-			_PAGE_WRITE | CACHEDEF)
+-#define __S011 __pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_READ | \
+-			_PAGE_WRITE | CACHEDEF)
+-#define __S100 __pgprot(_PAGE_PRESENT | _PAGE_USER | \
+-			_PAGE_EXECUTE | CACHEDEF)
+-#define __S101 __P101
+-#define __S110 __pgprot(_PAGE_PRESENT | _PAGE_USER | \
+-			_PAGE_EXECUTE | _PAGE_WRITE | CACHEDEF)
+-#define __S111 __pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_READ | \
+-			_PAGE_EXECUTE | _PAGE_WRITE | CACHEDEF)
+ 
+ extern pgd_t swapper_pg_dir[PTRS_PER_PGD];  /* located in head.S */
+ 
+diff --git a/arch/hexagon/mm/init.c b/arch/hexagon/mm/init.c
+index f01e91e10d95..b53595fc4103 100644
+--- a/arch/hexagon/mm/init.c
++++ b/arch/hexagon/mm/init.c
+@@ -236,3 +236,70 @@ void __init setup_arch_memory(void)
+ 	 *  which is called by start_kernel() later on in the process
+ 	 */
  }
- 
- /* Must immediately follow do_nothing for size calculuations to work out. */
--static void do_overwritten(void)
-+static noinline void do_overwritten(void)
- {
- 	pr_info("do_overwritten wasn't overwritten!\n");
- 	return;
-@@ -113,8 +114,9 @@ void lkdtm_WRITE_KERN(void)
- 	size_t size;
- 	volatile unsigned char *ptr;
- 
--	size = (unsigned long)do_overwritten - (unsigned long)do_nothing;
--	ptr = (unsigned char *)do_overwritten;
-+	size = (unsigned long)dereference_function_descriptor(do_overwritten) -
-+	       (unsigned long)dereference_function_descriptor(do_nothing);
-+	ptr = dereference_function_descriptor(do_overwritten);
- 
- 	pr_info("attempting bad %zu byte write at %px\n", size, ptr);
- 	memcpy((void *)ptr, (unsigned char *)do_nothing, size);
-diff --git a/kernel/extable.c b/kernel/extable.c
-index 394c39b86e38..bda5e9761541 100644
---- a/kernel/extable.c
-+++ b/kernel/extable.c
-@@ -149,6 +149,7 @@ void *dereference_function_descriptor(void *ptr)
- 		ptr = p;
- 	return ptr;
- }
-+EXPORT_SYMBOL_GPL(dereference_function_descriptor);
- 
- void *dereference_kernel_function_descriptor(void *ptr)
- {
++
++pgprot_t vm_get_page_prot(unsigned long vm_flags)
++{
++	switch (vm_flags & (VM_READ | VM_WRITE | VM_EXEC | VM_SHARED)) {
++	case VM_NONE:
++		return __pgprot(_PAGE_PRESENT | _PAGE_USER |
++				CACHEDEF);
++	case VM_READ:
++		return __pgprot(_PAGE_PRESENT | _PAGE_USER |
++				_PAGE_READ | CACHEDEF);
++	/* Write-only copy-on-write */
++	case VM_WRITE:
++		return __pgprot(_PAGE_PRESENT | _PAGE_USER |
++				CACHEDEF);
++	/* Read/Write copy-on-write */
++	case VM_WRITE | VM_READ:
++		return __pgprot(_PAGE_PRESENT | _PAGE_USER |
++				_PAGE_READ | CACHEDEF);
++	case VM_EXEC:
++		return __pgprot(_PAGE_PRESENT | _PAGE_USER |
++				_PAGE_EXECUTE | CACHEDEF);
++	case VM_EXEC | VM_READ:
++		return __pgprot(_PAGE_PRESENT | _PAGE_USER |
++				_PAGE_EXECUTE | _PAGE_READ |
++				CACHEDEF);
++	/* Write/execute copy-on-write */
++	case VM_EXEC | VM_WRITE:
++		return __pgprot(_PAGE_PRESENT | _PAGE_USER |
++				_PAGE_EXECUTE | CACHEDEF);
++	/* Read/Write/Execute, copy-on-write */
++	case VM_EXEC | VM_WRITE | VM_READ:
++		return __pgprot(_PAGE_PRESENT | _PAGE_USER |
++				_PAGE_EXECUTE | _PAGE_READ |
++				CACHEDEF);
++	case VM_SHARED:
++		return __pgprot(_PAGE_PRESENT | _PAGE_USER |
++				CACHEDEF);
++	case VM_SHARED | VM_READ:
++		return __pgprot(_PAGE_PRESENT | _PAGE_USER |
++				_PAGE_READ | CACHEDEF);
++	case VM_SHARED | VM_WRITE:
++		return  __pgprot(_PAGE_PRESENT | _PAGE_USER |
++				_PAGE_WRITE | CACHEDEF);
++	case VM_SHARED | VM_WRITE | VM_READ:
++		return __pgprot(_PAGE_PRESENT | _PAGE_USER |
++				_PAGE_READ | _PAGE_WRITE |
++				CACHEDEF);
++	case VM_SHARED | VM_EXEC:
++		return __pgprot(_PAGE_PRESENT | _PAGE_USER |
++				_PAGE_EXECUTE | CACHEDEF);
++	case VM_SHARED | VM_EXEC | VM_READ:
++		return __pgprot(_PAGE_PRESENT | _PAGE_USER |
++				_PAGE_EXECUTE | _PAGE_READ |
++				CACHEDEF);
++	case VM_SHARED | VM_EXEC | VM_WRITE:
++		return __pgprot(_PAGE_PRESENT | _PAGE_USER |
++				_PAGE_EXECUTE | _PAGE_WRITE |
++				CACHEDEF);
++	case VM_SHARED | VM_EXEC | VM_WRITE | VM_READ:
++		return __pgprot(_PAGE_PRESENT | _PAGE_USER |
++				_PAGE_READ | _PAGE_EXECUTE |
++				_PAGE_WRITE | CACHEDEF);
++	default:
++		BUILD_BUG();
++	}
++}
++EXPORT_SYMBOL(vm_get_page_prot);
 -- 
-2.34.1
+2.25.1
