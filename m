@@ -1,112 +1,369 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Tue, 15 Feb 2022 12:41:07 +0000
-Subject: [PATCH v4 12/13] lkdtm: Fix execute_[user]_location()
-Message-Id: <4055839683d8d643cd99be121f4767c7c611b970.1644928018.git.christophe.leroy@csgroup.eu>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Mon, 28 Feb 2022 10:59:53 +0000
+Subject: [PATCH V3 30/30] mm/mmap: Drop ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <1646045273-9343-31-git-send-email-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1644928018.git.christophe.leroy@csgroup.eu>
-In-Reply-To: <cover.1644928018.git.christophe.leroy@csgroup.eu>
+References: <1646045273-9343-1-git-send-email-anshuman.khandual@arm.com>
+In-Reply-To: <1646045273-9343-1-git-send-email-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+To: linux-mm@kvack.org, akpm@linux-foundation.org
+Cc: linux-kernel@vger.kernel.org, geert@linux-m68k.org, Anshuman Khandual <anshuman.khandual@arm.com>, Christoph Hellwig <hch@infradead.org>, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org, sparclinux@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-s390@vger.kernel.org, linux-riscv@lists.infradead.org, linux-alpha@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-parisc@vger.kernel.org, openrisc@lists.librecores.org, linux-um@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org
 
-execute_location() and execute_user_location() intent
-to copy do_nothing() text and execute it at a new location.
-However, at the time being it doesn't copy do_nothing() function
-but do_nothing() function descriptor which still points to the
-original text. So at the end it still executes do_nothing() at
-its original location allthough using a copied function descriptor.
+All platforms now define their own vm_get_page_prot() and also there is no
+generic version left to fallback on. Hence drop ARCH_HAS_GET_PAGE_PROT.
 
-So, fix that by really copying do_nothing() text and build a new
-function descriptor by copying do_nothing() function descriptor and
-updating the target address with the new location.
-
-Also fix the displayed addresses by dereferencing do_nothing()
-function descriptor.
-
-Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
-Acked-by: Kees Cook <keescook@chromium.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-mm@kvack.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
- drivers/misc/lkdtm/perms.c | 37 ++++++++++++++++++++++++++++---------
- 1 file changed, 28 insertions(+), 9 deletions(-)
+ arch/alpha/Kconfig      |  1 -
+ arch/arc/Kconfig        |  1 -
+ arch/arm/Kconfig        |  1 -
+ arch/arm64/Kconfig      |  1 -
+ arch/csky/Kconfig       |  1 -
+ arch/hexagon/Kconfig    |  1 -
+ arch/ia64/Kconfig       |  1 -
+ arch/m68k/Kconfig       |  1 -
+ arch/microblaze/Kconfig |  1 -
+ arch/mips/Kconfig       |  1 -
+ arch/nds32/Kconfig      |  1 -
+ arch/nios2/Kconfig      |  1 -
+ arch/openrisc/Kconfig   |  1 -
+ arch/parisc/Kconfig     |  1 -
+ arch/powerpc/Kconfig    |  1 -
+ arch/riscv/Kconfig      |  1 -
+ arch/s390/Kconfig       |  1 -
+ arch/sh/Kconfig         |  1 -
+ arch/sparc/Kconfig      |  2 --
+ arch/um/Kconfig         |  1 -
+ arch/x86/Kconfig        |  1 -
+ arch/xtensa/Kconfig     |  1 -
+ mm/Kconfig              |  3 ---
+ mm/mmap.c               | 23 -----------------------
+ 24 files changed, 49 deletions(-)
 
-diff --git a/drivers/misc/lkdtm/perms.c b/drivers/misc/lkdtm/perms.c
-index 035fcca441f0..1cf24c4a79e9 100644
---- a/drivers/misc/lkdtm/perms.c
-+++ b/drivers/misc/lkdtm/perms.c
-@@ -44,19 +44,34 @@ static noinline void do_overwritten(void)
- 	return;
- }
+diff --git a/arch/alpha/Kconfig b/arch/alpha/Kconfig
+index 73e82fe5c770..4e87783c90ad 100644
+--- a/arch/alpha/Kconfig
++++ b/arch/alpha/Kconfig
+@@ -2,7 +2,6 @@
+ config ALPHA
+ 	bool
+ 	default y
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_32BIT_USTAT_F_TINODE
+ 	select ARCH_MIGHT_HAVE_PC_PARPORT
+ 	select ARCH_MIGHT_HAVE_PC_SERIO
+diff --git a/arch/arc/Kconfig b/arch/arc/Kconfig
+index 78ff0644b343..3c2a4753d09b 100644
+--- a/arch/arc/Kconfig
++++ b/arch/arc/Kconfig
+@@ -13,7 +13,6 @@ config ARC
+ 	select ARCH_HAS_SETUP_DMA_OPS
+ 	select ARCH_HAS_SYNC_DMA_FOR_CPU
+ 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_SUPPORTS_ATOMIC_RMW if ARC_HAS_LLSC
+ 	select ARCH_32BIT_OFF_T
+ 	select BUILDTIME_TABLE_SORT
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index 87b2e89ef3d6..4c97cb40eebb 100644
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -23,7 +23,6 @@ config ARM
+ 	select ARCH_HAS_SYNC_DMA_FOR_CPU if SWIOTLB || !MMU
+ 	select ARCH_HAS_TEARDOWN_DMA_OPS if MMU
+ 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_HAVE_CUSTOM_GPIO_H
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG if CPU_V7 || CPU_V7M || CPU_V6K
+ 	select ARCH_HAS_GCOV_PROFILE_ALL
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index 7153d5fff603..bfb92b98d5aa 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -43,7 +43,6 @@ config ARM64
+ 	select ARCH_HAS_SYSCALL_WRAPPER
+ 	select ARCH_HAS_TEARDOWN_DMA_OPS if IOMMU_SUPPORT
+ 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_HAS_ZONE_DMA_SET if EXPERT
+ 	select ARCH_HAVE_ELF_PROT
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+diff --git a/arch/csky/Kconfig b/arch/csky/Kconfig
+index 209dac5686dd..132f43f12dd8 100644
+--- a/arch/csky/Kconfig
++++ b/arch/csky/Kconfig
+@@ -6,7 +6,6 @@ config CSKY
+ 	select ARCH_HAS_GCOV_PROFILE_ALL
+ 	select ARCH_HAS_SYNC_DMA_FOR_CPU
+ 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_USE_BUILTIN_BSWAP
+ 	select ARCH_USE_QUEUED_RWLOCKS
+ 	select ARCH_WANT_FRAME_POINTERS if !CPU_CK610 && $(cc-option,-mbacktrace)
+diff --git a/arch/hexagon/Kconfig b/arch/hexagon/Kconfig
+index cdc5df32a1e3..15dd8f38b698 100644
+--- a/arch/hexagon/Kconfig
++++ b/arch/hexagon/Kconfig
+@@ -6,7 +6,6 @@ config HEXAGON
+ 	def_bool y
+ 	select ARCH_32BIT_OFF_T
+ 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_NO_PREEMPT
+ 	select DMA_GLOBAL_POOL
+ 	# Other pending projects/to-do items.
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 0ab15e8d5783..a7e01573abd8 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -11,7 +11,6 @@ config IA64
+ 	select ARCH_HAS_DMA_MARK_CLEAN
+ 	select ARCH_HAS_STRNCPY_FROM_USER
+ 	select ARCH_HAS_STRNLEN_USER
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_MIGHT_HAVE_PC_PARPORT
+ 	select ARCH_MIGHT_HAVE_PC_SERIO
+ 	select ACPI
+diff --git a/arch/m68k/Kconfig b/arch/m68k/Kconfig
+index 114e65164692..936e1803c7c7 100644
+--- a/arch/m68k/Kconfig
++++ b/arch/m68k/Kconfig
+@@ -11,7 +11,6 @@ config M68K
+ 	select ARCH_NO_PREEMPT if !COLDFIRE
+ 	select ARCH_USE_MEMTEST if MMU_MOTOROLA
+ 	select ARCH_WANT_IPC_PARSE_VERSION
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select BINFMT_FLAT_ARGVP_ENVP_ON_STACK
+ 	select DMA_DIRECT_REMAP if HAS_DMA && MMU && !COLDFIRE
+ 	select GENERIC_ATOMIC64
+diff --git a/arch/microblaze/Kconfig b/arch/microblaze/Kconfig
+index f2c25ba8621e..59798e43cdb0 100644
+--- a/arch/microblaze/Kconfig
++++ b/arch/microblaze/Kconfig
+@@ -7,7 +7,6 @@ config MICROBLAZE
+ 	select ARCH_HAS_GCOV_PROFILE_ALL
+ 	select ARCH_HAS_SYNC_DMA_FOR_CPU
+ 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_MIGHT_HAVE_PC_PARPORT
+ 	select ARCH_WANT_IPC_PARSE_VERSION
+ 	select BUILDTIME_TABLE_SORT
+diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
+index fcbfc52a1567..058446f01487 100644
+--- a/arch/mips/Kconfig
++++ b/arch/mips/Kconfig
+@@ -13,7 +13,6 @@ config MIPS
+ 	select ARCH_HAS_STRNLEN_USER
+ 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
+ 	select ARCH_HAS_UBSAN_SANITIZE_ALL
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_HAS_GCOV_PROFILE_ALL
+ 	select ARCH_KEEP_MEMBLOCK
+ 	select ARCH_SUPPORTS_UPROBES
+diff --git a/arch/nds32/Kconfig b/arch/nds32/Kconfig
+index 576e05479925..4d1421b18734 100644
+--- a/arch/nds32/Kconfig
++++ b/arch/nds32/Kconfig
+@@ -10,7 +10,6 @@ config NDS32
+ 	select ARCH_HAS_DMA_PREP_COHERENT
+ 	select ARCH_HAS_SYNC_DMA_FOR_CPU
+ 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_WANT_FRAME_POINTERS if FTRACE
+ 	select CLKSRC_MMIO
+ 	select CLONE_BACKWARDS
+diff --git a/arch/nios2/Kconfig b/arch/nios2/Kconfig
+index 85a58a357a3b..33fd06f5fa41 100644
+--- a/arch/nios2/Kconfig
++++ b/arch/nios2/Kconfig
+@@ -6,7 +6,6 @@ config NIOS2
+ 	select ARCH_HAS_SYNC_DMA_FOR_CPU
+ 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE
+ 	select ARCH_HAS_DMA_SET_UNCACHED
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_NO_SWAP
+ 	select COMMON_CLK
+ 	select TIMER_OF
+diff --git a/arch/openrisc/Kconfig b/arch/openrisc/Kconfig
+index 842a61426816..f724b3f1aeed 100644
+--- a/arch/openrisc/Kconfig
++++ b/arch/openrisc/Kconfig
+@@ -10,7 +10,6 @@ config OPENRISC
+ 	select ARCH_HAS_DMA_SET_UNCACHED
+ 	select ARCH_HAS_DMA_CLEAR_UNCACHED
+ 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select COMMON_CLK
+ 	select OF
+ 	select OF_EARLY_FLATTREE
+diff --git a/arch/parisc/Kconfig b/arch/parisc/Kconfig
+index de512f120b50..43c1c880def6 100644
+--- a/arch/parisc/Kconfig
++++ b/arch/parisc/Kconfig
+@@ -10,7 +10,6 @@ config PARISC
+ 	select ARCH_HAS_ELF_RANDOMIZE
+ 	select ARCH_HAS_STRICT_KERNEL_RWX
+ 	select ARCH_HAS_UBSAN_SANITIZE_ALL
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_NO_SG_CHAIN
+ 	select ARCH_SUPPORTS_HUGETLBFS if PA20
+ 	select ARCH_SUPPORTS_MEMORY_FAILURE
+diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
+index ddb4a3687c05..b779603978e1 100644
+--- a/arch/powerpc/Kconfig
++++ b/arch/powerpc/Kconfig
+@@ -135,7 +135,6 @@ config PPC
+ 	select ARCH_HAS_TICK_BROADCAST		if GENERIC_CLOCKEVENTS_BROADCAST
+ 	select ARCH_HAS_UACCESS_FLUSHCACHE
+ 	select ARCH_HAS_UBSAN_SANITIZE_ALL
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+ 	select ARCH_KEEP_MEMBLOCK
+ 	select ARCH_MIGHT_HAVE_PC_PARPORT
+diff --git a/arch/riscv/Kconfig b/arch/riscv/Kconfig
+index 9391742f9286..5adcbd9b5e88 100644
+--- a/arch/riscv/Kconfig
++++ b/arch/riscv/Kconfig
+@@ -31,7 +31,6 @@ config RISCV
+ 	select ARCH_HAS_STRICT_MODULE_RWX if MMU && !XIP_KERNEL
+ 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
+ 	select ARCH_HAS_UBSAN_SANITIZE_ALL
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_OPTIONAL_KERNEL_RWX if ARCH_HAS_STRICT_KERNEL_RWX
+ 	select ARCH_OPTIONAL_KERNEL_RWX_DEFAULT
+ 	select ARCH_STACKWALK
+diff --git a/arch/s390/Kconfig b/arch/s390/Kconfig
+index cb1b487e8201..be9f39fd06df 100644
+--- a/arch/s390/Kconfig
++++ b/arch/s390/Kconfig
+@@ -78,7 +78,6 @@ config S390
+ 	select ARCH_HAS_SYSCALL_WRAPPER
+ 	select ARCH_HAS_UBSAN_SANITIZE_ALL
+ 	select ARCH_HAS_VDSO_DATA
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+ 	select ARCH_INLINE_READ_LOCK
+ 	select ARCH_INLINE_READ_LOCK_BH
+diff --git a/arch/sh/Kconfig b/arch/sh/Kconfig
+index f3fcd1c5e002..2474a04ceac4 100644
+--- a/arch/sh/Kconfig
++++ b/arch/sh/Kconfig
+@@ -11,7 +11,6 @@ config SUPERH
+ 	select ARCH_HAS_GCOV_PROFILE_ALL
+ 	select ARCH_HAS_PTE_SPECIAL
+ 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_HIBERNATION_POSSIBLE if MMU
+ 	select ARCH_MIGHT_HAVE_PC_PARPORT
+ 	select ARCH_WANT_IPC_PARSE_VERSION
+diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
+index ff29156f2380..1cab1b284f1a 100644
+--- a/arch/sparc/Kconfig
++++ b/arch/sparc/Kconfig
+@@ -59,7 +59,6 @@ config SPARC32
+ 	select HAVE_UID16
+ 	select OLD_SIGACTION
+ 	select ZONE_DMA
+-	select ARCH_HAS_VM_GET_PAGE_PROT
  
-+static void *setup_function_descriptor(func_desc_t *fdesc, void *dst)
-+{
-+	if (!have_function_descriptors())
-+		return dst;
-+
-+	memcpy(fdesc, do_nothing, sizeof(*fdesc));
-+	fdesc->addr = (unsigned long)dst;
-+	barrier();
-+
-+	return fdesc;
-+}
-+
- static noinline void execute_location(void *dst, bool write)
+ config SPARC64
+ 	def_bool 64BIT
+@@ -85,7 +84,6 @@ config SPARC64
+ 	select PERF_USE_VMALLOC
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+ 	select HAVE_C_RECORDMCOUNT
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select HAVE_ARCH_AUDITSYSCALL
+ 	select ARCH_SUPPORTS_ATOMIC_RMW
+ 	select ARCH_SUPPORTS_DEBUG_PAGEALLOC
+diff --git a/arch/um/Kconfig b/arch/um/Kconfig
+index 5836296868a8..4d398b80aea8 100644
+--- a/arch/um/Kconfig
++++ b/arch/um/Kconfig
+@@ -9,7 +9,6 @@ config UML
+ 	select ARCH_HAS_KCOV
+ 	select ARCH_HAS_STRNCPY_FROM_USER
+ 	select ARCH_HAS_STRNLEN_USER
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_NO_PREEMPT
+ 	select HAVE_ARCH_AUDITSYSCALL
+ 	select HAVE_ARCH_SECCOMP_FILTER
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index b2ea06c87708..013d8d6179e5 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -93,7 +93,6 @@ config X86
+ 	select ARCH_HAS_SYNC_CORE_BEFORE_USERMODE
+ 	select ARCH_HAS_SYSCALL_WRAPPER
+ 	select ARCH_HAS_UBSAN_SANITIZE_ALL
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_HAS_DEBUG_WX
+ 	select ARCH_HAS_ZONE_DMA_SET if EXPERT
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+diff --git a/arch/xtensa/Kconfig b/arch/xtensa/Kconfig
+index 1608f7517546..8ac599aa6d99 100644
+--- a/arch/xtensa/Kconfig
++++ b/arch/xtensa/Kconfig
+@@ -9,7 +9,6 @@ config XTENSA
+ 	select ARCH_HAS_DMA_SET_UNCACHED if MMU
+ 	select ARCH_HAS_STRNCPY_FROM_USER if !KASAN
+ 	select ARCH_HAS_STRNLEN_USER
+-	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_USE_MEMTEST
+ 	select ARCH_USE_QUEUED_RWLOCKS
+ 	select ARCH_USE_QUEUED_SPINLOCKS
+diff --git a/mm/Kconfig b/mm/Kconfig
+index 212fb6e1ddaa..3326ee3903f3 100644
+--- a/mm/Kconfig
++++ b/mm/Kconfig
+@@ -744,9 +744,6 @@ config IDLE_PAGE_TRACKING
+ config ARCH_HAS_CACHE_LINE_SIZE
+ 	bool
+ 
+-config ARCH_HAS_VM_GET_PAGE_PROT
+-	bool
+-
+ config ARCH_HAS_PTE_DEVMAP
+ 	bool
+ 
+diff --git a/mm/mmap.c b/mm/mmap.c
+index ff343f76a825..07d952793315 100644
+--- a/mm/mmap.c
++++ b/mm/mmap.c
+@@ -81,29 +81,6 @@ static void unmap_region(struct mm_struct *mm,
+ 		struct vm_area_struct *vma, struct vm_area_struct *prev,
+ 		unsigned long start, unsigned long end);
+ 
+-#ifndef CONFIG_ARCH_HAS_VM_GET_PAGE_PROT
+-/* description of effects of mapping type and prot in current implementation.
+- * this is due to the limited x86 page protection hardware.  The expected
+- * behavior is in parens:
+- *
+- * map_type	prot
+- *		PROT_NONE	PROT_READ	PROT_WRITE	PROT_EXEC
+- * MAP_SHARED	r: (no) no	r: (yes) yes	r: (no) yes	r: (no) yes
+- *		w: (no) no	w: (no) no	w: (yes) yes	w: (no) no
+- *		x: (no) no	x: (no) yes	x: (no) yes	x: (yes) yes
+- *
+- * MAP_PRIVATE	r: (no) no	r: (yes) yes	r: (no) yes	r: (no) yes
+- *		w: (no) no	w: (no) no	w: (copy) copy	w: (no) no
+- *		x: (no) no	x: (no) yes	x: (no) yes	x: (yes) yes
+- *
+- * On arm64, PROT_EXEC has the following behaviour for both MAP_SHARED and
+- * MAP_PRIVATE (with Enhanced PAN supported):
+- *								r: (no) no
+- *								w: (no) no
+- *								x: (yes) yes
+- */
+-#endif	/* CONFIG_ARCH_HAS_VM_GET_PAGE_PROT */
+-
+ static pgprot_t vm_pgprot_modify(pgprot_t oldprot, unsigned long vm_flags)
  {
--	void (*func)(void) = dst;
-+	void (*func)(void);
-+	func_desc_t fdesc;
-+	void *do_nothing_text = dereference_function_descriptor(do_nothing);
- 
--	pr_info("attempting ok execution at %px\n", do_nothing);
-+	pr_info("attempting ok execution at %px\n", do_nothing_text);
- 	do_nothing();
- 
- 	if (write = CODE_WRITE) {
--		memcpy(dst, do_nothing, EXEC_SIZE);
-+		memcpy(dst, do_nothing_text, EXEC_SIZE);
- 		flush_icache_range((unsigned long)dst,
- 				   (unsigned long)dst + EXEC_SIZE);
- 	}
--	pr_info("attempting bad execution at %px\n", func);
-+	pr_info("attempting bad execution at %px\n", dst);
-+	func = setup_function_descriptor(&fdesc, dst);
- 	func();
- 	pr_err("FAIL: func returned\n");
- }
-@@ -66,16 +81,19 @@ static void execute_user_location(void *dst)
- 	int copied;
- 
- 	/* Intentionally crossing kernel/user memory boundary. */
--	void (*func)(void) = dst;
-+	void (*func)(void);
-+	func_desc_t fdesc;
-+	void *do_nothing_text = dereference_function_descriptor(do_nothing);
- 
--	pr_info("attempting ok execution at %px\n", do_nothing);
-+	pr_info("attempting ok execution at %px\n", do_nothing_text);
- 	do_nothing();
- 
--	copied = access_process_vm(current, (unsigned long)dst, do_nothing,
-+	copied = access_process_vm(current, (unsigned long)dst, do_nothing_text,
- 				   EXEC_SIZE, FOLL_WRITE);
- 	if (copied < EXEC_SIZE)
- 		return;
--	pr_info("attempting bad execution at %px\n", func);
-+	pr_info("attempting bad execution at %px\n", dst);
-+	func = setup_function_descriptor(&fdesc, dst);
- 	func();
- 	pr_err("FAIL: func returned\n");
- }
-@@ -153,7 +171,8 @@ void lkdtm_EXEC_VMALLOC(void)
- 
- void lkdtm_EXEC_RODATA(void)
- {
--	execute_location(lkdtm_rodata_do_nothing, CODE_AS_IS);
-+	execute_location(dereference_function_descriptor(lkdtm_rodata_do_nothing),
-+			 CODE_AS_IS);
- }
- 
- void lkdtm_EXEC_USERSPACE(void)
+ 	return pgprot_modify(oldprot, vm_get_page_prot(vm_flags));
 -- 
-2.34.1
+2.25.1
