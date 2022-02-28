@@ -1,206 +1,165 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Tue, 15 Feb 2022 12:41:04 +0000
-Subject: [PATCH v4 09/13] asm-generic: Refactor dereference_[kernel]_function_descriptor()
-Message-Id: <449db09b2eba57f4ab05f80102a67d8675bc8bcd.1644928018.git.christophe.leroy@csgroup.eu>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Mon, 28 Feb 2022 10:59:27 +0000
+Subject: [PATCH V3 04/30] powerpc/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <1646045273-9343-5-git-send-email-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1644928018.git.christophe.leroy@csgroup.eu>
-In-Reply-To: <cover.1644928018.git.christophe.leroy@csgroup.eu>
+References: <1646045273-9343-1-git-send-email-anshuman.khandual@arm.com>
+In-Reply-To: <1646045273-9343-1-git-send-email-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Kees Cook <keescook@chromium.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Christophe Leroy <christophe.leroy@csgroup.eu>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+To: linux-mm@kvack.org, akpm@linux-foundation.org
+Cc: linux-kernel@vger.kernel.org, geert@linux-m68k.org, Anshuman Khandual <anshuman.khandual@arm.com>, Christoph Hellwig <hch@infradead.org>, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org, sparclinux@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-s390@vger.kernel.org, linux-riscv@lists.infradead.org, linux-alpha@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-parisc@vger.kernel.org, openrisc@lists.librecores.org, linux-um@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, Paul Mackerras <paulus@samba.org>
 
-dereference_function_descriptor() and
-dereference_kernel_function_descriptor() are identical on the
-three architectures implementing them.
+This defines and exports a platform specific custom vm_get_page_prot() via
+subscribing ARCH_HAS_VM_GET_PAGE_PROT. Subsequently all __SXXX and __PXXX
+macros can be dropped which are no longer needed. While here, this also
+localizes arch_vm_get_page_prot() as powerpc_vm_get_page_prot() and moves
+it near vm_get_page_prot().
 
-Make them common and put them out-of-line in kernel/extable.c
-which is one of the users and has similar type of functions.
-
-Reviewed-by: Kees Cook <keescook@chromium.org>
-Reviewed-by: Arnd Bergmann <arnd@arndb.de>
-Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
-Acked-by: Helge Deller <deller@gmx.de>
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
- arch/ia64/include/asm/sections.h    | 19 -------------------
- arch/parisc/include/asm/sections.h  |  9 ---------
- arch/parisc/kernel/process.c        | 21 ---------------------
- arch/powerpc/include/asm/sections.h | 23 -----------------------
- include/asm-generic/sections.h      |  2 ++
- kernel/extable.c                    | 23 ++++++++++++++++++++++-
- 6 files changed, 24 insertions(+), 73 deletions(-)
+ arch/powerpc/Kconfig               |  1 +
+ arch/powerpc/include/asm/mman.h    | 12 ------
+ arch/powerpc/include/asm/pgtable.h | 19 ----------
+ arch/powerpc/mm/mmap.c             | 59 ++++++++++++++++++++++++++++++
+ 4 files changed, 60 insertions(+), 31 deletions(-)
 
-diff --git a/arch/ia64/include/asm/sections.h b/arch/ia64/include/asm/sections.h
-index 3abe0562b01a..8e0875cf6071 100644
---- a/arch/ia64/include/asm/sections.h
-+++ b/arch/ia64/include/asm/sections.h
-@@ -30,23 +30,4 @@ extern char __start_gate_brl_fsys_bubble_down_patchlist[], __end_gate_brl_fsys_b
- extern char __start_unwind[], __end_unwind[];
- extern char __start_ivt_text[], __end_ivt_text[];
- 
--#undef dereference_function_descriptor
--static inline void *dereference_function_descriptor(void *ptr)
--{
--	struct fdesc *desc = ptr;
--	void *p;
--
--	if (!get_kernel_nofault(p, (void *)&desc->addr))
--		ptr = p;
--	return ptr;
--}
--
--#undef dereference_kernel_function_descriptor
--static inline void *dereference_kernel_function_descriptor(void *ptr)
--{
--	if (ptr < (void *)__start_opd || ptr >= (void *)__end_opd)
--		return ptr;
--	return dereference_function_descriptor(ptr);
--}
--
- #endif /* _ASM_IA64_SECTIONS_H */
-diff --git a/arch/parisc/include/asm/sections.h b/arch/parisc/include/asm/sections.h
-index ace1d4047a0b..33df42b5cc6d 100644
---- a/arch/parisc/include/asm/sections.h
-+++ b/arch/parisc/include/asm/sections.h
-@@ -12,13 +12,4 @@ typedef Elf64_Fdesc func_desc_t;
- 
- extern char __alt_instructions[], __alt_instructions_end[];
- 
--#ifdef CONFIG_64BIT
--
--#undef dereference_function_descriptor
--void *dereference_function_descriptor(void *);
--
--#undef dereference_kernel_function_descriptor
--void *dereference_kernel_function_descriptor(void *);
--#endif
--
- #endif
-diff --git a/arch/parisc/kernel/process.c b/arch/parisc/kernel/process.c
-index ea3d83b6fb62..2030c77592d3 100644
---- a/arch/parisc/kernel/process.c
-+++ b/arch/parisc/kernel/process.c
-@@ -263,27 +263,6 @@ __get_wchan(struct task_struct *p)
- 	return 0;
+diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
+index b779603978e1..ddb4a3687c05 100644
+--- a/arch/powerpc/Kconfig
++++ b/arch/powerpc/Kconfig
+@@ -135,6 +135,7 @@ config PPC
+ 	select ARCH_HAS_TICK_BROADCAST		if GENERIC_CLOCKEVENTS_BROADCAST
+ 	select ARCH_HAS_UACCESS_FLUSHCACHE
+ 	select ARCH_HAS_UBSAN_SANITIZE_ALL
++	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+ 	select ARCH_KEEP_MEMBLOCK
+ 	select ARCH_MIGHT_HAVE_PC_PARPORT
+diff --git a/arch/powerpc/include/asm/mman.h b/arch/powerpc/include/asm/mman.h
+index 7cb6d18f5cd6..1b024e64c8ec 100644
+--- a/arch/powerpc/include/asm/mman.h
++++ b/arch/powerpc/include/asm/mman.h
+@@ -24,18 +24,6 @@ static inline unsigned long arch_calc_vm_prot_bits(unsigned long prot,
  }
+ #define arch_calc_vm_prot_bits(prot, pkey) arch_calc_vm_prot_bits(prot, pkey)
  
--#ifdef CONFIG_64BIT
--void *dereference_function_descriptor(void *ptr)
+-static inline pgprot_t arch_vm_get_page_prot(unsigned long vm_flags)
 -{
--	Elf64_Fdesc *desc = ptr;
--	void *p;
--
--	if (!get_kernel_nofault(p, (void *)&desc->addr))
--		ptr = p;
--	return ptr;
--}
--
--void *dereference_kernel_function_descriptor(void *ptr)
--{
--	if (ptr < (void *)__start_opd ||
--			ptr >= (void *)__end_opd)
--		return ptr;
--
--	return dereference_function_descriptor(ptr);
--}
+-#ifdef CONFIG_PPC_MEM_KEYS
+-	return (vm_flags & VM_SAO) ?
+-		__pgprot(_PAGE_SAO | vmflag_to_pte_pkey_bits(vm_flags)) :
+-		__pgprot(0 | vmflag_to_pte_pkey_bits(vm_flags));
+-#else
+-	return (vm_flags & VM_SAO) ? __pgprot(_PAGE_SAO) : __pgprot(0);
 -#endif
+-}
+-#define arch_vm_get_page_prot(vm_flags) arch_vm_get_page_prot(vm_flags)
 -
- static inline unsigned long brk_rnd(void)
+ static inline bool arch_validate_prot(unsigned long prot, unsigned long addr)
  {
- 	return (get_random_int() & BRK_RND_MASK) << PAGE_SHIFT;
-diff --git a/arch/powerpc/include/asm/sections.h b/arch/powerpc/include/asm/sections.h
-index fddfb3937868..8be2c491c733 100644
---- a/arch/powerpc/include/asm/sections.h
-+++ b/arch/powerpc/include/asm/sections.h
-@@ -58,29 +58,6 @@ static inline int overlaps_kernel_text(unsigned long start, unsigned long end)
- 		(unsigned long)_stext < end;
+ 	if (prot & ~(PROT_READ | PROT_WRITE | PROT_EXEC | PROT_SEM | PROT_SAO))
+diff --git a/arch/powerpc/include/asm/pgtable.h b/arch/powerpc/include/asm/pgtable.h
+index d564d0ecd4cd..3cbb6de20f9d 100644
+--- a/arch/powerpc/include/asm/pgtable.h
++++ b/arch/powerpc/include/asm/pgtable.h
+@@ -20,25 +20,6 @@ struct mm_struct;
+ #include <asm/nohash/pgtable.h>
+ #endif /* !CONFIG_PPC_BOOK3S */
+ 
+-/* Note due to the way vm flags are laid out, the bits are XWR */
+-#define __P000	PAGE_NONE
+-#define __P001	PAGE_READONLY
+-#define __P010	PAGE_COPY
+-#define __P011	PAGE_COPY
+-#define __P100	PAGE_READONLY_X
+-#define __P101	PAGE_READONLY_X
+-#define __P110	PAGE_COPY_X
+-#define __P111	PAGE_COPY_X
+-
+-#define __S000	PAGE_NONE
+-#define __S001	PAGE_READONLY
+-#define __S010	PAGE_SHARED
+-#define __S011	PAGE_SHARED
+-#define __S100	PAGE_READONLY_X
+-#define __S101	PAGE_READONLY_X
+-#define __S110	PAGE_SHARED_X
+-#define __S111	PAGE_SHARED_X
+-
+ #ifndef __ASSEMBLY__
+ 
+ #ifndef MAX_PTRS_PER_PGD
+diff --git a/arch/powerpc/mm/mmap.c b/arch/powerpc/mm/mmap.c
+index c475cf810aa8..ee275937fe19 100644
+--- a/arch/powerpc/mm/mmap.c
++++ b/arch/powerpc/mm/mmap.c
+@@ -254,3 +254,62 @@ void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
+ 		mm->get_unmapped_area = arch_get_unmapped_area_topdown;
+ 	}
  }
- 
--#ifdef PPC64_ELF_ABI_v1
--
--#undef dereference_function_descriptor
--static inline void *dereference_function_descriptor(void *ptr)
--{
--	struct func_desc *desc = ptr;
--	void *p;
--
--	if (!get_kernel_nofault(p, (void *)&desc->addr))
--		ptr = p;
--	return ptr;
--}
--
--#undef dereference_kernel_function_descriptor
--static inline void *dereference_kernel_function_descriptor(void *ptr)
--{
--	if (ptr < (void *)__start_opd || ptr >= (void *)__end_opd)
--		return ptr;
--
--	return dereference_function_descriptor(ptr);
--}
--#endif /* PPC64_ELF_ABI_v1 */
--
- #endif
- 
- #endif /* __KERNEL__ */
-diff --git a/include/asm-generic/sections.h b/include/asm-generic/sections.h
-index bbf97502470c..d0f7bdd2fdf2 100644
---- a/include/asm-generic/sections.h
-+++ b/include/asm-generic/sections.h
-@@ -60,6 +60,8 @@ extern __visible const void __nosave_begin, __nosave_end;
- 
- /* Function descriptor handling (if any).  Override in asm/sections.h */
- #ifdef CONFIG_HAVE_FUNCTION_DESCRIPTORS
-+void *dereference_function_descriptor(void *ptr);
-+void *dereference_kernel_function_descriptor(void *ptr);
- #else
- #define dereference_function_descriptor(p) ((void *)(p))
- #define dereference_kernel_function_descriptor(p) ((void *)(p))
-diff --git a/kernel/extable.c b/kernel/extable.c
-index b6f330f0fe74..394c39b86e38 100644
---- a/kernel/extable.c
-+++ b/kernel/extable.c
-@@ -3,6 +3,7 @@
-    Copyright (C) 2001 Rusty Russell, 2002 Rusty Russell IBM.
- 
- */
-+#include <linux/elf.h>
- #include <linux/ftrace.h>
- #include <linux/memory.h>
- #include <linux/extable.h>
-@@ -132,12 +133,32 @@ int kernel_text_address(unsigned long addr)
- }
- 
- /*
-- * On some architectures (PPC64, IA64) function pointers
-+ * On some architectures (PPC64, IA64, PARISC) function pointers
-  * are actually only tokens to some data that then holds the
-  * real function address. As a result, to find if a function
-  * pointer is part of the kernel text, we need to do some
-  * special dereferencing first.
-  */
-+#ifdef CONFIG_HAVE_FUNCTION_DESCRIPTORS
-+void *dereference_function_descriptor(void *ptr)
-+{
-+	func_desc_t *desc = ptr;
-+	void *p;
 +
-+	if (!get_kernel_nofault(p, (void *)&desc->addr))
-+		ptr = p;
-+	return ptr;
++static inline pgprot_t __vm_get_page_prot(unsigned long vm_flags)
++{
++	switch (vm_flags & (VM_READ | VM_WRITE | VM_EXEC | VM_SHARED)) {
++	case VM_NONE:
++		return PAGE_NONE;
++	case VM_READ:
++		return PAGE_READONLY;
++	case VM_WRITE:
++	case VM_WRITE | VM_READ:
++		return PAGE_COPY;
++	case VM_EXEC:
++	case VM_EXEC | VM_READ:
++		return PAGE_READONLY_X;
++	case VM_EXEC | VM_WRITE:
++	case VM_EXEC | VM_WRITE | VM_READ:
++		return PAGE_COPY_X;
++	case VM_SHARED:
++		return PAGE_NONE;
++	case VM_SHARED | VM_READ:
++		return PAGE_READONLY;
++	case VM_SHARED | VM_WRITE:
++	case VM_SHARED | VM_WRITE | VM_READ:
++		return PAGE_SHARED;
++	case VM_SHARED | VM_EXEC:
++	case VM_SHARED | VM_EXEC | VM_READ:
++		return PAGE_READONLY_X;
++	case VM_SHARED | VM_EXEC | VM_WRITE:
++	case VM_SHARED | VM_EXEC | VM_WRITE | VM_READ:
++		return PAGE_SHARED_X;
++	default:
++		BUILD_BUG();
++	}
 +}
 +
-+void *dereference_kernel_function_descriptor(void *ptr)
++#ifdef CONFIG_PPC64
++static pgprot_t powerpc_vm_get_page_prot(unsigned long vm_flags)
 +{
-+	if (ptr < (void *)__start_opd || ptr >= (void *)__end_opd)
-+		return ptr;
-+
-+	return dereference_function_descriptor(ptr);
-+}
++#ifdef CONFIG_PPC_MEM_KEYS
++	return (vm_flags & VM_SAO) ?
++		__pgprot(_PAGE_SAO | vmflag_to_pte_pkey_bits(vm_flags)) :
++		__pgprot(0 | vmflag_to_pte_pkey_bits(vm_flags));
++#else
++	return (vm_flags & VM_SAO) ? __pgprot(_PAGE_SAO) : __pgprot(0);
 +#endif
++}
++#else
++static pgprot_t powerpc_vm_get_page_prot(unsigned long vm_flags)
++{
++	return __pgprot(0);
++}
++#endif /* CONFIG_PPC64 */
 +
- int func_ptr_is_kernel_text(void *ptr)
- {
- 	unsigned long addr;
++pgprot_t vm_get_page_prot(unsigned long vm_flags)
++{
++	return __pgprot(pgprot_val(__vm_get_page_prot(vm_flags)) |
++	       pgprot_val(powerpc_vm_get_page_prot(vm_flags)));
++}
++EXPORT_SYMBOL(vm_get_page_prot);
 -- 
-2.34.1
+2.25.1
