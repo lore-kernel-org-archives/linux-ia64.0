@@ -1,7 +1,7 @@
 From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Mon, 28 Feb 2022 10:59:27 +0000
-Subject: [PATCH V3 04/30] powerpc/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <1646045273-9343-5-git-send-email-anshuman.khandual@arm.com>
+Date: Mon, 28 Feb 2022 10:59:29 +0000
+Subject: [PATCH V3 06/30] sparc/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <1646045273-9343-7-git-send-email-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1646045273-9343-1-git-send-email-anshuman.khandual@arm.com>
 In-Reply-To: <1646045273-9343-1-git-send-email-anshuman.khandual@arm.com>
@@ -9,101 +9,137 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-mm@kvack.org, akpm@linux-foundation.org
-Cc: linux-kernel@vger.kernel.org, geert@linux-m68k.org, Anshuman Khandual <anshuman.khandual@arm.com>, Christoph Hellwig <hch@infradead.org>, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org, sparclinux@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-s390@vger.kernel.org, linux-riscv@lists.infradead.org, linux-alpha@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-parisc@vger.kernel.org, openrisc@lists.librecores.org, linux-um@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, Paul Mackerras <paulus@samba.org>
+Cc: linux-kernel@vger.kernel.org, geert@linux-m68k.org, Anshuman Khandual <anshuman.khandual@arm.com>, Christoph Hellwig <hch@infradead.org>, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org, sparclinux@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-s390@vger.kernel.org, linux-riscv@lists.infradead.org, linux-alpha@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-parisc@vger.kernel.org, openrisc@lists.librecores.org, linux-um@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Khalid Aziz <khalid.aziz@oracle.com>
 
 This defines and exports a platform specific custom vm_get_page_prot() via
 subscribing ARCH_HAS_VM_GET_PAGE_PROT. Subsequently all __SXXX and __PXXX
-macros can be dropped which are no longer needed. While here, this also
-localizes arch_vm_get_page_prot() as powerpc_vm_get_page_prot() and moves
-it near vm_get_page_prot().
+macros can be dropped which are no longer needed. This also localizes the
+helper arch_vm_get_page_prot() as sparc_vm_get_page_prot() and moves near
+vm_get_page_prot().
 
-Cc: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: linuxppc-dev@lists.ozlabs.org
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Khalid Aziz <khalid.aziz@oracle.com>
+Cc: sparclinux@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
+Reviewed-by: Khalid Aziz <khalid.aziz@oracle.com>
+Acked-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
- arch/powerpc/Kconfig               |  1 +
- arch/powerpc/include/asm/mman.h    | 12 ------
- arch/powerpc/include/asm/pgtable.h | 19 ----------
- arch/powerpc/mm/mmap.c             | 59 ++++++++++++++++++++++++++++++
- 4 files changed, 60 insertions(+), 31 deletions(-)
+ arch/sparc/Kconfig                  |  2 +
+ arch/sparc/include/asm/mman.h       |  6 ---
+ arch/sparc/include/asm/pgtable_32.h | 19 --------
+ arch/sparc/include/asm/pgtable_64.h | 19 --------
+ arch/sparc/mm/init_32.c             | 35 +++++++++++++++
+ arch/sparc/mm/init_64.c             | 70 +++++++++++++++++++++--------
+ 6 files changed, 88 insertions(+), 63 deletions(-)
 
-diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
-index b779603978e1..ddb4a3687c05 100644
---- a/arch/powerpc/Kconfig
-+++ b/arch/powerpc/Kconfig
-@@ -135,6 +135,7 @@ config PPC
- 	select ARCH_HAS_TICK_BROADCAST		if GENERIC_CLOCKEVENTS_BROADCAST
- 	select ARCH_HAS_UACCESS_FLUSHCACHE
- 	select ARCH_HAS_UBSAN_SANITIZE_ALL
+diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
+index 1cab1b284f1a..ff29156f2380 100644
+--- a/arch/sparc/Kconfig
++++ b/arch/sparc/Kconfig
+@@ -59,6 +59,7 @@ config SPARC32
+ 	select HAVE_UID16
+ 	select OLD_SIGACTION
+ 	select ZONE_DMA
 +	select ARCH_HAS_VM_GET_PAGE_PROT
+ 
+ config SPARC64
+ 	def_bool 64BIT
+@@ -84,6 +85,7 @@ config SPARC64
+ 	select PERF_USE_VMALLOC
  	select ARCH_HAVE_NMI_SAFE_CMPXCHG
- 	select ARCH_KEEP_MEMBLOCK
- 	select ARCH_MIGHT_HAVE_PC_PARPORT
-diff --git a/arch/powerpc/include/asm/mman.h b/arch/powerpc/include/asm/mman.h
-index 7cb6d18f5cd6..1b024e64c8ec 100644
---- a/arch/powerpc/include/asm/mman.h
-+++ b/arch/powerpc/include/asm/mman.h
-@@ -24,18 +24,6 @@ static inline unsigned long arch_calc_vm_prot_bits(unsigned long prot,
+ 	select HAVE_C_RECORDMCOUNT
++	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select HAVE_ARCH_AUDITSYSCALL
+ 	select ARCH_SUPPORTS_ATOMIC_RMW
+ 	select ARCH_SUPPORTS_DEBUG_PAGEALLOC
+diff --git a/arch/sparc/include/asm/mman.h b/arch/sparc/include/asm/mman.h
+index 274217e7ed70..af9c10c83dc5 100644
+--- a/arch/sparc/include/asm/mman.h
++++ b/arch/sparc/include/asm/mman.h
+@@ -46,12 +46,6 @@ static inline unsigned long sparc_calc_vm_prot_bits(unsigned long prot)
+ 	}
  }
- #define arch_calc_vm_prot_bits(prot, pkey) arch_calc_vm_prot_bits(prot, pkey)
  
--static inline pgprot_t arch_vm_get_page_prot(unsigned long vm_flags)
+-#define arch_vm_get_page_prot(vm_flags) sparc_vm_get_page_prot(vm_flags)
+-static inline pgprot_t sparc_vm_get_page_prot(unsigned long vm_flags)
 -{
--#ifdef CONFIG_PPC_MEM_KEYS
--	return (vm_flags & VM_SAO) ?
--		__pgprot(_PAGE_SAO | vmflag_to_pte_pkey_bits(vm_flags)) :
--		__pgprot(0 | vmflag_to_pte_pkey_bits(vm_flags));
--#else
--	return (vm_flags & VM_SAO) ? __pgprot(_PAGE_SAO) : __pgprot(0);
--#endif
+-	return (vm_flags & VM_SPARC_ADI) ? __pgprot(_PAGE_MCD_4V) : __pgprot(0);
 -}
--#define arch_vm_get_page_prot(vm_flags) arch_vm_get_page_prot(vm_flags)
 -
- static inline bool arch_validate_prot(unsigned long prot, unsigned long addr)
+ #define arch_validate_prot(prot, addr) sparc_validate_prot(prot, addr)
+ static inline int sparc_validate_prot(unsigned long prot, unsigned long addr)
  {
- 	if (prot & ~(PROT_READ | PROT_WRITE | PROT_EXEC | PROT_SEM | PROT_SAO))
-diff --git a/arch/powerpc/include/asm/pgtable.h b/arch/powerpc/include/asm/pgtable.h
-index d564d0ecd4cd..3cbb6de20f9d 100644
---- a/arch/powerpc/include/asm/pgtable.h
-+++ b/arch/powerpc/include/asm/pgtable.h
-@@ -20,25 +20,6 @@ struct mm_struct;
- #include <asm/nohash/pgtable.h>
- #endif /* !CONFIG_PPC_BOOK3S */
+diff --git a/arch/sparc/include/asm/pgtable_32.h b/arch/sparc/include/asm/pgtable_32.h
+index ffccfe3b22ed..060a435f96d6 100644
+--- a/arch/sparc/include/asm/pgtable_32.h
++++ b/arch/sparc/include/asm/pgtable_32.h
+@@ -64,25 +64,6 @@ void paging_init(void);
  
--/* Note due to the way vm flags are laid out, the bits are XWR */
--#define __P000	PAGE_NONE
--#define __P001	PAGE_READONLY
--#define __P010	PAGE_COPY
--#define __P011	PAGE_COPY
--#define __P100	PAGE_READONLY_X
--#define __P101	PAGE_READONLY_X
--#define __P110	PAGE_COPY_X
--#define __P111	PAGE_COPY_X
+ extern unsigned long ptr_in_current_pgd;
+ 
+-/*         xwr */
+-#define __P000  PAGE_NONE
+-#define __P001  PAGE_READONLY
+-#define __P010  PAGE_COPY
+-#define __P011  PAGE_COPY
+-#define __P100  PAGE_READONLY
+-#define __P101  PAGE_READONLY
+-#define __P110  PAGE_COPY
+-#define __P111  PAGE_COPY
 -
 -#define __S000	PAGE_NONE
 -#define __S001	PAGE_READONLY
 -#define __S010	PAGE_SHARED
 -#define __S011	PAGE_SHARED
--#define __S100	PAGE_READONLY_X
--#define __S101	PAGE_READONLY_X
--#define __S110	PAGE_SHARED_X
--#define __S111	PAGE_SHARED_X
+-#define __S100	PAGE_READONLY
+-#define __S101	PAGE_READONLY
+-#define __S110	PAGE_SHARED
+-#define __S111	PAGE_SHARED
+-
+ /* First physical page can be anywhere, the following is needed so that
+  * va-->pa and vice versa conversions work properly without performance
+  * hit for all __pa()/__va() operations.
+diff --git a/arch/sparc/include/asm/pgtable_64.h b/arch/sparc/include/asm/pgtable_64.h
+index 4679e45c8348..a779418ceba9 100644
+--- a/arch/sparc/include/asm/pgtable_64.h
++++ b/arch/sparc/include/asm/pgtable_64.h
+@@ -187,25 +187,6 @@ bool kern_addr_valid(unsigned long addr);
+ #define _PAGE_SZHUGE_4U	_PAGE_SZ4MB_4U
+ #define _PAGE_SZHUGE_4V	_PAGE_SZ4MB_4V
+ 
+-/* These are actually filled in at boot time by sun4{u,v}_pgprot_init() */
+-#define __P000	__pgprot(0)
+-#define __P001	__pgprot(0)
+-#define __P010	__pgprot(0)
+-#define __P011	__pgprot(0)
+-#define __P100	__pgprot(0)
+-#define __P101	__pgprot(0)
+-#define __P110	__pgprot(0)
+-#define __P111	__pgprot(0)
+-
+-#define __S000	__pgprot(0)
+-#define __S001	__pgprot(0)
+-#define __S010	__pgprot(0)
+-#define __S011	__pgprot(0)
+-#define __S100	__pgprot(0)
+-#define __S101	__pgprot(0)
+-#define __S110	__pgprot(0)
+-#define __S111	__pgprot(0)
 -
  #ifndef __ASSEMBLY__
  
- #ifndef MAX_PTRS_PER_PGD
-diff --git a/arch/powerpc/mm/mmap.c b/arch/powerpc/mm/mmap.c
-index c475cf810aa8..ee275937fe19 100644
---- a/arch/powerpc/mm/mmap.c
-+++ b/arch/powerpc/mm/mmap.c
-@@ -254,3 +254,62 @@ void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
- 		mm->get_unmapped_area = arch_get_unmapped_area_topdown;
- 	}
+ pte_t mk_pte_io(unsigned long, pgprot_t, int, unsigned long);
+diff --git a/arch/sparc/mm/init_32.c b/arch/sparc/mm/init_32.c
+index 1e9f577f084d..348cbfe08b60 100644
+--- a/arch/sparc/mm/init_32.c
++++ b/arch/sparc/mm/init_32.c
+@@ -302,3 +302,38 @@ void sparc_flush_page_to_ram(struct page *page)
+ 		__flush_page_to_ram(vaddr);
  }
+ EXPORT_SYMBOL(sparc_flush_page_to_ram);
 +
-+static inline pgprot_t __vm_get_page_prot(unsigned long vm_flags)
++pgprot_t vm_get_page_prot(unsigned long vm_flags)
 +{
 +	switch (vm_flags & (VM_READ | VM_WRITE | VM_EXEC | VM_SHARED)) {
 +	case VM_NONE:
@@ -115,10 +151,10 @@ index c475cf810aa8..ee275937fe19 100644
 +		return PAGE_COPY;
 +	case VM_EXEC:
 +	case VM_EXEC | VM_READ:
-+		return PAGE_READONLY_X;
++		return PAGE_READONLY;
 +	case VM_EXEC | VM_WRITE:
 +	case VM_EXEC | VM_WRITE | VM_READ:
-+		return PAGE_COPY_X;
++		return PAGE_COPY;
 +	case VM_SHARED:
 +		return PAGE_NONE;
 +	case VM_SHARED | VM_READ:
@@ -128,37 +164,109 @@ index c475cf810aa8..ee275937fe19 100644
 +		return PAGE_SHARED;
 +	case VM_SHARED | VM_EXEC:
 +	case VM_SHARED | VM_EXEC | VM_READ:
-+		return PAGE_READONLY_X;
++		return PAGE_READONLY;
 +	case VM_SHARED | VM_EXEC | VM_WRITE:
 +	case VM_SHARED | VM_EXEC | VM_WRITE | VM_READ:
-+		return PAGE_SHARED_X;
++		return PAGE_SHARED;
++	default:
++		BUILD_BUG();
++	}
++}
++EXPORT_SYMBOL(vm_get_page_prot);
+diff --git a/arch/sparc/mm/init_64.c b/arch/sparc/mm/init_64.c
+index 1b23639e2fcd..a390116d371b 100644
+--- a/arch/sparc/mm/init_64.c
++++ b/arch/sparc/mm/init_64.c
+@@ -50,6 +50,7 @@
+ #include <asm/cpudata.h>
+ #include <asm/setup.h>
+ #include <asm/irq.h>
++#include <asm/mman.h>
+ 
+ #include "init_64.h"
+ 
+@@ -2641,29 +2642,13 @@ static void prot_init_common(unsigned long page_none,
+ {
+ 	PAGE_COPY = __pgprot(page_copy);
+ 	PAGE_SHARED = __pgprot(page_shared);
+-
+-	protection_map[0x0] = __pgprot(page_none);
+-	protection_map[0x1] = __pgprot(page_readonly & ~page_exec_bit);
+-	protection_map[0x2] = __pgprot(page_copy & ~page_exec_bit);
+-	protection_map[0x3] = __pgprot(page_copy & ~page_exec_bit);
+-	protection_map[0x4] = __pgprot(page_readonly);
+-	protection_map[0x5] = __pgprot(page_readonly);
+-	protection_map[0x6] = __pgprot(page_copy);
+-	protection_map[0x7] = __pgprot(page_copy);
+-	protection_map[0x8] = __pgprot(page_none);
+-	protection_map[0x9] = __pgprot(page_readonly & ~page_exec_bit);
+-	protection_map[0xa] = __pgprot(page_shared & ~page_exec_bit);
+-	protection_map[0xb] = __pgprot(page_shared & ~page_exec_bit);
+-	protection_map[0xc] = __pgprot(page_readonly);
+-	protection_map[0xd] = __pgprot(page_readonly);
+-	protection_map[0xe] = __pgprot(page_shared);
+-	protection_map[0xf] = __pgprot(page_shared);
+ }
+ 
++static unsigned long page_none, page_shared, page_copy, page_readonly;
++static unsigned long page_exec_bit;
++
+ static void __init sun4u_pgprot_init(void)
+ {
+-	unsigned long page_none, page_shared, page_copy, page_readonly;
+-	unsigned long page_exec_bit;
+ 	int i;
+ 
+ 	PAGE_KERNEL = __pgprot (_PAGE_PRESENT_4U | _PAGE_VALID |
+@@ -3183,3 +3168,50 @@ void copy_highpage(struct page *to, struct page *from)
+ 	}
+ }
+ EXPORT_SYMBOL(copy_highpage);
++
++static inline pgprot_t __vm_get_page_prot(unsigned long vm_flags)
++{
++	switch (vm_flags & (VM_READ | VM_WRITE | VM_EXEC | VM_SHARED)) {
++	case VM_NONE:
++		return __pgprot(page_none);
++	case VM_READ:
++		return __pgprot(page_readonly & ~page_exec_bit);
++	case VM_WRITE:
++	case VM_WRITE | VM_READ:
++		return __pgprot(page_copy & ~page_exec_bit);
++	case VM_EXEC:
++	case VM_EXEC | VM_READ:
++		return __pgprot(page_readonly);
++	case VM_EXEC | VM_WRITE:
++	case VM_EXEC | VM_WRITE | VM_READ:
++		return __pgprot(page_copy);
++	case VM_SHARED:
++		return __pgprot(page_none);
++	case VM_SHARED | VM_READ:
++		return __pgprot(page_readonly & ~page_exec_bit);
++	case VM_SHARED | VM_WRITE:
++	case VM_SHARED | VM_WRITE | VM_READ:
++		return __pgprot(page_shared & ~page_exec_bit);
++	case VM_SHARED | VM_EXEC:
++	case VM_SHARED | VM_EXEC | VM_READ:
++		return __pgprot(page_readonly);
++	case VM_SHARED | VM_EXEC | VM_WRITE:
++	case VM_SHARED | VM_EXEC | VM_WRITE | VM_READ:
++		return __pgprot(page_shared);
 +	default:
 +		BUILD_BUG();
 +	}
 +}
 +
-+#ifdef CONFIG_PPC64
-+static pgprot_t powerpc_vm_get_page_prot(unsigned long vm_flags)
++static pgprot_t sparc_vm_get_page_prot(unsigned long vm_flags)
 +{
-+#ifdef CONFIG_PPC_MEM_KEYS
-+	return (vm_flags & VM_SAO) ?
-+		__pgprot(_PAGE_SAO | vmflag_to_pte_pkey_bits(vm_flags)) :
-+		__pgprot(0 | vmflag_to_pte_pkey_bits(vm_flags));
-+#else
-+	return (vm_flags & VM_SAO) ? __pgprot(_PAGE_SAO) : __pgprot(0);
-+#endif
++	return (vm_flags & VM_SPARC_ADI) ? __pgprot(_PAGE_MCD_4V) : __pgprot(0);
 +}
-+#else
-+static pgprot_t powerpc_vm_get_page_prot(unsigned long vm_flags)
-+{
-+	return __pgprot(0);
-+}
-+#endif /* CONFIG_PPC64 */
 +
 +pgprot_t vm_get_page_prot(unsigned long vm_flags)
 +{
 +	return __pgprot(pgprot_val(__vm_get_page_prot(vm_flags)) |
-+	       pgprot_val(powerpc_vm_get_page_prot(vm_flags)));
++	       pgprot_val(sparc_vm_get_page_prot(vm_flags)));
++
 +}
 +EXPORT_SYMBOL(vm_get_page_prot);
 -- 
