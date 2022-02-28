@@ -1,113 +1,97 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Date: Sun, 06 Feb 2022 17:09:27 +0000
-Subject: Re: [PATCH v2 2/3] status: Add user space API definitions for VSTATUS, NOKERNINFO and TIOCSTAT
-Message-Id: <YgAAx3OQPAC1+fws@kroah.com>
+From: Kees Cook <keescook@chromium.org>
+Date: Mon, 28 Feb 2022 20:55:18 +0000
+Subject: [PATCH 5.16 v2] binfmt_elf: Avoid total_mapping_size for ET_EXEC
+Message-Id: <20220228205518.1265798-1-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220206154856.2355838-1-walt@drummond.us>
- <20220206154856.2355838-3-walt@drummond.us>
-In-Reply-To: <20220206154856.2355838-3-walt@drummond.us>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Walt Drummond <walt@drummond.us>
-Cc: agordeev@linux.ibm.com, arnd@arndb.de, benh@kernel.crashing.org, borntraeger@de.ibm.com, chris@zankel.net, davem@davemloft.net, hca@linux.ibm.com, deller@gmx.de, ink@jurassic.park.msu.ru, James.Bottomley@hansenpartnership.com, jirislaby@kernel.org, mattst88@gmail.com, jcmvbkbc@gmail.com, mpe@ellerman.id.au, paulus@samba.org, rth@twiddle.net, dalias@libc.org, tsbogend@alpha.franken.de, gor@linux.ibm.com, ysato@users.osdn.me, linux-kernel@vger.kernel.org, ar@cs.msu.ru, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, sparclinux@vger.kernel.org
+To: matoro <matoro_mailinglist_kernel@matoro.tk>
+Cc: Kees Cook <keescook@chromium.org>, Alexander Viro <viro@zeniv.linux.org.uk>, Eric Biederman <ebiederm@xmission.com>, linux-fsdevel@vger.kernel.org, linux-mm@kvack.org, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, stable@vger.kernel.org, =?UTF-8?q?Magnus=20Gro=C3=9F?= <magnus.gross@rwth-aachen.de>, Thorsten Leemhuis <regressions@leemhuis.info>, Anthony Yznaga <anthony.yznaga@oracle.com>, Andrew Morton <akpm@linux-foundation.org>, regressions@lists.linux.dev, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-hardening@vger.kernel.org
 
-On Sun, Feb 06, 2022 at 07:48:53AM -0800, Walt Drummond wrote:
-> Add definitions for the VSTATUS control character, and the NOKERNINFO
-> local control flag in the termios struct, and add an ioctl number for
-> the ioctl TIOCSTAT.  Also add a default VSTATUS character (Ctrl-T)
-> default valuses in termios.c_cc.  Do this for all architectures.
-> 
-> Signed-off-by: Walt Drummond <walt@drummond.us>
-> ---
->  arch/alpha/include/asm/termios.h         | 4 ++--
->  arch/alpha/include/uapi/asm/ioctls.h     | 1 +
->  arch/alpha/include/uapi/asm/termbits.h   | 2 ++
->  arch/ia64/include/asm/termios.h          | 4 ++--
->  arch/ia64/include/uapi/asm/termbits.h    | 2 ++
->  arch/mips/include/asm/termios.h          | 4 ++--
->  arch/mips/include/uapi/asm/ioctls.h      | 1 +
->  arch/mips/include/uapi/asm/termbits.h    | 2 ++
->  arch/parisc/include/asm/termios.h        | 4 ++--
->  arch/parisc/include/uapi/asm/ioctls.h    | 1 +
->  arch/parisc/include/uapi/asm/termbits.h  | 2 ++
->  arch/powerpc/include/asm/termios.h       | 4 ++--
->  arch/powerpc/include/uapi/asm/ioctls.h   | 2 ++
->  arch/powerpc/include/uapi/asm/termbits.h | 2 ++
->  arch/s390/include/asm/termios.h          | 4 ++--
->  arch/sh/include/uapi/asm/ioctls.h        | 1 +
->  arch/sparc/include/uapi/asm/ioctls.h     | 1 +
->  arch/sparc/include/uapi/asm/termbits.h   | 2 ++
->  arch/xtensa/include/uapi/asm/ioctls.h    | 1 +
->  include/asm-generic/termios.h            | 4 ++--
->  include/uapi/asm-generic/ioctls.h        | 1 +
->  include/uapi/asm-generic/termbits.h      | 2 ++
->  22 files changed, 37 insertions(+), 14 deletions(-)
-> 
-> diff --git a/arch/alpha/include/asm/termios.h b/arch/alpha/include/asm/termios.h
-> index b7c77bb1bfd2..d28ddc649286 100644
-> --- a/arch/alpha/include/asm/termios.h
-> +++ b/arch/alpha/include/asm/termios.h
-> @@ -8,9 +8,9 @@
->  	werase=^W	kill=^U		reprint=^R	sxtc=\0
->  	intr=^C		quit=^\		susp=^Z		<OSF/1 VDSUSP>
->  	start=^Q	stop=^S		lnext=^V	discard=^U
-> -	vmin=\1		vtime=\0
-> +	vmin=\1		vtime=\0        status=^T
->  */
-> -#define INIT_C_CC "\004\000\000\177\027\025\022\000\003\034\032\000\021\023\026\025\001\000"
-> +#define INIT_C_CC "\004\000\000\177\027\025\022\000\003\034\032\000\021\023\026\025\001\000\024"
->  
->  /*
->   * Translate a "termio" structure into a "termios". Ugh.
-> diff --git a/arch/alpha/include/uapi/asm/ioctls.h b/arch/alpha/include/uapi/asm/ioctls.h
-> index 971311605288..70fdeab2b5f2 100644
-> --- a/arch/alpha/include/uapi/asm/ioctls.h
-> +++ b/arch/alpha/include/uapi/asm/ioctls.h
-> @@ -124,5 +124,6 @@
->  
->  #define TIOCMIWAIT	0x545C	/* wait for a change on serial input line(s) */
->  #define TIOCGICOUNT	0x545D	/* read serial port inline interrupt counts */
-> +#define TIOCSTAT	_IO('T', 0x5E)	/* display process group stats on tty */
->  
->  #endif /* _ASM_ALPHA_IOCTLS_H */
-> diff --git a/arch/alpha/include/uapi/asm/termbits.h b/arch/alpha/include/uapi/asm/termbits.h
-> index 4575ba34a0ea..9a1b9aa92d29 100644
-> --- a/arch/alpha/include/uapi/asm/termbits.h
-> +++ b/arch/alpha/include/uapi/asm/termbits.h
-> @@ -70,6 +70,7 @@ struct ktermios {
->  #define VDISCARD 15
->  #define VMIN 16
->  #define VTIME 17
-> +#define VSTATUS 18
->  
->  /* c_iflag bits */
->  #define IGNBRK	0000001
-> @@ -203,6 +204,7 @@ struct ktermios {
->  #define PENDIN	0x20000000
->  #define IEXTEN	0x00000400
->  #define EXTPROC	0x10000000
-> +#define NOKERNINFO 0x40000000
+Partially revert commit 5f501d555653 ("binfmt_elf: reintroduce using
+MAP_FIXED_NOREPLACE").
 
-Here, and elsewhere, you seem to mix tabs and spaces.  Please use what
-is in the original file (tabs here.)
+At least ia64 has ET_EXEC PT_LOAD segments that are not virtual-address
+contiguous (but _are_ file-offset contiguous). This would result in
+giant mapping attempts to cover the entire span, including the virtual
+address range hole. Disable total_mapping_size for ET_EXEC, which
+reduces the MAP_FIXED_NOREPLACE coverage to only the first PT_LOAD:
 
->  /* Values for the ACTION argument to `tcflow'.  */
->  #define	TCOOFF		0
-> diff --git a/arch/ia64/include/asm/termios.h b/arch/ia64/include/asm/termios.h
-> index 589c026444cc..40e83f9b6ead 100644
-> --- a/arch/ia64/include/asm/termios.h
-> +++ b/arch/ia64/include/asm/termios.h
-> @@ -15,9 +15,9 @@
->  	eof=^D		vtime=\0	vmin=\1		sxtc=\0
->  	start=^Q	stop=^S		susp=^Z		eol=\0
->  	reprint=^R	discard=^U	werase=^W	lnext=^V
-> -	eol2=\0
-> +	eol2=\0         status=^T
+$ readelf -lW /usr/bin/gcc
+...
+Program Headers:
+  Type Offset   VirtAddr           PhysAddr           FileSiz  MemSiz   ...
+...
+  LOAD 0x000000 0x4000000000000000 0x4000000000000000 0x00b5a0 0x00b5a0 ...
+  LOAD 0x00b5a0 0x600000000000b5a0 0x600000000000b5a0 0x0005ac 0x000710 ...
+...
+       ^^^^^^^^ ^^^^^^^^^^^^^^^^^^                    ^^^^^^^^ ^^^^^^^^
 
-Same here.  And for the other files in this patch.  Let's keep them
-unified please.
+File offset range     : 0x000000-0x00bb4c
+			0x00bb4c bytes
 
-thanks,
+Virtual address range : 0x4000000000000000-0x600000000000bcb0
+			0x200000000000bcb0 bytes
 
-greg k-h
+Ironically, this is the reverse of the problem that originally caused
+problems with ET_EXEC and MAP_FIXED_NOREPLACE: overlaps. This problem is
+with holes. Future work could restore full coverage if load_elf_binary()
+were to perform mappings in a separate phase from the loading (where
+it could resolve both overlaps and holes).
+
+Cc: Alexander Viro <viro@zeniv.linux.org.uk>
+Cc: Eric Biederman <ebiederm@xmission.com>
+Cc: linux-fsdevel@vger.kernel.org
+Cc: linux-mm@kvack.org
+Reported-by: matoro <matoro_mailinglist_kernel@matoro.tk>
+Reported-by: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Fixes: 5f501d555653 ("binfmt_elf: reintroduce using MAP_FIXED_NOREPLACE")
+Link: https://lore.kernel.org/r/a3edd529-c42d-3b09-135c-7e98a15b150f@leemhuis.info
+Cc: stable@vger.kernel.org
+Signed-off-by: Kees Cook <keescook@chromium.org>
+---
+Here's the v5.16 backport.
+---
+ fs/binfmt_elf.c | 25 ++++++++++++++++++-------
+ 1 file changed, 18 insertions(+), 7 deletions(-)
+
+diff --git a/fs/binfmt_elf.c b/fs/binfmt_elf.c
+index f8c7f26f1fbb..911a9e7044f4 100644
+--- a/fs/binfmt_elf.c
++++ b/fs/binfmt_elf.c
+@@ -1135,14 +1135,25 @@ static int load_elf_binary(struct linux_binprm *bprm)
+ 			 * is then page aligned.
+ 			 */
+ 			load_bias = ELF_PAGESTART(load_bias - vaddr);
+-		}
+ 
+-		/*
+-		 * Calculate the entire size of the ELF mapping (total_size).
+-		 * (Note that load_addr_set is set to true later once the
+-		 * initial mapping is performed.)
+-		 */
+-		if (!load_addr_set) {
++			/*
++			 * Calculate the entire size of the ELF mapping
++			 * (total_size), used for the initial mapping,
++			 * due to first_pt_load which is set to false later
++			 * once the initial mapping is performed.
++			 *
++			 * Note that this is only sensible when the LOAD
++			 * segments are contiguous (or overlapping). If
++			 * used for LOADs that are far apart, this would
++			 * cause the holes between LOADs to be mapped,
++			 * running the risk of having the mapping fail,
++			 * as it would be larger than the ELF file itself.
++			 *
++			 * As a result, only ET_DYN does this, since
++			 * some ET_EXEC (e.g. ia64) may have virtual
++			 * memory holes between LOADs.
++			 *
++			 */
+ 			total_size = total_mapping_size(elf_phdata,
+ 							elf_ex->e_phnum);
+ 			if (!total_size) {
+-- 
+2.32.0
