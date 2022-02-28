@@ -1,95 +1,120 @@
-From: Arnd Bergmann <arnd@kernel.org>
-Date: Wed, 16 Feb 2022 13:13:25 +0000
-Subject: [PATCH v2 11/18] arm64: simplify access_ok()
-Message-Id: <20220216131332.1489939-12-arnd@kernel.org>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Mon, 28 Feb 2022 10:59:44 +0000
+Subject: [PATCH V3 21/30] parisc/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <1646045273-9343-22-git-send-email-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220216131332.1489939-1-arnd@kernel.org>
-In-Reply-To: <20220216131332.1489939-1-arnd@kernel.org>
+References: <1646045273-9343-1-git-send-email-anshuman.khandual@arm.com>
+In-Reply-To: <1646045273-9343-1-git-send-email-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hellwig <hch@lst.de>, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-api@vger.kernel.org, arnd@arndb.de, linux-kernel@vger.kernel.org, viro@zeniv.linux.org.uk
-Cc: linux@armlinux.org.uk, will@kernel.org, guoren@kernel.org, bcain@codeaurora.org, geert@linux-m68k.org, monstr@monstr.eu, tsbogend@alpha.franken.de, nickhu@andestech.com, green.hu@gmail.com, dinguyen@kernel.org, shorne@gmail.com, deller@gmx.de, mpe@ellerman.id.au, peterz@infradead.org, mingo@redhat.com, mark.rutland@arm.com, hca@linux.ibm.com, dalias@libc.org, davem@davemloft.net, richard@nod.at, x86@kernel.org, jcmvbkbc@gmail.com, ebiederm@xmission.com, akpm@linux-foundation.org, ardb@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, Robin Murphy <robin.murphy@arm.com>
+To: linux-mm@kvack.org, akpm@linux-foundation.org
+Cc: linux-kernel@vger.kernel.org, geert@linux-m68k.org, Anshuman Khandual <anshuman.khandual@arm.com>, Christoph Hellwig <hch@infradead.org>, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org, sparclinux@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-s390@vger.kernel.org, linux-riscv@lists.infradead.org, linux-alpha@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-parisc@vger.kernel.org, openrisc@lists.librecores.org, linux-um@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>
 
-From: Arnd Bergmann <arnd@arndb.de>
+This defines and exports a platform specific custom vm_get_page_prot() via
+subscribing ARCH_HAS_VM_GET_PAGE_PROT. Subsequently all __SXXX and __PXXX
+macros can be dropped which are no longer needed.
 
-arm64 has an inline asm implementation of access_ok() that is derived from
-the 32-bit arm version and optimized for the case that both the limit and
-the size are variable. With set_fs() gone, the limit is always constant,
-and the size usually is as well, so just using the default implementation
-reduces the check into a comparison against a constant that can be
-scheduled by the compiler.
-
-On a defconfig build, this saves over 28KB of .text.
-
-Acked-by: Robin Murphy <robin.murphy@arm.com>
-Acked-by: Mark Rutland <mark.rutland@arm.com>
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Cc: "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>
+Cc: linux-parisc@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
- arch/arm64/include/asm/uaccess.h | 34 ++++++++++----------------------
- 1 file changed, 10 insertions(+), 24 deletions(-)
+ arch/parisc/Kconfig               |  1 +
+ arch/parisc/include/asm/pgtable.h | 20 ----------------
+ arch/parisc/mm/init.c             | 40 +++++++++++++++++++++++++++++++
+ 3 files changed, 41 insertions(+), 20 deletions(-)
 
-diff --git a/arch/arm64/include/asm/uaccess.h b/arch/arm64/include/asm/uaccess.h
-index 2e20879fe3cf..199c553b740a 100644
---- a/arch/arm64/include/asm/uaccess.h
-+++ b/arch/arm64/include/asm/uaccess.h
-@@ -26,6 +26,14 @@
- #include <asm/memory.h>
- #include <asm/extable.h>
- 
-+static inline int __access_ok(const void __user *ptr, unsigned long size)
-+{
-+	unsigned long limit = TASK_SIZE_MAX;
-+	unsigned long addr = (unsigned long)ptr;
-+
-+	return (size <= limit) && (addr <= (limit - size));
-+}
-+
- /*
-  * Test whether a block of memory is a valid user space address.
-  * Returns 1 if the range is valid, 0 otherwise.
-@@ -33,10 +41,8 @@
-  * This is equivalent to the following test:
-  * (u65)addr + (u65)size <= (u65)TASK_SIZE_MAX
+diff --git a/arch/parisc/Kconfig b/arch/parisc/Kconfig
+index 43c1c880def6..de512f120b50 100644
+--- a/arch/parisc/Kconfig
++++ b/arch/parisc/Kconfig
+@@ -10,6 +10,7 @@ config PARISC
+ 	select ARCH_HAS_ELF_RANDOMIZE
+ 	select ARCH_HAS_STRICT_KERNEL_RWX
+ 	select ARCH_HAS_UBSAN_SANITIZE_ALL
++	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_NO_SG_CHAIN
+ 	select ARCH_SUPPORTS_HUGETLBFS if PA20
+ 	select ARCH_SUPPORTS_MEMORY_FAILURE
+diff --git a/arch/parisc/include/asm/pgtable.h b/arch/parisc/include/asm/pgtable.h
+index 3e7cf882639f..80d99b2b5913 100644
+--- a/arch/parisc/include/asm/pgtable.h
++++ b/arch/parisc/include/asm/pgtable.h
+@@ -269,26 +269,6 @@ extern void __update_cache(pte_t pte);
+  * pages.
   */
--static inline unsigned long __range_ok(const void __user *addr, unsigned long size)
-+static inline int access_ok(const void __user *addr, unsigned long size)
- {
--	unsigned long ret, limit = TASK_SIZE_MAX - 1;
--
- 	/*
- 	 * Asynchronous I/O running in a kernel thread does not have the
- 	 * TIF_TAGGED_ADDR flag of the process owning the mm, so always untag
-@@ -46,29 +52,9 @@ static inline unsigned long __range_ok(const void __user *addr, unsigned long si
- 	    (current->flags & PF_KTHREAD || test_thread_flag(TIF_TAGGED_ADDR)))
- 		addr = untagged_addr(addr);
  
--	__chk_user_ptr(addr);
--	asm volatile(
--	// A + B <= C + 1 for all A,B,C, in four easy steps:
--	// 1: X = A + B; X' = X % 2^64
--	"	adds	%0, %3, %2\n"
--	// 2: Set C = 0 if X > 2^64, to guarantee X' > C in step 4
--	"	csel	%1, xzr, %1, hi\n"
--	// 3: Set X' = ~0 if X >= 2^64. For X = 2^64, this decrements X'
--	//    to compensate for the carry flag being set in step 4. For
--	//    X > 2^64, X' merely has to remain nonzero, which it does.
--	"	csinv	%0, %0, xzr, cc\n"
--	// 4: For X < 2^64, this gives us X' - C - 1 <= 0, where the -1
--	//    comes from the carry in being clear. Otherwise, we are
--	//    testing X' - C = 0, subject to the previous adjustments.
--	"	sbcs	xzr, %0, %1\n"
--	"	cset	%0, ls\n"
--	: "=&r" (ret), "+r" (limit) : "Ir" (size), "0" (addr) : "cc");
+-	 /*xwr*/
+-#define __P000  PAGE_NONE
+-#define __P001  PAGE_READONLY
+-#define __P010  __P000 /* copy on write */
+-#define __P011  __P001 /* copy on write */
+-#define __P100  PAGE_EXECREAD
+-#define __P101  PAGE_EXECREAD
+-#define __P110  __P100 /* copy on write */
+-#define __P111  __P101 /* copy on write */
 -
--	return ret;
-+	return likely(__access_ok(addr, size));
+-#define __S000  PAGE_NONE
+-#define __S001  PAGE_READONLY
+-#define __S010  PAGE_WRITEONLY
+-#define __S011  PAGE_SHARED
+-#define __S100  PAGE_EXECREAD
+-#define __S101  PAGE_EXECREAD
+-#define __S110  PAGE_RWX
+-#define __S111  PAGE_RWX
+-
+-
+ extern pgd_t swapper_pg_dir[]; /* declared in init_task.c */
+ 
+ /* initial page tables for 0-8MB for kernel */
+diff --git a/arch/parisc/mm/init.c b/arch/parisc/mm/init.c
+index 1dc2e88e7b04..f9e841f874a8 100644
+--- a/arch/parisc/mm/init.c
++++ b/arch/parisc/mm/init.c
+@@ -865,3 +865,43 @@ void flush_tlb_all(void)
+ 	spin_unlock(&sid_lock);
  }
- 
--#define access_ok(addr, size)	__range_ok(addr, size)
--
- /*
-  * User access enabling/disabling.
-  */
+ #endif
++
++pgprot_t vm_get_page_prot(unsigned long vm_flags)
++{
++	switch (vm_flags & (VM_READ | VM_WRITE | VM_EXEC | VM_SHARED)) {
++	case VM_NONE:
++		return PAGE_NONE;
++	case VM_READ:
++		return PAGE_READONLY;
++	/* copy on write */
++	case VM_WRITE:
++		return PAGE_NONE;
++	/* copy on write */
++	case VM_WRITE | VM_READ:
++		return PAGE_READONLY;
++	case VM_EXEC:
++	case VM_EXEC | VM_READ:
++	/* copy on write */
++	case VM_EXEC | VM_WRITE:
++	/* copy on write */
++	case VM_EXEC | VM_WRITE | VM_READ:
++		return PAGE_EXECREAD;
++	case VM_SHARED:
++		return PAGE_NONE;
++	case VM_SHARED | VM_READ:
++		return PAGE_READONLY;
++	case VM_SHARED | VM_WRITE:
++		return PAGE_WRITEONLY;
++	case VM_SHARED | VM_WRITE | VM_READ:
++		return PAGE_SHARED;
++	case VM_SHARED | VM_EXEC:
++	case VM_SHARED | VM_EXEC | VM_READ:
++		return PAGE_EXECREAD;
++	case VM_SHARED | VM_EXEC | VM_WRITE:
++	case VM_SHARED | VM_EXEC | VM_WRITE | VM_READ:
++		return PAGE_RWX;
++	default:
++		BUILD_BUG();
++	}
++}
++EXPORT_SYMBOL(vm_get_page_prot);
 -- 
-2.29.2
+2.25.1
