@@ -1,82 +1,77 @@
-From: "Russell King (Oracle)" <linux@armlinux.org.uk>
-Date: Tue, 01 Mar 2022 00:31:28 +0000
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Tue, 01 Mar 2022 08:16:40 +0000
 Subject: Re: [PATCH V3 09/30] arm/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <Yh1pYAOiskEQes3p@shell.armlinux.org.uk>
+Message-Id: <dc3c95a4-de06-9889-ce1e-f660fc9fbb95@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1646045273-9343-1-git-send-email-anshuman.khandual@arm.com>
  <1646045273-9343-10-git-send-email-anshuman.khandual@arm.com>
  <Yhyqjo/4bozJB6j5@shell.armlinux.org.uk>
  <542fa048-131e-240b-cc3a-fd4fff7ce4ba@arm.com>
-In-Reply-To: <542fa048-131e-240b-cc3a-fd4fff7ce4ba@arm.com>
+ <Yh1pYAOiskEQes3p@shell.armlinux.org.uk>
+In-Reply-To: <Yh1pYAOiskEQes3p@shell.armlinux.org.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Anshuman Khandual <anshuman.khandual@arm.com>
-Cc: linux-mm@kvack.org, akpm@linux-foundation.org, linux-kernel@vger.kernel.org, geert@linux-m68k.org, Christoph Hellwig <hch@infradead.org>, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org, sparclinux@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-s390@vger.kernel.org, linux-riscv@lists.infradead.org, linux-alpha@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-parisc@vger.kernel.org, openrisc@lists.librecores.org, linux-um@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>
+To: "Russell King (Oracle)" <linux@armlinux.org.uk>, Anshuman Khandual <anshuman.khandual@arm.com>
+Cc: "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>, "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>, "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>, "linux-hexagon@vger.kernel.org" <linux-hexagon@vger.kernel.org>, "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>, Christoph Hellwig <hch@infradead.org>, "geert@linux-m68k.org" <geert@linux-m68k.org>, "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>, "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>, Arnd Bergmann <arnd@arndb.de>, "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>, "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>, "openrisc@lists.librecores.org" <openrisc@lists.librecores.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "akpm@linux-foundation.org" <akpm@linux-foundation.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
 
-On Tue, Mar 01, 2022 at 05:30:41AM +0530, Anshuman Khandual wrote:
-> On 2/28/22 4:27 PM, Russell King (Oracle) wrote:
-> > On Mon, Feb 28, 2022 at 04:17:32PM +0530, Anshuman Khandual wrote:
-> >> This defines and exports a platform specific custom vm_get_page_prot() via
-> >> subscribing ARCH_HAS_VM_GET_PAGE_PROT. Subsequently all __SXXX and __PXXX
-> >> macros can be dropped which are no longer needed.
-> > 
-> > What I would really like to know is why having to run _code_ to work out
-> > what the page protections need to be is better than looking it up in a
-> > table.
-> > 
-> > Not only is this more expensive in terms of CPU cycles, it also brings
-> > additional code size with it.
-> > 
-> > I'm struggling to see what the benefit is.
-> 
-> Currently vm_get_page_prot() is also being _run_ to fetch required page
-> protection values. Although that is being run in the core MM and from a
-> platform perspective __SXXX, __PXXX are just being exported for a table.
-> Looking it up in a table (and applying more constructs there after) is
-> not much different than a clean switch case statement in terms of CPU
-> usage. So this is not more expensive in terms of CPU cycles.
-
-I disagree.
-
-However, let's base this disagreement on some evidence. Here is the
-present 32-bit ARM implementation:
-
-00000048 <vm_get_page_prot>:
-      48:       e200000f        and     r0, r0, #15
-      4c:       e3003000        movw    r3, #0
-                        4c: R_ARM_MOVW_ABS_NC   .LANCHOR1
-      50:       e3403000        movt    r3, #0
-                        50: R_ARM_MOVT_ABS      .LANCHOR1
-      54:       e7930100        ldr     r0, [r3, r0, lsl #2]
-      58:       e12fff1e        bx      lr
-
-That is five instructions long.
-
-Please show that your new implementation is not more expensive on
-32-bit ARM. Please do so by building a 32-bit kernel, and providing
-the disassembly.
-
-I think you will find way more than five instructions in your version -
-the compiler will have to issue code to decode the protection bits,
-probably using a table of branches or absolute PC values, or possibly
-the worst case of using multiple comparisons and branches. It then has
-to load constants that may be moved using movw on ARMv7, but on
-older architectures would have to be created from multiple instructions
-or loaded from the literal pool. Then there'll be instructions to load
-the address of "user_pgprot", retrieve its value, and bitwise or that.
-
-Therefore, I fail to see how your approach of getting rid of the table
-is somehow "better" than what we currently have in terms of the effect
-on the resulting code.
-
-If you don't like the __P and __S stuff and two arch_* hooks, you could
-move the table into arch code along with vm_get_page_prot() without the
-additional unnecessary hooks, while keeping all the benefits of the
-table lookup.
-
-Thanks.
-
--- 
-RMK's Patch system: https://www.armlinux.org.uk/developer/patches/
-FTTP is here! 40Mbps down 10Mbps up. Decent connectivity at last!
+DQoNCkxlIDAxLzAzLzIwMjIgw6AgMDE6MzEsIFJ1c3NlbGwgS2luZyAoT3JhY2xlKSBhIMOpY3Jp
+dMKgOg0KPiBPbiBUdWUsIE1hciAwMSwgMjAyMiBhdCAwNTozMDo0MUFNICswNTMwLCBBbnNodW1h
+biBLaGFuZHVhbCB3cm90ZToNCj4+IE9uIDIvMjgvMjIgNDoyNyBQTSwgUnVzc2VsbCBLaW5nIChP
+cmFjbGUpIHdyb3RlOg0KPj4+IE9uIE1vbiwgRmViIDI4LCAyMDIyIGF0IDA0OjE3OjMyUE0gKzA1
+MzAsIEFuc2h1bWFuIEtoYW5kdWFsIHdyb3RlOg0KPj4+PiBUaGlzIGRlZmluZXMgYW5kIGV4cG9y
+dHMgYSBwbGF0Zm9ybSBzcGVjaWZpYyBjdXN0b20gdm1fZ2V0X3BhZ2VfcHJvdCgpIHZpYQ0KPj4+
+PiBzdWJzY3JpYmluZyBBUkNIX0hBU19WTV9HRVRfUEFHRV9QUk9ULiBTdWJzZXF1ZW50bHkgYWxs
+IF9fU1hYWCBhbmQgX19QWFhYDQo+Pj4+IG1hY3JvcyBjYW4gYmUgZHJvcHBlZCB3aGljaCBhcmUg
+bm8gbG9uZ2VyIG5lZWRlZC4NCj4+Pg0KPj4+IFdoYXQgSSB3b3VsZCByZWFsbHkgbGlrZSB0byBr
+bm93IGlzIHdoeSBoYXZpbmcgdG8gcnVuIF9jb2RlXyB0byB3b3JrIG91dA0KPj4+IHdoYXQgdGhl
+IHBhZ2UgcHJvdGVjdGlvbnMgbmVlZCB0byBiZSBpcyBiZXR0ZXIgdGhhbiBsb29raW5nIGl0IHVw
+IGluIGENCj4+PiB0YWJsZS4NCj4+Pg0KPj4+IE5vdCBvbmx5IGlzIHRoaXMgbW9yZSBleHBlbnNp
+dmUgaW4gdGVybXMgb2YgQ1BVIGN5Y2xlcywgaXQgYWxzbyBicmluZ3MNCj4+PiBhZGRpdGlvbmFs
+IGNvZGUgc2l6ZSB3aXRoIGl0Lg0KPj4+DQo+Pj4gSSdtIHN0cnVnZ2xpbmcgdG8gc2VlIHdoYXQg
+dGhlIGJlbmVmaXQgaXMuDQo+Pg0KPj4gQ3VycmVudGx5IHZtX2dldF9wYWdlX3Byb3QoKSBpcyBh
+bHNvIGJlaW5nIF9ydW5fIHRvIGZldGNoIHJlcXVpcmVkIHBhZ2UNCj4+IHByb3RlY3Rpb24gdmFs
+dWVzLiBBbHRob3VnaCB0aGF0IGlzIGJlaW5nIHJ1biBpbiB0aGUgY29yZSBNTSBhbmQgZnJvbSBh
+DQo+PiBwbGF0Zm9ybSBwZXJzcGVjdGl2ZSBfX1NYWFgsIF9fUFhYWCBhcmUganVzdCBiZWluZyBl
+eHBvcnRlZCBmb3IgYSB0YWJsZS4NCj4+IExvb2tpbmcgaXQgdXAgaW4gYSB0YWJsZSAoYW5kIGFw
+cGx5aW5nIG1vcmUgY29uc3RydWN0cyB0aGVyZSBhZnRlcikgaXMNCj4+IG5vdCBtdWNoIGRpZmZl
+cmVudCB0aGFuIGEgY2xlYW4gc3dpdGNoIGNhc2Ugc3RhdGVtZW50IGluIHRlcm1zIG9mIENQVQ0K
+Pj4gdXNhZ2UuIFNvIHRoaXMgaXMgbm90IG1vcmUgZXhwZW5zaXZlIGluIHRlcm1zIG9mIENQVSBj
+eWNsZXMuDQo+IA0KPiBJIGRpc2FncmVlLg0KDQpTbyBkbyBJLg0KDQo+IA0KPiBIb3dldmVyLCBs
+ZXQncyBiYXNlIHRoaXMgZGlzYWdyZWVtZW50IG9uIHNvbWUgZXZpZGVuY2UuIEhlcmUgaXMgdGhl
+DQo+IHByZXNlbnQgMzItYml0IEFSTSBpbXBsZW1lbnRhdGlvbjoNCj4gDQo+IDAwMDAwMDQ4IDx2
+bV9nZXRfcGFnZV9wcm90PjoNCj4gICAgICAgIDQ4OiAgICAgICBlMjAwMDAwZiAgICAgICAgYW5k
+ICAgICByMCwgcjAsICMxNQ0KPiAgICAgICAgNGM6ICAgICAgIGUzMDAzMDAwICAgICAgICBtb3Z3
+ICAgIHIzLCAjMA0KPiAgICAgICAgICAgICAgICAgICAgICAgICAgNGM6IFJfQVJNX01PVldfQUJT
+X05DICAgLkxBTkNIT1IxDQo+ICAgICAgICA1MDogICAgICAgZTM0MDMwMDAgICAgICAgIG1vdnQg
+ICAgcjMsICMwDQo+ICAgICAgICAgICAgICAgICAgICAgICAgICA1MDogUl9BUk1fTU9WVF9BQlMg
+ICAgICAuTEFOQ0hPUjENCj4gICAgICAgIDU0OiAgICAgICBlNzkzMDEwMCAgICAgICAgbGRyICAg
+ICByMCwgW3IzLCByMCwgbHNsICMyXQ0KPiAgICAgICAgNTg6ICAgICAgIGUxMmZmZjFlICAgICAg
+ICBieCAgICAgIGxyDQo+IA0KPiBUaGF0IGlzIGZpdmUgaW5zdHJ1Y3Rpb25zIGxvbmcuDQoNCk9u
+IHBwYzMyIEkgZ2V0Og0KDQowMDAwMDA5NCA8dm1fZ2V0X3BhZ2VfcHJvdD46DQogICAgICAgOTQ6
+CTNkIDIwIDAwIDAwIAlsaXMgICAgIHI5LDANCgkJCTk2OiBSX1BQQ19BRERSMTZfSEEJLmRhdGEu
+LnJvX2FmdGVyX2luaXQNCiAgICAgICA5ODoJNTQgODQgMTYgYmEgCXJsd2lubSAgcjQscjQsMiwy
+NiwyOQ0KICAgICAgIDljOgkzOSAyOSAwMCAwMCAJYWRkaSAgICByOSxyOSwwDQoJCQk5ZTogUl9Q
+UENfQUREUjE2X0xPCS5kYXRhLi5yb19hZnRlcl9pbml0DQogICAgICAgYTA6CTdkIDI5IDIwIDJl
+IAlsd3p4ICAgIHI5LHI5LHI0DQogICAgICAgYTQ6CTkxIDIzIDAwIDAwIAlzdHcgICAgIHI5LDAo
+cjMpDQogICAgICAgYTg6CTRlIDgwIDAwIDIwIAlibHINCg0KDQo+IA0KPiBQbGVhc2Ugc2hvdyB0
+aGF0IHlvdXIgbmV3IGltcGxlbWVudGF0aW9uIGlzIG5vdCBtb3JlIGV4cGVuc2l2ZSBvbg0KPiAz
+Mi1iaXQgQVJNLiBQbGVhc2UgZG8gc28gYnkgYnVpbGRpbmcgYSAzMi1iaXQga2VybmVsLCBhbmQg
+cHJvdmlkaW5nDQo+IHRoZSBkaXNhc3NlbWJseS4NCg0KV2l0aCB5b3VyIHNlcmllcyBJIGdldDoN
+Cg0KMDAwMDAwMDAgPHZtX2dldF9wYWdlX3Byb3Q+Og0KICAgIDA6CTNkIDIwIDAwIDAwIAlsaXMg
+ICAgIHI5LDANCgkJCTI6IFJfUFBDX0FERFIxNl9IQQkucm9kYXRhDQogICAgNDoJMzkgMjkgMDAg
+MDAgCWFkZGkgICAgcjkscjksMA0KCQkJNjogUl9QUENfQUREUjE2X0xPCS5yb2RhdGENCiAgICA4
+Ogk1NCA4NCAxNiBiYSAJcmx3aW5tICByNCxyNCwyLDI2LDI5DQogICAgYzoJN2QgNDkgMjAgMmUg
+CWx3enggICAgcjEwLHI5LHI0DQogICAxMDoJN2QgNGEgNGEgMTQgCWFkZCAgICAgcjEwLHIxMCxy
+OQ0KICAgMTQ6CTdkIDQ5IDAzIGE2IAltdGN0ciAgIHIxMA0KICAgMTg6CTRlIDgwIDA0IDIwIAli
+Y3RyDQogICAxYzoJMzkgMjAgMDMgMTUgCWxpICAgICAgcjksNzg5DQogICAyMDoJOTEgMjMgMDAg
+MDAgCXN0dyAgICAgcjksMChyMykNCiAgIDI0Ogk0ZSA4MCAwMCAyMCAJYmxyDQogICAyODoJMzkg
+MjAgMDEgMTUgCWxpICAgICAgcjksMjc3DQogICAyYzoJOTEgMjMgMDAgMDAgCXN0dyAgICAgcjks
+MChyMykNCiAgIDMwOgk0ZSA4MCAwMCAyMCAJYmxyDQogICAzNDoJMzkgMjAgMDcgMTUgCWxpICAg
+ICAgcjksMTgxMw0KICAgMzg6CTkxIDIzIDAwIDAwIAlzdHcgICAgIHI5LDAocjMpDQogICAzYzoJ
+NGUgODAgMDAgMjAgCWJscg0KICAgNDA6CTM5IDIwIDA1IDE1IAlsaSAgICAgIHI5LDEzMDENCiAg
+IDQ0Ogk5MSAyMyAwMCAwMCAJc3R3ICAgICByOSwwKHIzKQ0KICAgNDg6CTRlIDgwIDAwIDIwIAli
+bHINCiAgIDRjOgkzOSAyMCAwMSAxMSAJbGkgICAgICByOSwyNzMNCiAgIDUwOgk0YiBmZiBmZiBk
+MCAJYiAgICAgICAyMCA8dm1fZ2V0X3BhZ2VfcHJvdCsweDIwPg0KDQoNClRoYXQgaXMgZGVmaW5p
+dGVseSBtb3JlIGV4cGVuc2l2ZSwgaXQgaW1wbGVtZW50cyBhIHRhYmxlIG9mIGJyYW5jaGVzLg0K
+DQoNCkNocmlzdG9waGU
