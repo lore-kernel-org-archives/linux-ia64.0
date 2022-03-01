@@ -1,58 +1,74 @@
-From: =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
-Date: Sat, 26 Mar 2022 16:58:54 +0000
-Subject: [PATCH 07/22] cm4000: Replace comments with C99 initializers
-Message-Id: <20220326165909.506926-7-benni@stuerz.xyz>
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 01 Mar 2022 10:53:04 +0000
+Subject: [PATCH 05/12] swiotlb: pass a gfp_mask argument to swiotlb_init_late
+Message-Id: <20220301105311.885699-6-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220326165909.506926-1-benni@stuerz.xyz>
-In-Reply-To: <20220326165909.506926-1-benni@stuerz.xyz>
+References: <20220301105311.885699-1-hch@lst.de>
+In-Reply-To: <20220301105311.885699-1-hch@lst.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: andrew@lunn.ch
-Cc: sebastian.hesselbarth@gmail.com, gregory.clement@bootlin.com, linux@armlinux.org.uk, linux@simtec.co.uk, krzk@kernel.org, alim.akhtar@samsung.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, hpa@zytor.com, robert.moore@intel.com, rafael.j.wysocki@intel.com, lenb@kernel.org, 3chas3@gmail.com, laforge@gnumonks.org, arnd@arndb.de, gregkh@linuxfoundation.org, mchehab@kernel.org, tony.luck@intel.com, james.morse@arm.com, rric@kernel.org, linus.walleij@linaro.org, brgl@bgdev.pl, mike.marciniszyn@cornelisnetworks.com, dennis.dalessandro@cornelisnetworks.com, jgg@ziepe.ca, pali@kernel.org, dmitry.torokhov@gmail.com, isdn@linux-pingi.de, benh@kernel.crashing.org, fbarrat@linux.ibm.com, ajd@linux.ibm.com, davem@davemloft.net, kuba@kernel.org, pabeni@redhat.com, nico@fluxnic.net, loic.poulain@linaro.org, kvalo@kernel.org, pkshih@realtek.com, bhelgaas@google.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-edac@vger.kernel.org, linux-gpio@vger.kernel.org, linux-rdma@vger.kernel.org, linux-input@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-media@vger.kernel.org, wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org, linux-pci@vger.kernel.org, =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: iommu@lists.linux-foundation.org
+Cc: Juergen Gross <jgross@suse.com>, Tom Lendacky <thomas.lendacky@amd.com>, linux-s390@vger.kernel.org, Stefano Stabellini <sstabellini@kernel.org>, linux-ia64@vger.kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, tboot-devel@lists.sourceforge.net, linux-hyperv@vger.kernel.org, linux-pci@vger.kernel.org, xen-devel@lists.xenproject.org, Boris Ostrovsky <boris.ostrovsky@oracle.com>, David Woodhouse <dwmw2@infradead.org>, linux-riscv@lists.infradead.org, linux-arm-kernel@lists.infradead.org
 
-VGhpcyByZXBsYWNlcyBjb21tZW50cyB3aXRoIEM5OSdzIGRlc2lnbmF0ZWQKaW5pdGlhbGl6ZXJz
-IGJlY2F1c2UgdGhlIGtlcm5lbCBzdXBwb3J0cyB0aGVtIG5vdy4KClNpZ25lZC1vZmYtYnk6IEJl
-bmphbWluIFN0w7xyeiA8YmVubmlAc3R1ZXJ6Lnh5ej4KLS0tCiBkcml2ZXJzL2NoYXIvcGNtY2lh
-L2NtNDAwMF9jcy5jIHwgMjQgKysrKysrKysrKysrLS0tLS0tLS0tLS0tCiAxIGZpbGUgY2hhbmdl
-ZCwgMTIgaW5zZXJ0aW9ucygrKSwgMTIgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVy
-cy9jaGFyL3BjbWNpYS9jbTQwMDBfY3MuYyBiL2RyaXZlcnMvY2hhci9wY21jaWEvY200MDAwX2Nz
-LmMKaW5kZXggYWRhZWM4ZmQ0YjE2Li44MDgyMDI1YWI1YjcgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMv
-Y2hhci9wY21jaWEvY200MDAwX2NzLmMKKysrIGIvZHJpdmVycy9jaGFyL3BjbWNpYS9jbTQwMDBf
-Y3MuYwpAQCAtMTUzLDE4ICsxNTMsMTggQEAgc3RhdGljIHN0cnVjdCBjbGFzcyAqY21tX2NsYXNz
-OwogICogdmlvbGF0ZXMgcHJvY2Vzcy9jb2Rpbmctc3R5bGUucnN0LiAgSG93ZXZlciwgSSBkb24n
-dCByZWFsbHkgdGhpbmsgd3JhcHBpbmcgaXQgYXJvdW5kIHdpbGwKICAqIG1ha2UgaXQgYW55IGNs
-ZWFyZXIgdG8gcmVhZCAtSFcgKi8KIHN0YXRpYyB1bnNpZ25lZCBjaGFyIGZpX2RpX3RhYmxlWzEw
-XVsxNF0gPSB7Ci0vKkZJICAgICAwMCAgIDAxICAgMDIgICAwMyAgIDA0ICAgMDUgICAwNiAgIDA3
-ICAgMDggICAwOSAgIDEwICAgMTEgICAxMiAgIDEzICovCi0vKkRJICovCi0vKiAwICovIHsweDEx
-LDB4MTEsMHgxMSwweDExLDB4MTEsMHgxMSwweDExLDB4MTEsMHgxMSwweDExLDB4MTEsMHgxMSww
-eDExLDB4MTF9LAotLyogMSAqLyB7MHgwMSwweDExLDB4MTEsMHgxMSwweDExLDB4MTEsMHgxMSww
-eDExLDB4MTEsMHg5MSwweDExLDB4MTEsMHgxMSwweDExfSwKLS8qIDIgKi8gezB4MDIsMHgxMiww
-eDIyLDB4MzIsMHgxMSwweDExLDB4MTEsMHgxMSwweDExLDB4OTIsMHhBMiwweEIyLDB4MTEsMHgx
-MX0sCi0vKiAzICovIHsweDAzLDB4MTMsMHgyMywweDMzLDB4NDMsMHg1MywweDYzLDB4MTEsMHgx
-MSwweDkzLDB4QTMsMHhCMywweEMzLDB4RDN9LAotLyogNCAqLyB7MHgwNCwweDE0LDB4MjQsMHgz
-NCwweDQ0LDB4NTQsMHg2NCwweDExLDB4MTEsMHg5NCwweEE0LDB4QjQsMHhDNCwweEQ0fSwKLS8q
-IDUgKi8gezB4MDAsMHgxNSwweDI1LDB4MzUsMHg0NSwweDU1LDB4NjUsMHgxMSwweDExLDB4OTUs
-MHhBNSwweEI1LDB4QzUsMHhENX0sCi0vKiA2ICovIHsweDA2LDB4MTYsMHgyNiwweDM2LDB4NDYs
-MHg1NiwweDY2LDB4MTEsMHgxMSwweDk2LDB4QTYsMHhCNiwweEM2LDB4RDZ9LAotLyogNyAqLyB7
-MHgxMSwweDExLDB4MTEsMHgxMSwweDExLDB4MTEsMHgxMSwweDExLDB4MTEsMHgxMSwweDExLDB4
-MTEsMHgxMSwweDExfSwKLS8qIDggKi8gezB4MDgsMHgxMSwweDI4LDB4MzgsMHg0OCwweDU4LDB4
-NjgsMHgxMSwweDExLDB4OTgsMHhBOCwweEI4LDB4QzgsMHhEOH0sCi0vKiA5ICovIHsweDA5LDB4
-MTksMHgyOSwweDM5LDB4NDksMHg1OSwweDY5LDB4MTEsMHgxMSwweDk5LDB4QTksMHhCOSwweEM5
-LDB4RDl9CisvKiAgRkkgICAgIDAwICAgMDEgICAwMiAgIDAzICAgMDQgICAwNSAgIDA2ICAgMDcg
-ICAwOCAgIDA5ICAgMTAgICAxMSAgIDEyICAgMTMgKi8KKy8qICBESSAqLworCVswXSA9IHsweDEx
-LDB4MTEsMHgxMSwweDExLDB4MTEsMHgxMSwweDExLDB4MTEsMHgxMSwweDExLDB4MTEsMHgxMSww
-eDExLDB4MTF9LAorCVsxXSA9IHsweDAxLDB4MTEsMHgxMSwweDExLDB4MTEsMHgxMSwweDExLDB4
-MTEsMHgxMSwweDkxLDB4MTEsMHgxMSwweDExLDB4MTF9LAorCVsyXSA9IHsweDAyLDB4MTIsMHgy
-MiwweDMyLDB4MTEsMHgxMSwweDExLDB4MTEsMHgxMSwweDkyLDB4QTIsMHhCMiwweDExLDB4MTF9
-LAorCVszXSA9IHsweDAzLDB4MTMsMHgyMywweDMzLDB4NDMsMHg1MywweDYzLDB4MTEsMHgxMSww
-eDkzLDB4QTMsMHhCMywweEMzLDB4RDN9LAorCVs0XSA9IHsweDA0LDB4MTQsMHgyNCwweDM0LDB4
-NDQsMHg1NCwweDY0LDB4MTEsMHgxMSwweDk0LDB4QTQsMHhCNCwweEM0LDB4RDR9LAorCVs1XSA9
-IHsweDAwLDB4MTUsMHgyNSwweDM1LDB4NDUsMHg1NSwweDY1LDB4MTEsMHgxMSwweDk1LDB4QTUs
-MHhCNSwweEM1LDB4RDV9LAorCVs2XSA9IHsweDA2LDB4MTYsMHgyNiwweDM2LDB4NDYsMHg1Niww
-eDY2LDB4MTEsMHgxMSwweDk2LDB4QTYsMHhCNiwweEM2LDB4RDZ9LAorCVs3XSA9IHsweDExLDB4
-MTEsMHgxMSwweDExLDB4MTEsMHgxMSwweDExLDB4MTEsMHgxMSwweDExLDB4MTEsMHgxMSwweDEx
-LDB4MTF9LAorCVs4XSA9IHsweDA4LDB4MTEsMHgyOCwweDM4LDB4NDgsMHg1OCwweDY4LDB4MTEs
-MHgxMSwweDk4LDB4QTgsMHhCOCwweEM4LDB4RDh9LAorCVs5XSA9IHsweDA5LDB4MTksMHgyOSww
-eDM5LDB4NDksMHg1OSwweDY5LDB4MTEsMHgxMSwweDk5LDB4QTksMHhCOSwweEM5LDB4RDl9CiB9
-OwogCiAjaWZuZGVmIENNNDAwMF9ERUJVRwotLSAKMi4zNS4xCg==
+Let the caller chose a zone to allocate from.  This will be used
+later on by the xen-swiotlb initialization on arm.
+
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+Reviewed-by: Anshuman Khandual <anshuman.khandual@arm.com>
+---
+ arch/x86/pci/sta2x11-fixup.c | 2 +-
+ include/linux/swiotlb.h      | 2 +-
+ kernel/dma/swiotlb.c         | 4 ++--
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/arch/x86/pci/sta2x11-fixup.c b/arch/x86/pci/sta2x11-fixup.c
+index e0c039a75b2db..c7e6faf59a861 100644
+--- a/arch/x86/pci/sta2x11-fixup.c
++++ b/arch/x86/pci/sta2x11-fixup.c
+@@ -57,7 +57,7 @@ static void sta2x11_new_instance(struct pci_dev *pdev)
+ 		int size = STA2X11_SWIOTLB_SIZE;
+ 		/* First instance: register your own swiotlb area */
+ 		dev_info(&pdev->dev, "Using SWIOTLB (size %i)\n", size);
+-		if (swiotlb_init_late(size))
++		if (swiotlb_init_late(size, GFP_DMA))
+ 			dev_emerg(&pdev->dev, "init swiotlb failed\n");
+ 	}
+ 	list_add(&instance->list, &sta2x11_instance_list);
+diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
+index b48b26bfa0edb..1befd6b2ccf5e 100644
+--- a/include/linux/swiotlb.h
++++ b/include/linux/swiotlb.h
+@@ -40,7 +40,7 @@ extern void swiotlb_init(int verbose);
+ int swiotlb_init_with_tbl(char *tlb, unsigned long nslabs, int verbose);
+ unsigned long swiotlb_size_or_default(void);
+ extern int swiotlb_late_init_with_tbl(char *tlb, unsigned long nslabs);
+-int swiotlb_init_late(size_t size);
++int swiotlb_init_late(size_t size, gfp_t gfp_mask);
+ extern void __init swiotlb_update_mem_attributes(void);
+ 
+ phys_addr_t swiotlb_tbl_map_single(struct device *hwdev, phys_addr_t phys,
+diff --git a/kernel/dma/swiotlb.c b/kernel/dma/swiotlb.c
+index 0b1992c355f36..9a38ea3a46e9f 100644
+--- a/kernel/dma/swiotlb.c
++++ b/kernel/dma/swiotlb.c
+@@ -290,7 +290,7 @@ swiotlb_init(int verbose)
+  * initialize the swiotlb later using the slab allocator if needed.
+  * This should be just like above, but with some error catching.
+  */
+-int swiotlb_init_late(size_t size)
++int swiotlb_init_late(size_t size, gfp_t gfp_mask)
+ {
+ 	unsigned long nslabs = ALIGN(size >> IO_TLB_SHIFT, IO_TLB_SEGSIZE);
+ 	unsigned long bytes;
+@@ -309,7 +309,7 @@ int swiotlb_init_late(size_t size)
+ 	bytes = nslabs << IO_TLB_SHIFT;
+ 
+ 	while ((SLABS_PER_PAGE << order) > IO_TLB_MIN_SLABS) {
+-		vstart = (void *)__get_free_pages(GFP_DMA | __GFP_NOWARN,
++		vstart = (void *)__get_free_pages(gfp_mask | __GFP_NOWARN,
+ 						  order);
+ 		if (vstart)
+ 			break;
+-- 
+2.30.2
