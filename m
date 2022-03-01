@@ -1,182 +1,533 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Wed, 09 Mar 2022 11:43:02 +0000
-Subject: Re: [PATCH V3 05/30] arm64/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <f1b4dbb5-7cd4-7513-4b18-169b97745a0a@arm.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 01 Mar 2022 10:53:10 +0000
+Subject: [PATCH 11/12] swiotlb: merge swiotlb-xen initialization into swiotlb
+Message-Id: <20220301105311.885699-12-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1646045273-9343-1-git-send-email-anshuman.khandual@arm.com>
- <1646045273-9343-6-git-send-email-anshuman.khandual@arm.com>
- <YiDessYDSt060Euc@arm.com>
-In-Reply-To: <YiDessYDSt060Euc@arm.com>
+References: <20220301105311.885699-1-hch@lst.de>
+In-Reply-To: <20220301105311.885699-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Catalin Marinas <catalin.marinas@arm.com>
-Cc: linux-mm@kvack.org, akpm@linux-foundation.org, linux-kernel@vger.kernel.org, geert@linux-m68k.org, Christoph Hellwig <hch@infradead.org>, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org, sparclinux@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-s390@vger.kernel.org, linux-riscv@lists.infradead.org, linux-alpha@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-parisc@vger.kernel.org, openrisc@lists.librecores.org, linux-um@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, Will Deacon <will@kernel.org>
+To: iommu@lists.linux-foundation.org
+Cc: x86@kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Tom Lendacky <thomas.lendacky@amd.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Stefano Stabellini <sstabellini@kernel.org>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Robin Murphy <robin.murphy@arm.com>, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-hyperv@vger.kernel.org, tboot-devel@lists.sourceforge.net, linux-pci@vger.kernel.org
 
+Allow to pass a remap argument to the swiotlb initialization functions
+to handle the Xen/x86 remap case.  ARM/ARM64 never did any remapping
+from xen_swiotlb_fixup, so we don't even need that quirk.
 
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/arm/xen/mm.c               |  23 +++---
+ arch/x86/include/asm/xen/page.h |   5 --
+ arch/x86/kernel/pci-dma.c       |  19 +++--
+ arch/x86/pci/sta2x11-fixup.c    |   2 +-
+ drivers/xen/swiotlb-xen.c       | 128 +-------------------------------
+ include/linux/swiotlb.h         |   7 +-
+ include/xen/arm/page.h          |   1 -
+ include/xen/swiotlb-xen.h       |   8 +-
+ kernel/dma/swiotlb.c            | 120 +++++++++++++++---------------
+ 9 files changed, 96 insertions(+), 217 deletions(-)
 
-On 3/3/22 20:58, Catalin Marinas wrote:
-> Hi Anshuman,
-> 
-> On Mon, Feb 28, 2022 at 04:17:28PM +0530, Anshuman Khandual wrote:
->> +static inline pgprot_t __vm_get_page_prot(unsigned long vm_flags)
->> +{
->> +	switch (vm_flags & (VM_READ | VM_WRITE | VM_EXEC | VM_SHARED)) {
->> +	case VM_NONE:
->> +		return PAGE_NONE;
->> +	case VM_READ:
->> +	case VM_WRITE:
->> +	case VM_WRITE | VM_READ:
->> +		return PAGE_READONLY;
->> +	case VM_EXEC:
->> +		return PAGE_EXECONLY;
->> +	case VM_EXEC | VM_READ:
->> +	case VM_EXEC | VM_WRITE:
->> +	case VM_EXEC | VM_WRITE | VM_READ:
->> +		return PAGE_READONLY_EXEC;
->> +	case VM_SHARED:
->> +		return PAGE_NONE;
->> +	case VM_SHARED | VM_READ:
->> +		return PAGE_READONLY;
->> +	case VM_SHARED | VM_WRITE:
->> +	case VM_SHARED | VM_WRITE | VM_READ:
->> +		return PAGE_SHARED;
->> +	case VM_SHARED | VM_EXEC:
->> +		return PAGE_EXECONLY;
->> +	case VM_SHARED | VM_EXEC | VM_READ:
->> +		return PAGE_READONLY_EXEC;
->> +	case VM_SHARED | VM_EXEC | VM_WRITE:
->> +	case VM_SHARED | VM_EXEC | VM_WRITE | VM_READ:
->> +		return PAGE_SHARED_EXEC;
->> +	default:
->> +		BUILD_BUG();
->> +	}
->> +}
-> 
-> I'd say ack for trying to get of the extra arch_vm_get_page_prot() and
-> arch_filter_pgprot() but, TBH, I'm not so keen on the outcome. I haven't
-> built the code to see what's generated but I suspect it's no significant
-> improvement. As for the code readability, the arm64 parts don't look
-> much better either. The only advantage with this patch is that all
-> functions have been moved under arch/arm64.
-
-Got it.
-
-> 
-> I'd keep most architectures that don't have own arch_vm_get_page_prot()
-> or arch_filter_pgprot() unchanged and with a generic protection_map[]
-> array. For architectures that need fancier stuff, add a
-> CONFIG_ARCH_HAS_VM_GET_PAGE_PROT (as you do) and allow them to define
-> vm_get_page_prot() while getting rid of arch_vm_get_page_prot() and
-> arch_filter_pgprot(). I think you could also duplicate protection_map[]
-> for architectures with own vm_get_page_prot() (make it static) and
-> #ifdef it out in mm/mmap.c.
-> 
-> If later you have more complex needs or a switch statement generates
-> better code, go for it, but for this series I'd keep things simple, only
-> focus on getting rid of arch_vm_get_page_prot() and
-> arch_filter_pgprot().
-
-Got it.
-
-> 
-> If I grep'ed correctly, there are only 4 architectures that have own
-> arch_vm_get_page_prot() (arm64, powerpc, sparc, x86) and 2 that have own
-> arch_filter_pgprot() (arm64, x86). Try to only change these for the time
-> being, together with the other generic mm cleanups you have in this
-> series. I think there are a couple more that touch protection_map[]
-> (arm, m68k). You can leave the generic protection_map[] global if the
-> arch does not select ARCH_HAS_VM_GET_PAGE_PROT.
-
-Okay, I will probably split the series into two parts.
-
--  Drop arch_vm_get_page_prot() and arch_filter_pgprot() on relevant
-   platforms i.e arm64, powerpc, sparc and x86 via this new config
-   ARCH_HAS_VM_GET_PAGE_PROT, keeping the generic protection_map[]
-   since platform __SXXX/__PXX macros would be still around.
-
--  Drop __SXXX/__PXXX across all platforms via just initializing
-   protection_map[] early during boot in the platform OR moving
-   both vm_get_page_prot() via ARCH_HAS_VM_GET_PAGE_PROT and the
-   generic protection_map[] inside the platform.
-
-   There were some objections with respect to switch case code in
-   comparison to the array based table look up.
-
-> 
->> +static pgprot_t arm64_arch_filter_pgprot(pgprot_t prot)
->> +{
->> +	if (cpus_have_const_cap(ARM64_HAS_EPAN))
->> +		return prot;
->> +
->> +	if (pgprot_val(prot) != pgprot_val(PAGE_EXECONLY))
->> +		return prot;
->> +
->> +	return PAGE_READONLY_EXEC;
->> +}
->> +
->> +static pgprot_t arm64_arch_vm_get_page_prot(unsigned long vm_flags)
->> +{
->> +	pteval_t prot = 0;
->> +
->> +	if (vm_flags & VM_ARM64_BTI)
->> +		prot |= PTE_GP;
->> +
->> +	/*
->> +	 * There are two conditions required for returning a Normal Tagged
->> +	 * memory type: (1) the user requested it via PROT_MTE passed to
->> +	 * mmap() or mprotect() and (2) the corresponding vma supports MTE. We
->> +	 * register (1) as VM_MTE in the vma->vm_flags and (2) as
->> +	 * VM_MTE_ALLOWED. Note that the latter can only be set during the
->> +	 * mmap() call since mprotect() does not accept MAP_* flags.
->> +	 * Checking for VM_MTE only is sufficient since arch_validate_flags()
->> +	 * does not permit (VM_MTE & !VM_MTE_ALLOWED).
->> +	 */
->> +	if (vm_flags & VM_MTE)
->> +		prot |= PTE_ATTRINDX(MT_NORMAL_TAGGED);
->> +
->> +	return __pgprot(prot);
->> +}
->> +
->> +pgprot_t vm_get_page_prot(unsigned long vm_flags)
->> +{
->> +	pgprot_t ret = __pgprot(pgprot_val(__vm_get_page_prot(vm_flags)) |
->> +			pgprot_val(arm64_arch_vm_get_page_prot(vm_flags)));
->> +
->> +	return arm64_arch_filter_pgprot(ret);
->> +}
-> 
-> If we kept the array, we can have everything in a single function
-> (untested and with my own comments for future changes):
-
-Got it.
-
-> 
-> pgprot_t vm_get_page_prot(unsigned long vm_flags)
-> {
-> 	pgprot_t prot = __pgprot(pgprot_val(protection_map[vm_flags &
-> 				(VM_READ|VM_WRITE|VM_EXEC|VM_SHARED)]));
-> 
-> 	/*
-> 	 * We could get rid of this test if we updated protection_map[]
-> 	 * to turn exec-only into read-exec during boot.
-> 	 */
-> 	if (!cpus_have_const_cap(ARM64_HAS_EPAN) &&
-> 	    pgprot_val(prot) = pgprot_val(PAGE_EXECONLY))
-> 		prot = PAGE_READONLY_EXEC;
-> 
-> 	if (vm_flags & VM_ARM64_BTI)
-> 		prot != PTE_GP;
-> 
-> 	/*
-> 	 * We can get rid of the requirement for PROT_NORMAL to be 0
-> 	 * since here we can mask out PTE_ATTRINDX_MASK.
-> 	 */
-> 	if (vm_flags & VM_MTE) {
-> 		prot &= ~PTE_ATTRINDX_MASK;
-> 		prot |= PTE_ATTRINDX(MT_NORMAL_TAGGED);
-> 	}
-> 
-> 	return prot;
-> }
-> 
+diff --git a/arch/arm/xen/mm.c b/arch/arm/xen/mm.c
+index a7e54a087b802..58b40f87617d3 100644
+--- a/arch/arm/xen/mm.c
++++ b/arch/arm/xen/mm.c
+@@ -23,22 +23,20 @@
+ #include <asm/xen/hypercall.h>
+ #include <asm/xen/interface.h>
+ 
+-unsigned long xen_get_swiotlb_free_pages(unsigned int order)
++static gfp_t xen_swiotlb_gfp(void)
+ {
+ 	phys_addr_t base;
+-	gfp_t flags = __GFP_NOWARN|__GFP_KSWAPD_RECLAIM;
+ 	u64 i;
+ 
+ 	for_each_mem_range(i, &base, NULL) {
+ 		if (base < (phys_addr_t)0xffffffff) {
+ 			if (IS_ENABLED(CONFIG_ZONE_DMA32))
+-				flags |= __GFP_DMA32;
+-			else
+-				flags |= __GFP_DMA;
+-			break;
++				return __GFP_DMA32;
++			return __GFP_DMA;
+ 		}
+ 	}
+-	return __get_free_pages(flags, order);
++
++	return GFP_KERNEL;
+ }
+ 
+ static bool hypercall_cflush = false;
+@@ -143,10 +141,15 @@ static int __init xen_mm_init(void)
+ 	if (!xen_swiotlb_detect())
+ 		return 0;
+ 
+-	rc = xen_swiotlb_init();
+ 	/* we can work with the default swiotlb */
+-	if (rc < 0 && rc != -EEXIST)
+-		return rc;
++	if (!io_tlb_default_mem.nslabs) {
++		if (!xen_initial_domain())
++			return -EINVAL;
++		rc = swiotlb_init_late(swiotlb_size_or_default(),
++				       xen_swiotlb_gfp(), NULL);
++		if (rc < 0)
++			return rc;
++	}
+ 
+ 	cflush.op = 0;
+ 	cflush.a.dev_bus_addr = 0;
+diff --git a/arch/x86/include/asm/xen/page.h b/arch/x86/include/asm/xen/page.h
+index e989bc2269f54..1fc67df500145 100644
+--- a/arch/x86/include/asm/xen/page.h
++++ b/arch/x86/include/asm/xen/page.h
+@@ -357,9 +357,4 @@ static inline bool xen_arch_need_swiotlb(struct device *dev,
+ 	return false;
+ }
+ 
+-static inline unsigned long xen_get_swiotlb_free_pages(unsigned int order)
+-{
+-	return __get_free_pages(__GFP_NOWARN, order);
+-}
+-
+ #endif /* _ASM_X86_XEN_PAGE_H */
+diff --git a/arch/x86/kernel/pci-dma.c b/arch/x86/kernel/pci-dma.c
+index e0def4b1c3181..2f2c468acb955 100644
+--- a/arch/x86/kernel/pci-dma.c
++++ b/arch/x86/kernel/pci-dma.c
+@@ -71,15 +71,12 @@ static inline void __init pci_swiotlb_detect(void)
+ #endif /* CONFIG_SWIOTLB */
+ 
+ #ifdef CONFIG_SWIOTLB_XEN
+-static bool xen_swiotlb;
+-
+ static void __init pci_xen_swiotlb_init(void)
+ {
+ 	if (!xen_initial_domain() && !x86_swiotlb_enable)
+ 		return;
+ 	x86_swiotlb_enable = false;
+-	xen_swiotlb = true;
+-	xen_swiotlb_init_early();
++	swiotlb_init_remap(true, x86_swiotlb_flags, xen_swiotlb_fixup);
+ 	dma_ops = &xen_swiotlb_dma_ops;
+ 	if (IS_ENABLED(CONFIG_PCI))
+ 		pci_request_acs();
+@@ -87,14 +84,16 @@ static void __init pci_xen_swiotlb_init(void)
+ 
+ int pci_xen_swiotlb_init_late(void)
+ {
+-	int rc;
+-
+-	if (xen_swiotlb)
++	if (dma_ops = &xen_swiotlb_dma_ops)
+ 		return 0;
+ 
+-	rc = xen_swiotlb_init();
+-	if (rc)
+-		return rc;
++	/* we can work with the default swiotlb */
++	if (!io_tlb_default_mem.nslabs) {
++		int rc = swiotlb_init_late(swiotlb_size_or_default(),
++					   GFP_KERNEL, xen_swiotlb_fixup);
++		if (rc < 0)
++			return rc;
++	}
+ 
+ 	/* XXX: this switches the dma ops under live devices! */
+ 	dma_ops = &xen_swiotlb_dma_ops;
+diff --git a/arch/x86/pci/sta2x11-fixup.c b/arch/x86/pci/sta2x11-fixup.c
+index c7e6faf59a861..7368afc039987 100644
+--- a/arch/x86/pci/sta2x11-fixup.c
++++ b/arch/x86/pci/sta2x11-fixup.c
+@@ -57,7 +57,7 @@ static void sta2x11_new_instance(struct pci_dev *pdev)
+ 		int size = STA2X11_SWIOTLB_SIZE;
+ 		/* First instance: register your own swiotlb area */
+ 		dev_info(&pdev->dev, "Using SWIOTLB (size %i)\n", size);
+-		if (swiotlb_init_late(size, GFP_DMA))
++		if (swiotlb_init_late(size, GFP_DMA, NULL))
+ 			dev_emerg(&pdev->dev, "init swiotlb failed\n");
+ 	}
+ 	list_add(&instance->list, &sta2x11_instance_list);
+diff --git a/drivers/xen/swiotlb-xen.c b/drivers/xen/swiotlb-xen.c
+index c2da3eb4826e8..df8085b50df10 100644
+--- a/drivers/xen/swiotlb-xen.c
++++ b/drivers/xen/swiotlb-xen.c
+@@ -104,7 +104,7 @@ static int is_xen_swiotlb_buffer(struct device *dev, dma_addr_t dma_addr)
+ 	return 0;
+ }
+ 
+-static int xen_swiotlb_fixup(void *buf, unsigned long nslabs)
++int xen_swiotlb_fixup(void *buf, unsigned long nslabs)
+ {
+ 	int rc;
+ 	unsigned int order = get_order(IO_TLB_SEGSIZE << IO_TLB_SHIFT);
+@@ -130,132 +130,6 @@ static int xen_swiotlb_fixup(void *buf, unsigned long nslabs)
+ 	return 0;
+ }
+ 
+-enum xen_swiotlb_err {
+-	XEN_SWIOTLB_UNKNOWN = 0,
+-	XEN_SWIOTLB_ENOMEM,
+-	XEN_SWIOTLB_EFIXUP
+-};
+-
+-static const char *xen_swiotlb_error(enum xen_swiotlb_err err)
+-{
+-	switch (err) {
+-	case XEN_SWIOTLB_ENOMEM:
+-		return "Cannot allocate Xen-SWIOTLB buffer\n";
+-	case XEN_SWIOTLB_EFIXUP:
+-		return "Failed to get contiguous memory for DMA from Xen!\n"\
+-		    "You either: don't have the permissions, do not have"\
+-		    " enough free memory under 4GB, or the hypervisor memory"\
+-		    " is too fragmented!";
+-	default:
+-		break;
+-	}
+-	return "";
+-}
+-
+-int xen_swiotlb_init(void)
+-{
+-	enum xen_swiotlb_err m_ret = XEN_SWIOTLB_UNKNOWN;
+-	unsigned long bytes = swiotlb_size_or_default();
+-	unsigned long nslabs = bytes >> IO_TLB_SHIFT;
+-	unsigned int order, repeat = 3;
+-	int rc = -ENOMEM;
+-	char *start;
+-
+-	if (io_tlb_default_mem.nslabs) {
+-		pr_warn("swiotlb buffer already initialized\n");
+-		return -EEXIST;
+-	}
+-
+-retry:
+-	m_ret = XEN_SWIOTLB_ENOMEM;
+-	order = get_order(bytes);
+-
+-	/*
+-	 * Get IO TLB memory from any location.
+-	 */
+-#define SLABS_PER_PAGE (1 << (PAGE_SHIFT - IO_TLB_SHIFT))
+-#define IO_TLB_MIN_SLABS ((1<<20) >> IO_TLB_SHIFT)
+-	while ((SLABS_PER_PAGE << order) > IO_TLB_MIN_SLABS) {
+-		start = (void *)xen_get_swiotlb_free_pages(order);
+-		if (start)
+-			break;
+-		order--;
+-	}
+-	if (!start)
+-		goto exit;
+-	if (order != get_order(bytes)) {
+-		pr_warn("Warning: only able to allocate %ld MB for software IO TLB\n",
+-			(PAGE_SIZE << order) >> 20);
+-		nslabs = SLABS_PER_PAGE << order;
+-		bytes = nslabs << IO_TLB_SHIFT;
+-	}
+-
+-	/*
+-	 * And replace that memory with pages under 4GB.
+-	 */
+-	rc = xen_swiotlb_fixup(start, nslabs);
+-	if (rc) {
+-		free_pages((unsigned long)start, order);
+-		m_ret = XEN_SWIOTLB_EFIXUP;
+-		goto error;
+-	}
+-	rc = swiotlb_late_init_with_tbl(start, nslabs);
+-	if (rc)
+-		return rc;
+-	return 0;
+-error:
+-	if (nslabs > 1024 && repeat--) {
+-		/* Min is 2MB */
+-		nslabs = max(1024UL, ALIGN(nslabs >> 1, IO_TLB_SEGSIZE));
+-		bytes = nslabs << IO_TLB_SHIFT;
+-		pr_info("Lowering to %luMB\n", bytes >> 20);
+-		goto retry;
+-	}
+-exit:
+-	pr_err("%s (rc:%d)\n", xen_swiotlb_error(m_ret), rc);
+-	return rc;
+-}
+-
+-#ifdef CONFIG_X86
+-void __init xen_swiotlb_init_early(void)
+-{
+-	unsigned long bytes = swiotlb_size_or_default();
+-	unsigned long nslabs = bytes >> IO_TLB_SHIFT;
+-	unsigned int repeat = 3;
+-	char *start;
+-	int rc;
+-
+-retry:
+-	/*
+-	 * Get IO TLB memory from any location.
+-	 */
+-	start = memblock_alloc(PAGE_ALIGN(bytes),
+-			       IO_TLB_SEGSIZE << IO_TLB_SHIFT);
+-	if (!start)
+-		panic("%s: Failed to allocate %lu bytes\n",
+-		      __func__, PAGE_ALIGN(bytes));
+-
+-	/*
+-	 * And replace that memory with pages under 4GB.
+-	 */
+-	rc = xen_swiotlb_fixup(start, nslabs);
+-	if (rc) {
+-		memblock_free(start, PAGE_ALIGN(bytes));
+-		if (nslabs > 1024 && repeat--) {
+-			/* Min is 2MB */
+-			nslabs = max(1024UL, ALIGN(nslabs >> 1, IO_TLB_SEGSIZE));
+-			bytes = nslabs << IO_TLB_SHIFT;
+-			pr_info("Lowering to %luMB\n", bytes >> 20);
+-			goto retry;
+-		}
+-		panic("%s (rc:%d)", xen_swiotlb_error(XEN_SWIOTLB_EFIXUP), rc);
+-	}
+-
+-	if (swiotlb_init_with_tbl(start, nslabs, SWIOTLB_VERBOSE))
+-		panic("Cannot allocate SWIOTLB buffer");
+-}
+-#endif /* CONFIG_X86 */
+-
+ static void *
+ xen_swiotlb_alloc_coherent(struct device *hwdev, size_t size,
+ 			   dma_addr_t *dma_handle, gfp_t flags,
+diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
+index ee655f2e4d28b..919cf82ed978e 100644
+--- a/include/linux/swiotlb.h
++++ b/include/linux/swiotlb.h
+@@ -34,10 +34,11 @@ struct scatterlist;
+ /* default to 64MB */
+ #define IO_TLB_DEFAULT_SIZE (64UL<<20)
+ 
+-int swiotlb_init_with_tbl(char *tlb, unsigned long nslabs, unsigned int flags);
+ unsigned long swiotlb_size_or_default(void);
+-extern int swiotlb_late_init_with_tbl(char *tlb, unsigned long nslabs);
+-int swiotlb_init_late(size_t size, gfp_t gfp_mask);
++int swiotlb_init_late(size_t size, gfp_t gfp_mask,
++		int (*remap)(void *tlb, unsigned long nslabs));
++void __init swiotlb_init_remap(bool addressing_limit, unsigned int flags,
++		int (*remap)(void *tlb, unsigned long nslabs));
+ extern void __init swiotlb_update_mem_attributes(void);
+ 
+ phys_addr_t swiotlb_tbl_map_single(struct device *hwdev, phys_addr_t phys,
+diff --git a/include/xen/arm/page.h b/include/xen/arm/page.h
+index ac1b654705631..7e199c6656b90 100644
+--- a/include/xen/arm/page.h
++++ b/include/xen/arm/page.h
+@@ -115,6 +115,5 @@ static inline bool set_phys_to_machine(unsigned long pfn, unsigned long mfn)
+ bool xen_arch_need_swiotlb(struct device *dev,
+ 			   phys_addr_t phys,
+ 			   dma_addr_t dev_addr);
+-unsigned long xen_get_swiotlb_free_pages(unsigned int order);
+ 
+ #endif /* _ASM_ARM_XEN_PAGE_H */
+diff --git a/include/xen/swiotlb-xen.h b/include/xen/swiotlb-xen.h
+index b3e647f86e3e2..590ceb923f0c8 100644
+--- a/include/xen/swiotlb-xen.h
++++ b/include/xen/swiotlb-xen.h
+@@ -10,8 +10,12 @@ void xen_dma_sync_for_cpu(struct device *dev, dma_addr_t handle,
+ void xen_dma_sync_for_device(struct device *dev, dma_addr_t handle,
+ 			     size_t size, enum dma_data_direction dir);
+ 
+-int xen_swiotlb_init(void);
+-void __init xen_swiotlb_init_early(void);
++#ifdef CONFIG_SWIOTLB_XEN
++int xen_swiotlb_fixup(void *buf, unsigned long nslabs);
++#else
++#define xen_swiotlb_fixup NULL
++#endif
++
+ extern const struct dma_map_ops xen_swiotlb_dma_ops;
+ 
+ #endif /* __LINUX_SWIOTLB_XEN_H */
+diff --git a/kernel/dma/swiotlb.c b/kernel/dma/swiotlb.c
+index 77cf73dc20a78..128363dc9b5bb 100644
+--- a/kernel/dma/swiotlb.c
++++ b/kernel/dma/swiotlb.c
+@@ -234,40 +234,17 @@ static void swiotlb_init_io_tlb_mem(struct io_tlb_mem *mem, phys_addr_t start,
+ 	return;
+ }
+ 
+-int __init swiotlb_init_with_tbl(char *tlb, unsigned long nslabs,
+-		unsigned int flags)
+-{
+-	struct io_tlb_mem *mem = &io_tlb_default_mem;
+-	size_t alloc_size;
+-
+-	if (swiotlb_force_disable)
+-		return 0;
+-
+-	/* protect against double initialization */
+-	if (WARN_ON_ONCE(mem->nslabs))
+-		return -ENOMEM;
+-
+-	alloc_size = PAGE_ALIGN(array_size(sizeof(*mem->slots), nslabs));
+-	mem->slots = memblock_alloc(alloc_size, PAGE_SIZE);
+-	if (!mem->slots)
+-		panic("%s: Failed to allocate %zu bytes align=0x%lx\n",
+-		      __func__, alloc_size, PAGE_SIZE);
+-
+-	swiotlb_init_io_tlb_mem(mem, __pa(tlb), nslabs, false);
+-	mem->force_bounce = flags & SWIOTLB_FORCE;
+-
+-	if (flags & SWIOTLB_VERBOSE)
+-		swiotlb_print_info();
+-	return 0;
+-}
+-
+ /*
+  * Statically reserve bounce buffer space and initialize bounce buffer data
+  * structures for the software IO TLB used to implement the DMA API.
+  */
+-void __init swiotlb_init(bool addressing_limit, unsigned int flags)
++void __init swiotlb_init_remap(bool addressing_limit, unsigned int flags,
++		int (*remap)(void *tlb, unsigned long nslabs))
+ {
+-	size_t bytes = PAGE_ALIGN(default_nslabs << IO_TLB_SHIFT);
++	struct io_tlb_mem *mem = &io_tlb_default_mem;
++	unsigned long nslabs = default_nslabs;
++	size_t alloc_size = PAGE_ALIGN(array_size(sizeof(*mem->slots), nslabs));
++	size_t bytes;
+ 	void *tlb;
+ 
+ 	if (!addressing_limit && !swiotlb_force_bounce)
+@@ -275,23 +252,48 @@ void __init swiotlb_init(bool addressing_limit, unsigned int flags)
+ 	if (swiotlb_force_disable)
+ 		return;
+ 
++	/* protect against double initialization */
++	if (WARN_ON_ONCE(mem->nslabs))
++		return;
++
+ 	/*
+ 	 * By default allocate the bonuce buffer memory from low memory.
+ 	 */
++retry:
++	bytes = PAGE_ALIGN(default_nslabs << IO_TLB_SHIFT);
+ 	if (flags & SWIOTLB_ANY)
+ 		tlb = memblock_alloc(bytes, PAGE_SIZE);
+ 	else
+ 		tlb = memblock_alloc_low(bytes, PAGE_SIZE);
+ 	if (!tlb)
+-		goto fail;
+-	if (swiotlb_init_with_tbl(tlb, default_nslabs, flags))
+-		goto fail_free_mem;
+-	return;
++		panic("%s: failed to allocate tlb structure\n", __func__);
++
++	if (remap && remap(tlb, nslabs) < 0) {
++		memblock_free(tlb, PAGE_ALIGN(bytes));
++
++		/* Min is 2MB */
++		if (nslabs <= 1024)
++			panic("%s: Failed to remap %zu bytes\n",
++			      __func__, bytes);
++		nslabs = max(1024UL, ALIGN(nslabs >> 1, IO_TLB_SEGSIZE));
++		goto retry;
++	}
++
++	mem->slots = memblock_alloc(alloc_size, PAGE_SIZE);
++	if (!mem->slots)
++		panic("%s: Failed to allocate %zu bytes align=0x%lx\n",
++		      __func__, alloc_size, PAGE_SIZE);
+ 
+-fail_free_mem:
+-	memblock_free(tlb, bytes);
+-fail:
+-	pr_warn("Cannot allocate buffer");
++	swiotlb_init_io_tlb_mem(mem, __pa(tlb), default_nslabs, false);
++	mem->force_bounce = flags & SWIOTLB_FORCE;
++
++	if (flags & SWIOTLB_VERBOSE)
++		swiotlb_print_info();
++}
++
++void __init swiotlb_init(bool addressing_limit, unsigned int flags)
++{
++	return swiotlb_init_remap(addressing_limit, flags, NULL);
+ }
+ 
+ /*
+@@ -299,8 +301,10 @@ void __init swiotlb_init(bool addressing_limit, unsigned int flags)
+  * initialize the swiotlb later using the slab allocator if needed.
+  * This should be just like above, but with some error catching.
+  */
+-int swiotlb_init_late(size_t size, gfp_t gfp_mask)
++int swiotlb_init_late(size_t size, gfp_t gfp_mask,
++		int (*remap)(void *tlb, unsigned long nslabs))
+ {
++	struct io_tlb_mem *mem = &io_tlb_default_mem;
+ 	unsigned long nslabs = ALIGN(size >> IO_TLB_SHIFT, IO_TLB_SEGSIZE);
+ 	unsigned long bytes;
+ 	unsigned char *vstart = NULL;
+@@ -310,9 +314,14 @@ int swiotlb_init_late(size_t size, gfp_t gfp_mask)
+ 	if (swiotlb_force_disable)
+ 		return 0;
+ 
++	/* protect against double initialization */
++	if (WARN_ON_ONCE(mem->nslabs))
++		return -ENOMEM;
++
+ 	/*
+ 	 * Get IO TLB memory from the low pages
+ 	 */
++retry:
+ 	order = get_order(nslabs << IO_TLB_SHIFT);
+ 	nslabs = SLABS_PER_PAGE << order;
+ 	bytes = nslabs << IO_TLB_SHIFT;
+@@ -333,33 +342,28 @@ int swiotlb_init_late(size_t size, gfp_t gfp_mask)
+ 			(PAGE_SIZE << order) >> 20);
+ 		nslabs = SLABS_PER_PAGE << order;
+ 	}
+-	rc = swiotlb_late_init_with_tbl(vstart, nslabs);
+-	if (rc)
+-		free_pages((unsigned long)vstart, order);
+-
+-	return rc;
+-}
+-
+-int
+-swiotlb_late_init_with_tbl(char *tlb, unsigned long nslabs)
+-{
+-	struct io_tlb_mem *mem = &io_tlb_default_mem;
+-	unsigned long bytes = nslabs << IO_TLB_SHIFT;
+ 
+-	if (swiotlb_force_disable)
+-		return 0;
++	if (remap)
++		rc = remap(vstart, nslabs);
++	if (rc) {
++		free_pages((unsigned long)vstart, order);
+ 
+-	/* protect against double initialization */
+-	if (WARN_ON_ONCE(mem->nslabs))
+-		return -ENOMEM;
++		/* Min is 2MB */
++		if (nslabs <= 1024)
++			return rc;
++		nslabs = max(1024UL, ALIGN(nslabs >> 1, IO_TLB_SEGSIZE));
++		goto retry;
++	}
+ 
+ 	mem->slots = (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO,
+ 		get_order(array_size(sizeof(*mem->slots), nslabs)));
+-	if (!mem->slots)
++	if (!mem->slots) {
++		free_pages((unsigned long)vstart, order);
+ 		return -ENOMEM;
++	}
+ 
+-	set_memory_decrypted((unsigned long)tlb, bytes >> PAGE_SHIFT);
+-	swiotlb_init_io_tlb_mem(mem, virt_to_phys(tlb), nslabs, true);
++	set_memory_decrypted((unsigned long)vstart, bytes >> PAGE_SHIFT);
++	swiotlb_init_io_tlb_mem(mem, virt_to_phys(vstart), nslabs, true);
+ 
+ 	swiotlb_print_info();
+ 	return 0;
+-- 
+2.30.2
