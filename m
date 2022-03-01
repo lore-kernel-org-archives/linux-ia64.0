@@ -1,46 +1,115 @@
-From: =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
-Date: Sat, 26 Mar 2022 16:59:04 +0000
-Subject: [PATCH 17/22] cxl: Replace comments with C99 initializers
-Message-Id: <20220326165909.506926-17-benni@stuerz.xyz>
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 01 Mar 2022 10:53:02 +0000
+Subject: [PATCH 03/12] swiotlb: simplify swiotlb_max_segment
+Message-Id: <20220301105311.885699-4-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220326165909.506926-1-benni@stuerz.xyz>
-In-Reply-To: <20220326165909.506926-1-benni@stuerz.xyz>
+References: <20220301105311.885699-1-hch@lst.de>
+In-Reply-To: <20220301105311.885699-1-hch@lst.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: andrew@lunn.ch
-Cc: sebastian.hesselbarth@gmail.com, gregory.clement@bootlin.com, linux@armlinux.org.uk, linux@simtec.co.uk, krzk@kernel.org, alim.akhtar@samsung.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, hpa@zytor.com, robert.moore@intel.com, rafael.j.wysocki@intel.com, lenb@kernel.org, 3chas3@gmail.com, laforge@gnumonks.org, arnd@arndb.de, gregkh@linuxfoundation.org, mchehab@kernel.org, tony.luck@intel.com, james.morse@arm.com, rric@kernel.org, linus.walleij@linaro.org, brgl@bgdev.pl, mike.marciniszyn@cornelisnetworks.com, dennis.dalessandro@cornelisnetworks.com, jgg@ziepe.ca, pali@kernel.org, dmitry.torokhov@gmail.com, isdn@linux-pingi.de, benh@kernel.crashing.org, fbarrat@linux.ibm.com, ajd@linux.ibm.com, davem@davemloft.net, kuba@kernel.org, pabeni@redhat.com, nico@fluxnic.net, loic.poulain@linaro.org, kvalo@kernel.org, pkshih@realtek.com, bhelgaas@google.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-edac@vger.kernel.org, linux-gpio@vger.kernel.org, linux-rdma@vger.kernel.org, linux-input@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-media@vger.kernel.org, wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org, linux-pci@vger.kernel.org, =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: iommu@lists.linux-foundation.org
+Cc: x86@kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Tom Lendacky <thomas.lendacky@amd.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Stefano Stabellini <sstabellini@kernel.org>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Robin Murphy <robin.murphy@arm.com>, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-hyperv@vger.kernel.org, tboot-devel@lists.sourceforge.net, linux-pci@vger.kernel.org
 
-VGhpcyByZXBsYWNlcyBjb21tZW50cyB3aXRoIEM5OSdzIGRlc2lnbmF0ZWQKaW5pdGlhbGl6ZXJz
-IGJlY2F1c2UgdGhlIGtlcm5lbCBzdXBwb3J0cyB0aGVtIG5vdy4KClNpZ25lZC1vZmYtYnk6IEJl
-bmphbWluIFN0w7xyeiA8YmVubmlAc3R1ZXJ6Lnh5ej4KLS0tCiBkcml2ZXJzL21pc2MvY3hsL2hj
-YWxscy5jIHwgNDAgKysrKysrKysrKysrKysrKysrKy0tLS0tLS0tLS0tLS0tLS0tLS0tCiAxIGZp
-bGUgY2hhbmdlZCwgMjAgaW5zZXJ0aW9ucygrKSwgMjAgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0
-IGEvZHJpdmVycy9taXNjL2N4bC9oY2FsbHMuYyBiL2RyaXZlcnMvbWlzYy9jeGwvaGNhbGxzLmMK
-aW5kZXggYWJhNWUyMGVlYjFmLi5lZDIwODZkNTc5ZDMgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbWlz
-Yy9jeGwvaGNhbGxzLmMKKysrIGIvZHJpdmVycy9taXNjL2N4bC9oY2FsbHMuYwpAQCAtODYsMzIg
-Kzg2LDMyIEBACiAKIAogc3RhdGljIGNoYXIgKmFmdV9vcF9uYW1lc1tdID0gewotCSJVTktOT1dO
-X09QIiwJCS8qIDAgdW5kZWZpbmVkICovCi0JIlJFU0VUIiwJCS8qIDEgKi8KLQkiU1VTUEVORF9Q
-Uk9DRVNTIiwJLyogMiAqLwotCSJSRVNVTUVfUFJPQ0VTUyIsCS8qIDMgKi8KLQkiUkVBRF9FUlJf
-U1RBVEUiLAkvKiA0ICovCi0JIkdFVF9BRlVfRVJSIiwJCS8qIDUgKi8KLQkiR0VUX0NPTkZJRyIs
-CQkvKiA2ICovCi0JIkdFVF9ET1dOTE9BRF9TVEFURSIsCS8qIDcgKi8KLQkiVEVSTUlOQVRFX1BS
-T0NFU1MiLAkvKiA4ICovCi0JIkNPTExFQ1RfVlBEIiwJCS8qIDkgKi8KLQkiVU5LTk9XTl9PUCIs
-CQkvKiAxMCB1bmRlZmluZWQgKi8KLQkiR0VUX0ZVTkNUSU9OX0VSUl9JTlQiLAkvKiAxMSAqLwot
-CSJBQ0tfRlVOQ1RJT05fRVJSX0lOVCIsCS8qIDEyICovCi0JIkdFVF9FUlJPUl9MT0ciLAkvKiAx
-MyAqLworCVswXSAgPSAiVU5LTk9XTl9PUCIsCQkgICAgICAgICAvKiB1bmRlZmluZWQgKi8KKwlb
-MV0gID0gIlJFU0VUIiwKKwlbMl0gID0gIlNVU1BFTkRfUFJPQ0VTUyIsCisJWzNdICA9ICJSRVNV
-TUVfUFJPQ0VTUyIsCisJWzRdICA9ICJSRUFEX0VSUl9TVEFURSIsCisJWzVdICA9ICJHRVRfQUZV
-X0VSUiIsCisJWzZdICA9ICJHRVRfQ09ORklHIiwKKwlbN10gID0gIkdFVF9ET1dOTE9BRF9TVEFU
-RSIsCisJWzhdICA9ICJURVJNSU5BVEVfUFJPQ0VTUyIsCisJWzldICA9ICJDT0xMRUNUX1ZQRCIs
-CisJWzEwXSA9ICJVTktOT1dOX09QIiwJCSAgICAgICAgIC8qICB1bmRlZmluZWQgKi8KKwlbMTFd
-ID0gIkdFVF9GVU5DVElPTl9FUlJfSU5UIiwKKwlbMTJdID0gIkFDS19GVU5DVElPTl9FUlJfSU5U
-IiwKKwlbMTNdID0gIkdFVF9FUlJPUl9MT0ciLAogfTsKIAogc3RhdGljIGNoYXIgKmNvbnRyb2xf
-YWRhcHRlcl9vcF9uYW1lc1tdID0gewotCSJVTktOT1dOX09QIiwJCS8qIDAgdW5kZWZpbmVkICov
-Ci0JIlJFU0VUIiwJCS8qIDEgKi8KLQkiQ09MTEVDVF9WUEQiLAkJLyogMiAqLworCVswXSA9ICJV
-TktOT1dOX09QIiwJCSAgICAgICAgIC8qIHVuZGVmaW5lZCAqLworCVsxXSA9ICJSRVNFVCIsCisJ
-WzJdID0gIkNPTExFQ1RfVlBEIiwKIH07CiAKIHN0YXRpYyBjaGFyICpkb3dubG9hZF9vcF9uYW1l
-c1tdID0gewotCSJVTktOT1dOX09QIiwJCS8qIDAgdW5kZWZpbmVkICovCi0JIkRPV05MT0FEIiwJ
-CS8qIDEgKi8KLQkiVkFMSURBVEUiLAkJLyogMiAqLworCVswXSA9ICJVTktOT1dOX09QIiwJCSAg
-ICAgICAgIC8qIHVuZGVmaW5lZCAqLworCVsxXSA9ICJET1dOTE9BRCIsCisJWzJdID0gIlZBTElE
-QVRFIiwKIH07CiAKIHN0YXRpYyBjaGFyICpvcF9zdHIodW5zaWduZWQgaW50IG9wLCBjaGFyICpu
-YW1lX2FycmF5W10sIGludCBhcnJheV9sZW4pCi0tIAoyLjM1LjEK
+Remove the bogus Xen override that was usually larger than the actual
+size and just calculate the value on demand.  Note that
+swiotlb_max_segment still doesn't make sense as an interface and should
+eventually be removed.
+
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+Reviewed-by: Anshuman Khandual <anshuman.khandual@arm.com>
+---
+ drivers/xen/swiotlb-xen.c |  2 --
+ include/linux/swiotlb.h   |  1 -
+ kernel/dma/swiotlb.c      | 20 +++-----------------
+ 3 files changed, 3 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/xen/swiotlb-xen.c b/drivers/xen/swiotlb-xen.c
+index 47aebd98f52f5..485cd06ed39e7 100644
+--- a/drivers/xen/swiotlb-xen.c
++++ b/drivers/xen/swiotlb-xen.c
+@@ -202,7 +202,6 @@ int xen_swiotlb_init(void)
+ 	rc = swiotlb_late_init_with_tbl(start, nslabs);
+ 	if (rc)
+ 		return rc;
+-	swiotlb_set_max_segment(PAGE_SIZE);
+ 	return 0;
+ error:
+ 	if (nslabs > 1024 && repeat--) {
+@@ -254,7 +253,6 @@ void __init xen_swiotlb_init_early(void)
+ 
+ 	if (swiotlb_init_with_tbl(start, nslabs, true))
+ 		panic("Cannot allocate SWIOTLB buffer");
+-	swiotlb_set_max_segment(PAGE_SIZE);
+ }
+ #endif /* CONFIG_X86 */
+ 
+diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
+index f6c3638255d54..9fb3a568f0c51 100644
+--- a/include/linux/swiotlb.h
++++ b/include/linux/swiotlb.h
+@@ -164,7 +164,6 @@ static inline void swiotlb_adjust_size(unsigned long size)
+ #endif /* CONFIG_SWIOTLB */
+ 
+ extern void swiotlb_print_info(void);
+-extern void swiotlb_set_max_segment(unsigned int);
+ 
+ #ifdef CONFIG_DMA_RESTRICTED_POOL
+ struct page *swiotlb_alloc(struct device *dev, size_t size);
+diff --git a/kernel/dma/swiotlb.c b/kernel/dma/swiotlb.c
+index 64b390136f9ef..e31c235b5fd9e 100644
+--- a/kernel/dma/swiotlb.c
++++ b/kernel/dma/swiotlb.c
+@@ -75,12 +75,6 @@ struct io_tlb_mem io_tlb_default_mem;
+ 
+ phys_addr_t swiotlb_unencrypted_base;
+ 
+-/*
+- * Max segment that we can provide which (if pages are contingous) will
+- * not be bounced (unless SWIOTLB_FORCE is set).
+- */
+-static unsigned int max_segment;
+-
+ static unsigned long default_nslabs = IO_TLB_DEFAULT_SIZE >> IO_TLB_SHIFT;
+ 
+ static int __init
+@@ -104,18 +98,12 @@ early_param("swiotlb", setup_io_tlb_npages);
+ 
+ unsigned int swiotlb_max_segment(void)
+ {
+-	return io_tlb_default_mem.nslabs ? max_segment : 0;
++	if (!io_tlb_default_mem.nslabs)
++		return 0;
++	return rounddown(io_tlb_default_mem.nslabs << IO_TLB_SHIFT, PAGE_SIZE);
+ }
+ EXPORT_SYMBOL_GPL(swiotlb_max_segment);
+ 
+-void swiotlb_set_max_segment(unsigned int val)
+-{
+-	if (swiotlb_force = SWIOTLB_FORCE)
+-		max_segment = 1;
+-	else
+-		max_segment = rounddown(val, PAGE_SIZE);
+-}
+-
+ unsigned long swiotlb_size_or_default(void)
+ {
+ 	return default_nslabs << IO_TLB_SHIFT;
+@@ -267,7 +255,6 @@ int __init swiotlb_init_with_tbl(char *tlb, unsigned long nslabs, int verbose)
+ 
+ 	if (verbose)
+ 		swiotlb_print_info();
+-	swiotlb_set_max_segment(mem->nslabs << IO_TLB_SHIFT);
+ 	return 0;
+ }
+ 
+@@ -368,7 +355,6 @@ swiotlb_late_init_with_tbl(char *tlb, unsigned long nslabs)
+ 	swiotlb_init_io_tlb_mem(mem, virt_to_phys(tlb), nslabs, true);
+ 
+ 	swiotlb_print_info();
+-	swiotlb_set_max_segment(mem->nslabs << IO_TLB_SHIFT);
+ 	return 0;
+ }
+ 
+-- 
+2.30.2
