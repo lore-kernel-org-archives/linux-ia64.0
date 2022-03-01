@@ -1,10 +1,10 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Mon, 14 Mar 2022 07:31:24 +0000
-Subject: [PATCH 10/15] swiotlb: add a SWIOTLB_ANY flag to lift the low memory restriction
-Message-Id: <20220314073129.1862284-11-hch@lst.de>
+Date: Tue, 01 Mar 2022 10:53:09 +0000
+Subject: [PATCH 10/12] swiotlb: add a SWIOTLB_ANY flag to lift the low memory restriction
+Message-Id: <20220301105311.885699-11-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220314073129.1862284-1-hch@lst.de>
-In-Reply-To: <20220314073129.1862284-1-hch@lst.de>
+References: <20220301105311.885699-1-hch@lst.de>
+In-Reply-To: <20220301105311.885699-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -23,8 +23,8 @@ Signed-off-by: Christoph Hellwig <hch@lst.de>
  arch/powerpc/mm/mem.c                |  5 +----
  arch/powerpc/platforms/pseries/svm.c | 26 +-------------------------
  include/linux/swiotlb.h              |  1 +
- kernel/dma/swiotlb.c                 | 11 +++++++++--
- 7 files changed, 14 insertions(+), 35 deletions(-)
+ kernel/dma/swiotlb.c                 |  9 +++++++--
+ 7 files changed, 12 insertions(+), 35 deletions(-)
 
 diff --git a/arch/powerpc/include/asm/svm.h b/arch/powerpc/include/asm/svm.h
 index 7546402d796af..85580b30aba48 100644
@@ -133,7 +133,7 @@ index c5228f4969eb2..3b4045d508ec8 100644
  {
  	if (!cc_platform_has(CC_ATTR_MEM_ENCRYPT))
 diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
-index ae0407173e845..eabdd89987027 100644
+index dcecf953f7997..ee655f2e4d28b 100644
 --- a/include/linux/swiotlb.h
 +++ b/include/linux/swiotlb.h
 @@ -15,6 +15,7 @@ struct scatterlist;
@@ -145,19 +145,17 @@ index ae0407173e845..eabdd89987027 100644
  /*
   * Maximum allowable number of contiguous slabs to map,
 diff --git a/kernel/dma/swiotlb.c b/kernel/dma/swiotlb.c
-index 5ac6e128d4279..2ad12562c94fe 100644
+index 1a40c71c4d51a..77cf73dc20a78 100644
 --- a/kernel/dma/swiotlb.c
 +++ b/kernel/dma/swiotlb.c
-@@ -266,8 +266,15 @@ void __init swiotlb_init(bool addressing_limit, unsigned int flags)
+@@ -275,8 +275,13 @@ void __init swiotlb_init(bool addressing_limit, unsigned int flags)
  	if (swiotlb_force_disable)
  		return;
  
 -	/* Get IO TLB memory from the low pages */
 -	tlb = memblock_alloc_low(bytes, PAGE_SIZE);
 +	/*
-+	 * By default allocate the bounce buffer memory from low memory, but
-+	 * allow to pick a location everywhere for hypervisors with guest
-+	 * memory encryption.
++	 * By default allocate the bonuce buffer memory from low memory.
 +	 */
 +	if (flags & SWIOTLB_ANY)
 +		tlb = memblock_alloc(bytes, PAGE_SIZE);
