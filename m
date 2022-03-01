@@ -1,88 +1,113 @@
-From: Daniel Thompson <daniel.thompson@linaro.org>
-Date: Mon, 28 Mar 2022 13:37:43 +0000
-Subject: Re: [PATCH 02/22] s3c: Replace comments with C99 initializers
-Message-Id: <20220328133743.xhdzmprlc7a6jxxy@maple.lan>
+From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Date: Tue, 01 Mar 2022 12:36:15 +0000
+Subject: Re: [PATCH 5.16 v2] binfmt_elf: Avoid total_mapping_size for ET_EXEC
+Message-Id: <49182d0d-708b-4029-da5f-bc18603440a6@physik.fu-berlin.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220326165909.506926-1-benni@stuerz.xyz>
- <20220326165909.506926-2-benni@stuerz.xyz>
-In-Reply-To: <20220326165909.506926-2-benni@stuerz.xyz>
+References: <20220228205518.1265798-1-keescook@chromium.org>
+In-Reply-To: <20220228205518.1265798-1-keescook@chromium.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Benjamin =?utf-8?B?U3TDvHJ6?= <benni@stuerz.xyz>
-Cc: andrew@lunn.ch, sebastian.hesselbarth@gmail.com, gregory.clement@bootlin.com, linux@armlinux.org.uk, linux@simtec.co.uk, krzk@kernel.org, alim.akhtar@samsung.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, hpa@zytor.com, robert.moore@intel.com, rafael.j.wysocki@intel.com, lenb@kernel.org, 3chas3@gmail.com, laforge@gnumonks.org, arnd@arndb.de, gregkh@linuxfoundation.org, mchehab@kernel.org, tony.luck@intel.com, james.morse@arm.com, rric@kernel.org, linus.walleij@linaro.org, brgl@bgdev.pl, mike.marciniszyn@cornelisnetworks.com, dennis.dalessandro@cornelisnetworks.com, jgg@ziepe.ca, pali@kernel.org, dmitry.torokhov@gmail.com, isdn@linux-pingi.de, benh@kernel.crashing.org, fbarrat@linux.ibm.com, ajd@linux.ibm.com, davem@davemloft.net, kuba@kernel.org, pabeni@redhat.com, nico@fluxnic.net, loic.poulain@linaro.org, kvalo@kernel.org, pkshih@realtek.com, bhelgaas@google.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-edac@vger.kernel.org, linux-gpio@vger.kernel.org, linux-rdma@vger.kernel.org, linux-input@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-media@vger.kernel.org, wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org, linux-pci@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Kees Cook <keescook@chromium.org>, matoro <matoro_mailinglist_kernel@matoro.tk>
+Cc: Alexander Viro <viro@zeniv.linux.org.uk>, Eric Biederman <ebiederm@xmission.com>, linux-fsdevel@vger.kernel.org, linux-mm@kvack.org, stable@vger.kernel.org, =?UTF-8?Q?Magnus_Gro=c3=9f?= <magnus.gross@rwth-aachen.de>, Thorsten Leemhuis <regressions@leemhuis.info>, Anthony Yznaga <anthony.yznaga@oracle.com>, Andrew Morton <akpm@linux-foundation.org>, regressions@lists.linux.dev, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-hardening@vger.kernel.org
 
-On Sat, Mar 26, 2022 at 05:58:49PM +0100, Benjamin St=FCrz wrote:
-> This replaces comments with C99's designated
-> initializers because the kernel supports them now.
+Hello!
 
-I'm a bit puzzled by "because the kernel supports them now". Designated
-initializers are not purely a C99 feature... it is also a GNU C extension
-to C89. This language feature has been used by the kernel for a very long t=
-ime
-(well over a decade).
-
-On other words it would be much more effective to advocate for the
-change by saying "because the code is clearer and easier to read" rather
-than "because we can".
-
-
-> Signed-off-by: Benjamin St=FCrz <benni@stuerz.xyz>
+On 2/28/22 21:55, Kees Cook wrote:
+> Partially revert commit 5f501d555653 ("binfmt_elf: reintroduce using
+> MAP_FIXED_NOREPLACE").
+> 
+> At least ia64 has ET_EXEC PT_LOAD segments that are not virtual-address
+> contiguous (but _are_ file-offset contiguous). This would result in
+> giant mapping attempts to cover the entire span, including the virtual
+> address range hole. Disable total_mapping_size for ET_EXEC, which
+> reduces the MAP_FIXED_NOREPLACE coverage to only the first PT_LOAD:
+> 
+> $ readelf -lW /usr/bin/gcc
+> ...
+> Program Headers:
+>   Type Offset   VirtAddr           PhysAddr           FileSiz  MemSiz   ...
+> ...
+>   LOAD 0x000000 0x4000000000000000 0x4000000000000000 0x00b5a0 0x00b5a0 ...
+>   LOAD 0x00b5a0 0x600000000000b5a0 0x600000000000b5a0 0x0005ac 0x000710 ...
+> ...
+>        ^^^^^^^^ ^^^^^^^^^^^^^^^^^^                    ^^^^^^^^ ^^^^^^^^
+> 
+> File offset range     : 0x000000-0x00bb4c
+> 			0x00bb4c bytes
+> 
+> Virtual address range : 0x4000000000000000-0x600000000000bcb0
+> 			0x200000000000bcb0 bytes
+> 
+> Ironically, this is the reverse of the problem that originally caused
+> problems with ET_EXEC and MAP_FIXED_NOREPLACE: overlaps. This problem is
+> with holes. Future work could restore full coverage if load_elf_binary()
+> were to perform mappings in a separate phase from the loading (where
+> it could resolve both overlaps and holes).
+> 
+> Cc: Alexander Viro <viro@zeniv.linux.org.uk>
+> Cc: Eric Biederman <ebiederm@xmission.com>
+> Cc: linux-fsdevel@vger.kernel.org
+> Cc: linux-mm@kvack.org
+> Reported-by: matoro <matoro_mailinglist_kernel@matoro.tk>
+> Reported-by: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+> Fixes: 5f501d555653 ("binfmt_elf: reintroduce using MAP_FIXED_NOREPLACE")
+> Link: https://lore.kernel.org/r/a3edd529-c42d-3b09-135c-7e98a15b150f@leemhuis.info
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Kees Cook <keescook@chromium.org>
 > ---
->  arch/arm/mach-s3c/bast-irq.c | 32 ++++++++++++++++----------------
->  1 file changed, 16 insertions(+), 16 deletions(-)
->=20
-> diff --git a/arch/arm/mach-s3c/bast-irq.c b/arch/arm/mach-s3c/bast-irq.c
-> index d299f124e6dc..bd5471f9973b 100644
-> --- a/arch/arm/mach-s3c/bast-irq.c
-> +++ b/arch/arm/mach-s3c/bast-irq.c
-> @@ -29,22 +29,22 @@
->   * the irq is not implemented
->  */
->  static const unsigned char bast_pc104_irqmasks[] =3D {
-> -	0,   /* 0 */
-> -	0,   /* 1 */
-> -	0,   /* 2 */
-> -	1,   /* 3 */
-> -	0,   /* 4 */
-> -	2,   /* 5 */
-> -	0,   /* 6 */
-> -	4,   /* 7 */
-> -	0,   /* 8 */
-> -	0,   /* 9 */
-> -	8,   /* 10 */
-> -	0,   /* 11 */
-> -	0,   /* 12 */
-> -	0,   /* 13 */
-> -	0,   /* 14 */
-> -	0,   /* 15 */
-> +	[0]  =3D 0,
-> +	[1]  =3D 0,
-> +	[2]  =3D 0,
-> +	[3]  =3D 1,
-> +	[4]  =3D 0,
-> +	[5]  =3D 2,
-> +	[6]  =3D 0,
-> +	[7]  =3D 4,
-> +	[8]  =3D 0,
-> +	[9]  =3D 0,
-> +	[10] =3D 8,
-> +	[11] =3D 0,
-> +	[12] =3D 0,
-> +	[13] =3D 0,
-> +	[14] =3D 0,
-> +	[15] =3D 0,
+> Here's the v5.16 backport.
+> ---
+>  fs/binfmt_elf.c | 25 ++++++++++++++++++-------
+>  1 file changed, 18 insertions(+), 7 deletions(-)
+> 
+> diff --git a/fs/binfmt_elf.c b/fs/binfmt_elf.c
+> index f8c7f26f1fbb..911a9e7044f4 100644
+> --- a/fs/binfmt_elf.c
+> +++ b/fs/binfmt_elf.c
+> @@ -1135,14 +1135,25 @@ static int load_elf_binary(struct linux_binprm *bprm)
+>  			 * is then page aligned.
+>  			 */
+>  			load_bias = ELF_PAGESTART(load_bias - vaddr);
+> -		}
+>  
+> -		/*
+> -		 * Calculate the entire size of the ELF mapping (total_size).
+> -		 * (Note that load_addr_set is set to true later once the
+> -		 * initial mapping is performed.)
+> -		 */
+> -		if (!load_addr_set) {
+> +			/*
+> +			 * Calculate the entire size of the ELF mapping
+> +			 * (total_size), used for the initial mapping,
+> +			 * due to first_pt_load which is set to false later
+> +			 * once the initial mapping is performed.
+> +			 *
+> +			 * Note that this is only sensible when the LOAD
+> +			 * segments are contiguous (or overlapping). If
+> +			 * used for LOADs that are far apart, this would
+> +			 * cause the holes between LOADs to be mapped,
+> +			 * running the risk of having the mapping fail,
+> +			 * as it would be larger than the ELF file itself.
+> +			 *
+> +			 * As a result, only ET_DYN does this, since
+> +			 * some ET_EXEC (e.g. ia64) may have virtual
+> +			 * memory holes between LOADs.
+> +			 *
+> +			 */
+>  			total_size = total_mapping_size(elf_phdata,
+>  							elf_ex->e_phnum);
+>  			if (!total_size) {
 
-Shouldn't this just be as follows (in order to match bast_pc104_irqs)?
+I can confirm that this patch fixes the issue for me.
 
-+static const unsigned char bast_pc104_irqmasks[16] =3D {
-+	[3]  =3D 1,
-+	[5]  =3D 2,
-+	[7]  =3D 4,
-+	[10] =3D 8,
- };
-=20
- static const unsigned char bast_pc104_irqs[] =3D { 3, 5, 7, 10 };
+Tested-By: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
 
+Thanks,
+Adrian
 
-Daniel.
+-- 
+ .''`.  John Paul Adrian Glaubitz
+: :' :  Debian Developer - glaubitz@debian.org
+`. `'   Freie Universitaet Berlin - glaubitz@physik.fu-berlin.de
+  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
