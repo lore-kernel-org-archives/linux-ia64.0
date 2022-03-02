@@ -1,7 +1,7 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Wed, 02 Mar 2022 07:05:31 +0000
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Wed, 02 Mar 2022 09:51:16 +0000
 Subject: Re: [PATCH V3 09/30] arm/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <52866c88-59f9-2d1c-6f5a-5afcaf23f2bb@csgroup.eu>
+Message-Id: <9caa90f5-c10d-75dd-b403-1388b7a3d296@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1646045273-9343-1-git-send-email-anshuman.khandual@arm.com>
  <1646045273-9343-10-git-send-email-anshuman.khandual@arm.com>
@@ -10,160 +10,152 @@ References: <1646045273-9343-1-git-send-email-anshuman.khandual@arm.com>
  <Yh1pYAOiskEQes3p@shell.armlinux.org.uk>
  <dc3c95a4-de06-9889-ce1e-f660fc9fbb95@csgroup.eu>
  <c3b60de0-38cd-160a-aa15-831349e07e23@arm.com>
-In-Reply-To: <c3b60de0-38cd-160a-aa15-831349e07e23@arm.com>
+ <52866c88-59f9-2d1c-6f5a-5afcaf23f2bb@csgroup.eu>
+In-Reply-To: <52866c88-59f9-2d1c-6f5a-5afcaf23f2bb@csgroup.eu>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Anshuman Khandual <anshuman.khandual@arm.com>, "Russell King (Oracle)" <linux@armlinux.org.uk>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Christophe Leroy <christophe.leroy@csgroup.eu>, "Russell King (Oracle)" <linux@armlinux.org.uk>
 Cc: "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>, "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>, "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>, "linux-hexagon@vger.kernel.org" <linux-hexagon@vger.kernel.org>, "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>, Christoph Hellwig <hch@infradead.org>, "geert@linux-m68k.org" <geert@linux-m68k.org>, "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>, "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>, Arnd Bergmann <arnd@arndb.de>, "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>, "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>, "openrisc@lists.librecores.org" <openrisc@lists.librecores.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "akpm@linux-foundation.org" <akpm@linux-foundation.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
 
-DQoNCkxlIDAyLzAzLzIwMjIgw6AgMDQ6MjIsIEFuc2h1bWFuIEtoYW5kdWFsIGEgw6ljcml0wqA6
-DQo+IA0KPiANCj4gT24gMy8xLzIyIDE6NDYgUE0sIENocmlzdG9waGUgTGVyb3kgd3JvdGU6DQo+
-Pg0KPj4NCj4+IExlIDAxLzAzLzIwMjIgw6AgMDE6MzEsIFJ1c3NlbGwgS2luZyAoT3JhY2xlKSBh
-IMOpY3JpdMKgOg0KPj4+IE9uIFR1ZSwgTWFyIDAxLCAyMDIyIGF0IDA1OjMwOjQxQU0gKzA1MzAs
-IEFuc2h1bWFuIEtoYW5kdWFsIHdyb3RlOg0KPj4+PiBPbiAyLzI4LzIyIDQ6MjcgUE0sIFJ1c3Nl
-bGwgS2luZyAoT3JhY2xlKSB3cm90ZToNCj4+Pj4+IE9uIE1vbiwgRmViIDI4LCAyMDIyIGF0IDA0
-OjE3OjMyUE0gKzA1MzAsIEFuc2h1bWFuIEtoYW5kdWFsIHdyb3RlOg0KPj4+Pj4+IFRoaXMgZGVm
-aW5lcyBhbmQgZXhwb3J0cyBhIHBsYXRmb3JtIHNwZWNpZmljIGN1c3RvbSB2bV9nZXRfcGFnZV9w
-cm90KCkgdmlhDQo+Pj4+Pj4gc3Vic2NyaWJpbmcgQVJDSF9IQVNfVk1fR0VUX1BBR0VfUFJPVC4g
-U3Vic2VxdWVudGx5IGFsbCBfX1NYWFggYW5kIF9fUFhYWA0KPj4+Pj4+IG1hY3JvcyBjYW4gYmUg
-ZHJvcHBlZCB3aGljaCBhcmUgbm8gbG9uZ2VyIG5lZWRlZC4NCj4+Pj4+DQo+Pj4+PiBXaGF0IEkg
-d291bGQgcmVhbGx5IGxpa2UgdG8ga25vdyBpcyB3aHkgaGF2aW5nIHRvIHJ1biBfY29kZV8gdG8g
-d29yayBvdXQNCj4+Pj4+IHdoYXQgdGhlIHBhZ2UgcHJvdGVjdGlvbnMgbmVlZCB0byBiZSBpcyBi
-ZXR0ZXIgdGhhbiBsb29raW5nIGl0IHVwIGluIGENCj4+Pj4+IHRhYmxlLg0KPj4+Pj4NCj4+Pj4+
-IE5vdCBvbmx5IGlzIHRoaXMgbW9yZSBleHBlbnNpdmUgaW4gdGVybXMgb2YgQ1BVIGN5Y2xlcywg
-aXQgYWxzbyBicmluZ3MNCj4+Pj4+IGFkZGl0aW9uYWwgY29kZSBzaXplIHdpdGggaXQuDQo+Pj4+
-Pg0KPj4+Pj4gSSdtIHN0cnVnZ2xpbmcgdG8gc2VlIHdoYXQgdGhlIGJlbmVmaXQgaXMuDQo+Pj4+
-DQo+Pj4+IEN1cnJlbnRseSB2bV9nZXRfcGFnZV9wcm90KCkgaXMgYWxzbyBiZWluZyBfcnVuXyB0
-byBmZXRjaCByZXF1aXJlZCBwYWdlDQo+Pj4+IHByb3RlY3Rpb24gdmFsdWVzLiBBbHRob3VnaCB0
-aGF0IGlzIGJlaW5nIHJ1biBpbiB0aGUgY29yZSBNTSBhbmQgZnJvbSBhDQo+Pj4+IHBsYXRmb3Jt
-IHBlcnNwZWN0aXZlIF9fU1hYWCwgX19QWFhYIGFyZSBqdXN0IGJlaW5nIGV4cG9ydGVkIGZvciBh
-IHRhYmxlLg0KPj4+PiBMb29raW5nIGl0IHVwIGluIGEgdGFibGUgKGFuZCBhcHBseWluZyBtb3Jl
-IGNvbnN0cnVjdHMgdGhlcmUgYWZ0ZXIpIGlzDQo+Pj4+IG5vdCBtdWNoIGRpZmZlcmVudCB0aGFu
-IGEgY2xlYW4gc3dpdGNoIGNhc2Ugc3RhdGVtZW50IGluIHRlcm1zIG9mIENQVQ0KPj4+PiB1c2Fn
-ZS4gU28gdGhpcyBpcyBub3QgbW9yZSBleHBlbnNpdmUgaW4gdGVybXMgb2YgQ1BVIGN5Y2xlcy4N
-Cj4+Pg0KPj4+IEkgZGlzYWdyZWUuDQo+Pg0KPj4gU28gZG8gSS4NCj4+DQo+Pj4NCj4+PiBIb3dl
-dmVyLCBsZXQncyBiYXNlIHRoaXMgZGlzYWdyZWVtZW50IG9uIHNvbWUgZXZpZGVuY2UuIEhlcmUg
-aXMgdGhlDQo+Pj4gcHJlc2VudCAzMi1iaXQgQVJNIGltcGxlbWVudGF0aW9uOg0KPj4+DQo+Pj4g
-MDAwMDAwNDggPHZtX2dldF9wYWdlX3Byb3Q+Og0KPj4+ICAgICAgICAgNDg6ICAgICAgIGUyMDAw
-MDBmICAgICAgICBhbmQgICAgIHIwLCByMCwgIzE1DQo+Pj4gICAgICAgICA0YzogICAgICAgZTMw
-MDMwMDAgICAgICAgIG1vdncgICAgcjMsICMwDQo+Pj4gICAgICAgICAgICAgICAgICAgICAgICAg
-ICA0YzogUl9BUk1fTU9WV19BQlNfTkMgICAuTEFOQ0hPUjENCj4+PiAgICAgICAgIDUwOiAgICAg
-ICBlMzQwMzAwMCAgICAgICAgbW92dCAgICByMywgIzANCj4+PiAgICAgICAgICAgICAgICAgICAg
-ICAgICAgIDUwOiBSX0FSTV9NT1ZUX0FCUyAgICAgIC5MQU5DSE9SMQ0KPj4+ICAgICAgICAgNTQ6
-ICAgICAgIGU3OTMwMTAwICAgICAgICBsZHIgICAgIHIwLCBbcjMsIHIwLCBsc2wgIzJdDQo+Pj4g
-ICAgICAgICA1ODogICAgICAgZTEyZmZmMWUgICAgICAgIGJ4ICAgICAgbHINCj4+Pg0KPj4+IFRo
-YXQgaXMgZml2ZSBpbnN0cnVjdGlvbnMgbG9uZy4NCj4+DQo+PiBPbiBwcGMzMiBJIGdldDoNCj4+
-DQo+PiAwMDAwMDA5NCA8dm1fZ2V0X3BhZ2VfcHJvdD46DQo+PiAgICAgICAgIDk0OgkzZCAyMCAw
-MCAwMCAJbGlzICAgICByOSwwDQo+PiAJCQk5NjogUl9QUENfQUREUjE2X0hBCS5kYXRhLi5yb19h
-ZnRlcl9pbml0DQo+PiAgICAgICAgIDk4Ogk1NCA4NCAxNiBiYSAJcmx3aW5tICByNCxyNCwyLDI2
-LDI5DQo+PiAgICAgICAgIDljOgkzOSAyOSAwMCAwMCAJYWRkaSAgICByOSxyOSwwDQo+PiAJCQk5
-ZTogUl9QUENfQUREUjE2X0xPCS5kYXRhLi5yb19hZnRlcl9pbml0DQo+PiAgICAgICAgIGEwOgk3
-ZCAyOSAyMCAyZSAJbHd6eCAgICByOSxyOSxyNA0KPj4gICAgICAgICBhNDoJOTEgMjMgMDAgMDAg
-CXN0dyAgICAgcjksMChyMykNCj4+ICAgICAgICAgYTg6CTRlIDgwIDAwIDIwIAlibHINCj4+DQo+
-Pg0KPj4+DQo+Pj4gUGxlYXNlIHNob3cgdGhhdCB5b3VyIG5ldyBpbXBsZW1lbnRhdGlvbiBpcyBu
-b3QgbW9yZSBleHBlbnNpdmUgb24NCj4+PiAzMi1iaXQgQVJNLiBQbGVhc2UgZG8gc28gYnkgYnVp
-bGRpbmcgYSAzMi1iaXQga2VybmVsLCBhbmQgcHJvdmlkaW5nDQo+Pj4gdGhlIGRpc2Fzc2VtYmx5
-Lg0KPj4NCj4+IFdpdGggeW91ciBzZXJpZXMgSSBnZXQ6DQo+Pg0KPj4gMDAwMDAwMDAgPHZtX2dl
-dF9wYWdlX3Byb3Q+Og0KPj4gICAgICAwOgkzZCAyMCAwMCAwMCAJbGlzICAgICByOSwwDQo+PiAJ
-CQkyOiBSX1BQQ19BRERSMTZfSEEJLnJvZGF0YQ0KPj4gICAgICA0OgkzOSAyOSAwMCAwMCAJYWRk
-aSAgICByOSxyOSwwDQo+PiAJCQk2OiBSX1BQQ19BRERSMTZfTE8JLnJvZGF0YQ0KPj4gICAgICA4
-Ogk1NCA4NCAxNiBiYSAJcmx3aW5tICByNCxyNCwyLDI2LDI5DQo+PiAgICAgIGM6CTdkIDQ5IDIw
-IDJlIAlsd3p4ICAgIHIxMCxyOSxyNA0KPj4gICAgIDEwOgk3ZCA0YSA0YSAxNCAJYWRkICAgICBy
-MTAscjEwLHI5DQo+PiAgICAgMTQ6CTdkIDQ5IDAzIGE2IAltdGN0ciAgIHIxMA0KPj4gICAgIDE4
-Ogk0ZSA4MCAwNCAyMCAJYmN0cg0KPj4gICAgIDFjOgkzOSAyMCAwMyAxNSAJbGkgICAgICByOSw3
-ODkNCj4+ICAgICAyMDoJOTEgMjMgMDAgMDAgCXN0dyAgICAgcjksMChyMykNCj4+ICAgICAyNDoJ
-NGUgODAgMDAgMjAgCWJscg0KPj4gICAgIDI4OgkzOSAyMCAwMSAxNSAJbGkgICAgICByOSwyNzcN
-Cj4+ICAgICAyYzoJOTEgMjMgMDAgMDAgCXN0dyAgICAgcjksMChyMykNCj4+ICAgICAzMDoJNGUg
-ODAgMDAgMjAgCWJscg0KPj4gICAgIDM0OgkzOSAyMCAwNyAxNSAJbGkgICAgICByOSwxODEzDQo+
-PiAgICAgMzg6CTkxIDIzIDAwIDAwIAlzdHcgICAgIHI5LDAocjMpDQo+PiAgICAgM2M6CTRlIDgw
-IDAwIDIwIAlibHINCj4+ICAgICA0MDoJMzkgMjAgMDUgMTUgCWxpICAgICAgcjksMTMwMQ0KPj4g
-ICAgIDQ0Ogk5MSAyMyAwMCAwMCAJc3R3ICAgICByOSwwKHIzKQ0KPj4gICAgIDQ4Ogk0ZSA4MCAw
-MCAyMCAJYmxyDQo+PiAgICAgNGM6CTM5IDIwIDAxIDExIAlsaSAgICAgIHI5LDI3Mw0KPj4gICAg
-IDUwOgk0YiBmZiBmZiBkMCAJYiAgICAgICAyMCA8dm1fZ2V0X3BhZ2VfcHJvdCsweDIwPg0KPj4N
-Cj4+DQo+PiBUaGF0IGlzIGRlZmluaXRlbHkgbW9yZSBleHBlbnNpdmUsIGl0IGltcGxlbWVudHMg
-YSB0YWJsZSBvZiBicmFuY2hlcy4NCj4gDQo+IE9rYXksIHdpbGwgc3BsaXQgb3V0IHRoZSBQUEMz
-MiBpbXBsZW1lbnRhdGlvbiB0aGF0IHJldGFpbnMgZXhpc3RpbmcNCj4gdGFibGUgbG9vayB1cCBt
-ZXRob2QuIEFsc28gcGxhbm5pbmcgdG8ga2VlcCB0aGF0IGluc2lkZSBzYW1lIGZpbGUNCj4gKGFy
-Y2gvcG93ZXJwYy9tbS9tbWFwLmMpLCB1bmxlc3MgeW91IGhhdmUgYSBkaWZmZXJlbmNlIHByZWZl
-cmVuY2UuDQoNCk15IHBvaW50IHdhcyBub3QgdG8gZ2V0IHNvbWV0aGluZyBzcGVjaWZpYyBmb3Ig
-UFBDMzIsIGJ1dCB0byBhbXBsaWZ5IG9uIA0KUnVzc2VsbCdzIG9iamVjdGlvbi4NCg0KQXMgdGhp
-cyBpcyBiYWQgZm9yIEFSTSBhbmQgYmFkIGZvciBQUEMzMiwgZG8gd2UgaGF2ZSBhbnkgZXZpZGVu
-Y2UgdGhhdCANCnlvdXIgY2hhbmdlIGlzIGdvb2QgZm9yIGFueSBvdGhlciBhcmNoaXRlY3R1cmUg
-Pw0KDQpJIGNoZWNrZWQgUFBDNjQgYW5kIHRoZXJlIGlzIGV4YWN0bHkgdGhlIHNhbWUgZHJhd2Jh
-Y2suIFdpdGggdGhlIGN1cnJlbnQgDQppbXBsZW1lbnRhdGlvbiBpdCBpcyBhIHNtYWxsIGZ1bmN0
-aW9uIHBlcmZvcm1pbmcgdGFibGUgcmVhZCB0aGVuIGEgZmV3IA0KYWRqdXN0bWVudC4gQWZ0ZXIg
-eW91ciBjaGFuZ2UgaXQgaXMgYSBiaWdnZXIgZnVuY3Rpb24gaW1wbGVtZW50aW5nIGEgDQp0YWJs
-ZSBvZiBicmFuY2hlcy4NCg0KU28sIGFzIHJlcXVlc3RlZCBieSBSdXNzZWxsLCBjb3VsZCB5b3Ug
-bG9vayBhdCB0aGUgZGlzYXNzZW1ibHkgZm9yIG90aGVyIA0KYXJjaGl0ZWN0dXJlcyBhbmQgc2hv
-dyB1cyB0aGF0IEFSTSBhbmQgUE9XRVJQQyBhcmUgdGhlIG9ubHkgb25lcyBmb3IgDQp3aGljaCB5
-b3VyIGNoYW5nZSBpcyBub3Qgb3B0aW1hbCA/DQoNClNlZSBiZWxvdyB0aGUgZGlmZmVyZW5jZSBm
-b3IgUE9XRVJQQzY0Lg0KDQpDdXJyZW50IGltcGxlbWVudGF0aW9uOg0KDQowMDAwMDAwMDAwMDAw
-YTYwIDwudm1fZ2V0X3BhZ2VfcHJvdD46DQogICAgICBhNjA6CTNkIDQyIDAwIDAwIAlhZGRpcyAg
-IHIxMCxyMiwwDQoJCQlhNjI6IFJfUFBDNjRfVE9DMTZfSEEJLmRhdGEuLnJvX2FmdGVyX2luaXQN
-CiAgICAgIGE2NDoJNzggODkgMWUgNjggCXJsZGljICAgcjkscjQsMyw1Nw0KICAgICAgYTY4Ogkz
-OSA0YSAwMCAwMCAJYWRkaSAgICByMTAscjEwLDANCgkJCWE2YTogUl9QUEM2NF9UT0MxNl9MTwku
-ZGF0YS4ucm9fYWZ0ZXJfaW5pdA0KICAgICAgYTZjOgk3NCA4OCAwMSAwMCAJYW5kaXMuICByOCxy
-NCwyNTYNCiAgICAgIGE3MDoJN2QgMmEgNDggMmEgCWxkeCAgICAgcjkscjEwLHI5DQogICAgICBh
-NzQ6CTQxIDgyIDAwIDFjIAliZXEgICAgIGE5MCA8LnZtX2dldF9wYWdlX3Byb3QrMHgzMD4NCiAg
-ICAgIGE3ODoJNjAgMDAgMDAgMDAgCW5vcA0KICAgICAgYTdjOgk2MCAwMCAwMCAwMCAJbm9wDQog
-ICAgICBhODA6CTQ4IDAwIDAwIDE4IAliICAgICAgIGE5OCA8LnZtX2dldF9wYWdlX3Byb3QrMHgz
-OD4NCiAgICAgIGE4NDoJNjAgMDAgMDAgMDAgCW5vcA0KICAgICAgYTg4Ogk2MCAwMCAwMCAwMCAJ
-bm9wDQogICAgICBhOGM6CTYwIDAwIDAwIDAwIAlub3ANCiAgICAgIGE5MDoJNjAgMDAgMDAgMDAg
-CW5vcA0KICAgICAgYTk0Ogk2MCAwMCAwMCAwMCAJbm9wDQogICAgICBhOTg6CTBmIGUwIDAwIDAw
-IAl0d3VpICAgIHIwLDANCiAgICAgIGE5YzoJNjAgMDAgMDAgMDAgCW5vcA0KICAgICAgYWEwOgkz
-OCA4MCAwMCAxMCAJbGkgICAgICByNCwxNg0KICAgICAgYWE0Ogk3ZCAyOSAyMyA3OCAJb3IgICAg
-ICByOSxyOSxyNA0KICAgICAgYWE4OglmOSAyMyAwMCAwMCAJc3RkICAgICByOSwwKHIzKQ0KICAg
-ICAgYWFjOgk0ZSA4MCAwMCAyMCAJYmxyDQogICAgICBhYjA6CTc4IDg0IGQ5IDA0IAlybGRpY3Ig
-IHI0LHI0LDI3LDQNCiAgICAgIGFiNDoJNzggODQgZTggYzIgCXJsZGljbCAgcjQscjQsNjEsMw0K
-ICAgICAgYWI4Ogk2MCA4NCAwMCAxMCAJb3JpICAgICByNCxyNCwxNg0KICAgICAgYWJjOgk0YiBm
-ZiBmZiBlOCAJYiAgICAgICBhYTQgPC52bV9nZXRfcGFnZV9wcm90KzB4NDQ+DQogICAgICBhYzA6
-CTc4IDg0IGQ5IDA0IAlybGRpY3IgIHI0LHI0LDI3LDQNCiAgICAgIGFjNDoJNzggODQgZTggYzIg
-CXJsZGljbCAgcjQscjQsNjEsMw0KICAgICAgYWM4Ogk0YiBmZiBmZiBkYyAJYiAgICAgICBhYTQg
-PC52bV9nZXRfcGFnZV9wcm90KzB4NDQ+DQoNCg0KV2l0aCB5b3VyIHNlcmllczoNCg0KMDAwMDAw
-MDAwMDAwMDViMCA8LnZtX2dldF9wYWdlX3Byb3Q+Og0KICA1YjA6CTNkIDIyIDAwIDAwIAlhZGRp
-cyAgIHI5LHIyLDANCgkJCTViMjogUl9QUEM2NF9UT0MxNl9IQQkudG9jKzB4MTANCiAgNWI0Ogll
-OSA0OSAwMCAwMCAJbGQgICAgICByMTAsMChyOSkNCgkJCTViNjogUl9QUEM2NF9UT0MxNl9MT19E
-UwkudG9jKzB4MTANCiAgNWI4Ogk3OCA4OSAxNiBhOCAJcmxkaWMgICByOSxyNCwyLDU4DQogIDVi
-YzoJN2QgMmEgNGEgYWEgCWx3YXggICAgcjkscjEwLHI5DQogIDVjMDoJN2QgMjkgNTIgMTQgCWFk
-ZCAgICAgcjkscjkscjEwDQogIDVjNDoJN2QgMjkgMDMgYTYgCW10Y3RyICAgcjkNCiAgNWM4Ogkz
-ZCAyMCA4MCAwMCAJbGlzICAgICByOSwtMzI3NjgNCiAgNWNjOgk3OSAyOSAwNyBjNiAJcmxkaWNy
-ICByOSxyOSwzMiwzMQ0KICA1ZDA6CTRlIDgwIDA0IDIwIAliY3RyDQogIDVkNDoJMDAgMDAgMDAg
-ZWMgCS5sb25nIDB4ZWMNCiAgNWQ4OgkwMCAwMCAwMCA2YyAJLmxvbmcgMHg2Yw0KICA1ZGM6CTAw
-IDAwIDAwIDZjIAkubG9uZyAweDZjDQogIDVlMDoJMDAgMDAgMDAgNmMgCS5sb25nIDB4NmMNCiAg
-NWU0OgkwMCAwMCAwMCA0YyAJLmxvbmcgMHg0Yw0KICA1ZTg6CTAwIDAwIDAwIDRjIAkubG9uZyAw
-eDRjDQogIDVlYzoJMDAgMDAgMDAgNGMgCS5sb25nIDB4NGMNCiAgNWYwOgkwMCAwMCAwMCA0YyAJ
-LmxvbmcgMHg0Yw0KICA1ZjQ6CTAwIDAwIDAwIGVjIAkubG9uZyAweGVjDQogIDVmODoJMDAgMDAg
-MDAgNmMgCS5sb25nIDB4NmMNCiAgNWZjOgkwMCAwMCAwMCBjYyAJLmxvbmcgMHhjYw0KICA2MDA6
-CTAwIDAwIDAwIGNjIAkubG9uZyAweGNjDQogIDYwNDoJMDAgMDAgMDAgNGMgCS5sb25nIDB4NGMN
-CiAgNjA4OgkwMCAwMCAwMCA0YyAJLmxvbmcgMHg0Yw0KICA2MGM6CTAwIDAwIDAwIGRjIAkubG9u
-ZyAweGRjDQogIDYxMDoJMDAgMDAgMDAgZGMgCS5sb25nIDB4ZGMNCiAgNjE0Ogk2MCAwMCAwMCAw
-MCAJbm9wDQogIDYxODoJNjAgMDAgMDAgMDAgCW5vcA0KICA2MWM6CTYwIDAwIDAwIDAwIAlub3AN
-CiAgNjIwOgk2MSAyOSAwMSAwNSAJb3JpICAgICByOSxyOSwyNjENCiAgNjI0Ogk3NCA4YSAwMSAw
-MCAJYW5kaXMuICByMTAscjQsMjU2DQogIDYyODoJNDEgODIgMDAgMjQgCWJlcSAgICAgNjRjIDwu
-dm1fZ2V0X3BhZ2VfcHJvdCsweDljPg0KICA2MmM6CTYwIDAwIDAwIDAwIAlub3ANCiAgNjMwOgk2
-MCAwMCAwMCAwMCAJbm9wDQogIDYzNDoJMGYgZTAgMDAgMDAgCXR3dWkgICAgcjAsMA0KICA2Mzg6
-CTYwIDAwIDAwIDAwIAlub3ANCiAgNjNjOgk2MCAwMCAwMCAwMCAJbm9wDQogIDY0MDoJNzQgOGEg
-MDEgMDAgCWFuZGlzLiAgcjEwLHI0LDI1Ng0KICA2NDQ6CTYxIDI5IDAxIDA0IAlvcmkgICAgIHI5
-LHI5LDI2MA0KICA2NDg6CTQwIDgyIGZmIGU0IAlibmUgICAgIDYyYyA8LnZtX2dldF9wYWdlX3By
-b3QrMHg3Yz4NCiAgNjRjOgk2MCAwMCAwMCAwMCAJbm9wDQogIDY1MDoJNjAgMDAgMDAgMDAgCW5v
-cA0KICA2NTQ6CTRiIGZmIGZmIGUwIAliICAgICAgIDYzNCA8LnZtX2dldF9wYWdlX3Byb3QrMHg4
-ND4NCiAgNjU4Ogk2MCAwMCAwMCAwMCAJbm9wDQogIDY1YzoJNjAgMDAgMDAgMDAgCW5vcA0KICA2
-NjA6CTc4IDg0IGQ5IDA0IAlybGRpY3IgIHI0LHI0LDI3LDQNCiAgNjY0Ogk3OCA4NCBlOCBjMiAJ
-cmxkaWNsICByNCxyNCw2MSwzDQogIDY2ODoJN2QgMjkgMjMgNzggCW9yICAgICAgcjkscjkscjQN
-CiAgNjZjOglmOSAyMyAwMCAwMCAJc3RkICAgICByOSwwKHIzKQ0KICA2NzA6CTRlIDgwIDAwIDIw
-IAlibHINCiAgNjc0Ogk2MCAwMCAwMCAwMCAJbm9wDQogIDY3ODoJNjAgMDAgMDAgMDAgCW5vcA0K
-ICA2N2M6CTYwIDAwIDAwIDAwIAlub3ANCiAgNjgwOgkzOCA4MCAwMCAxMCAJbGkgICAgICByNCwx
-Ng0KICA2ODQ6CTRiIGZmIGZmIGU0IAliICAgICAgIDY2OCA8LnZtX2dldF9wYWdlX3Byb3QrMHhi
-OD4NCiAgNjg4Ogk2MCAwMCAwMCAwMCAJbm9wDQogIDY4YzoJNjAgMDAgMDAgMDAgCW5vcA0KICA2
-OTA6CTc4IDg0IGQ5IDA0IAlybGRpY3IgIHI0LHI0LDI3LDQNCiAgNjk0Ogk3OCA4NCBlOCBjMiAJ
-cmxkaWNsICByNCxyNCw2MSwzDQogIDY5ODoJNjAgODQgMDAgMTAgCW9yaSAgICAgcjQscjQsMTYN
-CiAgNjljOgk0YiBmZiBmZiBjYyAJYiAgICAgICA2NjggPC52bV9nZXRfcGFnZV9wcm90KzB4Yjg+
-DQogIDZhMDoJNjEgMjkgMDEgMDYgCW9yaSAgICAgcjkscjksMjYyDQogIDZhNDoJNGIgZmYgZmYg
-ODAgCWIgICAgICAgNjI0IDwudm1fZ2V0X3BhZ2VfcHJvdCsweDc0Pg0KICA2YTg6CTYwIDAwIDAw
-IDAwIAlub3ANCiAgNmFjOgk2MCAwMCAwMCAwMCAJbm9wDQogIDZiMDoJNjEgMjkgMDEgMDcgCW9y
-aSAgICAgcjkscjksMjYzDQogIDZiNDoJNGIgZmYgZmYgNzAgCWIgICAgICAgNjI0IDwudm1fZ2V0
-X3BhZ2VfcHJvdCsweDc0Pg0KICA2Yjg6CTYwIDAwIDAwIDAwIAlub3ANCiAgNmJjOgk2MCAwMCAw
-MCAwMCAJbm9wDQogIDZjMDoJNjEgMjkgMDEgMDggCW9yaSAgICAgcjkscjksMjY0DQogIDZjNDoJ
-NGIgZmYgZmYgNjAgCWIgICAgICAgNjI0IDwudm1fZ2V0X3BhZ2VfcHJvdCsweDc0Pg0KDQpUaGFu
-a3MNCkNocmlzdG9waGU
+
+
+On 3/2/22 12:35 PM, Christophe Leroy wrote:
+> 
+> 
+> Le 02/03/2022 à 04:22, Anshuman Khandual a écrit :
+>>
+>>
+>> On 3/1/22 1:46 PM, Christophe Leroy wrote:
+>>>
+>>>
+>>> Le 01/03/2022 à 01:31, Russell King (Oracle) a écrit :
+>>>> On Tue, Mar 01, 2022 at 05:30:41AM +0530, Anshuman Khandual wrote:
+>>>>> On 2/28/22 4:27 PM, Russell King (Oracle) wrote:
+>>>>>> On Mon, Feb 28, 2022 at 04:17:32PM +0530, Anshuman Khandual wrote:
+>>>>>>> This defines and exports a platform specific custom vm_get_page_prot() via
+>>>>>>> subscribing ARCH_HAS_VM_GET_PAGE_PROT. Subsequently all __SXXX and __PXXX
+>>>>>>> macros can be dropped which are no longer needed.
+>>>>>>
+>>>>>> What I would really like to know is why having to run _code_ to work out
+>>>>>> what the page protections need to be is better than looking it up in a
+>>>>>> table.
+>>>>>>
+>>>>>> Not only is this more expensive in terms of CPU cycles, it also brings
+>>>>>> additional code size with it.
+>>>>>>
+>>>>>> I'm struggling to see what the benefit is.
+>>>>>
+>>>>> Currently vm_get_page_prot() is also being _run_ to fetch required page
+>>>>> protection values. Although that is being run in the core MM and from a
+>>>>> platform perspective __SXXX, __PXXX are just being exported for a table.
+>>>>> Looking it up in a table (and applying more constructs there after) is
+>>>>> not much different than a clean switch case statement in terms of CPU
+>>>>> usage. So this is not more expensive in terms of CPU cycles.
+>>>>
+>>>> I disagree.
+>>>
+>>> So do I.
+>>>
+>>>>
+>>>> However, let's base this disagreement on some evidence. Here is the
+>>>> present 32-bit ARM implementation:
+>>>>
+>>>> 00000048 <vm_get_page_prot>:
+>>>>         48:       e200000f        and     r0, r0, #15
+>>>>         4c:       e3003000        movw    r3, #0
+>>>>                           4c: R_ARM_MOVW_ABS_NC   .LANCHOR1
+>>>>         50:       e3403000        movt    r3, #0
+>>>>                           50: R_ARM_MOVT_ABS      .LANCHOR1
+>>>>         54:       e7930100        ldr     r0, [r3, r0, lsl #2]
+>>>>         58:       e12fff1e        bx      lr
+>>>>
+>>>> That is five instructions long.
+>>>
+>>> On ppc32 I get:
+>>>
+>>> 00000094 <vm_get_page_prot>:
+>>>         94:	3d 20 00 00 	lis     r9,0
+>>> 			96: R_PPC_ADDR16_HA	.data..ro_after_init
+>>>         98:	54 84 16 ba 	rlwinm  r4,r4,2,26,29
+>>>         9c:	39 29 00 00 	addi    r9,r9,0
+>>> 			9e: R_PPC_ADDR16_LO	.data..ro_after_init
+>>>         a0:	7d 29 20 2e 	lwzx    r9,r9,r4
+>>>         a4:	91 23 00 00 	stw     r9,0(r3)
+>>>         a8:	4e 80 00 20 	blr
+>>>
+>>>
+>>>>
+>>>> Please show that your new implementation is not more expensive on
+>>>> 32-bit ARM. Please do so by building a 32-bit kernel, and providing
+>>>> the disassembly.
+>>>
+>>> With your series I get:
+>>>
+>>> 00000000 <vm_get_page_prot>:
+>>>      0:	3d 20 00 00 	lis     r9,0
+>>> 			2: R_PPC_ADDR16_HA	.rodata
+>>>      4:	39 29 00 00 	addi    r9,r9,0
+>>> 			6: R_PPC_ADDR16_LO	.rodata
+>>>      8:	54 84 16 ba 	rlwinm  r4,r4,2,26,29
+>>>      c:	7d 49 20 2e 	lwzx    r10,r9,r4
+>>>     10:	7d 4a 4a 14 	add     r10,r10,r9
+>>>     14:	7d 49 03 a6 	mtctr   r10
+>>>     18:	4e 80 04 20 	bctr
+>>>     1c:	39 20 03 15 	li      r9,789
+>>>     20:	91 23 00 00 	stw     r9,0(r3)
+>>>     24:	4e 80 00 20 	blr
+>>>     28:	39 20 01 15 	li      r9,277
+>>>     2c:	91 23 00 00 	stw     r9,0(r3)
+>>>     30:	4e 80 00 20 	blr
+>>>     34:	39 20 07 15 	li      r9,1813
+>>>     38:	91 23 00 00 	stw     r9,0(r3)
+>>>     3c:	4e 80 00 20 	blr
+>>>     40:	39 20 05 15 	li      r9,1301
+>>>     44:	91 23 00 00 	stw     r9,0(r3)
+>>>     48:	4e 80 00 20 	blr
+>>>     4c:	39 20 01 11 	li      r9,273
+>>>     50:	4b ff ff d0 	b       20 <vm_get_page_prot+0x20>
+>>>
+>>>
+>>> That is definitely more expensive, it implements a table of branches.
+>>
+>> Okay, will split out the PPC32 implementation that retains existing
+>> table look up method. Also planning to keep that inside same file
+>> (arch/powerpc/mm/mmap.c), unless you have a difference preference.
+> 
+> My point was not to get something specific for PPC32, but to amplify on 
+> Russell's objection.
+> 
+> As this is bad for ARM and bad for PPC32, do we have any evidence that 
+> your change is good for any other architecture ?
+> 
+> I checked PPC64 and there is exactly the same drawback. With the current 
+> implementation it is a small function performing table read then a few 
+> adjustment. After your change it is a bigger function implementing a 
+> table of branches.
+
+I am wondering if this would not be the case for any other switch case
+statement on the platform ? Is there something specific/different just
+on vm_get_page_prot() implementation ? Are you suggesting that switch
+case statements should just be avoided instead ?
+
+> 
+> So, as requested by Russell, could you look at the disassembly for other 
+> architectures and show us that ARM and POWERPC are the only ones for 
+> which your change is not optimal ?
+
+But the primary purpose of this series is not to guarantee optimized
+code on platform by platform basis, while migrating from a table based
+look up method into a switch case statement.
+
+But instead, the purposes is to remove current levels of unnecessary
+abstraction while converting a vm_flags access combination into page
+protection. The switch case statement for platform implementation of
+vm_get_page_prot() just seemed logical enough. Christoph's original
+suggestion patch for x86 had the same implementation as well.
+
+But if the table look up is still better/preferred method on certain
+platforms like arm or ppc32, will be happy to preserve that.
+
+- Anshuman
