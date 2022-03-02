@@ -1,167 +1,32 @@
-From: Jeff Johnson <quic_jjohnson@quicinc.com>
-Date: Mon, 28 Mar 2022 16:17:40 +0000
-Subject: Re: [PATCH 19/22] wnc36xx: Replace comments with C99 initializers
-Message-Id: <f0ebc901-051a-c7fe-ca5a-bc798e7c31e7@quicinc.com>
+From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Date: Wed, 02 Mar 2022 12:01:16 +0000
+Subject: Re: regression: Bug 215601 - gcc segv at startup on ia64
+Message-Id: <ed02afd1-4e0f-4604-324c-0a58c0ca4b57@physik.fu-berlin.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220326165909.506926-1-benni@stuerz.xyz>
- <20220326165909.506926-19-benni@stuerz.xyz>
-In-Reply-To: <20220326165909.506926-19-benni@stuerz.xyz>
+References: <a3edd529-c42d-3b09-135c-7e98a15b150f@leemhuis.info>
+In-Reply-To: <a3edd529-c42d-3b09-135c-7e98a15b150f@leemhuis.info>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: =?UTF-8?Q?Benjamin_St=c3=bcrz?= <benni@stuerz.xyz>, andrew@lunn.ch
-Cc: sebastian.hesselbarth@gmail.com, gregory.clement@bootlin.com, linux@armlinux.org.uk, linux@simtec.co.uk, krzk@kernel.org, alim.akhtar@samsung.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, hpa@zytor.com, robert.moore@intel.com, rafael.j.wysocki@intel.com, lenb@kernel.org, 3chas3@gmail.com, laforge@gnumonks.org, arnd@arndb.de, gregkh@linuxfoundation.org, mchehab@kernel.org, tony.luck@intel.com, james.morse@arm.com, rric@kernel.org, linus.walleij@linaro.org, brgl@bgdev.pl, mike.marciniszyn@cornelisnetworks.com, dennis.dalessandro@cornelisnetworks.com, jgg@ziepe.ca, pali@kernel.org, dmitry.torokhov@gmail.com, isdn@linux-pingi.de, benh@kernel.crashing.org, fbarrat@linux.ibm.com, ajd@linux.ibm.com, davem@davemloft.net, kuba@kernel.org, pabeni@redhat.com, nico@fluxnic.net, loic.poulain@linaro.org, kvalo@kernel.org, pkshih@realtek.com, bhelgaas@google.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-edac@vger.kernel.org, linux-gpio@vger.kernel.org, linux-rdma@vger.kernel.org, linux-input@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-media@vger.kernel.org, wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org, linux-pci@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Thorsten Leemhuis <regressions@leemhuis.info>, "Anthony Yznaga <anthony.yznaga"@oracle.com, Kees Cook <keescook@chromium.org>
+Cc: matoro_bugzilla_kernel@matoro.tk, Andrew Morton <akpm@linux-foundation.org>, "regressions@lists.linux.dev" <regressions@lists.linux.dev>, linux-ia64@vger.kernel.org, Linux-fsdevel <linux-fsdevel@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Alexander Viro <viro@zeniv.linux.org.uk>
 
-On 3/26/2022 9:59 AM, Benjamin Stürz wrote:
-> This replaces comments with C99's designated
-> initializers because the kernel supports them now.
-> 
-> Signed-off-by: Benjamin Stürz <benni@stuerz.xyz>
-> ---
->   drivers/net/wireless/ath/wcn36xx/main.c | 122 ++++++++++++------------
->   1 file changed, 61 insertions(+), 61 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
-> index 95ea7d040d8c..0fed64bd37b4 100644
-> --- a/drivers/net/wireless/ath/wcn36xx/main.c
-> +++ b/drivers/net/wireless/ath/wcn36xx/main.c
-> @@ -193,67 +193,67 @@ static inline u8 get_sta_index(struct ieee80211_vif *vif,
->   }
->   
->   static const char * const wcn36xx_caps_names[] = {
-> -	"MCC",				/* 0 */
-> -	"P2P",				/* 1 */
-> -	"DOT11AC",			/* 2 */
-> -	"SLM_SESSIONIZATION",		/* 3 */
-> -	"DOT11AC_OPMODE",		/* 4 */
-> -	"SAP32STA",			/* 5 */
-> -	"TDLS",				/* 6 */
-> -	"P2P_GO_NOA_DECOUPLE_INIT_SCAN",/* 7 */
-> -	"WLANACTIVE_OFFLOAD",		/* 8 */
-> -	"BEACON_OFFLOAD",		/* 9 */
-> -	"SCAN_OFFLOAD",			/* 10 */
-> -	"ROAM_OFFLOAD",			/* 11 */
-> -	"BCN_MISS_OFFLOAD",		/* 12 */
-> -	"STA_POWERSAVE",		/* 13 */
-> -	"STA_ADVANCED_PWRSAVE",		/* 14 */
-> -	"AP_UAPSD",			/* 15 */
-> -	"AP_DFS",			/* 16 */
-> -	"BLOCKACK",			/* 17 */
-> -	"PHY_ERR",			/* 18 */
-> -	"BCN_FILTER",			/* 19 */
-> -	"RTT",				/* 20 */
-> -	"RATECTRL",			/* 21 */
-> -	"WOW",				/* 22 */
-> -	"WLAN_ROAM_SCAN_OFFLOAD",	/* 23 */
-> -	"SPECULATIVE_PS_POLL",		/* 24 */
-> -	"SCAN_SCH",			/* 25 */
-> -	"IBSS_HEARTBEAT_OFFLOAD",	/* 26 */
-> -	"WLAN_SCAN_OFFLOAD",		/* 27 */
-> -	"WLAN_PERIODIC_TX_PTRN",	/* 28 */
-> -	"ADVANCE_TDLS",			/* 29 */
-> -	"BATCH_SCAN",			/* 30 */
-> -	"FW_IN_TX_PATH",		/* 31 */
-> -	"EXTENDED_NSOFFLOAD_SLOT",	/* 32 */
-> -	"CH_SWITCH_V1",			/* 33 */
-> -	"HT40_OBSS_SCAN",		/* 34 */
-> -	"UPDATE_CHANNEL_LIST",		/* 35 */
-> -	"WLAN_MCADDR_FLT",		/* 36 */
-> -	"WLAN_CH144",			/* 37 */
-> -	"NAN",				/* 38 */
-> -	"TDLS_SCAN_COEXISTENCE",	/* 39 */
-> -	"LINK_LAYER_STATS_MEAS",	/* 40 */
-> -	"MU_MIMO",			/* 41 */
-> -	"EXTENDED_SCAN",		/* 42 */
-> -	"DYNAMIC_WMM_PS",		/* 43 */
-> -	"MAC_SPOOFED_SCAN",		/* 44 */
-> -	"BMU_ERROR_GENERIC_RECOVERY",	/* 45 */
-> -	"DISA",				/* 46 */
-> -	"FW_STATS",			/* 47 */
-> -	"WPS_PRBRSP_TMPL",		/* 48 */
-> -	"BCN_IE_FLT_DELTA",		/* 49 */
-> -	"TDLS_OFF_CHANNEL",		/* 51 */
-> -	"RTT3",				/* 52 */
-> -	"MGMT_FRAME_LOGGING",		/* 53 */
-> -	"ENHANCED_TXBD_COMPLETION",	/* 54 */
-> -	"LOGGING_ENHANCEMENT",		/* 55 */
-> -	"EXT_SCAN_ENHANCED",		/* 56 */
-> -	"MEMORY_DUMP_SUPPORTED",	/* 57 */
-> -	"PER_PKT_STATS_SUPPORTED",	/* 58 */
-> -	"EXT_LL_STAT",			/* 60 */
-> -	"WIFI_CONFIG",			/* 61 */
-> -	"ANTENNA_DIVERSITY_SELECTION",	/* 62 */
-> +	[0]  = "MCC",
-> +	[1]  = "P2P",
-> +	[2]  = "DOT11AC",
-> +	[3]  = "SLM_SESSIONIZATION",
-> +	[4]  = "DOT11AC_OPMODE",
-> +	[5]  = "SAP32STA",
-> +	[6]  = "TDLS",
-> +	[7]  = "P2P_GO_NOA_DECOUPLE_INIT_SCAN",
-> +	[8]  = "WLANACTIVE_OFFLOAD",
-> +	[9]  = "BEACON_OFFLOAD",
-> +	[10] = "SCAN_OFFLOAD",
-> +	[11] = "ROAM_OFFLOAD",
-> +	[12] = "BCN_MISS_OFFLOAD",
-> +	[13] = "STA_POWERSAVE",
-> +	[14] = "STA_ADVANCED_PWRSAVE",
-> +	[15] = "AP_UAPSD",
-> +	[16] = "AP_DFS",
-> +	[17] = "BLOCKACK",
-> +	[18] = "PHY_ERR",
-> +	[19] = "BCN_FILTER",
-> +	[20] = "RTT",
-> +	[21] = "RATECTRL",
-> +	[22] = "WOW",
-> +	[23] = "WLAN_ROAM_SCAN_OFFLOAD",
-> +	[24] = "SPECULATIVE_PS_POLL",
-> +	[25] = "SCAN_SCH",
-> +	[26] = "IBSS_HEARTBEAT_OFFLOAD",
-> +	[27] = "WLAN_SCAN_OFFLOAD",
-> +	[28] = "WLAN_PERIODIC_TX_PTRN",
-> +	[29] = "ADVANCE_TDLS",
-> +	[30] = "BATCH_SCAN",
-> +	[31] = "FW_IN_TX_PATH",
-> +	[32] = "EXTENDED_NSOFFLOAD_SLOT",
-> +	[33] = "CH_SWITCH_V1",
-> +	[34] = "HT40_OBSS_SCAN",
-> +	[35] = "UPDATE_CHANNEL_LIST",
-> +	[36] = "WLAN_MCADDR_FLT",
-> +	[37] = "WLAN_CH144",
-> +	[38] = "NAN",
-> +	[39] = "TDLS_SCAN_COEXISTENCE",
-> +	[40] = "LINK_LAYER_STATS_MEAS",
-> +	[41] = "MU_MIMO",
-> +	[42] = "EXTENDED_SCAN",
-> +	[43] = "DYNAMIC_WMM_PS",
-> +	[44] = "MAC_SPOOFED_SCAN",
-> +	[45] = "BMU_ERROR_GENERIC_RECOVERY",
-> +	[46] = "DISA",
-> +	[47] = "FW_STATS",
-> +	[48] = "WPS_PRBRSP_TMPL",
-> +	[49] = "BCN_IE_FLT_DELTA",
-> +	[51] = "TDLS_OFF_CHANNEL",
-> +	[52] = "RTT3",
-> +	[53] = "MGMT_FRAME_LOGGING",
-> +	[54] = "ENHANCED_TXBD_COMPLETION",
-> +	[55] = "LOGGING_ENHANCEMENT",
-> +	[56] = "EXT_SCAN_ENHANCED",
-> +	[57] = "MEMORY_DUMP_SUPPORTED",
-> +	[58] = "PER_PKT_STATS_SUPPORTED",
-> +	[60] = "EXT_LL_STAT",
-> +	[61] = "WIFI_CONFIG",
-> +	[62] = "ANTENNA_DIVERSITY_SELECTION",
->   };
->   
->   static const char *wcn36xx_get_cap_name(enum place_holder_in_cap_bitmap x)
+Hi Thorsten!
 
-I know there has been much discussion on this series. For this specific 
-patch this would be a great change if you use the actual enumerations 
-from enum place_holder_in_cap_bitmap as the index values,
-i.e.
-  [MCC] = "MCC",
-  etc.
+On 2/20/22 18:12, Thorsten Leemhuis wrote:
+> I noticed a regression report in bugzilla.kernel.org that afaics nobody
+> acted upon since it was reported about a week ago, that's why I'm hereby
+> forwarding it to the lists and the relevant people. To quote
+> https://bugzilla.kernel.org/show_bug.cgi?id!5601 :
 
-So a v2 for this patch would be appreciated
+As a heads-up, this issue has been fixed in 439a8468242b [1].
 
+Adrian
 
+> [1] https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?idC9a8468242b313486e69b8cc3b45ddcfa898fbf
+
+-- 
+ .''`.  John Paul Adrian Glaubitz
+: :' :  Debian Developer - glaubitz@debian.org
+`. `'   Freie Universitaet Berlin - glaubitz@physik.fu-berlin.de
+  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
