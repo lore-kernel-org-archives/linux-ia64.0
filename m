@@ -1,37 +1,28 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 04 Mar 2022 16:34:30 +0000
+Date: Fri, 04 Mar 2022 17:28:59 +0000
 Subject: Re: [PATCH 11/12] swiotlb: merge swiotlb-xen initialization into swiotlb
-Message-Id: <20220304163430.GA12317@lst.de>
+Message-Id: <20220304172859.GA12860@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220301105311.885699-1-hch@lst.de> <20220301105311.885699-12-hch@lst.de> <alpine.DEB.2.22.394.2203011720150.3261@ubuntu-linux-20-04-desktop> <20220302081500.GB23075@lst.de> <alpine.DEB.2.22.394.2203021709470.3261@ubuntu-linux-20-04-desktop> <20220303105931.GA15137@lst.de> <alpine.DEB.2.22.394.2203031447120.3261@ubuntu-linux-20-04-desktop>
-In-Reply-To: <alpine.DEB.2.22.394.2203031447120.3261@ubuntu-linux-20-04-desktop>
+References: <20220301105311.885699-1-hch@lst.de> <20220301105311.885699-12-hch@lst.de> <alpine.DEB.2.22.394.2203011720150.3261@ubuntu-linux-20-04-desktop> <ca748512-12bb-7d75-13f1-8d5ec9703e26@oracle.com>
+In-Reply-To: <ca748512-12bb-7d75-13f1-8d5ec9703e26@oracle.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Stefano Stabellini <sstabellini@kernel.org>
-Cc: Christoph Hellwig <hch@lst.de>, iommu@lists.linux-foundation.org, x86@kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Tom Lendacky <thomas.lendacky@amd.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Robin Murphy <robin.murphy@arm.com>, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-hyperv@vger.kernel.org, tboot-devel@lists.sourceforge.net, linux-pci@vger.kernel.org
+To: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Cc: Stefano Stabellini <sstabellini@kernel.org>, Christoph Hellwig <hch@lst.de>, iommu@lists.linux-foundation.org, x86@kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Tom Lendacky <thomas.lendacky@amd.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Juergen Gross <jgross@suse.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Robin Murphy <robin.murphy@arm.com>, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-hyperv@vger.kernel.org, tboot-devel@lists.sourceforge.net, linux-pci@vger.kernel.org
 
-On Thu, Mar 03, 2022 at 02:49:29PM -0800, Stefano Stabellini wrote:
-> On Thu, 3 Mar 2022, Christoph Hellwig wrote:
-> > On Wed, Mar 02, 2022 at 05:25:10PM -0800, Stefano Stabellini wrote:
-> > > Thinking more about it we actually need to drop the xen_initial_domain()
-> > > check otherwise some cases won't be functional (Dom0 not 1:1 mapped, or
-> > > DomU 1:1 mapped).
-> > 
-> > Hmm, but that would be the case even before this series, right?
-> 
-> Before this series we only have the xen_swiotlb_detect() check in
-> xen_mm_init, we don't have a second xen_initial_domain() check.
-> 
-> The issue is that this series is adding one more xen_initial_domain()
-> check in xen_mm_init.
+On Wed, Mar 02, 2022 at 08:15:03AM -0500, Boris Ostrovsky wrote:
+> Not for me, I fail to boot with
+>
+> [   52.202000] bnxt_en 0000:31:00.0: swiotlb buffer is full (sz: 256 bytes), total 0 (slots), used 0 (slots)
+>
+> (this is iscsi root so I need the NIC).
+>
+>
+> I bisected it to "x86: remove the IOMMU table infrastructure" but haven't actually looked at the code yet.
 
-In current mainline xen_mm_init calls xen_swiotlb_init unconditionally.
-But xen_swiotlb_init then calls xen_swiotlb_fixup after allocating
-the memory, which in turn calls xen_create_contiguous_region.
-xen_create_contiguous_region fails with -EINVAL for the
-!xen_initial_domain() and thus caues xen_swiotlb_fixup and
-xen_swiotlb_init to unwind and return -EINVAL.
+That looks like the swiotlb buffer did not get initialized at all, but I
+can't really explain why.
 
-So as far as I can tell there is no change in behavior, but maybe I'm
-missing something subtle?
+Can you stick in a printk and see if xen_swiotlb_init_early gets called
+at all?
