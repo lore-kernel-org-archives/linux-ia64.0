@@ -1,28 +1,54 @@
-From: Kalle Valo <kvalo@kernel.org>
-Date: Mon, 28 Mar 2022 12:06:51 +0000
-Subject: Re: [PATCH 20/22] wireless: Replace comments with C99 initializers
-Message-Id: <164846920750.11945.16978682699891961444.kvalo@kernel.org>
+From: Michael Ellerman <patch-notifications@ellerman.id.au>
+Date: Tue, 08 Mar 2022 12:07:33 +0000
+Subject: Re: [PATCH v4 00/13] Fix LKDTM for PPC64/IA64/PARISC v4
+Message-Id: <164674125384.3322453.12551849351633372798.b4-ty@ellerman.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220326165909.506926-20-benni@stuerz.xyz>
-In-Reply-To: <20220326165909.506926-20-benni@stuerz.xyz>
+References: <cover.1644928018.git.christophe.leroy@csgroup.eu>
+In-Reply-To: <cover.1644928018.git.christophe.leroy@csgroup.eu>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: =?utf-8?q?Benjamin_St=C3=BCrz?= <benni@stuerz.xyz>
-Cc: andrew@lunn.ch, sebastian.hesselbarth@gmail.com, gregory.clement@bootlin.com, linux@armlinux.org.uk, linux@simtec.co.uk, krzk@kernel.org, alim.akhtar@samsung.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, hpa@zytor.com, robert.moore@intel.com, rafael.j.wysocki@intel.com, lenb@kernel.org, 3chas3@gmail.com, laforge@gnumonks.org, arnd@arndb.de, gregkh@linuxfoundation.org, mchehab@kernel.org, tony.luck@intel.com, james.morse@arm.com, rric@kernel.org, linus.walleij@linaro.org, brgl@bgdev.pl, mike.marciniszyn@cornelisnetworks.com, dennis.dalessandro@cornelisnetworks.com, jgg@ziepe.ca, pali@kernel.org, dmitry.torokhov@gmail.com, isdn@linux-pingi.de, benh@kernel.crashing.org, fbarrat@linux.ibm.com, ajd@linux.ibm.com, davem@davemloft.net, kuba@kernel.org, pabeni@redhat.com, nico@fluxnic.net, loic.poulain@linaro.org, pkshih@realtek.com, bhelgaas@google.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-edac@vger.kernel.org, linux-gpio@vger.kernel.org, linux-rdma@vger.kernel.org, linux-input@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-media@vger.kernel.org, wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org, linux-pci@vger.kernel.org, =?utf-8?q?Benjamin_St=C3=BCrz?= <benni@stuerz.xyz>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Andrew Morton <akpm@linux-foundation.org>, Helge Deller <deller@gmx.de>, Christophe Leroy <christophe.leroy@csgroup.eu>, Paul Mackerras <paulus@samba.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Kees Cook <keescook@chromium.org>, Arnd Bergmann <arnd@arndb.de>
+Cc: linuxppc-dev@lists.ozlabs.org, linux-parisc@vger.kernel.org, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
 
-Benjamin Stürz <benni@stuerz.xyz> wrote:
-
-> This replaces comments with C99's designated
-> initializers because the kernel supports them now.
+On Tue, 15 Feb 2022 13:40:55 +0100, Christophe Leroy wrote:
+> PPC64/IA64/PARISC have function descriptors. LKDTM doesn't work
+> on those three architectures because LKDTM messes up function
+> descriptors with functions.
 > 
-> Signed-off-by: Benjamin Stürz <benni@stuerz.xyz>
+> This series does some cleanup in the three architectures and
+> refactors function descriptors so that it can then easily use it
+> in a generic way in LKDTM.
+> 
+> [...]
 
-The title prefix should be "ray_cs: ".
+Applied to powerpc/next.
 
-Patch set to Changes Requested.
+[01/13] powerpc: Fix 'sparse' checking on PPC64le
+        https://git.kernel.org/powerpc/c/81df21de8fb45d3a55d41da9c7f5724797d51ce6
+[02/13] powerpc: Move and rename func_descr_t
+        https://git.kernel.org/powerpc/c/5b23cb8cc6b0aab0535253cc2aa362572bab7072
+[03/13] powerpc: Use 'struct func_desc' instead of 'struct ppc64_opd_entry'
+        https://git.kernel.org/powerpc/c/d3e32b997a4ca2e7be71cb770bcb2c000ee20b36
+[04/13] powerpc: Remove 'struct ppc64_opd_entry'
+        https://git.kernel.org/powerpc/c/0a9c5ae279c963149df9a84588281d3d607f7a1f
+[05/13] powerpc: Prepare func_desc_t for refactorisation
+        https://git.kernel.org/powerpc/c/2fd986377d546bedaf27e36554dc9090d272f15d
+[06/13] ia64: Rename 'ip' to 'addr' in 'struct fdesc'
+        https://git.kernel.org/powerpc/c/41a88b45479da873bfc5d29ba1a545a780c5329a
+[07/13] asm-generic: Define CONFIG_HAVE_FUNCTION_DESCRIPTORS
+        https://git.kernel.org/powerpc/c/a257cacc38718c83cee003487e03197f237f5c3f
+[08/13] asm-generic: Define 'func_desc_t' to commonly describe function descriptors
+        https://git.kernel.org/powerpc/c/0dc690e4ef5b901e9d4b53520854fbd5c749e09d
+[09/13] asm-generic: Refactor dereference_[kernel]_function_descriptor()
+        https://git.kernel.org/powerpc/c/e1478d8eaf27704db17a44dee4c53696ed01fc9c
+[10/13] lkdtm: Force do_nothing() out of line
+        https://git.kernel.org/powerpc/c/69b420ed8fd3917ac7073256b4929aa246b6fe31
+[11/13] lkdtm: Really write into kernel text in WRITE_KERN
+        https://git.kernel.org/powerpc/c/b64913394f123e819bffabc79a0e48f98e78dc5d
+[12/13] lkdtm: Fix execute_[user]_location()
+        https://git.kernel.org/powerpc/c/72a86433049dcfe918886645ac3d19c1eaaa67ab
+[13/13] lkdtm: Add a test for function descriptors protection
+        https://git.kernel.org/powerpc/c/5e5a6c5441654d1b9e576ce4ca8a1759e701079e
 
--- 
-https://patchwork.kernel.org/project/linux-wireless/patch/20220326165909.506926-20-benni@stuerz.xyz/
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+cheers
