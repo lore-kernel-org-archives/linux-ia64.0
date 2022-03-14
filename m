@@ -1,64 +1,170 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Date: Mon, 28 Mar 2022 12:21:04 +0000
-Subject: RE: [PATCH 21/22] rtw89: Replace comments with C99 initializers
-Message-Id: <6082d343f18a40229df83e3102e7dc38@AcuMS.aculab.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Mon, 14 Mar 2022 07:31:24 +0000
+Subject: [PATCH 10/15] swiotlb: add a SWIOTLB_ANY flag to lift the low memory restriction
+Message-Id: <20220314073129.1862284-11-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220326165909.506926-1-benni@stuerz.xyz>
-        <20220326165909.506926-21-benni@stuerz.xyz>
-        <f7bb9164-2f66-8985-5771-5f31ee5740b7@lwfinger.net>
- <87k0cezarl.fsf@kernel.org>
-In-Reply-To: <87k0cezarl.fsf@kernel.org>
+References: <20220314073129.1862284-1-hch@lst.de>
+In-Reply-To: <20220314073129.1862284-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 'Kalle Valo' <kvalo@kernel.org>, Larry Finger <Larry.Finger@lwfinger.net>
-Cc: =?utf-8?B?QmVuamFtaW4gU3TDvHJ6?= <benni@stuerz.xyz>, "andrew@lunn.ch" <andrew@lunn.ch>, "sebastian.hesselbarth@gmail.com" <sebastian.hesselbarth@gmail.com>, "gregory.clement@bootlin.com" <gregory.clement@bootlin.com>, "linux@armlinux.org.uk" <linux@armlinux.org.uk>, "linux@simtec.co.uk" <linux@simtec.co.uk>, "krzk@kernel.org" <krzk@kernel.org>, "alim.akhtar@samsung.com" <alim.akhtar@samsung.com>, "tglx@linutronix.de" <tglx@linutronix.de>, "mingo@redhat.com" <mingo@redhat.com>, "bp@alien8.de" <bp@alien8.de>, "dave.hansen@linux.intel.com" <dave.hansen@linux.intel.com>, "hpa@zytor.com" <hpa@zytor.com>, "robert.moore@intel.com" <robert.moore@intel.com>, "rafael.j.wysocki@intel.com" <rafael.j.wysocki@intel.com>, "lenb@kernel.org" <lenb@kernel.org>, "3chas3@gmail.com" <3chas3@gmail.com>, "laforge@gnumonks.org" <laforge@gnumonks.org>, "arnd@arndb.de" <arnd@arndb.de>, "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>, "mchehab@kernel.org" <mchehab@kernel.org>, "tony.luck@intel.com" <tony.luck@intel.com>, "james.morse@arm.com" <james.morse@arm.com>, "rric@kernel.org" <rric@kernel.org>, "linus.walleij@linaro.org" <linus.walleij@linaro.org>, "brgl@bgdev.pl" <brgl@bgdev.pl>, "mike.marciniszyn@cornelisnetworks.com" <mike.marciniszyn@cornelisnetworks.com>, "dennis.dalessandro@cornelisnetworks.com" <dennis.dalessandro@cornelisnetworks.com>, "jgg@ziepe.ca" <jgg@ziepe.ca>, "pali@kernel.org" <pali@kernel.org>, "dmitry.torokhov@gmail.com" <dmitry.torokhov@gmail.com>, "isdn@linux-pingi.de" <isdn@linux-pingi.de>, "benh@kernel.crashing.org" <benh@kernel.crashing.org>, "fbarrat@linux.ibm.com" <fbarrat@linux.ibm.com>, "ajd@linux.ibm.com" <ajd@linux.ibm.com>, "davem@davemloft.net" <davem@davemloft.net>, "kuba@kernel.org" <kuba@kernel.org>, "pabeni@redhat.com" <pabeni@redhat.com>, "nico@fluxnic.net" <nico@fluxnic.net>, "loic.poulain@linaro.org" <loic.poulain@linaro.org>, "pkshih@realtek.com" <pkshih@realtek.com>, "bhelgaas@google.com" <bhelgaas@google.com>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-samsung-soc@vger.kernel.org" <linux-samsung-soc@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>, "devel@acpica.org" <devel@acpica.org>, "linux-atm-general@lists.sourceforge.net" <linux-atm-general@lists.sourceforge.net>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>, "linux-edac@vger.kernel.org" <linux-edac@vger.kernel.org>, "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>, "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>, "linux-input@vger.kernel.org" <linux-input@vger.kernel.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-media@vger.kernel.org" <linux-media@vger.kernel.org>, "wcn36xx@lists.infradead.org" <wcn36xx@lists.infradead.org>, "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>, "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: iommu@lists.linux-foundation.org
+Cc: x86@kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Tom Lendacky <thomas.lendacky@amd.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Stefano Stabellini <sstabellini@kernel.org>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Robin Murphy <robin.murphy@arm.com>, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-hyperv@vger.kernel.org, tboot-devel@lists.sourceforge.net, linux-pci@vger.kernel.org
 
-RnJvbTogS2FsbGUgVmFsbw0KPiBTZW50OiAyOCBNYXJjaCAyMDIyIDEwOjI5DQo+IA0KPiBMYXJy
-eSBGaW5nZXIgPExhcnJ5LkZpbmdlckBsd2Zpbmdlci5uZXQ+IHdyaXRlczoNCj4gDQo+ID4gT24g
-My8yNi8yMiAxMTo1OSwgQmVuamFtaW4gU3TDvHJ6IHdyb3RlOg0KPiA+PiBUaGlzIHJlcGxhY2Vz
-IGNvbW1lbnRzIHdpdGggQzk5J3MgZGVzaWduYXRlZA0KPiA+PiBpbml0aWFsaXplcnMgYmVjYXVz
-ZSB0aGUga2VybmVsIHN1cHBvcnRzIHRoZW0gbm93Lg0KPiA+Pg0KPiA+PiBTaWduZWQtb2ZmLWJ5
-OiBCZW5qYW1pbiBTdMO8cnogPGJlbm5pQHN0dWVyei54eXo+DQo+ID4+IC0tLQ0KPiA+PiAgIGRy
-aXZlcnMvbmV0L3dpcmVsZXNzL3JlYWx0ZWsvcnR3ODkvY29leC5jIHwgNDAgKysrKysrKysrKyst
-LS0tLS0tLS0tLS0NCj4gPj4gICAxIGZpbGUgY2hhbmdlZCwgMjAgaW5zZXJ0aW9ucygrKSwgMjAg
-ZGVsZXRpb25zKC0pDQo+ID4+DQo+ID4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC93aXJlbGVz
-cy9yZWFsdGVrL3J0dzg5L2NvZXguYyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL3JlYWx0ZWsvcnR3
-ODkvY29leC5jDQo+ID4+IGluZGV4IDY4NDU4Mzk1NTUxMS4uM2M4M2EwYmZiMTIwIDEwMDY0NA0K
-PiA+PiAtLS0gYS9kcml2ZXJzL25ldC93aXJlbGVzcy9yZWFsdGVrL3J0dzg5L2NvZXguYw0KPiA+
-PiArKysgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9yZWFsdGVrL3J0dzg5L2NvZXguYw0KPiA+PiBA
-QCAtOTcsMjYgKzk3LDI2IEBAIHN0YXRpYyBjb25zdCBzdHJ1Y3QgcnR3ODlfYnRjX2ZidGNfc2xv
-dCBzX2RlZltdID0gew0KPiA+PiAgIH07DQo+ID4+ICAgICBzdGF0aWMgY29uc3QgdTMyIGN4dGJs
-W10gPSB7DQo+ID4+IC0JMHhmZmZmZmZmZiwgLyogMCAqLw0KPiA+PiAtCTB4YWFhYWFhYWEsIC8q
-IDEgKi8NCj4gPj4gLQkweDU1NTU1NTU1LCAvKiAyICovDQo+ID4+IC0JMHg2NjU1NTU1NSwgLyog
-MyAqLw0KPiA+PiAtCTB4NjY1NTY2NTUsIC8qIDQgKi8NCj4gPj4gLQkweDVhNWE1YTVhLCAvKiA1
-ICovDQo+ID4+IC0JMHg1YTVhNWFhYSwgLyogNiAqLw0KPiA+PiAtCTB4YWE1YTVhNWEsIC8qIDcg
-Ki8NCj4gPj4gLQkweDZhNWE1YTVhLCAvKiA4ICovDQo+ID4+IC0JMHg2YTVhNWFhYSwgLyogOSAq
-Lw0KPiA+PiAtCTB4NmE1YTZhNWEsIC8qIDEwICovDQo+ID4+IC0JMHg2YTVhNmFhYSwgLyogMTEg
-Ki8NCj4gPj4gLQkweDZhZmE1YWZhLCAvKiAxMiAqLw0KPiA+PiAtCTB4YWFhYTVhYWEsIC8qIDEz
-ICovDQo+ID4+IC0JMHhhYWZmZmZhYSwgLyogMTQgKi8NCj4gPj4gLQkweGFhNTU1NWFhLCAvKiAx
-NSAqLw0KPiA+PiAtCTB4ZmFmYWZhZmEsIC8qIDE2ICovDQo+ID4+IC0JMHhmZmZmZGRmZiwgLyog
-MTcgKi8NCj4gPj4gLQkweGRhZmZkYWZmLCAvKiAxOCAqLw0KPiA+PiAtCTB4ZmFmYWRhZmEgIC8q
-IDE5ICovDQo+ID4+ICsJWzBdICA9IDB4ZmZmZmZmZmYsDQo+ID4+ICsJWzFdICA9IDB4YWFhYWFh
-YWEsDQo+ID4+ICsJWzJdICA9IDB4NTU1NTU1NTUsDQo+ID4+ICsJWzNdICA9IDB4NjY1NTU1NTUs
-DQo+ID4+ICsJWzRdICA9IDB4NjY1NTY2NTUsDQo+ID4+ICsJWzVdICA9IDB4NWE1YTVhNWEsDQo+
-ID4+ICsJWzZdICA9IDB4NWE1YTVhYWEsDQo+ID4+ICsJWzddICA9IDB4YWE1YTVhNWEsDQo+ID4+
-ICsJWzhdICA9IDB4NmE1YTVhNWEsDQo+ID4+ICsJWzldICA9IDB4NmE1YTVhYWEsDQo+ID4+ICsJ
-WzEwXSA9IDB4NmE1YTZhNWEsDQo+ID4+ICsJWzExXSA9IDB4NmE1YTZhYWEsDQo+ID4+ICsJWzEy
-XSA9IDB4NmFmYTVhZmEsDQo+ID4+ICsJWzEzXSA9IDB4YWFhYTVhYWEsDQo+ID4+ICsJWzE0XSA9
-IDB4YWFmZmZmYWEsDQo+ID4+ICsJWzE1XSA9IDB4YWE1NTU1YWEsDQo+ID4+ICsJWzE2XSA9IDB4
-ZmFmYWZhZmEsDQo+ID4+ICsJWzE3XSA9IDB4ZmZmZmRkZmYsDQo+ID4+ICsJWzE4XSA9IDB4ZGFm
-ZmRhZmYsDQo+ID4+ICsJWzE5XSA9IDB4ZmFmYWRhZmENCj4gPj4gICB9Ow0KPiA+PiAgICAgc3Ry
-dWN0IHJ0dzg5X2J0Y19idGZfdGx2IHsNCj4gPg0KPiA+DQo+ID4gSXMgdGhpcyBjaGFuZ2UgcmVh
-bGx5IG5lY2Vzc2FyeT8gWWVzLCB0aGUgZW50cmllcyBtdXN0IGJlIG9yZGVyZWQ7DQo+ID4gaG93
-ZXZlciwgdGhlIGNvbW1lbnQgY2FycmllcyB0aGF0IGluZm9ybWF0aW9uIGF0IHZlcnkgZmV3IGV4
-dHJhDQo+ID4gY2hhcmFjdGVycy4gVG8gbWUsIHRoaXMgcGF0Y2ggbG9va3MgbGlrZSB1bm5lZWRl
-ZCBzb3VyY2UgY2h1cm4uDQo+IA0KPiBPbmUgc21hbGwgYmVuZWZpdCBJIHNlZSBpcyB0byBhdm9p
-ZCB0aGUgY29tbWVudCBpbmRleCBiZWluZyB3cm9uZyBhbmQNCj4gdGhlcmUgd291bGQgYmUgbm8g
-d2F5IHRvIGNhdGNoIHRoYXQuIEJ1dCBvdGhlcndpc2UgSSBkb24ndCBoYXZlIGFueQ0KPiBvcGlu
-aW9uIGFib3V0IHRoaXMuDQoNCklmIHRoZSBbbm5dIGFyZSB3cm9uZyB0aGUgZWZmZWN0IGlzIHBy
-b2JhYmx5IHdvcnNlLg0KWW91IHJlYWxseSBkb24ndCB3YW50IGEgZ2FwIQ0KDQpEb2Vzbid0IHNl
-ZW0gd29ydGggdXNpbmcgQzk5IGluaXRpYWxpc2VycyB1bmxlc3MgdGhleSBhcmUNCiNkZWZpbmVz
-IG9yIGVudW0gdmFsdWVzLg0KDQoJRGF2aWQNCg0KLQ0KUmVnaXN0ZXJlZCBBZGRyZXNzIExha2Vz
-aWRlLCBCcmFtbGV5IFJvYWQsIE1vdW50IEZhcm0sIE1pbHRvbiBLZXluZXMsIE1LMSAxUFQsIFVL
-DQpSZWdpc3RyYXRpb24gTm86IDEzOTczODYgKFdhbGVzKQ0K
+Power SVM wants to allocate a swiotlb buffer that is not restricted to
+low memory for the trusted hypervisor scheme.  Consolidate the support
+for this into the swiotlb_init interface by adding a new flag.
+
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/powerpc/include/asm/svm.h       |  4 ----
+ arch/powerpc/include/asm/swiotlb.h   |  1 +
+ arch/powerpc/kernel/dma-swiotlb.c    |  1 +
+ arch/powerpc/mm/mem.c                |  5 +----
+ arch/powerpc/platforms/pseries/svm.c | 26 +-------------------------
+ include/linux/swiotlb.h              |  1 +
+ kernel/dma/swiotlb.c                 | 11 +++++++++--
+ 7 files changed, 14 insertions(+), 35 deletions(-)
+
+diff --git a/arch/powerpc/include/asm/svm.h b/arch/powerpc/include/asm/svm.h
+index 7546402d796af..85580b30aba48 100644
+--- a/arch/powerpc/include/asm/svm.h
++++ b/arch/powerpc/include/asm/svm.h
+@@ -15,8 +15,6 @@ static inline bool is_secure_guest(void)
+ 	return mfmsr() & MSR_S;
+ }
+ 
+-void __init svm_swiotlb_init(void);
+-
+ void dtl_cache_ctor(void *addr);
+ #define get_dtl_cache_ctor()	(is_secure_guest() ? dtl_cache_ctor : NULL)
+ 
+@@ -27,8 +25,6 @@ static inline bool is_secure_guest(void)
+ 	return false;
+ }
+ 
+-static inline void svm_swiotlb_init(void) {}
+-
+ #define get_dtl_cache_ctor() NULL
+ 
+ #endif /* CONFIG_PPC_SVM */
+diff --git a/arch/powerpc/include/asm/swiotlb.h b/arch/powerpc/include/asm/swiotlb.h
+index 3c1a1cd161286..4203b5e0a88ed 100644
+--- a/arch/powerpc/include/asm/swiotlb.h
++++ b/arch/powerpc/include/asm/swiotlb.h
+@@ -9,6 +9,7 @@
+ #include <linux/swiotlb.h>
+ 
+ extern unsigned int ppc_swiotlb_enable;
++extern unsigned int ppc_swiotlb_flags;
+ 
+ #ifdef CONFIG_SWIOTLB
+ void swiotlb_detect_4g(void);
+diff --git a/arch/powerpc/kernel/dma-swiotlb.c b/arch/powerpc/kernel/dma-swiotlb.c
+index fc7816126a401..ba256c37bcc0f 100644
+--- a/arch/powerpc/kernel/dma-swiotlb.c
++++ b/arch/powerpc/kernel/dma-swiotlb.c
+@@ -10,6 +10,7 @@
+ #include <asm/swiotlb.h>
+ 
+ unsigned int ppc_swiotlb_enable;
++unsigned int ppc_swiotlb_flags;
+ 
+ void __init swiotlb_detect_4g(void)
+ {
+diff --git a/arch/powerpc/mm/mem.c b/arch/powerpc/mm/mem.c
+index e1519e2edc656..a4d65418c30a9 100644
+--- a/arch/powerpc/mm/mem.c
++++ b/arch/powerpc/mm/mem.c
+@@ -249,10 +249,7 @@ void __init mem_init(void)
+ 	 * back to to-down.
+ 	 */
+ 	memblock_set_bottom_up(true);
+-	if (is_secure_guest())
+-		svm_swiotlb_init();
+-	else
+-		swiotlb_init(ppc_swiotlb_enable, 0);
++	swiotlb_init(ppc_swiotlb_enable, ppc_swiotlb_flags);
+ #endif
+ 
+ 	high_memory = (void *) __va(max_low_pfn * PAGE_SIZE);
+diff --git a/arch/powerpc/platforms/pseries/svm.c b/arch/powerpc/platforms/pseries/svm.c
+index c5228f4969eb2..3b4045d508ec8 100644
+--- a/arch/powerpc/platforms/pseries/svm.c
++++ b/arch/powerpc/platforms/pseries/svm.c
+@@ -28,7 +28,7 @@ static int __init init_svm(void)
+ 	 * need to use the SWIOTLB buffer for DMA even if dma_capable() says
+ 	 * otherwise.
+ 	 */
+-	swiotlb_force = SWIOTLB_FORCE;
++	ppc_swiotlb_flags |= SWIOTLB_ANY | SWIOTLB_FORCE;
+ 
+ 	/* Share the SWIOTLB buffer with the host. */
+ 	swiotlb_update_mem_attributes();
+@@ -37,30 +37,6 @@ static int __init init_svm(void)
+ }
+ machine_early_initcall(pseries, init_svm);
+ 
+-/*
+- * Initialize SWIOTLB. Essentially the same as swiotlb_init(), except that it
+- * can allocate the buffer anywhere in memory. Since the hypervisor doesn't have
+- * any addressing limitation, we don't need to allocate it in low addresses.
+- */
+-void __init svm_swiotlb_init(void)
+-{
+-	unsigned char *vstart;
+-	unsigned long bytes, io_tlb_nslabs;
+-
+-	io_tlb_nslabs = (swiotlb_size_or_default() >> IO_TLB_SHIFT);
+-	io_tlb_nslabs = ALIGN(io_tlb_nslabs, IO_TLB_SEGSIZE);
+-
+-	bytes = io_tlb_nslabs << IO_TLB_SHIFT;
+-
+-	vstart = memblock_alloc(PAGE_ALIGN(bytes), PAGE_SIZE);
+-	if (vstart && !swiotlb_init_with_tbl(vstart, io_tlb_nslabs, false))
+-		return;
+-
+-
+-	memblock_free(vstart, PAGE_ALIGN(io_tlb_nslabs << IO_TLB_SHIFT));
+-	panic("SVM: Cannot allocate SWIOTLB buffer");
+-}
+-
+ int set_memory_encrypted(unsigned long addr, int numpages)
+ {
+ 	if (!cc_platform_has(CC_ATTR_MEM_ENCRYPT))
+diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
+index ae0407173e845..eabdd89987027 100644
+--- a/include/linux/swiotlb.h
++++ b/include/linux/swiotlb.h
+@@ -15,6 +15,7 @@ struct scatterlist;
+ 
+ #define SWIOTLB_VERBOSE	(1 << 0) /* verbose initialization */
+ #define SWIOTLB_FORCE	(1 << 1) /* force bounce buffering */
++#define SWIOTLB_ANY	(1 << 2) /* allow any memory for the buffer */
+ 
+ /*
+  * Maximum allowable number of contiguous slabs to map,
+diff --git a/kernel/dma/swiotlb.c b/kernel/dma/swiotlb.c
+index 5ac6e128d4279..2ad12562c94fe 100644
+--- a/kernel/dma/swiotlb.c
++++ b/kernel/dma/swiotlb.c
+@@ -266,8 +266,15 @@ void __init swiotlb_init(bool addressing_limit, unsigned int flags)
+ 	if (swiotlb_force_disable)
+ 		return;
+ 
+-	/* Get IO TLB memory from the low pages */
+-	tlb = memblock_alloc_low(bytes, PAGE_SIZE);
++	/*
++	 * By default allocate the bounce buffer memory from low memory, but
++	 * allow to pick a location everywhere for hypervisors with guest
++	 * memory encryption.
++	 */
++	if (flags & SWIOTLB_ANY)
++		tlb = memblock_alloc(bytes, PAGE_SIZE);
++	else
++		tlb = memblock_alloc_low(bytes, PAGE_SIZE);
+ 	if (!tlb)
+ 		goto fail;
+ 	if (swiotlb_init_with_tbl(tlb, default_nslabs, flags))
+-- 
+2.30.2
