@@ -1,46 +1,37 @@
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Date: Mon, 28 Mar 2022 19:07:42 +0000
-Subject: [PATCH 2/2] ia64: topology: Slightly simplify code
-Message-Id: <bdb0d6ebe90f080e2c9749506a622f22299da412.1648494330.git.christophe.jaillet@wanadoo.fr>
+From: Christoph Hellwig <hch@lst.de>
+Date: Mon, 14 Mar 2022 07:31:16 +0000
+Subject: [PATCH 02/15] swiotlb: make swiotlb_exit a no-op if SWIOTLB_FORCE is set
+Message-Id: <20220314073129.1862284-3-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <452b20c160a20754022407acefd2abb170f43d14.1648494330.git.christophe.jaillet@wanadoo.fr>
-In-Reply-To: <452b20c160a20754022407acefd2abb170f43d14.1648494330.git.christophe.jaillet@wanadoo.fr>
+References: <20220314073129.1862284-1-hch@lst.de>
+In-Reply-To: <20220314073129.1862284-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 
-Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org, Christophe JAILLET <christophe.jaillet@wanadoo.fr>, linux-ia64@vger.kernel.org
+To: iommu@lists.linux-foundation.org
+Cc: Juergen Gross <jgross@suse.com>, Tom Lendacky <thomas.lendacky@amd.com>, linux-s390@vger.kernel.org, Stefano Stabellini <sstabellini@kernel.org>, linux-ia64@vger.kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, tboot-devel@lists.sourceforge.net, linux-hyperv@vger.kernel.org, linux-pci@vger.kernel.org, xen-devel@lists.xenproject.org, Boris Ostrovsky <boris.ostrovsky@oracle.com>, David Woodhouse <dwmw2@infradead.org>, linux-riscv@lists.infradead.org, linux-arm-kernel@lists.infradead.org
 
-cpu_cache_sysfs_exit() already clears '&all_cpu_cache_info[cpu].kobj'. So
-there is no need to do it twice.
+If force bouncing is enabled we can't release the buffers.
 
-Remove the redundant memset() and slightly simplify code.
-
-Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+Reviewed-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
-This patch is provided as-is and is not even compile tested. I don't have the
-cross-building toolchain for that.
----
- arch/ia64/kernel/topology.c | 6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
+ kernel/dma/swiotlb.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/arch/ia64/kernel/topology.c b/arch/ia64/kernel/topology.c
-index 6adb84f05cbb..df58df614873 100644
---- a/arch/ia64/kernel/topology.c
-+++ b/arch/ia64/kernel/topology.c
-@@ -387,12 +387,8 @@ static int cache_remove_dev(unsigned int cpu)
- 	for (i = 0; i < all_cpu_cache_info[cpu].num_cache_leaves; i++)
- 		kobject_put(&(LEAF_KOBJECT_PTR(cpu,i)->kobj));
+diff --git a/kernel/dma/swiotlb.c b/kernel/dma/swiotlb.c
+index 908eac2527cb1..af9d257501a64 100644
+--- a/kernel/dma/swiotlb.c
++++ b/kernel/dma/swiotlb.c
+@@ -369,6 +369,9 @@ void __init swiotlb_exit(void)
+ 	unsigned long tbl_vaddr;
+ 	size_t tbl_size, slots_size;
  
--	if (all_cpu_cache_info[cpu].kobj.parent) {
-+	if (all_cpu_cache_info[cpu].kobj.parent)
- 		kobject_put(&all_cpu_cache_info[cpu].kobj);
--		memset(&all_cpu_cache_info[cpu].kobj,
--			0,
--			sizeof(struct kobject));
--	}
- 
- 	cpu_cache_sysfs_exit(cpu);
++	if (swiotlb_force = SWIOTLB_FORCE)
++		return;
++
+ 	if (!mem->nslabs)
+ 		return;
  
 -- 
-2.32.0
+2.30.2
