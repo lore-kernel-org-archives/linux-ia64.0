@@ -1,103 +1,76 @@
-From: Wupeng Ma <mawupeng1@huawei.com>
-Date: Sat, 26 Mar 2022 06:46:24 +0000
-Subject: [PATCH 1/9] efi: Make efi_print_memmap() public
-Message-Id: <20220326064632.131637-2-mawupeng1@huawei.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Mon, 14 Mar 2022 07:31:22 +0000
+Subject: [PATCH 08/15] x86: centralize setting SWIOTLB_FORCE when guest memory encryption is enabled
+Message-Id: <20220314073129.1862284-9-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220326064632.131637-1-mawupeng1@huawei.com>
-In-Reply-To: <20220326064632.131637-1-mawupeng1@huawei.com>
+References: <20220314073129.1862284-1-hch@lst.de>
+In-Reply-To: <20220314073129.1862284-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org, corbet@lwn.net
-Cc: ardb@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zyccr.com, dvhart@infradead.org, andy@infradead.org, rppt@kernel.org, paulmck@kernel.org, peterz@infradead.org, jroedel@suse.de, songmuchun@bytedance.com, macro@orcam.me.uk, frederic@kernel.org, W_Armin@gmx.de, john.garry@huawei.com, seanjc@google.com, tsbogend@alpha.franken.de, anshuman.khandual@arm.com, chenhuacai@kernel.org, david@redhat.com, gpiccoli@igalia.com, mark.rutland@arm.com, wangkefeng.wang@huawei.com, mawupeng1@huawei.com, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org
+To: iommu@lists.linux-foundation.org
+Cc: x86@kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Tom Lendacky <thomas.lendacky@amd.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Stefano Stabellini <sstabellini@kernel.org>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Robin Murphy <robin.murphy@arm.com>, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-hyperv@vger.kernel.org, tboot-devel@lists.sourceforge.net, linux-pci@vger.kernel.org
 
-From: Ma Wupeng <mawupeng1@huawei.com>
+Move enabling SWIOTLB_FORCE for guest memory encryption into common code.
 
-Make efi_print_memmap() public in preparation for adding fake memory
-support for architecture with efi support, eg, arm64.
-
-Signed-off-by: Ma Wupeng <mawupeng1@huawei.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/x86/include/asm/efi.h    |  1 -
- arch/x86/platform/efi/efi.c   | 16 ----------------
- drivers/firmware/efi/memmap.c | 16 ++++++++++++++++
- include/linux/efi.h           |  1 +
- 4 files changed, 17 insertions(+), 17 deletions(-)
+ arch/x86/kernel/cpu/mshyperv.c | 8 --------
+ arch/x86/kernel/pci-dma.c      | 8 ++++++++
+ arch/x86/mm/mem_encrypt_amd.c  | 3 ---
+ 3 files changed, 8 insertions(+), 11 deletions(-)
 
-diff --git a/arch/x86/include/asm/efi.h b/arch/x86/include/asm/efi.h
-index 03cb12775043..f0cc7766f53c 100644
---- a/arch/x86/include/asm/efi.h
-+++ b/arch/x86/include/asm/efi.h
-@@ -145,7 +145,6 @@ extern asmlinkage u64 __efi_call(void *fp, ...);
- #endif /* CONFIG_X86_32 */
- 
- extern int __init efi_memblock_x86_reserve_range(void);
--extern void __init efi_print_memmap(void);
- extern void __init efi_map_region(efi_memory_desc_t *md);
- extern void __init efi_map_region_fixed(efi_memory_desc_t *md);
- extern void efi_sync_low_kernel_mappings(void);
-diff --git a/arch/x86/platform/efi/efi.c b/arch/x86/platform/efi/efi.c
-index 147c30a81f15..7b130f39d841 100644
---- a/arch/x86/platform/efi/efi.c
-+++ b/arch/x86/platform/efi/efi.c
-@@ -323,22 +323,6 @@ static void __init efi_clean_memmap(void)
- 	}
- }
- 
--void __init efi_print_memmap(void)
--{
--	efi_memory_desc_t *md;
--	int i = 0;
--
--	for_each_efi_memory_desc(md) {
--		char buf[64];
--
--		pr_info("mem%02u: %s range=[0x%016llx-0x%016llx] (%lluMB)\n",
--			i++, efi_md_typeattr_format(buf, sizeof(buf), md),
--			md->phys_addr,
--			md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT) - 1,
--			(md->num_pages >> (20 - EFI_PAGE_SHIFT)));
--	}
--}
--
- static int __init efi_systab_init(unsigned long phys)
- {
- 	int size = efi_enabled(EFI_64BIT) ? sizeof(efi_system_table_64_t)
-diff --git a/drivers/firmware/efi/memmap.c b/drivers/firmware/efi/memmap.c
-index 4df55a55da84..04cc1f2cdfa4 100644
---- a/drivers/firmware/efi/memmap.c
-+++ b/drivers/firmware/efi/memmap.c
-@@ -376,3 +376,19 @@ void __init efi_memmap_insert(struct efi_memory_map *old_memmap, void *buf,
+diff --git a/arch/x86/kernel/cpu/mshyperv.c b/arch/x86/kernel/cpu/mshyperv.c
+index 5a99f993e6392..568274917f1cd 100644
+--- a/arch/x86/kernel/cpu/mshyperv.c
++++ b/arch/x86/kernel/cpu/mshyperv.c
+@@ -336,14 +336,6 @@ static void __init ms_hyperv_init_platform(void)
+ 			swiotlb_unencrypted_base = ms_hyperv.shared_gpa_boundary;
+ #endif
  		}
+-
+-#ifdef CONFIG_SWIOTLB
+-		/*
+-		 * Enable swiotlb force mode in Isolation VM to
+-		 * use swiotlb bounce buffer for dma transaction.
+-		 */
+-		swiotlb_force = SWIOTLB_FORCE;
+-#endif
  	}
- }
-+
-+void __init efi_print_memmap(void)
-+{
-+	efi_memory_desc_t *md;
-+	int i = 0;
-+
-+	for_each_efi_memory_desc(md) {
-+		char buf[64];
-+
-+		pr_info("mem%02u: %s range=[0x%016llx-0x%016llx] (%lluMB)\n",
-+			i++, efi_md_typeattr_format(buf, sizeof(buf), md),
-+			md->phys_addr,
-+			md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT) - 1,
-+			(md->num_pages >> (20 - EFI_PAGE_SHIFT)));
-+	}
-+}
-diff --git a/include/linux/efi.h b/include/linux/efi.h
-index ccd4d3f91c98..de05682b233b 100644
---- a/include/linux/efi.h
-+++ b/include/linux/efi.h
-@@ -684,6 +684,7 @@ extern int __init efi_memmap_split_count(efi_memory_desc_t *md,
- 					 struct range *range);
- extern void __init efi_memmap_insert(struct efi_memory_map *old_memmap,
- 				     void *buf, struct efi_mem_range *mem);
-+extern void __init efi_print_memmap(void);
  
- #ifdef CONFIG_EFI_ESRT
- extern void __init efi_esrt_init(void);
+ 	if (hv_max_functions_eax >= HYPERV_CPUID_NESTED_FEATURES) {
+diff --git a/arch/x86/kernel/pci-dma.c b/arch/x86/kernel/pci-dma.c
+index df96926421be0..04140e20ef1a3 100644
+--- a/arch/x86/kernel/pci-dma.c
++++ b/arch/x86/kernel/pci-dma.c
+@@ -53,6 +53,14 @@ static void __init pci_swiotlb_detect(void)
+ 	if (cc_platform_has(CC_ATTR_HOST_MEM_ENCRYPT))
+ 		x86_swiotlb_enable = true;
+ 
++	/*
++	 * Guest with guest memory encryption currently perform all DMA through
++	 * bounce buffers as the hypervisor can't access arbitrary VM memory
++	 * that is not explicitly shared with it.
++	 */
++	if (cc_platform_has(CC_ATTR_GUEST_MEM_ENCRYPT))
++		swiotlb_force = SWIOTLB_FORCE;
++
+ 	if (swiotlb_force = SWIOTLB_FORCE)
+ 		x86_swiotlb_enable = true;
+ }
+diff --git a/arch/x86/mm/mem_encrypt_amd.c b/arch/x86/mm/mem_encrypt_amd.c
+index 2b2d018ea3450..a72942d569cf9 100644
+--- a/arch/x86/mm/mem_encrypt_amd.c
++++ b/arch/x86/mm/mem_encrypt_amd.c
+@@ -191,9 +191,6 @@ void __init sme_early_init(void)
+ 	/* Update the protection map with memory encryption mask */
+ 	for (i = 0; i < ARRAY_SIZE(protection_map); i++)
+ 		protection_map[i] = pgprot_encrypted(protection_map[i]);
+-
+-	if (cc_platform_has(CC_ATTR_GUEST_MEM_ENCRYPT))
+-		swiotlb_force = SWIOTLB_FORCE;
+ }
+ 
+ void __init sev_setup_arch(void)
 -- 
-2.18.0.huawei.25
+2.30.2
