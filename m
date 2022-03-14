@@ -1,82 +1,97 @@
-From: Wupeng Ma <mawupeng1@huawei.com>
-Date: Sat, 26 Mar 2022 06:46:25 +0000
-Subject: [PATCH 2/9] arm64: efi: Add fake memory support
-Message-Id: <20220326064632.131637-3-mawupeng1@huawei.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Mon, 14 Mar 2022 07:31:14 +0000
+Subject: cleanup swiotlb initialization v5
+Message-Id: <20220314073129.1862284-1-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220326064632.131637-1-mawupeng1@huawei.com>
-In-Reply-To: <20220326064632.131637-1-mawupeng1@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org, corbet@lwn.net
-Cc: ardb@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zyccr.com, dvhart@infradead.org, andy@infradead.org, rppt@kernel.org, paulmck@kernel.org, peterz@infradead.org, jroedel@suse.de, songmuchun@bytedance.com, macro@orcam.me.uk, frederic@kernel.org, W_Armin@gmx.de, john.garry@huawei.com, seanjc@google.com, tsbogend@alpha.franken.de, anshuman.khandual@arm.com, chenhuacai@kernel.org, david@redhat.com, gpiccoli@igalia.com, mark.rutland@arm.com, wangkefeng.wang@huawei.com, mawupeng1@huawei.com, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org
+To: iommu@lists.linux-foundation.org
+Cc: Juergen Gross <jgross@suse.com>, Tom Lendacky <thomas.lendacky@amd.com>, linux-s390@vger.kernel.org, Stefano Stabellini <sstabellini@kernel.org>, linux-ia64@vger.kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, tboot-devel@lists.sourceforge.net, linux-hyperv@vger.kernel.org, linux-pci@vger.kernel.org, xen-devel@lists.xenproject.org, Boris Ostrovsky <boris.ostrovsky@oracle.com>, David Woodhouse <dwmw2@infradead.org>, linux-riscv@lists.infradead.org, linux-arm-kernel@lists.infradead.org
 
-From: Ma Wupeng <mawupeng1@huawei.com>
+Hi all,
 
-Fake memory map is used for faking memory's attribute values.
-Commit 0f96a99dab36 ("efi: Add "efi_fake_mem" boot option") introduce the
-efi_fake_mem function. Now it can support arm64 with this patch.
-For example you can mark 0-6G memory as EFI_MEMORY_MORE_RELIABLE by adding
-efi_fake_mem=6G@0:0x10000 in the bootarg. You find more info about
-fake memmap in kernel-parameters.txt.
+this series tries to clean up the swiotlb initialization, including
+that of swiotlb-xen.  To get there is also removes the x86 iommu table
+infrastructure that massively obsfucates the initialization path.
 
-Variable memstart_addr is only confirmed after arm64_memblock_init(). So
-efi_fake_memmap() is needed to add after arm64_memblock_init().
+Git tree:
 
-Otherwise:
+    git://git.infradead.org/users/hch/misc.git swiotlb-init-cleanup
 
-efi_memmap_alloc
-   memblock_phys_alloc
-     kmemleak_alloc_phys
-        kmemleak_alloc(__va(phys), size, min_count, gfp);
+Gitweb:
 
-this __va() will convert phys to a fault va and lead to a kmemleak error.
+    http://git.infradead.org/users/hch/misc.git/shortlog/refs/heads/swiotlb-init-cleanup
 
-Signed-off-by: Ma Wupeng <mawupeng1@huawei.com>
----
- Documentation/admin-guide/kernel-parameters.txt | 2 +-
- arch/arm64/kernel/setup.c                       | 2 ++
- drivers/firmware/efi/Kconfig                    | 2 +-
- 3 files changed, 4 insertions(+), 2 deletions(-)
+Changes since v5:
+ - split a patch into three
+ - fix setting x86_swiotlb_enable for Xen
+ - fix a comment about forced bounce buffering for guest memory
+   encryption
+ - remove the xen_initial_domain check from
+   xen_create_contiguous_region
 
-diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
-index b7ccaa2ea867..e064839895ee 100644
---- a/Documentation/admin-guide/kernel-parameters.txt
-+++ b/Documentation/admin-guide/kernel-parameters.txt
-@@ -1357,7 +1357,7 @@
- 			you are really sure that your UEFI does sane gc and
- 			fulfills the spec otherwise your board may brick.
- 
--	efi_fake_mem=	nn[KMG]@ss[KMG]:aa[,nn[KMG]@ss[KMG]:aa,..] [EFI; X86]
-+	efi_fake_mem=	nn[KMG]@ss[KMG]:aa[,nn[KMG]@ss[KMG]:aa,..] [EFI; X86; ARM64]
- 			Add arbitrary attribute to specific memory range by
- 			updating original EFI memory map.
- 			Region of memory which aa attribute is added to is
-diff --git a/arch/arm64/kernel/setup.c b/arch/arm64/kernel/setup.c
-index 3505789cf4bd..daade64889ff 100644
---- a/arch/arm64/kernel/setup.c
-+++ b/arch/arm64/kernel/setup.c
-@@ -344,6 +344,8 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
- 
- 	arm64_memblock_init();
- 
-+	efi_fake_memmap();
-+
- 	paging_init();
- 
- 	acpi_table_upgrade();
-diff --git a/drivers/firmware/efi/Kconfig b/drivers/firmware/efi/Kconfig
-index 2c3dac5ecb36..3c91bbd4097a 100644
---- a/drivers/firmware/efi/Kconfig
-+++ b/drivers/firmware/efi/Kconfig
-@@ -50,7 +50,7 @@ config EFI_RUNTIME_MAP
- 
- config EFI_FAKE_MEMMAP
- 	bool "Enable EFI fake memory map"
--	depends on EFI && X86
-+	depends on EFI && (X86 || ARM64)
- 	default n
- 	help
- 	  Saying Y here will enable "efi_fake_mem" boot option.
--- 
-2.18.0.huawei.25
+Changes since v3:
+ - fix a compilation issue on some powerpc configfs
+ - fix and cleanup how forced bounce buffering is enabled for
+   guest memory encryption
+
+Changes since v2:
+ - make ppc_swiotlb_flags actually work again
+ - also force enable swiotlb for guest encrypted memory to cater
+   to hyperv which doesn't set the host encrypted memory flag
+
+Changes since v1:
+ - skip IOMMU initialization on Xen PV kernels
+ - various small whitespace / typo fixes
+
+Diffstat:
+ arch/ia64/include/asm/iommu_table.h      |    7 -
+ arch/x86/include/asm/iommu_table.h       |  102 ------------------
+ arch/x86/include/asm/swiotlb.h           |   30 -----
+ arch/x86/kernel/pci-iommu_table.c        |   77 -------------
+ arch/x86/kernel/pci-swiotlb.c            |   77 -------------
+ arch/x86/xen/pci-swiotlb-xen.c           |   96 -----------------
+ b/arch/arm/mm/init.c                     |    6 -
+ b/arch/arm/xen/mm.c                      |   26 ++--
+ b/arch/arm64/mm/init.c                   |    6 -
+ b/arch/ia64/mm/init.c                    |    4 
+ b/arch/mips/cavium-octeon/dma-octeon.c   |   15 --
+ b/arch/mips/loongson64/dma.c             |    2 
+ b/arch/mips/pci/pci-octeon.c             |    2 
+ b/arch/mips/sibyte/common/dma.c          |    2 
+ b/arch/powerpc/include/asm/svm.h         |    4 
+ b/arch/powerpc/include/asm/swiotlb.h     |    1 
+ b/arch/powerpc/kernel/dma-swiotlb.c      |    1 
+ b/arch/powerpc/mm/mem.c                  |    6 -
+ b/arch/powerpc/platforms/pseries/setup.c |    3 
+ b/arch/powerpc/platforms/pseries/svm.c   |   26 ----
+ b/arch/riscv/mm/init.c                   |    8 -
+ b/arch/s390/mm/init.c                    |    3 
+ b/arch/x86/include/asm/dma-mapping.h     |   12 --
+ b/arch/x86/include/asm/gart.h            |    5 
+ b/arch/x86/include/asm/iommu.h           |    8 +
+ b/arch/x86/include/asm/xen/page.h        |    5 
+ b/arch/x86/include/asm/xen/swiotlb-xen.h |    2 
+ b/arch/x86/kernel/Makefile               |    2 
+ b/arch/x86/kernel/amd_gart_64.c          |    5 
+ b/arch/x86/kernel/aperture_64.c          |   14 --
+ b/arch/x86/kernel/cpu/mshyperv.c         |    8 -
+ b/arch/x86/kernel/pci-dma.c              |  113 ++++++++++++++++----
+ b/arch/x86/kernel/tboot.c                |    1 
+ b/arch/x86/kernel/vmlinux.lds.S          |   12 --
+ b/arch/x86/mm/mem_encrypt_amd.c          |    3 
+ b/arch/x86/pci/sta2x11-fixup.c           |    2 
+ b/arch/x86/xen/Makefile                  |    2 
+ b/drivers/iommu/amd/init.c               |    6 -
+ b/drivers/iommu/amd/iommu.c              |    5 
+ b/drivers/iommu/intel/dmar.c             |    6 -
+ b/drivers/xen/swiotlb-xen.c              |  132 -----------------------
+ b/include/linux/dmar.h                   |    6 -
+ b/include/linux/swiotlb.h                |   22 +--
+ b/include/trace/events/swiotlb.h         |   29 +----
+ b/include/xen/arm/page.h                 |    1 
+ b/include/xen/swiotlb-xen.h              |    8 +
+ b/kernel/dma/direct.h                    |    2 
+ b/kernel/dma/swiotlb.c                   |  175 +++++++++++++++----------------
+ 48 files changed, 264 insertions(+), 826 deletions(-)
