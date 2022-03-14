@@ -1,201 +1,312 @@
-From: Mauro Carvalho Chehab <mchehab@kernel.org>
-Date: Sat, 26 Mar 2022 21:08:32 +0000
-Subject: Re: [PATCH 16/22] dvb-usb: Replace comments with C99 initializers
-Message-Id: <20220326220832.12b4e91b@coco.lan>
+From: Christoph Hellwig <hch@lst.de>
+Date: Mon, 14 Mar 2022 07:31:27 +0000
+Subject: [PATCH 13/15] swiotlb: merge swiotlb-xen initialization into swiotlb
+Message-Id: <20220314073129.1862284-14-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220326165909.506926-1-benni@stuerz.xyz>
-        <20220326165909.506926-16-benni@stuerz.xyz>
-        <20220326192454.14115baa@coco.lan>
-        <20220326192720.0fddd6dd@coco.lan>
-        <63a5e3143e904d1391490f27cc106be894b52ca2.camel@perches.com>
-        <bc2d4f83-0674-ccae-71c8-14427de59f96@lwfinger.net>
-In-Reply-To: <bc2d4f83-0674-ccae-71c8-14427de59f96@lwfinger.net>
+References: <20220314073129.1862284-1-hch@lst.de>
+In-Reply-To: <20220314073129.1862284-1-hch@lst.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Joe Perches <joe@perches.com>, Benjamin =?UTF-8?B?U3TDvHJ6?= <benni@stuerz.xyz>, andrew@lunn.ch, sebastian.hesselbarth@gmail.com, gregory.clement@bootlin.com, linux@armlinux.org.uk, linux@simtec.co.uk, krzk@kernel.org, alim.akhtar@samsung.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, hpa@zytor.com, robert.moore@intel.com, rafael.j.wysocki@intel.com, lenb@kernel.org, 3chas3@gmail.com, laforge@gnumonks.org, arnd@arndb.de, gregkh@linuxfoundation.org, tony.luck@intel.com, james.morse@arm.com, rric@kernel.org, linus.walleij@linaro.org, brgl@bgdev.pl, mike.marciniszyn@cornelisnetworks.com, dennis.dalessandro@cornelisnetworks.com, jgg@ziepe.ca, pali@kernel.org, dmitry.torokhov@gmail.com, isdn@linux-pingi.de, benh@kernel.crashing.org, fbarrat@linux.ibm.com, ajd@linux.ibm.com, davem@davemloft.net, kuba@kernel.org, pabeni@redhat.com, nico@fluxnic.net, loic.poulain@linaro.org, kvalo@kernel.org, pkshih@realtek.com, bhelgaas@google.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-edac@vger.kernel.org, linux-gpio@vger.kernel.org, linux-rdma@vger.kernel.org, linux-input@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-media@vger.kernel.org, wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org, linux-pci@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: iommu@lists.linux-foundation.org
+Cc: x86@kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Tom Lendacky <thomas.lendacky@amd.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Stefano Stabellini <sstabellini@kernel.org>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Robin Murphy <robin.murphy@arm.com>, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-hyperv@vger.kernel.org, tboot-devel@lists.sourceforge.net, linux-pci@vger.kernel.org
 
-Em Sat, 26 Mar 2022 15:11:46 -0500
-Larry Finger <Larry.Finger@lwfinger.net> escreveu:
+Reuse the generic swiotlb initialization for xen-swiotlb.  For ARM/ARM64
+this works trivially, while for x86 xen_swiotlb_fixup needs to be passed
+as the remap argument to swiotlb_init_remap/swiotlb_init_late.
 
-> On 3/26/22 14:51, Joe Perches wrote:
-> > On Sat, 2022-03-26 at 19:27 +0100, Mauro Carvalho Chehab wrote:  
-> >> Em Sat, 26 Mar 2022 19:24:54 +0100
-> >> Mauro Carvalho Chehab <mchehab@kernel.org> escreveu:
-> >>  
-> >>> Em Sat, 26 Mar 2022 17:59:03 +0100
-> >>> Benjamin Stürz <benni@stuerz.xyz> escreveu:
-> >>>  
-> >>>> This replaces comments with C99's designated
-> >>>> initializers because the kernel supports them now.
-> >>>>
-> >>>> Signed-off-by: Benjamin Stürz <benni@stuerz.xyz>
-> >>>> ---
-> >>>>   drivers/media/usb/dvb-usb/dibusb-mb.c | 62 +++++++++++++--------------
-> >>>>   drivers/media/usb/dvb-usb/dibusb-mc.c | 34 +++++++--------
-> >>>>   2 files changed, 48 insertions(+), 48 deletions(-)
-> >>>>
-> >>>> diff --git a/drivers/media/usb/dvb-usb/dibusb-mb.c b/drivers/media/usb/dvb-usb/dibusb-mb.c
-> >>>> index e9dc27f73970..f188e07f518b 100644
-> >>>> --- a/drivers/media/usb/dvb-usb/dibusb-mb.c
-> >>>> +++ b/drivers/media/usb/dvb-usb/dibusb-mb.c
-> >>>> @@ -122,40 +122,40 @@ static int dibusb_probe(struct usb_interface *intf,
-> >>>>   
-> >>>>   /* do not change the order of the ID table */
-> >>>>   static struct usb_device_id dibusb_dib3000mb_table [] = {
-> >>>> -/* 00 */	{ USB_DEVICE(USB_VID_WIDEVIEW,		USB_PID_AVERMEDIA_DVBT_USB_COLD) },
-> >>>> -/* 01 */	{ USB_DEVICE(USB_VID_WIDEVIEW,		USB_PID_AVERMEDIA_DVBT_USB_WARM) },
-> >>>> -/* 02 */	{ USB_DEVICE(USB_VID_COMPRO,		USB_PID_COMPRO_DVBU2000_COLD) },
-> >>>> -/* 03 */	{ USB_DEVICE(USB_VID_COMPRO,		USB_PID_COMPRO_DVBU2000_WARM) },
-> >>>> -/* 04 */	{ USB_DEVICE(USB_VID_COMPRO_UNK,	USB_PID_COMPRO_DVBU2000_UNK_COLD) },
-> >>>> -/* 05 */	{ USB_DEVICE(USB_VID_DIBCOM,		USB_PID_DIBCOM_MOD3000_COLD) },
-> >>>> -/* 06 */	{ USB_DEVICE(USB_VID_DIBCOM,		USB_PID_DIBCOM_MOD3000_WARM) },
-> >>>> -/* 07 */	{ USB_DEVICE(USB_VID_EMPIA,		USB_PID_KWORLD_VSTREAM_COLD) },
-> >>>> -/* 08 */	{ USB_DEVICE(USB_VID_EMPIA,		USB_PID_KWORLD_VSTREAM_WARM) },
-> >>>> -/* 09 */	{ USB_DEVICE(USB_VID_GRANDTEC,		USB_PID_GRANDTEC_DVBT_USB_COLD) },
-> >>>> -/* 10 */	{ USB_DEVICE(USB_VID_GRANDTEC,		USB_PID_GRANDTEC_DVBT_USB_WARM) },
-> >>>> -/* 11 */	{ USB_DEVICE(USB_VID_GRANDTEC,		USB_PID_DIBCOM_MOD3000_COLD) },
-> >>>> -/* 12 */	{ USB_DEVICE(USB_VID_GRANDTEC,		USB_PID_DIBCOM_MOD3000_WARM) },
-> >>>> -/* 13 */	{ USB_DEVICE(USB_VID_HYPER_PALTEK,	USB_PID_UNK_HYPER_PALTEK_COLD) },
-> >>>> -/* 14 */	{ USB_DEVICE(USB_VID_HYPER_PALTEK,	USB_PID_UNK_HYPER_PALTEK_WARM) },
-> >>>> -/* 15 */	{ USB_DEVICE(USB_VID_VISIONPLUS,	USB_PID_TWINHAN_VP7041_COLD) },
-> >>>> -/* 16 */	{ USB_DEVICE(USB_VID_VISIONPLUS,	USB_PID_TWINHAN_VP7041_WARM) },
-> >>>> -/* 17 */	{ USB_DEVICE(USB_VID_TWINHAN,		USB_PID_TWINHAN_VP7041_COLD) },
-> >>>> -/* 18 */	{ USB_DEVICE(USB_VID_TWINHAN,		USB_PID_TWINHAN_VP7041_WARM) },
-> >>>> -/* 19 */	{ USB_DEVICE(USB_VID_ULTIMA_ELECTRONIC,	USB_PID_ULTIMA_TVBOX_COLD) },
-> >>>> -/* 20 */	{ USB_DEVICE(USB_VID_ULTIMA_ELECTRONIC,	USB_PID_ULTIMA_TVBOX_WARM) },
-> >>>> -/* 21 */	{ USB_DEVICE(USB_VID_ULTIMA_ELECTRONIC,	USB_PID_ULTIMA_TVBOX_AN2235_COLD) },
-> >>>> -/* 22 */	{ USB_DEVICE(USB_VID_ULTIMA_ELECTRONIC,	USB_PID_ULTIMA_TVBOX_AN2235_WARM) },
-> >>>> -/* 23 */	{ USB_DEVICE(USB_VID_ADSTECH,		USB_PID_ADSTECH_USB2_COLD) },
-> >>>> +[0]  =	{ USB_DEVICE(USB_VID_WIDEVIEW,		USB_PID_AVERMEDIA_DVBT_USB_COLD) },
-> >>>> +[1]  =	{ USB_DEVICE(USB_VID_WIDEVIEW,		USB_PID_AVERMEDIA_DVBT_USB_WARM) },  
-> >>>
-> >>> While here, please properly indent this table, and respect the 80-columns limit,
-> >>> e. g.:
-> >>>
-> >>> static struct usb_device_id dibusb_dib3000mb_table [] = {
-> >>> 	[0] = { USB_DEVICE(USB_VID_WIDEVIEW
-> >>> 			   USB_PID_AVERMEDIA_DVBT_USB_COLD)
-> >>> 	},
-> >>> 	[1]  =	{ USB_DEVICE(USB_VID_WIDEVIEW,
-> >>> 			     USB_PID_AVERMEDIA_DVBT_USB_WARM)
-> >>> 	},
-> >>> 	...  
-> >>
-> >> Err.... something went wrong with my space bar and I ended hitting send to
-> >> soon... I meant:
-> >>
-> >> static struct usb_device_id dibusb_dib3000mb_table [] = {
-> >>   	[0] = { USB_DEVICE(USB_VID_WIDEVIEW
-> >>   			   USB_PID_AVERMEDIA_DVBT_USB_COLD)
-> >>   	},
-> >>   	[1] = { USB_DEVICE(USB_VID_WIDEVIEW,
-> >>   			   USB_PID_AVERMEDIA_DVBT_USB_WARM)
-> >>   	},
-> >> 	...
-> >> };  
-> > 
-> > maybe static const too
-> > 
-> > and
-> > 
-> > maybe
-> > 
-> > #define DIB_DEVICE(vid, pid)	\
-> > 	{ USB_DEVICE(USB_VID_ ## vid, USB_PID_ ## pid) }
-> > 
-> > so maybe
-> > 
-> > static const struct usb_device_id dibusb_dib3000mb_table[] = {
-> > 	[0] = DIB_DEVICE(WIDEVIEW, AVERMEDIA_DVBT_USB_COLD),
-> > 	[1] = DIB_DEVICE(WIDEVIEW, AVERMEDIA_DVBT_USB_WARM),
-> > 	...
-> > };
-> > 
-> > though I _really_ doubt the value of the specific indexing.
-> > 
-> > I think this isn't really worth changing at all.  
-> 
-> I agree. For the drivers that I maintain, I try to keep the vendor and device 
-> ids in numerical order. As this table does not require a special order, adding a 
-> new one in the middle would require redoing all of then after that point. That 
-> would be pointless work!
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/arm/xen/mm.c               |  21 +++---
+ arch/x86/include/asm/xen/page.h |   5 --
+ arch/x86/kernel/pci-dma.c       |  19 +++--
+ drivers/xen/swiotlb-xen.c       | 128 +-------------------------------
+ include/xen/arm/page.h          |   1 -
+ include/xen/swiotlb-xen.h       |   8 +-
+ 6 files changed, 27 insertions(+), 155 deletions(-)
 
-Unfortunately, that's not the case for drivers that use the legacy dvb-usb
-core, as it has other tables that reference the device IDs from this table
-by number.
-
-The best here would be to do something like:
-
-enum {
-	AVERMEDIA_DVBT_USB_COLD,
-	AVERMEDIA_DVBT_USB_WARM,
-	COMPRO_DVBU2000_COLD,
-	COMPRO_DVBU2000_WARM,
-	COMPRO_DVBU2000_UNK_COLD,
-	DIBCOM_MOD3000_COLD,
-	DIBCOM_MOD3000_WARM,
-	KWORLD_VSTREAM_COLD,
-	KWORLD_VSTREAM_WARM,
-	GRANDTEC_DVBT_USB_COLD,
-	GRANDTEC_DVBT_USB_WARM,
-	DIBCOM_MOD3000_COLD,
-	DIBCOM_MOD3000_WARM,
-	UNK_HYPER_PALTEK_COLD,
-	UNK_HYPER_PALTEK_WARM,
-	TWINHAN_VP7041_COLD,
-	TWINHAN_VP7041_WARM,
-	TWINHAN_VP7041_COLD,
-	TWINHAN_VP7041_WARM,
-	ULTIMA_TVBOX_COLD,
-	ULTIMA_TVBOX_WARM,
-	ULTIMA_TVBOX_AN2235_COLD,
-	ULTIMA_TVBOX_AN2235_WARM,
-	ADSTECH_USB2_COLD,
-	ADSTECH_USB2_WARM,
-	KYE_DVB_T_COLD,
-	KYE_DVB_T_WARM,
-	KWORLD_VSTREAM_COLD,
-	ULTIMA_TVBOX_USB2_COLD,
-	ULTIMA_TVBOX_USB2_WARM,
-	ULTIMA_TVBOX_ANCHOR_COLD,
-};
-
-Then define the table as:
-
-static const struct usb_device_id dibusb_dib3000mb_table[] 
-{
-  	[AVERMEDIA_DVBT_USB_COLD] = { USB_DEVICE(USB_VID_WIDEVIEW,
-				      USB_PID_AVERMEDIA_DVBT_USB_COLD)
-  	},
-  	[AVERMEDIA_DVBT_USB_WARM] = { USB_DEVICE(USB_VID_WIDEVIEW,
-				      USB_PID_AVERMEDIA_DVBT_USB_WARM)
-  	},
-	...
-}
-
-(eventually, using some macro to help defining them)
-
-Finally, change the other static tables to also use the same name,
-e. g.:
-
-static const struct dvb_usb_device_properties dibusb1_1_properties = {
-	...
-	.num_device_descs = 9,
-	.devices = {
-		{	"AVerMedia AverTV DVBT USB1.1",
-			{ &dibusb_dib3000mb_table[AVERMEDIA_DVBT_USB_COLD],  NULL },
-			{ &dibusb_dib3000mb_table[AVERMEDIA_DVBT_USB_WARM],  NULL },
-		},
-
-	...
-};
-
-The same applies to other drivers inside drivers/media/usb/dvb-usb/.
-
-Alternatively, the drivers there should be ported to the newer DVB USB
-core (dvb-usb-v2).
-
-Thanks,
-Mauro
+diff --git a/arch/arm/xen/mm.c b/arch/arm/xen/mm.c
+index 28c2070602535..ff05a7899cb86 100644
+--- a/arch/arm/xen/mm.c
++++ b/arch/arm/xen/mm.c
+@@ -23,22 +23,20 @@
+ #include <asm/xen/hypercall.h>
+ #include <asm/xen/interface.h>
+ 
+-unsigned long xen_get_swiotlb_free_pages(unsigned int order)
++static gfp_t xen_swiotlb_gfp(void)
+ {
+ 	phys_addr_t base;
+-	gfp_t flags = __GFP_NOWARN|__GFP_KSWAPD_RECLAIM;
+ 	u64 i;
+ 
+ 	for_each_mem_range(i, &base, NULL) {
+ 		if (base < (phys_addr_t)0xffffffff) {
+ 			if (IS_ENABLED(CONFIG_ZONE_DMA32))
+-				flags |= __GFP_DMA32;
+-			else
+-				flags |= __GFP_DMA;
+-			break;
++				return __GFP_DMA32;
++			return __GFP_DMA;
+ 		}
+ 	}
+-	return __get_free_pages(flags, order);
++
++	return GFP_KERNEL;
+ }
+ 
+ static bool hypercall_cflush = false;
+@@ -140,10 +138,13 @@ static int __init xen_mm_init(void)
+ 	if (!xen_swiotlb_detect())
+ 		return 0;
+ 
+-	rc = xen_swiotlb_init();
+ 	/* we can work with the default swiotlb */
+-	if (rc < 0 && rc != -EEXIST)
+-		return rc;
++	if (!io_tlb_default_mem.nslabs) {
++		rc = swiotlb_init_late(swiotlb_size_or_default(),
++				       xen_swiotlb_gfp(), NULL);
++		if (rc < 0)
++			return rc;
++	}
+ 
+ 	cflush.op = 0;
+ 	cflush.a.dev_bus_addr = 0;
+diff --git a/arch/x86/include/asm/xen/page.h b/arch/x86/include/asm/xen/page.h
+index e989bc2269f54..1fc67df500145 100644
+--- a/arch/x86/include/asm/xen/page.h
++++ b/arch/x86/include/asm/xen/page.h
+@@ -357,9 +357,4 @@ static inline bool xen_arch_need_swiotlb(struct device *dev,
+ 	return false;
+ }
+ 
+-static inline unsigned long xen_get_swiotlb_free_pages(unsigned int order)
+-{
+-	return __get_free_pages(__GFP_NOWARN, order);
+-}
+-
+ #endif /* _ASM_X86_XEN_PAGE_H */
+diff --git a/arch/x86/kernel/pci-dma.c b/arch/x86/kernel/pci-dma.c
+index a705a199bf8a3..dbb7b83fc3e48 100644
+--- a/arch/x86/kernel/pci-dma.c
++++ b/arch/x86/kernel/pci-dma.c
+@@ -72,15 +72,12 @@ static inline void __init pci_swiotlb_detect(void)
+ #endif /* CONFIG_SWIOTLB */
+ 
+ #ifdef CONFIG_SWIOTLB_XEN
+-static bool xen_swiotlb;
+-
+ static void __init pci_xen_swiotlb_init(void)
+ {
+ 	if (!xen_initial_domain() && !x86_swiotlb_enable)
+ 		return;
+ 	x86_swiotlb_enable = true;
+-	xen_swiotlb = true;
+-	xen_swiotlb_init_early();
++	swiotlb_init_remap(true, x86_swiotlb_flags, xen_swiotlb_fixup);
+ 	dma_ops = &xen_swiotlb_dma_ops;
+ 	if (IS_ENABLED(CONFIG_PCI))
+ 		pci_request_acs();
+@@ -88,14 +85,16 @@ static void __init pci_xen_swiotlb_init(void)
+ 
+ int pci_xen_swiotlb_init_late(void)
+ {
+-	int rc;
+-
+-	if (xen_swiotlb)
++	if (dma_ops = &xen_swiotlb_dma_ops)
+ 		return 0;
+ 
+-	rc = xen_swiotlb_init();
+-	if (rc)
+-		return rc;
++	/* we can work with the default swiotlb */
++	if (!io_tlb_default_mem.nslabs) {
++		int rc = swiotlb_init_late(swiotlb_size_or_default(),
++					   GFP_KERNEL, xen_swiotlb_fixup);
++		if (rc < 0)
++			return rc;
++	}
+ 
+ 	/* XXX: this switches the dma ops under live devices! */
+ 	dma_ops = &xen_swiotlb_dma_ops;
+diff --git a/drivers/xen/swiotlb-xen.c b/drivers/xen/swiotlb-xen.c
+index c2da3eb4826e8..df8085b50df10 100644
+--- a/drivers/xen/swiotlb-xen.c
++++ b/drivers/xen/swiotlb-xen.c
+@@ -104,7 +104,7 @@ static int is_xen_swiotlb_buffer(struct device *dev, dma_addr_t dma_addr)
+ 	return 0;
+ }
+ 
+-static int xen_swiotlb_fixup(void *buf, unsigned long nslabs)
++int xen_swiotlb_fixup(void *buf, unsigned long nslabs)
+ {
+ 	int rc;
+ 	unsigned int order = get_order(IO_TLB_SEGSIZE << IO_TLB_SHIFT);
+@@ -130,132 +130,6 @@ static int xen_swiotlb_fixup(void *buf, unsigned long nslabs)
+ 	return 0;
+ }
+ 
+-enum xen_swiotlb_err {
+-	XEN_SWIOTLB_UNKNOWN = 0,
+-	XEN_SWIOTLB_ENOMEM,
+-	XEN_SWIOTLB_EFIXUP
+-};
+-
+-static const char *xen_swiotlb_error(enum xen_swiotlb_err err)
+-{
+-	switch (err) {
+-	case XEN_SWIOTLB_ENOMEM:
+-		return "Cannot allocate Xen-SWIOTLB buffer\n";
+-	case XEN_SWIOTLB_EFIXUP:
+-		return "Failed to get contiguous memory for DMA from Xen!\n"\
+-		    "You either: don't have the permissions, do not have"\
+-		    " enough free memory under 4GB, or the hypervisor memory"\
+-		    " is too fragmented!";
+-	default:
+-		break;
+-	}
+-	return "";
+-}
+-
+-int xen_swiotlb_init(void)
+-{
+-	enum xen_swiotlb_err m_ret = XEN_SWIOTLB_UNKNOWN;
+-	unsigned long bytes = swiotlb_size_or_default();
+-	unsigned long nslabs = bytes >> IO_TLB_SHIFT;
+-	unsigned int order, repeat = 3;
+-	int rc = -ENOMEM;
+-	char *start;
+-
+-	if (io_tlb_default_mem.nslabs) {
+-		pr_warn("swiotlb buffer already initialized\n");
+-		return -EEXIST;
+-	}
+-
+-retry:
+-	m_ret = XEN_SWIOTLB_ENOMEM;
+-	order = get_order(bytes);
+-
+-	/*
+-	 * Get IO TLB memory from any location.
+-	 */
+-#define SLABS_PER_PAGE (1 << (PAGE_SHIFT - IO_TLB_SHIFT))
+-#define IO_TLB_MIN_SLABS ((1<<20) >> IO_TLB_SHIFT)
+-	while ((SLABS_PER_PAGE << order) > IO_TLB_MIN_SLABS) {
+-		start = (void *)xen_get_swiotlb_free_pages(order);
+-		if (start)
+-			break;
+-		order--;
+-	}
+-	if (!start)
+-		goto exit;
+-	if (order != get_order(bytes)) {
+-		pr_warn("Warning: only able to allocate %ld MB for software IO TLB\n",
+-			(PAGE_SIZE << order) >> 20);
+-		nslabs = SLABS_PER_PAGE << order;
+-		bytes = nslabs << IO_TLB_SHIFT;
+-	}
+-
+-	/*
+-	 * And replace that memory with pages under 4GB.
+-	 */
+-	rc = xen_swiotlb_fixup(start, nslabs);
+-	if (rc) {
+-		free_pages((unsigned long)start, order);
+-		m_ret = XEN_SWIOTLB_EFIXUP;
+-		goto error;
+-	}
+-	rc = swiotlb_late_init_with_tbl(start, nslabs);
+-	if (rc)
+-		return rc;
+-	return 0;
+-error:
+-	if (nslabs > 1024 && repeat--) {
+-		/* Min is 2MB */
+-		nslabs = max(1024UL, ALIGN(nslabs >> 1, IO_TLB_SEGSIZE));
+-		bytes = nslabs << IO_TLB_SHIFT;
+-		pr_info("Lowering to %luMB\n", bytes >> 20);
+-		goto retry;
+-	}
+-exit:
+-	pr_err("%s (rc:%d)\n", xen_swiotlb_error(m_ret), rc);
+-	return rc;
+-}
+-
+-#ifdef CONFIG_X86
+-void __init xen_swiotlb_init_early(void)
+-{
+-	unsigned long bytes = swiotlb_size_or_default();
+-	unsigned long nslabs = bytes >> IO_TLB_SHIFT;
+-	unsigned int repeat = 3;
+-	char *start;
+-	int rc;
+-
+-retry:
+-	/*
+-	 * Get IO TLB memory from any location.
+-	 */
+-	start = memblock_alloc(PAGE_ALIGN(bytes),
+-			       IO_TLB_SEGSIZE << IO_TLB_SHIFT);
+-	if (!start)
+-		panic("%s: Failed to allocate %lu bytes\n",
+-		      __func__, PAGE_ALIGN(bytes));
+-
+-	/*
+-	 * And replace that memory with pages under 4GB.
+-	 */
+-	rc = xen_swiotlb_fixup(start, nslabs);
+-	if (rc) {
+-		memblock_free(start, PAGE_ALIGN(bytes));
+-		if (nslabs > 1024 && repeat--) {
+-			/* Min is 2MB */
+-			nslabs = max(1024UL, ALIGN(nslabs >> 1, IO_TLB_SEGSIZE));
+-			bytes = nslabs << IO_TLB_SHIFT;
+-			pr_info("Lowering to %luMB\n", bytes >> 20);
+-			goto retry;
+-		}
+-		panic("%s (rc:%d)", xen_swiotlb_error(XEN_SWIOTLB_EFIXUP), rc);
+-	}
+-
+-	if (swiotlb_init_with_tbl(start, nslabs, SWIOTLB_VERBOSE))
+-		panic("Cannot allocate SWIOTLB buffer");
+-}
+-#endif /* CONFIG_X86 */
+-
+ static void *
+ xen_swiotlb_alloc_coherent(struct device *hwdev, size_t size,
+ 			   dma_addr_t *dma_handle, gfp_t flags,
+diff --git a/include/xen/arm/page.h b/include/xen/arm/page.h
+index ac1b654705631..7e199c6656b90 100644
+--- a/include/xen/arm/page.h
++++ b/include/xen/arm/page.h
+@@ -115,6 +115,5 @@ static inline bool set_phys_to_machine(unsigned long pfn, unsigned long mfn)
+ bool xen_arch_need_swiotlb(struct device *dev,
+ 			   phys_addr_t phys,
+ 			   dma_addr_t dev_addr);
+-unsigned long xen_get_swiotlb_free_pages(unsigned int order);
+ 
+ #endif /* _ASM_ARM_XEN_PAGE_H */
+diff --git a/include/xen/swiotlb-xen.h b/include/xen/swiotlb-xen.h
+index b3e647f86e3e2..590ceb923f0c8 100644
+--- a/include/xen/swiotlb-xen.h
++++ b/include/xen/swiotlb-xen.h
+@@ -10,8 +10,12 @@ void xen_dma_sync_for_cpu(struct device *dev, dma_addr_t handle,
+ void xen_dma_sync_for_device(struct device *dev, dma_addr_t handle,
+ 			     size_t size, enum dma_data_direction dir);
+ 
+-int xen_swiotlb_init(void);
+-void __init xen_swiotlb_init_early(void);
++#ifdef CONFIG_SWIOTLB_XEN
++int xen_swiotlb_fixup(void *buf, unsigned long nslabs);
++#else
++#define xen_swiotlb_fixup NULL
++#endif
++
+ extern const struct dma_map_ops xen_swiotlb_dma_ops;
+ 
+ #endif /* __LINUX_SWIOTLB_XEN_H */
+-- 
+2.30.2
