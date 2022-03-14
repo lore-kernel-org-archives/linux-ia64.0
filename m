@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Mon, 14 Mar 2022 07:31:29 +0000
-Subject: [PATCH 15/15] x86: remove cruft from <asm/dma-mapping.h>
-Message-Id: <20220314073129.1862284-16-hch@lst.de>
+Date: Mon, 14 Mar 2022 07:31:20 +0000
+Subject: [PATCH 06/15] MIPS/octeon: use swiotlb_init instead of open coding it
+Message-Id: <20220314073129.1862284-7-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220314073129.1862284-1-hch@lst.de>
 In-Reply-To: <20220314073129.1862284-1-hch@lst.de>
@@ -9,51 +9,66 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: iommu@lists.linux-foundation.org
-Cc: x86@kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Tom Lendacky <thomas.lendacky@amd.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Stefano Stabellini <sstabellini@kernel.org>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Robin Murphy <robin.murphy@arm.com>, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-hyperv@vger.kernel.org, tboot-devel@lists.sourceforge.net, linux-pci@vger.kernel.org
+Cc: linux-hyperv@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-pci@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, Stefano Stabellini <sstabellini@kernel.org>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, tboot-devel@lists.sourceforge.net, xen-devel@lists.xenproject.org, David Woodhouse <dwmw2@infradead.org>, Tom Lendacky <thomas.lendacky@amd.com>, Anshuman Khandual <anshuman.khandual@arm.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, linux-arm-kernel@lists.infradead.org, Juergen Gross <jgross@suse.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, linuxppc-dev@lists.ozlabs.org, linux-mips@vger.kernel.org, Robin Murphy <robin.murphy@arm.com>
 
-<asm/dma-mapping.h> gets pulled in by all drivers using the DMA API.
-Remove x86 internal variables and unnecessary includes from it.
+Use the generic swiotlb initialization helper instead of open coding it.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
+Acked-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 ---
- arch/x86/include/asm/dma-mapping.h | 11 -----------
- arch/x86/include/asm/iommu.h       |  2 ++
- 2 files changed, 2 insertions(+), 11 deletions(-)
+ arch/mips/cavium-octeon/dma-octeon.c | 15 ++-------------
+ arch/mips/pci/pci-octeon.c           |  2 +-
+ 2 files changed, 3 insertions(+), 14 deletions(-)
 
-diff --git a/arch/x86/include/asm/dma-mapping.h b/arch/x86/include/asm/dma-mapping.h
-index 256fd8115223d..1c66708e30623 100644
---- a/arch/x86/include/asm/dma-mapping.h
-+++ b/arch/x86/include/asm/dma-mapping.h
-@@ -2,17 +2,6 @@
- #ifndef _ASM_X86_DMA_MAPPING_H
- #define _ASM_X86_DMA_MAPPING_H
+diff --git a/arch/mips/cavium-octeon/dma-octeon.c b/arch/mips/cavium-octeon/dma-octeon.c
+index df70308db0e69..fb7547e217263 100644
+--- a/arch/mips/cavium-octeon/dma-octeon.c
++++ b/arch/mips/cavium-octeon/dma-octeon.c
+@@ -186,15 +186,12 @@ phys_addr_t dma_to_phys(struct device *dev, dma_addr_t daddr)
+ 	return daddr;
+ }
  
--/*
-- * IOMMU interface. See Documentation/core-api/dma-api-howto.rst and
-- * Documentation/core-api/dma-api.rst for documentation.
-- */
+-char *octeon_swiotlb;
 -
--#include <linux/scatterlist.h>
--#include <asm/io.h>
+ void __init plat_swiotlb_setup(void)
+ {
+ 	phys_addr_t start, end;
+ 	phys_addr_t max_addr;
+ 	phys_addr_t addr_size;
+ 	size_t swiotlbsize;
+-	unsigned long swiotlb_nslabs;
+ 	u64 i;
+ 
+ 	max_addr = 0;
+@@ -236,15 +233,7 @@ void __init plat_swiotlb_setup(void)
+ 	if (OCTEON_IS_OCTEON2() && max_addr >= 0x100000000ul)
+ 		swiotlbsize = 64 * (1<<20);
+ #endif
+-	swiotlb_nslabs = swiotlbsize >> IO_TLB_SHIFT;
+-	swiotlb_nslabs = ALIGN(swiotlb_nslabs, IO_TLB_SEGSIZE);
+-	swiotlbsize = swiotlb_nslabs << IO_TLB_SHIFT;
 -
--extern int iommu_merge;
--extern int panic_on_overflow;
--
- extern const struct dma_map_ops *dma_ops;
+-	octeon_swiotlb = memblock_alloc_low(swiotlbsize, PAGE_SIZE);
+-	if (!octeon_swiotlb)
+-		panic("%s: Failed to allocate %zu bytes align=%lx\n",
+-		      __func__, swiotlbsize, PAGE_SIZE);
  
- static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
-diff --git a/arch/x86/include/asm/iommu.h b/arch/x86/include/asm/iommu.h
-index dba89ed40d38d..0bef44d30a278 100644
---- a/arch/x86/include/asm/iommu.h
-+++ b/arch/x86/include/asm/iommu.h
-@@ -8,6 +8,8 @@
+-	if (swiotlb_init_with_tbl(octeon_swiotlb, swiotlb_nslabs, 1) = -ENOMEM)
+-		panic("Cannot allocate SWIOTLB buffer");
++	swiotlb_adjust_size(swiotlbsize);
++	swiotlb_init(1);
+ }
+diff --git a/arch/mips/pci/pci-octeon.c b/arch/mips/pci/pci-octeon.c
+index fc29b85cfa926..e457a18cbdc59 100644
+--- a/arch/mips/pci/pci-octeon.c
++++ b/arch/mips/pci/pci-octeon.c
+@@ -664,7 +664,7 @@ static int __init octeon_pci_setup(void)
  
- extern int force_iommu, no_iommu;
- extern int iommu_detected;
-+extern int iommu_merge;
-+extern int panic_on_overflow;
+ 		/* BAR1 movable regions contiguous to cover the swiotlb */
+ 		octeon_bar1_pci_phys -			virt_to_phys(octeon_swiotlb) & ~((1ull << 22) - 1);
++			io_tlb_default_mem.start & ~((1ull << 22) - 1);
  
- #ifdef CONFIG_SWIOTLB
- extern bool x86_swiotlb_enable;
+ 		for (index = 0; index < 32; index++) {
+ 			union cvmx_pci_bar1_indexx bar1_index;
 -- 
 2.30.2
