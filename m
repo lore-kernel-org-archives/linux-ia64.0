@@ -1,52 +1,84 @@
-From: Wupeng Ma <mawupeng1@huawei.com>
-Date: Sat, 26 Mar 2022 06:46:28 +0000
-Subject: [PATCH 5/9] mm: Ratelimited mirrored memory related warning messages
-Message-Id: <20220326064632.131637-6-mawupeng1@huawei.com>
+From: Julia Lawall <Julia.Lawall@inria.fr>
+Date: Fri, 18 Mar 2022 10:36:56 +0000
+Subject: [PATCH] ia64: fix typos in comments
+Message-Id: <20220318103729.157574-1-Julia.Lawall@inria.fr>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220326064632.131637-1-mawupeng1@huawei.com>
-In-Reply-To: <20220326064632.131637-1-mawupeng1@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org, corbet@lwn.net
-Cc: ardb@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zyccr.com, dvhart@infradead.org, andy@infradead.org, rppt@kernel.org, paulmck@kernel.org, peterz@infradead.org, jroedel@suse.de, songmuchun@bytedance.com, macro@orcam.me.uk, frederic@kernel.org, W_Armin@gmx.de, john.garry@huawei.com, seanjc@google.com, tsbogend@alpha.franken.de, anshuman.khandual@arm.com, chenhuacai@kernel.org, david@redhat.com, gpiccoli@igalia.com, mark.rutland@arm.com, wangkefeng.wang@huawei.com, mawupeng1@huawei.com, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org
+To: linux-ia64@vger.kernel.org
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
 
-From: Ma Wupeng <mawupeng1@huawei.com>
+Various spelling mistakes in comments.
+Detected with the help of Coccinelle.
 
-If system has mirrored memory, memblock will try to allocate mirrored
-memory firstly and fallback to non-mirrored memory when fails, but if with
-limited mirrored memory or some numa node without mirrored memory, lots of
-warning message about memblock allocation will occur.
+Signed-off-by: Julia Lawall <Julia.Lawall@inria.fr>
 
-This patch ratelimit the warning message to avoid a very long print during
-bootup.
-
-Signed-off-by: Ma Wupeng <mawupeng1@huawei.com>
 ---
- mm/memblock.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ arch/ia64/kernel/palinfo.c |    2 +-
+ arch/ia64/kernel/traps.c   |    2 +-
+ arch/ia64/mm/init.c        |    2 +-
+ arch/ia64/mm/tlb.c         |    4 ++--
+ 4 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/mm/memblock.c b/mm/memblock.c
-index b12a364f2766..19ae4a63fc08 100644
---- a/mm/memblock.c
-+++ b/mm/memblock.c
-@@ -327,7 +327,7 @@ static phys_addr_t __init_memblock memblock_find_in_range(phys_addr_t start,
- 					    NUMA_NO_NODE, flags);
+diff --git a/arch/ia64/kernel/palinfo.c b/arch/ia64/kernel/palinfo.c
+index 64189f04c1a4..b9ae093bfe37 100644
+--- a/arch/ia64/kernel/palinfo.c
++++ b/arch/ia64/kernel/palinfo.c
+@@ -120,7 +120,7 @@ static const char *mem_attrib[]={
+  * Input:
+  *	- a pointer to a buffer to hold the string
+  *	- a 64-bit vector
+- * Ouput:
++ * Output:
+  *	- a pointer to the end of the buffer
+  *
+  */
+diff --git a/arch/ia64/kernel/traps.c b/arch/ia64/kernel/traps.c
+index 753642366e12..53735b1d1be3 100644
+--- a/arch/ia64/kernel/traps.c
++++ b/arch/ia64/kernel/traps.c
+@@ -309,7 +309,7 @@ handle_fpu_swa (int fp_fault, struct pt_regs *regs, unsigned long isr)
+ 			/*
+ 			 * Lower 4 bits are used as a count. Upper bits are a sequence
+ 			 * number that is updated when count is reset. The cmpxchg will
+-			 * fail is seqno has changed. This minimizes mutiple cpus
++			 * fail is seqno has changed. This minimizes multiple cpus
+ 			 * resetting the count.
+ 			 */
+ 			if (current_jiffies > last.time)
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index 5d165607bf35..7ae1244ed8ec 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -451,7 +451,7 @@ mem_init (void)
+ 	memblock_free_all();
  
- 	if (!ret && (flags & MEMBLOCK_MIRROR)) {
--		pr_warn("Could not allocate %pap bytes of mirrored memory\n",
-+		pr_warn_ratelimited("Could not allocate %pap bytes of mirrored memory\n",
- 			&size);
- 		flags &= ~MEMBLOCK_MIRROR;
- 		goto again;
-@@ -1385,7 +1385,7 @@ phys_addr_t __init memblock_alloc_range_nid(phys_addr_t size,
+ 	/*
+-	 * For fsyscall entrpoints with no light-weight handler, use the ordinary
++	 * For fsyscall entrypoints with no light-weight handler, use the ordinary
+ 	 * (heavy-weight) handler, but mark it by setting bit 0, so the fsyscall entry
+ 	 * code can tell them apart.
+ 	 */
+diff --git a/arch/ia64/mm/tlb.c b/arch/ia64/mm/tlb.c
+index 135b5135cace..ca060e7a2a46 100644
+--- a/arch/ia64/mm/tlb.c
++++ b/arch/ia64/mm/tlb.c
+@@ -174,7 +174,7 @@ __setup("nptcg=", set_nptcg);
+  * override table (in which case we should ignore the value from
+  * PAL_VM_SUMMARY).
+  *
+- * Kernel parameter "nptcg=" overrides maximum number of simultanesous ptc.g
++ * Kernel parameter "nptcg=" overrides maximum number of simultaneous ptc.g
+  * purges defined in either PAL_VM_SUMMARY or PAL override table. In this case,
+  * we should ignore the value from either PAL_VM_SUMMARY or PAL override table.
+  *
+@@ -516,7 +516,7 @@ int ia64_itr_entry(u64 target_mask, u64 va, u64 pte, u64 log_size)
+ 	if (i >= per_cpu(ia64_tr_num, cpu))
+ 		return -EBUSY;
  
- 	if (flags & MEMBLOCK_MIRROR) {
- 		flags &= ~MEMBLOCK_MIRROR;
--		pr_warn("Could not allocate %pap bytes of mirrored memory\n",
-+		pr_warn_ratelimited("Could not allocate %pap bytes of mirrored memory\n",
- 			&size);
- 		goto again;
- 	}
--- 
-2.18.0.huawei.25
+-	/*Record tr info for mca hander use!*/
++	/*Record tr info for mca handler use!*/
+ 	if (i > per_cpu(ia64_tr_used, cpu))
+ 		per_cpu(ia64_tr_used, cpu) = i;
+ 
