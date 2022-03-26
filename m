@@ -1,102 +1,49 @@
-From: Dennis Dalessandro <dennis.dalessandro@cornelisnetworks.com>
-Date: Thu, 31 Mar 2022 17:41:50 +0000
-Subject: Re: [PATCH 11/22] rdmavt: Replace comments with C99 initializers
-Message-Id: <865be9e8-3702-af45-95e8-1371dd6c43b2@cornelisnetworks.com>
+From: =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
+Date: Sat, 26 Mar 2022 16:58:56 +0000
+Subject: [PATCH 09/22] gpio-winbond: Use C99 initializers
+Message-Id: <20220326165909.506926-9-benni@stuerz.xyz>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220326165909.506926-1-benni@stuerz.xyz>
- <20220326165909.506926-11-benni@stuerz.xyz> <YkAMlurdV15gNROq@unreal>
-In-Reply-To: <YkAMlurdV15gNROq@unreal>
+In-Reply-To: <20220326165909.506926-1-benni@stuerz.xyz>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Leon Romanovsky <leon@kernel.org>, =?UTF-8?Q?Benjamin_St=c3=bcrz?= <benni@stuerz.xyz>
-Cc: andrew@lunn.ch, sebastian.hesselbarth@gmail.com, gregory.clement@bootlin.com, linux@armlinux.org.uk, linux@simtec.co.uk, krzk@kernel.org, alim.akhtar@samsung.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, hpa@zytor.com, robert.moore@intel.com, rafael.j.wysocki@intel.com, lenb@kernel.org, 3chas3@gmail.com, laforge@gnumonks.org, arnd@arndb.de, gregkh@linuxfoundation.org, mchehab@kernel.org, tony.luck@intel.com, james.morse@arm.com, rric@kernel.org, linus.walleij@linaro.org, brgl@bgdev.pl, mike.marciniszyn@cornelisnetworks.com, jgg@ziepe.ca, pali@kernel.org, dmitry.torokhov@gmail.com, isdn@linux-pingi.de, benh@kernel.crashing.org, fbarrat@linux.ibm.com, ajd@linux.ibm.com, davem@davemloft.net, kuba@kernel.org, pabeni@redhat.com, nico@fluxnic.net, loic.poulain@linaro.org, kvalo@kernel.org, pkshih@realtek.com, bhelgaas@google.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-edac@vger.kernel.org, linux-gpio@vger.kernel.org, linux-rdma@vger.kernel.org, linux-input@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-media@vger.kernel.org, wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org, linux-pci@vger.kernel.org
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
+To: andrew@lunn.ch
+Cc: sebastian.hesselbarth@gmail.com, gregory.clement@bootlin.com, linux@armlinux.org.uk, linux@simtec.co.uk, krzk@kernel.org, alim.akhtar@samsung.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, hpa@zytor.com, robert.moore@intel.com, rafael.j.wysocki@intel.com, lenb@kernel.org, 3chas3@gmail.com, laforge@gnumonks.org, arnd@arndb.de, gregkh@linuxfoundation.org, mchehab@kernel.org, tony.luck@intel.com, james.morse@arm.com, rric@kernel.org, linus.walleij@linaro.org, brgl@bgdev.pl, mike.marciniszyn@cornelisnetworks.com, dennis.dalessandro@cornelisnetworks.com, jgg@ziepe.ca, pali@kernel.org, dmitry.torokhov@gmail.com, isdn@linux-pingi.de, benh@kernel.crashing.org, fbarrat@linux.ibm.com, ajd@linux.ibm.com, davem@davemloft.net, kuba@kernel.org, pabeni@redhat.com, nico@fluxnic.net, loic.poulain@linaro.org, kvalo@kernel.org, pkshih@realtek.com, bhelgaas@google.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-edac@vger.kernel.org, linux-gpio@vger.kernel.org, linux-rdma@vger.kernel.org, linux-input@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-media@vger.kernel.org, wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org, linux-pci@vger.kernel.org, =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
 
-On 3/27/22 3:04 AM, Leon Romanovsky wrote:
-> On Sat, Mar 26, 2022 at 05:58:58PM +0100, Benjamin Stürz wrote:
->> This replaces comments with C99's designated
->> initializers because the kernel supports them now.
->>
->> Signed-off-by: Benjamin Stürz <benni@stuerz.xyz>
->> ---
->>  drivers/infiniband/sw/rdmavt/rc.c | 62 +++++++++++++++----------------
->>  1 file changed, 31 insertions(+), 31 deletions(-)
->>
->> diff --git a/drivers/infiniband/sw/rdmavt/rc.c b/drivers/infiniband/sw/rdmavt/rc.c
->> index 4e5d4a27633c..121b8a23ac07 100644
->> --- a/drivers/infiniband/sw/rdmavt/rc.c
->> +++ b/drivers/infiniband/sw/rdmavt/rc.c
->> @@ -10,37 +10,37 @@
->>   * Convert the AETH credit code into the number of credits.
->>   */
->>  static const u16 credit_table[31] = {
->> -	0,                      /* 0 */
->> -	1,                      /* 1 */
->> -	2,                      /* 2 */
->> -	3,                      /* 3 */
->> -	4,                      /* 4 */
->> -	6,                      /* 5 */
->> -	8,                      /* 6 */
->> -	12,                     /* 7 */
->> -	16,                     /* 8 */
->> -	24,                     /* 9 */
->> -	32,                     /* A */
->> -	48,                     /* B */
->> -	64,                     /* C */
->> -	96,                     /* D */
->> -	128,                    /* E */
->> -	192,                    /* F */
->> -	256,                    /* 10 */
->> -	384,                    /* 11 */
->> -	512,                    /* 12 */
->> -	768,                    /* 13 */
->> -	1024,                   /* 14 */
->> -	1536,                   /* 15 */
->> -	2048,                   /* 16 */
->> -	3072,                   /* 17 */
->> -	4096,                   /* 18 */
->> -	6144,                   /* 19 */
->> -	8192,                   /* 1A */
->> -	12288,                  /* 1B */
->> -	16384,                  /* 1C */
->> -	24576,                  /* 1D */
->> -	32768                   /* 1E */
->> +	[0x00] = 0,
->> +	[0x01] = 1,
->> +	[0x02] = 2,
->> +	[0x03] = 3,
->> +	[0x04] = 4,
->> +	[0x05] = 6,
->> +	[0x06] = 8,
->> +	[0x07] = 12,
->> +	[0x08] = 16,
->> +	[0x09] = 24,
->> +	[0x0A] = 32,
->> +	[0x0B] = 48,
->> +	[0x0C] = 64,
->> +	[0x0D] = 96,
->> +	[0x0E] = 128,
->> +	[0x0F] = 192,
->> +	[0x10] = 256,
->> +	[0x11] = 384,
->> +	[0x12] = 512,
->> +	[0x13] = 768,
->> +	[0x14] = 1024,
->> +	[0x15] = 1536,
->> +	[0x16] = 2048,
->> +	[0x17] = 3072,
->> +	[0x18] = 4096,
->> +	[0x19] = 6144,
->> +	[0x1A] = 8192,
->> +	[0x1B] = 12288,
->> +	[0x1C] = 16384,
->> +	[0x1D] = 24576,
->> +	[0x1E] = 32768
->>  };
-> 
-> I have hard time to see any value in this commit, why is this change needed?
-> 
-
-I tend to agree. This doesn't really improve things. It's a NAK from me.
-
--Denny
+VGhpcyByZXBsYWNlcyBjb21tZW50cyB3aXRoIEM5OSdzIGRlc2lnbmF0ZWQKaW5pdGlhbGl6ZXJz
+IGJlY2F1c2UgdGhlIGtlcm5lbCBzdXBwb3J0cyB0aGVtIG5vdy4KClNpZ25lZC1vZmYtYnk6IEJl
+bmphbWluIFN0w7xyeiA8YmVubmlAc3R1ZXJ6Lnh5ej4KLS0tCiBkcml2ZXJzL2dwaW8vZ3Bpby13
+aW5ib25kLmMgfCAxMiArKysrKystLS0tLS0KIDEgZmlsZSBjaGFuZ2VkLCA2IGluc2VydGlvbnMo
+KyksIDYgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9ncGlvL2dwaW8td2luYm9u
+ZC5jIGIvZHJpdmVycy9ncGlvL2dwaW8td2luYm9uZC5jCmluZGV4IDdmOGY1YjAyZTMxZC4uMGI2
+MzdmZGI0MDdjIDEwMDY0NAotLS0gYS9kcml2ZXJzL2dwaW8vZ3Bpby13aW5ib25kLmMKKysrIGIv
+ZHJpdmVycy9ncGlvL2dwaW8td2luYm9uZC5jCkBAIC0yNDksNyArMjQ5LDcgQEAgc3RydWN0IHdp
+bmJvbmRfZ3Bpb19pbmZvIHsKIH07CiAKIHN0YXRpYyBjb25zdCBzdHJ1Y3Qgd2luYm9uZF9ncGlv
+X2luZm8gd2luYm9uZF9ncGlvX2luZm9zWzZdID0gewotCXsgLyogMCAqLworCVswXSA9IHsKIAkJ
+LmRldiA9IFdCX1NJT19ERVZfR1BJTzEyLAogCQkuZW5hYmxlcmVnID0gV0JfU0lPX0dQSU8xMl9S
+RUdfRU5BQkxFLAogCQkuZW5hYmxlYml0ID0gV0JfU0lPX0dQSU8xMl9FTkFCTEVfMSwKQEAgLTI2
+Niw3ICsyNjYsNyBAQCBzdGF0aWMgY29uc3Qgc3RydWN0IHdpbmJvbmRfZ3Bpb19pbmZvIHdpbmJv
+bmRfZ3Bpb19pbmZvc1s2XSA9IHsKIAkJCS53YXJub25seSA9IHRydWUKIAkJfQogCX0sCi0JeyAv
+KiAxICovCisJWzFdID0gewogCQkuZGV2ID0gV0JfU0lPX0RFVl9HUElPMTIsCiAJCS5lbmFibGVy
+ZWcgPSBXQl9TSU9fR1BJTzEyX1JFR19FTkFCTEUsCiAJCS5lbmFibGViaXQgPSBXQl9TSU9fR1BJ
+TzEyX0VOQUJMRV8yLApAQCAtMjc3LDcgKzI3Nyw3IEBAIHN0YXRpYyBjb25zdCBzdHJ1Y3Qgd2lu
+Ym9uZF9ncGlvX2luZm8gd2luYm9uZF9ncGlvX2luZm9zWzZdID0gewogCQkuZGF0YXJlZyA9IFdC
+X1NJT19HUElPMTJfUkVHX0RBVEEyCiAJCS8qIHNwZWNpYWwgY29uZmxpY3QgaGFuZGxpbmcgc28g
+ZG9lc24ndCB1c2UgY29uZmxpY3QgZGF0YSAqLwogCX0sCi0JeyAvKiAyICovCisJWzJdID0gewog
+CQkuZGV2ID0gV0JfU0lPX0RFVl9HUElPMzQsCiAJCS5lbmFibGVyZWcgPSBXQl9TSU9fR1BJTzM0
+X1JFR19FTkFCTEUsCiAJCS5lbmFibGViaXQgPSBXQl9TSU9fR1BJTzM0X0VOQUJMRV8zLApAQCAt
+Mjk0LDcgKzI5NCw3IEBAIHN0YXRpYyBjb25zdCBzdHJ1Y3Qgd2luYm9uZF9ncGlvX2luZm8gd2lu
+Ym9uZF9ncGlvX2luZm9zWzZdID0gewogCQkJLndhcm5vbmx5ID0gdHJ1ZQogCQl9CiAJfSwKLQl7
+IC8qIDMgKi8KKwlbM10gPSB7CiAJCS5kZXYgPSBXQl9TSU9fREVWX0dQSU8zNCwKIAkJLmVuYWJs
+ZXJlZyA9IFdCX1NJT19HUElPMzRfUkVHX0VOQUJMRSwKIAkJLmVuYWJsZWJpdCA9IFdCX1NJT19H
+UElPMzRfRU5BQkxFXzQsCkBAIC0zMTEsNyArMzExLDcgQEAgc3RhdGljIGNvbnN0IHN0cnVjdCB3
+aW5ib25kX2dwaW9faW5mbyB3aW5ib25kX2dwaW9faW5mb3NbNl0gPSB7CiAJCQkud2Fybm9ubHkg
+PSB0cnVlCiAJCX0KIAl9LAotCXsgLyogNCAqLworCVs0XSA9IHsKIAkJLmRldiA9IFdCX1NJT19E
+RVZfV0RHUElPNTYsCiAJCS5lbmFibGVyZWcgPSBXQl9TSU9fV0RHUElPNTZfUkVHX0VOQUJMRSwK
+IAkJLmVuYWJsZWJpdCA9IFdCX1NJT19XREdQSU81Nl9FTkFCTEVfNSwKQEAgLTMyOCw3ICszMjgs
+NyBAQCBzdGF0aWMgY29uc3Qgc3RydWN0IHdpbmJvbmRfZ3Bpb19pbmZvIHdpbmJvbmRfZ3Bpb19p
+bmZvc1s2XSA9IHsKIAkJCS53YXJub25seSA9IHRydWUKIAkJfQogCX0sCi0JeyAvKiA1ICovCisJ
+WzVdID0gewogCQkuZGV2ID0gV0JfU0lPX0RFVl9XREdQSU81NiwKIAkJLmVuYWJsZXJlZyA9IFdC
+X1NJT19XREdQSU81Nl9SRUdfRU5BQkxFLAogCQkuZW5hYmxlYml0ID0gV0JfU0lPX1dER1BJTzU2
+X0VOQUJMRV82LAotLSAKMi4zNS4xCg==
