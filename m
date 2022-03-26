@@ -1,123 +1,114 @@
-From: Guo Ren <guoren@kernel.org>
-Date: Tue, 01 Mar 2022 14:00:30 +0000
-Subject: Re: [PATCH V3 19/30] csky/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <CAJF2gTRSE-=-rDkMTD8D-bNw5inb4Yb_8S-AzXAuAthn9PCJmA@mail.gmail.com>
+From: =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
+Date: Sat, 26 Mar 2022 16:59:01 +0000
+Subject: [PATCH 14/22] mISDN: Replace comments with C99 initializers
+Message-Id: <20220326165909.506926-14-benni@stuerz.xyz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1646045273-9343-1-git-send-email-anshuman.khandual@arm.com> <1646045273-9343-20-git-send-email-anshuman.khandual@arm.com>
-In-Reply-To: <1646045273-9343-20-git-send-email-anshuman.khandual@arm.com>
+References: <20220326165909.506926-1-benni@stuerz.xyz>
+In-Reply-To: <20220326165909.506926-1-benni@stuerz.xyz>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Anshuman Khandual <anshuman.khandual@arm.com>
-Cc: Linux-MM <linux-mm@kvack.org>, Andrew Morton <akpm@linux-foundation.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Christoph Hellwig <hch@infradead.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>, sparclinux <sparclinux@vger.kernel.org>, "open list:BROADCOM NVRAM DRIVER" <linux-mips@vger.kernel.org>, linux-m68k@lists.linux-m68k.org, linux-s390 <linux-s390@vger.kernel.org>, linux-riscv <linux-riscv@lists.infradead.org>, linux-alpha@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-xtensa@linux-xtensa.org, Parisc List <linux-parisc@vger.kernel.org>, openrisc@lists.librecores.org, linux-um@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-arch <linux-arch@vger.kernel.org>
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
+To: andrew@lunn.ch
+Cc: sebastian.hesselbarth@gmail.com, gregory.clement@bootlin.com, linux@armlinux.org.uk, linux@simtec.co.uk, krzk@kernel.org, alim.akhtar@samsung.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, hpa@zytor.com, robert.moore@intel.com, rafael.j.wysocki@intel.com, lenb@kernel.org, 3chas3@gmail.com, laforge@gnumonks.org, arnd@arndb.de, gregkh@linuxfoundation.org, mchehab@kernel.org, tony.luck@intel.com, james.morse@arm.com, rric@kernel.org, linus.walleij@linaro.org, brgl@bgdev.pl, mike.marciniszyn@cornelisnetworks.com, dennis.dalessandro@cornelisnetworks.com, jgg@ziepe.ca, pali@kernel.org, dmitry.torokhov@gmail.com, isdn@linux-pingi.de, benh@kernel.crashing.org, fbarrat@linux.ibm.com, ajd@linux.ibm.com, davem@davemloft.net, kuba@kernel.org, pabeni@redhat.com, nico@fluxnic.net, loic.poulain@linaro.org, kvalo@kernel.org, pkshih@realtek.com, bhelgaas@google.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-edac@vger.kernel.org, linux-gpio@vger.kernel.org, linux-rdma@vger.kernel.org, linux-input@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-media@vger.kernel.org, wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org, linux-pci@vger.kernel.org, =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
 
-Acked-by: Guo Ren <guoren@kernel.org>
-
-On Mon, Feb 28, 2022 at 7:10 PM Anshuman Khandual
-<anshuman.khandual@arm.com> wrote:
->
-> This defines and exports a platform specific custom vm_get_page_prot() via
-> subscribing ARCH_HAS_VM_GET_PAGE_PROT. Subsequently all __SXXX and __PXXX
-> macros can be dropped which are no longer needed.
->
-> Cc: Geert Uytterhoeven <geert@linux-m68k.org>
-> Cc: linux-csky@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
-> ---
->  arch/csky/Kconfig               |  1 +
->  arch/csky/include/asm/pgtable.h | 18 ------------------
->  arch/csky/mm/init.c             | 32 ++++++++++++++++++++++++++++++++
->  3 files changed, 33 insertions(+), 18 deletions(-)
->
-> diff --git a/arch/csky/Kconfig b/arch/csky/Kconfig
-> index 132f43f12dd8..209dac5686dd 100644
-> --- a/arch/csky/Kconfig
-> +++ b/arch/csky/Kconfig
-> @@ -6,6 +6,7 @@ config CSKY
->         select ARCH_HAS_GCOV_PROFILE_ALL
->         select ARCH_HAS_SYNC_DMA_FOR_CPU
->         select ARCH_HAS_SYNC_DMA_FOR_DEVICE
-> +       select ARCH_HAS_VM_GET_PAGE_PROT
->         select ARCH_USE_BUILTIN_BSWAP
->         select ARCH_USE_QUEUED_RWLOCKS
->         select ARCH_WANT_FRAME_POINTERS if !CPU_CK610 && $(cc-option,-mbacktrace)
-> diff --git a/arch/csky/include/asm/pgtable.h b/arch/csky/include/asm/pgtable.h
-> index 151607ed5158..2c6b1cfb1cce 100644
-> --- a/arch/csky/include/asm/pgtable.h
-> +++ b/arch/csky/include/asm/pgtable.h
-> @@ -76,24 +76,6 @@
->  #define MAX_SWAPFILES_CHECK() \
->                 BUILD_BUG_ON(MAX_SWAPFILES_SHIFT != 5)
->
-> -#define __P000 PAGE_NONE
-> -#define __P001 PAGE_READ
-> -#define __P010 PAGE_READ
-> -#define __P011 PAGE_READ
-> -#define __P100 PAGE_READ
-> -#define __P101 PAGE_READ
-> -#define __P110 PAGE_READ
-> -#define __P111 PAGE_READ
-> -
-> -#define __S000 PAGE_NONE
-> -#define __S001 PAGE_READ
-> -#define __S010 PAGE_WRITE
-> -#define __S011 PAGE_WRITE
-> -#define __S100 PAGE_READ
-> -#define __S101 PAGE_READ
-> -#define __S110 PAGE_WRITE
-> -#define __S111 PAGE_WRITE
-> -
->  extern unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)];
->  #define ZERO_PAGE(vaddr)       (virt_to_page(empty_zero_page))
->
-> diff --git a/arch/csky/mm/init.c b/arch/csky/mm/init.c
-> index bf2004aa811a..f9babbed17d4 100644
-> --- a/arch/csky/mm/init.c
-> +++ b/arch/csky/mm/init.c
-> @@ -197,3 +197,35 @@ void __init fixaddr_init(void)
->         vaddr = __fix_to_virt(__end_of_fixed_addresses - 1) & PMD_MASK;
->         fixrange_init(vaddr, vaddr + PMD_SIZE, swapper_pg_dir);
->  }
-> +
-> +pgprot_t vm_get_page_prot(unsigned long vm_flags)
-> +{
-> +       switch (vm_flags & (VM_READ | VM_WRITE | VM_EXEC | VM_SHARED)) {
-> +       case VM_NONE:
-> +               return PAGE_NONE;
-> +       case VM_READ:
-> +       case VM_WRITE:
-> +       case VM_WRITE | VM_READ:
-> +       case VM_EXEC:
-> +       case VM_EXEC | VM_READ:
-> +       case VM_EXEC | VM_WRITE:
-> +       case VM_EXEC | VM_WRITE | VM_READ:
-> +               return PAGE_READ;
-> +       case VM_SHARED:
-> +               return PAGE_NONE;
-> +       case VM_SHARED | VM_READ:
-> +               return PAGE_READ;
-> +       case VM_SHARED | VM_WRITE:
-> +       case VM_SHARED | VM_WRITE | VM_READ:
-> +               return PAGE_WRITE;
-> +       case VM_SHARED | VM_EXEC:
-> +       case VM_SHARED | VM_EXEC | VM_READ:
-> +               return PAGE_READ;
-> +       case VM_SHARED | VM_EXEC | VM_WRITE:
-> +       case VM_SHARED | VM_EXEC | VM_WRITE | VM_READ:
-> +               return PAGE_WRITE;
-> +       default:
-> +               BUILD_BUG();
-> +       }
-> +}
-> +EXPORT_SYMBOL(vm_get_page_prot);
-> --
-> 2.25.1
->
-
-
--- 
-Best Regards
- Guo Ren
-
-ML: https://lore.kernel.org/linux-csky/
+VGhpcyByZXBsYWNlcyBjb21tZW50cyB3aXRoIEM5OSdzIGRlc2lnbmF0ZWQKaW5pdGlhbGl6ZXJz
+IGJlY2F1c2UgdGhlIGtlcm5lbCBzdXBwb3J0cyB0aGVtIG5vdy4KClNpZ25lZC1vZmYtYnk6IEJl
+bmphbWluIFN0w7xyeiA8YmVubmlAc3R1ZXJ6Lnh5ej4KLS0tCiBkcml2ZXJzL2lzZG4vaGFyZHdh
+cmUvbUlTRE4vaGZjbXVsdGkuYyB8IDg4ICsrKysrKysrKysrKystLS0tLS0tLS0tLS0tCiAxIGZp
+bGUgY2hhbmdlZCwgNDQgaW5zZXJ0aW9ucygrKSwgNDQgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0
+IGEvZHJpdmVycy9pc2RuL2hhcmR3YXJlL21JU0ROL2hmY211bHRpLmMgYi9kcml2ZXJzL2lzZG4v
+aGFyZHdhcmUvbUlTRE4vaGZjbXVsdGkuYwppbmRleCA0ZjdlYWExN2ZiMjcuLmZiNmVkNDE2Nzg0
+NSAxMDA2NDQKLS0tIGEvZHJpdmVycy9pc2RuL2hhcmR3YXJlL21JU0ROL2hmY211bHRpLmMKKysr
+IGIvZHJpdmVycy9pc2RuL2hhcmR3YXJlL21JU0ROL2hmY211bHRpLmMKQEAgLTUyODMsNTAgKzUy
+ODMsNTAgQEAgc3RhdGljIHZvaWQgaGZjX3JlbW92ZV9wY2koc3RydWN0IHBjaV9kZXYgKnBkZXYp
+CiAjZGVmaW5lIFZFTkRPUl9QUklNCSJQcmltdVgiCiAKIHN0YXRpYyBjb25zdCBzdHJ1Y3QgaG1f
+bWFwIGhmY21fbWFwW10gPSB7Ci0JLyowKi8Je1ZFTkRPUl9CTiwgIkhGQy0xUyBDYXJkIChtaW5p
+IFBDSSkiLCA0LCAxLCAxLCAzLCAwLCBESVBfNFMsIDAsIDB9LAotCS8qMSovCXtWRU5ET1JfQk4s
+ICJIRkMtMlMgQ2FyZCIsIDQsIDIsIDEsIDMsIDAsIERJUF80UywgMCwgMH0sCi0JLyoyKi8Je1ZF
+TkRPUl9CTiwgIkhGQy0yUyBDYXJkIChtaW5pIFBDSSkiLCA0LCAyLCAxLCAzLCAwLCBESVBfNFMs
+IDAsIDB9LAotCS8qMyovCXtWRU5ET1JfQk4sICJIRkMtNFMgQ2FyZCIsIDQsIDQsIDEsIDIsIDAs
+IERJUF80UywgMCwgMH0sCi0JLyo0Ki8Je1ZFTkRPUl9CTiwgIkhGQy00UyBDYXJkIChtaW5pIFBD
+SSkiLCA0LCA0LCAxLCAyLCAwLCAwLCAwLCAwfSwKLQkvKjUqLwl7VkVORE9SX0NDRCwgIkhGQy00
+UyBFdmFsIChvbGQpIiwgNCwgNCwgMCwgMCwgMCwgMCwgMCwgMH0sCi0JLyo2Ki8Je1ZFTkRPUl9D
+Q0QsICJIRkMtNFMgSU9CNFNUIiwgNCwgNCwgMSwgMiwgMCwgRElQXzRTLCAwLCAwfSwKLQkvKjcq
+Lwl7VkVORE9SX0NDRCwgIkhGQy00UyIsIDQsIDQsIDEsIDIsIDAsIDAsIDAsIDB9LAotCS8qOCov
+CXtWRU5ET1JfRElHLCAiSEZDLTRTIENhcmQiLCA0LCA0LCAwLCAyLCAwLCAwLCBIRkNfSU9fTU9E
+RV9SRUdJTywgMH0sCi0JLyo5Ki8Je1ZFTkRPUl9DQ0QsICJIRkMtNFMgU3d5eCA0eFMwIFNYMiBR
+dWFkQnJpIiwgNCwgNCwgMSwgMiwgMCwgMCwgMCwgMH0sCi0JLyoxMCovCXtWRU5ET1JfSkgsICJI
+RkMtNFMgKGp1bmdoYW5ucyAyLjApIiwgNCwgNCwgMSwgMiwgMCwgMCwgMCwgMH0sCi0JLyoxMSov
+CXtWRU5ET1JfUFJJTSwgIkhGQy0yUyBQcmltdXggQ2FyZCIsIDQsIDIsIDAsIDAsIDAsIDAsIDAs
+IDB9LAotCi0JLyoxMiovCXtWRU5ET1JfQk4sICJIRkMtOFMgQ2FyZCIsIDgsIDgsIDEsIDAsIDAs
+IDAsIDAsIDB9LAotCS8qMTMqLwl7VkVORE9SX0JOLCAiSEZDLThTIENhcmQgKCspIiwgOCwgOCwg
+MSwgOCwgMCwgRElQXzhTLAotCQkgSEZDX0lPX01PREVfUkVHSU8sIDB9LAotCS8qMTQqLwl7VkVO
+RE9SX0NDRCwgIkhGQy04UyBFdmFsIChvbGQpIiwgOCwgOCwgMCwgMCwgMCwgMCwgMCwgMH0sCi0J
+LyoxNSovCXtWRU5ET1JfQ0NELCAiSEZDLThTIElPQjRTVCBSZWNvcmRpbmciLCA4LCA4LCAxLCAw
+LCAwLCAwLCAwLCAwfSwKLQotCS8qMTYqLwl7VkVORE9SX0NDRCwgIkhGQy04UyBJT0I4U1QiLCA4
+LCA4LCAxLCAwLCAwLCAwLCAwLCAwfSwKLQkvKjE3Ki8Je1ZFTkRPUl9DQ0QsICJIRkMtOFMiLCA4
+LCA4LCAxLCAwLCAwLCAwLCAwLCAwfSwKLQkvKjE4Ki8Je1ZFTkRPUl9DQ0QsICJIRkMtOFMiLCA4
+LCA4LCAxLCAwLCAwLCAwLCAwLCAwfSwKLQotCS8qMTkqLwl7VkVORE9SX0JOLCAiSEZDLUUxIENh
+cmQiLCAxLCAxLCAwLCAxLCAwLCBESVBfRTEsIDAsIDB9LAotCS8qMjAqLwl7VkVORE9SX0JOLCAi
+SEZDLUUxIENhcmQgKG1pbmkgUENJKSIsIDEsIDEsIDAsIDEsIDAsIDAsIDAsIDB9LAotCS8qMjEq
+Lwl7VkVORE9SX0JOLCAiSEZDLUUxKyBDYXJkIChEdWFsKSIsIDEsIDEsIDAsIDEsIDAsIERJUF9F
+MSwgMCwgMH0sCi0JLyoyMiovCXtWRU5ET1JfQk4sICJIRkMtRTEgQ2FyZCAoRHVhbCkiLCAxLCAx
+LCAwLCAxLCAwLCBESVBfRTEsIDAsIDB9LAotCi0JLyoyMyovCXtWRU5ET1JfQ0NELCAiSEZDLUUx
+IEV2YWwgKG9sZCkiLCAxLCAxLCAwLCAwLCAwLCAwLCAwLCAwfSwKLQkvKjI0Ki8Je1ZFTkRPUl9D
+Q0QsICJIRkMtRTEgSU9CMUUxIiwgMSwgMSwgMCwgMSwgMCwgMCwgMCwgMH0sCi0JLyoyNSovCXtW
+RU5ET1JfQ0NELCAiSEZDLUUxIiwgMSwgMSwgMCwgMSwgMCwgMCwgMCwgMH0sCi0KLQkvKjI2Ki8J
+e1ZFTkRPUl9DQ0QsICJIRkMtNFMgU3BlZWNoIERlc2lnbiIsIDQsIDQsIDAsIDAsIDAsIDAsCi0J
+CSBIRkNfSU9fTU9ERV9QTFhTRCwgMH0sCi0JLyoyNyovCXtWRU5ET1JfQ0NELCAiSEZDLUUxIFNw
+ZWVjaCBEZXNpZ24iLCAxLCAxLCAwLCAwLCAwLCAwLAotCQkgSEZDX0lPX01PREVfUExYU0QsIDB9
+LAotCS8qMjgqLwl7VkVORE9SX0NDRCwgIkhGQy00UyBPcGVuVm94IiwgNCwgNCwgMSwgMCwgMCwg
+MCwgMCwgMH0sCi0JLyoyOSovCXtWRU5ET1JfQ0NELCAiSEZDLTJTIE9wZW5Wb3giLCA0LCAyLCAx
+LCAwLCAwLCAwLCAwLCAwfSwKLQkvKjMwKi8Je1ZFTkRPUl9DQ0QsICJIRkMtOFMgT3BlblZveCIs
+IDgsIDgsIDEsIDAsIDAsIDAsIDAsIDB9LAotCS8qMzEqLwl7VkVORE9SX0NDRCwgIlhIRkMtNFMg
+U3BlZWNoIERlc2lnbiIsIDUsIDQsIDAsIDAsIDAsIDAsCi0JCSBIRkNfSU9fTU9ERV9FTUJTRCwg
+WEhGQ19JUlF9LAotCS8qMzIqLwl7VkVORE9SX0pILCAiSEZDLThTIChqdW5naGFubnMpIiwgOCwg
+OCwgMSwgMCwgMCwgMCwgMCwgMH0sCi0JLyozMyovCXtWRU5ET1JfQk4sICJIRkMtMlMgQmVyb25l
+dCBDYXJkIFBDSWUiLCA0LCAyLCAxLCAzLCAwLCBESVBfNFMsIDAsIDB9LAotCS8qMzQqLwl7VkVO
+RE9SX0JOLCAiSEZDLTRTIEJlcm9uZXQgQ2FyZCBQQ0llIiwgNCwgNCwgMSwgMiwgMCwgRElQXzRT
+LCAwLCAwfSwKKwlbMF0gID0Je1ZFTkRPUl9CTiwgIkhGQy0xUyBDYXJkIChtaW5pIFBDSSkiLCA0
+LCAxLCAxLCAzLCAwLCBESVBfNFMsIDAsIDB9LAorCVsxXSAgPQl7VkVORE9SX0JOLCAiSEZDLTJT
+IENhcmQiLCA0LCAyLCAxLCAzLCAwLCBESVBfNFMsIDAsIDB9LAorCVsyXSAgPQl7VkVORE9SX0JO
+LCAiSEZDLTJTIENhcmQgKG1pbmkgUENJKSIsIDQsIDIsIDEsIDMsIDAsIERJUF80UywgMCwgMH0s
+CisJWzNdICA9CXtWRU5ET1JfQk4sICJIRkMtNFMgQ2FyZCIsIDQsIDQsIDEsIDIsIDAsIERJUF80
+UywgMCwgMH0sCisJWzRdICA9CXtWRU5ET1JfQk4sICJIRkMtNFMgQ2FyZCAobWluaSBQQ0kpIiwg
+NCwgNCwgMSwgMiwgMCwgMCwgMCwgMH0sCisJWzVdICA9CXtWRU5ET1JfQ0NELCAiSEZDLTRTIEV2
+YWwgKG9sZCkiLCA0LCA0LCAwLCAwLCAwLCAwLCAwLCAwfSwKKwlbNl0gID0Je1ZFTkRPUl9DQ0Qs
+ICJIRkMtNFMgSU9CNFNUIiwgNCwgNCwgMSwgMiwgMCwgRElQXzRTLCAwLCAwfSwKKwlbN10gID0J
+e1ZFTkRPUl9DQ0QsICJIRkMtNFMiLCA0LCA0LCAxLCAyLCAwLCAwLCAwLCAwfSwKKwlbOF0gID0J
+e1ZFTkRPUl9ESUcsICJIRkMtNFMgQ2FyZCIsIDQsIDQsIDAsIDIsIDAsIDAsIEhGQ19JT19NT0RF
+X1JFR0lPLCAwfSwKKwlbOV0gID0Je1ZFTkRPUl9DQ0QsICJIRkMtNFMgU3d5eCA0eFMwIFNYMiBR
+dWFkQnJpIiwgNCwgNCwgMSwgMiwgMCwgMCwgMCwgMH0sCisJWzEwXSA9CXtWRU5ET1JfSkgsICJI
+RkMtNFMgKGp1bmdoYW5ucyAyLjApIiwgNCwgNCwgMSwgMiwgMCwgMCwgMCwgMH0sCisJWzExXSA9
+CXtWRU5ET1JfUFJJTSwgIkhGQy0yUyBQcmltdXggQ2FyZCIsIDQsIDIsIDAsIDAsIDAsIDAsIDAs
+IDB9LAorCisJWzEyXSA9CXtWRU5ET1JfQk4sICJIRkMtOFMgQ2FyZCIsIDgsIDgsIDEsIDAsIDAs
+IDAsIDAsIDB9LAorCVsxM10gPQl7VkVORE9SX0JOLCAiSEZDLThTIENhcmQgKCspIiwgOCwgOCwg
+MSwgOCwgMCwgRElQXzhTLAorCQkgICAgICAgSEZDX0lPX01PREVfUkVHSU8sIDB9LAorCVsxNF0g
+PQl7VkVORE9SX0NDRCwgIkhGQy04UyBFdmFsIChvbGQpIiwgOCwgOCwgMCwgMCwgMCwgMCwgMCwg
+MH0sCisJWzE1XSA9CXtWRU5ET1JfQ0NELCAiSEZDLThTIElPQjRTVCBSZWNvcmRpbmciLCA4LCA4
+LCAxLCAwLCAwLCAwLCAwLCAwfSwKKworCVsxNl0gPQl7VkVORE9SX0NDRCwgIkhGQy04UyBJT0I4
+U1QiLCA4LCA4LCAxLCAwLCAwLCAwLCAwLCAwfSwKKwlbMTddID0Je1ZFTkRPUl9DQ0QsICJIRkMt
+OFMiLCA4LCA4LCAxLCAwLCAwLCAwLCAwLCAwfSwKKwlbMThdID0Je1ZFTkRPUl9DQ0QsICJIRkMt
+OFMiLCA4LCA4LCAxLCAwLCAwLCAwLCAwLCAwfSwKKworCVsxOV0gPQl7VkVORE9SX0JOLCAiSEZD
+LUUxIENhcmQiLCAxLCAxLCAwLCAxLCAwLCBESVBfRTEsIDAsIDB9LAorCVsyMF0gPQl7VkVORE9S
+X0JOLCAiSEZDLUUxIENhcmQgKG1pbmkgUENJKSIsIDEsIDEsIDAsIDEsIDAsIDAsIDAsIDB9LAor
+CVsyMV0gPQl7VkVORE9SX0JOLCAiSEZDLUUxKyBDYXJkIChEdWFsKSIsIDEsIDEsIDAsIDEsIDAs
+IERJUF9FMSwgMCwgMH0sCisJWzIyXSA9CXtWRU5ET1JfQk4sICJIRkMtRTEgQ2FyZCAoRHVhbCki
+LCAxLCAxLCAwLCAxLCAwLCBESVBfRTEsIDAsIDB9LAorCisJWzIzXSA9CXtWRU5ET1JfQ0NELCAi
+SEZDLUUxIEV2YWwgKG9sZCkiLCAxLCAxLCAwLCAwLCAwLCAwLCAwLCAwfSwKKwlbMjRdID0Je1ZF
+TkRPUl9DQ0QsICJIRkMtRTEgSU9CMUUxIiwgMSwgMSwgMCwgMSwgMCwgMCwgMCwgMH0sCisJWzI1
+XSA9CXtWRU5ET1JfQ0NELCAiSEZDLUUxIiwgMSwgMSwgMCwgMSwgMCwgMCwgMCwgMH0sCisKKwlb
+MjZdID0Je1ZFTkRPUl9DQ0QsICJIRkMtNFMgU3BlZWNoIERlc2lnbiIsIDQsIDQsIDAsIDAsIDAs
+IDAsCisJCSAgICAgICBIRkNfSU9fTU9ERV9QTFhTRCwgMH0sCisJWzI3XSA9CXtWRU5ET1JfQ0NE
+LCAiSEZDLUUxIFNwZWVjaCBEZXNpZ24iLCAxLCAxLCAwLCAwLCAwLCAwLAorCQkgICAgICAgSEZD
+X0lPX01PREVfUExYU0QsIDB9LAorCVsyOF0gPQl7VkVORE9SX0NDRCwgIkhGQy00UyBPcGVuVm94
+IiwgNCwgNCwgMSwgMCwgMCwgMCwgMCwgMH0sCisJWzI5XSA9CXtWRU5ET1JfQ0NELCAiSEZDLTJT
+IE9wZW5Wb3giLCA0LCAyLCAxLCAwLCAwLCAwLCAwLCAwfSwKKwlbMzBdID0Je1ZFTkRPUl9DQ0Qs
+ICJIRkMtOFMgT3BlblZveCIsIDgsIDgsIDEsIDAsIDAsIDAsIDAsIDB9LAorCVszMV0gPQl7VkVO
+RE9SX0NDRCwgIlhIRkMtNFMgU3BlZWNoIERlc2lnbiIsIDUsIDQsIDAsIDAsIDAsIDAsCisJCSAg
+ICAgICBIRkNfSU9fTU9ERV9FTUJTRCwgWEhGQ19JUlF9LAorCVszMl0gPQl7VkVORE9SX0pILCAi
+SEZDLThTIChqdW5naGFubnMpIiwgOCwgOCwgMSwgMCwgMCwgMCwgMCwgMH0sCisJWzMzXSA9CXtW
+RU5ET1JfQk4sICJIRkMtMlMgQmVyb25ldCBDYXJkIFBDSWUiLCA0LCAyLCAxLCAzLCAwLCBESVBf
+NFMsIDAsIDB9LAorCVszNF0gPQl7VkVORE9SX0JOLCAiSEZDLTRTIEJlcm9uZXQgQ2FyZCBQQ0ll
+IiwgNCwgNCwgMSwgMiwgMCwgRElQXzRTLCAwLCAwfSwKIH07CiAKICN1bmRlZiBICi0tIAoyLjM1
+LjEK
