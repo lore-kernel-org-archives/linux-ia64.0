@@ -1,7 +1,7 @@
 From: Wupeng Ma <mawupeng1@huawei.com>
-Date: Sat, 26 Mar 2022 06:46:32 +0000
-Subject: [PATCH 9/9] ia64/efi: Code simplification in efi_init
-Message-Id: <20220326064632.131637-10-mawupeng1@huawei.com>
+Date: Sat, 26 Mar 2022 06:46:25 +0000
+Subject: [PATCH 2/9] arm64: efi: Add fake memory support
+Message-Id: <20220326064632.131637-3-mawupeng1@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220326064632.131637-1-mawupeng1@huawei.com>
 In-Reply-To: <20220326064632.131637-1-mawupeng1@huawei.com>
@@ -13,61 +13,70 @@ Cc: ardb@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.ha
 
 From: Ma Wupeng <mawupeng1@huawei.com>
 
-Since efi_print_memmap() was made public, print EFI memory map in
-efi_init() can be simplified by using efi_print_memmap().
+Fake memory map is used for faking memory's attribute values.
+Commit 0f96a99dab36 ("efi: Add "efi_fake_mem" boot option") introduce the
+efi_fake_mem function. Now it can support arm64 with this patch.
+For example you can mark 0-6G memory as EFI_MEMORY_MORE_RELIABLE by adding
+efi_fake_mem=6G@0:0x10000 in the bootarg. You find more info about
+fake memmap in kernel-parameters.txt.
+
+Variable memstart_addr is only confirmed after arm64_memblock_init(). So
+efi_fake_memmap() is needed to add after arm64_memblock_init().
+
+Otherwise:
+
+efi_memmap_alloc
+   memblock_phys_alloc
+     kmemleak_alloc_phys
+        kmemleak_alloc(__va(phys), size, min_count, gfp);
+
+this __va() will convert phys to a fault va and lead to a kmemleak error.
 
 Signed-off-by: Ma Wupeng <mawupeng1@huawei.com>
 ---
- arch/ia64/kernel/efi.c | 37 +------------------------------------
- 1 file changed, 1 insertion(+), 36 deletions(-)
+ Documentation/admin-guide/kernel-parameters.txt | 2 +-
+ arch/arm64/kernel/setup.c                       | 2 ++
+ drivers/firmware/efi/Kconfig                    | 2 +-
+ 3 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
-index 31149e41f9be..4b8209b8797d 100644
---- a/arch/ia64/kernel/efi.c
-+++ b/arch/ia64/kernel/efi.c
-@@ -557,42 +557,7 @@ efi_init (void)
+diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
+index b7ccaa2ea867..e064839895ee 100644
+--- a/Documentation/admin-guide/kernel-parameters.txt
++++ b/Documentation/admin-guide/kernel-parameters.txt
+@@ -1357,7 +1357,7 @@
+ 			you are really sure that your UEFI does sane gc and
+ 			fulfills the spec otherwise your board may brick.
  
- #if EFI_DEBUG
- 	/* print EFI memory map: */
--	{
--		efi_memory_desc_t *md;
--		void *p;
--		unsigned int i;
--
--		for (i = 0, p = efi_map_start; p < efi_map_end;
--		     ++i, p += efi_desc_size)
--		{
--			const char *unit;
--			unsigned long size;
--			char buf[64];
--
--			md = p;
--			size = md->num_pages << EFI_PAGE_SHIFT;
--
--			if ((size >> 40) > 0) {
--				size >>= 40;
--				unit = "TB";
--			} else if ((size >> 30) > 0) {
--				size >>= 30;
--				unit = "GB";
--			} else if ((size >> 20) > 0) {
--				size >>= 20;
--				unit = "MB";
--			} else {
--				size >>= 10;
--				unit = "KB";
--			}
--
--			printk("mem%02d: %s "
--			       "range=[0x%016llx-0x%016llx) (%4lu%s)\n",
--			       i, efi_md_typeattr_format(buf, sizeof(buf), md),
--			       md->phys_addr,
--			       md->phys_addr + efi_md_size(md), size, unit);
--		}
--	}
-+	efi_print_memmap();
- #endif
+-	efi_fake_mem=	nn[KMG]@ss[KMG]:aa[,nn[KMG]@ss[KMG]:aa,..] [EFI; X86]
++	efi_fake_mem=	nn[KMG]@ss[KMG]:aa[,nn[KMG]@ss[KMG]:aa,..] [EFI; X86; ARM64]
+ 			Add arbitrary attribute to specific memory range by
+ 			updating original EFI memory map.
+ 			Region of memory which aa attribute is added to is
+diff --git a/arch/arm64/kernel/setup.c b/arch/arm64/kernel/setup.c
+index 3505789cf4bd..daade64889ff 100644
+--- a/arch/arm64/kernel/setup.c
++++ b/arch/arm64/kernel/setup.c
+@@ -344,6 +344,8 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
  
- 	efi_map_pal_code();
+ 	arm64_memblock_init();
+ 
++	efi_fake_memmap();
++
+ 	paging_init();
+ 
+ 	acpi_table_upgrade();
+diff --git a/drivers/firmware/efi/Kconfig b/drivers/firmware/efi/Kconfig
+index 2c3dac5ecb36..3c91bbd4097a 100644
+--- a/drivers/firmware/efi/Kconfig
++++ b/drivers/firmware/efi/Kconfig
+@@ -50,7 +50,7 @@ config EFI_RUNTIME_MAP
+ 
+ config EFI_FAKE_MEMMAP
+ 	bool "Enable EFI fake memory map"
+-	depends on EFI && X86
++	depends on EFI && (X86 || ARM64)
+ 	default n
+ 	help
+ 	  Saying Y here will enable "efi_fake_mem" boot option.
 -- 
 2.18.0.huawei.25
