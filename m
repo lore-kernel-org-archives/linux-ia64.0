@@ -1,37 +1,66 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Date: Tue, 22 Mar 2022 19:36:52 +0000
-Subject: Re: [PATCH] Docs: admin/kernel-parameters: edit a few boot options
-Message-Id: <adfeb8bb-50b3-7ff3-a55f-19fc23cd1121@infradead.org>
+From: =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
+Date: Sat, 26 Mar 2022 16:58:51 +0000
+Subject: [PATCH 04/22] x86: Replace comments with C99 initializers
+Message-Id: <20220326165909.506926-4-benni@stuerz.xyz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220321012216.23724-1-rdunlap@infradead.org>
- <CAJZ5v0jBFOWZZrGuBb0GyJa3rKRwSYXrMFOtGu8jLnQ+OPtXHw@mail.gmail.com>
-In-Reply-To: <CAJZ5v0jBFOWZZrGuBb0GyJa3rKRwSYXrMFOtGu8jLnQ+OPtXHw@mail.gmail.com>
+References: <20220326165909.506926-1-benni@stuerz.xyz>
+In-Reply-To: <20220326165909.506926-1-benni@stuerz.xyz>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: "Rafael J. Wysocki" <rafael@kernel.org>
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, linux-s390@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@redhat.com>, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, linux-ia64@vger.kernel.org, Pavel Machek <pavel@ucw.cz>, Len Brown <lenb@kernel.org>, Linux PM <linux-pm@vger.kernel.org>, ACPI Devel Maling List <linux-acpi@vger.kernel.org>, Johannes Weiner <hannes@cmpxchg.org>, Andrew Morton <akpm@linux-foundation.org>, Jonathan Corbet <corbet@lwn.net>, "open list:DOCUMENTATION" <linux-doc@vger.kernel.org>
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
+To: andrew@lunn.ch
+Cc: sebastian.hesselbarth@gmail.com, gregory.clement@bootlin.com, linux@armlinux.org.uk, linux@simtec.co.uk, krzk@kernel.org, alim.akhtar@samsung.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, hpa@zytor.com, robert.moore@intel.com, rafael.j.wysocki@intel.com, lenb@kernel.org, 3chas3@gmail.com, laforge@gnumonks.org, arnd@arndb.de, gregkh@linuxfoundation.org, mchehab@kernel.org, tony.luck@intel.com, james.morse@arm.com, rric@kernel.org, linus.walleij@linaro.org, brgl@bgdev.pl, mike.marciniszyn@cornelisnetworks.com, dennis.dalessandro@cornelisnetworks.com, jgg@ziepe.ca, pali@kernel.org, dmitry.torokhov@gmail.com, isdn@linux-pingi.de, benh@kernel.crashing.org, fbarrat@linux.ibm.com, ajd@linux.ibm.com, davem@davemloft.net, kuba@kernel.org, pabeni@redhat.com, nico@fluxnic.net, loic.poulain@linaro.org, kvalo@kernel.org, pkshih@realtek.com, bhelgaas@google.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-edac@vger.kernel.org, linux-gpio@vger.kernel.org, linux-rdma@vger.kernel.org, linux-input@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-media@vger.kernel.org, wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org, linux-pci@vger.kernel.org, =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
 
-
-
-On 3/22/22 10:41, Rafael J. Wysocki wrote:
-> On Mon, Mar 21, 2022 at 2:22 AM Randy Dunlap <rdunlap@infradead.org> wrote:
->> Clean up some of admin-guide/kernel-parameters.txt:
->>
->> a. "smt" should be "smt=" (S390)
->> b. add "smt-enabled" for POWERPC
->> c. Sparc supports the vdso= boot option
->> d. make the tp_printk options (2) formatting similar to other options
->>    by adding spacing
->> e. add "trace_clock=" with a reference to Documentation/trace/ftrace.rst
->> f. use [IA-64] as documented instead of [ia64]
->> g. fix formatting and text for test_suspend> This ->
-> 
->> h. fix formatting for swapaccount>> i. fix formatting and grammar for video.brightness_switch_enabled> -> and the last one are fine with me, but I suppose that there will be a v2?
-
-Yes, there will be a v2.
-
-thanks.
-
--- 
-~Randy
+VGhpcyByZXBsYWNlcyBjb21tZW50cyB3aXRoIEM5OSdzIGRlc2lnbmF0ZWQKaW5pdGlhbGl6ZXJz
+IGJlY2F1c2UgdGhlIGtlcm5lbCBzdXBwb3J0cyB0aGVtIG5vdy4KClNpZ25lZC1vZmYtYnk6IEJl
+bmphbWluIFN0w7xyeiA8YmVubmlAc3R1ZXJ6Lnh5ej4KLS0tCiBhcmNoL3g4Ni9pbmNsdWRlL2Fz
+bS9rZ2RiLmggICB8IDgwICsrKysrKysrKysrKysrKysrLS0tLS0tLS0tLS0tLS0tLS0tCiBhcmNo
+L3g4Ni9rZXJuZWwvY3B1L210cnIvaWYuYyB8IDE0ICsrKy0tLQogMiBmaWxlcyBjaGFuZ2VkLCA0
+NyBpbnNlcnRpb25zKCspLCA0NyBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9hcmNoL3g4Ni9p
+bmNsdWRlL2FzbS9rZ2RiLmggYi9hcmNoL3g4Ni9pbmNsdWRlL2FzbS9rZ2RiLmgKaW5kZXggYWFj
+YWYyNTAyYmQyLi5hOTE2MWUyZjhiNjMgMTAwNjQ0Ci0tLSBhL2FyY2gveDg2L2luY2x1ZGUvYXNt
+L2tnZGIuaAorKysgYi9hcmNoL3g4Ni9pbmNsdWRlL2FzbS9rZ2RiLmgKQEAgLTI1LDUyICsyNSw1
+MiBAQAogICovCiAjaWZkZWYgQ09ORklHX1g4Nl8zMgogZW51bSByZWduYW1lcyB7Ci0JR0RCX0FY
+LAkJCS8qIDAgKi8KLQlHREJfQ1gsCQkJLyogMSAqLwotCUdEQl9EWCwJCQkvKiAyICovCi0JR0RC
+X0JYLAkJCS8qIDMgKi8KLQlHREJfU1AsCQkJLyogNCAqLwotCUdEQl9CUCwJCQkvKiA1ICovCi0J
+R0RCX1NJLAkJCS8qIDYgKi8KLQlHREJfREksCQkJLyogNyAqLwotCUdEQl9QQywJCQkvKiA4IGFs
+c28ga25vd24gYXMgZWlwICovCi0JR0RCX1BTLAkJCS8qIDkgYWxzbyBrbm93biBhcyBlZmxhZ3Mg
+Ki8KLQlHREJfQ1MsCQkJLyogMTAgKi8KLQlHREJfU1MsCQkJLyogMTEgKi8KLQlHREJfRFMsCQkJ
+LyogMTIgKi8KLQlHREJfRVMsCQkJLyogMTMgKi8KLQlHREJfRlMsCQkJLyogMTQgKi8KLQlHREJf
+R1MsCQkJLyogMTUgKi8KKwlHREJfQVggPSAwLAorCUdEQl9DWCA9IDEsCisJR0RCX0RYID0gMiwK
+KwlHREJfQlggPSAzLAorCUdEQl9TUCA9IDQsCisJR0RCX0JQID0gNSwKKwlHREJfU0kgPSA2LAor
+CUdEQl9ESSA9IDcsCisJR0RCX1BDID0gOCwJCQkvKiBhbHNvIGtub3duIGFzIGVpcCAqLworCUdE
+Ql9QUyA9IDksCQkJLyogYWxzbyBrbm93biBhcyBlZmxhZ3MgKi8KKwlHREJfQ1MgPSAxMCwKKwlH
+REJfU1MgPSAxMSwKKwlHREJfRFMgPSAxMiwKKwlHREJfRVMgPSAxMywKKwlHREJfRlMgPSAxNCwK
+KwlHREJfR1MgPSAxNSwKIH07CiAjZGVmaW5lIEdEQl9PUklHX0FYCQk0MQogI2RlZmluZSBEQkdf
+TUFYX1JFR19OVU0JCTE2CiAjZGVmaW5lIE5VTVJFR0JZVEVTCQkoKEdEQl9HUysxKSo0KQogI2Vs
+c2UgLyogISBDT05GSUdfWDg2XzMyICovCiBlbnVtIHJlZ25hbWVzIHsKLQlHREJfQVgsCQkJLyog
+MCAqLwotCUdEQl9CWCwJCQkvKiAxICovCi0JR0RCX0NYLAkJCS8qIDIgKi8KLQlHREJfRFgsCQkJ
+LyogMyAqLwotCUdEQl9TSSwJCQkvKiA0ICovCi0JR0RCX0RJLAkJCS8qIDUgKi8KLQlHREJfQlAs
+CQkJLyogNiAqLwotCUdEQl9TUCwJCQkvKiA3ICovCi0JR0RCX1I4LAkJCS8qIDggKi8KLQlHREJf
+UjksCQkJLyogOSAqLwotCUdEQl9SMTAsCQkvKiAxMCAqLwotCUdEQl9SMTEsCQkvKiAxMSAqLwot
+CUdEQl9SMTIsCQkvKiAxMiAqLwotCUdEQl9SMTMsCQkvKiAxMyAqLwotCUdEQl9SMTQsCQkvKiAx
+NCAqLwotCUdEQl9SMTUsCQkvKiAxNSAqLwotCUdEQl9QQywJCQkvKiAxNiAqLwotCUdEQl9QUywJ
+CQkvKiAxNyAqLwotCUdEQl9DUywJCQkvKiAxOCAqLwotCUdEQl9TUywJCQkvKiAxOSAqLwotCUdE
+Ql9EUywJCQkvKiAyMCAqLwotCUdEQl9FUywJCQkvKiAyMSAqLwotCUdEQl9GUywJCQkvKiAyMiAq
+LwotCUdEQl9HUywJCQkvKiAyMyAqLworCUdEQl9BWCAgID0gIDAsCisJR0RCX0JYICAgPSAgMSwK
+KwlHREJfQ1ggICA9ICAyLAorCUdEQl9EWCAgID0gIDMsCisJR0RCX1NJICAgPSAgNCwKKwlHREJf
+REkgICA9ICA1LAorCUdEQl9CUCAgID0gIDYsCisJR0RCX1NQICAgPSAgNywKKwlHREJfUjggICA9
+ICA4LAorCUdEQl9SOSAgID0gIDksCisJR0RCX1IxMCAgPSAxMCwKKwlHREJfUjExICA9IDExLAor
+CUdEQl9SMTIgID0gMTIsCisJR0RCX1IxMyAgPSAxMywKKwlHREJfUjE0ICA9IDE0LAorCUdEQl9S
+MTUgID0gMTUsCisJR0RCX1BDICAgPSAxNiwJCQkvKiBhbHNvIGtub3duIGFzIGVpcCAqLworCUdE
+Ql9QUyAgID0gMTcsCQkJLyogYWxzbyBrbm93biBhcyBlZmxhZ3MgKi8KKwlHREJfQ1MgICA9IDE4
+LAorCUdEQl9TUyAgID0gMTksCisJR0RCX0RTICAgPSAyMCwKKwlHREJfRVMgICA9IDIxLAorCUdE
+Ql9GUyAgID0gMjIsCisJR0RCX0dTICAgPSAyMywKIH07CiAjZGVmaW5lIEdEQl9PUklHX0FYCQk1
+NwogI2RlZmluZSBEQkdfTUFYX1JFR19OVU0JCTI0CmRpZmYgLS1naXQgYS9hcmNoL3g4Ni9rZXJu
+ZWwvY3B1L210cnIvaWYuYyBiL2FyY2gveDg2L2tlcm5lbC9jcHUvbXRyci9pZi5jCmluZGV4IGE1
+YzUwNmY2ZGE3Zi4uNzY2NGE2NzJmNDE0IDEwMDY0NAotLS0gYS9hcmNoL3g4Ni9rZXJuZWwvY3B1
+L210cnIvaWYuYworKysgYi9hcmNoL3g4Ni9rZXJuZWwvY3B1L210cnIvaWYuYwpAQCAtMTgsMTMg
+KzE4LDEzIEBACiAKIHN0YXRpYyBjb25zdCBjaGFyICpjb25zdCBtdHJyX3N0cmluZ3NbTVRSUl9O
+VU1fVFlQRVNdICB7Ci0JInVuY2FjaGFibGUiLAkJLyogMCAqLwotCSJ3cml0ZS1jb21iaW5pbmci
+LAkvKiAxICovCi0JIj8iLAkJCS8qIDIgKi8KLQkiPyIsCQkJLyogMyAqLwotCSJ3cml0ZS10aHJv
+dWdoIiwJLyogNCAqLwotCSJ3cml0ZS1wcm90ZWN0IiwJLyogNSAqLwotCSJ3cml0ZS1iYWNrIiwJ
+CS8qIDYgKi8KKwlbMF0gPSAidW5jYWNoYWJsZSIsCisJWzFdID0gIndyaXRlLWNvbWJpbmluZyIs
+CisJWzJdID0gIj8iLAorCVszXSA9ICI/IiwKKwlbNF0gPSAid3JpdGUtdGhyb3VnaCIsCisJWzVd
+ID0gIndyaXRlLXByb3RlY3QiLAorCVs2XSA9ICJ3cml0ZS1iYWNrIiwKIH07CiAKIGNvbnN0IGNo
+YXIgKm10cnJfYXR0cmliX3RvX3N0cihpbnQgeCkKLS0gCjIuMzUuMQo=
