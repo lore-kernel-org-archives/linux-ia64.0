@@ -1,37 +1,98 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Mon, 14 Mar 2022 07:31:15 +0000
-Subject: [PATCH 01/15] dma-direct: use is_swiotlb_active in dma_direct_map_page
-Message-Id: <20220314073129.1862284-2-hch@lst.de>
+From: =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
+Date: Sat, 26 Mar 2022 16:58:59 +0000
+Subject: [PATCH 12/22] alps: Replace comments with C99 initializers
+Message-Id: <20220326165909.506926-12-benni@stuerz.xyz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220314073129.1862284-1-hch@lst.de>
-In-Reply-To: <20220314073129.1862284-1-hch@lst.de>
+References: <20220326165909.506926-1-benni@stuerz.xyz>
+In-Reply-To: <20220326165909.506926-1-benni@stuerz.xyz>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: Juergen Gross <jgross@suse.com>, Tom Lendacky <thomas.lendacky@amd.com>, linux-s390@vger.kernel.org, Stefano Stabellini <sstabellini@kernel.org>, linux-ia64@vger.kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, tboot-devel@lists.sourceforge.net, linux-hyperv@vger.kernel.org, linux-pci@vger.kernel.org, xen-devel@lists.xenproject.org, Boris Ostrovsky <boris.ostrovsky@oracle.com>, David Woodhouse <dwmw2@infradead.org>, linux-riscv@lists.infradead.org, linux-arm-kernel@lists.infradead.org
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
+To: andrew@lunn.ch
+Cc: sebastian.hesselbarth@gmail.com, gregory.clement@bootlin.com, linux@armlinux.org.uk, linux@simtec.co.uk, krzk@kernel.org, alim.akhtar@samsung.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, hpa@zytor.com, robert.moore@intel.com, rafael.j.wysocki@intel.com, lenb@kernel.org, 3chas3@gmail.com, laforge@gnumonks.org, arnd@arndb.de, gregkh@linuxfoundation.org, mchehab@kernel.org, tony.luck@intel.com, james.morse@arm.com, rric@kernel.org, linus.walleij@linaro.org, brgl@bgdev.pl, mike.marciniszyn@cornelisnetworks.com, dennis.dalessandro@cornelisnetworks.com, jgg@ziepe.ca, pali@kernel.org, dmitry.torokhov@gmail.com, isdn@linux-pingi.de, benh@kernel.crashing.org, fbarrat@linux.ibm.com, ajd@linux.ibm.com, davem@davemloft.net, kuba@kernel.org, pabeni@redhat.com, nico@fluxnic.net, loic.poulain@linaro.org, kvalo@kernel.org, pkshih@realtek.com, bhelgaas@google.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-edac@vger.kernel.org, linux-gpio@vger.kernel.org, linux-rdma@vger.kernel.org, linux-input@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-media@vger.kernel.org, wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org, linux-pci@vger.kernel.org, =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
 
-Use the more specific is_swiotlb_active check instead of checking the
-global swiotlb_force variable.
-
-Signed-off-by: Christoph Hellwig <hch@lst.de>
-Reviewed-by: Anshuman Khandual <anshuman.khandual@arm.com>
----
- kernel/dma/direct.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/kernel/dma/direct.h b/kernel/dma/direct.h
-index 4632b0f4f72eb..4dc16e08c7e1a 100644
---- a/kernel/dma/direct.h
-+++ b/kernel/dma/direct.h
-@@ -91,7 +91,7 @@ static inline dma_addr_t dma_direct_map_page(struct device *dev,
- 		return swiotlb_map(dev, phys, size, dir, attrs);
- 
- 	if (unlikely(!dma_capable(dev, dma_addr, size, true))) {
--		if (swiotlb_force != SWIOTLB_NO_FORCE)
-+		if (is_swiotlb_active(dev))
- 			return swiotlb_map(dev, phys, size, dir, attrs);
- 
- 		dev_WARN_ONCE(dev, 1,
--- 
-2.30.2
+VGhpcyByZXBsYWNlcyBjb21tZW50cyB3aXRoIEM5OSdzIGRlc2lnbmF0ZWQKaW5pdGlhbGl6ZXJz
+IGJlY2F1c2UgdGhlIGtlcm5lbCBzdXBwb3J0cyB0aGVtIG5vdy4KClNpZ25lZC1vZmYtYnk6IEJl
+bmphbWluIFN0w7xyeiA8YmVubmlAc3R1ZXJ6Lnh5ej4KLS0tCiBkcml2ZXJzL2lucHV0L21vdXNl
+L2FscHMuYyB8IDk2ICsrKysrKysrKysrKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0tCiAxIGZp
+bGUgY2hhbmdlZCwgNDggaW5zZXJ0aW9ucygrKSwgNDggZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0
+IGEvZHJpdmVycy9pbnB1dC9tb3VzZS9hbHBzLmMgYi9kcml2ZXJzL2lucHV0L21vdXNlL2FscHMu
+YwppbmRleCA0YTZiMzNiYmU3ZWEuLjMzM2YxOGIxOThlYiAxMDA2NDQKLS0tIGEvZHJpdmVycy9p
+bnB1dC9tb3VzZS9hbHBzLmMKKysrIGIvZHJpdmVycy9pbnB1dC9tb3VzZS9hbHBzLmMKQEAgLTMz
+LDYwICszMyw2MCBAQAogI2RlZmluZSBBTFBTX1JFR19CQVNFX1BJTk5BQ0xFCTB4MDAwMAogCiBz
+dGF0aWMgY29uc3Qgc3RydWN0IGFscHNfbmliYmxlX2NvbW1hbmRzIGFscHNfdjNfbmliYmxlX2Nv
+bW1hbmRzW10gPSB7Ci0JeyBQU01PVVNFX0NNRF9TRVRQT0xMLAkJMHgwMCB9LCAvKiAwICovCi0J
+eyBQU01PVVNFX0NNRF9SRVNFVF9ESVMsCTB4MDAgfSwgLyogMSAqLwotCXsgUFNNT1VTRV9DTURf
+U0VUU0NBTEUyMSwJMHgwMCB9LCAvKiAyICovCi0JeyBQU01PVVNFX0NNRF9TRVRSQVRFLAkJMHgw
+YSB9LCAvKiAzICovCi0JeyBQU01PVVNFX0NNRF9TRVRSQVRFLAkJMHgxNCB9LCAvKiA0ICovCi0J
+eyBQU01PVVNFX0NNRF9TRVRSQVRFLAkJMHgyOCB9LCAvKiA1ICovCi0JeyBQU01PVVNFX0NNRF9T
+RVRSQVRFLAkJMHgzYyB9LCAvKiA2ICovCi0JeyBQU01PVVNFX0NNRF9TRVRSQVRFLAkJMHg1MCB9
+LCAvKiA3ICovCi0JeyBQU01PVVNFX0NNRF9TRVRSQVRFLAkJMHg2NCB9LCAvKiA4ICovCi0JeyBQ
+U01PVVNFX0NNRF9TRVRSQVRFLAkJMHhjOCB9LCAvKiA5ICovCi0JeyBBTFBTX0NNRF9OSUJCTEVf
+MTAsCQkweDAwIH0sIC8qIGEgKi8KLQl7IFBTTU9VU0VfQ01EX1NFVFJFUywJCTB4MDAgfSwgLyog
+YiAqLwotCXsgUFNNT1VTRV9DTURfU0VUUkVTLAkJMHgwMSB9LCAvKiBjICovCi0JeyBQU01PVVNF
+X0NNRF9TRVRSRVMsCQkweDAyIH0sIC8qIGQgKi8KLQl7IFBTTU9VU0VfQ01EX1NFVFJFUywJCTB4
+MDMgfSwgLyogZSAqLwotCXsgUFNNT1VTRV9DTURfU0VUU0NBTEUxMSwJMHgwMCB9LCAvKiBmICov
+CisJWzB4MF0gPSB7IFBTTU9VU0VfQ01EX1NFVFBPTEwsCQkweDAwIH0sCisJWzB4MV0gPSB7IFBT
+TU9VU0VfQ01EX1JFU0VUX0RJUywJICAgMHgwMCB9LAorCVsweDJdID0geyBQU01PVVNFX0NNRF9T
+RVRTQ0FMRTIxLAkweDAwIH0sCisJWzB4M10gPSB7IFBTTU9VU0VfQ01EX1NFVFJBVEUsCQkweDBh
+IH0sCisJWzB4NF0gPSB7IFBTTU9VU0VfQ01EX1NFVFJBVEUsCQkweDE0IH0sCisJWzB4NV0gPSB7
+IFBTTU9VU0VfQ01EX1NFVFJBVEUsCQkweDI4IH0sCisJWzB4Nl0gPSB7IFBTTU9VU0VfQ01EX1NF
+VFJBVEUsCQkweDNjIH0sCisJWzB4N10gPSB7IFBTTU9VU0VfQ01EX1NFVFJBVEUsCQkweDUwIH0s
+CisJWzB4OF0gPSB7IFBTTU9VU0VfQ01EX1NFVFJBVEUsCQkweDY0IH0sCisJWzB4OV0gPSB7IFBT
+TU9VU0VfQ01EX1NFVFJBVEUsCQkweGM4IH0sCisJWzB4YV0gPSB7IEFMUFNfQ01EX05JQkJMRV8x
+MCwJCSAgIDB4MDAgfSwKKwlbMHhiXSA9IHsgUFNNT1VTRV9DTURfU0VUUkVTLAkJICAgMHgwMCB9
+LAorCVsweGNdID0geyBQU01PVVNFX0NNRF9TRVRSRVMsCQkgICAweDAxIH0sCisJWzB4ZF0gPSB7
+IFBTTU9VU0VfQ01EX1NFVFJFUywJCSAgIDB4MDIgfSwKKwlbMHhlXSA9IHsgUFNNT1VTRV9DTURf
+U0VUUkVTLAkJICAgMHgwMyB9LAorCVsweGZdID0geyBQU01PVVNFX0NNRF9TRVRTQ0FMRTExLAkw
+eDAwIH0sCiB9OwogCiBzdGF0aWMgY29uc3Qgc3RydWN0IGFscHNfbmliYmxlX2NvbW1hbmRzIGFs
+cHNfdjRfbmliYmxlX2NvbW1hbmRzW10gPSB7Ci0JeyBQU01PVVNFX0NNRF9FTkFCTEUsCQkweDAw
+IH0sIC8qIDAgKi8KLQl7IFBTTU9VU0VfQ01EX1JFU0VUX0RJUywJMHgwMCB9LCAvKiAxICovCi0J
+eyBQU01PVVNFX0NNRF9TRVRTQ0FMRTIxLAkweDAwIH0sIC8qIDIgKi8KLQl7IFBTTU9VU0VfQ01E
+X1NFVFJBVEUsCQkweDBhIH0sIC8qIDMgKi8KLQl7IFBTTU9VU0VfQ01EX1NFVFJBVEUsCQkweDE0
+IH0sIC8qIDQgKi8KLQl7IFBTTU9VU0VfQ01EX1NFVFJBVEUsCQkweDI4IH0sIC8qIDUgKi8KLQl7
+IFBTTU9VU0VfQ01EX1NFVFJBVEUsCQkweDNjIH0sIC8qIDYgKi8KLQl7IFBTTU9VU0VfQ01EX1NF
+VFJBVEUsCQkweDUwIH0sIC8qIDcgKi8KLQl7IFBTTU9VU0VfQ01EX1NFVFJBVEUsCQkweDY0IH0s
+IC8qIDggKi8KLQl7IFBTTU9VU0VfQ01EX1NFVFJBVEUsCQkweGM4IH0sIC8qIDkgKi8KLQl7IEFM
+UFNfQ01EX05JQkJMRV8xMCwJCTB4MDAgfSwgLyogYSAqLwotCXsgUFNNT1VTRV9DTURfU0VUUkVT
+LAkJMHgwMCB9LCAvKiBiICovCi0JeyBQU01PVVNFX0NNRF9TRVRSRVMsCQkweDAxIH0sIC8qIGMg
+Ki8KLQl7IFBTTU9VU0VfQ01EX1NFVFJFUywJCTB4MDIgfSwgLyogZCAqLwotCXsgUFNNT1VTRV9D
+TURfU0VUUkVTLAkJMHgwMyB9LCAvKiBlICovCi0JeyBQU01PVVNFX0NNRF9TRVRTQ0FMRTExLAkw
+eDAwIH0sIC8qIGYgKi8KKwlbMHgwXSA9IHsgUFNNT1VTRV9DTURfRU5BQkxFLAkJICAgMHgwMCB9
+LAorCVsweDFdID0geyBQU01PVVNFX0NNRF9SRVNFVF9ESVMsCSAgIDB4MDAgfSwKKwlbMHgyXSA9
+IHsgUFNNT1VTRV9DTURfU0VUU0NBTEUyMSwJMHgwMCB9LAorCVsweDNdID0geyBQU01PVVNFX0NN
+RF9TRVRSQVRFLAkJMHgwYSB9LAorCVsweDRdID0geyBQU01PVVNFX0NNRF9TRVRSQVRFLAkJMHgx
+NCB9LAorCVsweDVdID0geyBQU01PVVNFX0NNRF9TRVRSQVRFLAkJMHgyOCB9LAorCVsweDZdID0g
+eyBQU01PVVNFX0NNRF9TRVRSQVRFLAkJMHgzYyB9LAorCVsweDddID0geyBQU01PVVNFX0NNRF9T
+RVRSQVRFLAkJMHg1MCB9LAorCVsweDhdID0geyBQU01PVVNFX0NNRF9TRVRSQVRFLAkJMHg2NCB9
+LAorCVsweDldID0geyBQU01PVVNFX0NNRF9TRVRSQVRFLAkJMHhjOCB9LAorCVsweGFdID0geyBB
+TFBTX0NNRF9OSUJCTEVfMTAsCQkgICAweDAwIH0sCisJWzB4Yl0gPSB7IFBTTU9VU0VfQ01EX1NF
+VFJFUywJCSAgIDB4MDAgfSwKKwlbMHhjXSA9IHsgUFNNT1VTRV9DTURfU0VUUkVTLAkJICAgMHgw
+MSB9LAorCVsweGRdID0geyBQU01PVVNFX0NNRF9TRVRSRVMsCQkgICAweDAyIH0sCisJWzB4ZV0g
+PSB7IFBTTU9VU0VfQ01EX1NFVFJFUywJCSAgIDB4MDMgfSwKKwlbMHhmXSA9IHsgUFNNT1VTRV9D
+TURfU0VUU0NBTEUxMSwJMHgwMCB9LAogfTsKIAogc3RhdGljIGNvbnN0IHN0cnVjdCBhbHBzX25p
+YmJsZV9jb21tYW5kcyBhbHBzX3Y2X25pYmJsZV9jb21tYW5kc1tdID0gewotCXsgUFNNT1VTRV9D
+TURfRU5BQkxFLAkJMHgwMCB9LCAvKiAwICovCi0JeyBQU01PVVNFX0NNRF9TRVRSQVRFLAkJMHgw
+YSB9LCAvKiAxICovCi0JeyBQU01PVVNFX0NNRF9TRVRSQVRFLAkJMHgxNCB9LCAvKiAyICovCi0J
+eyBQU01PVVNFX0NNRF9TRVRSQVRFLAkJMHgyOCB9LCAvKiAzICovCi0JeyBQU01PVVNFX0NNRF9T
+RVRSQVRFLAkJMHgzYyB9LCAvKiA0ICovCi0JeyBQU01PVVNFX0NNRF9TRVRSQVRFLAkJMHg1MCB9
+LCAvKiA1ICovCi0JeyBQU01PVVNFX0NNRF9TRVRSQVRFLAkJMHg2NCB9LCAvKiA2ICovCi0JeyBQ
+U01PVVNFX0NNRF9TRVRSQVRFLAkJMHhjOCB9LCAvKiA3ICovCi0JeyBQU01PVVNFX0NNRF9HRVRJ
+RCwJCTB4MDAgfSwgLyogOCAqLwotCXsgUFNNT1VTRV9DTURfR0VUSU5GTywJCTB4MDAgfSwgLyog
+OSAqLwotCXsgUFNNT1VTRV9DTURfU0VUUkVTLAkJMHgwMCB9LCAvKiBhICovCi0JeyBQU01PVVNF
+X0NNRF9TRVRSRVMsCQkweDAxIH0sIC8qIGIgKi8KLQl7IFBTTU9VU0VfQ01EX1NFVFJFUywJCTB4
+MDIgfSwgLyogYyAqLwotCXsgUFNNT1VTRV9DTURfU0VUUkVTLAkJMHgwMyB9LCAvKiBkICovCi0J
+eyBQU01PVVNFX0NNRF9TRVRTQ0FMRTIxLAkweDAwIH0sIC8qIGUgKi8KLQl7IFBTTU9VU0VfQ01E
+X1NFVFNDQUxFMTEsCTB4MDAgfSwgLyogZiAqLworCVsweDBdID0geyBQU01PVVNFX0NNRF9FTkFC
+TEUsCQkgICAweDAwIH0sCisJWzB4MV0gPSB7IFBTTU9VU0VfQ01EX1NFVFJBVEUsCQkweDBhIH0s
+CisJWzB4Ml0gPSB7IFBTTU9VU0VfQ01EX1NFVFJBVEUsCQkweDE0IH0sCisJWzB4M10gPSB7IFBT
+TU9VU0VfQ01EX1NFVFJBVEUsCQkweDI4IH0sCisJWzB4NF0gPSB7IFBTTU9VU0VfQ01EX1NFVFJB
+VEUsCQkweDNjIH0sCisJWzB4NV0gPSB7IFBTTU9VU0VfQ01EX1NFVFJBVEUsCQkweDUwIH0sCisJ
+WzB4Nl0gPSB7IFBTTU9VU0VfQ01EX1NFVFJBVEUsCQkweDY0IH0sCisJWzB4N10gPSB7IFBTTU9V
+U0VfQ01EX1NFVFJBVEUsCQkweGM4IH0sCisJWzB4OF0gPSB7IFBTTU9VU0VfQ01EX0dFVElELAkJ
+ICAgMHgwMCB9LAorCVsweDldID0geyBQU01PVVNFX0NNRF9HRVRJTkZPLAkJMHgwMCB9LAorCVsw
+eGFdID0geyBQU01PVVNFX0NNRF9TRVRSRVMsCQkgICAweDAwIH0sCisJWzB4Yl0gPSB7IFBTTU9V
+U0VfQ01EX1NFVFJFUywJCSAgIDB4MDEgfSwKKwlbMHhjXSA9IHsgUFNNT1VTRV9DTURfU0VUUkVT
+LAkJICAgMHgwMiB9LAorCVsweGRdID0geyBQU01PVVNFX0NNRF9TRVRSRVMsCQkgICAweDAzIH0s
+CisJWzB4ZV0gPSB7IFBTTU9VU0VfQ01EX1NFVFNDQUxFMjEsCTB4MDAgfSwKKwlbMHhmXSA9IHsg
+UFNNT1VTRV9DTURfU0VUU0NBTEUxMSwJMHgwMCB9LAogfTsKIAogCi0tIAoyLjM1LjEK
