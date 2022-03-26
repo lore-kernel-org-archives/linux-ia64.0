@@ -1,37 +1,87 @@
-From: Segher Boessenkool <segher@kernel.crashing.org>
-Date: Mon, 28 Mar 2022 13:19:28 +0000
-Subject: Re: [PATCH 01/22] orion5x: Replace comments with C99 initializers
-Message-Id: <20220328131928.GH614@gate.crashing.org>
+From: =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
+Date: Sat, 26 Mar 2022 16:59:06 +0000
+Subject: [PATCH 19/22] wnc36xx: Replace comments with C99 initializers
+Message-Id: <20220326165909.506926-19-benni@stuerz.xyz>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220326165909.506926-1-benni@stuerz.xyz>
- <CAK8P3a1e57mNUQgronhwrsXsuQW9sZYxCktKij7NwsieBWiGmw@mail.gmail.com>
-In-Reply-To: <CAK8P3a1e57mNUQgronhwrsXsuQW9sZYxCktKij7NwsieBWiGmw@mail.gmail.com>
+In-Reply-To: <20220326165909.506926-1-benni@stuerz.xyz>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Arnd Bergmann <arnd@arndb.de>
-Cc: Andrew Lunn <andrew@lunn.ch>, "open list:ACPI COMPONENT ARCHITECTURE (ACPICA)" <devel@acpica.org>, linux-atm-general@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-pci <linux-pci@vger.kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Dave Hansen <dave.hansen@linux.intel.com>, Russell King - ARM Linux <linux@armlinux.org.uk>, Krzysztof Kozlowski <krzk@kernel.org>, Alim Akhtar <alim.akhtar@samsung.com>, "H. Peter Anvin" <hpa@zytor.com>, wcn36xx@lists.infradead.org, Bartosz Golaszewski <brgl@bgdev.pl>, Benjamin =?iso-8859-1?Q?St=FCrz?= <benni@stuerz.xyz>, Jason Gunthorpe <jgg@ziepe.ca>, Pkshih <pkshih@realtek.com>, "moderated list:ARM/SAMSUNG EXYNOS ARM ARCHITECTURES" <linux-samsung-soc@vger.kernel.org>, dennis.dalessandro@cornelisnetworks.com, linux-rdma <linux-rdma@vger.kernel.org>, Gregory CLEMENT <gregory.clement@bootlin.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Robert Moore <robert.moore@intel.com>, Harald Welte <laforge@gnumonks.org>, ACPI Devel Maling List <linux-acpi@vger.kernel.org>, Ingo Molnar <mingo@redhat.com>, Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>, Chas Williams <3chas3@gmail.com>, "open list:HID CORE LAYER" <linux-input@vger.kernel.org>, Jakub Kicinski <kuba@kernel.org>, pabeni@redhat.com, Len Brown <lenb@kernel.org>, mike.marciniszyn@cornelisnetworks.com, Robert Richter <rric@kernel.org>, Andrew Donnellan <ajd@linux.ibm.com>, kvalo@kernel.org, "open list:GPIO SUBSYSTEM" <linux-gpio@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Borislav Petkov <bp@alien8.de>, Bjorn Helgaas <bhelgaas@google.com>, Thomas Gleixner <tglx@linutronix.de>, Mauro Carvalho Chehab <mchehab@kernel.org>, Simtec Linux Team <linux@simtec.co.uk>, Linux ARM <linux-arm-kernel@lists.infradead.org>, linux-edac@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>, loic.poulain@linaro.org, Pali =?iso-8859-1?Q?Roh=E1r?= <pali@kernel.org>, Nicolas Pitre <nico@fluxnic.net>, gregkh <gregkh@linuxfoundation.org>, Dmitry Torokhov <dmitry.torokhov@gmail.com>, linux-wireless <linux-wireless@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, James Morse <james.morse@arm.com>, Networking <netdev@vger.kernel.org>, Frederic Barrat <fbarrat@linux.ibm.com>, Linux Media Mailing List <linux-media@vger.kernel.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
+To: andrew@lunn.ch
+Cc: sebastian.hesselbarth@gmail.com, gregory.clement@bootlin.com, linux@armlinux.org.uk, linux@simtec.co.uk, krzk@kernel.org, alim.akhtar@samsung.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, hpa@zytor.com, robert.moore@intel.com, rafael.j.wysocki@intel.com, lenb@kernel.org, 3chas3@gmail.com, laforge@gnumonks.org, arnd@arndb.de, gregkh@linuxfoundation.org, mchehab@kernel.org, tony.luck@intel.com, james.morse@arm.com, rric@kernel.org, linus.walleij@linaro.org, brgl@bgdev.pl, mike.marciniszyn@cornelisnetworks.com, dennis.dalessandro@cornelisnetworks.com, jgg@ziepe.ca, pali@kernel.org, dmitry.torokhov@gmail.com, isdn@linux-pingi.de, benh@kernel.crashing.org, fbarrat@linux.ibm.com, ajd@linux.ibm.com, davem@davemloft.net, kuba@kernel.org, pabeni@redhat.com, nico@fluxnic.net, loic.poulain@linaro.org, kvalo@kernel.org, pkshih@realtek.com, bhelgaas@google.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-edac@vger.kernel.org, linux-gpio@vger.kernel.org, linux-rdma@vger.kernel.org, linux-input@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-media@vger.kernel.org, wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org, linux-pci@vger.kernel.org, =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
 
-On Sat, Mar 26, 2022 at 08:23:31PM +0100, Arnd Bergmann wrote:
-> On Sat, Mar 26, 2022 at 5:58 PM Benjamin St=FCrz <benni@stuerz.xyz> wrote:
-> >
-> > This replaces comments with C99's designated
-> > initializers because the kernel supports them now.
->=20
-> The change looks fine, but the comment looks misplaced, as enum initializ=
-ers
-> are not c99 feature.
-
-Yes, it is from C89/C90.
-
-> Also, the named array and struct intializers have been
-> supported by gnu89 for a long time and widely used in the kernel, so it's
-> not a recent change even for the others.
-
-GCC supports this since 1998.  There was a syntax different from C99
-designated initializers (".ans =3D 42") before (namely, "ans: 42").
-
-1998 is long enough ago for all intents and purposes now of course ;-)
-
-
-Segher
+VGhpcyByZXBsYWNlcyBjb21tZW50cyB3aXRoIEM5OSdzIGRlc2lnbmF0ZWQKaW5pdGlhbGl6ZXJz
+IGJlY2F1c2UgdGhlIGtlcm5lbCBzdXBwb3J0cyB0aGVtIG5vdy4KClNpZ25lZC1vZmYtYnk6IEJl
+bmphbWluIFN0w7xyeiA8YmVubmlAc3R1ZXJ6Lnh5ej4KLS0tCiBkcml2ZXJzL25ldC93aXJlbGVz
+cy9hdGgvd2NuMzZ4eC9tYWluLmMgfCAxMjIgKysrKysrKysrKysrLS0tLS0tLS0tLS0tCiAxIGZp
+bGUgY2hhbmdlZCwgNjEgaW5zZXJ0aW9ucygrKSwgNjEgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0
+IGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL3djbjM2eHgvbWFpbi5jIGIvZHJpdmVycy9uZXQv
+d2lyZWxlc3MvYXRoL3djbjM2eHgvbWFpbi5jCmluZGV4IDk1ZWE3ZDA0MGQ4Yy4uMGZlZDY0YmQz
+N2I0IDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvd2NuMzZ4eC9tYWluLmMK
+KysrIGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL3djbjM2eHgvbWFpbi5jCkBAIC0xOTMsNjcg
+KzE5Myw2NyBAQCBzdGF0aWMgaW5saW5lIHU4IGdldF9zdGFfaW5kZXgoc3RydWN0IGllZWU4MDIx
+MV92aWYgKnZpZiwKIH0KIAogc3RhdGljIGNvbnN0IGNoYXIgKiBjb25zdCB3Y24zNnh4X2NhcHNf
+bmFtZXNbXSA9IHsKLQkiTUNDIiwJCQkJLyogMCAqLwotCSJQMlAiLAkJCQkvKiAxICovCi0JIkRP
+VDExQUMiLAkJCS8qIDIgKi8KLQkiU0xNX1NFU1NJT05JWkFUSU9OIiwJCS8qIDMgKi8KLQkiRE9U
+MTFBQ19PUE1PREUiLAkJLyogNCAqLwotCSJTQVAzMlNUQSIsCQkJLyogNSAqLwotCSJURExTIiwJ
+CQkJLyogNiAqLwotCSJQMlBfR09fTk9BX0RFQ09VUExFX0lOSVRfU0NBTiIsLyogNyAqLwotCSJX
+TEFOQUNUSVZFX09GRkxPQUQiLAkJLyogOCAqLwotCSJCRUFDT05fT0ZGTE9BRCIsCQkvKiA5ICov
+Ci0JIlNDQU5fT0ZGTE9BRCIsCQkJLyogMTAgKi8KLQkiUk9BTV9PRkZMT0FEIiwJCQkvKiAxMSAq
+LwotCSJCQ05fTUlTU19PRkZMT0FEIiwJCS8qIDEyICovCi0JIlNUQV9QT1dFUlNBVkUiLAkJLyog
+MTMgKi8KLQkiU1RBX0FEVkFOQ0VEX1BXUlNBVkUiLAkJLyogMTQgKi8KLQkiQVBfVUFQU0QiLAkJ
+CS8qIDE1ICovCi0JIkFQX0RGUyIsCQkJLyogMTYgKi8KLQkiQkxPQ0tBQ0siLAkJCS8qIDE3ICov
+Ci0JIlBIWV9FUlIiLAkJCS8qIDE4ICovCi0JIkJDTl9GSUxURVIiLAkJCS8qIDE5ICovCi0JIlJU
+VCIsCQkJCS8qIDIwICovCi0JIlJBVEVDVFJMIiwJCQkvKiAyMSAqLwotCSJXT1ciLAkJCQkvKiAy
+MiAqLwotCSJXTEFOX1JPQU1fU0NBTl9PRkZMT0FEIiwJLyogMjMgKi8KLQkiU1BFQ1VMQVRJVkVf
+UFNfUE9MTCIsCQkvKiAyNCAqLwotCSJTQ0FOX1NDSCIsCQkJLyogMjUgKi8KLQkiSUJTU19IRUFS
+VEJFQVRfT0ZGTE9BRCIsCS8qIDI2ICovCi0JIldMQU5fU0NBTl9PRkZMT0FEIiwJCS8qIDI3ICov
+Ci0JIldMQU5fUEVSSU9ESUNfVFhfUFRSTiIsCS8qIDI4ICovCi0JIkFEVkFOQ0VfVERMUyIsCQkJ
+LyogMjkgKi8KLQkiQkFUQ0hfU0NBTiIsCQkJLyogMzAgKi8KLQkiRldfSU5fVFhfUEFUSCIsCQkv
+KiAzMSAqLwotCSJFWFRFTkRFRF9OU09GRkxPQURfU0xPVCIsCS8qIDMyICovCi0JIkNIX1NXSVRD
+SF9WMSIsCQkJLyogMzMgKi8KLQkiSFQ0MF9PQlNTX1NDQU4iLAkJLyogMzQgKi8KLQkiVVBEQVRF
+X0NIQU5ORUxfTElTVCIsCQkvKiAzNSAqLwotCSJXTEFOX01DQUREUl9GTFQiLAkJLyogMzYgKi8K
+LQkiV0xBTl9DSDE0NCIsCQkJLyogMzcgKi8KLQkiTkFOIiwJCQkJLyogMzggKi8KLQkiVERMU19T
+Q0FOX0NPRVhJU1RFTkNFIiwJLyogMzkgKi8KLQkiTElOS19MQVlFUl9TVEFUU19NRUFTIiwJLyog
+NDAgKi8KLQkiTVVfTUlNTyIsCQkJLyogNDEgKi8KLQkiRVhURU5ERURfU0NBTiIsCQkvKiA0MiAq
+LwotCSJEWU5BTUlDX1dNTV9QUyIsCQkvKiA0MyAqLwotCSJNQUNfU1BPT0ZFRF9TQ0FOIiwJCS8q
+IDQ0ICovCi0JIkJNVV9FUlJPUl9HRU5FUklDX1JFQ09WRVJZIiwJLyogNDUgKi8KLQkiRElTQSIs
+CQkJCS8qIDQ2ICovCi0JIkZXX1NUQVRTIiwJCQkvKiA0NyAqLwotCSJXUFNfUFJCUlNQX1RNUEwi
+LAkJLyogNDggKi8KLQkiQkNOX0lFX0ZMVF9ERUxUQSIsCQkvKiA0OSAqLwotCSJURExTX09GRl9D
+SEFOTkVMIiwJCS8qIDUxICovCi0JIlJUVDMiLAkJCQkvKiA1MiAqLwotCSJNR01UX0ZSQU1FX0xP
+R0dJTkciLAkJLyogNTMgKi8KLQkiRU5IQU5DRURfVFhCRF9DT01QTEVUSU9OIiwJLyogNTQgKi8K
+LQkiTE9HR0lOR19FTkhBTkNFTUVOVCIsCQkvKiA1NSAqLwotCSJFWFRfU0NBTl9FTkhBTkNFRCIs
+CQkvKiA1NiAqLwotCSJNRU1PUllfRFVNUF9TVVBQT1JURUQiLAkvKiA1NyAqLwotCSJQRVJfUEtU
+X1NUQVRTX1NVUFBPUlRFRCIsCS8qIDU4ICovCi0JIkVYVF9MTF9TVEFUIiwJCQkvKiA2MCAqLwot
+CSJXSUZJX0NPTkZJRyIsCQkJLyogNjEgKi8KLQkiQU5URU5OQV9ESVZFUlNJVFlfU0VMRUNUSU9O
+IiwJLyogNjIgKi8KKwlbMF0gID0gIk1DQyIsCisJWzFdICA9ICJQMlAiLAorCVsyXSAgPSAiRE9U
+MTFBQyIsCisJWzNdICA9ICJTTE1fU0VTU0lPTklaQVRJT04iLAorCVs0XSAgPSAiRE9UMTFBQ19P
+UE1PREUiLAorCVs1XSAgPSAiU0FQMzJTVEEiLAorCVs2XSAgPSAiVERMUyIsCisJWzddICA9ICJQ
+MlBfR09fTk9BX0RFQ09VUExFX0lOSVRfU0NBTiIsCisJWzhdICA9ICJXTEFOQUNUSVZFX09GRkxP
+QUQiLAorCVs5XSAgPSAiQkVBQ09OX09GRkxPQUQiLAorCVsxMF0gPSAiU0NBTl9PRkZMT0FEIiwK
+KwlbMTFdID0gIlJPQU1fT0ZGTE9BRCIsCisJWzEyXSA9ICJCQ05fTUlTU19PRkZMT0FEIiwKKwlb
+MTNdID0gIlNUQV9QT1dFUlNBVkUiLAorCVsxNF0gPSAiU1RBX0FEVkFOQ0VEX1BXUlNBVkUiLAor
+CVsxNV0gPSAiQVBfVUFQU0QiLAorCVsxNl0gPSAiQVBfREZTIiwKKwlbMTddID0gIkJMT0NLQUNL
+IiwKKwlbMThdID0gIlBIWV9FUlIiLAorCVsxOV0gPSAiQkNOX0ZJTFRFUiIsCisJWzIwXSA9ICJS
+VFQiLAorCVsyMV0gPSAiUkFURUNUUkwiLAorCVsyMl0gPSAiV09XIiwKKwlbMjNdID0gIldMQU5f
+Uk9BTV9TQ0FOX09GRkxPQUQiLAorCVsyNF0gPSAiU1BFQ1VMQVRJVkVfUFNfUE9MTCIsCisJWzI1
+XSA9ICJTQ0FOX1NDSCIsCisJWzI2XSA9ICJJQlNTX0hFQVJUQkVBVF9PRkZMT0FEIiwKKwlbMjdd
+ID0gIldMQU5fU0NBTl9PRkZMT0FEIiwKKwlbMjhdID0gIldMQU5fUEVSSU9ESUNfVFhfUFRSTiIs
+CisJWzI5XSA9ICJBRFZBTkNFX1RETFMiLAorCVszMF0gPSAiQkFUQ0hfU0NBTiIsCisJWzMxXSA9
+ICJGV19JTl9UWF9QQVRIIiwKKwlbMzJdID0gIkVYVEVOREVEX05TT0ZGTE9BRF9TTE9UIiwKKwlb
+MzNdID0gIkNIX1NXSVRDSF9WMSIsCisJWzM0XSA9ICJIVDQwX09CU1NfU0NBTiIsCisJWzM1XSA9
+ICJVUERBVEVfQ0hBTk5FTF9MSVNUIiwKKwlbMzZdID0gIldMQU5fTUNBRERSX0ZMVCIsCisJWzM3
+XSA9ICJXTEFOX0NIMTQ0IiwKKwlbMzhdID0gIk5BTiIsCisJWzM5XSA9ICJURExTX1NDQU5fQ09F
+WElTVEVOQ0UiLAorCVs0MF0gPSAiTElOS19MQVlFUl9TVEFUU19NRUFTIiwKKwlbNDFdID0gIk1V
+X01JTU8iLAorCVs0Ml0gPSAiRVhURU5ERURfU0NBTiIsCisJWzQzXSA9ICJEWU5BTUlDX1dNTV9Q
+UyIsCisJWzQ0XSA9ICJNQUNfU1BPT0ZFRF9TQ0FOIiwKKwlbNDVdID0gIkJNVV9FUlJPUl9HRU5F
+UklDX1JFQ09WRVJZIiwKKwlbNDZdID0gIkRJU0EiLAorCVs0N10gPSAiRldfU1RBVFMiLAorCVs0
+OF0gPSAiV1BTX1BSQlJTUF9UTVBMIiwKKwlbNDldID0gIkJDTl9JRV9GTFRfREVMVEEiLAorCVs1
+MV0gPSAiVERMU19PRkZfQ0hBTk5FTCIsCisJWzUyXSA9ICJSVFQzIiwKKwlbNTNdID0gIk1HTVRf
+RlJBTUVfTE9HR0lORyIsCisJWzU0XSA9ICJFTkhBTkNFRF9UWEJEX0NPTVBMRVRJT04iLAorCVs1
+NV0gPSAiTE9HR0lOR19FTkhBTkNFTUVOVCIsCisJWzU2XSA9ICJFWFRfU0NBTl9FTkhBTkNFRCIs
+CisJWzU3XSA9ICJNRU1PUllfRFVNUF9TVVBQT1JURUQiLAorCVs1OF0gPSAiUEVSX1BLVF9TVEFU
+U19TVVBQT1JURUQiLAorCVs2MF0gPSAiRVhUX0xMX1NUQVQiLAorCVs2MV0gPSAiV0lGSV9DT05G
+SUciLAorCVs2Ml0gPSAiQU5URU5OQV9ESVZFUlNJVFlfU0VMRUNUSU9OIiwKIH07CiAKIHN0YXRp
+YyBjb25zdCBjaGFyICp3Y24zNnh4X2dldF9jYXBfbmFtZShlbnVtIHBsYWNlX2hvbGRlcl9pbl9j
+YXBfYml0bWFwIHgpCi0tIAoyLjM1LjEK
