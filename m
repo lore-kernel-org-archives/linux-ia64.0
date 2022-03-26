@@ -1,33 +1,54 @@
-From: Julia Lawall <Julia.Lawall@inria.fr>
-Date: Fri, 18 Mar 2022 10:37:18 +0000
-Subject: [PATCH] ia64: ptrace: fix typos in comments
-Message-Id: <20220318103729.157574-23-Julia.Lawall@inria.fr>
+From: Wupeng Ma <mawupeng1@huawei.com>
+Date: Sat, 26 Mar 2022 06:46:27 +0000
+Subject: [PATCH 4/9] arm64/mirror: arm64 enabling - find mirrored memory ranges
+Message-Id: <20220326064632.131637-5-mawupeng1@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20220326064632.131637-1-mawupeng1@huawei.com>
+In-Reply-To: <20220326064632.131637-1-mawupeng1@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Oleg Nesterov <oleg@redhat.com>
-Cc: kernel-janitors@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org, corbet@lwn.net
+Cc: ardb@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zyccr.com, dvhart@infradead.org, andy@infradead.org, rppt@kernel.org, paulmck@kernel.org, peterz@infradead.org, jroedel@suse.de, songmuchun@bytedance.com, macro@orcam.me.uk, frederic@kernel.org, W_Armin@gmx.de, john.garry@huawei.com, seanjc@google.com, tsbogend@alpha.franken.de, anshuman.khandual@arm.com, chenhuacai@kernel.org, david@redhat.com, gpiccoli@igalia.com, mark.rutland@arm.com, wangkefeng.wang@huawei.com, mawupeng1@huawei.com, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org
 
-Various spelling mistakes in comments.
-Detected with the help of Coccinelle.
+From: Ma Wupeng <mawupeng1@huawei.com>
 
-Signed-off-by: Julia Lawall <Julia.Lawall@inria.fr>
+Commit b05b9f5f9dcf ("x86, mirror: x86 enabling - find mirrored memory ranges")
+introduced mirrored memory support for x86 and this could be used on arm64.
 
+So efi_find_mirror() is added in efi_init() so on EFI enabled systems scan
+the memory map and tell memblock about any mirrored ranges.
+
+Signed-off-by: Ma Wupeng <mawupeng1@huawei.com>
 ---
- arch/ia64/kernel/ptrace.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ Documentation/admin-guide/kernel-parameters.txt | 2 +-
+ arch/arm64/kernel/setup.c                       | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
-index 6a1439eaa050..32f544baf7ae 100644
---- a/arch/ia64/kernel/ptrace.c
-+++ b/arch/ia64/kernel/ptrace.c
-@@ -2025,7 +2025,7 @@ static void syscall_get_args_cb(struct unw_frame_info *info, void *data)
- 	 * - epsinstruction: cfm is set by br.call
- 	 *   locals don't exist.
- 	 *
--	 * For both cases argguments are reachable in cfm.sof - cfm.sol.
-+	 * For both cases arguments are reachable in cfm.sof - cfm.sol.
- 	 * CFM: [ ... | sor: 17..14 | sol : 13..7 | sof : 6..0 ]
- 	 */
- 	cfm = pt->cr_ifs;
+diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
+index e064839895ee..0af91e0aafea 100644
+--- a/Documentation/admin-guide/kernel-parameters.txt
++++ b/Documentation/admin-guide/kernel-parameters.txt
+@@ -2270,7 +2270,7 @@
+ 
+ 	keepinitrd	[HW,ARM]
+ 
+-	kernelcore=	[KNL,X86,IA-64,PPC]
++	kernelcore=	[KNL,X86,IA-64,PPC,ARM64]
+ 			Format: nn[KMGTPE] | nn% | "mirror"
+ 			This parameter specifies the amount of memory usable by
+ 			the kernel for non-movable allocations.  The requested
+diff --git a/arch/arm64/kernel/setup.c b/arch/arm64/kernel/setup.c
+index daade64889ff..3957290d9ade 100644
+--- a/arch/arm64/kernel/setup.c
++++ b/arch/arm64/kernel/setup.c
+@@ -345,6 +345,7 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
+ 	arm64_memblock_init();
+ 
+ 	efi_fake_memmap();
++	efi_find_mirror();
+ 
+ 	paging_init();
+ 
+-- 
+2.18.0.huawei.25
