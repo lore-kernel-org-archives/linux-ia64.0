@@ -1,36 +1,55 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Date: Wed, 02 Mar 2022 05:23:02 +0000
-Subject: Re: [PATCH V3 04/30] powerpc/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <87k0ddnd1l.fsf@mpe.ellerman.id.au>
+From: =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
+Date: Sat, 26 Mar 2022 16:58:50 +0000
+Subject: [PATCH 03/22] ia64: Replace comments with C99 initializers
+Message-Id: <20220326165909.506926-3-benni@stuerz.xyz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1646045273-9343-1-git-send-email-anshuman.khandual@arm.com>
- <1646045273-9343-5-git-send-email-anshuman.khandual@arm.com>
-In-Reply-To: <1646045273-9343-5-git-send-email-anshuman.khandual@arm.com>
+References: <20220326165909.506926-1-benni@stuerz.xyz>
+In-Reply-To: <20220326165909.506926-1-benni@stuerz.xyz>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Anshuman Khandual <anshuman.khandual@arm.com>, linux-mm@kvack.org, akpm@linux-foundation.org
-Cc: linux-kernel@vger.kernel.org, geert@linux-m68k.org, Anshuman Khandual <anshuman.khandual@arm.com>, Christoph Hellwig <hch@infradead.org>, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org, sparclinux@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-s390@vger.kernel.org, linux-riscv@lists.infradead.org, linux-alpha@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-csky@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-parisc@vger.kernel.org, openrisc@lists.librecores.org, linux-um@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, Paul Mackerras <paulus@samba.org>
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
+To: andrew@lunn.ch
+Cc: sebastian.hesselbarth@gmail.com, gregory.clement@bootlin.com, linux@armlinux.org.uk, linux@simtec.co.uk, krzk@kernel.org, alim.akhtar@samsung.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, hpa@zytor.com, robert.moore@intel.com, rafael.j.wysocki@intel.com, lenb@kernel.org, 3chas3@gmail.com, laforge@gnumonks.org, arnd@arndb.de, gregkh@linuxfoundation.org, mchehab@kernel.org, tony.luck@intel.com, james.morse@arm.com, rric@kernel.org, linus.walleij@linaro.org, brgl@bgdev.pl, mike.marciniszyn@cornelisnetworks.com, dennis.dalessandro@cornelisnetworks.com, jgg@ziepe.ca, pali@kernel.org, dmitry.torokhov@gmail.com, isdn@linux-pingi.de, benh@kernel.crashing.org, fbarrat@linux.ibm.com, ajd@linux.ibm.com, davem@davemloft.net, kuba@kernel.org, pabeni@redhat.com, nico@fluxnic.net, loic.poulain@linaro.org, kvalo@kernel.org, pkshih@realtek.com, bhelgaas@google.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-edac@vger.kernel.org, linux-gpio@vger.kernel.org, linux-rdma@vger.kernel.org, linux-input@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-media@vger.kernel.org, wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org, linux-pci@vger.kernel.org, =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
 
-Anshuman Khandual <anshuman.khandual@arm.com> writes:
-> This defines and exports a platform specific custom vm_get_page_prot() via
-> subscribing ARCH_HAS_VM_GET_PAGE_PROT. Subsequently all __SXXX and __PXXX
-> macros can be dropped which are no longer needed. While here, this also
-> localizes arch_vm_get_page_prot() as powerpc_vm_get_page_prot() and moves
-> it near vm_get_page_prot().
->
-> Cc: Michael Ellerman <mpe@ellerman.id.au>
-> Cc: Paul Mackerras <paulus@samba.org>
-> Cc: linuxppc-dev@lists.ozlabs.org
-> Cc: linux-kernel@vger.kernel.org
-> Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
-> ---
->  arch/powerpc/Kconfig               |  1 +
->  arch/powerpc/include/asm/mman.h    | 12 ------
->  arch/powerpc/include/asm/pgtable.h | 19 ----------
->  arch/powerpc/mm/mmap.c             | 59 ++++++++++++++++++++++++++++++
->  4 files changed, 60 insertions(+), 31 deletions(-)
-
-Acked-by: Michael Ellerman <mpe@ellerman.id.au> (powerpc)
-
-cheers
+VGhpcyByZXBsYWNlcyBjb21tZW50cyB3aXRoIEM5OSdzIGRlc2lnbmF0ZWQKaW5pdGlhbGl6ZXJz
+IGJlY2F1c2UgdGhlIGtlcm5lbCBzdXBwb3J0cyB0aGVtIG5vdy4KClNpZ25lZC1vZmYtYnk6IEJl
+bmphbWluIFN0w7xyeiA8YmVubmlAc3R1ZXJ6Lnh5ej4KLS0tCiBhcmNoL2lhNjQva2VybmVsL2tw
+cm9iZXMuYyB8IDY0ICsrKysrKysrKysrKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0tCiAxIGZp
+bGUgY2hhbmdlZCwgMzIgaW5zZXJ0aW9ucygrKSwgMzIgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0
+IGEvYXJjaC9pYTY0L2tlcm5lbC9rcHJvYmVzLmMgYi9hcmNoL2lhNjQva2VybmVsL2twcm9iZXMu
+YwppbmRleCAxYTdiYWIxYzVkN2MuLjJkNmE5Mzg4MjAxZSAxMDA2NDQKLS0tIGEvYXJjaC9pYTY0
+L2tlcm5lbC9rcHJvYmVzLmMKKysrIGIvYXJjaC9pYTY0L2tlcm5lbC9rcHJvYmVzLmMKQEAgLTI5
+LDM4ICsyOSwzOCBAQCBzdHJ1Y3Qga3JldHByb2JlX2JsYWNrcG9pbnQga3JldHByb2JlX2JsYWNr
+bGlzdFtdID0ge3tOVUxMLCBOVUxMfX07CiAKIGVudW0gaW5zdHJ1Y3Rpb25fdHlwZSB7QSwgSSwg
+TSwgRiwgQiwgTCwgWCwgdX07CiBzdGF0aWMgZW51bSBpbnN0cnVjdGlvbl90eXBlIGJ1bmRsZV9l
+bmNvZGluZ1szMl1bM10gPSB7Ci0gIHsgTSwgSSwgSSB9LAkJCQkvKiAwMCAqLwotICB7IE0sIEks
+IEkgfSwJCQkJLyogMDEgKi8KLSAgeyBNLCBJLCBJIH0sCQkJCS8qIDAyICovCi0gIHsgTSwgSSwg
+SSB9LAkJCQkvKiAwMyAqLwotICB7IE0sIEwsIFggfSwJCQkJLyogMDQgKi8KLSAgeyBNLCBMLCBY
+IH0sCQkJCS8qIDA1ICovCi0gIHsgdSwgdSwgdSB9LCAgCQkJLyogMDYgKi8KLSAgeyB1LCB1LCB1
+IH0sICAJCQkvKiAwNyAqLwotICB7IE0sIE0sIEkgfSwJCQkJLyogMDggKi8KLSAgeyBNLCBNLCBJ
+IH0sCQkJCS8qIDA5ICovCi0gIHsgTSwgTSwgSSB9LAkJCQkvKiAwQSAqLwotICB7IE0sIE0sIEkg
+fSwJCQkJLyogMEIgKi8KLSAgeyBNLCBGLCBJIH0sCQkJCS8qIDBDICovCi0gIHsgTSwgRiwgSSB9
+LAkJCQkvKiAwRCAqLwotICB7IE0sIE0sIEYgfSwJCQkJLyogMEUgKi8KLSAgeyBNLCBNLCBGIH0s
+CQkJCS8qIDBGICovCi0gIHsgTSwgSSwgQiB9LAkJCQkvKiAxMCAqLwotICB7IE0sIEksIEIgfSwJ
+CQkJLyogMTEgKi8KLSAgeyBNLCBCLCBCIH0sCQkJCS8qIDEyICovCi0gIHsgTSwgQiwgQiB9LAkJ
+CQkvKiAxMyAqLwotICB7IHUsIHUsIHUgfSwgIAkJCS8qIDE0ICovCi0gIHsgdSwgdSwgdSB9LCAg
+CQkJLyogMTUgKi8KLSAgeyBCLCBCLCBCIH0sCQkJCS8qIDE2ICovCi0gIHsgQiwgQiwgQiB9LAkJ
+CQkvKiAxNyAqLwotICB7IE0sIE0sIEIgfSwJCQkJLyogMTggKi8KLSAgeyBNLCBNLCBCIH0sCQkJ
+CS8qIDE5ICovCi0gIHsgdSwgdSwgdSB9LCAgCQkJLyogMUEgKi8KLSAgeyB1LCB1LCB1IH0sICAJ
+CQkvKiAxQiAqLwotICB7IE0sIEYsIEIgfSwJCQkJLyogMUMgKi8KLSAgeyBNLCBGLCBCIH0sCQkJ
+CS8qIDFEICovCi0gIHsgdSwgdSwgdSB9LCAgCQkJLyogMUUgKi8KLSAgeyB1LCB1LCB1IH0sICAJ
+CQkvKiAxRiAqLworCVsweDAwXSA9IHsgTSwgSSwgSSB9LAorCVsweDAxXSA9IHsgTSwgSSwgSSB9
+LAorCVsweDAyXSA9IHsgTSwgSSwgSSB9LAorCVsweDAzXSA9IHsgTSwgSSwgSSB9LAorCVsweDA0
+XSA9IHsgTSwgTCwgWCB9LAorCVsweDA1XSA9IHsgTSwgTCwgWCB9LAorCVsweDA2XSA9IHsgdSwg
+dSwgdSB9LAorCVsweDA3XSA9IHsgdSwgdSwgdSB9LAorCVsweDA4XSA9IHsgTSwgTSwgSSB9LAor
+CVsweDA5XSA9IHsgTSwgTSwgSSB9LAorCVsweDBBXSA9IHsgTSwgTSwgSSB9LAorCVsweDBCXSA9
+IHsgTSwgTSwgSSB9LAorCVsweDBDXSA9IHsgTSwgRiwgSSB9LAorCVsweDBEXSA9IHsgTSwgRiwg
+SSB9LAorCVsweDBFXSA9IHsgTSwgTSwgRiB9LAorCVsweDBGXSA9IHsgTSwgTSwgRiB9LAorCVsw
+eDEwXSA9IHsgTSwgSSwgQiB9LAorCVsweDExXSA9IHsgTSwgSSwgQiB9LAorCVsweDEyXSA9IHsg
+TSwgQiwgQiB9LAorCVsweDEzXSA9IHsgTSwgQiwgQiB9LAorCVsweDE0XSA9IHsgdSwgdSwgdSB9
+LAorCVsweDE1XSA9IHsgdSwgdSwgdSB9LAorCVsweDE2XSA9IHsgQiwgQiwgQiB9LAorCVsweDE3
+XSA9IHsgQiwgQiwgQiB9LAorCVsweDE4XSA9IHsgTSwgTSwgQiB9LAorCVsweDE5XSA9IHsgTSwg
+TSwgQiB9LAorCVsweDFBXSA9IHsgdSwgdSwgdSB9LAorCVsweDFCXSA9IHsgdSwgdSwgdSB9LAor
+CVsweDFDXSA9IHsgTSwgRiwgQiB9LAorCVsweDFEXSA9IHsgTSwgRiwgQiB9LAorCVsweDFFXSA9
+IHsgdSwgdSwgdSB9LAorCVsweDFGXSA9IHsgdSwgdSwgdSB9LAogfTsKIAogLyogSW5zZXJ0IGEg
+bG9uZyBicmFuY2ggY29kZSAqLwotLSAKMi4zNS4xCg==
