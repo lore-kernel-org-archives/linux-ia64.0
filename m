@@ -1,141 +1,93 @@
-From: Wupeng Ma <mawupeng1@huawei.com>
-Date: Sat, 26 Mar 2022 06:46:26 +0000
-Subject: [PATCH 3/9] efi: Make efi_find_mirror() public
-Message-Id: <20220326064632.131637-4-mawupeng1@huawei.com>
+From: =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
+Date: Sat, 26 Mar 2022 16:59:09 +0000
+Subject: [PATCH 22/22] pci: Replace comments with C99 initializers
+Message-Id: <20220326165909.506926-22-benni@stuerz.xyz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220326064632.131637-1-mawupeng1@huawei.com>
-In-Reply-To: <20220326064632.131637-1-mawupeng1@huawei.com>
+References: <20220326165909.506926-1-benni@stuerz.xyz>
+In-Reply-To: <20220326165909.506926-1-benni@stuerz.xyz>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org, corbet@lwn.net
-Cc: ardb@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zyccr.com, dvhart@infradead.org, andy@infradead.org, rppt@kernel.org, paulmck@kernel.org, peterz@infradead.org, jroedel@suse.de, songmuchun@bytedance.com, macro@orcam.me.uk, frederic@kernel.org, W_Armin@gmx.de, john.garry@huawei.com, seanjc@google.com, tsbogend@alpha.franken.de, anshuman.khandual@arm.com, chenhuacai@kernel.org, david@redhat.com, gpiccoli@igalia.com, mark.rutland@arm.com, wangkefeng.wang@huawei.com, mawupeng1@huawei.com, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
+To: andrew@lunn.ch
+Cc: sebastian.hesselbarth@gmail.com, gregory.clement@bootlin.com, linux@armlinux.org.uk, linux@simtec.co.uk, krzk@kernel.org, alim.akhtar@samsung.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, hpa@zytor.com, robert.moore@intel.com, rafael.j.wysocki@intel.com, lenb@kernel.org, 3chas3@gmail.com, laforge@gnumonks.org, arnd@arndb.de, gregkh@linuxfoundation.org, mchehab@kernel.org, tony.luck@intel.com, james.morse@arm.com, rric@kernel.org, linus.walleij@linaro.org, brgl@bgdev.pl, mike.marciniszyn@cornelisnetworks.com, dennis.dalessandro@cornelisnetworks.com, jgg@ziepe.ca, pali@kernel.org, dmitry.torokhov@gmail.com, isdn@linux-pingi.de, benh@kernel.crashing.org, fbarrat@linux.ibm.com, ajd@linux.ibm.com, davem@davemloft.net, kuba@kernel.org, pabeni@redhat.com, nico@fluxnic.net, loic.poulain@linaro.org, kvalo@kernel.org, pkshih@realtek.com, bhelgaas@google.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-edac@vger.kernel.org, linux-gpio@vger.kernel.org, linux-rdma@vger.kernel.org, linux-input@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-media@vger.kernel.org, wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org, linux-pci@vger.kernel.org, =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
 
-From: Ma Wupeng <mawupeng1@huawei.com>
-
-Commit b05b9f5f9dcf ("x86, mirror: x86 enabling - find mirrored memory
-ranges") introduce the efi_find_mirror function on x86. In order to reuse
-the API we make it public in preparation for arm64 to support mirrord
-memory.
-
-Signed-off-by: Ma Wupeng <mawupeng1@huawei.com>
----
- arch/x86/include/asm/efi.h  |  4 ----
- arch/x86/platform/efi/efi.c | 23 -----------------------
- drivers/firmware/efi/efi.c  | 23 +++++++++++++++++++++++
- include/linux/efi.h         |  3 +++
- 4 files changed, 26 insertions(+), 27 deletions(-)
-
-diff --git a/arch/x86/include/asm/efi.h b/arch/x86/include/asm/efi.h
-index f0cc7766f53c..aae5933b7954 100644
---- a/arch/x86/include/asm/efi.h
-+++ b/arch/x86/include/asm/efi.h
-@@ -363,7 +363,6 @@ static inline bool efi_is_64bit(void)
- extern bool efi_reboot_required(void);
- extern bool efi_is_table_address(unsigned long phys_addr);
- 
--extern void efi_find_mirror(void);
- extern void efi_reserve_boot_services(void);
- #else
- static inline void parse_efi_setup(u64 phys_addr, u32 data_len) {}
-@@ -375,9 +374,6 @@ static inline  bool efi_is_table_address(unsigned long phys_addr)
- {
- 	return false;
- }
--static inline void efi_find_mirror(void)
--{
--}
- static inline void efi_reserve_boot_services(void)
- {
- }
-diff --git a/arch/x86/platform/efi/efi.c b/arch/x86/platform/efi/efi.c
-index 7b130f39d841..fedbb228faea 100644
---- a/arch/x86/platform/efi/efi.c
-+++ b/arch/x86/platform/efi/efi.c
-@@ -105,29 +105,6 @@ static int __init setup_add_efi_memmap(char *arg)
- }
- early_param("add_efi_memmap", setup_add_efi_memmap);
- 
--void __init efi_find_mirror(void)
--{
--	efi_memory_desc_t *md;
--	u64 mirror_size = 0, total_size = 0;
--
--	if (!efi_enabled(EFI_MEMMAP))
--		return;
--
--	for_each_efi_memory_desc(md) {
--		unsigned long long start = md->phys_addr;
--		unsigned long long size = md->num_pages << EFI_PAGE_SHIFT;
--
--		total_size += size;
--		if (md->attribute & EFI_MEMORY_MORE_RELIABLE) {
--			memblock_mark_mirror(start, size);
--			mirror_size += size;
--		}
--	}
--	if (mirror_size)
--		pr_info("Memory: %lldM/%lldM mirrored memory\n",
--			mirror_size>>20, total_size>>20);
--}
--
- /*
-  * Tell the kernel about the EFI memory map.  This might include
-  * more than the max 128 entries that can fit in the passed in e820
-diff --git a/drivers/firmware/efi/efi.c b/drivers/firmware/efi/efi.c
-index 5502e176d51b..eb9ebf4efea1 100644
---- a/drivers/firmware/efi/efi.c
-+++ b/drivers/firmware/efi/efi.c
-@@ -438,6 +438,29 @@ static int __init efisubsys_init(void)
- 
- subsys_initcall(efisubsys_init);
- 
-+void __init efi_find_mirror(void)
-+{
-+	efi_memory_desc_t *md;
-+	u64 mirror_size = 0, total_size = 0;
-+
-+	if (!efi_enabled(EFI_MEMMAP))
-+		return;
-+
-+	for_each_efi_memory_desc(md) {
-+		unsigned long long start = md->phys_addr;
-+		unsigned long long size = md->num_pages << EFI_PAGE_SHIFT;
-+
-+		total_size += size;
-+		if (md->attribute & EFI_MEMORY_MORE_RELIABLE) {
-+			memblock_mark_mirror(start, size);
-+			mirror_size += size;
-+		}
-+	}
-+	if (mirror_size)
-+		pr_info("Memory: %lldM/%lldM mirrored memory\n",
-+			mirror_size>>20, total_size>>20);
-+}
-+
- /*
-  * Find the efi memory descriptor for a given physical address.  Given a
-  * physical address, determine if it exists within an EFI Memory Map entry,
-diff --git a/include/linux/efi.h b/include/linux/efi.h
-index de05682b233b..950c84ce3f16 100644
---- a/include/linux/efi.h
-+++ b/include/linux/efi.h
-@@ -853,6 +853,7 @@ static inline bool efi_rt_services_supported(unsigned int mask)
- {
- 	return (efi.runtime_supported_mask & mask) = mask;
- }
-+extern void efi_find_mirror(void);
- #else
- static inline bool efi_enabled(int feature)
- {
-@@ -870,6 +871,8 @@ static inline bool efi_rt_services_supported(unsigned int mask)
- {
- 	return false;
- }
-+
-+static inline void efi_find_mirror(void) {}
- #endif
- 
- extern int efi_status_to_err(efi_status_t status);
--- 
-2.18.0.huawei.25
+VGhpcyByZXBsYWNlcyBjb21tZW50cyB3aXRoIEM5OSdzIGRlc2lnbmF0ZWQKaW5pdGlhbGl6ZXJz
+IGJlY2F1c2UgdGhlIGtlcm5lbCBzdXBwb3J0cyB0aGVtIG5vdy4KClNpZ25lZC1vZmYtYnk6IEJl
+bmphbWluIFN0w7xyeiA8YmVubmlAc3R1ZXJ6Lnh5ej4KLS0tCiBkcml2ZXJzL3BjaS9wcm9iZS5j
+IHwgMTE2ICsrKysrKysrKysrKysrKysrKysrKystLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiAxIGZp
+bGUgY2hhbmdlZCwgNTggaW5zZXJ0aW9ucygrKSwgNTggZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0
+IGEvZHJpdmVycy9wY2kvcHJvYmUuYyBiL2RyaXZlcnMvcGNpL3Byb2JlLmMKaW5kZXggMTdhOTY5
+OTQyZDM3Li4zZGUyN2IwNzY1YzggMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvcGNpL3Byb2JlLmMKKysr
+IGIvZHJpdmVycy9wY2kvcHJvYmUuYwpAQCAtNjUzLDQyICs2NTMsNDIgQEAgRVhQT1JUX1NZTUJP
+TChwY2lfZnJlZV9ob3N0X2JyaWRnZSk7CgogLyogSW5kZXhlZCBieSBQQ0lfWF9TU1RBVFVTX0ZS
+RVEgKHNlY29uZGFyeSBidXMgbW9kZSBhbmQgZnJlcXVlbmN5KSAqLwogc3RhdGljIGNvbnN0IHVu
+c2lnbmVkIGNoYXIgcGNpeF9idXNfc3BlZWRbXSA9IHsKLQlQQ0lfU1BFRURfVU5LTk9XTiwJCS8q
+IDAgKi8KLQlQQ0lfU1BFRURfNjZNSHpfUENJWCwJCS8qIDEgKi8KLQlQQ0lfU1BFRURfMTAwTUh6
+X1BDSVgsCQkvKiAyICovCi0JUENJX1NQRUVEXzEzM01Iel9QQ0lYLAkJLyogMyAqLwotCVBDSV9T
+UEVFRF9VTktOT1dOLAkJLyogNCAqLwotCVBDSV9TUEVFRF82Nk1Iel9QQ0lYX0VDQywJLyogNSAq
+LwotCVBDSV9TUEVFRF8xMDBNSHpfUENJWF9FQ0MsCS8qIDYgKi8KLQlQQ0lfU1BFRURfMTMzTUh6
+X1BDSVhfRUNDLAkvKiA3ICovCi0JUENJX1NQRUVEX1VOS05PV04sCQkvKiA4ICovCi0JUENJX1NQ
+RUVEXzY2TUh6X1BDSVhfMjY2LAkvKiA5ICovCi0JUENJX1NQRUVEXzEwME1Iel9QQ0lYXzI2NiwJ
+LyogQSAqLwotCVBDSV9TUEVFRF8xMzNNSHpfUENJWF8yNjYsCS8qIEIgKi8KLQlQQ0lfU1BFRURf
+VU5LTk9XTiwJCS8qIEMgKi8KLQlQQ0lfU1BFRURfNjZNSHpfUENJWF81MzMsCS8qIEQgKi8KLQlQ
+Q0lfU1BFRURfMTAwTUh6X1BDSVhfNTMzLAkvKiBFICovCi0JUENJX1NQRUVEXzEzM01Iel9QQ0lY
+XzUzMwkvKiBGICovCisJWzB4MF0gPSBQQ0lfU1BFRURfVU5LTk9XTiwKKwlbMHgxXSA9IFBDSV9T
+UEVFRF82Nk1Iel9QQ0lYLAorCVsweDJdID0gUENJX1NQRUVEXzEwME1Iel9QQ0lYLAorCVsweDNd
+ID0gUENJX1NQRUVEXzEzM01Iel9QQ0lYLAorCVsweDRdID0gUENJX1NQRUVEX1VOS05PV04sCisJ
+WzB4NV0gPSBQQ0lfU1BFRURfNjZNSHpfUENJWF9FQ0MsCisJWzB4Nl0gPSBQQ0lfU1BFRURfMTAw
+TUh6X1BDSVhfRUNDLAorCVsweDddID0gUENJX1NQRUVEXzEzM01Iel9QQ0lYX0VDQywKKwlbMHg4
+XSA9IFBDSV9TUEVFRF9VTktOT1dOLAorCVsweDldID0gUENJX1NQRUVEXzY2TUh6X1BDSVhfMjY2
+LAorCVsweEFdID0gUENJX1NQRUVEXzEwME1Iel9QQ0lYXzI2NiwKKwlbMHhCXSA9IFBDSV9TUEVF
+RF8xMzNNSHpfUENJWF8yNjYsCisJWzB4Q10gPSBQQ0lfU1BFRURfVU5LTk9XTiwKKwlbMHhEXSA9
+IFBDSV9TUEVFRF82Nk1Iel9QQ0lYXzUzMywKKwlbMHhFXSA9IFBDSV9TUEVFRF8xMDBNSHpfUENJ
+WF81MzMsCisJWzB4Rl0gPSBQQ0lfU1BFRURfMTMzTUh6X1BDSVhfNTMzCiB9OwoKIC8qIEluZGV4
+ZWQgYnkgUENJX0VYUF9MTktDQVBfU0xTLCBQQ0lfRVhQX0xOS1NUQV9DTFMgKi8KIGNvbnN0IHVu
+c2lnbmVkIGNoYXIgcGNpZV9saW5rX3NwZWVkW10gPSB7Ci0JUENJX1NQRUVEX1VOS05PV04sCQkv
+KiAwICovCi0JUENJRV9TUEVFRF8yXzVHVCwJCS8qIDEgKi8KLQlQQ0lFX1NQRUVEXzVfMEdULAkJ
+LyogMiAqLwotCVBDSUVfU1BFRURfOF8wR1QsCQkvKiAzICovCi0JUENJRV9TUEVFRF8xNl8wR1Qs
+CQkvKiA0ICovCi0JUENJRV9TUEVFRF8zMl8wR1QsCQkvKiA1ICovCi0JUENJRV9TUEVFRF82NF8w
+R1QsCQkvKiA2ICovCi0JUENJX1NQRUVEX1VOS05PV04sCQkvKiA3ICovCi0JUENJX1NQRUVEX1VO
+S05PV04sCQkvKiA4ICovCi0JUENJX1NQRUVEX1VOS05PV04sCQkvKiA5ICovCi0JUENJX1NQRUVE
+X1VOS05PV04sCQkvKiBBICovCi0JUENJX1NQRUVEX1VOS05PV04sCQkvKiBCICovCi0JUENJX1NQ
+RUVEX1VOS05PV04sCQkvKiBDICovCi0JUENJX1NQRUVEX1VOS05PV04sCQkvKiBEICovCi0JUENJ
+X1NQRUVEX1VOS05PV04sCQkvKiBFICovCi0JUENJX1NQRUVEX1VOS05PV04JCS8qIEYgKi8KKwlb
+MHgwXSA9IFBDSV9TUEVFRF9VTktOT1dOLAorCVsweDFdID0gUENJRV9TUEVFRF8yXzVHVCwKKwlb
+MHgyXSA9IFBDSUVfU1BFRURfNV8wR1QsCisJWzB4M10gPSBQQ0lFX1NQRUVEXzhfMEdULAorCVsw
+eDRdID0gUENJRV9TUEVFRF8xNl8wR1QsCisJWzB4NV0gPSBQQ0lFX1NQRUVEXzMyXzBHVCwKKwlb
+MHg2XSA9IFBDSUVfU1BFRURfNjRfMEdULAorCVsweDddID0gUENJX1NQRUVEX1VOS05PV04sCisJ
+WzB4OF0gPSBQQ0lfU1BFRURfVU5LTk9XTiwKKwlbMHg5XSA9IFBDSV9TUEVFRF9VTktOT1dOLAor
+CVsweEFdID0gUENJX1NQRUVEX1VOS05PV04sCisJWzB4Ql0gPSBQQ0lfU1BFRURfVU5LTk9XTiwK
+KwlbMHhDXSA9IFBDSV9TUEVFRF9VTktOT1dOLAorCVsweERdID0gUENJX1NQRUVEX1VOS05PV04s
+CisJWzB4RV0gPSBQQ0lfU1BFRURfVU5LTk9XTiwKKwlbMHhGXSA9IFBDSV9TUEVFRF9VTktOT1dO
+CiB9OwogRVhQT1JUX1NZTUJPTF9HUEwocGNpZV9saW5rX3NwZWVkKTsKCkBAIC02OTYsMzIgKzY5
+NiwzMiBAQCBjb25zdCBjaGFyICpwY2lfc3BlZWRfc3RyaW5nKGVudW0gcGNpX2J1c19zcGVlZCBz
+cGVlZCkKIHsKIAkvKiBJbmRleGVkIGJ5IHRoZSBwY2lfYnVzX3NwZWVkIGVudW0gKi8KIAlzdGF0
+aWMgY29uc3QgY2hhciAqc3BlZWRfc3RyaW5nc1tdID0gewotCSAgICAiMzMgTUh6IFBDSSIsCQkv
+KiAweDAwICovCi0JICAgICI2NiBNSHogUENJIiwJCS8qIDB4MDEgKi8KLQkgICAgIjY2IE1IeiBQ
+Q0ktWCIsCQkvKiAweDAyICovCi0JICAgICIxMDAgTUh6IFBDSS1YIiwJCS8qIDB4MDMgKi8KLQkg
+ICAgIjEzMyBNSHogUENJLVgiLAkJLyogMHgwNCAqLwotCSAgICBOVUxMLAkJCS8qIDB4MDUgKi8K
+LQkgICAgTlVMTCwJCQkvKiAweDA2ICovCi0JICAgIE5VTEwsCQkJLyogMHgwNyAqLwotCSAgICBO
+VUxMLAkJCS8qIDB4MDggKi8KLQkgICAgIjY2IE1IeiBQQ0ktWCAyNjYiLAkJLyogMHgwOSAqLwot
+CSAgICAiMTAwIE1IeiBQQ0ktWCAyNjYiLAkvKiAweDBhICovCi0JICAgICIxMzMgTUh6IFBDSS1Y
+IDI2NiIsCS8qIDB4MGIgKi8KLQkgICAgIlVua25vd24gQUdQIiwJCS8qIDB4MGMgKi8KLQkgICAg
+IjF4IEFHUCIsCQkJLyogMHgwZCAqLwotCSAgICAiMnggQUdQIiwJCQkvKiAweDBlICovCi0JICAg
+ICI0eCBBR1AiLAkJCS8qIDB4MGYgKi8KLQkgICAgIjh4IEFHUCIsCQkJLyogMHgxMCAqLwotCSAg
+ICAiNjYgTUh6IFBDSS1YIDUzMyIsCQkvKiAweDExICovCi0JICAgICIxMDAgTUh6IFBDSS1YIDUz
+MyIsCS8qIDB4MTIgKi8KLQkgICAgIjEzMyBNSHogUENJLVggNTMzIiwJLyogMHgxMyAqLwotCSAg
+ICAiMi41IEdUL3MgUENJZSIsCQkvKiAweDE0ICovCi0JICAgICI1LjAgR1QvcyBQQ0llIiwJCS8q
+IDB4MTUgKi8KLQkgICAgIjguMCBHVC9zIFBDSWUiLAkJLyogMHgxNiAqLwotCSAgICAiMTYuMCBH
+VC9zIFBDSWUiLAkJLyogMHgxNyAqLwotCSAgICAiMzIuMCBHVC9zIFBDSWUiLAkJLyogMHgxOCAq
+LwotCSAgICAiNjQuMCBHVC9zIFBDSWUiLAkJLyogMHgxOSAqLworCQlbMHgwMF0gPSAiMzMgTUh6
+IFBDSSIsCisJCVsweDAxXSA9ICI2NiBNSHogUENJIiwKKwkJWzB4MDJdID0gIjY2IE1IeiBQQ0kt
+WCIsCisJCVsweDAzXSA9ICIxMDAgTUh6IFBDSS1YIiwKKwkJWzB4MDRdID0gIjEzMyBNSHogUENJ
+LVgiLAorCQlbMHgwNV0gPSBOVUxMLAorCQlbMHgwNl0gPSBOVUxMLAorCQlbMHgwN10gPSBOVUxM
+LAorCQlbMHgwOF0gPSBOVUxMLAorCQlbMHgwOV0gPSAiNjYgTUh6IFBDSS1YIDI2NiIsCisJCVsw
+eDBhXSA9ICIxMDAgTUh6IFBDSS1YIDI2NiIsCisJCVsweDBiXSA9ICIxMzMgTUh6IFBDSS1YIDI2
+NiIsCisJCVsweDBjXSA9ICJVbmtub3duIEFHUCIsCisJCVsweDBkXSA9ICIxeCBBR1AiLAorCQlb
+MHgwZV0gPSAiMnggQUdQIiwKKwkJWzB4MGZdID0gIjR4IEFHUCIsCisJCVsweDEwXSA9ICI4eCBB
+R1AiLAorCQlbMHgxMV0gPSAiNjYgTUh6IFBDSS1YIDUzMyIsCisJCVsweDEyXSA9ICIxMDAgTUh6
+IFBDSS1YIDUzMyIsCisJCVsweDEzXSA9ICIxMzMgTUh6IFBDSS1YIDUzMyIsCisJCVsweDE0XSA9
+ICIyLjUgR1QvcyBQQ0llIiwKKwkJWzB4MTVdID0gIjUuMCBHVC9zIFBDSWUiLAorCQlbMHgxNl0g
+PSAiOC4wIEdUL3MgUENJZSIsCisJCVsweDE3XSA9ICIxNi4wIEdUL3MgUENJZSIsCisJCVsweDE4
+XSA9ICIzMi4wIEdUL3MgUENJZSIsCisJCVsweDE5XSA9ICI2NC4wIEdUL3MgUENJZSIsCiAJfTsK
+CiAJaWYgKHNwZWVkIDwgQVJSQVlfU0laRShzcGVlZF9zdHJpbmdzKSkKLS0KMi4zNS4xCg==
