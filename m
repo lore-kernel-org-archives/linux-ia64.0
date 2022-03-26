@@ -1,45 +1,103 @@
-From: =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
-Date: Sat, 26 Mar 2022 16:59:05 +0000
-Subject: [PATCH 18/22] smsc: Replace comments with C99 initializers
-Message-Id: <20220326165909.506926-18-benni@stuerz.xyz>
+From: Wupeng Ma <mawupeng1@huawei.com>
+Date: Sat, 26 Mar 2022 06:46:24 +0000
+Subject: [PATCH 1/9] efi: Make efi_print_memmap() public
+Message-Id: <20220326064632.131637-2-mawupeng1@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220326165909.506926-1-benni@stuerz.xyz>
-In-Reply-To: <20220326165909.506926-1-benni@stuerz.xyz>
+References: <20220326064632.131637-1-mawupeng1@huawei.com>
+In-Reply-To: <20220326064632.131637-1-mawupeng1@huawei.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: andrew@lunn.ch
-Cc: sebastian.hesselbarth@gmail.com, gregory.clement@bootlin.com, linux@armlinux.org.uk, linux@simtec.co.uk, krzk@kernel.org, alim.akhtar@samsung.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, hpa@zytor.com, robert.moore@intel.com, rafael.j.wysocki@intel.com, lenb@kernel.org, 3chas3@gmail.com, laforge@gnumonks.org, arnd@arndb.de, gregkh@linuxfoundation.org, mchehab@kernel.org, tony.luck@intel.com, james.morse@arm.com, rric@kernel.org, linus.walleij@linaro.org, brgl@bgdev.pl, mike.marciniszyn@cornelisnetworks.com, dennis.dalessandro@cornelisnetworks.com, jgg@ziepe.ca, pali@kernel.org, dmitry.torokhov@gmail.com, isdn@linux-pingi.de, benh@kernel.crashing.org, fbarrat@linux.ibm.com, ajd@linux.ibm.com, davem@davemloft.net, kuba@kernel.org, pabeni@redhat.com, nico@fluxnic.net, loic.poulain@linaro.org, kvalo@kernel.org, pkshih@realtek.com, bhelgaas@google.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-edac@vger.kernel.org, linux-gpio@vger.kernel.org, linux-rdma@vger.kernel.org, linux-input@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-media@vger.kernel.org, wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org, linux-pci@vger.kernel.org, =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org, corbet@lwn.net
+Cc: ardb@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zyccr.com, dvhart@infradead.org, andy@infradead.org, rppt@kernel.org, paulmck@kernel.org, peterz@infradead.org, jroedel@suse.de, songmuchun@bytedance.com, macro@orcam.me.uk, frederic@kernel.org, W_Armin@gmx.de, john.garry@huawei.com, seanjc@google.com, tsbogend@alpha.franken.de, anshuman.khandual@arm.com, chenhuacai@kernel.org, david@redhat.com, gpiccoli@igalia.com, mark.rutland@arm.com, wangkefeng.wang@huawei.com, mawupeng1@huawei.com, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org
 
-VGhpcyByZXBsYWNlcyBjb21tZW50cyB3aXRoIEM5OSdzIGRlc2lnbmF0ZWQKaW5pdGlhbGl6ZXJz
-IGJlY2F1c2UgdGhlIGtlcm5lbCBzdXBwb3J0cyB0aGVtIG5vdy4KClNpZ25lZC1vZmYtYnk6IEJl
-bmphbWluIFN0w7xyeiA8YmVubmlAc3R1ZXJ6Lnh5ej4KLS0tCiBkcml2ZXJzL25ldC9ldGhlcm5l
-dC9zbXNjL3NtYzkxOTQuaCB8IDE1ICsrKysrKy0tLS0tLS0tLQogZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvc21zYy9zbWM5MXguaCAgfCAxOCArKysrKysrKy0tLS0tLS0tLS0KIDIgZmlsZXMgY2hhbmdl
-ZCwgMTQgaW5zZXJ0aW9ucygrKSwgMTkgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvc21zYy9zbWM5MTk0LmggYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9zbXNj
-L3NtYzkxOTQuaAppbmRleCBjZjY5ZDBhNWExY2IuLmUxYzc4MGFmYjliYiAxMDA2NDQKLS0tIGEv
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvc21zYy9zbWM5MTk0LmgKKysrIGIvZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvc21zYy9zbWM5MTk0LmgKQEAgLTE2MywxNSArMTYzLDEyIEBAIHR5cGVkZWYgdW5zaWdu
-ZWQgbG9uZyBpbnQgCQlkd29yZDsKICNkZWZpbmUgQ0hJUF85MTEwMAk3CiAKIHN0YXRpYyBjb25z
-dCBjaGFyICogY2hpcF9pZHNbIDE1IF0gPSAgewotCU5VTEwsIE5VTEwsIE5VTEwsCi0JLyogMyAq
-LyAiU01DOTFDOTAvOTFDOTIiLAotCS8qIDQgKi8gIlNNQzkxQzk0IiwKLQkvKiA1ICovICJTTUM5
-MUM5NSIsCi0JTlVMTCwKLQkvKiA3ICovICJTTUM5MUMxMDAiLAotCS8qIDggKi8gIlNNQzkxQzEw
-MEZEIiwKLQlOVUxMLCBOVUxMLCBOVUxMLAotCU5VTEwsIE5VTEwsIE5VTEx9OworCVszXSA9ICJT
-TUM5MUM5MC85MUM5MiIsCisJWzRdID0gIlNNQzkxQzk0IiwKKwlbNV0gPSAiU01DOTFDOTUiLAor
-CVs3XSA9ICJTTUM5MUMxMDAiLAorCVs4XSA9ICJTTUM5MUMxMDBGRCIsCit9OwogCiAvKgogIC4g
-VHJhbnNtaXQgc3RhdHVzIGJpdHMKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Nt
-c2Mvc21jOTF4LmggYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9zbXNjL3NtYzkxeC5oCmluZGV4IDM4
-NzUzOWE4MDk0Yi4uMTIyY2RjODQ5NTA3IDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5l
-dC9zbXNjL3NtYzkxeC5oCisrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Ntc2Mvc21jOTF4LmgK
-QEAgLTczMSwxNiArNzMxLDE0IEBAIHNtY19weGFfZG1hX2luc3codm9pZCBfX2lvbWVtICppb2Fk
-ZHIsIHN0cnVjdCBzbWNfbG9jYWwgKmxwLCBpbnQgcmVnLCBpbnQgZG1hLAogI2RlZmluZSBDSElQ
-XzkxMTExRkQJOQogCiBzdGF0aWMgY29uc3QgY2hhciAqIGNoaXBfaWRzWyAxNiBdID0gIHsKLQlO
-VUxMLCBOVUxMLCBOVUxMLAotCS8qIDMgKi8gIlNNQzkxQzkwLzkxQzkyIiwKLQkvKiA0ICovICJT
-TUM5MUM5NCIsCi0JLyogNSAqLyAiU01DOTFDOTUiLAotCS8qIDYgKi8gIlNNQzkxQzk2IiwKLQkv
-KiA3ICovICJTTUM5MUMxMDAiLAotCS8qIDggKi8gIlNNQzkxQzEwMEZEIiwKLQkvKiA5ICovICJT
-TUM5MUMxMXhGRCIsCi0JTlVMTCwgTlVMTCwgTlVMTCwKLQlOVUxMLCBOVUxMLCBOVUxMfTsKKwlb
-M10gPSAiU01DOTFDOTAvOTFDOTIiLAorCVs0XSA9ICJTTUM5MUM5NCIsCisJWzVdID0gIlNNQzkx
-Qzk1IiwKKwlbNl0gPSAiU01DOTFDOTYiLAorCVs3XSA9ICJTTUM5MUMxMDAiLAorCVs4XSA9ICJT
-TUM5MUMxMDBGRCIsCisJWzldID0gIlNNQzkxQzExeEZEIiwKK307CiAKIAogLyoKLS0gCjIuMzUu
-MQo=
+From: Ma Wupeng <mawupeng1@huawei.com>
+
+Make efi_print_memmap() public in preparation for adding fake memory
+support for architecture with efi support, eg, arm64.
+
+Signed-off-by: Ma Wupeng <mawupeng1@huawei.com>
+---
+ arch/x86/include/asm/efi.h    |  1 -
+ arch/x86/platform/efi/efi.c   | 16 ----------------
+ drivers/firmware/efi/memmap.c | 16 ++++++++++++++++
+ include/linux/efi.h           |  1 +
+ 4 files changed, 17 insertions(+), 17 deletions(-)
+
+diff --git a/arch/x86/include/asm/efi.h b/arch/x86/include/asm/efi.h
+index 03cb12775043..f0cc7766f53c 100644
+--- a/arch/x86/include/asm/efi.h
++++ b/arch/x86/include/asm/efi.h
+@@ -145,7 +145,6 @@ extern asmlinkage u64 __efi_call(void *fp, ...);
+ #endif /* CONFIG_X86_32 */
+ 
+ extern int __init efi_memblock_x86_reserve_range(void);
+-extern void __init efi_print_memmap(void);
+ extern void __init efi_map_region(efi_memory_desc_t *md);
+ extern void __init efi_map_region_fixed(efi_memory_desc_t *md);
+ extern void efi_sync_low_kernel_mappings(void);
+diff --git a/arch/x86/platform/efi/efi.c b/arch/x86/platform/efi/efi.c
+index 147c30a81f15..7b130f39d841 100644
+--- a/arch/x86/platform/efi/efi.c
++++ b/arch/x86/platform/efi/efi.c
+@@ -323,22 +323,6 @@ static void __init efi_clean_memmap(void)
+ 	}
+ }
+ 
+-void __init efi_print_memmap(void)
+-{
+-	efi_memory_desc_t *md;
+-	int i = 0;
+-
+-	for_each_efi_memory_desc(md) {
+-		char buf[64];
+-
+-		pr_info("mem%02u: %s range=[0x%016llx-0x%016llx] (%lluMB)\n",
+-			i++, efi_md_typeattr_format(buf, sizeof(buf), md),
+-			md->phys_addr,
+-			md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT) - 1,
+-			(md->num_pages >> (20 - EFI_PAGE_SHIFT)));
+-	}
+-}
+-
+ static int __init efi_systab_init(unsigned long phys)
+ {
+ 	int size = efi_enabled(EFI_64BIT) ? sizeof(efi_system_table_64_t)
+diff --git a/drivers/firmware/efi/memmap.c b/drivers/firmware/efi/memmap.c
+index 4df55a55da84..04cc1f2cdfa4 100644
+--- a/drivers/firmware/efi/memmap.c
++++ b/drivers/firmware/efi/memmap.c
+@@ -376,3 +376,19 @@ void __init efi_memmap_insert(struct efi_memory_map *old_memmap, void *buf,
+ 		}
+ 	}
+ }
++
++void __init efi_print_memmap(void)
++{
++	efi_memory_desc_t *md;
++	int i = 0;
++
++	for_each_efi_memory_desc(md) {
++		char buf[64];
++
++		pr_info("mem%02u: %s range=[0x%016llx-0x%016llx] (%lluMB)\n",
++			i++, efi_md_typeattr_format(buf, sizeof(buf), md),
++			md->phys_addr,
++			md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT) - 1,
++			(md->num_pages >> (20 - EFI_PAGE_SHIFT)));
++	}
++}
+diff --git a/include/linux/efi.h b/include/linux/efi.h
+index ccd4d3f91c98..de05682b233b 100644
+--- a/include/linux/efi.h
++++ b/include/linux/efi.h
+@@ -684,6 +684,7 @@ extern int __init efi_memmap_split_count(efi_memory_desc_t *md,
+ 					 struct range *range);
+ extern void __init efi_memmap_insert(struct efi_memory_map *old_memmap,
+ 				     void *buf, struct efi_mem_range *mem);
++extern void __init efi_print_memmap(void);
+ 
+ #ifdef CONFIG_EFI_ESRT
+ extern void __init efi_esrt_init(void);
+-- 
+2.18.0.huawei.25
