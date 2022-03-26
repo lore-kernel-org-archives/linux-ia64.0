@@ -1,64 +1,127 @@
-From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Date: Mon, 14 Mar 2022 23:11:55 +0000
-Subject: Re: [PATCH 14/15] swiotlb: remove swiotlb_init_with_tbl and swiotlb_init_late_with_tbl
-Message-Id: <ab552f6a-958a-e8c8-037f-b143119fefe5@oracle.com>
+From: =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
+Date: Sat, 26 Mar 2022 16:58:52 +0000
+Subject: [PATCH 05/22] acpica: Replace comments with C99 initializers
+Message-Id: <20220326165909.506926-5-benni@stuerz.xyz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220314073129.1862284-1-hch@lst.de>
- <20220314073129.1862284-15-hch@lst.de>
-In-Reply-To: <20220314073129.1862284-15-hch@lst.de>
+References: <20220326165909.506926-1-benni@stuerz.xyz>
+In-Reply-To: <20220326165909.506926-1-benni@stuerz.xyz>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>, iommu@lists.linux-foundation.org
-Cc: Juergen Gross <jgross@suse.com>, Tom Lendacky <thomas.lendacky@amd.com>, linux-s390@vger.kernel.org, Stefano Stabellini <sstabellini@kernel.org>, linux-ia64@vger.kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, tboot-devel@lists.sourceforge.net, linux-hyperv@vger.kernel.org, linux-pci@vger.kernel.org, xen-devel@lists.xenproject.org, linux-riscv@lists.infradead.org, David Woodhouse <dwmw2@infradead.org>, linux-arm-kernel@lists.infradead.org
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
+To: andrew@lunn.ch
+Cc: sebastian.hesselbarth@gmail.com, gregory.clement@bootlin.com, linux@armlinux.org.uk, linux@simtec.co.uk, krzk@kernel.org, alim.akhtar@samsung.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, hpa@zytor.com, robert.moore@intel.com, rafael.j.wysocki@intel.com, lenb@kernel.org, 3chas3@gmail.com, laforge@gnumonks.org, arnd@arndb.de, gregkh@linuxfoundation.org, mchehab@kernel.org, tony.luck@intel.com, james.morse@arm.com, rric@kernel.org, linus.walleij@linaro.org, brgl@bgdev.pl, mike.marciniszyn@cornelisnetworks.com, dennis.dalessandro@cornelisnetworks.com, jgg@ziepe.ca, pali@kernel.org, dmitry.torokhov@gmail.com, isdn@linux-pingi.de, benh@kernel.crashing.org, fbarrat@linux.ibm.com, ajd@linux.ibm.com, davem@davemloft.net, kuba@kernel.org, pabeni@redhat.com, nico@fluxnic.net, loic.poulain@linaro.org, kvalo@kernel.org, pkshih@realtek.com, bhelgaas@google.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-edac@vger.kernel.org, linux-gpio@vger.kernel.org, linux-rdma@vger.kernel.org, linux-input@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-media@vger.kernel.org, wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org, linux-pci@vger.kernel.org, =?UTF-8?q?Benjamin=20St=C3=BCrz?= <benni@stuerz.xyz>
 
-
-On 3/14/22 3:31 AM, Christoph Hellwig wrote:
-> @@ -314,6 +293,7 @@ void __init swiotlb_init(bool addressing_limit, unsigned int flags)
->   int swiotlb_init_late(size_t size, gfp_t gfp_mask,
->   		int (*remap)(void *tlb, unsigned long nslabs))
->   {
-> +	struct io_tlb_mem *mem = &io_tlb_default_mem;
->   	unsigned long nslabs = ALIGN(size >> IO_TLB_SHIFT, IO_TLB_SEGSIZE);
->   	unsigned long bytes;
->   	unsigned char *vstart = NULL;
-> @@ -355,33 +335,28 @@ int swiotlb_init_late(size_t size, gfp_t gfp_mask,
->   			(PAGE_SIZE << order) >> 20);
->   		nslabs = SLABS_PER_PAGE << order;
->   	}
-> -	rc = swiotlb_late_init_with_tbl(vstart, nslabs);
-> -	if (rc)
-> -		free_pages((unsigned long)vstart, order);
-> -
-> -	return rc;
-> -}
-> -
-> -int
-> -swiotlb_late_init_with_tbl(char *tlb, unsigned long nslabs)
-> -{
-> -	struct io_tlb_mem *mem = &io_tlb_default_mem;
-> -	unsigned long bytes = nslabs << IO_TLB_SHIFT;
->   
-> -	if (swiotlb_force_disable)
-> -		return 0;
-> +	if (remap)
-> +		rc = remap(vstart, nslabs);
-> +	if (rc) {
-> +		free_pages((unsigned long)vstart, order);
->   
-> -	/* protect against double initialization */
-> -	if (WARN_ON_ONCE(mem->nslabs))
-> -		return -ENOMEM;
-> +		/* Min is 2MB */
-> +		if (nslabs <= 1024)
-> +			return rc;
-> +		nslabs = max(1024UL, ALIGN(nslabs >> 1, IO_TLB_SEGSIZE));
-> +		goto retry;
-> +	}
-
-
-We now end up with two attempts to remap. I think this second one is what we want since it solves the problem I pointed in previous patch.
-
-
--boris
-
+VGhpcyByZXBsYWNlcyBjb21tZW50cyB3aXRoIEM5OSdzIGRlc2lnbmF0ZWQKaW5pdGlhbGl6ZXJz
+IGJlY2F1c2UgdGhlIGtlcm5lbCBzdXBwb3J0cyB0aGVtIG5vdy4KClNpZ25lZC1vZmYtYnk6IEJl
+bmphbWluIFN0w7xyeiA8YmVubmlAc3R1ZXJ6Lnh5ej4KLS0tCiBkcml2ZXJzL2FjcGkvYWNwaWNh
+L3V0ZGVjb2RlLmMgfCAxODMgKysrKysrKysrKysrKysrKy0tLS0tLS0tLS0tLS0tLS0tCiAxIGZp
+bGUgY2hhbmdlZCwgOTAgaW5zZXJ0aW9ucygrKSwgOTMgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0
+IGEvZHJpdmVycy9hY3BpL2FjcGljYS91dGRlY29kZS5jIGIvZHJpdmVycy9hY3BpL2FjcGljYS91
+dGRlY29kZS5jCmluZGV4IGJjZDM4NzEwNzlkNy4uZDE5ODY4ZDJlYTQ2IDEwMDY0NAotLS0gYS9k
+cml2ZXJzL2FjcGkvYWNwaWNhL3V0ZGVjb2RlLmMKKysrIGIvZHJpdmVycy9hY3BpL2FjcGljYS91
+dGRlY29kZS5jCkBAIC0xNTYsMzcgKzE1NiwzNyBAQCBzdGF0aWMgY29uc3QgY2hhciBhY3BpX2di
+bF9iYWRfdHlwZVtdID0gIlVOREVGSU5FRCI7CiAvKiBQcmludGFibGUgbmFtZXMgb2YgdGhlIEFD
+UEkgb2JqZWN0IHR5cGVzICovCiAKIHN0YXRpYyBjb25zdCBjaGFyICphY3BpX2dibF9uc190eXBl
+X25hbWVzW10gPSB7Ci0JLyogMDAgKi8gIlVudHlwZWQiLAotCS8qIDAxICovICJJbnRlZ2VyIiwK
+LQkvKiAwMiAqLyAiU3RyaW5nIiwKLQkvKiAwMyAqLyAiQnVmZmVyIiwKLQkvKiAwNCAqLyAiUGFj
+a2FnZSIsCi0JLyogMDUgKi8gIkZpZWxkVW5pdCIsCi0JLyogMDYgKi8gIkRldmljZSIsCi0JLyog
+MDcgKi8gIkV2ZW50IiwKLQkvKiAwOCAqLyAiTWV0aG9kIiwKLQkvKiAwOSAqLyAiTXV0ZXgiLAot
+CS8qIDEwICovICJSZWdpb24iLAotCS8qIDExICovICJQb3dlciIsCi0JLyogMTIgKi8gIlByb2Nl
+c3NvciIsCi0JLyogMTMgKi8gIlRoZXJtYWwiLAotCS8qIDE0ICovICJCdWZmZXJGaWVsZCIsCi0J
+LyogMTUgKi8gIkRkYkhhbmRsZSIsCi0JLyogMTYgKi8gIkRlYnVnT2JqZWN0IiwKLQkvKiAxNyAq
+LyAiUmVnaW9uRmllbGQiLAotCS8qIDE4ICovICJCYW5rRmllbGQiLAotCS8qIDE5ICovICJJbmRl
+eEZpZWxkIiwKLQkvKiAyMCAqLyAiUmVmZXJlbmNlIiwKLQkvKiAyMSAqLyAiQWxpYXMiLAotCS8q
+IDIyICovICJNZXRob2RBbGlhcyIsCi0JLyogMjMgKi8gIk5vdGlmeSIsCi0JLyogMjQgKi8gIkFk
+ZHJIYW5kbGVyIiwKLQkvKiAyNSAqLyAiUmVzb3VyY2VEZXNjIiwKLQkvKiAyNiAqLyAiUmVzb3Vy
+Y2VGbGQiLAotCS8qIDI3ICovICJTY29wZSIsCi0JLyogMjggKi8gIkV4dHJhIiwKLQkvKiAyOSAq
+LyAiRGF0YSIsCi0JLyogMzAgKi8gIkludmFsaWQiCisJWzBdICA9ICJVbnR5cGVkIiwKKwlbMV0g
+ID0gIkludGVnZXIiLAorCVsyXSAgPSAiU3RyaW5nIiwKKwlbM10gID0gIkJ1ZmZlciIsCisJWzRd
+ICA9ICJQYWNrYWdlIiwKKwlbNV0gID0gIkZpZWxkVW5pdCIsCisJWzZdICA9ICJEZXZpY2UiLAor
+CVs3XSAgPSAiRXZlbnQiLAorCVs4XSAgPSAiTWV0aG9kIiwKKwlbOV0gID0gIk11dGV4IiwKKwlb
+MTBdID0gIlJlZ2lvbiIsCisJWzExXSA9ICJQb3dlciIsCisJWzEyXSA9ICJQcm9jZXNzb3IiLAor
+CVsxM10gPSAiVGhlcm1hbCIsCisJWzE0XSA9ICJCdWZmZXJGaWVsZCIsCisJWzE1XSA9ICJEZGJI
+YW5kbGUiLAorCVsxNl0gPSAiRGVidWdPYmplY3QiLAorCVsxN10gPSAiUmVnaW9uRmllbGQiLAor
+CVsxOF0gPSAiQmFua0ZpZWxkIiwKKwlbMTldID0gIkluZGV4RmllbGQiLAorCVsyMF0gPSAiUmVm
+ZXJlbmNlIiwKKwlbMjFdID0gIkFsaWFzIiwKKwlbMjJdID0gIk1ldGhvZEFsaWFzIiwKKwlbMjNd
+ID0gIk5vdGlmeSIsCisJWzI0XSA9ICJBZGRySGFuZGxlciIsCisJWzI1XSA9ICJSZXNvdXJjZURl
+c2MiLAorCVsyNl0gPSAiUmVzb3VyY2VGbGQiLAorCVsyN10gPSAiU2NvcGUiLAorCVsyOF0gPSAi
+RXh0cmEiLAorCVsyOV0gPSAiRGF0YSIsCisJWzMwXSA9ICJJbnZhbGlkIgogfTsKIAogY29uc3Qg
+Y2hhciAqYWNwaV91dF9nZXRfdHlwZV9uYW1lKGFjcGlfb2JqZWN0X3R5cGUgdHlwZSkKQEAgLTI4
+NCwyMiArMjg0LDIyIEBAIGNvbnN0IGNoYXIgKmFjcGlfdXRfZ2V0X25vZGVfbmFtZSh2b2lkICpv
+YmplY3QpCiAvKiBQcmludGFibGUgbmFtZXMgb2Ygb2JqZWN0IGRlc2NyaXB0b3IgdHlwZXMgKi8K
+IAogc3RhdGljIGNvbnN0IGNoYXIgKmFjcGlfZ2JsX2Rlc2NfdHlwZV9uYW1lc1tdID0gewotCS8q
+IDAwICovICJOb3QgYSBEZXNjcmlwdG9yIiwKLQkvKiAwMSAqLyAiQ2FjaGVkIE9iamVjdCIsCi0J
+LyogMDIgKi8gIlN0YXRlLUdlbmVyaWMiLAotCS8qIDAzICovICJTdGF0ZS1VcGRhdGUiLAotCS8q
+IDA0ICovICJTdGF0ZS1QYWNrYWdlIiwKLQkvKiAwNSAqLyAiU3RhdGUtQ29udHJvbCIsCi0JLyog
+MDYgKi8gIlN0YXRlLVJvb3RQYXJzZVNjb3BlIiwKLQkvKiAwNyAqLyAiU3RhdGUtUGFyc2VTY29w
+ZSIsCi0JLyogMDggKi8gIlN0YXRlLVdhbGtTY29wZSIsCi0JLyogMDkgKi8gIlN0YXRlLVJlc3Vs
+dCIsCi0JLyogMTAgKi8gIlN0YXRlLU5vdGlmeSIsCi0JLyogMTEgKi8gIlN0YXRlLVRocmVhZCIs
+Ci0JLyogMTIgKi8gIlRyZWUgV2FsayBTdGF0ZSIsCi0JLyogMTMgKi8gIlBhcnNlIFRyZWUgT3Ai
+LAotCS8qIDE0ICovICJPcGVyYW5kIE9iamVjdCIsCi0JLyogMTUgKi8gIk5hbWVzcGFjZSBOb2Rl
+IgorCVswXSAgPSAiTm90IGEgRGVzY3JpcHRvciIsCisJWzFdICA9ICJDYWNoZWQgT2JqZWN0IiwK
+KwlbMl0gID0gIlN0YXRlLUdlbmVyaWMiLAorCVszXSAgPSAiU3RhdGUtVXBkYXRlIiwKKwlbNF0g
+ID0gIlN0YXRlLVBhY2thZ2UiLAorCVs1XSAgPSAiU3RhdGUtQ29udHJvbCIsCisJWzZdICA9ICJT
+dGF0ZS1Sb290UGFyc2VTY29wZSIsCisJWzddICA9ICJTdGF0ZS1QYXJzZVNjb3BlIiwKKwlbOF0g
+ID0gIlN0YXRlLVdhbGtTY29wZSIsCisJWzldICA9ICJTdGF0ZS1SZXN1bHQiLAorCVsxMF0gPSAi
+U3RhdGUtTm90aWZ5IiwKKwlbMTFdID0gIlN0YXRlLVRocmVhZCIsCisJWzEyXSA9ICJUcmVlIFdh
+bGsgU3RhdGUiLAorCVsxM10gPSAiUGFyc2UgVHJlZSBPcCIsCisJWzE0XSA9ICJPcGVyYW5kIE9i
+amVjdCIsCisJWzE1XSA9ICJOYW1lc3BhY2UgTm9kZSIKIH07CiAKIGNvbnN0IGNoYXIgKmFjcGlf
+dXRfZ2V0X2Rlc2NyaXB0b3JfbmFtZSh2b2lkICpvYmplY3QpCkBAIC0zMzEsMTMgKzMzMSwxMyBA
+QCBjb25zdCBjaGFyICphY3BpX3V0X2dldF9kZXNjcmlwdG9yX25hbWUodm9pZCAqb2JqZWN0KQog
+LyogUHJpbnRhYmxlIG5hbWVzIG9mIHJlZmVyZW5jZSBvYmplY3Qgc3ViLXR5cGVzICovCiAKIHN0
+YXRpYyBjb25zdCBjaGFyICphY3BpX2dibF9yZWZfY2xhc3NfbmFtZXNbXSA9IHsKLQkvKiAwMCAq
+LyAiTG9jYWwiLAotCS8qIDAxICovICJBcmd1bWVudCIsCi0JLyogMDIgKi8gIlJlZk9mIiwKLQkv
+KiAwMyAqLyAiSW5kZXgiLAotCS8qIDA0ICovICJEZGJIYW5kbGUiLAotCS8qIDA1ICovICJOYW1l
+ZCBPYmplY3QiLAotCS8qIDA2ICovICJEZWJ1ZyIKKwlbMF0gPSAiTG9jYWwiLAorCVsxXSA9ICJB
+cmd1bWVudCIsCisJWzJdID0gIlJlZk9mIiwKKwlbM10gPSAiSW5kZXgiLAorCVs0XSA9ICJEZGJI
+YW5kbGUiLAorCVs1XSA9ICJOYW1lZCBPYmplY3QiLAorCVs2XSA9ICJEZWJ1ZyIKIH07CiAKIGNv
+bnN0IGNoYXIgKmFjcGlfdXRfZ2V0X3JlZmVyZW5jZV9uYW1lKHVuaW9uIGFjcGlfb3BlcmFuZF9v
+YmplY3QgKm9iamVjdCkKQEAgLTQxNiwyNSArNDE2LDIyIEBAIGNvbnN0IGNoYXIgKmFjcGlfdXRf
+Z2V0X211dGV4X25hbWUodTMyIG11dGV4X2lkKQogLyogTmFtZXMgZm9yIE5vdGlmeSgpIHZhbHVl
+cywgdXNlZCBmb3IgZGVidWcgb3V0cHV0ICovCiAKIHN0YXRpYyBjb25zdCBjaGFyICphY3BpX2di
+bF9nZW5lcmljX25vdGlmeVtBQ1BJX0dFTkVSSUNfTk9USUZZX01BWCArIDFdID0gewotCS8qIDAw
+ICovICJCdXMgQ2hlY2siLAotCS8qIDAxICovICJEZXZpY2UgQ2hlY2siLAotCS8qIDAyICovICJE
+ZXZpY2UgV2FrZSIsCi0JLyogMDMgKi8gIkVqZWN0IFJlcXVlc3QiLAotCS8qIDA0ICovICJEZXZp
+Y2UgQ2hlY2sgTGlnaHQiLAotCS8qIDA1ICovICJGcmVxdWVuY3kgTWlzbWF0Y2giLAotCS8qIDA2
+ICovICJCdXMgTW9kZSBNaXNtYXRjaCIsCi0JLyogMDcgKi8gIlBvd2VyIEZhdWx0IiwKLQkvKiAw
+OCAqLyAiQ2FwYWJpbGl0aWVzIENoZWNrIiwKLQkvKiAwOSAqLyAiRGV2aWNlIFBMRCBDaGVjayIs
+Ci0JLyogMEEgKi8gIlJlc2VydmVkIiwKLQkvKiAwQiAqLyAiU3lzdGVtIExvY2FsaXR5IFVwZGF0
+ZSIsCi0JCQkJCQkJCS8qIDBDICovICJSZXNlcnZlZCAod2FzIHByZXZpb3VzbHkgU2h1dGRvd24g
+UmVxdWVzdCkiLAotCQkJCQkJCQkvKiBSZXNlcnZlZCBpbiBBQ1BJIDYuMCAqLwotCS8qIDBEICov
+ICJTeXN0ZW0gUmVzb3VyY2UgQWZmaW5pdHkgVXBkYXRlIiwKLQkJCQkJCQkJLyogMEUgKi8gIkhl
+dGVyb2dlbmVvdXMgTWVtb3J5IEF0dHJpYnV0ZXMgVXBkYXRlIiwKLQkJCQkJCQkJLyogQUNQSSA2
+LjIgKi8KLQkJCQkJCS8qIDBGICovICJFcnJvciBEaXNjb25uZWN0IFJlY292ZXIiCi0JCQkJCQkv
+KiBBQ1BJIDYuMyAqLworCVswXSAgPSAiQnVzIENoZWNrIiwKKwlbMV0gID0gIkRldmljZSBDaGVj
+ayIsCisJWzJdICA9ICJEZXZpY2UgV2FrZSIsCisJWzNdICA9ICJFamVjdCBSZXF1ZXN0IiwKKwlb
+NF0gID0gIkRldmljZSBDaGVjayBMaWdodCIsCisJWzVdICA9ICJGcmVxdWVuY3kgTWlzbWF0Y2gi
+LAorCVs2XSAgPSAiQnVzIE1vZGUgTWlzbWF0Y2giLAorCVs3XSAgPSAiUG93ZXIgRmF1bHQiLAor
+CVs4XSAgPSAiQ2FwYWJpbGl0aWVzIENoZWNrIiwKKwlbOV0gID0gIkRldmljZSBQTEQgQ2hlY2si
+LAorCVsxMF0gPSAiUmVzZXJ2ZWQiLAorCVsxMV0gPSAiU3lzdGVtIExvY2FsaXR5IFVwZGF0ZSIs
+CisJWzEyXSA9ICJSZXNlcnZlZCAod2FzIHByZXZpb3VzbHkgU2h1dGRvd24gUmVxdWVzdCkiLCAg
+LyogUmVzZXJ2ZWQgaW4gQUNQSSA2LjAgKi8KKwlbMTNdID0gIlN5c3RlbSBSZXNvdXJjZSBBZmZp
+bml0eSBVcGRhdGUiLAorCVsxNF0gPSAiSGV0ZXJvZ2VuZW91cyBNZW1vcnkgQXR0cmlidXRlcyBV
+cGRhdGUiLCAgICAgIC8qIEFDUEkgNi4yICovCisJWzE1XSA9ICJFcnJvciBEaXNjb25uZWN0IFJl
+Y292ZXIiICAgICAgICAgICAgICAgICAgICAgLyogQUNQSSA2LjMgKi8KIH07CiAKIHN0YXRpYyBj
+b25zdCBjaGFyICphY3BpX2dibF9kZXZpY2Vfbm90aWZ5WzVdID0gewpAQCAtNTIxLDI2ICs1MTgs
+MjYgQEAgY29uc3QgY2hhciAqYWNwaV91dF9nZXRfbm90aWZ5X25hbWUodTMyIG5vdGlmeV92YWx1
+ZSwgYWNwaV9vYmplY3RfdHlwZSB0eXBlKQogICoqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKi8KIAogc3Rh
+dGljIGNvbnN0IGNoYXIgKmFjcGlfZ2JsX2FyZ3VtZW50X3R5cGVbMjBdID0gewotCS8qIDAwICov
+ICJVbmtub3duIEFSR1AiLAotCS8qIDAxICovICJCeXRlRGF0YSIsCi0JLyogMDIgKi8gIkJ5dGVM
+aXN0IiwKLQkvKiAwMyAqLyAiQ2hhckxpc3QiLAotCS8qIDA0ICovICJEYXRhT2JqZWN0IiwKLQkv
+KiAwNSAqLyAiRGF0YU9iamVjdExpc3QiLAotCS8qIDA2ICovICJEV29yZERhdGEiLAotCS8qIDA3
+ICovICJGaWVsZExpc3QiLAotCS8qIDA4ICovICJOYW1lIiwKLQkvKiAwOSAqLyAiTmFtZVN0cmlu
+ZyIsCi0JLyogMEEgKi8gIk9iamVjdExpc3QiLAotCS8qIDBCICovICJQYWNrYWdlTGVuZ3RoIiwK
+LQkvKiAwQyAqLyAiU3VwZXJOYW1lIiwKLQkvKiAwRCAqLyAiVGFyZ2V0IiwKLQkvKiAwRSAqLyAi
+VGVybUFyZyIsCi0JLyogMEYgKi8gIlRlcm1MaXN0IiwKLQkvKiAxMCAqLyAiV29yZERhdGEiLAot
+CS8qIDExICovICJRV29yZERhdGEiLAotCS8qIDEyICovICJTaW1wbGVOYW1lIiwKLQkvKiAxMyAq
+LyAiTmFtZU9yUmVmIgorCVsweDAwXSA9ICJVbmtub3duIEFSR1AiLAorCVsweDAxXSA9ICJCeXRl
+RGF0YSIsCisJWzB4MDJdID0gIkJ5dGVMaXN0IiwKKwlbMHgwM10gPSAiQ2hhckxpc3QiLAorCVsw
+eDA0XSA9ICJEYXRhT2JqZWN0IiwKKwlbMHgwNV0gPSAiRGF0YU9iamVjdExpc3QiLAorCVsweDA2
+XSA9ICJEV29yZERhdGEiLAorCVsweDA3XSA9ICJGaWVsZExpc3QiLAorCVsweDA4XSA9ICJOYW1l
+IiwKKwlbMHgwOV0gPSAiTmFtZVN0cmluZyIsCisJWzB4MEFdID0gIk9iamVjdExpc3QiLAorCVsw
+eDBCXSA9ICJQYWNrYWdlTGVuZ3RoIiwKKwlbMHgwQ10gPSAiU3VwZXJOYW1lIiwKKwlbMHgwRF0g
+PSAiVGFyZ2V0IiwKKwlbMHgwRV0gPSAiVGVybUFyZyIsCisJWzB4MEZdID0gIlRlcm1MaXN0IiwK
+KwlbMHgxMF0gPSAiV29yZERhdGEiLAorCVsweDExXSA9ICJRV29yZERhdGEiLAorCVsweDEyXSA9
+ICJTaW1wbGVOYW1lIiwKKwlbMHgxM10gPSAiTmFtZU9yUmVmIgogfTsKIAogY29uc3QgY2hhciAq
+YWNwaV91dF9nZXRfYXJndW1lbnRfdHlwZV9uYW1lKHUzMiBhcmdfdHlwZSkKLS0gCjIuMzUuMQo=
