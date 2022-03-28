@@ -1,90 +1,64 @@
-From: Kalle Valo <kvalo@kernel.org>
-Date: Mon, 28 Mar 2022 09:28:30 +0000
-Subject: Re: [PATCH 21/22] rtw89: Replace comments with C99 initializers
-Message-Id: <87k0cezarl.fsf@kernel.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Date: Mon, 28 Mar 2022 12:21:04 +0000
+Subject: RE: [PATCH 21/22] rtw89: Replace comments with C99 initializers
+Message-Id: <6082d343f18a40229df83e3102e7dc38@AcuMS.aculab.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220326165909.506926-1-benni@stuerz.xyz>
         <20220326165909.506926-21-benni@stuerz.xyz>
         <f7bb9164-2f66-8985-5771-5f31ee5740b7@lwfinger.net>
-In-Reply-To: <f7bb9164-2f66-8985-5771-5f31ee5740b7@lwfinger.net> (Larry
-        Finger's message of "Sat, 26 Mar 2022 13:55:33 -0500")
+ <87k0cezarl.fsf@kernel.org>
+In-Reply-To: <87k0cezarl.fsf@kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Benjamin =?utf-8?Q?St=C3=BCrz?= <benni@stuerz.xyz>, andrew@lunn.ch, sebastian.hesselbarth@gmail.com, gregory.clement@bootlin.com, linux@armlinux.org.uk, linux@simtec.co.uk, krzk@kernel.org, alim.akhtar@samsung.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, hpa@zytor.com, robert.moore@intel.com, rafael.j.wysocki@intel.com, lenb@kernel.org, 3chas3@gmail.com, laforge@gnumonks.org, arnd@arndb.de, gregkh@linuxfoundation.org, mchehab@kernel.org, tony.luck@intel.com, james.morse@arm.com, rric@kernel.org, linus.walleij@linaro.org, brgl@bgdev.pl, mike.marciniszyn@cornelisnetworks.com, dennis.dalessandro@cornelisnetworks.com, jgg@ziepe.ca, pali@kernel.org, dmitry.torokhov@gmail.com, isdn@linux-pingi.de, benh@kernel.crashing.org, fbarrat@linux.ibm.com, ajd@linux.ibm.com, davem@davemloft.net, kuba@kernel.org, pabeni@redhat.com, nico@fluxnic.net, loic.poulain@linaro.org, pkshih@realtek.com, bhelgaas@google.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-edac@vger.kernel.org, linux-gpio@vger.kernel.org, linux-rdma@vger.kernel.org, linux-input@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-media@vger.kernel.org, wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org, linux-pci@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: 'Kalle Valo' <kvalo@kernel.org>, Larry Finger <Larry.Finger@lwfinger.net>
+Cc: =?utf-8?B?QmVuamFtaW4gU3TDvHJ6?= <benni@stuerz.xyz>, "andrew@lunn.ch" <andrew@lunn.ch>, "sebastian.hesselbarth@gmail.com" <sebastian.hesselbarth@gmail.com>, "gregory.clement@bootlin.com" <gregory.clement@bootlin.com>, "linux@armlinux.org.uk" <linux@armlinux.org.uk>, "linux@simtec.co.uk" <linux@simtec.co.uk>, "krzk@kernel.org" <krzk@kernel.org>, "alim.akhtar@samsung.com" <alim.akhtar@samsung.com>, "tglx@linutronix.de" <tglx@linutronix.de>, "mingo@redhat.com" <mingo@redhat.com>, "bp@alien8.de" <bp@alien8.de>, "dave.hansen@linux.intel.com" <dave.hansen@linux.intel.com>, "hpa@zytor.com" <hpa@zytor.com>, "robert.moore@intel.com" <robert.moore@intel.com>, "rafael.j.wysocki@intel.com" <rafael.j.wysocki@intel.com>, "lenb@kernel.org" <lenb@kernel.org>, "3chas3@gmail.com" <3chas3@gmail.com>, "laforge@gnumonks.org" <laforge@gnumonks.org>, "arnd@arndb.de" <arnd@arndb.de>, "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>, "mchehab@kernel.org" <mchehab@kernel.org>, "tony.luck@intel.com" <tony.luck@intel.com>, "james.morse@arm.com" <james.morse@arm.com>, "rric@kernel.org" <rric@kernel.org>, "linus.walleij@linaro.org" <linus.walleij@linaro.org>, "brgl@bgdev.pl" <brgl@bgdev.pl>, "mike.marciniszyn@cornelisnetworks.com" <mike.marciniszyn@cornelisnetworks.com>, "dennis.dalessandro@cornelisnetworks.com" <dennis.dalessandro@cornelisnetworks.com>, "jgg@ziepe.ca" <jgg@ziepe.ca>, "pali@kernel.org" <pali@kernel.org>, "dmitry.torokhov@gmail.com" <dmitry.torokhov@gmail.com>, "isdn@linux-pingi.de" <isdn@linux-pingi.de>, "benh@kernel.crashing.org" <benh@kernel.crashing.org>, "fbarrat@linux.ibm.com" <fbarrat@linux.ibm.com>, "ajd@linux.ibm.com" <ajd@linux.ibm.com>, "davem@davemloft.net" <davem@davemloft.net>, "kuba@kernel.org" <kuba@kernel.org>, "pabeni@redhat.com" <pabeni@redhat.com>, "nico@fluxnic.net" <nico@fluxnic.net>, "loic.poulain@linaro.org" <loic.poulain@linaro.org>, "pkshih@realtek.com" <pkshih@realtek.com>, "bhelgaas@google.com" <bhelgaas@google.com>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-samsung-soc@vger.kernel.org" <linux-samsung-soc@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>, "devel@acpica.org" <devel@acpica.org>, "linux-atm-general@lists.sourceforge.net" <linux-atm-general@lists.sourceforge.net>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>, "linux-edac@vger.kernel.org" <linux-edac@vger.kernel.org>, "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>, "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>, "linux-input@vger.kernel.org" <linux-input@vger.kernel.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-media@vger.kernel.org" <linux-media@vger.kernel.org>, "wcn36xx@lists.infradead.org" <wcn36xx@lists.infradead.org>, "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>, "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
 
-Larry Finger <Larry.Finger@lwfinger.net> writes:
-
-> On 3/26/22 11:59, Benjamin Stürz wrote:
->> This replaces comments with C99's designated
->> initializers because the kernel supports them now.
->>
->> Signed-off-by: Benjamin Stürz <benni@stuerz.xyz>
->> ---
->>   drivers/net/wireless/realtek/rtw89/coex.c | 40 +++++++++++------------
->>   1 file changed, 20 insertions(+), 20 deletions(-)
->>
->> diff --git a/drivers/net/wireless/realtek/rtw89/coex.c b/drivers/net/wireless/realtek/rtw89/coex.c
->> index 684583955511..3c83a0bfb120 100644
->> --- a/drivers/net/wireless/realtek/rtw89/coex.c
->> +++ b/drivers/net/wireless/realtek/rtw89/coex.c
->> @@ -97,26 +97,26 @@ static const struct rtw89_btc_fbtc_slot s_def[] = {
->>   };
->>     static const u32 cxtbl[] = {
->> -	0xffffffff, /* 0 */
->> -	0xaaaaaaaa, /* 1 */
->> -	0x55555555, /* 2 */
->> -	0x66555555, /* 3 */
->> -	0x66556655, /* 4 */
->> -	0x5a5a5a5a, /* 5 */
->> -	0x5a5a5aaa, /* 6 */
->> -	0xaa5a5a5a, /* 7 */
->> -	0x6a5a5a5a, /* 8 */
->> -	0x6a5a5aaa, /* 9 */
->> -	0x6a5a6a5a, /* 10 */
->> -	0x6a5a6aaa, /* 11 */
->> -	0x6afa5afa, /* 12 */
->> -	0xaaaa5aaa, /* 13 */
->> -	0xaaffffaa, /* 14 */
->> -	0xaa5555aa, /* 15 */
->> -	0xfafafafa, /* 16 */
->> -	0xffffddff, /* 17 */
->> -	0xdaffdaff, /* 18 */
->> -	0xfafadafa  /* 19 */
->> +	[0]  = 0xffffffff,
->> +	[1]  = 0xaaaaaaaa,
->> +	[2]  = 0x55555555,
->> +	[3]  = 0x66555555,
->> +	[4]  = 0x66556655,
->> +	[5]  = 0x5a5a5a5a,
->> +	[6]  = 0x5a5a5aaa,
->> +	[7]  = 0xaa5a5a5a,
->> +	[8]  = 0x6a5a5a5a,
->> +	[9]  = 0x6a5a5aaa,
->> +	[10] = 0x6a5a6a5a,
->> +	[11] = 0x6a5a6aaa,
->> +	[12] = 0x6afa5afa,
->> +	[13] = 0xaaaa5aaa,
->> +	[14] = 0xaaffffaa,
->> +	[15] = 0xaa5555aa,
->> +	[16] = 0xfafafafa,
->> +	[17] = 0xffffddff,
->> +	[18] = 0xdaffdaff,
->> +	[19] = 0xfafadafa
->>   };
->>     struct rtw89_btc_btf_tlv {
->
->
-> Is this change really necessary? Yes, the entries must be ordered;
-> however, the comment carries that information at very few extra
-> characters. To me, this patch looks like unneeded source churn.
-
-One small benefit I see is to avoid the comment index being wrong and
-there would be no way to catch that. But otherwise I don't have any
-opinion about this.
-
--- 
-https://patchwork.kernel.org/project/linux-wireless/list/
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+RnJvbTogS2FsbGUgVmFsbw0KPiBTZW50OiAyOCBNYXJjaCAyMDIyIDEwOjI5DQo+IA0KPiBMYXJy
+eSBGaW5nZXIgPExhcnJ5LkZpbmdlckBsd2Zpbmdlci5uZXQ+IHdyaXRlczoNCj4gDQo+ID4gT24g
+My8yNi8yMiAxMTo1OSwgQmVuamFtaW4gU3TDvHJ6IHdyb3RlOg0KPiA+PiBUaGlzIHJlcGxhY2Vz
+IGNvbW1lbnRzIHdpdGggQzk5J3MgZGVzaWduYXRlZA0KPiA+PiBpbml0aWFsaXplcnMgYmVjYXVz
+ZSB0aGUga2VybmVsIHN1cHBvcnRzIHRoZW0gbm93Lg0KPiA+Pg0KPiA+PiBTaWduZWQtb2ZmLWJ5
+OiBCZW5qYW1pbiBTdMO8cnogPGJlbm5pQHN0dWVyei54eXo+DQo+ID4+IC0tLQ0KPiA+PiAgIGRy
+aXZlcnMvbmV0L3dpcmVsZXNzL3JlYWx0ZWsvcnR3ODkvY29leC5jIHwgNDAgKysrKysrKysrKyst
+LS0tLS0tLS0tLS0NCj4gPj4gICAxIGZpbGUgY2hhbmdlZCwgMjAgaW5zZXJ0aW9ucygrKSwgMjAg
+ZGVsZXRpb25zKC0pDQo+ID4+DQo+ID4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC93aXJlbGVz
+cy9yZWFsdGVrL3J0dzg5L2NvZXguYyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL3JlYWx0ZWsvcnR3
+ODkvY29leC5jDQo+ID4+IGluZGV4IDY4NDU4Mzk1NTUxMS4uM2M4M2EwYmZiMTIwIDEwMDY0NA0K
+PiA+PiAtLS0gYS9kcml2ZXJzL25ldC93aXJlbGVzcy9yZWFsdGVrL3J0dzg5L2NvZXguYw0KPiA+
+PiArKysgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9yZWFsdGVrL3J0dzg5L2NvZXguYw0KPiA+PiBA
+QCAtOTcsMjYgKzk3LDI2IEBAIHN0YXRpYyBjb25zdCBzdHJ1Y3QgcnR3ODlfYnRjX2ZidGNfc2xv
+dCBzX2RlZltdID0gew0KPiA+PiAgIH07DQo+ID4+ICAgICBzdGF0aWMgY29uc3QgdTMyIGN4dGJs
+W10gPSB7DQo+ID4+IC0JMHhmZmZmZmZmZiwgLyogMCAqLw0KPiA+PiAtCTB4YWFhYWFhYWEsIC8q
+IDEgKi8NCj4gPj4gLQkweDU1NTU1NTU1LCAvKiAyICovDQo+ID4+IC0JMHg2NjU1NTU1NSwgLyog
+MyAqLw0KPiA+PiAtCTB4NjY1NTY2NTUsIC8qIDQgKi8NCj4gPj4gLQkweDVhNWE1YTVhLCAvKiA1
+ICovDQo+ID4+IC0JMHg1YTVhNWFhYSwgLyogNiAqLw0KPiA+PiAtCTB4YWE1YTVhNWEsIC8qIDcg
+Ki8NCj4gPj4gLQkweDZhNWE1YTVhLCAvKiA4ICovDQo+ID4+IC0JMHg2YTVhNWFhYSwgLyogOSAq
+Lw0KPiA+PiAtCTB4NmE1YTZhNWEsIC8qIDEwICovDQo+ID4+IC0JMHg2YTVhNmFhYSwgLyogMTEg
+Ki8NCj4gPj4gLQkweDZhZmE1YWZhLCAvKiAxMiAqLw0KPiA+PiAtCTB4YWFhYTVhYWEsIC8qIDEz
+ICovDQo+ID4+IC0JMHhhYWZmZmZhYSwgLyogMTQgKi8NCj4gPj4gLQkweGFhNTU1NWFhLCAvKiAx
+NSAqLw0KPiA+PiAtCTB4ZmFmYWZhZmEsIC8qIDE2ICovDQo+ID4+IC0JMHhmZmZmZGRmZiwgLyog
+MTcgKi8NCj4gPj4gLQkweGRhZmZkYWZmLCAvKiAxOCAqLw0KPiA+PiAtCTB4ZmFmYWRhZmEgIC8q
+IDE5ICovDQo+ID4+ICsJWzBdICA9IDB4ZmZmZmZmZmYsDQo+ID4+ICsJWzFdICA9IDB4YWFhYWFh
+YWEsDQo+ID4+ICsJWzJdICA9IDB4NTU1NTU1NTUsDQo+ID4+ICsJWzNdICA9IDB4NjY1NTU1NTUs
+DQo+ID4+ICsJWzRdICA9IDB4NjY1NTY2NTUsDQo+ID4+ICsJWzVdICA9IDB4NWE1YTVhNWEsDQo+
+ID4+ICsJWzZdICA9IDB4NWE1YTVhYWEsDQo+ID4+ICsJWzddICA9IDB4YWE1YTVhNWEsDQo+ID4+
+ICsJWzhdICA9IDB4NmE1YTVhNWEsDQo+ID4+ICsJWzldICA9IDB4NmE1YTVhYWEsDQo+ID4+ICsJ
+WzEwXSA9IDB4NmE1YTZhNWEsDQo+ID4+ICsJWzExXSA9IDB4NmE1YTZhYWEsDQo+ID4+ICsJWzEy
+XSA9IDB4NmFmYTVhZmEsDQo+ID4+ICsJWzEzXSA9IDB4YWFhYTVhYWEsDQo+ID4+ICsJWzE0XSA9
+IDB4YWFmZmZmYWEsDQo+ID4+ICsJWzE1XSA9IDB4YWE1NTU1YWEsDQo+ID4+ICsJWzE2XSA9IDB4
+ZmFmYWZhZmEsDQo+ID4+ICsJWzE3XSA9IDB4ZmZmZmRkZmYsDQo+ID4+ICsJWzE4XSA9IDB4ZGFm
+ZmRhZmYsDQo+ID4+ICsJWzE5XSA9IDB4ZmFmYWRhZmENCj4gPj4gICB9Ow0KPiA+PiAgICAgc3Ry
+dWN0IHJ0dzg5X2J0Y19idGZfdGx2IHsNCj4gPg0KPiA+DQo+ID4gSXMgdGhpcyBjaGFuZ2UgcmVh
+bGx5IG5lY2Vzc2FyeT8gWWVzLCB0aGUgZW50cmllcyBtdXN0IGJlIG9yZGVyZWQ7DQo+ID4gaG93
+ZXZlciwgdGhlIGNvbW1lbnQgY2FycmllcyB0aGF0IGluZm9ybWF0aW9uIGF0IHZlcnkgZmV3IGV4
+dHJhDQo+ID4gY2hhcmFjdGVycy4gVG8gbWUsIHRoaXMgcGF0Y2ggbG9va3MgbGlrZSB1bm5lZWRl
+ZCBzb3VyY2UgY2h1cm4uDQo+IA0KPiBPbmUgc21hbGwgYmVuZWZpdCBJIHNlZSBpcyB0byBhdm9p
+ZCB0aGUgY29tbWVudCBpbmRleCBiZWluZyB3cm9uZyBhbmQNCj4gdGhlcmUgd291bGQgYmUgbm8g
+d2F5IHRvIGNhdGNoIHRoYXQuIEJ1dCBvdGhlcndpc2UgSSBkb24ndCBoYXZlIGFueQ0KPiBvcGlu
+aW9uIGFib3V0IHRoaXMuDQoNCklmIHRoZSBbbm5dIGFyZSB3cm9uZyB0aGUgZWZmZWN0IGlzIHBy
+b2JhYmx5IHdvcnNlLg0KWW91IHJlYWxseSBkb24ndCB3YW50IGEgZ2FwIQ0KDQpEb2Vzbid0IHNl
+ZW0gd29ydGggdXNpbmcgQzk5IGluaXRpYWxpc2VycyB1bmxlc3MgdGhleSBhcmUNCiNkZWZpbmVz
+IG9yIGVudW0gdmFsdWVzLg0KDQoJRGF2aWQNCg0KLQ0KUmVnaXN0ZXJlZCBBZGRyZXNzIExha2Vz
+aWRlLCBCcmFtbGV5IFJvYWQsIE1vdW50IEZhcm0sIE1pbHRvbiBLZXluZXMsIE1LMSAxUFQsIFVL
+DQpSZWdpc3RyYXRpb24gTm86IDEzOTczODYgKFdhbGVzKQ0K
