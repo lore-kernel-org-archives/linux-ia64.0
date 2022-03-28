@@ -1,113 +1,38 @@
-From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Date: Tue, 01 Mar 2022 12:36:15 +0000
-Subject: Re: [PATCH 5.16 v2] binfmt_elf: Avoid total_mapping_size for ET_EXEC
-Message-Id: <49182d0d-708b-4029-da5f-bc18603440a6@physik.fu-berlin.de>
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Date: Mon, 28 Mar 2022 19:07:31 +0000
+Subject: [PATCH 1/2] ia64: topology: Fix an error handling path in cache_add_dev()
+Message-Id: <452b20c160a20754022407acefd2abb170f43d14.1648494330.git.christophe.jaillet@wanadoo.fr>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220228205518.1265798-1-keescook@chromium.org>
-In-Reply-To: <20220228205518.1265798-1-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Kees Cook <keescook@chromium.org>, matoro <matoro_mailinglist_kernel@matoro.tk>
-Cc: Alexander Viro <viro@zeniv.linux.org.uk>, Eric Biederman <ebiederm@xmission.com>, linux-fsdevel@vger.kernel.org, linux-mm@kvack.org, stable@vger.kernel.org, =?UTF-8?Q?Magnus_Gro=c3=9f?= <magnus.gross@rwth-aachen.de>, Thorsten Leemhuis <regressions@leemhuis.info>, Anthony Yznaga <anthony.yznaga@oracle.com>, Andrew Morton <akpm@linux-foundation.org>, regressions@lists.linux.dev, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-hardening@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Zhang Yanmin <yanmin.zhang@intel.com>
+Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org, Christophe JAILLET <christophe.jaillet@wanadoo.fr>, linux-ia64@vger.kernel.org
 
-Hello!
+If kobject_init_and_add()fails, kobject_put() needs to be called.
+Add the missing call which is already there a few lines below in another
+error handling path.
 
-On 2/28/22 21:55, Kees Cook wrote:
-> Partially revert commit 5f501d555653 ("binfmt_elf: reintroduce using
-> MAP_FIXED_NOREPLACE").
-> 
-> At least ia64 has ET_EXEC PT_LOAD segments that are not virtual-address
-> contiguous (but _are_ file-offset contiguous). This would result in
-> giant mapping attempts to cover the entire span, including the virtual
-> address range hole. Disable total_mapping_size for ET_EXEC, which
-> reduces the MAP_FIXED_NOREPLACE coverage to only the first PT_LOAD:
-> 
-> $ readelf -lW /usr/bin/gcc
-> ...
-> Program Headers:
->   Type Offset   VirtAddr           PhysAddr           FileSiz  MemSiz   ...
-> ...
->   LOAD 0x000000 0x4000000000000000 0x4000000000000000 0x00b5a0 0x00b5a0 ...
->   LOAD 0x00b5a0 0x600000000000b5a0 0x600000000000b5a0 0x0005ac 0x000710 ...
-> ...
->        ^^^^^^^^ ^^^^^^^^^^^^^^^^^^                    ^^^^^^^^ ^^^^^^^^
-> 
-> File offset range     : 0x000000-0x00bb4c
-> 			0x00bb4c bytes
-> 
-> Virtual address range : 0x4000000000000000-0x600000000000bcb0
-> 			0x200000000000bcb0 bytes
-> 
-> Ironically, this is the reverse of the problem that originally caused
-> problems with ET_EXEC and MAP_FIXED_NOREPLACE: overlaps. This problem is
-> with holes. Future work could restore full coverage if load_elf_binary()
-> were to perform mappings in a separate phase from the loading (where
-> it could resolve both overlaps and holes).
-> 
-> Cc: Alexander Viro <viro@zeniv.linux.org.uk>
-> Cc: Eric Biederman <ebiederm@xmission.com>
-> Cc: linux-fsdevel@vger.kernel.org
-> Cc: linux-mm@kvack.org
-> Reported-by: matoro <matoro_mailinglist_kernel@matoro.tk>
-> Reported-by: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-> Fixes: 5f501d555653 ("binfmt_elf: reintroduce using MAP_FIXED_NOREPLACE")
-> Link: https://lore.kernel.org/r/a3edd529-c42d-3b09-135c-7e98a15b150f@leemhuis.info
-> Cc: stable@vger.kernel.org
-> Signed-off-by: Kees Cook <keescook@chromium.org>
-> ---
-> Here's the v5.16 backport.
-> ---
->  fs/binfmt_elf.c | 25 ++++++++++++++++++-------
->  1 file changed, 18 insertions(+), 7 deletions(-)
-> 
-> diff --git a/fs/binfmt_elf.c b/fs/binfmt_elf.c
-> index f8c7f26f1fbb..911a9e7044f4 100644
-> --- a/fs/binfmt_elf.c
-> +++ b/fs/binfmt_elf.c
-> @@ -1135,14 +1135,25 @@ static int load_elf_binary(struct linux_binprm *bprm)
->  			 * is then page aligned.
->  			 */
->  			load_bias = ELF_PAGESTART(load_bias - vaddr);
-> -		}
->  
-> -		/*
-> -		 * Calculate the entire size of the ELF mapping (total_size).
-> -		 * (Note that load_addr_set is set to true later once the
-> -		 * initial mapping is performed.)
-> -		 */
-> -		if (!load_addr_set) {
-> +			/*
-> +			 * Calculate the entire size of the ELF mapping
-> +			 * (total_size), used for the initial mapping,
-> +			 * due to first_pt_load which is set to false later
-> +			 * once the initial mapping is performed.
-> +			 *
-> +			 * Note that this is only sensible when the LOAD
-> +			 * segments are contiguous (or overlapping). If
-> +			 * used for LOADs that are far apart, this would
-> +			 * cause the holes between LOADs to be mapped,
-> +			 * running the risk of having the mapping fail,
-> +			 * as it would be larger than the ELF file itself.
-> +			 *
-> +			 * As a result, only ET_DYN does this, since
-> +			 * some ET_EXEC (e.g. ia64) may have virtual
-> +			 * memory holes between LOADs.
-> +			 *
-> +			 */
->  			total_size = total_mapping_size(elf_phdata,
->  							elf_ex->e_phnum);
->  			if (!total_size) {
+Fixes: f19180056ea0 ("[IA64] Export cpu cache info by sysfs")
+Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+---
+This patch is provided as-is and is not even compile tested. I don't have the
+cross-building toolchain for that.
+---
+ arch/ia64/kernel/topology.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-I can confirm that this patch fixes the issue for me.
-
-Tested-By: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-
-Thanks,
-Adrian
-
+diff --git a/arch/ia64/kernel/topology.c b/arch/ia64/kernel/topology.c
+index 94a848b06f15..6adb84f05cbb 100644
+--- a/arch/ia64/kernel/topology.c
++++ b/arch/ia64/kernel/topology.c
+@@ -354,6 +354,7 @@ static int cache_add_dev(unsigned int cpu)
+ 				      &cache_ktype_percpu_entry, &sys_dev->kobj,
+ 				      "%s", "cache");
+ 	if (unlikely(retval < 0)) {
++		kobject_put(&all_cpu_cache_info[cpu].kobj);
+ 		cpu_cache_sysfs_exit(cpu);
+ 		return retval;
+ 	}
 -- 
- .''`.  John Paul Adrian Glaubitz
-: :' :  Debian Developer - glaubitz@debian.org
-`. `'   Freie Universitaet Berlin - glaubitz@physik.fu-berlin.de
-  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
+2.32.0
