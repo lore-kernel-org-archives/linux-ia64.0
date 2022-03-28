@@ -1,73 +1,71 @@
-From: Kalle Valo <kvalo@kernel.org>
-Date: Mon, 28 Mar 2022 12:31:14 +0000
+From: Daniel Thompson <daniel.thompson@linaro.org>
+Date: Mon, 28 Mar 2022 13:47:05 +0000
 Subject: Re: [PATCH 00/22] Replace comments with C99 initializers
-Message-Id: <87bkxqz2b1.fsf@kernel.org>
+Message-Id: <20220328134705.lnxwwznhw622r2pr@maple.lan>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220326165909.506926-1-benni@stuerz.xyz>
-        <8f9271b6-0381-70a9-f0c2-595b2235866a@stuerz.xyz>
-        <87fsn2zaix.fsf@kernel.org>
-        <cc104272-d79a-41e1-f4de-cb78fb073991@stuerz.xyz>
-In-Reply-To: <cc104272-d79a-41e1-f4de-cb78fb073991@stuerz.xyz> ("Benjamin
-        \=\?utf-8\?Q\?St\=C3\=BCrz\=22's\?\= message of "Mon, 28 Mar 2022 13:51:42 +0200")
+ <8f9271b6-0381-70a9-f0c2-595b2235866a@stuerz.xyz>
+In-Reply-To: <8f9271b6-0381-70a9-f0c2-595b2235866a@stuerz.xyz>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Benjamin =?utf-8?Q?St=C3=BCrz?= <benni@stuerz.xyz>
-Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-edac@vger.kernel.org, linux-gpio@vger.kernel.org, linux-rdma@vger.kernel.org, linux-input@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-media@vger.kernel.org, wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org, linux-pci@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Benjamin =?utf-8?B?U3TDvHJ6?= <benni@stuerz.xyz>
+Cc: sebastian.hesselbarth@gmail.com, gregory.clement@bootlin.com, linux@armlinux.org.uk, linux@simtec.co.uk, krzk@kernel.org, alim.akhtar@samsung.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, hpa@zytor.com, robert.moore@intel.com, rafael.j.wysocki@intel.com, lenb@kernel.org, 3chas3@gmail.com, laforge@gnumonks.org, arnd@arndb.de, gregkh@linuxfoundation.org, mchehab@kernel.org, tony.luck@intel.com, james.morse@arm.com, rric@kernel.org, linus.walleij@linaro.org, brgl@bgdev.pl, mike.marciniszyn@cornelisnetworks.com, dennis.dalessandro@cornelisnetworks.com, jgg@ziepe.ca, pali@kernel.org, dmitry.torokhov@gmail.com, isdn@linux-pingi.de, benh@kernel.crashing.org, fbarrat@linux.ibm.com, ajd@linux.ibm.com, davem@davemloft.net, kuba@kernel.org, pabeni@redhat.com, nico@fluxnic.net, loic.poulain@linaro.org, kvalo@kernel.org, pkshih@realtek.com, bhelgaas@google.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-edac@vger.kernel.org, linux-gpio@vger.kernel.org, linux-rdma@vger.kernel.org, linux-input@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-media@vger.kernel.org, wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org, linux-pci@vger.kernel.org
 
-Benjamin Stürz <benni@stuerz.xyz> writes:
+On Sun, Mar 27, 2022 at 02:46:00PM +0200, Benjamin St=FCrz wrote:
+> This patch series replaces comments with C99's designated initializers
+> in a few places. It also adds some enum initializers. This is my first
+> time contributing to the Linux kernel, therefore I'm probably doing a
+> lot of things the wrong way. I'm sorry for that.
 
-> On 28.03.22 11:33, Kalle Valo wrote:
->> Benjamin Stürz <benni@stuerz.xyz> writes:
->> 
->>> This patch series replaces comments with C99's designated initializers
->>> in a few places. It also adds some enum initializers. This is my first
->>> time contributing to the Linux kernel, therefore I'm probably doing a
->>> lot of things the wrong way. I'm sorry for that.
->> 
->> Just a small tip: If you are new, start with something small and learn
->> from that. Don't do a controversial big patchset spanning multiple
->> subsystems, that's the hard way to learn things. First submit one patch
->> at a time to one subsystem and gain understanding of the process that
->> way.
->
-> I actually thought this would be such simple thing.
+Welcome!
 
-If there are 22 patches and a dozen different subsystems it's far from
-simple, as you noticed from your replies :)
 
-> Do you know of any good thing where to start? I already looked into
-> drivers/staging/*/TODO and didn't found something for me personally.
+> I've gotten a few emails so far stating that this patch series is
+> unnecessary. Yes, in fact this patch series is not necessary by itself,
+> but it could help me understand how the whole process works and maybe I
+> could help somewhere, where help is actually needed.
 
-I work in wireless and one my annoyance is use of BUG_ON() in wireless
-drivers. There just isn't a good reason to crash the whole system when
-there's a bug in a wireless driver or firmware. You can get list like
-this:
+Have you been told the series is unnecessary or too big?
 
-git grep BUG_ON drivers/net/wireless/ | grep -v BUILD_BUG_ON
+Although all patches represent a variant of the same mechanical
+transformation but they are mostly unrelated to each other and, if
+accepted, they will be applied by many different people.
 
-It might not be always trivial to fix BUG_ON() usage, so it would be a
-good challenge as well. See the wiki link below how to submit wireless
-patches. But just send a one patch first, don't work for several hours
-and then submit a big set of patches.
+Taken as a whole presenting this to maintainers as a 22 patch set is too
+big. I'd recommend starting with a smaller patch or patch series where
+all the patches get picked up by the same maintainer.
 
-We also might have a todo list somewhere in the wiki, but don't know how
-to up-to-date it is.
 
-> Should I drop this patchset and start with something different? 
+> This patch itself is a no-op.
 
-Like Mauro suggested, splitting the patchset per subsystem is a very
-good idea. And first try out with one subsystem, and after seeing how it
-goes (if they are accepted or rejected), decide if you send more patches
-to other subsystems.
+PATCH 0/XX is for the covering letter. You should generate a template for
+it using the --cover-letter option of git format-patch. That way patch 0
+will contain the diffstat for the whole series (which is often useful
+to help understand what the series is for) and there is no need to
+make no-op changes.
 
-> If yes, what would the proper way to drop it? Just announcing, that
-> this is going nowhere in a separate patch?
 
-Replying to Mauro's email and telling your intentions is a good way to
-inform everyone.
+Daniel.
 
--- 
-https://patchwork.kernel.org/project/linux-wireless/list/
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+>=20
+> Signed-off-by: Benjamin St=FCrz <benni@stuerz.xyz>
+> ---
+>  .gitignore | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>=20
+> diff --git a/.gitignore b/.gitignore
+> index 7afd412dadd2..706f667261eb 100644
+> --- a/.gitignore
+> +++ b/.gitignore
+> @@ -20,7 +20,7 @@
+>  *.dtb
+>  *.dtbo
+>  *.dtb.S
+> -*.dwo
+> +*.dwo
+>  *.elf
+>  *.gcno
+>  *.gz
+> --=20
+> 2.35.1
