@@ -1,37 +1,43 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Date: Fri, 15 Apr 2022 19:08:15 +0000
-Subject: [PATCH 5/7] powerpc: Remove unused SLOW_DOWN_IO definition
-Message-Id: <20220415190817.842864-6-helgaas@kernel.org>
+From: Randy Dunlap <rdunlap@infradead.org>
+Date: Fri, 01 Apr 2022 03:09:24 +0000
+Subject: [PATCH v2] Documentation: kernel-parameters: alphabetize and misc. fixes
+Message-Id: <20220401030927.12023-1-rdunlap@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220415190817.842864-1-helgaas@kernel.org>
-In-Reply-To: <20220415190817.842864-1-helgaas@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Chas Williams <3chas3@gmail.com>, "David S . Miller" <davem@davemloft.net>, Jakub Kicinski <kuba@kernel.org>, Paolo Abeni <pabeni@redhat.com>
-Cc: linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>
+To: linux-kernel@vger.kernel.org
+Cc: Randy Dunlap <rdunlap@infradead.org>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, linux-s390@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@redhat.com>, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, linux-ia64@vger.kernel.org, "Rafael J. Wysocki" <rafael@kernel.org>, Pavel Machek <pavel@ucw.cz>, Len Brown <lenb@kernel.org>, linux-pm@vger.kernel.org, linux-acpi@vger.kernel.org, Johannes Weiner <hannes@cmpxchg.org>, Andrew Morton <akpm@linux-foundation.org>, Jonathan Corbet <corbet@lwn.net>, linux-doc@vger.kernel.org
 
-From: Bjorn Helgaas <bhelgaas@google.com>
+Alphabetize parts of kernel-parameters.txt. Alphabetize the "legends"
+in kernel-parameters.rst. Add a few and drop a few outdated legends.
 
-Remove unused SLOW_DOWN_IO definition.
+Cc: Heiko Carstens <hca@linux.ibm.com>
+Cc: Vasily Gorbik <gor@linux.ibm.com>
+Cc: Alexander Gordeev <agordeev@linux.ibm.com>
+Cc: Christian Borntraeger <borntraeger@linux.ibm.com>
+Cc: Sven Schnelle <svens@linux.ibm.com>
+Cc: linux-s390@vger.kernel.org
+Cc: Steven Rostedt <rostedt@goodmis.org>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: sparclinux@vger.kernel.org
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: linux-ia64@vger.kernel.org
+Cc: "Rafael J. Wysocki" <rafael@kernel.org>
+Cc: Pavel Machek <pavel@ucw.cz>
+Cc: Len Brown <lenb@kernel.org>
+Cc: linux-pm@vger.kernel.org
+Cc: linux-acpi@vger.kernel.org
+Cc: Johannes Weiner <hannes@cmpxchg.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Jonathan Corbet <corbet@lwn.net>
+Cc: linux-doc@vger.kernel.org
 
-Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
----
- arch/powerpc/include/asm/io.h | 2 --
- 1 file changed, 2 deletions(-)
+ [PATCH 1/3 v2] Docs: admin/kernel-parameters: edit a few boot options
+ [PATCH 2/3 v2] Docs/admin: alphabetize some kernel-parameters (part 1)
+ [PATCH 3/3] docs/admin: alphabetize parts of kernel-parameters.txt (part 2)
 
-diff --git a/arch/powerpc/include/asm/io.h b/arch/powerpc/include/asm/io.h
-index fee979d3a1aa..c5a5f7c9b231 100644
---- a/arch/powerpc/include/asm/io.h
-+++ b/arch/powerpc/include/asm/io.h
-@@ -38,8 +38,6 @@ extern struct pci_dev *isa_bridge_pcidev;
- #define SIO_CONFIG_RA	0x398
- #define SIO_CONFIG_RD	0x399
- 
--#define SLOW_DOWN_IO
--
- /* 32 bits uses slightly different variables for the various IO
-  * bases. Most of this file only uses _IO_BASE though which we
-  * define properly based on the platform
--- 
-2.25.1
+ Documentation/admin-guide/kernel-parameters.rst |   11 
+ Documentation/admin-guide/kernel-parameters.txt |  298 +++++++-------
+ 2 files changed, 156 insertions(+), 153 deletions(-)
