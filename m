@@ -1,108 +1,108 @@
-From: Baolin Wang <baolin.wang@linux.alibaba.com>
-Date: Sat, 30 Apr 2022 03:22:33 +0000
-Subject: Re: [PATCH 3/3] mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when unmapping
-Message-Id: <bcb4a3b0-4fcd-af3a-2a2c-fd662d9eaba9@linux.alibaba.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Mon, 04 Apr 2022 05:05:44 +0000
+Subject: cleanup swiotlb initialization v8
+Message-Id: <20220404050559.132378-1-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1651216964.git.baolin.wang@linux.alibaba.com>
- <c91e04ebb792ef7b72966edea8bd6fa2dfa5bfa7.1651216964.git.baolin.wang@linux.alibaba.com>
- <20220429220214.4cfc5539@thinkpad>
-In-Reply-To: <20220429220214.4cfc5539@thinkpad>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Gerald Schaefer <gerald.schaefer@linux.ibm.com>
-Cc: akpm@linux-foundation.org, mike.kravetz@oracle.com, catalin.marinas@arm.com, will@kernel.org, tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+To: iommu@lists.linux-foundation.org
+Cc: Juergen Gross <jgross@suse.com>, Tom Lendacky <thomas.lendacky@amd.com>, linux-s390@vger.kernel.org, Stefano Stabellini <sstabellini@kernel.org>, linux-ia64@vger.kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, tboot-devel@lists.sourceforge.net, linux-hyperv@vger.kernel.org, linux-pci@vger.kernel.org, xen-devel@lists.xenproject.org, Boris Ostrovsky <boris.ostrovsky@oracle.com>, David Woodhouse <dwmw2@infradead.org>, linux-riscv@lists.infradead.org, linux-arm-kernel@lists.infradead.org
 
+Hi all,
 
+this series tries to clean up the swiotlb initialization, including
+that of swiotlb-xen.  To get there is also removes the x86 iommu table
+infrastructure that massively obsfucates the initialization path.
 
-On 4/30/2022 4:02 AM, Gerald Schaefer wrote:
-> On Fri, 29 Apr 2022 16:14:43 +0800
-> Baolin Wang <baolin.wang@linux.alibaba.com> wrote:
-> 
->> On some architectures (like ARM64), it can support CONT-PTE/PMD size
->> hugetlb, which means it can support not only PMD/PUD size hugetlb:
->> 2M and 1G, but also CONT-PTE/PMD size: 64K and 32M if a 4K page
->> size specified.
->>
->> When unmapping a hugetlb page, we will get the relevant page table
->> entry by huge_pte_offset() only once to nuke it. This is correct
->> for PMD or PUD size hugetlb, since they always contain only one
->> pmd entry or pud entry in the page table.
->>
->> However this is incorrect for CONT-PTE and CONT-PMD size hugetlb,
->> since they can contain several continuous pte or pmd entry with
->> same page table attributes, so we will nuke only one pte or pmd
->> entry for this CONT-PTE/PMD size hugetlb page.
->>
->> And now we only use try_to_unmap() to unmap a poisoned hugetlb page,
->> which means now we will unmap only one pte entry for a CONT-PTE or
->> CONT-PMD size poisoned hugetlb page, and we can still access other
->> subpages of a CONT-PTE or CONT-PMD size poisoned hugetlb page,
->> which will cause serious issues possibly.
->>
->> So we should change to use huge_ptep_clear_flush() to nuke the
->> hugetlb page table to fix this issue, which already considered
->> CONT-PTE and CONT-PMD size hugetlb.
->>
->> Note we've already used set_huge_swap_pte_at() to set a poisoned
->> swap entry for a poisoned hugetlb page.
->>
->> Signed-off-by: Baolin Wang <baolin.wang@linux.alibaba.com>
->> ---
->>   mm/rmap.c | 34 +++++++++++++++++-----------------
->>   1 file changed, 17 insertions(+), 17 deletions(-)
->>
->> diff --git a/mm/rmap.c b/mm/rmap.c
->> index 7cf2408..1e168d7 100644
->> --- a/mm/rmap.c
->> +++ b/mm/rmap.c
->> @@ -1564,28 +1564,28 @@ static bool try_to_unmap_one(struct folio *folio, struct vm_area_struct *vma,
->>   					break;
->>   				}
->>   			}
->> +			pteval = huge_ptep_clear_flush(vma, address, pvmw.pte);
-> 
-> Unlike in your patch 2/3, I do not see that this (huge) pteval would later
-> be used again with set_huge_pte_at() instead of set_pte_at(). Not sure if
-> this (huge) pteval could end up at a set_pte_at() later, but if yes, then
-> this would be broken on s390, and you'd need to use set_huge_pte_at()
-> instead of set_pte_at() like in your patch 2/3.
+Git tree:
 
-IIUC, As I said in the commit message, we will only unmap a poisoned 
-hugetlb page by try_to_unmap(), and the poisoned hugetlb page will be 
-remapped with a poisoned entry by set_huge_swap_pte_at() in 
-try_to_unmap_one(). So I think no need change to use set_huge_pte_at() 
-instead of set_pte_at() for other cases, since the hugetlb page will not 
-hit other cases.
+    git://git.infradead.org/users/hch/misc.git swiotlb-init-cleanup
 
-if (PageHWPoison(subpage) && !(flags & TTU_IGNORE_HWPOISON)) {
-	pteval = swp_entry_to_pte(make_hwpoison_entry(subpage));
-	if (folio_test_hugetlb(folio)) {
-		hugetlb_count_sub(folio_nr_pages(folio), mm);
-		set_huge_swap_pte_at(mm, address, pvmw.pte, pteval,
-				     vma_mmu_pagesize(vma));
-	} else {
-		dec_mm_counter(mm, mm_counter(&folio->page));
-		set_pte_at(mm, address, pvmw.pte, pteval);
-	}
+Gitweb:
 
-}
+    http://git.infradead.org/users/hch/misc.git/shortlog/refs/heads/swiotlb-init-cleanup
 
-> 
-> Please note that huge_ptep_get functions do not return valid PTEs on s390,
-> and such PTEs must never be set directly with set_pte_at(), but only with
-> set_huge_pte_at().
-> 
-> Background is that, for hugetlb pages, we are of course not really dealing
-> with PTEs at this level, but rather PMDs or PUDs, depending on hugetlb size.
-> On s390, the layout is quite different for PTEs and PMDs / PUDs, and
-> unfortunately the hugetlb code is not properly reflecting this by using
-> PMD or PUD types, like the THP code does.
-> 
-> So, as work-around, on s390, the huge_ptep_xxx functions will return
-> only fake PTEs, which must be converted again to a proper PMD or PUD,
-> before writing them to the page table, which is what happens in
-> set_huge_pte_at(), but not in set_pte_at().
+Changes since v7:
+ - rebased to Linux 5.18-rc1
+ - better document the lower bound swiotlb size for xen-swiotlb
+ - improve the nslabs calculation for the retry case in
+   swiotlb_init_remap and swiotlb_init_late
 
-Thanks for your explanation. As I said as above, I think we've already 
-handled the hugetlb with set_huge_swap_pte_at() in try_to_unmap_one().
+Changes since v6:
+ - use IO_TLB_MIN_SLABS instead of open coding the constant
+ - call the remap callback later in swiotlb_init_late
+ - set SWIOTLB_ANY for xen/x86
+
+Changes since v5:
+ - split a patch into three
+ - fix setting x86_swiotlb_enable for Xen
+ - fix a comment about forced bounce buffering for guest memory
+   encryption
+ - remove the xen_initial_domain check from
+   xen_create_contiguous_region
+
+Changes since v3:
+ - fix a compilation issue on some powerpc configfs
+ - fix and cleanup how forced bounce buffering is enabled for
+   guest memory encryption
+
+Changes since v2:
+ - make ppc_swiotlb_flags actually work again
+ - also force enable swiotlb for guest encrypted memory to cater
+   to hyperv which doesn't set the host encrypted memory flag
+
+Changes since v1:
+ - skip IOMMU initialization on Xen PV kernels
+ - various small whitespace / typo fixes
+
+Diffstat:
+ arch/ia64/include/asm/iommu_table.h      |    7 -
+ arch/x86/include/asm/iommu_table.h       |  102 -------------------
+ arch/x86/include/asm/swiotlb.h           |   30 -----
+ arch/x86/kernel/pci-iommu_table.c        |   77 --------------
+ arch/x86/kernel/pci-swiotlb.c            |   77 --------------
+ arch/x86/xen/pci-swiotlb-xen.c           |   96 ------------------
+ b/arch/arm/mm/init.c                     |    6 -
+ b/arch/arm/xen/mm.c                      |   26 ++--
+ b/arch/arm64/mm/init.c                   |    6 -
+ b/arch/ia64/mm/init.c                    |    4 
+ b/arch/mips/cavium-octeon/dma-octeon.c   |   15 --
+ b/arch/mips/loongson64/dma.c             |    2 
+ b/arch/mips/pci/pci-octeon.c             |    2 
+ b/arch/mips/sibyte/common/dma.c          |    2 
+ b/arch/powerpc/include/asm/svm.h         |    4 
+ b/arch/powerpc/include/asm/swiotlb.h     |    1 
+ b/arch/powerpc/kernel/dma-swiotlb.c      |    1 
+ b/arch/powerpc/mm/mem.c                  |    6 -
+ b/arch/powerpc/platforms/pseries/setup.c |    3 
+ b/arch/powerpc/platforms/pseries/svm.c   |   26 ----
+ b/arch/riscv/mm/init.c                   |    8 -
+ b/arch/s390/mm/init.c                    |    3 
+ b/arch/x86/include/asm/dma-mapping.h     |   12 --
+ b/arch/x86/include/asm/gart.h            |    5 
+ b/arch/x86/include/asm/iommu.h           |    8 +
+ b/arch/x86/include/asm/xen/page.h        |    5 
+ b/arch/x86/include/asm/xen/swiotlb-xen.h |    2 
+ b/arch/x86/kernel/Makefile               |    2 
+ b/arch/x86/kernel/amd_gart_64.c          |    5 
+ b/arch/x86/kernel/aperture_64.c          |   14 --
+ b/arch/x86/kernel/cpu/mshyperv.c         |    8 -
+ b/arch/x86/kernel/pci-dma.c              |  114 +++++++++++++++++----
+ b/arch/x86/kernel/tboot.c                |    1 
+ b/arch/x86/kernel/vmlinux.lds.S          |   12 --
+ b/arch/x86/mm/mem_encrypt_amd.c          |    3 
+ b/arch/x86/pci/sta2x11-fixup.c           |    2 
+ b/arch/x86/xen/Makefile                  |    2 
+ b/drivers/iommu/amd/init.c               |    6 -
+ b/drivers/iommu/amd/iommu.c              |    5 
+ b/drivers/iommu/intel/dmar.c             |    6 -
+ b/drivers/xen/swiotlb-xen.c              |  132 -------------------------
+ b/include/linux/dmar.h                   |    6 -
+ b/include/linux/swiotlb.h                |   22 ++--
+ b/include/trace/events/swiotlb.h         |   29 +----
+ b/include/xen/arm/page.h                 |    1 
+ b/include/xen/swiotlb-xen.h              |    8 +
+ b/kernel/dma/direct.h                    |    2 
+ b/kernel/dma/swiotlb.c                   |  163 ++++++++++++++-----------------
+ 48 files changed, 252 insertions(+), 827 deletions(-)
