@@ -1,34 +1,24 @@
-From: Alan.Robinson@fujitsu.com (Alan Robinson)
-Date: Mon, 04 Apr 2022 06:19:46 +0000
+From: Dongli Zhang <dongli.zhang@oracle.com>
+Date: Mon, 04 Apr 2022 07:09:08 +0000
 Subject: Re: [PATCH 12/15] swiotlb: provide swiotlb_init variants that remap the buffer
-Message-Id: <20220404061946.GA1905@ts.fujitsu.com>
+Message-Id: <54ec407f-eda2-6e28-90f9-eb48b2ec8763@oracle.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220404050559.132378-1-hch@lst.de>
- <67c1784af6f24f3e871ddfb1478e821c@FR3P281MB0843.DEUP281.PROD.OUTLOOK.COM>
-In-Reply-To: <67c1784af6f24f3e871ddfb1478e821c@FR3P281MB0843.DEUP281.PROD.OUTLOOK.COM>
+ <20220404050559.132378-13-hch@lst.de>
+In-Reply-To: <20220404050559.132378-13-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>
-Cc: "iommu@lists.linux-foundation.org" <iommu@lists.linux-foundation.org>, "x86@kernel.org" <x86@kernel.org>, Anshuman Khandual <anshuman.khandual@arm.com>, Tom Lendacky <thomas.lendacky@amd.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Stefano Stabellini <sstabellini@kernel.org>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Robin Murphy <robin.murphy@arm.com>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>, "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>, "linux-hyperv@vger.kernel.org" <linux-hyperv@vger.kernel.org>, "tboot-devel@lists.sourceforge.net" <tboot-devel@lists.sourceforge.net>, "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+To: Christoph Hellwig <hch@lst.de>, iommu@lists.linux-foundation.org
+Cc: Juergen Gross <jgross@suse.com>, Tom Lendacky <thomas.lendacky@amd.com>, linux-s390@vger.kernel.org, Stefano Stabellini <sstabellini@kernel.org>, linux-ia64@vger.kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, tboot-devel@lists.sourceforge.net, linux-hyperv@vger.kernel.org, linux-pci@vger.kernel.org, xen-devel@lists.xenproject.org, Boris Ostrovsky <boris.ostrovsky@oracle.com>, David Woodhouse <dwmw2@infradead.org>, linux-riscv@lists.infradead.org, linux-arm-kernel@lists.infradead.org
 
-Hi Christoph,
 
-On Mon, Apr 04, 2022 at 05:05:56AM +0000, Christoph Hellwig wrote:
-> From: Christoph Hellwig <hch@lst.de>
-> Subject: [PATCH 12/15] swiotlb: provide swiotlb_init variants that remap
->  the buffer
-> 
+
+On 4/3/22 10:05 PM, Christoph Hellwig wrote:
 > To shared more code between swiotlb and xen-swiotlb, offer a
 > swiotlb_init_remap interface and add a remap callback to
 > swiotlb_init_late that will allow Xen to remap the buffer the
-
-s/the buffer//
-
 > buffer without duplicating much of the logic.
-
-Alan
-
 > 
 > Signed-off-by: Christoph Hellwig <hch@lst.de>
 > ---
@@ -146,6 +136,12 @@ Alan
 > +	if (rc) {
 > +		free_pages((unsigned long)vstart, order);
 > + 
+
+"warning: 1 line adds whitespace errors." above when I was applying the patch
+for test.
+
+Dongli Zhang
+
 > +		nslabs = ALIGN(nslabs >> 1, IO_TLB_SEGSIZE);
 > +		if (nslabs < IO_TLB_MIN_SLABS)
 > +			return rc;
@@ -154,6 +150,4 @@ Alan
 >  	rc = swiotlb_late_init_with_tbl(vstart, nslabs);
 >  	if (rc)
 >  		free_pages((unsigned long)vstart, order);
-> -- 
-> 2.30.2
 > 
