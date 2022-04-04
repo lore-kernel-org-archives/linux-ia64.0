@@ -1,172 +1,72 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Fri, 29 Apr 2022 21:48:33 +0000
-Subject: [PATCH v2 08/12] ptrace: Remove arch_ptrace_attach
-Message-Id: <20220429214837.386518-8-ebiederm@xmission.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Mon, 04 Apr 2022 05:05:48 +0000
+Subject: [PATCH 04/15] swiotlb: rename swiotlb_late_init_with_default_size
+Message-Id: <20220404050559.132378-5-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
-In-Reply-To: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
+References: <20220404050559.132378-1-hch@lst.de>
+In-Reply-To: <20220404050559.132378-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
+To: iommu@lists.linux-foundation.org
+Cc: Juergen Gross <jgross@suse.com>, Tom Lendacky <thomas.lendacky@amd.com>, linux-s390@vger.kernel.org, Stefano Stabellini <sstabellini@kernel.org>, linux-ia64@vger.kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, tboot-devel@lists.sourceforge.net, linux-hyperv@vger.kernel.org, linux-pci@vger.kernel.org, xen-devel@lists.xenproject.org, Boris Ostrovsky <boris.ostrovsky@oracle.com>, David Woodhouse <dwmw2@infradead.org>, linux-riscv@lists.infradead.org, linux-arm-kernel@lists.infradead.org
 
-The last remaining implementation of arch_ptrace_attach is ia64's
-ptrace_attach_sync_user_rbs which was added at the end of 2007 in
-commit aa91a2e90044 ("[IA64] Synchronize RBS on PTRACE_ATTACH").
+swiotlb_late_init_with_default_size is an overly verbose name that
+doesn't even catch what the function is doing, given that the size is
+not just a default but the actual requested size.
 
-Reading the comments and examining the code ptrace_attach_sync_user_rbs
-has the sole purpose of saving registers to the stack when ptrace_attach
-changes TASK_STOPPED to TASK_TRACED.  In all other cases arch_ptrace_stop
-takes care of the register saving.
+Rename it to swiotlb_init_late.
 
-In commit d79fdd6d96f4 ("ptrace: Clean transitions between TASK_STOPPED and TRACED")
-modified ptrace_attach to wake up the thread and enter ptrace_stop normally even
-when the thread starts out stopped.
-
-This makes ptrace_attach_sync_user_rbs completely unnecessary.  So just
-remove it.
-
-Cc: linux-ia64@vger.kernel.org
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+Reviewed-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
- arch/ia64/include/asm/ptrace.h |  4 ---
- arch/ia64/kernel/ptrace.c      | 57 ----------------------------------
- kernel/ptrace.c                | 18 -----------
- 3 files changed, 79 deletions(-)
+ arch/x86/pci/sta2x11-fixup.c | 2 +-
+ include/linux/swiotlb.h      | 2 +-
+ kernel/dma/swiotlb.c         | 6 ++----
+ 3 files changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/arch/ia64/include/asm/ptrace.h b/arch/ia64/include/asm/ptrace.h
-index a10a498eede1..402874489890 100644
---- a/arch/ia64/include/asm/ptrace.h
-+++ b/arch/ia64/include/asm/ptrace.h
-@@ -139,10 +139,6 @@ static inline long regs_return_value(struct pt_regs *regs)
-   #define arch_ptrace_stop_needed() \
- 	(!test_thread_flag(TIF_RESTORE_RSE))
+diff --git a/arch/x86/pci/sta2x11-fixup.c b/arch/x86/pci/sta2x11-fixup.c
+index 101081ad64b6d..e0c039a75b2db 100644
+--- a/arch/x86/pci/sta2x11-fixup.c
++++ b/arch/x86/pci/sta2x11-fixup.c
+@@ -57,7 +57,7 @@ static void sta2x11_new_instance(struct pci_dev *pdev)
+ 		int size = STA2X11_SWIOTLB_SIZE;
+ 		/* First instance: register your own swiotlb area */
+ 		dev_info(&pdev->dev, "Using SWIOTLB (size %i)\n", size);
+-		if (swiotlb_late_init_with_default_size(size))
++		if (swiotlb_init_late(size))
+ 			dev_emerg(&pdev->dev, "init swiotlb failed\n");
+ 	}
+ 	list_add(&instance->list, &sta2x11_instance_list);
+diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
+index 9fb3a568f0c51..b48b26bfa0edb 100644
+--- a/include/linux/swiotlb.h
++++ b/include/linux/swiotlb.h
+@@ -40,7 +40,7 @@ extern void swiotlb_init(int verbose);
+ int swiotlb_init_with_tbl(char *tlb, unsigned long nslabs, int verbose);
+ unsigned long swiotlb_size_or_default(void);
+ extern int swiotlb_late_init_with_tbl(char *tlb, unsigned long nslabs);
+-extern int swiotlb_late_init_with_default_size(size_t default_size);
++int swiotlb_init_late(size_t size);
+ extern void __init swiotlb_update_mem_attributes(void);
  
--  extern void ptrace_attach_sync_user_rbs (struct task_struct *);
--  #define arch_ptrace_attach(child) \
--	ptrace_attach_sync_user_rbs(child)
--
-   #define arch_has_single_step()  (1)
-   #define arch_has_block_step()   (1)
- 
-diff --git a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
-index a19acd9f5e1f..a45f529046c3 100644
---- a/arch/ia64/kernel/ptrace.c
-+++ b/arch/ia64/kernel/ptrace.c
-@@ -617,63 +617,6 @@ void ia64_sync_krbs(void)
- 	unw_init_running(do_sync_rbs, ia64_sync_kernel_rbs);
- }
- 
--/*
-- * After PTRACE_ATTACH, a thread's register backing store area in user
-- * space is assumed to contain correct data whenever the thread is
-- * stopped.  arch_ptrace_stop takes care of this on tracing stops.
-- * But if the child was already stopped for job control when we attach
-- * to it, then it might not ever get into ptrace_stop by the time we
-- * want to examine the user memory containing the RBS.
-- */
--void
--ptrace_attach_sync_user_rbs (struct task_struct *child)
--{
--	int stopped = 0;
--	struct unw_frame_info info;
--
--	/*
--	 * If the child is in TASK_STOPPED, we need to change that to
--	 * TASK_TRACED momentarily while we operate on it.  This ensures
--	 * that the child won't be woken up and return to user mode while
--	 * we are doing the sync.  (It can only be woken up for SIGKILL.)
--	 */
--
--	read_lock(&tasklist_lock);
--	if (child->sighand) {
--		spin_lock_irq(&child->sighand->siglock);
--		if (READ_ONCE(child->__state) = TASK_STOPPED &&
--		    !test_and_set_tsk_thread_flag(child, TIF_RESTORE_RSE)) {
--			set_notify_resume(child);
--
--			WRITE_ONCE(child->__state, TASK_TRACED);
--			stopped = 1;
--		}
--		spin_unlock_irq(&child->sighand->siglock);
--	}
--	read_unlock(&tasklist_lock);
--
--	if (!stopped)
--		return;
--
--	unw_init_from_blocked_task(&info, child);
--	do_sync_rbs(&info, ia64_sync_user_rbs);
--
--	/*
--	 * Now move the child back into TASK_STOPPED if it should be in a
--	 * job control stop, so that SIGCONT can be used to wake it up.
--	 */
--	read_lock(&tasklist_lock);
--	if (child->sighand) {
--		spin_lock_irq(&child->sighand->siglock);
--		if (READ_ONCE(child->__state) = TASK_TRACED &&
--		    (child->signal->flags & SIGNAL_STOP_STOPPED)) {
--			WRITE_ONCE(child->__state, TASK_STOPPED);
--		}
--		spin_unlock_irq(&child->sighand->siglock);
--	}
--	read_unlock(&tasklist_lock);
--}
--
- /*
-  * Write f32-f127 back to task->thread.fph if it has been modified.
+ phys_addr_t swiotlb_tbl_map_single(struct device *hwdev, phys_addr_t phys,
+diff --git a/kernel/dma/swiotlb.c b/kernel/dma/swiotlb.c
+index e0127e397335e..9a4fe6e48a074 100644
+--- a/kernel/dma/swiotlb.c
++++ b/kernel/dma/swiotlb.c
+@@ -281,11 +281,9 @@ swiotlb_init(int verbose)
+  * initialize the swiotlb later using the slab allocator if needed.
+  * This should be just like above, but with some error catching.
   */
-diff --git a/kernel/ptrace.c b/kernel/ptrace.c
-index 644eb7439d01..22041531adf6 100644
---- a/kernel/ptrace.c
-+++ b/kernel/ptrace.c
-@@ -1280,10 +1280,6 @@ int ptrace_request(struct task_struct *child, long request,
- 	return ret;
- }
- 
--#ifndef arch_ptrace_attach
--#define arch_ptrace_attach(child)	do { } while (0)
--#endif
--
- SYSCALL_DEFINE4(ptrace, long, request, long, pid, unsigned long, addr,
- 		unsigned long, data)
+-int
+-swiotlb_late_init_with_default_size(size_t default_size)
++int swiotlb_init_late(size_t size)
  {
-@@ -1292,8 +1288,6 @@ SYSCALL_DEFINE4(ptrace, long, request, long, pid, unsigned long, addr,
- 
- 	if (request = PTRACE_TRACEME) {
- 		ret = ptrace_traceme();
--		if (!ret)
--			arch_ptrace_attach(current);
- 		goto out;
- 	}
- 
-@@ -1305,12 +1299,6 @@ SYSCALL_DEFINE4(ptrace, long, request, long, pid, unsigned long, addr,
- 
- 	if (request = PTRACE_ATTACH || request = PTRACE_SEIZE) {
- 		ret = ptrace_attach(child, request, addr, data);
--		/*
--		 * Some architectures need to do book-keeping after
--		 * a ptrace attach.
--		 */
--		if (!ret)
--			arch_ptrace_attach(child);
- 		goto out_put_task_struct;
- 	}
- 
-@@ -1450,12 +1438,6 @@ COMPAT_SYSCALL_DEFINE4(ptrace, compat_long_t, request, compat_long_t, pid,
- 
- 	if (request = PTRACE_ATTACH || request = PTRACE_SEIZE) {
- 		ret = ptrace_attach(child, request, addr, data);
--		/*
--		 * Some architectures need to do book-keeping after
--		 * a ptrace attach.
--		 */
--		if (!ret)
--			arch_ptrace_attach(child);
- 		goto out_put_task_struct;
- 	}
- 
+-	unsigned long nslabs -		ALIGN(default_size >> IO_TLB_SHIFT, IO_TLB_SEGSIZE);
++	unsigned long nslabs = ALIGN(size >> IO_TLB_SHIFT, IO_TLB_SEGSIZE);
+ 	unsigned long bytes;
+ 	unsigned char *vstart = NULL;
+ 	unsigned int order;
 -- 
-2.35.3
+2.30.2
