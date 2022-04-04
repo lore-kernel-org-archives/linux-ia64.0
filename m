@@ -1,122 +1,82 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Fri, 29 Apr 2022 21:48:35 +0000
-Subject: [PATCH v2 10/12] ptrace: Only return signr from ptrace_stop if it was provided
-Message-Id: <20220429214837.386518-10-ebiederm@xmission.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Mon, 04 Apr 2022 05:05:55 +0000
+Subject: [PATCH 11/15] swiotlb: pass a gfp_mask argument to swiotlb_init_late
+Message-Id: <20220404050559.132378-12-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
-In-Reply-To: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
+References: <20220404050559.132378-1-hch@lst.de>
+In-Reply-To: <20220404050559.132378-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
+To: iommu@lists.linux-foundation.org
+Cc: Juergen Gross <jgross@suse.com>, Tom Lendacky <thomas.lendacky@amd.com>, linux-s390@vger.kernel.org, Stefano Stabellini <sstabellini@kernel.org>, linux-ia64@vger.kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, tboot-devel@lists.sourceforge.net, linux-hyperv@vger.kernel.org, linux-pci@vger.kernel.org, xen-devel@lists.xenproject.org, Boris Ostrovsky <boris.ostrovsky@oracle.com>, David Woodhouse <dwmw2@infradead.org>, linux-riscv@lists.infradead.org, linux-arm-kernel@lists.infradead.org
 
-In ptrace_stop a ptrace_unlink or SIGKILL can occur either after
-siglock is dropped or after tasklist_lock is dropped.  At either point
-the result can be that ptrace will continue and not stop at schedule.
+Let the caller chose a zone to allocate from.  This will be used
+later on by the xen-swiotlb initialization on arm.
 
-This means that there are cases where the current logic fails to handle
-the fact that ptrace_stop did not actually stop, and can potentially
-cause ptrace_report_syscall to attempt to deliver a signal.
-
-Instead of attempting to detect in ptrace_stop when it fails to
-stop update ptrace_resume and ptrace_detach to set a flag to indicate
-that the signal to continue with has be set.   Use that
-new flag to decided how to set return signal.
-
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+Reviewed-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
- include/linux/sched/jobctl.h |  2 ++
- kernel/ptrace.c              |  5 +++++
- kernel/signal.c              | 12 ++++++------
- 3 files changed, 13 insertions(+), 6 deletions(-)
+ arch/x86/pci/sta2x11-fixup.c | 2 +-
+ include/linux/swiotlb.h      | 2 +-
+ kernel/dma/swiotlb.c         | 7 ++-----
+ 3 files changed, 4 insertions(+), 7 deletions(-)
 
-diff --git a/include/linux/sched/jobctl.h b/include/linux/sched/jobctl.h
-index d556c3425963..2ff1bcd63cf4 100644
---- a/include/linux/sched/jobctl.h
-+++ b/include/linux/sched/jobctl.h
-@@ -20,6 +20,7 @@ struct task_struct;
- #define JOBCTL_LISTENING_BIT	22	/* ptracer is listening for events */
- #define JOBCTL_TRAP_FREEZE_BIT	23	/* trap for cgroup freezer */
- #define JOBCTL_PTRACE_FROZEN_BIT	24	/* frozen for ptrace */
-+#define JOBCTL_PTRACE_SIGNR_BIT	25	/* ptrace signal number */
- 
- #define JOBCTL_STOP_DEQUEUED	(1UL << JOBCTL_STOP_DEQUEUED_BIT)
- #define JOBCTL_STOP_PENDING	(1UL << JOBCTL_STOP_PENDING_BIT)
-@@ -30,6 +31,7 @@ struct task_struct;
- #define JOBCTL_LISTENING	(1UL << JOBCTL_LISTENING_BIT)
- #define JOBCTL_TRAP_FREEZE	(1UL << JOBCTL_TRAP_FREEZE_BIT)
- #define JOBCTL_PTRACE_FROZEN	(1UL << JOBCTL_PTRACE_FROZEN_BIT)
-+#define JOBCTL_PTRACE_SIGNR	(1UL << JOBCTL_PTRACE_SIGNR_BIT)
- 
- #define JOBCTL_TRAP_MASK	(JOBCTL_TRAP_STOP | JOBCTL_TRAP_NOTIFY)
- #define JOBCTL_PENDING_MASK	(JOBCTL_STOP_PENDING | JOBCTL_TRAP_MASK)
-diff --git a/kernel/ptrace.c b/kernel/ptrace.c
-index c1c99e8be147..d80222251f60 100644
---- a/kernel/ptrace.c
-+++ b/kernel/ptrace.c
-@@ -596,7 +596,11 @@ static int ptrace_detach(struct task_struct *child, unsigned int data)
- 	 * tasklist_lock avoids the race with wait_task_stopped(), see
- 	 * the comment in ptrace_resume().
- 	 */
-+	spin_lock(&child->sighand->siglock);
- 	child->exit_code = data;
-+	child->jobctl |= JOBCTL_PTRACE_SIGNR;
-+	spin_unlock(&child->sighand->siglock);
-+
- 	__ptrace_detach(current, child);
- 	write_unlock_irq(&tasklist_lock);
- 
-@@ -883,6 +887,7 @@ static int ptrace_resume(struct task_struct *child, long request,
- 	 */
- 	spin_lock_irq(&child->sighand->siglock);
- 	child->exit_code = data;
-+	child->jobctl |= JOBCTL_PTRACE_SIGNR;
- 	wake_up_state(child, __TASK_TRACED);
- 	spin_unlock_irq(&child->sighand->siglock);
- 
-diff --git a/kernel/signal.c b/kernel/signal.c
-index 5cf268982a7e..7cb27a27290a 100644
---- a/kernel/signal.c
-+++ b/kernel/signal.c
-@@ -2193,7 +2193,6 @@ static int ptrace_stop(int exit_code, int why, int clear_code,
- 	__acquires(&current->sighand->siglock)
- {
- 	bool gstop_done = false;
--	bool read_code = true;
- 
- 	if (arch_ptrace_stop_needed()) {
- 		/*
-@@ -2299,9 +2298,6 @@ static int ptrace_stop(int exit_code, int why, int clear_code,
- 
- 		/* tasklist protects us from ptrace_freeze_traced() */
- 		__set_current_state(TASK_RUNNING);
--		read_code = false;
--		if (clear_code)
--			exit_code = 0;
- 		read_unlock(&tasklist_lock);
+diff --git a/arch/x86/pci/sta2x11-fixup.c b/arch/x86/pci/sta2x11-fixup.c
+index e0c039a75b2db..c7e6faf59a861 100644
+--- a/arch/x86/pci/sta2x11-fixup.c
++++ b/arch/x86/pci/sta2x11-fixup.c
+@@ -57,7 +57,7 @@ static void sta2x11_new_instance(struct pci_dev *pdev)
+ 		int size = STA2X11_SWIOTLB_SIZE;
+ 		/* First instance: register your own swiotlb area */
+ 		dev_info(&pdev->dev, "Using SWIOTLB (size %i)\n", size);
+-		if (swiotlb_init_late(size))
++		if (swiotlb_init_late(size, GFP_DMA))
+ 			dev_emerg(&pdev->dev, "init swiotlb failed\n");
  	}
+ 	list_add(&instance->list, &sta2x11_instance_list);
+diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
+index eabdd89987027..ee655f2e4d28b 100644
+--- a/include/linux/swiotlb.h
++++ b/include/linux/swiotlb.h
+@@ -37,7 +37,7 @@ struct scatterlist;
+ int swiotlb_init_with_tbl(char *tlb, unsigned long nslabs, unsigned int flags);
+ unsigned long swiotlb_size_or_default(void);
+ extern int swiotlb_late_init_with_tbl(char *tlb, unsigned long nslabs);
+-int swiotlb_init_late(size_t size);
++int swiotlb_init_late(size_t size, gfp_t gfp_mask);
+ extern void __init swiotlb_update_mem_attributes(void);
  
-@@ -2311,14 +2307,18 @@ static int ptrace_stop(int exit_code, int why, int clear_code,
- 	 * any signal-sending on another CPU that wants to examine it.
- 	 */
- 	spin_lock_irq(&current->sighand->siglock);
--	if (read_code)
-+	/* Did userspace perhaps provide a signal to resume with? */
-+	if (current->jobctl & JOBCTL_PTRACE_SIGNR)
- 		exit_code = current->exit_code;
-+	else if (clear_code)
-+		exit_code = 0;
-+
- 	current->last_siginfo = NULL;
- 	current->ptrace_message = 0;
- 	current->exit_code = 0;
+ phys_addr_t swiotlb_tbl_map_single(struct device *hwdev, phys_addr_t phys,
+diff --git a/kernel/dma/swiotlb.c b/kernel/dma/swiotlb.c
+index f6e091424af3d..119187afc65ec 100644
+--- a/kernel/dma/swiotlb.c
++++ b/kernel/dma/swiotlb.c
+@@ -292,7 +292,7 @@ void __init swiotlb_init(bool addressing_limit, unsigned int flags)
+  * initialize the swiotlb later using the slab allocator if needed.
+  * This should be just like above, but with some error catching.
+  */
+-int swiotlb_init_late(size_t size)
++int swiotlb_init_late(size_t size, gfp_t gfp_mask)
+ {
+ 	unsigned long nslabs = ALIGN(size >> IO_TLB_SHIFT, IO_TLB_SEGSIZE);
+ 	unsigned long bytes;
+@@ -303,15 +303,12 @@ int swiotlb_init_late(size_t size)
+ 	if (swiotlb_force_disable)
+ 		return 0;
  
- 	/* LISTENING can be set only during STOP traps, clear it */
--	current->jobctl &= ~(JOBCTL_LISTENING | JOBCTL_PTRACE_FROZEN);
-+	current->jobctl &= ~(JOBCTL_LISTENING | JOBCTL_PTRACE_FROZEN | JOBCTL_PTRACE_SIGNR);
+-	/*
+-	 * Get IO TLB memory from the low pages
+-	 */
+ 	order = get_order(nslabs << IO_TLB_SHIFT);
+ 	nslabs = SLABS_PER_PAGE << order;
+ 	bytes = nslabs << IO_TLB_SHIFT;
  
- 	/*
- 	 * Queued signals ignored us while we were stopped for tracing.
+ 	while ((SLABS_PER_PAGE << order) > IO_TLB_MIN_SLABS) {
+-		vstart = (void *)__get_free_pages(GFP_DMA | __GFP_NOWARN,
++		vstart = (void *)__get_free_pages(gfp_mask | __GFP_NOWARN,
+ 						  order);
+ 		if (vstart)
+ 			break;
 -- 
-2.35.3
+2.30.2
