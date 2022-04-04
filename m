@@ -1,93 +1,74 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Date: Fri, 15 Apr 2022 19:08:12 +0000
-Subject: [PATCH 2/7] net: wan: lmc: remove unused DELAY()
-Message-Id: <20220415190817.842864-3-helgaas@kernel.org>
+From: Christoph Hellwig <hch@lst.de>
+Date: Mon, 04 Apr 2022 05:05:50 +0000
+Subject: [PATCH 06/15] MIPS/octeon: use swiotlb_init instead of open coding it
+Message-Id: <20220404050559.132378-7-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220415190817.842864-1-helgaas@kernel.org>
-In-Reply-To: <20220415190817.842864-1-helgaas@kernel.org>
+References: <20220404050559.132378-1-hch@lst.de>
+In-Reply-To: <20220404050559.132378-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Chas Williams <3chas3@gmail.com>, "David S . Miller" <davem@davemloft.net>, Jakub Kicinski <kuba@kernel.org>, Paolo Abeni <pabeni@redhat.com>
-Cc: linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>
+To: iommu@lists.linux-foundation.org
+Cc: linux-hyperv@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-pci@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, Stefano Stabellini <sstabellini@kernel.org>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, tboot-devel@lists.sourceforge.net, xen-devel@lists.xenproject.org, David Woodhouse <dwmw2@infradead.org>, Tom Lendacky <thomas.lendacky@amd.com>, Anshuman Khandual <anshuman.khandual@arm.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, linux-arm-kernel@lists.infradead.org, Juergen Gross <jgross@suse.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, linuxppc-dev@lists.ozlabs.org, linux-mips@vger.kernel.org, Robin Murphy <robin.murphy@arm.com>
 
-From: Bjorn Helgaas <bhelgaas@google.com>
+Use the generic swiotlb initialization helper instead of open coding it.
 
-lmc_var.h is included only by files in drivers/net/wan/lmc/, and none of
-them uses DELAY().  Remove the unused definition and related comments.
-
-Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+Acked-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 ---
- drivers/net/wan/lmc/lmc_main.c | 8 --------
- drivers/net/wan/lmc/lmc_var.h  | 8 --------
- 2 files changed, 16 deletions(-)
+ arch/mips/cavium-octeon/dma-octeon.c | 15 ++-------------
+ arch/mips/pci/pci-octeon.c           |  2 +-
+ 2 files changed, 3 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/wan/lmc/lmc_main.c b/drivers/net/wan/lmc/lmc_main.c
-index 76c6b4f89890..45b2d25782ed 100644
---- a/drivers/net/wan/lmc/lmc_main.c
-+++ b/drivers/net/wan/lmc/lmc_main.c
-@@ -1669,21 +1669,17 @@ unsigned lmc_mii_readreg (lmc_softc_t * const sc, unsigned devaddr, unsigned reg
- 
-         LMC_CSR_WRITE (sc, csr_9, dataval);
-         lmc_delay ();
--        /* __SLOW_DOWN_IO; */
-         LMC_CSR_WRITE (sc, csr_9, dataval | 0x10000);
-         lmc_delay ();
--        /* __SLOW_DOWN_IO; */
-     }
- 
-     for (i = 19; i > 0; i--)
-     {
-         LMC_CSR_WRITE (sc, csr_9, 0x40000);
-         lmc_delay ();
--        /* __SLOW_DOWN_IO; */
-         retval = (retval << 1) | ((LMC_CSR_READ (sc, csr_9) & 0x80000) ? 1 : 0);
-         LMC_CSR_WRITE (sc, csr_9, 0x40000 | 0x10000);
-         lmc_delay ();
--        /* __SLOW_DOWN_IO; */
-     }
- 
-     return (retval >> 1) & 0xffff;
-@@ -1708,10 +1704,8 @@ void lmc_mii_writereg (lmc_softc_t * const sc, unsigned devaddr, unsigned regno,
- 
-         LMC_CSR_WRITE (sc, csr_9, datav);
-         lmc_delay ();
--        /* __SLOW_DOWN_IO; */
-         LMC_CSR_WRITE (sc, csr_9, (datav | 0x10000));
-         lmc_delay ();
--        /* __SLOW_DOWN_IO; */
-         i--;
-     }
- 
-@@ -1720,10 +1714,8 @@ void lmc_mii_writereg (lmc_softc_t * const sc, unsigned devaddr, unsigned regno,
-     {
-         LMC_CSR_WRITE (sc, csr_9, 0x40000);
-         lmc_delay ();
--        /* __SLOW_DOWN_IO; */
-         LMC_CSR_WRITE (sc, csr_9, 0x50000);
-         lmc_delay ();
--        /* __SLOW_DOWN_IO; */
-         i--;
-     }
+diff --git a/arch/mips/cavium-octeon/dma-octeon.c b/arch/mips/cavium-octeon/dma-octeon.c
+index df70308db0e69..fb7547e217263 100644
+--- a/arch/mips/cavium-octeon/dma-octeon.c
++++ b/arch/mips/cavium-octeon/dma-octeon.c
+@@ -186,15 +186,12 @@ phys_addr_t dma_to_phys(struct device *dev, dma_addr_t daddr)
+ 	return daddr;
  }
-diff --git a/drivers/net/wan/lmc/lmc_var.h b/drivers/net/wan/lmc/lmc_var.h
-index 99f0aa787a35..cf824bb1932c 100644
---- a/drivers/net/wan/lmc/lmc_var.h
-+++ b/drivers/net/wan/lmc/lmc_var.h
-@@ -44,14 +44,6 @@ typedef struct lmc___ctl lmc_ctl_t;
- #define LMC_CSR_WRITE(sc, reg, val) \
- 	outl((val), (sc)->lmc_csrs.reg)
  
--//#ifdef _LINUX_DELAY_H
--//	#define SLOW_DOWN_IO udelay(2);
--//	#undef __SLOW_DOWN_IO
--//	#define __SLOW_DOWN_IO udelay(2);
--//#endif
+-char *octeon_swiotlb;
 -
--#define DELAY(n) SLOW_DOWN_IO
--
- #define lmc_delay() inl(sc->lmc_csrs.csr_9)
+ void __init plat_swiotlb_setup(void)
+ {
+ 	phys_addr_t start, end;
+ 	phys_addr_t max_addr;
+ 	phys_addr_t addr_size;
+ 	size_t swiotlbsize;
+-	unsigned long swiotlb_nslabs;
+ 	u64 i;
  
- /* This macro sync's up with the mii so that reads and writes can take place */
+ 	max_addr = 0;
+@@ -236,15 +233,7 @@ void __init plat_swiotlb_setup(void)
+ 	if (OCTEON_IS_OCTEON2() && max_addr >= 0x100000000ul)
+ 		swiotlbsize = 64 * (1<<20);
+ #endif
+-	swiotlb_nslabs = swiotlbsize >> IO_TLB_SHIFT;
+-	swiotlb_nslabs = ALIGN(swiotlb_nslabs, IO_TLB_SEGSIZE);
+-	swiotlbsize = swiotlb_nslabs << IO_TLB_SHIFT;
+-
+-	octeon_swiotlb = memblock_alloc_low(swiotlbsize, PAGE_SIZE);
+-	if (!octeon_swiotlb)
+-		panic("%s: Failed to allocate %zu bytes align=%lx\n",
+-		      __func__, swiotlbsize, PAGE_SIZE);
+ 
+-	if (swiotlb_init_with_tbl(octeon_swiotlb, swiotlb_nslabs, 1) = -ENOMEM)
+-		panic("Cannot allocate SWIOTLB buffer");
++	swiotlb_adjust_size(swiotlbsize);
++	swiotlb_init(1);
+ }
+diff --git a/arch/mips/pci/pci-octeon.c b/arch/mips/pci/pci-octeon.c
+index fc29b85cfa926..e457a18cbdc59 100644
+--- a/arch/mips/pci/pci-octeon.c
++++ b/arch/mips/pci/pci-octeon.c
+@@ -664,7 +664,7 @@ static int __init octeon_pci_setup(void)
+ 
+ 		/* BAR1 movable regions contiguous to cover the swiotlb */
+ 		octeon_bar1_pci_phys -			virt_to_phys(octeon_swiotlb) & ~((1ull << 22) - 1);
++			io_tlb_default_mem.start & ~((1ull << 22) - 1);
+ 
+ 		for (index = 0; index < 32; index++) {
+ 			union cvmx_pci_bar1_indexx bar1_index;
 -- 
-2.25.1
+2.30.2
