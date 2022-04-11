@@ -1,142 +1,47 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Fri, 29 Apr 2022 21:48:36 +0000
-Subject: [PATCH v2 11/12] ptrace: Always call schedule in ptrace_stop
-Message-Id: <20220429214837.386518-11-ebiederm@xmission.com>
+From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
+Date: Mon, 11 Apr 2022 23:38:27 +0000
+Subject: [PATCH v7 15/20] ia64: Use do_kernel_power_off()
+Message-Id: <20220411233832.391817-16-dmitry.osipenko@collabora.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
-In-Reply-To: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
+References: <20220411233832.391817-1-dmitry.osipenko@collabora.com>
+In-Reply-To: <20220411233832.391817-1-dmitry.osipenko@collabora.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-Stop testing for !current->ptrace and setting __state to TASK_RUNNING.
-The code in __ptrace_unlink wakes up the child with
-ptrace_signal_wake_up which will set __state to TASK_RUNNING.  This
-leaves the only thing ptrace_stop needs to do is to send the signals.
+Kernel now supports chained power-off handlers. Use do_kernel_power_off()
+that invokes chained power-off handlers. It also invokes legacy
+pm_power_off() for now, which will be removed once all drivers will
+be converted to the new power-off API.
 
-Make the signals sending conditional upon current->ptrace so that
-the correct signals are sent to the parent.
-
-After that call schedule and let the fact that __state = TASK_RUNNING
-keep the code from sleeping in schedule.
-
-Now that it is easy to see that ptrace_stop always sleeps in
-ptrace_stop after ptrace_freeze_trace succeeds modify
-ptrace_check_attach to warn if wait_task_inactive fails.
-
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
 ---
- kernel/ptrace.c | 14 +++-------
- kernel/signal.c | 68 ++++++++++++++++++-------------------------------
- 2 files changed, 28 insertions(+), 54 deletions(-)
+ arch/ia64/kernel/process.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/kernel/ptrace.c b/kernel/ptrace.c
-index d80222251f60..c1afebd2e8f3 100644
---- a/kernel/ptrace.c
-+++ b/kernel/ptrace.c
-@@ -261,17 +261,9 @@ static int ptrace_check_attach(struct task_struct *child, bool ignore_state)
- 	}
- 	read_unlock(&tasklist_lock);
- 
--	if (!ret && !ignore_state) {
--		if (!wait_task_inactive(child, __TASK_TRACED)) {
--			/*
--			 * This can only happen if may_ptrace_stop() fails and
--			 * ptrace_stop() changes ->state back to TASK_RUNNING,
--			 * so we should not worry about leaking __TASK_TRACED.
--			 */
--			WARN_ON(READ_ONCE(child->__state) = __TASK_TRACED);
--			ret = -ESRCH;
--		}
--	}
-+	if (!ret && !ignore_state &&
-+	    WARN_ON_ONCE(!wait_task_inactive(child, __TASK_TRACED)))
-+		ret = -ESRCH;
- 
- 	return ret;
+diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
+index d7a256bd9d6b..89025e3b3f61 100644
+--- a/arch/ia64/kernel/process.c
++++ b/arch/ia64/kernel/process.c
+@@ -19,6 +19,7 @@
+ #include <linux/module.h>
+ #include <linux/notifier.h>
+ #include <linux/personality.h>
++#include <linux/reboot.h>
+ #include <linux/sched.h>
+ #include <linux/sched/debug.h>
+ #include <linux/sched/hotplug.h>
+@@ -599,8 +600,7 @@ machine_halt (void)
+ void
+ machine_power_off (void)
+ {
+-	if (pm_power_off)
+-		pm_power_off();
++	do_kernel_power_off();
+ 	machine_halt();
  }
-diff --git a/kernel/signal.c b/kernel/signal.c
-index 7cb27a27290a..4cae3f47f664 100644
---- a/kernel/signal.c
-+++ b/kernel/signal.c
-@@ -2255,51 +2255,33 @@ static int ptrace_stop(int exit_code, int why, int clear_code,
  
- 	spin_unlock_irq(&current->sighand->siglock);
- 	read_lock(&tasklist_lock);
--	if (likely(current->ptrace)) {
--		/*
--		 * Notify parents of the stop.
--		 *
--		 * While ptraced, there are two parents - the ptracer and
--		 * the real_parent of the group_leader.  The ptracer should
--		 * know about every stop while the real parent is only
--		 * interested in the completion of group stop.  The states
--		 * for the two don't interact with each other.  Notify
--		 * separately unless they're gonna be duplicates.
--		 */
-+	/*
-+	 * Notify parents of the stop.
-+	 *
-+	 * While ptraced, there are two parents - the ptracer and
-+	 * the real_parent of the group_leader.  The ptracer should
-+	 * know about every stop while the real parent is only
-+	 * interested in the completion of group stop.  The states
-+	 * for the two don't interact with each other.  Notify
-+	 * separately unless they're gonna be duplicates.
-+	 */
-+	if (current->ptrace)
- 		do_notify_parent_cldstop(current, true, why);
--		if (gstop_done && ptrace_reparented(current))
--			do_notify_parent_cldstop(current, false, why);
--
--		/*
--		 * Don't want to allow preemption here, because
--		 * sys_ptrace() needs this task to be inactive.
--		 *
--		 * XXX: implement read_unlock_no_resched().
--		 */
--		preempt_disable();
--		read_unlock(&tasklist_lock);
--		cgroup_enter_frozen();
--		preempt_enable_no_resched();
--		freezable_schedule();
--		cgroup_leave_frozen(true);
--	} else {
--		/*
--		 * By the time we got the lock, our tracer went away.
--		 * Don't drop the lock yet, another tracer may come.
--		 *
--		 * If @gstop_done, the ptracer went away between group stop
--		 * completion and here.  During detach, it would have set
--		 * JOBCTL_STOP_PENDING on us and we'll re-enter
--		 * TASK_STOPPED in do_signal_stop() on return, so notifying
--		 * the real parent of the group stop completion is enough.
--		 */
--		if (gstop_done)
--			do_notify_parent_cldstop(current, false, why);
-+	if (gstop_done && (!current->ptrace || ptrace_reparented(current)))
-+		do_notify_parent_cldstop(current, false, why);
- 
--		/* tasklist protects us from ptrace_freeze_traced() */
--		__set_current_state(TASK_RUNNING);
--		read_unlock(&tasklist_lock);
--	}
-+	/*
-+	 * Don't want to allow preemption here, because
-+	 * sys_ptrace() needs this task to be inactive.
-+	 *
-+	 * XXX: implement read_unlock_no_resched().
-+	 */
-+	preempt_disable();
-+	read_unlock(&tasklist_lock);
-+	cgroup_enter_frozen();
-+	preempt_enable_no_resched();
-+	freezable_schedule();
-+	cgroup_leave_frozen(true);
- 
- 	/*
- 	 * We are back.  Now reacquire the siglock before touching
 -- 
-2.35.3
+2.35.1
