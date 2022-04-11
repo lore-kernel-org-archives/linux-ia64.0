@@ -1,85 +1,48 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Date: Fri, 15 Apr 2022 19:08:14 +0000
-Subject: [PATCH 4/7] sh: remove unused SLOW_DOWN_IO
-Message-Id: <20220415190817.842864-5-helgaas@kernel.org>
+From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
+Date: Mon, 11 Apr 2022 23:38:21 +0000
+Subject: [PATCH v7 09/20] parisc: Use do_kernel_power_off()
+Message-Id: <20220411233832.391817-10-dmitry.osipenko@collabora.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220415190817.842864-1-helgaas@kernel.org>
-In-Reply-To: <20220415190817.842864-1-helgaas@kernel.org>
+References: <20220411233832.391817-1-dmitry.osipenko@collabora.com>
+In-Reply-To: <20220411233832.391817-1-dmitry.osipenko@collabora.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Chas Williams <3chas3@gmail.com>, "David S . Miller" <davem@davemloft.net>, Jakub Kicinski <kuba@kernel.org>, Paolo Abeni <pabeni@redhat.com>
-Cc: linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-From: Bjorn Helgaas <bhelgaas@google.com>
+Kernel now supports chained power-off handlers. Use do_kernel_power_off()
+that invokes chained power-off handlers. It also invokes legacy
+pm_power_off() for now, which will be removed once all drivers will
+be converted to the new power-off API.
 
-io.h defines SLOW_DOWN_IO only when CONF_SLOWDOWN_IO is defined, but
-CONF_SLOWDOWN_IO is never defined and is in fact explicitly undefined.
-Remove SLOW_DOWN_IO and related code.
-
-N.B. 37b7a97884ba ("sh: machvec IO death.") went to some trouble to add
-CONF_SLOWDOWN_IO and SLOW_DOWN_IO, for no obvious reason.  Maybe there was
-some out-of-tree case that used this.
-
-Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+Acked-by: Helge Deller <deller@gmx.de> # parisc
+Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
 ---
- arch/sh/include/asm/io.h | 17 ++---------------
- 1 file changed, 2 insertions(+), 15 deletions(-)
+ arch/parisc/kernel/process.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/sh/include/asm/io.h b/arch/sh/include/asm/io.h
-index cf9a3ec32406..3fe0e56eff4e 100644
---- a/arch/sh/include/asm/io.h
-+++ b/arch/sh/include/asm/io.h
-@@ -121,11 +121,6 @@ __BUILD_MEMORY_STRING(__raw_, q, u64)
+diff --git a/arch/parisc/kernel/process.c b/arch/parisc/kernel/process.c
+index 28b6a2a5574c..d145184696ea 100644
+--- a/arch/parisc/kernel/process.c
++++ b/arch/parisc/kernel/process.c
+@@ -26,6 +26,7 @@
+ #include <linux/module.h>
+ #include <linux/personality.h>
+ #include <linux/ptrace.h>
++#include <linux/reboot.h>
+ #include <linux/sched.h>
+ #include <linux/sched/debug.h>
+ #include <linux/sched/task.h>
+@@ -116,8 +117,7 @@ void machine_power_off(void)
+ 	pdc_chassis_send_status(PDC_CHASSIS_DIRECT_SHUTDOWN);
  
- #ifdef CONFIG_HAS_IOPORT_MAP
- 
--/*
-- * Slowdown I/O port space accesses for antique hardware.
-- */
--#undef CONF_SLOWDOWN_IO
--
- /*
-  * On SuperH I/O ports are memory mapped, so we access them using normal
-  * load/store instructions. sh_io_port_base is the virtual address to
-@@ -145,13 +140,7 @@ static inline void __set_io_port_base(unsigned long pbase)
- extern void __iomem *__ioport_map(unsigned long addr, unsigned int size);
- #endif
- 
--#ifdef CONF_SLOWDOWN_IO
--#define SLOW_DOWN_IO __raw_readw(sh_io_port_base)
--#else
--#define SLOW_DOWN_IO
--#endif
--
--#define __BUILD_IOPORT_SINGLE(pfx, bwlq, type, p, slow)			\
-+#define __BUILD_IOPORT_SINGLE(pfx, bwlq, type, p)			\
- 									\
- static inline void pfx##out##bwlq##p(type val, unsigned long port)	\
- {									\
-@@ -159,7 +148,6 @@ static inline void pfx##out##bwlq##p(type val, unsigned long port)	\
- 									\
- 	__addr = __ioport_map(port, sizeof(type));			\
- 	*__addr = val;							\
--	slow;								\
- }									\
- 									\
- static inline type pfx##in##bwlq##p(unsigned long port)			\
-@@ -169,14 +157,13 @@ static inline type pfx##in##bwlq##p(unsigned long port)			\
- 									\
- 	__addr = __ioport_map(port, sizeof(type));			\
- 	__val = *__addr;						\
--	slow;								\
- 									\
- 	return __val;							\
- }
- 
- #define __BUILD_IOPORT_PFX(bus, bwlq, type)				\
- 	__BUILD_IOPORT_SINGLE(bus, bwlq, type, ,)			\
--	__BUILD_IOPORT_SINGLE(bus, bwlq, type, _p, SLOW_DOWN_IO)
-+	__BUILD_IOPORT_SINGLE(bus, bwlq, type, _p,)
- 
- #define BUILDIO_IOPORT(bwlq, type)					\
- 	__BUILD_IOPORT_PFX(, bwlq, type)
+ 	/* ipmi_poweroff may have been installed. */
+-	if (pm_power_off)
+-		pm_power_off();
++	do_kernel_power_off();
+ 		
+ 	/* It seems we have no way to power the system off via
+ 	 * software. The user has to press the button himself. */
 -- 
-2.25.1
+2.35.1
