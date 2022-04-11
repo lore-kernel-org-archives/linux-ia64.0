@@ -1,73 +1,40 @@
-From: Wupeng Ma <mawupeng1@huawei.com>
-Date: Thu, 14 Apr 2022 09:55:57 +0000
-Subject: [PATCH v2 9/9] ia64/efi: Code simplification in efi_init
-Message-Id: <20220414101314.1250667-10-mawupeng1@huawei.com>
+From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
+Date: Mon, 11 Apr 2022 23:38:20 +0000
+Subject: [PATCH v7 08/20] arm64: Use do_kernel_power_off()
+Message-Id: <20220411233832.391817-9-dmitry.osipenko@collabora.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220414101314.1250667-1-mawupeng1@huawei.com>
-In-Reply-To: <20220414101314.1250667-1-mawupeng1@huawei.com>
+References: <20220411233832.391817-1-dmitry.osipenko@collabora.com>
+In-Reply-To: <20220411233832.391817-1-dmitry.osipenko@collabora.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org, corbet@lwn.net
-Cc: ardb@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zyccr.com, dvhart@infradead.org, andy@infradead.org, rppt@kernel.org, paulmck@kernel.org, peterz@infradead.org, jroedel@suse.de, songmuchun@bytedance.com, macro@orcam.me.uk, frederic@kernel.org, W_Armin@gmx.de, john.garry@huawei.com, seanjc@google.com, tsbogend@alpha.franken.de, anshuman.khandual@arm.com, chenhuacai@kernel.org, david@redhat.com, gpiccoli@igalia.com, mark.rutland@arm.com, wangkefeng.wang@huawei.com, mawupeng1@huawei.com, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-From: Ma Wupeng <mawupeng1@huawei.com>
+Kernel now supports chained power-off handlers. Use do_kernel_power_off()
+that invokes chained power-off handlers. It also invokes legacy
+pm_power_off() for now, which will be removed once all drivers will
+be converted to the new power-off API.
 
-Since efi_print_memmap() was made public, print EFI memory map in
-efi_init() can be simplified by using efi_print_memmap().
-
-Signed-off-by: Ma Wupeng <mawupeng1@huawei.com>
+Acked-by: Catalin Marinas <catalin.marinas@arm.com>
+Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
 ---
- arch/ia64/kernel/efi.c | 37 +------------------------------------
- 1 file changed, 1 insertion(+), 36 deletions(-)
+ arch/arm64/kernel/process.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
-index 31149e41f9be..4b8209b8797d 100644
---- a/arch/ia64/kernel/efi.c
-+++ b/arch/ia64/kernel/efi.c
-@@ -557,42 +557,7 @@ efi_init (void)
+diff --git a/arch/arm64/kernel/process.c b/arch/arm64/kernel/process.c
+index 7fa97df55e3a..26d1b0a4329a 100644
+--- a/arch/arm64/kernel/process.c
++++ b/arch/arm64/kernel/process.c
+@@ -111,8 +111,7 @@ void machine_power_off(void)
+ {
+ 	local_irq_disable();
+ 	smp_send_stop();
+-	if (pm_power_off)
+-		pm_power_off();
++	do_kernel_power_off();
+ }
  
- #if EFI_DEBUG
- 	/* print EFI memory map: */
--	{
--		efi_memory_desc_t *md;
--		void *p;
--		unsigned int i;
--
--		for (i = 0, p = efi_map_start; p < efi_map_end;
--		     ++i, p += efi_desc_size)
--		{
--			const char *unit;
--			unsigned long size;
--			char buf[64];
--
--			md = p;
--			size = md->num_pages << EFI_PAGE_SHIFT;
--
--			if ((size >> 40) > 0) {
--				size >>= 40;
--				unit = "TB";
--			} else if ((size >> 30) > 0) {
--				size >>= 30;
--				unit = "GB";
--			} else if ((size >> 20) > 0) {
--				size >>= 20;
--				unit = "MB";
--			} else {
--				size >>= 10;
--				unit = "KB";
--			}
--
--			printk("mem%02d: %s "
--			       "range=[0x%016llx-0x%016llx) (%4lu%s)\n",
--			       i, efi_md_typeattr_format(buf, sizeof(buf), md),
--			       md->phys_addr,
--			       md->phys_addr + efi_md_size(md), size, unit);
--		}
--	}
-+	efi_print_memmap();
- #endif
- 
- 	efi_map_pal_code();
+ /*
 -- 
-2.18.0.huawei.25
+2.35.1
