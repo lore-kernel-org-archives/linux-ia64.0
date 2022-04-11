@@ -1,141 +1,41 @@
-From: Wupeng Ma <mawupeng1@huawei.com>
-Date: Thu, 14 Apr 2022 09:54:18 +0000
-Subject: [PATCH v2 3/9] efi: Make efi_find_mirror() public
-Message-Id: <20220414101314.1250667-4-mawupeng1@huawei.com>
+From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
+Date: Mon, 11 Apr 2022 23:38:17 +0000
+Subject: [PATCH v7 05/20] ARM: Use do_kernel_power_off()
+Message-Id: <20220411233832.391817-6-dmitry.osipenko@collabora.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220414101314.1250667-1-mawupeng1@huawei.com>
-In-Reply-To: <20220414101314.1250667-1-mawupeng1@huawei.com>
+References: <20220411233832.391817-1-dmitry.osipenko@collabora.com>
+In-Reply-To: <20220411233832.391817-1-dmitry.osipenko@collabora.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org, corbet@lwn.net
-Cc: ardb@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zyccr.com, dvhart@infradead.org, andy@infradead.org, rppt@kernel.org, paulmck@kernel.org, peterz@infradead.org, jroedel@suse.de, songmuchun@bytedance.com, macro@orcam.me.uk, frederic@kernel.org, W_Armin@gmx.de, john.garry@huawei.com, seanjc@google.com, tsbogend@alpha.franken.de, anshuman.khandual@arm.com, chenhuacai@kernel.org, david@redhat.com, gpiccoli@igalia.com, mark.rutland@arm.com, wangkefeng.wang@huawei.com, mawupeng1@huawei.com, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-From: Ma Wupeng <mawupeng1@huawei.com>
+Kernel now supports chained power-off handlers. Use do_kernel_power_off()
+that invokes chained power-off handlers. It also invokes legacy
+pm_power_off() for now, which will be removed once all drivers will
+be converted to the new power-off API.
 
-Commit b05b9f5f9dcf ("x86, mirror: x86 enabling - find mirrored memory
-ranges") introduce the efi_find_mirror function on x86. In order to reuse
-the API we make it public in preparation for arm64 to support mirrord
-memory.
-
-Signed-off-by: Ma Wupeng <mawupeng1@huawei.com>
+Reviewed-by: Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
+Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
 ---
- arch/x86/include/asm/efi.h  |  4 ----
- arch/x86/platform/efi/efi.c | 23 -----------------------
- drivers/firmware/efi/efi.c  | 23 +++++++++++++++++++++++
- include/linux/efi.h         |  3 +++
- 4 files changed, 26 insertions(+), 27 deletions(-)
+ arch/arm/kernel/reboot.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/arch/x86/include/asm/efi.h b/arch/x86/include/asm/efi.h
-index 686968073f48..6be838c0f109 100644
---- a/arch/x86/include/asm/efi.h
-+++ b/arch/x86/include/asm/efi.h
-@@ -368,7 +368,6 @@ static inline bool efi_is_64bit(void)
- extern bool efi_reboot_required(void);
- extern bool efi_is_table_address(unsigned long phys_addr);
- 
--extern void efi_find_mirror(void);
- extern void efi_reserve_boot_services(void);
- #else
- static inline void parse_efi_setup(u64 phys_addr, u32 data_len) {}
-@@ -380,9 +379,6 @@ static inline  bool efi_is_table_address(unsigned long phys_addr)
+diff --git a/arch/arm/kernel/reboot.c b/arch/arm/kernel/reboot.c
+index 3044fcb8d073..2cb943422554 100644
+--- a/arch/arm/kernel/reboot.c
++++ b/arch/arm/kernel/reboot.c
+@@ -116,9 +116,7 @@ void machine_power_off(void)
  {
- 	return false;
+ 	local_irq_disable();
+ 	smp_send_stop();
+-
+-	if (pm_power_off)
+-		pm_power_off();
++	do_kernel_power_off();
  }
--static inline void efi_find_mirror(void)
--{
--}
- static inline void efi_reserve_boot_services(void)
- {
- }
-diff --git a/arch/x86/platform/efi/efi.c b/arch/x86/platform/efi/efi.c
-index 7b130f39d841..fedbb228faea 100644
---- a/arch/x86/platform/efi/efi.c
-+++ b/arch/x86/platform/efi/efi.c
-@@ -105,29 +105,6 @@ static int __init setup_add_efi_memmap(char *arg)
- }
- early_param("add_efi_memmap", setup_add_efi_memmap);
  
--void __init efi_find_mirror(void)
--{
--	efi_memory_desc_t *md;
--	u64 mirror_size = 0, total_size = 0;
--
--	if (!efi_enabled(EFI_MEMMAP))
--		return;
--
--	for_each_efi_memory_desc(md) {
--		unsigned long long start = md->phys_addr;
--		unsigned long long size = md->num_pages << EFI_PAGE_SHIFT;
--
--		total_size += size;
--		if (md->attribute & EFI_MEMORY_MORE_RELIABLE) {
--			memblock_mark_mirror(start, size);
--			mirror_size += size;
--		}
--	}
--	if (mirror_size)
--		pr_info("Memory: %lldM/%lldM mirrored memory\n",
--			mirror_size>>20, total_size>>20);
--}
--
  /*
-  * Tell the kernel about the EFI memory map.  This might include
-  * more than the max 128 entries that can fit in the passed in e820
-diff --git a/drivers/firmware/efi/efi.c b/drivers/firmware/efi/efi.c
-index 5502e176d51b..eb9ebf4efea1 100644
---- a/drivers/firmware/efi/efi.c
-+++ b/drivers/firmware/efi/efi.c
-@@ -438,6 +438,29 @@ static int __init efisubsys_init(void)
- 
- subsys_initcall(efisubsys_init);
- 
-+void __init efi_find_mirror(void)
-+{
-+	efi_memory_desc_t *md;
-+	u64 mirror_size = 0, total_size = 0;
-+
-+	if (!efi_enabled(EFI_MEMMAP))
-+		return;
-+
-+	for_each_efi_memory_desc(md) {
-+		unsigned long long start = md->phys_addr;
-+		unsigned long long size = md->num_pages << EFI_PAGE_SHIFT;
-+
-+		total_size += size;
-+		if (md->attribute & EFI_MEMORY_MORE_RELIABLE) {
-+			memblock_mark_mirror(start, size);
-+			mirror_size += size;
-+		}
-+	}
-+	if (mirror_size)
-+		pr_info("Memory: %lldM/%lldM mirrored memory\n",
-+			mirror_size>>20, total_size>>20);
-+}
-+
- /*
-  * Find the efi memory descriptor for a given physical address.  Given a
-  * physical address, determine if it exists within an EFI Memory Map entry,
-diff --git a/include/linux/efi.h b/include/linux/efi.h
-index de05682b233b..950c84ce3f16 100644
---- a/include/linux/efi.h
-+++ b/include/linux/efi.h
-@@ -853,6 +853,7 @@ static inline bool efi_rt_services_supported(unsigned int mask)
- {
- 	return (efi.runtime_supported_mask & mask) = mask;
- }
-+extern void efi_find_mirror(void);
- #else
- static inline bool efi_enabled(int feature)
- {
-@@ -870,6 +871,8 @@ static inline bool efi_rt_services_supported(unsigned int mask)
- {
- 	return false;
- }
-+
-+static inline void efi_find_mirror(void) {}
- #endif
- 
- extern int efi_status_to_err(efi_status_t status);
 -- 
-2.18.0.huawei.25
+2.35.1
