@@ -1,135 +1,196 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Fri, 29 Apr 2022 21:48:26 +0000
-Subject: [PATCH v2 01/12] signal: Rename send_signal send_signal_locked
-Message-Id: <20220429214837.386518-1-ebiederm@xmission.com>
+From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
+Date: Mon, 11 Apr 2022 23:38:14 +0000
+Subject: [PATCH v7 02/20] notifier: Add atomic/blocking_notifier_chain_register_unique_prio()
+Message-Id: <20220411233832.391817-3-dmitry.osipenko@collabora.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
-In-Reply-To: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
+References: <20220411233832.391817-1-dmitry.osipenko@collabora.com>
+In-Reply-To: <20220411233832.391817-1-dmitry.osipenko@collabora.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-Rename send_signal send_signal_locked and make to make
-it usable outside of signal.c.
+Add variant of atomic/blocking_notifier_chain_register() functions that
+doesn't allow to register notifier using a duplicated priority. The -EBUSY
+error code is returned in this case by the new API functions.
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
 ---
- include/linux/signal.h |  2 ++
- kernel/signal.c        | 24 ++++++++++++------------
- 2 files changed, 14 insertions(+), 12 deletions(-)
+ include/linux/notifier.h |  5 +++
+ kernel/notifier.c        | 88 +++++++++++++++++++++++++++++++---------
+ 2 files changed, 74 insertions(+), 19 deletions(-)
 
-diff --git a/include/linux/signal.h b/include/linux/signal.h
-index a6db6f2ae113..55605bdf5ce9 100644
---- a/include/linux/signal.h
-+++ b/include/linux/signal.h
-@@ -283,6 +283,8 @@ extern int do_send_sig_info(int sig, struct kernel_siginfo *info,
- extern int group_send_sig_info(int sig, struct kernel_siginfo *info,
- 			       struct task_struct *p, enum pid_type type);
- extern int __group_send_sig_info(int, struct kernel_siginfo *, struct task_struct *);
-+extern int send_signal_locked(int sig, struct kernel_siginfo *info,
-+			      struct task_struct *p, enum pid_type type);
- extern int sigprocmask(int, sigset_t *, sigset_t *);
- extern void set_current_blocked(sigset_t *);
- extern void __set_current_blocked(const sigset_t *);
-diff --git a/kernel/signal.c b/kernel/signal.c
-index 30cd1ca43bcd..b0403197b0ad 100644
---- a/kernel/signal.c
-+++ b/kernel/signal.c
-@@ -1071,8 +1071,8 @@ static inline bool legacy_queue(struct sigpending *signals, int sig)
- 	return (sig < SIGRTMIN) && sigismember(&signals->signal, sig);
- }
+diff --git a/include/linux/notifier.h b/include/linux/notifier.h
+index d4717bc0ab85..ccce26197dd2 100644
+--- a/include/linux/notifier.h
++++ b/include/linux/notifier.h
+@@ -150,6 +150,11 @@ extern int raw_notifier_chain_register(struct raw_notifier_head *nh,
+ extern int srcu_notifier_chain_register(struct srcu_notifier_head *nh,
+ 		struct notifier_block *nb);
  
--static int __send_signal(int sig, struct kernel_siginfo *info, struct task_struct *t,
--			enum pid_type type, bool force)
-+static int __send_signal_locked(int sig, struct kernel_siginfo *info,
-+				struct task_struct *t, enum pid_type type, bool force)
- {
- 	struct sigpending *pending;
- 	struct sigqueue *q;
-@@ -1212,8 +1212,8 @@ static inline bool has_si_pid_and_uid(struct kernel_siginfo *info)
- 	return ret;
- }
++extern int atomic_notifier_chain_register_unique_prio(
++		struct atomic_notifier_head *nh, struct notifier_block *nb);
++extern int blocking_notifier_chain_register_unique_prio(
++		struct blocking_notifier_head *nh, struct notifier_block *nb);
++
+ extern int atomic_notifier_chain_unregister(struct atomic_notifier_head *nh,
+ 		struct notifier_block *nb);
+ extern int blocking_notifier_chain_unregister(struct blocking_notifier_head *nh,
+diff --git a/kernel/notifier.c b/kernel/notifier.c
+index 4ed6bda8f127..4fc32b1e6cbb 100644
+--- a/kernel/notifier.c
++++ b/kernel/notifier.c
+@@ -20,7 +20,8 @@ BLOCKING_NOTIFIER_HEAD(reboot_notifier_list);
+  */
  
--static int send_signal(int sig, struct kernel_siginfo *info, struct task_struct *t,
--			enum pid_type type)
-+int send_signal_locked(int sig, struct kernel_siginfo *info,
-+		       struct task_struct *t, enum pid_type type)
+ static int notifier_chain_register(struct notifier_block **nl,
+-				   struct notifier_block *n)
++				   struct notifier_block *n,
++				   bool unique_priority)
  {
- 	/* Should SIGKILL or SIGSTOP be received by a pid namespace init? */
- 	bool force = false;
-@@ -1245,7 +1245,7 @@ static int send_signal(int sig, struct kernel_siginfo *info, struct task_struct
- 			force = true;
+ 	while ((*nl) != NULL) {
+ 		if (unlikely((*nl) = n)) {
+@@ -30,6 +31,8 @@ static int notifier_chain_register(struct notifier_block **nl,
  		}
+ 		if (n->priority > (*nl)->priority)
+ 			break;
++		if (n->priority = (*nl)->priority && unique_priority)
++			return -EBUSY;
+ 		nl = &((*nl)->next);
  	}
--	return __send_signal(sig, info, t, type, force);
-+	return __send_signal_locked(sig, info, t, type, force);
- }
+ 	n->next = *nl;
+@@ -144,12 +147,35 @@ int atomic_notifier_chain_register(struct atomic_notifier_head *nh,
+ 	int ret;
  
- static void print_fatal_signal(int signr)
-@@ -1284,7 +1284,7 @@ __setup("print-fatal-signals=", setup_print_fatal_signals);
- int
- __group_send_sig_info(int sig, struct kernel_siginfo *info, struct task_struct *p)
- {
--	return send_signal(sig, info, p, PIDTYPE_TGID);
-+	return send_signal_locked(sig, info, p, PIDTYPE_TGID);
- }
- 
- int do_send_sig_info(int sig, struct kernel_siginfo *info, struct task_struct *p,
-@@ -1294,7 +1294,7 @@ int do_send_sig_info(int sig, struct kernel_siginfo *info, struct task_struct *p
- 	int ret = -ESRCH;
- 
- 	if (lock_task_sighand(p, &flags)) {
--		ret = send_signal(sig, info, p, type);
-+		ret = send_signal_locked(sig, info, p, type);
- 		unlock_task_sighand(p, &flags);
- 	}
- 
-@@ -1347,7 +1347,7 @@ force_sig_info_to_task(struct kernel_siginfo *info, struct task_struct *t,
- 	if (action->sa.sa_handler = SIG_DFL &&
- 	    (!t->ptrace || (handler = HANDLER_EXIT)))
- 		t->signal->flags &= ~SIGNAL_UNKILLABLE;
--	ret = send_signal(sig, info, t, PIDTYPE_PID);
-+	ret = send_signal_locked(sig, info, t, PIDTYPE_PID);
- 	spin_unlock_irqrestore(&t->sighand->siglock, flags);
- 
+ 	spin_lock_irqsave(&nh->lock, flags);
+-	ret = notifier_chain_register(&nh->head, n);
++	ret = notifier_chain_register(&nh->head, n, false);
+ 	spin_unlock_irqrestore(&nh->lock, flags);
  	return ret;
-@@ -1567,7 +1567,7 @@ int kill_pid_usb_asyncio(int sig, int errno, sigval_t addr,
+ }
+ EXPORT_SYMBOL_GPL(atomic_notifier_chain_register);
  
- 	if (sig) {
- 		if (lock_task_sighand(p, &flags)) {
--			ret = __send_signal(sig, &info, p, PIDTYPE_TGID, false);
-+			ret = __send_signal_locked(sig, &info, p, PIDTYPE_TGID, false);
- 			unlock_task_sighand(p, &flags);
- 		} else
- 			ret = -ESRCH;
-@@ -2103,7 +2103,7 @@ bool do_notify_parent(struct task_struct *tsk, int sig)
- 	 * parent's namespaces.
++/**
++ *	atomic_notifier_chain_register_unique_prio - Add notifier to an atomic notifier chain
++ *	@nh: Pointer to head of the atomic notifier chain
++ *	@n: New entry in notifier chain
++ *
++ *	Adds a notifier to an atomic notifier chain if there is no other
++ *	notifier registered using the same priority.
++ *
++ *	Returns 0 on success, %-EEXIST or %-EBUSY on error.
++ */
++int atomic_notifier_chain_register_unique_prio(struct atomic_notifier_head *nh,
++					       struct notifier_block *n)
++{
++	unsigned long flags;
++	int ret;
++
++	spin_lock_irqsave(&nh->lock, flags);
++	ret = notifier_chain_register(&nh->head, n, true);
++	spin_unlock_irqrestore(&nh->lock, flags);
++	return ret;
++}
++EXPORT_SYMBOL_GPL(atomic_notifier_chain_register_unique_prio);
++
+ /**
+  *	atomic_notifier_chain_unregister - Remove notifier from an atomic notifier chain
+  *	@nh: Pointer to head of the atomic notifier chain
+@@ -209,18 +235,9 @@ NOKPROBE_SYMBOL(atomic_notifier_call_chain);
+  *	synchronized by an rwsem.
+  */
+ 
+-/**
+- *	blocking_notifier_chain_register - Add notifier to a blocking notifier chain
+- *	@nh: Pointer to head of the blocking notifier chain
+- *	@n: New entry in notifier chain
+- *
+- *	Adds a notifier to a blocking notifier chain.
+- *	Must be called in process context.
+- *
+- *	Returns 0 on success, %-EEXIST on error.
+- */
+-int blocking_notifier_chain_register(struct blocking_notifier_head *nh,
+-		struct notifier_block *n)
++static int __blocking_notifier_chain_register(struct blocking_notifier_head *nh,
++					      struct notifier_block *n,
++					      bool unique_priority)
+ {
+ 	int ret;
+ 
+@@ -230,15 +247,48 @@ int blocking_notifier_chain_register(struct blocking_notifier_head *nh,
+ 	 * such times we must not call down_write().
  	 */
- 	if (valid_signal(sig) && sig)
--		__send_signal(sig, &info, tsk->parent, PIDTYPE_TGID, false);
-+		__send_signal_locked(sig, &info, tsk->parent, PIDTYPE_TGID, false);
- 	__wake_up_parent(tsk, tsk->parent);
- 	spin_unlock_irqrestore(&psig->siglock, flags);
+ 	if (unlikely(system_state = SYSTEM_BOOTING))
+-		return notifier_chain_register(&nh->head, n);
++		return notifier_chain_register(&nh->head, n, unique_priority);
  
-@@ -2601,7 +2601,7 @@ static int ptrace_signal(int signr, kernel_siginfo_t *info, enum pid_type type)
- 	/* If the (new) signal is now blocked, requeue it.  */
- 	if (sigismember(&current->blocked, signr) ||
- 	    fatal_signal_pending(current)) {
--		send_signal(signr, info, current, type);
-+		send_signal_locked(signr, info, current, type);
- 		signr = 0;
- 	}
+ 	down_write(&nh->rwsem);
+-	ret = notifier_chain_register(&nh->head, n);
++	ret = notifier_chain_register(&nh->head, n, unique_priority);
+ 	up_write(&nh->rwsem);
+ 	return ret;
+ }
++
++/**
++ *	blocking_notifier_chain_register - Add notifier to a blocking notifier chain
++ *	@nh: Pointer to head of the blocking notifier chain
++ *	@n: New entry in notifier chain
++ *
++ *	Adds a notifier to a blocking notifier chain.
++ *	Must be called in process context.
++ *
++ *	Returns 0 on success, %-EEXIST on error.
++ */
++int blocking_notifier_chain_register(struct blocking_notifier_head *nh,
++		struct notifier_block *n)
++{
++	return __blocking_notifier_chain_register(nh, n, false);
++}
+ EXPORT_SYMBOL_GPL(blocking_notifier_chain_register);
  
-@@ -4793,7 +4793,7 @@ void kdb_send_sig(struct task_struct *t, int sig)
- 			   "the deadlock.\n");
- 		return;
- 	}
--	ret = send_signal(sig, SEND_SIG_PRIV, t, PIDTYPE_PID);
-+	ret = send_signal_locked(sig, SEND_SIG_PRIV, t, PIDTYPE_PID);
- 	spin_unlock(&t->sighand->siglock);
- 	if (ret)
- 		kdb_printf("Fail to deliver Signal %d to process %d.\n",
++/**
++ *	blocking_notifier_chain_register_unique_prio - Add notifier to a blocking notifier chain
++ *	@nh: Pointer to head of the blocking notifier chain
++ *	@n: New entry in notifier chain
++ *
++ *	Adds a notifier to an blocking notifier chain if there is no other
++ *	notifier registered using the same priority.
++ *
++ *	Returns 0 on success, %-EEXIST or %-EBUSY on error.
++ */
++int blocking_notifier_chain_register_unique_prio(struct blocking_notifier_head *nh,
++						 struct notifier_block *n)
++{
++	return __blocking_notifier_chain_register(nh, n, true);
++}
++EXPORT_SYMBOL_GPL(blocking_notifier_chain_register_unique_prio);
++
+ /**
+  *	blocking_notifier_chain_unregister - Remove notifier from a blocking notifier chain
+  *	@nh: Pointer to head of the blocking notifier chain
+@@ -354,7 +404,7 @@ bool blocking_notifier_call_chain_is_empty(struct blocking_notifier_head *nh)
+ int raw_notifier_chain_register(struct raw_notifier_head *nh,
+ 		struct notifier_block *n)
+ {
+-	return notifier_chain_register(&nh->head, n);
++	return notifier_chain_register(&nh->head, n, false);
+ }
+ EXPORT_SYMBOL_GPL(raw_notifier_chain_register);
+ 
+@@ -433,10 +483,10 @@ int srcu_notifier_chain_register(struct srcu_notifier_head *nh,
+ 	 * such times we must not call mutex_lock().
+ 	 */
+ 	if (unlikely(system_state = SYSTEM_BOOTING))
+-		return notifier_chain_register(&nh->head, n);
++		return notifier_chain_register(&nh->head, n, false);
+ 
+ 	mutex_lock(&nh->mutex);
+-	ret = notifier_chain_register(&nh->head, n);
++	ret = notifier_chain_register(&nh->head, n, false);
+ 	mutex_unlock(&nh->mutex);
+ 	return ret;
+ }
 -- 
-2.35.3
+2.35.1
