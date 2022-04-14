@@ -1,53 +1,77 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Mon, 04 Apr 2022 05:05:49 +0000
-Subject: [PATCH 05/15] arm/xen: don't check for xen_initial_domain() in xen_create_contiguous_region
-Message-Id: <20220404050559.132378-6-hch@lst.de>
+From: Wupeng Ma <mawupeng1@huawei.com>
+Date: Thu, 14 Apr 2022 09:56:01 +0000
+Subject: [PATCH v2 8/9] efi: Disable mirror feature if kernelcore is not specified
+Message-Id: <20220414101314.1250667-9-mawupeng1@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220404050559.132378-1-hch@lst.de>
-In-Reply-To: <20220404050559.132378-1-hch@lst.de>
+References: <20220414101314.1250667-1-mawupeng1@huawei.com>
+In-Reply-To: <20220414101314.1250667-1-mawupeng1@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: linux-hyperv@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-pci@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, Stefano Stabellini <sstabellini@kernel.org>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, tboot-devel@lists.sourceforge.net, xen-devel@lists.xenproject.org, Stefano Stabellini <stefano.stabellini@xilinx.com>, David Woodhouse <dwmw2@infradead.org>, Tom Lendacky <thomas.lendacky@amd.com>, Anshuman Khandual <anshuman.khandual@arm.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, linux-arm-kernel@lists.infradead.org, Juergen Gross <jgross@suse.com>, linuxppc-dev@lists.ozlabs.org, linux-mips@vger.kernel.org, Robin Murphy <robin.murphy@arm.com>
+To: akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org, corbet@lwn.net
+Cc: ardb@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zyccr.com, dvhart@infradead.org, andy@infradead.org, rppt@kernel.org, paulmck@kernel.org, peterz@infradead.org, jroedel@suse.de, songmuchun@bytedance.com, macro@orcam.me.uk, frederic@kernel.org, W_Armin@gmx.de, john.garry@huawei.com, seanjc@google.com, tsbogend@alpha.franken.de, anshuman.khandual@arm.com, chenhuacai@kernel.org, david@redhat.com, gpiccoli@igalia.com, mark.rutland@arm.com, wangkefeng.wang@huawei.com, mawupeng1@huawei.com, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org
 
-From: Stefano Stabellini <sstabellini@kernel.org>
+From: Ma Wupeng <mawupeng1@huawei.com>
 
-It used to be that Linux enabled swiotlb-xen when running a dom0 on ARM.
-Since f5079a9a2a31 "xen/arm: introduce XENFEAT_direct_mapped and
-XENFEAT_not_direct_mapped", Linux detects whether to enable or disable
-swiotlb-xen based on the new feature flags: XENFEAT_direct_mapped and
-XENFEAT_not_direct_mapped.
+With this patch, kernel will check mirrored_kernelcore before calling
+efi_find_mirror() which will enable basic mirrored feature.
 
-However, there is still a leftover xen_initial_domain() check in
-xen_create_contiguous_region. Remove the check as
-xen_create_contiguous_region is only called by swiotlb-xen during
-initialization. If xen_create_contiguous_region is called, we know Linux
-is running 1:1 mapped so there is no need for additional checks.
+If system have some mirrored memory and mirrored feature is not specified
+in boot parameter, the basic mirrored feature will be enabled and this will
+lead to the following situations:
 
-Also update the in-code comment.
+- memblock memory allocation perfers mirrored region. This may have some
+  unexpected influence on numa affinity.
 
-Signed-off-by: Stefano Stabellini <stefano.stabellini@xilinx.com>
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+- contiguous memory will be splited into several parts if parts of them
+  is mirrored memory via memblock_mark_mirror().
+
+Signed-off-by: Ma Wupeng <mawupeng1@huawei.com>
 ---
- arch/arm/xen/mm.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+ drivers/firmware/efi/efi.c | 3 +++
+ include/linux/mm.h         | 2 ++
+ mm/page_alloc.c            | 2 +-
+ 3 files changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/arch/arm/xen/mm.c b/arch/arm/xen/mm.c
-index a7e54a087b802..28c2070602535 100644
---- a/arch/arm/xen/mm.c
-+++ b/arch/arm/xen/mm.c
-@@ -122,10 +122,7 @@ int xen_create_contiguous_region(phys_addr_t pstart, unsigned int order,
- 				 unsigned int address_bits,
- 				 dma_addr_t *dma_handle)
+diff --git a/drivers/firmware/efi/efi.c b/drivers/firmware/efi/efi.c
+index eb9ebf4efea1..18d86602424a 100644
+--- a/drivers/firmware/efi/efi.c
++++ b/drivers/firmware/efi/efi.c
+@@ -446,6 +446,9 @@ void __init efi_find_mirror(void)
+ 	if (!efi_enabled(EFI_MEMMAP))
+ 		return;
+ 
++	if (!mirrored_kernelcore)
++		return;
++
+ 	for_each_efi_memory_desc(md) {
+ 		unsigned long long start = md->phys_addr;
+ 		unsigned long long size = md->num_pages << EFI_PAGE_SHIFT;
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index e34edb775334..544717cc7a75 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -2536,6 +2536,8 @@ extern void get_pfn_range_for_nid(unsigned int nid,
+ 			unsigned long *start_pfn, unsigned long *end_pfn);
+ extern unsigned long find_min_pfn_with_active_regions(void);
+ 
++extern bool mirrored_kernelcore;
++
+ #ifndef CONFIG_NUMA
+ static inline int early_pfn_to_nid(unsigned long pfn)
  {
--	if (!xen_initial_domain())
--		return -EINVAL;
--
--	/* we assume that dom0 is mapped 1:1 for now */
-+	/* the domain is 1:1 mapped to use swiotlb-xen */
- 	*dma_handle = pstart;
- 	return 0;
- }
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 570d0ebf98df..909d5f7d97bb 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -355,7 +355,7 @@ static unsigned long required_kernelcore_percent __initdata;
+ static unsigned long required_movablecore __initdata;
+ static unsigned long required_movablecore_percent __initdata;
+ static unsigned long zone_movable_pfn[MAX_NUMNODES] __initdata;
+-static bool mirrored_kernelcore __meminitdata;
++bool mirrored_kernelcore __meminitdata;
+ 
+ /* movable_zone is the "real" zone pages in ZONE_MOVABLE are taken from */
+ int movable_zone;
 -- 
-2.30.2
+2.18.0.huawei.25
