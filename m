@@ -1,51 +1,103 @@
-From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
-Date: Mon, 11 Apr 2022 23:38:19 +0000
-Subject: [PATCH v7 07/20] riscv: Use do_kernel_power_off()
-Message-Id: <20220411233832.391817-8-dmitry.osipenko@collabora.com>
+From: Wupeng Ma <mawupeng1@huawei.com>
+Date: Thu, 14 Apr 2022 09:54:06 +0000
+Subject: [PATCH v2 1/9] efi: Make efi_print_memmap() public
+Message-Id: <20220414101314.1250667-2-mawupeng1@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220411233832.391817-1-dmitry.osipenko@collabora.com>
-In-Reply-To: <20220411233832.391817-1-dmitry.osipenko@collabora.com>
+References: <20220414101314.1250667-1-mawupeng1@huawei.com>
+In-Reply-To: <20220414101314.1250667-1-mawupeng1@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
+To: akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org, corbet@lwn.net
+Cc: ardb@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zyccr.com, dvhart@infradead.org, andy@infradead.org, rppt@kernel.org, paulmck@kernel.org, peterz@infradead.org, jroedel@suse.de, songmuchun@bytedance.com, macro@orcam.me.uk, frederic@kernel.org, W_Armin@gmx.de, john.garry@huawei.com, seanjc@google.com, tsbogend@alpha.franken.de, anshuman.khandual@arm.com, chenhuacai@kernel.org, david@redhat.com, gpiccoli@igalia.com, mark.rutland@arm.com, wangkefeng.wang@huawei.com, mawupeng1@huawei.com, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org
 
-Kernel now supports chained power-off handlers. Use do_kernel_power_off()
-that invokes chained power-off handlers. It also invokes legacy
-pm_power_off() for now, which will be removed once all drivers will
-be converted to the new power-off API.
+From: Ma Wupeng <mawupeng1@huawei.com>
 
-Acked-by: Palmer Dabbelt <palmer@dabbelt.com>
-Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
+Make efi_print_memmap() public in preparation for adding fake memory
+support for architecture with efi support, eg, arm64.
+
+Signed-off-by: Ma Wupeng <mawupeng1@huawei.com>
 ---
- arch/riscv/kernel/reset.c | 12 ++++--------
- 1 file changed, 4 insertions(+), 8 deletions(-)
+ arch/x86/include/asm/efi.h    |  1 -
+ arch/x86/platform/efi/efi.c   | 16 ----------------
+ drivers/firmware/efi/memmap.c | 16 ++++++++++++++++
+ include/linux/efi.h           |  1 +
+ 4 files changed, 17 insertions(+), 17 deletions(-)
 
-diff --git a/arch/riscv/kernel/reset.c b/arch/riscv/kernel/reset.c
-index 9c842c41684a..912288572226 100644
---- a/arch/riscv/kernel/reset.c
-+++ b/arch/riscv/kernel/reset.c
-@@ -23,16 +23,12 @@ void machine_restart(char *cmd)
+diff --git a/arch/x86/include/asm/efi.h b/arch/x86/include/asm/efi.h
+index 98938a68251c..686968073f48 100644
+--- a/arch/x86/include/asm/efi.h
++++ b/arch/x86/include/asm/efi.h
+@@ -150,7 +150,6 @@ extern asmlinkage u64 __efi_call(void *fp, ...);
+ #endif /* CONFIG_X86_32 */
  
- void machine_halt(void)
- {
--	if (pm_power_off != NULL)
--		pm_power_off();
--	else
--		default_power_off();
-+	do_kernel_power_off();
-+	default_power_off();
+ extern int __init efi_memblock_x86_reserve_range(void);
+-extern void __init efi_print_memmap(void);
+ extern void __init efi_map_region(efi_memory_desc_t *md);
+ extern void __init efi_map_region_fixed(efi_memory_desc_t *md);
+ extern void efi_sync_low_kernel_mappings(void);
+diff --git a/arch/x86/platform/efi/efi.c b/arch/x86/platform/efi/efi.c
+index 147c30a81f15..7b130f39d841 100644
+--- a/arch/x86/platform/efi/efi.c
++++ b/arch/x86/platform/efi/efi.c
+@@ -323,22 +323,6 @@ static void __init efi_clean_memmap(void)
+ 	}
  }
  
- void machine_power_off(void)
+-void __init efi_print_memmap(void)
+-{
+-	efi_memory_desc_t *md;
+-	int i = 0;
+-
+-	for_each_efi_memory_desc(md) {
+-		char buf[64];
+-
+-		pr_info("mem%02u: %s range=[0x%016llx-0x%016llx] (%lluMB)\n",
+-			i++, efi_md_typeattr_format(buf, sizeof(buf), md),
+-			md->phys_addr,
+-			md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT) - 1,
+-			(md->num_pages >> (20 - EFI_PAGE_SHIFT)));
+-	}
+-}
+-
+ static int __init efi_systab_init(unsigned long phys)
  {
--	if (pm_power_off != NULL)
--		pm_power_off();
--	else
--		default_power_off();
-+	do_kernel_power_off();
-+	default_power_off();
+ 	int size = efi_enabled(EFI_64BIT) ? sizeof(efi_system_table_64_t)
+diff --git a/drivers/firmware/efi/memmap.c b/drivers/firmware/efi/memmap.c
+index 4df55a55da84..04cc1f2cdfa4 100644
+--- a/drivers/firmware/efi/memmap.c
++++ b/drivers/firmware/efi/memmap.c
+@@ -376,3 +376,19 @@ void __init efi_memmap_insert(struct efi_memory_map *old_memmap, void *buf,
+ 		}
+ 	}
  }
++
++void __init efi_print_memmap(void)
++{
++	efi_memory_desc_t *md;
++	int i = 0;
++
++	for_each_efi_memory_desc(md) {
++		char buf[64];
++
++		pr_info("mem%02u: %s range=[0x%016llx-0x%016llx] (%lluMB)\n",
++			i++, efi_md_typeattr_format(buf, sizeof(buf), md),
++			md->phys_addr,
++			md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT) - 1,
++			(md->num_pages >> (20 - EFI_PAGE_SHIFT)));
++	}
++}
+diff --git a/include/linux/efi.h b/include/linux/efi.h
+index ccd4d3f91c98..de05682b233b 100644
+--- a/include/linux/efi.h
++++ b/include/linux/efi.h
+@@ -684,6 +684,7 @@ extern int __init efi_memmap_split_count(efi_memory_desc_t *md,
+ 					 struct range *range);
+ extern void __init efi_memmap_insert(struct efi_memory_map *old_memmap,
+ 				     void *buf, struct efi_mem_range *mem);
++extern void __init efi_print_memmap(void);
+ 
+ #ifdef CONFIG_EFI_ESRT
+ extern void __init efi_esrt_init(void);
 -- 
-2.35.1
+2.18.0.huawei.25
