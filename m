@@ -1,74 +1,54 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Mon, 04 Apr 2022 05:05:50 +0000
-Subject: [PATCH 06/15] MIPS/octeon: use swiotlb_init instead of open coding it
-Message-Id: <20220404050559.132378-7-hch@lst.de>
+From: Wupeng Ma <mawupeng1@huawei.com>
+Date: Thu, 14 Apr 2022 09:54:18 +0000
+Subject: [PATCH v2 4/9] arm64/mirror: arm64 enabling - find mirrored memory ranges
+Message-Id: <20220414101314.1250667-5-mawupeng1@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220404050559.132378-1-hch@lst.de>
-In-Reply-To: <20220404050559.132378-1-hch@lst.de>
+References: <20220414101314.1250667-1-mawupeng1@huawei.com>
+In-Reply-To: <20220414101314.1250667-1-mawupeng1@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: linux-hyperv@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-pci@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, Stefano Stabellini <sstabellini@kernel.org>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, tboot-devel@lists.sourceforge.net, xen-devel@lists.xenproject.org, David Woodhouse <dwmw2@infradead.org>, Tom Lendacky <thomas.lendacky@amd.com>, Anshuman Khandual <anshuman.khandual@arm.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, linux-arm-kernel@lists.infradead.org, Juergen Gross <jgross@suse.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, linuxppc-dev@lists.ozlabs.org, linux-mips@vger.kernel.org, Robin Murphy <robin.murphy@arm.com>
+To: akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org, corbet@lwn.net
+Cc: ardb@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zyccr.com, dvhart@infradead.org, andy@infradead.org, rppt@kernel.org, paulmck@kernel.org, peterz@infradead.org, jroedel@suse.de, songmuchun@bytedance.com, macro@orcam.me.uk, frederic@kernel.org, W_Armin@gmx.de, john.garry@huawei.com, seanjc@google.com, tsbogend@alpha.franken.de, anshuman.khandual@arm.com, chenhuacai@kernel.org, david@redhat.com, gpiccoli@igalia.com, mark.rutland@arm.com, wangkefeng.wang@huawei.com, mawupeng1@huawei.com, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org
 
-Use the generic swiotlb initialization helper instead of open coding it.
+From: Ma Wupeng <mawupeng1@huawei.com>
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
-Acked-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+Commit b05b9f5f9dcf ("x86, mirror: x86 enabling - find mirrored memory ranges")
+introduced mirrored memory support for x86 and this could be used on arm64.
+
+So efi_find_mirror() is added in efi_init() so on EFI enabled systems scan
+the memory map and tell memblock about any mirrored ranges.
+
+Signed-off-by: Ma Wupeng <mawupeng1@huawei.com>
 ---
- arch/mips/cavium-octeon/dma-octeon.c | 15 ++-------------
- arch/mips/pci/pci-octeon.c           |  2 +-
- 2 files changed, 3 insertions(+), 14 deletions(-)
+ Documentation/admin-guide/kernel-parameters.txt | 2 +-
+ arch/arm64/kernel/setup.c                       | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/arch/mips/cavium-octeon/dma-octeon.c b/arch/mips/cavium-octeon/dma-octeon.c
-index df70308db0e69..fb7547e217263 100644
---- a/arch/mips/cavium-octeon/dma-octeon.c
-+++ b/arch/mips/cavium-octeon/dma-octeon.c
-@@ -186,15 +186,12 @@ phys_addr_t dma_to_phys(struct device *dev, dma_addr_t daddr)
- 	return daddr;
- }
+diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
+index ea47c0ba7593..1d87dc4e3cef 100644
+--- a/Documentation/admin-guide/kernel-parameters.txt
++++ b/Documentation/admin-guide/kernel-parameters.txt
+@@ -2270,7 +2270,7 @@
  
--char *octeon_swiotlb;
--
- void __init plat_swiotlb_setup(void)
- {
- 	phys_addr_t start, end;
- 	phys_addr_t max_addr;
- 	phys_addr_t addr_size;
- 	size_t swiotlbsize;
--	unsigned long swiotlb_nslabs;
- 	u64 i;
+ 	keepinitrd	[HW,ARM]
  
- 	max_addr = 0;
-@@ -236,15 +233,7 @@ void __init plat_swiotlb_setup(void)
- 	if (OCTEON_IS_OCTEON2() && max_addr >= 0x100000000ul)
- 		swiotlbsize = 64 * (1<<20);
- #endif
--	swiotlb_nslabs = swiotlbsize >> IO_TLB_SHIFT;
--	swiotlb_nslabs = ALIGN(swiotlb_nslabs, IO_TLB_SEGSIZE);
--	swiotlbsize = swiotlb_nslabs << IO_TLB_SHIFT;
--
--	octeon_swiotlb = memblock_alloc_low(swiotlbsize, PAGE_SIZE);
--	if (!octeon_swiotlb)
--		panic("%s: Failed to allocate %zu bytes align=%lx\n",
--		      __func__, swiotlbsize, PAGE_SIZE);
+-	kernelcore=	[KNL,X86,IA-64,PPC]
++	kernelcore=	[KNL,X86,IA-64,PPC,ARM64]
+ 			Format: nn[KMGTPE] | nn% | "mirror"
+ 			This parameter specifies the amount of memory usable by
+ 			the kernel for non-movable allocations.  The requested
+diff --git a/arch/arm64/kernel/setup.c b/arch/arm64/kernel/setup.c
+index daade64889ff..3957290d9ade 100644
+--- a/arch/arm64/kernel/setup.c
++++ b/arch/arm64/kernel/setup.c
+@@ -345,6 +345,7 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
+ 	arm64_memblock_init();
  
--	if (swiotlb_init_with_tbl(octeon_swiotlb, swiotlb_nslabs, 1) = -ENOMEM)
--		panic("Cannot allocate SWIOTLB buffer");
-+	swiotlb_adjust_size(swiotlbsize);
-+	swiotlb_init(1);
- }
-diff --git a/arch/mips/pci/pci-octeon.c b/arch/mips/pci/pci-octeon.c
-index fc29b85cfa926..e457a18cbdc59 100644
---- a/arch/mips/pci/pci-octeon.c
-+++ b/arch/mips/pci/pci-octeon.c
-@@ -664,7 +664,7 @@ static int __init octeon_pci_setup(void)
+ 	efi_fake_memmap();
++	efi_find_mirror();
  
- 		/* BAR1 movable regions contiguous to cover the swiotlb */
- 		octeon_bar1_pci_phys -			virt_to_phys(octeon_swiotlb) & ~((1ull << 22) - 1);
-+			io_tlb_default_mem.start & ~((1ull << 22) - 1);
+ 	paging_init();
  
- 		for (index = 0; index < 32; index++) {
- 			union cvmx_pci_bar1_indexx bar1_index;
 -- 
-2.30.2
+2.18.0.huawei.25
