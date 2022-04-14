@@ -1,39 +1,52 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Date: Fri, 15 Apr 2022 19:08:16 +0000
-Subject: [PATCH 6/7] ia64: remove unused __SLOW_DOWN_IO and SLOW_DOWN_IO definitions
-Message-Id: <20220415190817.842864-7-helgaas@kernel.org>
+From: Wupeng Ma <mawupeng1@huawei.com>
+Date: Thu, 14 Apr 2022 09:55:57 +0000
+Subject: [PATCH v2 5/9] mm: Ratelimited mirrored memory related warning messages
+Message-Id: <20220414101314.1250667-6-mawupeng1@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220415190817.842864-1-helgaas@kernel.org>
-In-Reply-To: <20220415190817.842864-1-helgaas@kernel.org>
+References: <20220414101314.1250667-1-mawupeng1@huawei.com>
+In-Reply-To: <20220414101314.1250667-1-mawupeng1@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Chas Williams <3chas3@gmail.com>, "David S . Miller" <davem@davemloft.net>, Jakub Kicinski <kuba@kernel.org>, Paolo Abeni <pabeni@redhat.com>
-Cc: linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>
+To: akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org, corbet@lwn.net
+Cc: ardb@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zyccr.com, dvhart@infradead.org, andy@infradead.org, rppt@kernel.org, paulmck@kernel.org, peterz@infradead.org, jroedel@suse.de, songmuchun@bytedance.com, macro@orcam.me.uk, frederic@kernel.org, W_Armin@gmx.de, john.garry@huawei.com, seanjc@google.com, tsbogend@alpha.franken.de, anshuman.khandual@arm.com, chenhuacai@kernel.org, david@redhat.com, gpiccoli@igalia.com, mark.rutland@arm.com, wangkefeng.wang@huawei.com, mawupeng1@huawei.com, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org
 
-From: Bjorn Helgaas <bhelgaas@google.com>
+From: Ma Wupeng <mawupeng1@huawei.com>
 
-Remove unused __SLOW_DOWN_IO and SLOW_DOWN_IO definitions.
+If system has mirrored memory, memblock will try to allocate mirrored
+memory firstly and fallback to non-mirrored memory when fails, but if with
+limited mirrored memory or some numa node without mirrored memory, lots of
+warning message about memblock allocation will occur.
 
-Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+This patch ratelimit the warning message to avoid a very long print during
+bootup.
+
+Signed-off-by: Ma Wupeng <mawupeng1@huawei.com>
 ---
- arch/ia64/include/asm/io.h | 4 ----
- 1 file changed, 4 deletions(-)
+ mm/memblock.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/include/asm/io.h b/arch/ia64/include/asm/io.h
-index 6d93b923b379..1069e1730b2e 100644
---- a/arch/ia64/include/asm/io.h
-+++ b/arch/ia64/include/asm/io.h
-@@ -23,10 +23,6 @@
- #include <asm/unaligned.h>
- #include <asm/early_ioremap.h>
+diff --git a/mm/memblock.c b/mm/memblock.c
+index e4f03a6e8e56..b1d2a0009733 100644
+--- a/mm/memblock.c
++++ b/mm/memblock.c
+@@ -327,7 +327,7 @@ static phys_addr_t __init_memblock memblock_find_in_range(phys_addr_t start,
+ 					    NUMA_NO_NODE, flags);
  
--/* We don't use IO slowdowns on the ia64, but.. */
--#define __SLOW_DOWN_IO	do { } while (0)
--#define SLOW_DOWN_IO	do { } while (0)
--
- #define __IA64_UNCACHED_OFFSET	RGN_BASE(RGN_UNCACHED)
+ 	if (!ret && (flags & MEMBLOCK_MIRROR)) {
+-		pr_warn("Could not allocate %pap bytes of mirrored memory\n",
++		pr_warn_ratelimited("Could not allocate %pap bytes of mirrored memory\n",
+ 			&size);
+ 		flags &= ~MEMBLOCK_MIRROR;
+ 		goto again;
+@@ -1384,7 +1384,7 @@ phys_addr_t __init memblock_alloc_range_nid(phys_addr_t size,
  
- /*
+ 	if (flags & MEMBLOCK_MIRROR) {
+ 		flags &= ~MEMBLOCK_MIRROR;
+-		pr_warn("Could not allocate %pap bytes of mirrored memory\n",
++		pr_warn_ratelimited("Could not allocate %pap bytes of mirrored memory\n",
+ 			&size);
+ 		goto again;
+ 	}
 -- 
-2.25.1
+2.18.0.huawei.25
