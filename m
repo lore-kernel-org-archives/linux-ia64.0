@@ -1,61 +1,88 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Date: Sun, 03 Apr 2022 05:13:20 +0000
-Subject: Re: [PATCH 1/3 v2] Docs: admin/kernel-parameters: edit a few boot options
-Message-Id: <53133d81-e52c-8887-c879-615b585e3351@infradead.org>
+From: Wupeng Ma <mawupeng1@huawei.com>
+Date: Thu, 14 Apr 2022 09:54:05 +0000
+Subject: [PATCH v2 0/9] introduce mirrored memory support for arm64
+Message-Id: <20220414101314.1250667-1-mawupeng1@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220401030927.12023-1-rdunlap@infradead.org>
- <20220401030927.12023-2-rdunlap@infradead.org>
- <20220401120305.00076d14@gandalf.local.home>
-In-Reply-To: <20220401120305.00076d14@gandalf.local.home>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>
-Cc: linux-kernel@vger.kernel.org, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, linux-s390@vger.kernel.org, Ingo Molnar <mingo@redhat.com>, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, linux-ia64@vger.kernel.org, "Rafael J. Wysocki" <rafael@kernel.org>, Pavel Machek <pavel@ucw.cz>, Len Brown <lenb@kernel.org>, linux-pm@vger.kernel.org, linux-acpi@vger.kernel.org, Johannes Weiner <hannes@cmpxchg.org>, Andrew Morton <akpm@linux-foundation.org>, Jonathan Corbet <corbet@lwn.net>, linux-doc@vger.kernel.org
+To: akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org, corbet@lwn.net
+Cc: ardb@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zyccr.com, dvhart@infradead.org, andy@infradead.org, rppt@kernel.org, paulmck@kernel.org, peterz@infradead.org, jroedel@suse.de, songmuchun@bytedance.com, macro@orcam.me.uk, frederic@kernel.org, W_Armin@gmx.de, john.garry@huawei.com, seanjc@google.com, tsbogend@alpha.franken.de, anshuman.khandual@arm.com, chenhuacai@kernel.org, david@redhat.com, gpiccoli@igalia.com, mark.rutland@arm.com, wangkefeng.wang@huawei.com, mawupeng1@huawei.com, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org
 
+From: Ma Wupeng <mawupeng1@huawei.com>
 
+Commit b05b9f5f9dcf ("x86, mirror: x86 enabling - find mirrored memory ranges")
+introduced mirrored memory support for x86. This support rely on UEFI to
+report mirrored memory address ranges.  See UEFI 2.5 spec pages 157-158:
 
-On 4/1/22 09:03, Steven Rostedt wrote:
-> On Thu, 31 Mar 2022 20:09:25 -0700
-> Randy Dunlap <rdunlap@infradead.org> wrote:
-> 
->> @@ -5908,6 +5910,8 @@
->>  	trace_buf_size=nn[KMG]
->>  			[FTRACE] will set tracing buffer size on each cpu.
->>  
->> +	trace_clock=	[FTRACE] See Documentation/trace/ftrace.rst
-> 
-> 	trace_clock=	[FTRACE] Set the clock used for tracing events
-> 			at boot up.
-> 			local - Use the per CPU time stamp counter
-> 				(converted into nanoseconds). Fast, but
-> 				depending on the architecture, may not be
-> 				in sync between CPUs.
-> 			global - Event time stamps are synchronize across
-> 				CPUs. May be slower than the local clock,
-> 				but better for some race conditions.
-> 			counter - Simple counting of events (1, 2, ..)
-> 				note, some counts may be skipped due to the
-> 				infrastructure grabbing the clock more than
-> 				once per event.
-> 			uptime - Use jiffies as the time stamp.
-> 			perf - Use the same clock that perf uses.
-> 			mono - Use ktime_get_mono_fast_ns() for time stamps.
-> 			mono_raw - Use ktime_get_raw_fast_ns() for time
-> 				stamps.
-> 			boot - Use ktime_get_boot_fast_ns() for time stamps.
-> 			Architectures may add more clocks. See
-> 			Documentation/trace/ftrace.rst for more details.
-> 
+  http://www.uefi.org/sites/default/files/resources/UEFI%202_5.pdf
 
-Will do. Thanks.
+Memory mirroring is a technique used to separate memory into two separate
+channels, usually on a memory device, like a server. In memory mirroring,
+one channel is copied to another to create redundancy. This method makes
+input/output (I/O) registers and memory appear with more than one address
+range because the same physical byte is accessible at more than one
+address. Using memory mirroring, higher memory reliability and a higher
+level of memory consolidation are possible.
 
-> 
-> 
->> +
->>  	trace_event=[event-list]
->>  			[FTRACE] Set and start specified trace events in order
->>  			to facilitate early boot debugging. The event-list is a
+Arm64 can support this too. So mirrored memory support is added to support
+arm64.
+
+Efi_fake_mem is used for testing mirrored features and will not be used in
+production environment. This test features can fake memory's attribute
+values.
+
+The reason why efi_fake_mem support is put first is that memory's attribute
+is reported by BIOS which is hard to simulate. With this support, any arm64
+machines with efi support can easily test mirrored features.
+
+The main purpose of this patchset is to introduce mirrored support for
+arm64 and we have already fixed the problems we had which is shown in
+patch #5 to patch #7 and try to bring total isolation in patch #8 which
+will disable mirror feature if kernelcore is not specified.
+
+In order to test this support in arm64:
+- patch this patchset
+- add efi_fake_mem=8G@0:0x10000 in kernel parameter to simulate mirrored
+  memroy between phy addr 0-8G.
+- add kernelcore=mirror in kernel parameter
+- start you kernel
+
+Patch #1-#2 introduce efi_fake_mem support for arm64.
+Patch #3-#4 introduce mirrored memory support form arm64.
+Patch #5-#7 fix some bugs for arm64 if memory reliable is enabled.
+Patch #8 disable mirror feature if kernelPHYS_PFNcore is not specified.
+Patch #9 remove some redundant code in ia64 efi_init.
+
+Changelog since v1:
+- update changelog in cover letter
+- use PHYS_PFN in patch #7 
+
+Ma Wupeng (9):
+  efi: Make efi_print_memmap() public
+  arm64: efi: Add fake memory support
+  efi: Make efi_find_mirror() public
+  arm64/mirror: arm64 enabling - find mirrored memory ranges
+  mm: Ratelimited mirrored memory related warning messages
+  mm: Demote warning message in vmemmap_verify() to debug level
+  mm: Calc the right pfn if page size is not 4K
+  efi: Disable mirror feature if kernelcore is not specified
+  ia64/efi: Code simplification in efi_init
+
+ .../admin-guide/kernel-parameters.txt         |  4 +-
+ arch/arm64/kernel/setup.c                     |  3 ++
+ arch/ia64/kernel/efi.c                        | 37 +-----------------
+ arch/x86/include/asm/efi.h                    |  5 ---
+ arch/x86/platform/efi/efi.c                   | 39 -------------------
+ drivers/firmware/efi/Kconfig                  |  2 +-
+ drivers/firmware/efi/efi.c                    | 26 +++++++++++++
+ drivers/firmware/efi/memmap.c                 | 16 ++++++++
+ include/linux/efi.h                           |  4 ++
+ include/linux/mm.h                            |  2 +
+ mm/memblock.c                                 |  4 +-
+ mm/page_alloc.c                               |  4 +-
+ mm/sparse-vmemmap.c                           |  2 +-
+ 13 files changed, 60 insertions(+), 88 deletions(-)
 
 -- 
-~Randy
+2.18.0.huawei.25
