@@ -1,49 +1,141 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Fri, 29 Apr 2022 21:48:30 +0000
-Subject: [PATCH v2 05/12] signal: Use lockdep_assert_held instead of assert_spin_locked
-Message-Id: <20220429214837.386518-5-ebiederm@xmission.com>
+From: Wupeng Ma <mawupeng1@huawei.com>
+Date: Thu, 14 Apr 2022 09:54:18 +0000
+Subject: [PATCH v2 3/9] efi: Make efi_find_mirror() public
+Message-Id: <20220414101314.1250667-4-mawupeng1@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
-In-Reply-To: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
+References: <20220414101314.1250667-1-mawupeng1@huawei.com>
+In-Reply-To: <20220414101314.1250667-1-mawupeng1@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
+To: akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org, corbet@lwn.net
+Cc: ardb@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zyccr.com, dvhart@infradead.org, andy@infradead.org, rppt@kernel.org, paulmck@kernel.org, peterz@infradead.org, jroedel@suse.de, songmuchun@bytedance.com, macro@orcam.me.uk, frederic@kernel.org, W_Armin@gmx.de, john.garry@huawei.com, seanjc@google.com, tsbogend@alpha.franken.de, anshuman.khandual@arm.com, chenhuacai@kernel.org, david@redhat.com, gpiccoli@igalia.com, mark.rutland@arm.com, wangkefeng.wang@huawei.com, mawupeng1@huawei.com, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org
 
-The distinction is that assert_spin_locked() checks if the lock is
-held *by*anyone* whereas lockdep_assert_held() asserts the current
-context holds the lock.  Also, the check goes away if you build
-without lockdep.
+From: Ma Wupeng <mawupeng1@huawei.com>
 
-Suggested-by: Peter Zijlstra <peterz@infradead.org>
-Link: https://lkml.kernel.org/r/Ympr/+PX4XgT/UKU@hirez.programming.kicks-ass.net
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Commit b05b9f5f9dcf ("x86, mirror: x86 enabling - find mirrored memory
+ranges") introduce the efi_find_mirror function on x86. In order to reuse
+the API we make it public in preparation for arm64 to support mirrord
+memory.
+
+Signed-off-by: Ma Wupeng <mawupeng1@huawei.com>
 ---
- kernel/signal.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ arch/x86/include/asm/efi.h  |  4 ----
+ arch/x86/platform/efi/efi.c | 23 -----------------------
+ drivers/firmware/efi/efi.c  | 23 +++++++++++++++++++++++
+ include/linux/efi.h         |  3 +++
+ 4 files changed, 26 insertions(+), 27 deletions(-)
 
-diff --git a/kernel/signal.c b/kernel/signal.c
-index 72d96614effc..3fd2ce133387 100644
---- a/kernel/signal.c
-+++ b/kernel/signal.c
-@@ -884,7 +884,7 @@ static int check_kill_permission(int sig, struct kernel_siginfo *info,
- static void ptrace_trap_notify(struct task_struct *t)
+diff --git a/arch/x86/include/asm/efi.h b/arch/x86/include/asm/efi.h
+index 686968073f48..6be838c0f109 100644
+--- a/arch/x86/include/asm/efi.h
++++ b/arch/x86/include/asm/efi.h
+@@ -368,7 +368,6 @@ static inline bool efi_is_64bit(void)
+ extern bool efi_reboot_required(void);
+ extern bool efi_is_table_address(unsigned long phys_addr);
+ 
+-extern void efi_find_mirror(void);
+ extern void efi_reserve_boot_services(void);
+ #else
+ static inline void parse_efi_setup(u64 phys_addr, u32 data_len) {}
+@@ -380,9 +379,6 @@ static inline  bool efi_is_table_address(unsigned long phys_addr)
  {
- 	WARN_ON_ONCE(!(t->ptrace & PT_SEIZED));
--	assert_spin_locked(&t->sighand->siglock);
-+	lockdep_assert_held(&t->sighand->siglock);
+ 	return false;
+ }
+-static inline void efi_find_mirror(void)
+-{
+-}
+ static inline void efi_reserve_boot_services(void)
+ {
+ }
+diff --git a/arch/x86/platform/efi/efi.c b/arch/x86/platform/efi/efi.c
+index 7b130f39d841..fedbb228faea 100644
+--- a/arch/x86/platform/efi/efi.c
++++ b/arch/x86/platform/efi/efi.c
+@@ -105,29 +105,6 @@ static int __init setup_add_efi_memmap(char *arg)
+ }
+ early_param("add_efi_memmap", setup_add_efi_memmap);
  
- 	task_set_jobctl_pending(t, JOBCTL_TRAP_NOTIFY);
- 	ptrace_signal_wake_up(t, t->jobctl & JOBCTL_LISTENING);
-@@ -1079,7 +1079,7 @@ static int __send_signal_locked(int sig, struct kernel_siginfo *info,
- 	int override_rlimit;
- 	int ret = 0, result;
+-void __init efi_find_mirror(void)
+-{
+-	efi_memory_desc_t *md;
+-	u64 mirror_size = 0, total_size = 0;
+-
+-	if (!efi_enabled(EFI_MEMMAP))
+-		return;
+-
+-	for_each_efi_memory_desc(md) {
+-		unsigned long long start = md->phys_addr;
+-		unsigned long long size = md->num_pages << EFI_PAGE_SHIFT;
+-
+-		total_size += size;
+-		if (md->attribute & EFI_MEMORY_MORE_RELIABLE) {
+-			memblock_mark_mirror(start, size);
+-			mirror_size += size;
+-		}
+-	}
+-	if (mirror_size)
+-		pr_info("Memory: %lldM/%lldM mirrored memory\n",
+-			mirror_size>>20, total_size>>20);
+-}
+-
+ /*
+  * Tell the kernel about the EFI memory map.  This might include
+  * more than the max 128 entries that can fit in the passed in e820
+diff --git a/drivers/firmware/efi/efi.c b/drivers/firmware/efi/efi.c
+index 5502e176d51b..eb9ebf4efea1 100644
+--- a/drivers/firmware/efi/efi.c
++++ b/drivers/firmware/efi/efi.c
+@@ -438,6 +438,29 @@ static int __init efisubsys_init(void)
  
--	assert_spin_locked(&t->sighand->siglock);
-+	lockdep_assert_held(&t->sighand->siglock);
+ subsys_initcall(efisubsys_init);
  
- 	result = TRACE_SIGNAL_IGNORED;
- 	if (!prepare_signal(sig, t, force))
++void __init efi_find_mirror(void)
++{
++	efi_memory_desc_t *md;
++	u64 mirror_size = 0, total_size = 0;
++
++	if (!efi_enabled(EFI_MEMMAP))
++		return;
++
++	for_each_efi_memory_desc(md) {
++		unsigned long long start = md->phys_addr;
++		unsigned long long size = md->num_pages << EFI_PAGE_SHIFT;
++
++		total_size += size;
++		if (md->attribute & EFI_MEMORY_MORE_RELIABLE) {
++			memblock_mark_mirror(start, size);
++			mirror_size += size;
++		}
++	}
++	if (mirror_size)
++		pr_info("Memory: %lldM/%lldM mirrored memory\n",
++			mirror_size>>20, total_size>>20);
++}
++
+ /*
+  * Find the efi memory descriptor for a given physical address.  Given a
+  * physical address, determine if it exists within an EFI Memory Map entry,
+diff --git a/include/linux/efi.h b/include/linux/efi.h
+index de05682b233b..950c84ce3f16 100644
+--- a/include/linux/efi.h
++++ b/include/linux/efi.h
+@@ -853,6 +853,7 @@ static inline bool efi_rt_services_supported(unsigned int mask)
+ {
+ 	return (efi.runtime_supported_mask & mask) = mask;
+ }
++extern void efi_find_mirror(void);
+ #else
+ static inline bool efi_enabled(int feature)
+ {
+@@ -870,6 +871,8 @@ static inline bool efi_rt_services_supported(unsigned int mask)
+ {
+ 	return false;
+ }
++
++static inline void efi_find_mirror(void) {}
+ #endif
+ 
+ extern int efi_status_to_err(efi_status_t status);
 -- 
-2.35.3
+2.18.0.huawei.25
