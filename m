@@ -1,40 +1,43 @@
-From: Baolin Wang <baolin.wang@linux.alibaba.com>
-Date: Fri, 29 Apr 2022 08:14:40 +0000
-Subject: [PATCH 0/3] Fix CONT-PTE/PMD size hugetlb issue when unmapping or migrating
-Message-Id: <cover.1651216964.git.baolin.wang@linux.alibaba.com>
+From: Wupeng Ma <mawupeng1@huawei.com>
+Date: Thu, 14 Apr 2022 09:56:00 +0000
+Subject: [PATCH v2 6/9] mm: Demote warning message in vmemmap_verify() to debug level
+Message-Id: <20220414101314.1250667-7-mawupeng1@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20220414101314.1250667-1-mawupeng1@huawei.com>
+In-Reply-To: <20220414101314.1250667-1-mawupeng1@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, mike.kravetz@oracle.com, catalin.marinas@arm.com, will@kernel.org
-Cc: tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, baolin.wang@linux.alibaba.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+To: akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org, corbet@lwn.net
+Cc: ardb@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zyccr.com, dvhart@infradead.org, andy@infradead.org, rppt@kernel.org, paulmck@kernel.org, peterz@infradead.org, jroedel@suse.de, songmuchun@bytedance.com, macro@orcam.me.uk, frederic@kernel.org, W_Armin@gmx.de, john.garry@huawei.com, seanjc@google.com, tsbogend@alpha.franken.de, anshuman.khandual@arm.com, chenhuacai@kernel.org, david@redhat.com, gpiccoli@igalia.com, mark.rutland@arm.com, wangkefeng.wang@huawei.com, mawupeng1@huawei.com, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org
 
-Hi,
+From: Ma Wupeng <mawupeng1@huawei.com>
 
-Now migrating a hugetlb page or unmapping a poisoned hugetlb page, we'll
-use ptep_clear_flush() and set_pte_at() to nuke the page table entry
-and remap it, and this is incorrect for CONT-PTE or CONT-PMD size hugetlb
-page, which will cause potential data consistent issue. This patch set
-will change to use hugetlb related APIs to fix this issue, please find
-details in each patch. Thanks.
+For a system only have limited mirrored memory or some numa node without
+mirrored memory, the per node vmemmap page_structs prefer to allocate
+memory from mirrored region, which will lead to vmemmap_verify() report
+lots of warning message.
 
-Baolin Wang (3):
-  mm: change huge_ptep_clear_flush() to return the original pte
-  mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when migration
-  mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when unmapping
+This patch demote the "potential offnode page_structs" warning messages
+to debug level to avoid a very long print during bootup.
 
- arch/arm64/include/asm/hugetlb.h   |  4 +--
- arch/arm64/mm/hugetlbpage.c        | 12 ++++----
- arch/ia64/include/asm/hugetlb.h    |  4 +--
- arch/mips/include/asm/hugetlb.h    |  9 ++++--
- arch/parisc/include/asm/hugetlb.h  |  4 +--
- arch/powerpc/include/asm/hugetlb.h |  9 ++++--
- arch/s390/include/asm/hugetlb.h    |  6 ++--
- arch/sh/include/asm/hugetlb.h      |  4 +--
- arch/sparc/include/asm/hugetlb.h   |  4 +--
- include/asm-generic/hugetlb.h      |  4 +--
- mm/rmap.c                          | 58 +++++++++++++++++++++++---------------
- 11 files changed, 67 insertions(+), 51 deletions(-)
+Signed-off-by: Ma Wupeng <mawupeng1@huawei.com>
+---
+ mm/sparse-vmemmap.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/mm/sparse-vmemmap.c b/mm/sparse-vmemmap.c
+index 8aecd6b3896c..a63470dafc35 100644
+--- a/mm/sparse-vmemmap.c
++++ b/mm/sparse-vmemmap.c
+@@ -528,7 +528,7 @@ void __meminit vmemmap_verify(pte_t *pte, int node,
+ 	int actual_node = early_pfn_to_nid(pfn);
+ 
+ 	if (node_distance(actual_node, node) > LOCAL_DISTANCE)
+-		pr_warn("[%lx-%lx] potential offnode page_structs\n",
++		pr_debug("[%lx-%lx] potential offnode page_structs\n",
+ 			start, end - 1);
+ }
+ 
 -- 
-1.8.3.1
+2.18.0.huawei.25
