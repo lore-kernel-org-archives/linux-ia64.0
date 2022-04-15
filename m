@@ -1,116 +1,44 @@
-From: mawupeng <mawupeng1@huawei.com>
-Date: Wed, 20 Apr 2022 02:13:40 +0000
-Subject: Re: [PATCH v2 0/9] introduce mirrored memory support for arm64
-Message-Id: <b2864968-3cc7-dba3-5361-d8ee4cc3482a@huawei.com>
+From: Bjorn Helgaas <helgaas@kernel.org>
+Date: Fri, 15 Apr 2022 19:08:10 +0000
+Subject: [PATCH 0/7] Remove unused SLOW_DOWN_IO
+Message-Id: <20220415190817.842864-1-helgaas@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220414101314.1250667-1-mawupeng1@huawei.com>
- <CAMj1kXGSStDgj9ABmUaTLnBmpQFksh3wx4tx=mJohum4GQe3Gg@mail.gmail.com>
- <6de859df-e1c3-e9aa-4530-3b61b9c69a28@huawei.com>
- <CAMj1kXGyKQMeFWSK-s84pdL89qPTyTN_x3WHTgp_R7sH1+qOfA@mail.gmail.com>
-In-Reply-To: <CAMj1kXGyKQMeFWSK-s84pdL89qPTyTN_x3WHTgp_R7sH1+qOfA@mail.gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: ardb@kernel.org
-Cc: akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org, corbet@lwn.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, dvhart@infradead.org, andy@infradead.org, rppt@kernel.org, paulmck@kernel.org, peterz@infradead.org, jroedel@suse.de, songmuchun@bytedance.com, macro@orcam.me.uk, frederic@kernel.org, W_Armin@gmx.de, john.garry@huawei.com, seanjc@google.com, tsbogend@alpha.franken.de, anshuman.khandual@arm.com, chenhuacai@kernel.org, david@redhat.com, gpiccoli@igalia.com, mark.rutland@arm.com, wangkefeng.wang@huawei.com, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Chas Williams <3chas3@gmail.com>, "David S . Miller" <davem@davemloft.net>, Jakub Kicinski <kuba@kernel.org>, Paolo Abeni <pabeni@redhat.com>
+Cc: linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>
 
+From: Bjorn Helgaas <bhelgaas@google.com>
 
+Only alpha, ia64, powerpc, and sh define SLOW_DOWN_IO, and there are no
+actual uses of it.  The few references to it are in situations that are
+themselves unused.  Remove them all.
 
-在 2022/4/20 2:32, Ard Biesheuvel 写道:
-> On Sat, 16 Apr 2022 at 03:32, mawupeng <mawupeng1@huawei.com> wrote:
->>
->>
->>
->> 在 2022/4/14 18:22, Ard Biesheuvel 写道:
->>> On Thu, 14 Apr 2022 at 11:54, Wupeng Ma <mawupeng1@huawei.com> wrote:
->>>>
->>>> From: Ma Wupeng <mawupeng1@huawei.com>
->>>>
->>>> Commit b05b9f5f9dcf ("x86, mirror: x86 enabling - find mirrored memory ranges")
->>>> introduced mirrored memory support for x86. This support rely on UEFI to
->>>> report mirrored memory address ranges.  See UEFI 2.5 spec pages 157-158:
->>>>
->>>>     http://www.uefi.org/sites/default/files/resources/UEFI%202_5.pdf
->>>>
->>>> Memory mirroring is a technique used to separate memory into two separate
->>>> channels, usually on a memory device, like a server. In memory mirroring,
->>>> one channel is copied to another to create redundancy. This method makes
->>>> input/output (I/O) registers and memory appear with more than one address
->>>> range because the same physical byte is accessible at more than one
->>>> address. Using memory mirroring, higher memory reliability and a higher
->>>> level of memory consolidation are possible.
->>>>
->>>> Arm64 can support this too. So mirrored memory support is added to support
->>>> arm64.
->>>>
->>>> Efi_fake_mem is used for testing mirrored features and will not be used in
->>>> production environment. This test features can fake memory's attribute
->>>> values.
->>>>
->>>> The reason why efi_fake_mem support is put first is that memory's attribute
->>>> is reported by BIOS which is hard to simulate. With this support, any arm64
->>>> machines with efi support can easily test mirrored features.
->>>>
->>>> The main purpose of this patchset is to introduce mirrored support for
->>>> arm64 and we have already fixed the problems we had which is shown in
->>>> patch #5 to patch #7 and try to bring total isolation in patch #8 which
->>>> will disable mirror feature if kernelcore is not specified.
->>>>
->>>> In order to test this support in arm64:
->>>> - patch this patchset
->>>> - add efi_fake_mem=8G@0:0x10000 in kernel parameter to simulate mirrored
->>>>     memroy between phy addr 0-8G.
->>>> - add kernelcore=mirror in kernel parameter
->>>> - start you kernel
->>>>
->>>
->>> As I explained before:
->>>
->>> - NAK to EFI fake_mem support on arm64
->>
->> fake_mem support on arm64 will be removed in subsequent version.
->>
->>> - NAK to the whole series until you come up with a proposal on how to
->>> locate the static kernel image itself into more reliable memory, as
->>> there is really no point to any of this otherwise.
->>
->> Sorry I am not familiar with this, as you metioned before,
->>
->>   > you have to iterate over the memory map and look for regions with
->>   > the desired attribute, and allocate those pages explicitly.
->>
->> Do you mean this is x86, commit c05cd79750fb
->> ("x86/boot/KASLR: Prefer mirrored memory regions for the kernel physical address").
->> I will do some research.
->>
->>   > I'd prefer to implement this in the bootloader, and only add minimal
->>   > logic to the stub to respect the placement of the kernel by the loader
->>   > if the loader signals it to do so.
->>
->> Does this bootloader refer to grub and then add minimal logic to arm64-stub.c?
->>
-> 
-> Any bootloader, yes.
-> 
->> What is the loader signal?
-> 
-> A protocol installed onto the image handle, as I suggested before. I
-> even cc'ed you on a patch that implements this.
+It should be safe to apply these independently and in any order.  The only
+place SLOW_DOWN_IO is used at all is the lmc_var.h definition of DELAY,
+which is itself never used.
 
-Sorry to bother you.
-I didn't receive any patches.
-Could you share the link?
+Bjorn Helgaas (7):
+  net: wan: atp: remove unused eeprom_delay()
+  net: wan: lmc: remove unused DELAY()
+  net: remove comments that mention obsolete __SLOW_DOWN_IO
+  sh: remove unused SLOW_DOWN_IO
+  powerpc: Remove unused SLOW_DOWN_IO definition
+  ia64: remove unused __SLOW_DOWN_IO and SLOW_DOWN_IO definitions
+  alpha: remove unused __SLOW_DOWN_IO and SLOW_DOWN_IO definitions
 
-> 
->> System exists mirrored memory reported by uefi?
->>
-> 
-> What on earth is the point of any of this if the only use case being
-> targeted is efi_fake_mem with arbitrary fake mirrored regions?
-> 
-> So yes, unless there are systems that need this, I don't see a point
-> in merging any of this
-We do have mirrored memory reported by uefi and efi_fake_mem is added for easy testing
-with qemu/hardware without update UEFI.
+ arch/alpha/include/asm/io.h                  |  4 ----
+ arch/ia64/include/asm/io.h                   |  4 ----
+ arch/powerpc/include/asm/io.h                |  2 --
+ arch/sh/include/asm/io.h                     | 17 ++---------------
+ drivers/atm/nicstarmac.c                     |  5 -----
+ drivers/net/ethernet/dec/tulip/winbond-840.c |  2 --
+ drivers/net/ethernet/natsemi/natsemi.c       |  2 --
+ drivers/net/ethernet/realtek/atp.h           |  4 ----
+ drivers/net/wan/lmc/lmc_main.c               |  8 --------
+ drivers/net/wan/lmc/lmc_var.h                |  8 --------
+ 10 files changed, 2 insertions(+), 54 deletions(-)
 
-> .
+-- 
+2.25.1
