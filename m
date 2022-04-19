@@ -1,7 +1,7 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Tue, 19 Apr 2022 09:59:24 +0000
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Tue, 19 Apr 2022 11:26:06 +0000
 Subject: Re: [PATCH v2 7/9] mm: Calc the right pfn if page size is not 4K
-Message-Id: <ef669ff4-24a1-4401-40d6-693d5dbe3402@redhat.com>
+Message-Id: <672ff459-81bd-38ef-882d-e718992d295c@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220414101314.1250667-1-mawupeng1@huawei.com>
  <20220414101314.1250667-8-mawupeng1@huawei.com>
@@ -10,9 +10,11 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Wupeng Ma <mawupeng1@huawei.com>, akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org, corbet@lwn.net
-Cc: ardb@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zyccr.com, dvhart@infradead.org, andy@infradead.org, rppt@kernel.org, paulmck@kernel.org, peterz@infradead.org, jroedel@suse.de, songmuchun@bytedance.com, macro@orcam.me.uk, frederic@kernel.org, W_Armin@gmx.de, john.garry@huawei.com, seanjc@google.com, tsbogend@alpha.franken.de, anshuman.khandual@arm.com, chenhuacai@kernel.org, gpiccoli@igalia.com, mark.rutland@arm.com, wangkefeng.wang@huawei.com, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org
+Cc: ardb@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zyccr.com, dvhart@infradead.org, andy@infradead.org, rppt@kernel.org, paulmck@kernel.org, peterz@infradead.org, jroedel@suse.de, songmuchun@bytedance.com, macro@orcam.me.uk, frederic@kernel.org, W_Armin@gmx.de, john.garry@huawei.com, seanjc@google.com, tsbogend@alpha.franken.de, chenhuacai@kernel.org, david@redhat.com, gpiccoli@igalia.com, mark.rutland@arm.com, wangkefeng.wang@huawei.com, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org
 
-On 14.04.22 12:13, Wupeng Ma wrote:
+
+
+On 4/14/22 15:43, Wupeng Ma wrote:
 > From: Ma Wupeng <mawupeng1@huawei.com>
 > 
 > Previous 0x100000 is used to check the 4G limit in
@@ -39,9 +41,6 @@ On 14.04.22 12:13, Wupeng Ma wrote:
 >  				continue;
 >  			}
 
-Reviewed-by: David Hildenbrand <david@redhat.com>
+Regardless PFN value should never be encoded directly.
 
--- 
-Thanks,
-
-David / dhildenb
+Reviewed-by: Anshuman Khandual <anshuman.khandual@arm.com>
