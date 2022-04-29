@@ -1,52 +1,75 @@
-From: Wupeng Ma <mawupeng1@huawei.com>
-Date: Thu, 14 Apr 2022 09:55:57 +0000
-Subject: [PATCH v2 5/9] mm: Ratelimited mirrored memory related warning messages
-Message-Id: <20220414101314.1250667-6-mawupeng1@huawei.com>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Fri, 29 Apr 2022 21:46:59 +0000
+Subject: [PATCH 0/12] ptrace: cleaning up ptrace_stop
+Message-Id: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220414101314.1250667-1-mawupeng1@huawei.com>
-In-Reply-To: <20220414101314.1250667-1-mawupeng1@huawei.com>
+References: <20220421150248.667412396@infradead.org>
+        <20220421150654.817117821@infradead.org>
+        <87czhap9dy.fsf@email.froward.int.ebiederm.org>
+        <878rrrh32q.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <878rrrh32q.fsf_-_@email.froward.int.ebiederm.org> (Eric
+        W. Biederman's message of "Tue, 26 Apr 2022 17:50:21 -0500")
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org, corbet@lwn.net
-Cc: ardb@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zyccr.com, dvhart@infradead.org, andy@infradead.org, rppt@kernel.org, paulmck@kernel.org, peterz@infradead.org, jroedel@suse.de, songmuchun@bytedance.com, macro@orcam.me.uk, frederic@kernel.org, W_Armin@gmx.de, john.garry@huawei.com, seanjc@google.com, tsbogend@alpha.franken.de, anshuman.khandual@arm.com, chenhuacai@kernel.org, david@redhat.com, gpiccoli@igalia.com, mark.rutland@arm.com, wangkefeng.wang@huawei.com, mawupeng1@huawei.com, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org
+To: linux-kernel@vger.kernel.org
+Cc: rjw@rjwysocki.net, oleg@redhat.com, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Jann Horn <jannh@google.com>, Kees Cook <keescook@chromium.org>, linux-ia64@vger.kernel.org
 
-From: Ma Wupeng <mawupeng1@huawei.com>
 
-If system has mirrored memory, memblock will try to allocate mirrored
-memory firstly and fallback to non-mirrored memory when fails, but if with
-limited mirrored memory or some numa node without mirrored memory, lots of
-warning message about memblock allocation will occur.
+The states TASK_STOPPED and TASK_TRACE are special in they can not
+handle spurious wake-ups.  This plus actively depending upon and
+changing the value of tsk->__state causes problems for PREEMPT_RT and
+Peter's freezer rewrite.
 
-This patch ratelimit the warning message to avoid a very long print during
-bootup.
+There are a lot of details we have to get right to sort out the
+technical challenges and this is my parred back version of the changes
+that contains just those problems I see good solutions to that I believe
+are ready.
 
-Signed-off-by: Ma Wupeng <mawupeng1@huawei.com>
----
- mm/memblock.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+In particular I don't have a solution that is ready for the challenges
+presented by wait_task_inactive.
 
-diff --git a/mm/memblock.c b/mm/memblock.c
-index e4f03a6e8e56..b1d2a0009733 100644
---- a/mm/memblock.c
-+++ b/mm/memblock.c
-@@ -327,7 +327,7 @@ static phys_addr_t __init_memblock memblock_find_in_range(phys_addr_t start,
- 					    NUMA_NO_NODE, flags);
- 
- 	if (!ret && (flags & MEMBLOCK_MIRROR)) {
--		pr_warn("Could not allocate %pap bytes of mirrored memory\n",
-+		pr_warn_ratelimited("Could not allocate %pap bytes of mirrored memory\n",
- 			&size);
- 		flags &= ~MEMBLOCK_MIRROR;
- 		goto again;
-@@ -1384,7 +1384,7 @@ phys_addr_t __init memblock_alloc_range_nid(phys_addr_t size,
- 
- 	if (flags & MEMBLOCK_MIRROR) {
- 		flags &= ~MEMBLOCK_MIRROR;
--		pr_warn("Could not allocate %pap bytes of mirrored memory\n",
-+		pr_warn_ratelimited("Could not allocate %pap bytes of mirrored memory\n",
- 			&size);
- 		goto again;
- 	}
--- 
-2.18.0.huawei.25
+I hope we can review these changes and then have a firm foundation
+for the rest of the challenges.
+
+There are cleanups to the ptrace support for xtensa, um, and
+ia64.
+
+I have sucked in the first patch of Peter's freezer change as
+with minor modifications I believe it is ready to go.
+
+Eric W. Biederman (12):
+      signal: Rename send_signal send_signal_locked
+      signal: Replace __group_send_sig_info with send_signal_locked
+      ptrace/um: Replace PT_DTRACE with TIF_SINGLESTEP
+      ptrace/xtensa: Replace PT_SINGLESTEP with TIF_SINGLESTEP
+      signal: Use lockdep_assert_held instead of assert_spin_locked
+      ptrace: Reimplement PTRACE_KILL by always sending SIGKILL
+      ptrace: Don't change __state
+      ptrace: Remove arch_ptrace_attach
+      ptrace: Always take siglock in ptrace_resume
+      ptrace: Only return signr from ptrace_stop if it was provided
+      ptrace: Always call schedule in ptrace_stop
+      sched,signal,ptrace: Rework TASK_TRACED, TASK_STOPPED state
+
+ arch/ia64/include/asm/ptrace.h    |   4 --
+ arch/ia64/kernel/ptrace.c         |  57 ----------------
+ arch/um/include/asm/thread_info.h |   2 +
+ arch/um/kernel/exec.c             |   2 +-
+ arch/um/kernel/process.c          |   2 +-
+ arch/um/kernel/ptrace.c           |   8 +--
+ arch/um/kernel/signal.c           |   4 +-
+ arch/xtensa/kernel/ptrace.c       |   4 +-
+ arch/xtensa/kernel/signal.c       |   4 +-
+ drivers/tty/tty_jobctrl.c         |   4 +-
+ include/linux/ptrace.h            |   7 --
+ include/linux/sched.h             |  10 ++-
+ include/linux/sched/jobctl.h      |  10 +++
+ include/linux/sched/signal.h      |  23 ++++++-
+ include/linux/signal.h            |   3 +-
+ kernel/ptrace.c                   |  88 +++++++++----------------
+ kernel/signal.c                   | 135 +++++++++++++++++---------------------
+ kernel/time/posix-cpu-timers.c    |   6 +-
+ 18 files changed, 145 insertions(+), 228 deletions(-)
+
+Eric
