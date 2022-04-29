@@ -1,319 +1,181 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Mon, 04 Apr 2022 05:05:57 +0000
-Subject: [PATCH 13/15] swiotlb: merge swiotlb-xen initialization into swiotlb
-Message-Id: <20220404050559.132378-14-hch@lst.de>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Fri, 29 Apr 2022 21:48:32 +0000
+Subject: [PATCH v2 07/12] ptrace: Don't change __state
+Message-Id: <20220429214837.386518-7-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220404050559.132378-1-hch@lst.de>
-In-Reply-To: <20220404050559.132378-1-hch@lst.de>
+References: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: x86@kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Tom Lendacky <thomas.lendacky@amd.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Stefano Stabellini <sstabellini@kernel.org>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Robin Murphy <robin.murphy@arm.com>, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-hyperv@vger.kernel.org, tboot-devel@lists.sourceforge.net, linux-pci@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
 
-Reuse the generic swiotlb initialization for xen-swiotlb.  For ARM/ARM64
-this works trivially, while for x86 xen_swiotlb_fixup needs to be passed
-as the remap argument to swiotlb_init_remap/swiotlb_init_late.
+Stop playing with tsk->__state to remove TASK_WAKEKILL while a ptrace
+command is executing.
 
-Note that the lower bound of the swiotlb size is changed to the smaller
-IO_TLB_MIN_SLABS based value with this patch, but that is fine as the
-2MB value used in Xen before was just an optimization and is not the
-hard lower bound.
+Instead TASK_WAKEKILL from the definition of TASK_TRACED, and
+implemention a new jobctl flag TASK_PTRACE_FROZEN.  This new This new
+flag is set in jobctl_freeze_task and cleared when ptrace_stop is
+awoken or in jobctl_unfreeze_task (when ptrace_stop remains asleep).
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
-Reviewed-by: Stefano Stabellini <sstabellini@kernel.org>
+In singal_wake_up add __TASK_TRACED to state along with TASK_WAKEKILL
+when it is indicated a fatal signal is pending.  Skip adding
+__TASK_TRACED when TASK_PTRACE_FROZEN is not set.  This has the same
+effect as changing TASK_TRACED to __TASK_TRACED as all of the wake_ups
+that use TASK_KILLABLE go through signal_wake_up.
+
+Don't set TASK_TRACED if fatal_signal_pending so that the code
+continues not to sleep if there was a pending fatal signal before
+ptrace_stop is called.  With TASK_WAKEKILL no longer present in
+TASK_TRACED signal_pending_state will no longer prevent ptrace_stop
+from sleeping if there is a pending fatal signal.
+
+Previously the __state value of __TASK_TRACED was changed to
+TASK_RUNNING when woken up or back to TASK_TRACED when the code was
+left in ptrace_stop.  Now when woken up ptrace_stop now clears
+JOBCTL_PTRACE_FROZEN and when left sleeping ptrace_unfreezed_traced
+clears JOBCTL_PTRACE_FROZEN.
+
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- arch/arm/xen/mm.c               |  21 +++---
- arch/x86/include/asm/xen/page.h |   5 --
- arch/x86/kernel/pci-dma.c       |  20 ++---
- drivers/xen/swiotlb-xen.c       | 128 +-------------------------------
- include/xen/arm/page.h          |   1 -
- include/xen/swiotlb-xen.h       |   8 +-
- 6 files changed, 28 insertions(+), 155 deletions(-)
+ include/linux/sched.h        |  2 +-
+ include/linux/sched/jobctl.h |  2 ++
+ include/linux/sched/signal.h |  8 +++++++-
+ kernel/ptrace.c              | 21 ++++++++-------------
+ kernel/signal.c              |  9 +++------
+ 5 files changed, 21 insertions(+), 21 deletions(-)
 
-diff --git a/arch/arm/xen/mm.c b/arch/arm/xen/mm.c
-index 28c2070602535..ff05a7899cb86 100644
---- a/arch/arm/xen/mm.c
-+++ b/arch/arm/xen/mm.c
-@@ -23,22 +23,20 @@
- #include <asm/xen/hypercall.h>
- #include <asm/xen/interface.h>
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index d5e3c00b74e1..610f2fdb1e2c 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -103,7 +103,7 @@ struct task_group;
+ /* Convenience macros for the sake of set_current_state: */
+ #define TASK_KILLABLE			(TASK_WAKEKILL | TASK_UNINTERRUPTIBLE)
+ #define TASK_STOPPED			(TASK_WAKEKILL | __TASK_STOPPED)
+-#define TASK_TRACED			(TASK_WAKEKILL | __TASK_TRACED)
++#define TASK_TRACED			__TASK_TRACED
  
--unsigned long xen_get_swiotlb_free_pages(unsigned int order)
-+static gfp_t xen_swiotlb_gfp(void)
+ #define TASK_IDLE			(TASK_UNINTERRUPTIBLE | TASK_NOLOAD)
+ 
+diff --git a/include/linux/sched/jobctl.h b/include/linux/sched/jobctl.h
+index fa067de9f1a9..d556c3425963 100644
+--- a/include/linux/sched/jobctl.h
++++ b/include/linux/sched/jobctl.h
+@@ -19,6 +19,7 @@ struct task_struct;
+ #define JOBCTL_TRAPPING_BIT	21	/* switching to TRACED */
+ #define JOBCTL_LISTENING_BIT	22	/* ptracer is listening for events */
+ #define JOBCTL_TRAP_FREEZE_BIT	23	/* trap for cgroup freezer */
++#define JOBCTL_PTRACE_FROZEN_BIT	24	/* frozen for ptrace */
+ 
+ #define JOBCTL_STOP_DEQUEUED	(1UL << JOBCTL_STOP_DEQUEUED_BIT)
+ #define JOBCTL_STOP_PENDING	(1UL << JOBCTL_STOP_PENDING_BIT)
+@@ -28,6 +29,7 @@ struct task_struct;
+ #define JOBCTL_TRAPPING		(1UL << JOBCTL_TRAPPING_BIT)
+ #define JOBCTL_LISTENING	(1UL << JOBCTL_LISTENING_BIT)
+ #define JOBCTL_TRAP_FREEZE	(1UL << JOBCTL_TRAP_FREEZE_BIT)
++#define JOBCTL_PTRACE_FROZEN	(1UL << JOBCTL_PTRACE_FROZEN_BIT)
+ 
+ #define JOBCTL_TRAP_MASK	(JOBCTL_TRAP_STOP | JOBCTL_TRAP_NOTIFY)
+ #define JOBCTL_PENDING_MASK	(JOBCTL_STOP_PENDING | JOBCTL_TRAP_MASK)
+diff --git a/include/linux/sched/signal.h b/include/linux/sched/signal.h
+index 3c8b34876744..35af34eeee9e 100644
+--- a/include/linux/sched/signal.h
++++ b/include/linux/sched/signal.h
+@@ -437,7 +437,13 @@ extern void signal_wake_up_state(struct task_struct *t, unsigned int state);
+ 
+ static inline void signal_wake_up(struct task_struct *t, bool resume)
  {
- 	phys_addr_t base;
--	gfp_t flags = __GFP_NOWARN|__GFP_KSWAPD_RECLAIM;
- 	u64 i;
- 
- 	for_each_mem_range(i, &base, NULL) {
- 		if (base < (phys_addr_t)0xffffffff) {
- 			if (IS_ENABLED(CONFIG_ZONE_DMA32))
--				flags |= __GFP_DMA32;
--			else
--				flags |= __GFP_DMA;
--			break;
-+				return __GFP_DMA32;
-+			return __GFP_DMA;
- 		}
+-	signal_wake_up_state(t, resume ? TASK_WAKEKILL : 0);
++	unsigned int state = 0;
++	if (resume) {
++		state = TASK_WAKEKILL;
++		if (!(t->jobctl & JOBCTL_PTRACE_FROZEN))
++			state |= __TASK_TRACED;
++	}
++	signal_wake_up_state(t, state);
+ }
+ static inline void ptrace_signal_wake_up(struct task_struct *t, bool resume)
+ {
+diff --git a/kernel/ptrace.c b/kernel/ptrace.c
+index 43da5764b6f3..644eb7439d01 100644
+--- a/kernel/ptrace.c
++++ b/kernel/ptrace.c
+@@ -197,7 +197,7 @@ static bool ptrace_freeze_traced(struct task_struct *task)
+ 	spin_lock_irq(&task->sighand->siglock);
+ 	if (task_is_traced(task) && !looks_like_a_spurious_pid(task) &&
+ 	    !__fatal_signal_pending(task)) {
+-		WRITE_ONCE(task->__state, __TASK_TRACED);
++		task->jobctl |= JOBCTL_PTRACE_FROZEN;
+ 		ret = true;
  	}
--	return __get_free_pages(flags, order);
-+
-+	return GFP_KERNEL;
- }
+ 	spin_unlock_irq(&task->sighand->siglock);
+@@ -207,23 +207,19 @@ static bool ptrace_freeze_traced(struct task_struct *task)
  
- static bool hypercall_cflush = false;
-@@ -140,10 +138,13 @@ static int __init xen_mm_init(void)
- 	if (!xen_swiotlb_detect())
- 		return 0;
- 
--	rc = xen_swiotlb_init();
- 	/* we can work with the default swiotlb */
--	if (rc < 0 && rc != -EEXIST)
--		return rc;
-+	if (!io_tlb_default_mem.nslabs) {
-+		rc = swiotlb_init_late(swiotlb_size_or_default(),
-+				       xen_swiotlb_gfp(), NULL);
-+		if (rc < 0)
-+			return rc;
-+	}
- 
- 	cflush.op = 0;
- 	cflush.a.dev_bus_addr = 0;
-diff --git a/arch/x86/include/asm/xen/page.h b/arch/x86/include/asm/xen/page.h
-index e989bc2269f54..1fc67df500145 100644
---- a/arch/x86/include/asm/xen/page.h
-+++ b/arch/x86/include/asm/xen/page.h
-@@ -357,9 +357,4 @@ static inline bool xen_arch_need_swiotlb(struct device *dev,
- 	return false;
- }
- 
--static inline unsigned long xen_get_swiotlb_free_pages(unsigned int order)
--{
--	return __get_free_pages(__GFP_NOWARN, order);
--}
--
- #endif /* _ASM_X86_XEN_PAGE_H */
-diff --git a/arch/x86/kernel/pci-dma.c b/arch/x86/kernel/pci-dma.c
-index a705a199bf8a3..30bbe4abb5d61 100644
---- a/arch/x86/kernel/pci-dma.c
-+++ b/arch/x86/kernel/pci-dma.c
-@@ -72,15 +72,13 @@ static inline void __init pci_swiotlb_detect(void)
- #endif /* CONFIG_SWIOTLB */
- 
- #ifdef CONFIG_SWIOTLB_XEN
--static bool xen_swiotlb;
--
- static void __init pci_xen_swiotlb_init(void)
+ static void ptrace_unfreeze_traced(struct task_struct *task)
  {
- 	if (!xen_initial_domain() && !x86_swiotlb_enable)
- 		return;
- 	x86_swiotlb_enable = true;
--	xen_swiotlb = true;
--	xen_swiotlb_init_early();
-+	x86_swiotlb_flags |= SWIOTLB_ANY;
-+	swiotlb_init_remap(true, x86_swiotlb_flags, xen_swiotlb_fixup);
- 	dma_ops = &xen_swiotlb_dma_ops;
- 	if (IS_ENABLED(CONFIG_PCI))
- 		pci_request_acs();
-@@ -88,14 +86,16 @@ static void __init pci_xen_swiotlb_init(void)
- 
- int pci_xen_swiotlb_init_late(void)
- {
--	int rc;
+-	if (READ_ONCE(task->__state) != __TASK_TRACED)
+-		return;
 -
--	if (xen_swiotlb)
-+	if (dma_ops = &xen_swiotlb_dma_ops)
- 		return 0;
+-	WARN_ON(!task->ptrace || task->parent != current);
++	unsigned long flags;
  
--	rc = xen_swiotlb_init();
--	if (rc)
--		return rc;
-+	/* we can work with the default swiotlb */
-+	if (!io_tlb_default_mem.nslabs) {
-+		int rc = swiotlb_init_late(swiotlb_size_or_default(),
-+					   GFP_KERNEL, xen_swiotlb_fixup);
-+		if (rc < 0)
-+			return rc;
-+	}
- 
- 	/* XXX: this switches the dma ops under live devices! */
- 	dma_ops = &xen_swiotlb_dma_ops;
-diff --git a/drivers/xen/swiotlb-xen.c b/drivers/xen/swiotlb-xen.c
-index c2da3eb4826e8..df8085b50df10 100644
---- a/drivers/xen/swiotlb-xen.c
-+++ b/drivers/xen/swiotlb-xen.c
-@@ -104,7 +104,7 @@ static int is_xen_swiotlb_buffer(struct device *dev, dma_addr_t dma_addr)
- 	return 0;
+ 	/*
+-	 * PTRACE_LISTEN can allow ptrace_trap_notify to wake us up remotely.
+-	 * Recheck state under the lock to close this race.
++	 * The child may be awake and may have cleared
++	 * JOBCTL_PTRACE_FROZEN (see ptrace_resume).  The child will
++	 * not set JOBCTL_PTRACE_FROZEN or enter __TASK_TRACED anew.
+ 	 */
+-	spin_lock_irq(&task->sighand->siglock);
+-	if (READ_ONCE(task->__state) = __TASK_TRACED) {
++	if (lock_task_sighand(task, &flags)) {
++		task->jobctl &= ~JOBCTL_PTRACE_FROZEN;
+ 		if (__fatal_signal_pending(task))
+ 			wake_up_state(task, __TASK_TRACED);
+-		else
+-			WRITE_ONCE(task->__state, TASK_TRACED);
++		unlock_task_sighand(task, &flags);
+ 	}
+-	spin_unlock_irq(&task->sighand->siglock);
  }
  
--static int xen_swiotlb_fixup(void *buf, unsigned long nslabs)
-+int xen_swiotlb_fixup(void *buf, unsigned long nslabs)
- {
- 	int rc;
- 	unsigned int order = get_order(IO_TLB_SEGSIZE << IO_TLB_SHIFT);
-@@ -130,132 +130,6 @@ static int xen_swiotlb_fixup(void *buf, unsigned long nslabs)
- 	return 0;
- }
+ /**
+@@ -256,7 +252,6 @@ static int ptrace_check_attach(struct task_struct *child, bool ignore_state)
+ 	 */
+ 	read_lock(&tasklist_lock);
+ 	if (child->ptrace && child->parent = current) {
+-		WARN_ON(READ_ONCE(child->__state) = __TASK_TRACED);
+ 		/*
+ 		 * child->sighand can't be NULL, release_task()
+ 		 * does ptrace_unlink() before __exit_signal().
+diff --git a/kernel/signal.c b/kernel/signal.c
+index 3fd2ce133387..5cf268982a7e 100644
+--- a/kernel/signal.c
++++ b/kernel/signal.c
+@@ -2209,11 +2209,8 @@ static int ptrace_stop(int exit_code, int why, int clear_code,
+ 		spin_lock_irq(&current->sighand->siglock);
+ 	}
  
--enum xen_swiotlb_err {
--	XEN_SWIOTLB_UNKNOWN = 0,
--	XEN_SWIOTLB_ENOMEM,
--	XEN_SWIOTLB_EFIXUP
--};
--
--static const char *xen_swiotlb_error(enum xen_swiotlb_err err)
--{
--	switch (err) {
--	case XEN_SWIOTLB_ENOMEM:
--		return "Cannot allocate Xen-SWIOTLB buffer\n";
--	case XEN_SWIOTLB_EFIXUP:
--		return "Failed to get contiguous memory for DMA from Xen!\n"\
--		    "You either: don't have the permissions, do not have"\
--		    " enough free memory under 4GB, or the hypervisor memory"\
--		    " is too fragmented!";
--	default:
--		break;
--	}
--	return "";
--}
--
--int xen_swiotlb_init(void)
--{
--	enum xen_swiotlb_err m_ret = XEN_SWIOTLB_UNKNOWN;
--	unsigned long bytes = swiotlb_size_or_default();
--	unsigned long nslabs = bytes >> IO_TLB_SHIFT;
--	unsigned int order, repeat = 3;
--	int rc = -ENOMEM;
--	char *start;
--
--	if (io_tlb_default_mem.nslabs) {
--		pr_warn("swiotlb buffer already initialized\n");
--		return -EEXIST;
--	}
--
--retry:
--	m_ret = XEN_SWIOTLB_ENOMEM;
--	order = get_order(bytes);
--
 -	/*
--	 * Get IO TLB memory from any location.
+-	 * schedule() will not sleep if there is a pending signal that
+-	 * can awaken the task.
 -	 */
--#define SLABS_PER_PAGE (1 << (PAGE_SHIFT - IO_TLB_SHIFT))
--#define IO_TLB_MIN_SLABS ((1<<20) >> IO_TLB_SHIFT)
--	while ((SLABS_PER_PAGE << order) > IO_TLB_MIN_SLABS) {
--		start = (void *)xen_get_swiotlb_free_pages(order);
--		if (start)
--			break;
--		order--;
--	}
--	if (!start)
--		goto exit;
--	if (order != get_order(bytes)) {
--		pr_warn("Warning: only able to allocate %ld MB for software IO TLB\n",
--			(PAGE_SIZE << order) >> 20);
--		nslabs = SLABS_PER_PAGE << order;
--		bytes = nslabs << IO_TLB_SHIFT;
--	}
--
--	/*
--	 * And replace that memory with pages under 4GB.
--	 */
--	rc = xen_swiotlb_fixup(start, nslabs);
--	if (rc) {
--		free_pages((unsigned long)start, order);
--		m_ret = XEN_SWIOTLB_EFIXUP;
--		goto error;
--	}
--	rc = swiotlb_late_init_with_tbl(start, nslabs);
--	if (rc)
--		return rc;
--	return 0;
--error:
--	if (nslabs > 1024 && repeat--) {
--		/* Min is 2MB */
--		nslabs = max(1024UL, ALIGN(nslabs >> 1, IO_TLB_SEGSIZE));
--		bytes = nslabs << IO_TLB_SHIFT;
--		pr_info("Lowering to %luMB\n", bytes >> 20);
--		goto retry;
--	}
--exit:
--	pr_err("%s (rc:%d)\n", xen_swiotlb_error(m_ret), rc);
--	return rc;
--}
--
--#ifdef CONFIG_X86
--void __init xen_swiotlb_init_early(void)
--{
--	unsigned long bytes = swiotlb_size_or_default();
--	unsigned long nslabs = bytes >> IO_TLB_SHIFT;
--	unsigned int repeat = 3;
--	char *start;
--	int rc;
--
--retry:
--	/*
--	 * Get IO TLB memory from any location.
--	 */
--	start = memblock_alloc(PAGE_ALIGN(bytes),
--			       IO_TLB_SEGSIZE << IO_TLB_SHIFT);
--	if (!start)
--		panic("%s: Failed to allocate %lu bytes\n",
--		      __func__, PAGE_ALIGN(bytes));
--
--	/*
--	 * And replace that memory with pages under 4GB.
--	 */
--	rc = xen_swiotlb_fixup(start, nslabs);
--	if (rc) {
--		memblock_free(start, PAGE_ALIGN(bytes));
--		if (nslabs > 1024 && repeat--) {
--			/* Min is 2MB */
--			nslabs = max(1024UL, ALIGN(nslabs >> 1, IO_TLB_SEGSIZE));
--			bytes = nslabs << IO_TLB_SHIFT;
--			pr_info("Lowering to %luMB\n", bytes >> 20);
--			goto retry;
--		}
--		panic("%s (rc:%d)", xen_swiotlb_error(XEN_SWIOTLB_EFIXUP), rc);
--	}
--
--	if (swiotlb_init_with_tbl(start, nslabs, SWIOTLB_VERBOSE))
--		panic("Cannot allocate SWIOTLB buffer");
--}
--#endif /* CONFIG_X86 */
--
- static void *
- xen_swiotlb_alloc_coherent(struct device *hwdev, size_t size,
- 			   dma_addr_t *dma_handle, gfp_t flags,
-diff --git a/include/xen/arm/page.h b/include/xen/arm/page.h
-index ac1b654705631..7e199c6656b90 100644
---- a/include/xen/arm/page.h
-+++ b/include/xen/arm/page.h
-@@ -115,6 +115,5 @@ static inline bool set_phys_to_machine(unsigned long pfn, unsigned long mfn)
- bool xen_arch_need_swiotlb(struct device *dev,
- 			   phys_addr_t phys,
- 			   dma_addr_t dev_addr);
--unsigned long xen_get_swiotlb_free_pages(unsigned int order);
+-	set_special_state(TASK_TRACED);
++	if (!__fatal_signal_pending(current))
++		set_special_state(TASK_TRACED);
  
- #endif /* _ASM_ARM_XEN_PAGE_H */
-diff --git a/include/xen/swiotlb-xen.h b/include/xen/swiotlb-xen.h
-index b3e647f86e3e2..590ceb923f0c8 100644
---- a/include/xen/swiotlb-xen.h
-+++ b/include/xen/swiotlb-xen.h
-@@ -10,8 +10,12 @@ void xen_dma_sync_for_cpu(struct device *dev, dma_addr_t handle,
- void xen_dma_sync_for_device(struct device *dev, dma_addr_t handle,
- 			     size_t size, enum dma_data_direction dir);
+ 	/*
+ 	 * We're committing to trapping.  TRACED should be visible before
+@@ -2321,7 +2318,7 @@ static int ptrace_stop(int exit_code, int why, int clear_code,
+ 	current->exit_code = 0;
  
--int xen_swiotlb_init(void);
--void __init xen_swiotlb_init_early(void);
-+#ifdef CONFIG_SWIOTLB_XEN
-+int xen_swiotlb_fixup(void *buf, unsigned long nslabs);
-+#else
-+#define xen_swiotlb_fixup NULL
-+#endif
-+
- extern const struct dma_map_ops xen_swiotlb_dma_ops;
+ 	/* LISTENING can be set only during STOP traps, clear it */
+-	current->jobctl &= ~JOBCTL_LISTENING;
++	current->jobctl &= ~(JOBCTL_LISTENING | JOBCTL_PTRACE_FROZEN);
  
- #endif /* __LINUX_SWIOTLB_XEN_H */
+ 	/*
+ 	 * Queued signals ignored us while we were stopped for tracing.
 -- 
-2.30.2
+2.35.3
