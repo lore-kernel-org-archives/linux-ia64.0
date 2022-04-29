@@ -1,66 +1,142 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Date: Fri, 15 Apr 2022 19:08:13 +0000
-Subject: [PATCH 3/7] net: remove comments that mention obsolete __SLOW_DOWN_IO
-Message-Id: <20220415190817.842864-4-helgaas@kernel.org>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Fri, 29 Apr 2022 21:48:36 +0000
+Subject: [PATCH v2 11/12] ptrace: Always call schedule in ptrace_stop
+Message-Id: <20220429214837.386518-11-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220415190817.842864-1-helgaas@kernel.org>
-In-Reply-To: <20220415190817.842864-1-helgaas@kernel.org>
+References: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Chas Williams <3chas3@gmail.com>, "David S . Miller" <davem@davemloft.net>, Jakub Kicinski <kuba@kernel.org>, Paolo Abeni <pabeni@redhat.com>
-Cc: linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>
+To: linux-kernel@vger.kernel.org
+Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
 
-From: Bjorn Helgaas <bhelgaas@google.com>
+Stop testing for !current->ptrace and setting __state to TASK_RUNNING.
+The code in __ptrace_unlink wakes up the child with
+ptrace_signal_wake_up which will set __state to TASK_RUNNING.  This
+leaves the only thing ptrace_stop needs to do is to send the signals.
 
-Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+Make the signals sending conditional upon current->ptrace so that
+the correct signals are sent to the parent.
+
+After that call schedule and let the fact that __state = TASK_RUNNING
+keep the code from sleeping in schedule.
+
+Now that it is easy to see that ptrace_stop always sleeps in
+ptrace_stop after ptrace_freeze_trace succeeds modify
+ptrace_check_attach to warn if wait_task_inactive fails.
+
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- drivers/atm/nicstarmac.c                     | 5 -----
- drivers/net/ethernet/dec/tulip/winbond-840.c | 2 --
- drivers/net/ethernet/natsemi/natsemi.c       | 2 --
- 3 files changed, 9 deletions(-)
+ kernel/ptrace.c | 14 +++-------
+ kernel/signal.c | 68 ++++++++++++++++++-------------------------------
+ 2 files changed, 28 insertions(+), 54 deletions(-)
 
-diff --git a/drivers/atm/nicstarmac.c b/drivers/atm/nicstarmac.c
-index e0dda9062e6b..791f69a07ddf 100644
---- a/drivers/atm/nicstarmac.c
-+++ b/drivers/atm/nicstarmac.c
-@@ -14,11 +14,6 @@ typedef void __iomem *virt_addr_t;
+diff --git a/kernel/ptrace.c b/kernel/ptrace.c
+index d80222251f60..c1afebd2e8f3 100644
+--- a/kernel/ptrace.c
++++ b/kernel/ptrace.c
+@@ -261,17 +261,9 @@ static int ptrace_check_attach(struct task_struct *child, bool ignore_state)
+ 	}
+ 	read_unlock(&tasklist_lock);
  
- #define CYCLE_DELAY 5
+-	if (!ret && !ignore_state) {
+-		if (!wait_task_inactive(child, __TASK_TRACED)) {
+-			/*
+-			 * This can only happen if may_ptrace_stop() fails and
+-			 * ptrace_stop() changes ->state back to TASK_RUNNING,
+-			 * so we should not worry about leaking __TASK_TRACED.
+-			 */
+-			WARN_ON(READ_ONCE(child->__state) = __TASK_TRACED);
+-			ret = -ESRCH;
+-		}
+-	}
++	if (!ret && !ignore_state &&
++	    WARN_ON_ONCE(!wait_task_inactive(child, __TASK_TRACED)))
++		ret = -ESRCH;
  
--/*
--   This was the original definition
--#define osp_MicroDelay(microsec) \
--    do { int _i = 4*microsec; while (--_i > 0) { __SLOW_DOWN_IO; }} while (0)
--*/
- #define osp_MicroDelay(microsec) {unsigned long useconds = (microsec); \
-                                   udelay((useconds));}
- /*
-diff --git a/drivers/net/ethernet/dec/tulip/winbond-840.c b/drivers/net/ethernet/dec/tulip/winbond-840.c
-index 86b1d23eba83..1db19463fd46 100644
---- a/drivers/net/ethernet/dec/tulip/winbond-840.c
-+++ b/drivers/net/ethernet/dec/tulip/winbond-840.c
-@@ -474,8 +474,6 @@ static int w840_probe1(struct pci_dev *pdev, const struct pci_device_id *ent)
-    No extra delay is needed with 33Mhz PCI, but future 66Mhz access may need
-    a delay.  Note that pre-2.0.34 kernels had a cache-alignment bug that
-    made udelay() unreliable.
--   The old method of using an ISA access as a delay, __SLOW_DOWN_IO__, is
--   deprecated.
- */
- #define eeprom_delay(ee_addr)	ioread32(ee_addr)
+ 	return ret;
+ }
+diff --git a/kernel/signal.c b/kernel/signal.c
+index 7cb27a27290a..4cae3f47f664 100644
+--- a/kernel/signal.c
++++ b/kernel/signal.c
+@@ -2255,51 +2255,33 @@ static int ptrace_stop(int exit_code, int why, int clear_code,
  
-diff --git a/drivers/net/ethernet/natsemi/natsemi.c b/drivers/net/ethernet/natsemi/natsemi.c
-index 82a22711ce45..50bca486a244 100644
---- a/drivers/net/ethernet/natsemi/natsemi.c
-+++ b/drivers/net/ethernet/natsemi/natsemi.c
-@@ -989,8 +989,6 @@ static int natsemi_probe1(struct pci_dev *pdev, const struct pci_device_id *ent)
-    No extra delay is needed with 33Mhz PCI, but future 66Mhz access may need
-    a delay.  Note that pre-2.0.34 kernels had a cache-alignment bug that
-    made udelay() unreliable.
--   The old method of using an ISA access as a delay, __SLOW_DOWN_IO__, is
--   deprecated.
- */
- #define eeprom_delay(ee_addr)	readl(ee_addr)
+ 	spin_unlock_irq(&current->sighand->siglock);
+ 	read_lock(&tasklist_lock);
+-	if (likely(current->ptrace)) {
+-		/*
+-		 * Notify parents of the stop.
+-		 *
+-		 * While ptraced, there are two parents - the ptracer and
+-		 * the real_parent of the group_leader.  The ptracer should
+-		 * know about every stop while the real parent is only
+-		 * interested in the completion of group stop.  The states
+-		 * for the two don't interact with each other.  Notify
+-		 * separately unless they're gonna be duplicates.
+-		 */
++	/*
++	 * Notify parents of the stop.
++	 *
++	 * While ptraced, there are two parents - the ptracer and
++	 * the real_parent of the group_leader.  The ptracer should
++	 * know about every stop while the real parent is only
++	 * interested in the completion of group stop.  The states
++	 * for the two don't interact with each other.  Notify
++	 * separately unless they're gonna be duplicates.
++	 */
++	if (current->ptrace)
+ 		do_notify_parent_cldstop(current, true, why);
+-		if (gstop_done && ptrace_reparented(current))
+-			do_notify_parent_cldstop(current, false, why);
+-
+-		/*
+-		 * Don't want to allow preemption here, because
+-		 * sys_ptrace() needs this task to be inactive.
+-		 *
+-		 * XXX: implement read_unlock_no_resched().
+-		 */
+-		preempt_disable();
+-		read_unlock(&tasklist_lock);
+-		cgroup_enter_frozen();
+-		preempt_enable_no_resched();
+-		freezable_schedule();
+-		cgroup_leave_frozen(true);
+-	} else {
+-		/*
+-		 * By the time we got the lock, our tracer went away.
+-		 * Don't drop the lock yet, another tracer may come.
+-		 *
+-		 * If @gstop_done, the ptracer went away between group stop
+-		 * completion and here.  During detach, it would have set
+-		 * JOBCTL_STOP_PENDING on us and we'll re-enter
+-		 * TASK_STOPPED in do_signal_stop() on return, so notifying
+-		 * the real parent of the group stop completion is enough.
+-		 */
+-		if (gstop_done)
+-			do_notify_parent_cldstop(current, false, why);
++	if (gstop_done && (!current->ptrace || ptrace_reparented(current)))
++		do_notify_parent_cldstop(current, false, why);
  
+-		/* tasklist protects us from ptrace_freeze_traced() */
+-		__set_current_state(TASK_RUNNING);
+-		read_unlock(&tasklist_lock);
+-	}
++	/*
++	 * Don't want to allow preemption here, because
++	 * sys_ptrace() needs this task to be inactive.
++	 *
++	 * XXX: implement read_unlock_no_resched().
++	 */
++	preempt_disable();
++	read_unlock(&tasklist_lock);
++	cgroup_enter_frozen();
++	preempt_enable_no_resched();
++	freezable_schedule();
++	cgroup_leave_frozen(true);
+ 
+ 	/*
+ 	 * We are back.  Now reacquire the siglock before touching
 -- 
-2.25.1
+2.35.3
