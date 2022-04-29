@@ -1,96 +1,40 @@
-From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
-Date: Mon, 11 Apr 2022 23:38:30 +0000
-Subject: [PATCH v7 18/20] ACPI: power: Switch to sys-off handler API
-Message-Id: <20220411233832.391817-19-dmitry.osipenko@collabora.com>
+From: Baolin Wang <baolin.wang@linux.alibaba.com>
+Date: Fri, 29 Apr 2022 08:14:40 +0000
+Subject: [PATCH 0/3] Fix CONT-PTE/PMD size hugetlb issue when unmapping or migrating
+Message-Id: <cover.1651216964.git.baolin.wang@linux.alibaba.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220411233832.391817-1-dmitry.osipenko@collabora.com>
-In-Reply-To: <20220411233832.391817-1-dmitry.osipenko@collabora.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
+To: akpm@linux-foundation.org, mike.kravetz@oracle.com, catalin.marinas@arm.com, will@kernel.org
+Cc: tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, baolin.wang@linux.alibaba.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-Switch to sys-off API that replaces legacy pm_power_off callbacks.
+Hi,
 
-Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
----
- drivers/acpi/sleep.c | 25 +++++++++++--------------
- 1 file changed, 11 insertions(+), 14 deletions(-)
+Now migrating a hugetlb page or unmapping a poisoned hugetlb page, we'll
+use ptep_clear_flush() and set_pte_at() to nuke the page table entry
+and remap it, and this is incorrect for CONT-PTE or CONT-PMD size hugetlb
+page, which will cause potential data consistent issue. This patch set
+will change to use hugetlb related APIs to fix this issue, please find
+details in each patch. Thanks.
 
-diff --git a/drivers/acpi/sleep.c b/drivers/acpi/sleep.c
-index c992e57b2c79..426297258e26 100644
---- a/drivers/acpi/sleep.c
-+++ b/drivers/acpi/sleep.c
-@@ -47,19 +47,11 @@ static void acpi_sleep_tts_switch(u32 acpi_state)
- 	}
- }
- 
--static int tts_notify_reboot(struct notifier_block *this,
--			unsigned long code, void *x)
-+static void tts_reboot_prepare(struct reboot_prep_data *data)
- {
- 	acpi_sleep_tts_switch(ACPI_STATE_S5);
--	return NOTIFY_DONE;
- }
- 
--static struct notifier_block tts_notifier = {
--	.notifier_call	= tts_notify_reboot,
--	.next		= NULL,
--	.priority	= 0,
--};
--
- static int acpi_sleep_prepare(u32 acpi_state)
- {
- #ifdef CONFIG_ACPI_SLEEP
-@@ -1023,7 +1015,7 @@ static void acpi_sleep_hibernate_setup(void)
- static inline void acpi_sleep_hibernate_setup(void) {}
- #endif /* !CONFIG_HIBERNATION */
- 
--static void acpi_power_off_prepare(void)
-+static void acpi_power_off_prepare(struct power_off_prep_data *data)
- {
- 	/* Prepare to power off the system */
- 	acpi_sleep_prepare(ACPI_STATE_S5);
-@@ -1031,7 +1023,7 @@ static void acpi_power_off_prepare(void)
- 	acpi_os_wait_events_complete();
- }
- 
--static void acpi_power_off(void)
-+static void acpi_power_off(struct power_off_data *data)
- {
- 	/* acpi_sleep_prepare(ACPI_STATE_S5) should have already been called */
- 	pr_debug("%s called\n", __func__);
-@@ -1039,6 +1031,11 @@ static void acpi_power_off(void)
- 	acpi_enter_sleep_state(ACPI_STATE_S5);
- }
- 
-+static struct sys_off_handler acpi_sys_off_handler = {
-+	.power_off_priority = POWEROFF_PRIO_FIRMWARE,
-+	.reboot_prepare_cb = tts_reboot_prepare,
-+};
-+
- int __init acpi_sleep_init(void)
- {
- 	char supported[ACPI_S_STATE_COUNT * 3 + 1];
-@@ -1055,8 +1052,8 @@ int __init acpi_sleep_init(void)
- 
- 	if (acpi_sleep_state_supported(ACPI_STATE_S5)) {
- 		sleep_states[ACPI_STATE_S5] = 1;
--		pm_power_off_prepare = acpi_power_off_prepare;
--		pm_power_off = acpi_power_off;
-+		acpi_sys_off_handler.power_off_cb = acpi_power_off;
-+		acpi_sys_off_handler.power_off_prepare_cb = acpi_power_off_prepare;
- 	} else {
- 		acpi_no_s5 = true;
- 	}
-@@ -1072,6 +1069,6 @@ int __init acpi_sleep_init(void)
- 	 * Register the tts_notifier to reboot notifier list so that the _TTS
- 	 * object can also be evaluated when the system enters S5.
- 	 */
--	register_reboot_notifier(&tts_notifier);
-+	register_sys_off_handler(&acpi_sys_off_handler);
- 	return 0;
- }
+Baolin Wang (3):
+  mm: change huge_ptep_clear_flush() to return the original pte
+  mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when migration
+  mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when unmapping
+
+ arch/arm64/include/asm/hugetlb.h   |  4 +--
+ arch/arm64/mm/hugetlbpage.c        | 12 ++++----
+ arch/ia64/include/asm/hugetlb.h    |  4 +--
+ arch/mips/include/asm/hugetlb.h    |  9 ++++--
+ arch/parisc/include/asm/hugetlb.h  |  4 +--
+ arch/powerpc/include/asm/hugetlb.h |  9 ++++--
+ arch/s390/include/asm/hugetlb.h    |  6 ++--
+ arch/sh/include/asm/hugetlb.h      |  4 +--
+ arch/sparc/include/asm/hugetlb.h   |  4 +--
+ include/asm-generic/hugetlb.h      |  4 +--
+ mm/rmap.c                          | 58 +++++++++++++++++++++++---------------
+ 11 files changed, 67 insertions(+), 51 deletions(-)
+
 -- 
-2.35.1
+1.8.3.1
