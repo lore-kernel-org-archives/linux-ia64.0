@@ -1,224 +1,248 @@
-From: Baolin Wang <baolin.wang@linux.alibaba.com>
-Date: Fri, 29 Apr 2022 08:14:41 +0000
-Subject: [PATCH 1/3] mm: change huge_ptep_clear_flush() to return the original pte
-Message-Id: <a9038435d408cd7b9defe143537de668dfdf03be.1651216964.git.baolin.wang@linux.alibaba.com>
+From: Niklas Schnelle <schnelle@linux.ibm.com>
+Date: Fri, 29 Apr 2022 13:49:59 +0000
+Subject: [RFC v2 01/39] Kconfig: introduce HAS_IOPORT option and select it as necessary
+Message-Id: <20220429135108.2781579-2-schnelle@linux.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1651216964.git.baolin.wang@linux.alibaba.com>
-In-Reply-To: <cover.1651216964.git.baolin.wang@linux.alibaba.com>
+References: <20220429135108.2781579-1-schnelle@linux.ibm.com>
+In-Reply-To: <20220429135108.2781579-1-schnelle@linux.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, mike.kravetz@oracle.com, catalin.marinas@arm.com, will@kernel.org
-Cc: tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, baolin.wang@linux.alibaba.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+To: Arnd Bergmann <arnd@arndb.de>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-pci@vger.kernel.org, Arnd Bergmann <arnd@kernel.org>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "maintainer:X86 ARCHITECTURE 32-BIT AND 64-BIT" <x86@kernel.org>, "open list:ALPHA PORT" <linux-alpha@vger.kernel.org>, "moderated list:ARM PORT" <linux-arm-kernel@lists.infradead.org>, "open list:IA64 Itanium PLATFORM" <linux-ia64@vger.kernel.org>, "open list:M68K ARCHITECTURE" <linux-m68k@lists.linux-m68k.org>, "open list:MIPS" <linux-mips@vger.kernel.org>, "open list:PARISC ARCHITECTURE" <linux-parisc@vger.kernel.org>, "open list:LINUX FOR POWERPC 32-BIT AND
+ 64-BIT" <linuxppc-dev@lists.ozlabs.org>, "open list:RISC-V ARCHITECTURE" <linux-riscv@lists.infradead.org>, "open list:SUPERH" <linux-sh@vger.kernel.org>, "open list:SPARC + UltraSPARC sparc/sparc64" <sparclinux@vger.kernel.org>
 
-It is incorrect to use ptep_clear_flush() to nuke a hugetlb page
-table when unmapping or migrating a hugetlb page, and will change
-to use huge_ptep_clear_flush() instead in the following patches.
+We introduce a new HAS_IOPORT Kconfig option to indicate support for
+I/O Port access. In a future patch HAS_IOPORT=n will disable compilation
+of the I/O accessor functions inb()/outb() and friends on architectures
+which can not meaningfully support legacy I/O spaces such as s390 or
+where such support is optional. The "depends on" relations on HAS_IOPORT
+in drivers as well as ifdefs for HAS_IOPORT specific sections will be
+added in subsequent patches on a per subsystem basis.
 
-So this is a preparation patch, which changes the huge_ptep_clear_flush()
-to return the original pte to help to nuke a hugetlb page table.
-
-Signed-off-by: Baolin Wang <baolin.wang@linux.alibaba.com>
+Co-developed-by: Arnd Bergmann <arnd@kernel.org>
+Signed-off-by: Niklas Schnelle <schnelle@linux.ibm.com>
 ---
- arch/arm64/include/asm/hugetlb.h   |  4 ++--
- arch/arm64/mm/hugetlbpage.c        | 12 +++++-------
- arch/ia64/include/asm/hugetlb.h    |  4 ++--
- arch/mips/include/asm/hugetlb.h    |  9 ++++++---
- arch/parisc/include/asm/hugetlb.h  |  4 ++--
- arch/powerpc/include/asm/hugetlb.h |  9 ++++++---
- arch/s390/include/asm/hugetlb.h    |  6 +++---
- arch/sh/include/asm/hugetlb.h      |  4 ++--
- arch/sparc/include/asm/hugetlb.h   |  4 ++--
- include/asm-generic/hugetlb.h      |  4 ++--
- 10 files changed, 32 insertions(+), 28 deletions(-)
+ arch/alpha/Kconfig      | 1 +
+ arch/arm/Kconfig        | 1 +
+ arch/arm64/Kconfig      | 1 +
+ arch/ia64/Kconfig       | 1 +
+ arch/m68k/Kconfig       | 1 +
+ arch/microblaze/Kconfig | 1 +
+ arch/mips/Kconfig       | 1 +
+ arch/parisc/Kconfig     | 1 +
+ arch/powerpc/Kconfig    | 1 +
+ arch/riscv/Kconfig      | 1 +
+ arch/sh/Kconfig         | 1 +
+ arch/sparc/Kconfig      | 1 +
+ arch/x86/Kconfig        | 1 +
+ drivers/bus/Kconfig     | 2 +-
+ lib/Kconfig             | 4 ++++
+ lib/Kconfig.kgdb        | 1 +
+ 16 files changed, 19 insertions(+), 1 deletion(-)
 
-diff --git a/arch/arm64/include/asm/hugetlb.h b/arch/arm64/include/asm/hugetlb.h
-index 1242f71..616b2ca 100644
---- a/arch/arm64/include/asm/hugetlb.h
-+++ b/arch/arm64/include/asm/hugetlb.h
-@@ -39,8 +39,8 @@ extern pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
- extern void huge_ptep_set_wrprotect(struct mm_struct *mm,
- 				    unsigned long addr, pte_t *ptep);
- #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
--extern void huge_ptep_clear_flush(struct vm_area_struct *vma,
--				  unsigned long addr, pte_t *ptep);
-+extern pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
-+				   unsigned long addr, pte_t *ptep);
- #define __HAVE_ARCH_HUGE_PTE_CLEAR
- extern void huge_pte_clear(struct mm_struct *mm, unsigned long addr,
- 			   pte_t *ptep, unsigned long sz);
-diff --git a/arch/arm64/mm/hugetlbpage.c b/arch/arm64/mm/hugetlbpage.c
-index cbace1c..ca8e65c 100644
---- a/arch/arm64/mm/hugetlbpage.c
-+++ b/arch/arm64/mm/hugetlbpage.c
-@@ -486,19 +486,17 @@ void huge_ptep_set_wrprotect(struct mm_struct *mm,
- 		set_pte_at(mm, addr, ptep, pfn_pte(pfn, hugeprot));
- }
+diff --git a/arch/alpha/Kconfig b/arch/alpha/Kconfig
+index 7d0d26b5b3f5..2b9cf1b0bdb8 100644
+--- a/arch/alpha/Kconfig
++++ b/arch/alpha/Kconfig
+@@ -27,6 +27,7 @@ config ALPHA
+ 	select AUDIT_ARCH
+ 	select GENERIC_CPU_VULNERABILITIES
+ 	select GENERIC_SMP_IDLE_THREAD
++	select HAS_IOPORT
+ 	select HAVE_ARCH_AUDITSYSCALL
+ 	select HAVE_MOD_ARCH_SPECIFIC
+ 	select MODULES_USE_ELF_RELA
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index 2e8091e2d8a8..603ce00033a5 100644
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -69,6 +69,7 @@ config ARM
+ 	select GENERIC_SCHED_CLOCK
+ 	select GENERIC_SMP_IDLE_THREAD
+ 	select HARDIRQS_SW_RESEND
++	select HAS_IOPORT
+ 	select HAVE_ARCH_AUDITSYSCALL if AEABI && !OABI_COMPAT
+ 	select HAVE_ARCH_BITREVERSE if (CPU_32v7M || CPU_32v7) && !CPU_32v6
+ 	select HAVE_ARCH_JUMP_LABEL if !XIP_KERNEL && !CPU_ENDIAN_BE32 && MMU
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index 20ea89d9ac2f..234dc89a7654 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -136,6 +136,7 @@ config ARM64
+ 	select GENERIC_GETTIMEOFDAY
+ 	select GENERIC_VDSO_TIME_NS
+ 	select HARDIRQS_SW_RESEND
++	select HAS_IOPORT
+ 	select HAVE_MOVE_PMD
+ 	select HAVE_MOVE_PUD
+ 	select HAVE_PCI
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index cb93769a9f2a..0fffe5130a80 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -25,6 +25,7 @@ config IA64
+ 	select PCI_DOMAINS if PCI
+ 	select PCI_MSI
+ 	select PCI_SYSCALL if PCI
++	select HAS_IOPORT
+ 	select HAVE_ASM_MODVERSIONS
+ 	select HAVE_UNSTABLE_SCHED_CLOCK
+ 	select HAVE_EXIT_THREAD
+diff --git a/arch/m68k/Kconfig b/arch/m68k/Kconfig
+index 936cce42ae9a..54bf0a40c2f0 100644
+--- a/arch/m68k/Kconfig
++++ b/arch/m68k/Kconfig
+@@ -18,6 +18,7 @@ config M68K
+ 	select GENERIC_CPU_DEVICES
+ 	select GENERIC_IOMAP
+ 	select GENERIC_IRQ_SHOW
++	select HAS_IOPORT if PCI || ISA || ATARI_ROM_ISA
+ 	select HAVE_ASM_MODVERSIONS
+ 	select HAVE_DEBUG_BUGVERBOSE
+ 	select HAVE_EFFICIENT_UNALIGNED_ACCESS if !CPU_HAS_NO_UNALIGNED
+diff --git a/arch/microblaze/Kconfig b/arch/microblaze/Kconfig
+index 8cf429ad1c84..966a6682f1fc 100644
+--- a/arch/microblaze/Kconfig
++++ b/arch/microblaze/Kconfig
+@@ -21,6 +21,7 @@ config MICROBLAZE
+ 	select GENERIC_IRQ_SHOW
+ 	select GENERIC_PCI_IOMAP
+ 	select GENERIC_SCHED_CLOCK
++	select HAS_IOPORT if PCI
+ 	select HAVE_ARCH_HASH
+ 	select HAVE_ARCH_KGDB
+ 	select HAVE_ARCH_SECCOMP
+diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
+index de3b32a507d2..4c55df08d6f1 100644
+--- a/arch/mips/Kconfig
++++ b/arch/mips/Kconfig
+@@ -47,6 +47,7 @@ config MIPS
+ 	select GENERIC_SMP_IDLE_THREAD
+ 	select GENERIC_TIME_VSYSCALL
+ 	select GUP_GET_PTE_LOW_HIGH if CPU_MIPS32 && PHYS_ADDR_T_64BIT
++	select HAS_IOPORT
+ 	select HAVE_ARCH_COMPILER_H
+ 	select HAVE_ARCH_JUMP_LABEL
+ 	select HAVE_ARCH_KGDB if MIPS_FP_SUPPORT
+diff --git a/arch/parisc/Kconfig b/arch/parisc/Kconfig
+index 52e550b45692..741c5c64c173 100644
+--- a/arch/parisc/Kconfig
++++ b/arch/parisc/Kconfig
+@@ -46,6 +46,7 @@ config PARISC
+ 	select MODULES_USE_ELF_RELA
+ 	select CLONE_BACKWARDS
+ 	select TTY # Needed for pdc_cons.c
++	select HAS_IOPORT if PCI || EISA
+ 	select HAVE_DEBUG_STACKOVERFLOW
+ 	select HAVE_ARCH_AUDITSYSCALL
+ 	select HAVE_ARCH_HASH
+diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
+index 174edabb74fa..7133cc35b777 100644
+--- a/arch/powerpc/Kconfig
++++ b/arch/powerpc/Kconfig
+@@ -182,6 +182,7 @@ config PPC
+ 	select GENERIC_SMP_IDLE_THREAD
+ 	select GENERIC_TIME_VSYSCALL
+ 	select GENERIC_VDSO_TIME_NS
++	select HAS_IOPORT			if PCI
+ 	select HAVE_ARCH_AUDITSYSCALL
+ 	select HAVE_ARCH_HUGE_VMALLOC		if HAVE_ARCH_HUGE_VMAP
+ 	select HAVE_ARCH_HUGE_VMAP		if PPC_RADIX_MMU || PPC_8xx
+diff --git a/arch/riscv/Kconfig b/arch/riscv/Kconfig
+index 00fd9c548f26..27fc8a450478 100644
+--- a/arch/riscv/Kconfig
++++ b/arch/riscv/Kconfig
+@@ -67,6 +67,7 @@ config RISCV
+ 	select GENERIC_SMP_IDLE_THREAD
+ 	select GENERIC_TIME_VSYSCALL if MMU && 64BIT
+ 	select GENERIC_VDSO_TIME_NS if HAVE_GENERIC_VDSO
++	select HAS_IOPORT if MMU
+ 	select HAVE_ARCH_AUDITSYSCALL
+ 	select HAVE_ARCH_JUMP_LABEL if !XIP_KERNEL
+ 	select HAVE_ARCH_JUMP_LABEL_RELATIVE if !XIP_KERNEL
+diff --git a/arch/sh/Kconfig b/arch/sh/Kconfig
+index 5f220e903e5a..6c1694e82b89 100644
+--- a/arch/sh/Kconfig
++++ b/arch/sh/Kconfig
+@@ -25,6 +25,7 @@ config SUPERH
+ 	select GENERIC_SCHED_CLOCK
+ 	select GENERIC_SMP_IDLE_THREAD
+ 	select GUP_GET_PTE_LOW_HIGH if X2TLB
++	select HAS_IOPORT if HAS_IOPORT_MAP
+ 	select HAVE_ARCH_AUDITSYSCALL
+ 	select HAVE_ARCH_KGDB
+ 	select HAVE_ARCH_SECCOMP_FILTER
+diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
+index 9200bc04701c..64736476dde8 100644
+--- a/arch/sparc/Kconfig
++++ b/arch/sparc/Kconfig
+@@ -32,6 +32,7 @@ config SPARC
+ 	select GENERIC_IRQ_SHOW
+ 	select ARCH_WANT_IPC_PARSE_VERSION
+ 	select GENERIC_PCI_IOMAP
++	select HAS_IOPORT
+ 	select HAVE_NMI_WATCHDOG if SPARC64
+ 	select HAVE_CBPF_JIT if SPARC32
+ 	select HAVE_EBPF_JIT if SPARC64
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index b0142e01002e..9ef0438d1b7d 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -155,6 +155,7 @@ config X86
+ 	select GUP_GET_PTE_LOW_HIGH		if X86_PAE
+ 	select HARDIRQS_SW_RESEND
+ 	select HARDLOCKUP_CHECK_TIMESTAMP	if X86_64
++	select HAS_IOPORT
+ 	select HAVE_ACPI_APEI			if ACPI
+ 	select HAVE_ACPI_APEI_NMI		if ACPI
+ 	select HAVE_ALIGNED_STRUCT_PAGE		if SLUB
+diff --git a/drivers/bus/Kconfig b/drivers/bus/Kconfig
+index 3c68e174a113..a61285100224 100644
+--- a/drivers/bus/Kconfig
++++ b/drivers/bus/Kconfig
+@@ -81,7 +81,7 @@ config MOXTET
+ config HISILICON_LPC
+ 	bool "Support for ISA I/O space on HiSilicon Hip06/7"
+ 	depends on (ARM64 && ARCH_HISI) || (COMPILE_TEST && !ALPHA && !HEXAGON && !PARISC)
+-	depends on HAS_IOMEM
++	depends on HAS_IOPORT
+ 	select INDIRECT_PIO if ARM64
+ 	help
+ 	  Driver to enable I/O access to devices attached to the Low Pin
+diff --git a/lib/Kconfig b/lib/Kconfig
+index 087e06b4cdfd..177fed9cf20a 100644
+--- a/lib/Kconfig
++++ b/lib/Kconfig
+@@ -91,6 +91,7 @@ config ARCH_USE_SYM_ANNOTATIONS
+ config INDIRECT_PIO
+ 	bool "Access I/O in non-MMIO mode"
+ 	depends on ARM64
++	depends on HAS_IOPORT
+ 	help
+ 	  On some platforms where no separate I/O space exists, there are I/O
+ 	  hosts which can not be accessed in MMIO mode. Using the logical PIO
+@@ -493,6 +494,9 @@ config HAS_IOMEM
+ 	depends on !NO_IOMEM
+ 	default y
  
--void huge_ptep_clear_flush(struct vm_area_struct *vma,
--			   unsigned long addr, pte_t *ptep)
-+pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
-+			    unsigned long addr, pte_t *ptep)
- {
- 	size_t pgsize;
- 	int ncontig;
- 
--	if (!pte_cont(READ_ONCE(*ptep))) {
--		ptep_clear_flush(vma, addr, ptep);
--		return;
--	}
-+	if (!pte_cont(READ_ONCE(*ptep)))
-+		return ptep_clear_flush(vma, addr, ptep);
- 
- 	ncontig = find_num_contig(vma->vm_mm, addr, ptep, &pgsize);
--	clear_flush(vma->vm_mm, addr, ptep, pgsize, ncontig);
-+	return get_clear_flush(vma->vm_mm, addr, ptep, pgsize, ncontig);
- }
- 
- static int __init hugetlbpage_init(void)
-diff --git a/arch/ia64/include/asm/hugetlb.h b/arch/ia64/include/asm/hugetlb.h
-index 7e46ebd..65d3811 100644
---- a/arch/ia64/include/asm/hugetlb.h
-+++ b/arch/ia64/include/asm/hugetlb.h
-@@ -23,8 +23,8 @@ static inline int is_hugepage_only_range(struct mm_struct *mm,
- #define is_hugepage_only_range is_hugepage_only_range
- 
- #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
--static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
--					 unsigned long addr, pte_t *ptep)
-+static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
-+					  unsigned long addr, pte_t *ptep)
- {
- }
- 
-diff --git a/arch/mips/include/asm/hugetlb.h b/arch/mips/include/asm/hugetlb.h
-index c214440..fd69c88 100644
---- a/arch/mips/include/asm/hugetlb.h
-+++ b/arch/mips/include/asm/hugetlb.h
-@@ -43,16 +43,19 @@ static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
- }
- 
- #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
--static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
--					 unsigned long addr, pte_t *ptep)
-+static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
-+					  unsigned long addr, pte_t *ptep)
- {
-+	pte_t pte;
++config HAS_IOPORT
++	def_bool ISA
 +
- 	/*
- 	 * clear the huge pte entry firstly, so that the other smp threads will
- 	 * not get old pte entry after finishing flush_tlb_page and before
- 	 * setting new huge pte entry
- 	 */
--	huge_ptep_get_and_clear(vma->vm_mm, addr, ptep);
-+	pte = huge_ptep_get_and_clear(vma->vm_mm, addr, ptep);
- 	flush_tlb_page(vma, addr);
-+	return pte;
- }
+ config HAS_IOPORT_MAP
+ 	bool
+ 	depends on HAS_IOMEM && !NO_IOPORT_MAP
+diff --git a/lib/Kconfig.kgdb b/lib/Kconfig.kgdb
+index 05dae05b6cc9..c68e4d9dcecb 100644
+--- a/lib/Kconfig.kgdb
++++ b/lib/Kconfig.kgdb
+@@ -121,6 +121,7 @@ config KDB_DEFAULT_ENABLE
  
- #define __HAVE_ARCH_HUGE_PTE_NONE
-diff --git a/arch/parisc/include/asm/hugetlb.h b/arch/parisc/include/asm/hugetlb.h
-index a69cf9e..25bc560 100644
---- a/arch/parisc/include/asm/hugetlb.h
-+++ b/arch/parisc/include/asm/hugetlb.h
-@@ -28,8 +28,8 @@ static inline int prepare_hugepage_range(struct file *file,
- }
- 
- #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
--static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
--					 unsigned long addr, pte_t *ptep)
-+static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
-+					  unsigned long addr, pte_t *ptep)
- {
- }
- 
-diff --git a/arch/powerpc/include/asm/hugetlb.h b/arch/powerpc/include/asm/hugetlb.h
-index 6a1a1ac..8a5674f 100644
---- a/arch/powerpc/include/asm/hugetlb.h
-+++ b/arch/powerpc/include/asm/hugetlb.h
-@@ -43,11 +43,14 @@ static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
- }
- 
- #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
--static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
--					 unsigned long addr, pte_t *ptep)
-+static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
-+					  unsigned long addr, pte_t *ptep)
- {
--	huge_ptep_get_and_clear(vma->vm_mm, addr, ptep);
-+	pte_t pte;
-+
-+	pte = huge_ptep_get_and_clear(vma->vm_mm, addr, ptep);
- 	flush_hugetlb_page(vma, addr);
-+	return pte;
- }
- 
- #define __HAVE_ARCH_HUGE_PTEP_SET_ACCESS_FLAGS
-diff --git a/arch/s390/include/asm/hugetlb.h b/arch/s390/include/asm/hugetlb.h
-index 32c3fd6..f22beda 100644
---- a/arch/s390/include/asm/hugetlb.h
-+++ b/arch/s390/include/asm/hugetlb.h
-@@ -50,10 +50,10 @@ static inline void huge_pte_clear(struct mm_struct *mm, unsigned long addr,
- 		set_pte(ptep, __pte(_SEGMENT_ENTRY_EMPTY));
- }
- 
--static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
--					 unsigned long address, pte_t *ptep)
-+static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
-+					  unsigned long address, pte_t *ptep)
- {
--	huge_ptep_get_and_clear(vma->vm_mm, address, ptep);
-+	return huge_ptep_get_and_clear(vma->vm_mm, address, ptep);
- }
- 
- static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
-diff --git a/arch/sh/include/asm/hugetlb.h b/arch/sh/include/asm/hugetlb.h
-index ae4de7b..e727cc9 100644
---- a/arch/sh/include/asm/hugetlb.h
-+++ b/arch/sh/include/asm/hugetlb.h
-@@ -21,8 +21,8 @@ static inline int prepare_hugepage_range(struct file *file,
- }
- 
- #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
--static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
--					 unsigned long addr, pte_t *ptep)
-+static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
-+					  unsigned long addr, pte_t *ptep)
- {
- }
- 
-diff --git a/arch/sparc/include/asm/hugetlb.h b/arch/sparc/include/asm/hugetlb.h
-index 53838a1..b50aa6f 100644
---- a/arch/sparc/include/asm/hugetlb.h
-+++ b/arch/sparc/include/asm/hugetlb.h
-@@ -21,8 +21,8 @@ pte_t huge_ptep_get_and_clear(struct mm_struct *mm, unsigned long addr,
- 			      pte_t *ptep);
- 
- #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
--static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
--					 unsigned long addr, pte_t *ptep)
-+static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
-+					  unsigned long addr, pte_t *ptep)
- {
- }
- 
-diff --git a/include/asm-generic/hugetlb.h b/include/asm-generic/hugetlb.h
-index 896f341..a57d667 100644
---- a/include/asm-generic/hugetlb.h
-+++ b/include/asm-generic/hugetlb.h
-@@ -84,10 +84,10 @@ static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
- #endif
- 
- #ifndef __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
--static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
-+static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
- 		unsigned long addr, pte_t *ptep)
- {
--	ptep_clear_flush(vma, addr, ptep);
-+	return ptep_clear_flush(vma, addr, ptep);
- }
- #endif
- 
+ config KDB_KEYBOARD
+ 	bool "KGDB_KDB: keyboard as input device"
++	depends on HAS_IOPORT
+ 	depends on VT && KGDB_KDB
+ 	default n
+ 	help
 -- 
-1.8.3.1
+2.32.0
