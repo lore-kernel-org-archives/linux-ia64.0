@@ -1,56 +1,49 @@
-From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
-Date: Mon, 11 Apr 2022 23:38:23 +0000
-Subject: [PATCH v7 11/20] powerpc: Use do_kernel_power_off()
-Message-Id: <20220411233832.391817-12-dmitry.osipenko@collabora.com>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Fri, 29 Apr 2022 21:48:30 +0000
+Subject: [PATCH v2 05/12] signal: Use lockdep_assert_held instead of assert_spin_locked
+Message-Id: <20220429214837.386518-5-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220411233832.391817-1-dmitry.osipenko@collabora.com>
-In-Reply-To: <20220411233832.391817-1-dmitry.osipenko@collabora.com>
+References: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
 
-Kernel now supports chained power-off handlers. Use do_kernel_power_off()
-that invokes chained power-off handlers. It also invokes legacy
-pm_power_off() for now, which will be removed once all drivers will
-be converted to the new power-off API.
+The distinction is that assert_spin_locked() checks if the lock is
+held *by*anyone* whereas lockdep_assert_held() asserts the current
+context holds the lock.  Also, the check goes away if you build
+without lockdep.
 
-Acked-by: Michael Ellerman <mpe@ellerman.id.au>
-Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
+Suggested-by: Peter Zijlstra <peterz@infradead.org>
+Link: https://lkml.kernel.org/r/Ympr/+PX4XgT/UKU@hirez.programming.kicks-ass.net
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- arch/powerpc/kernel/setup-common.c | 4 +---
- arch/powerpc/xmon/xmon.c           | 3 +--
- 2 files changed, 2 insertions(+), 5 deletions(-)
+ kernel/signal.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/powerpc/kernel/setup-common.c b/arch/powerpc/kernel/setup-common.c
-index 518ae5aa9410..1b586577e75b 100644
---- a/arch/powerpc/kernel/setup-common.c
-+++ b/arch/powerpc/kernel/setup-common.c
-@@ -161,9 +161,7 @@ void machine_restart(char *cmd)
- void machine_power_off(void)
+diff --git a/kernel/signal.c b/kernel/signal.c
+index 72d96614effc..3fd2ce133387 100644
+--- a/kernel/signal.c
++++ b/kernel/signal.c
+@@ -884,7 +884,7 @@ static int check_kill_permission(int sig, struct kernel_siginfo *info,
+ static void ptrace_trap_notify(struct task_struct *t)
  {
- 	machine_shutdown();
--	if (pm_power_off)
--		pm_power_off();
--
-+	do_kernel_power_off();
- 	smp_send_stop();
- 	machine_hang();
- }
-diff --git a/arch/powerpc/xmon/xmon.c b/arch/powerpc/xmon/xmon.c
-index fd72753e8ad5..c916bf250796 100644
---- a/arch/powerpc/xmon/xmon.c
-+++ b/arch/powerpc/xmon/xmon.c
-@@ -1243,8 +1243,7 @@ static void bootcmds(void)
- 	} else if (cmd = 'h') {
- 		ppc_md.halt();
- 	} else if (cmd = 'p') {
--		if (pm_power_off)
--			pm_power_off();
-+		do_kernel_power_off();
- 	}
- }
+ 	WARN_ON_ONCE(!(t->ptrace & PT_SEIZED));
+-	assert_spin_locked(&t->sighand->siglock);
++	lockdep_assert_held(&t->sighand->siglock);
  
+ 	task_set_jobctl_pending(t, JOBCTL_TRAP_NOTIFY);
+ 	ptrace_signal_wake_up(t, t->jobctl & JOBCTL_LISTENING);
+@@ -1079,7 +1079,7 @@ static int __send_signal_locked(int sig, struct kernel_siginfo *info,
+ 	int override_rlimit;
+ 	int ret = 0, result;
+ 
+-	assert_spin_locked(&t->sighand->siglock);
++	lockdep_assert_held(&t->sighand->siglock);
+ 
+ 	result = TRACE_SIGNAL_IGNORED;
+ 	if (!prepare_signal(sig, t, force))
 -- 
-2.35.1
+2.35.3
