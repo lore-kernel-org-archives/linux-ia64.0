@@ -1,115 +1,135 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Mon, 04 Apr 2022 05:05:47 +0000
-Subject: [PATCH 03/15] swiotlb: simplify swiotlb_max_segment
-Message-Id: <20220404050559.132378-4-hch@lst.de>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Fri, 29 Apr 2022 21:48:26 +0000
+Subject: [PATCH v2 01/12] signal: Rename send_signal send_signal_locked
+Message-Id: <20220429214837.386518-1-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220404050559.132378-1-hch@lst.de>
-In-Reply-To: <20220404050559.132378-1-hch@lst.de>
+References: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: Juergen Gross <jgross@suse.com>, Tom Lendacky <thomas.lendacky@amd.com>, linux-s390@vger.kernel.org, Stefano Stabellini <sstabellini@kernel.org>, linux-ia64@vger.kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, tboot-devel@lists.sourceforge.net, linux-hyperv@vger.kernel.org, linux-pci@vger.kernel.org, xen-devel@lists.xenproject.org, Boris Ostrovsky <boris.ostrovsky@oracle.com>, David Woodhouse <dwmw2@infradead.org>, linux-riscv@lists.infradead.org, linux-arm-kernel@lists.infradead.org
+To: linux-kernel@vger.kernel.org
+Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
 
-Remove the bogus Xen override that was usually larger than the actual
-size and just calculate the value on demand.  Note that
-swiotlb_max_segment still doesn't make sense as an interface and should
-eventually be removed.
+Rename send_signal send_signal_locked and make to make
+it usable outside of signal.c.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
-Reviewed-by: Anshuman Khandual <anshuman.khandual@arm.com>
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- drivers/xen/swiotlb-xen.c |  2 --
- include/linux/swiotlb.h   |  1 -
- kernel/dma/swiotlb.c      | 20 +++-----------------
- 3 files changed, 3 insertions(+), 20 deletions(-)
+ include/linux/signal.h |  2 ++
+ kernel/signal.c        | 24 ++++++++++++------------
+ 2 files changed, 14 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/xen/swiotlb-xen.c b/drivers/xen/swiotlb-xen.c
-index 47aebd98f52f5..485cd06ed39e7 100644
---- a/drivers/xen/swiotlb-xen.c
-+++ b/drivers/xen/swiotlb-xen.c
-@@ -202,7 +202,6 @@ int xen_swiotlb_init(void)
- 	rc = swiotlb_late_init_with_tbl(start, nslabs);
- 	if (rc)
- 		return rc;
--	swiotlb_set_max_segment(PAGE_SIZE);
- 	return 0;
- error:
- 	if (nslabs > 1024 && repeat--) {
-@@ -254,7 +253,6 @@ void __init xen_swiotlb_init_early(void)
- 
- 	if (swiotlb_init_with_tbl(start, nslabs, true))
- 		panic("Cannot allocate SWIOTLB buffer");
--	swiotlb_set_max_segment(PAGE_SIZE);
+diff --git a/include/linux/signal.h b/include/linux/signal.h
+index a6db6f2ae113..55605bdf5ce9 100644
+--- a/include/linux/signal.h
++++ b/include/linux/signal.h
+@@ -283,6 +283,8 @@ extern int do_send_sig_info(int sig, struct kernel_siginfo *info,
+ extern int group_send_sig_info(int sig, struct kernel_siginfo *info,
+ 			       struct task_struct *p, enum pid_type type);
+ extern int __group_send_sig_info(int, struct kernel_siginfo *, struct task_struct *);
++extern int send_signal_locked(int sig, struct kernel_siginfo *info,
++			      struct task_struct *p, enum pid_type type);
+ extern int sigprocmask(int, sigset_t *, sigset_t *);
+ extern void set_current_blocked(sigset_t *);
+ extern void __set_current_blocked(const sigset_t *);
+diff --git a/kernel/signal.c b/kernel/signal.c
+index 30cd1ca43bcd..b0403197b0ad 100644
+--- a/kernel/signal.c
++++ b/kernel/signal.c
+@@ -1071,8 +1071,8 @@ static inline bool legacy_queue(struct sigpending *signals, int sig)
+ 	return (sig < SIGRTMIN) && sigismember(&signals->signal, sig);
  }
- #endif /* CONFIG_X86 */
  
-diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
-index f6c3638255d54..9fb3a568f0c51 100644
---- a/include/linux/swiotlb.h
-+++ b/include/linux/swiotlb.h
-@@ -164,7 +164,6 @@ static inline void swiotlb_adjust_size(unsigned long size)
- #endif /* CONFIG_SWIOTLB */
- 
- extern void swiotlb_print_info(void);
--extern void swiotlb_set_max_segment(unsigned int);
- 
- #ifdef CONFIG_DMA_RESTRICTED_POOL
- struct page *swiotlb_alloc(struct device *dev, size_t size);
-diff --git a/kernel/dma/swiotlb.c b/kernel/dma/swiotlb.c
-index 98bb0eb44a7bf..e0127e397335e 100644
---- a/kernel/dma/swiotlb.c
-+++ b/kernel/dma/swiotlb.c
-@@ -68,12 +68,6 @@ struct io_tlb_mem io_tlb_default_mem;
- 
- phys_addr_t swiotlb_unencrypted_base;
- 
--/*
-- * Max segment that we can provide which (if pages are contingous) will
-- * not be bounced (unless SWIOTLB_FORCE is set).
-- */
--static unsigned int max_segment;
--
- static unsigned long default_nslabs = IO_TLB_DEFAULT_SIZE >> IO_TLB_SHIFT;
- 
- static int __init
-@@ -97,18 +91,12 @@ early_param("swiotlb", setup_io_tlb_npages);
- 
- unsigned int swiotlb_max_segment(void)
+-static int __send_signal(int sig, struct kernel_siginfo *info, struct task_struct *t,
+-			enum pid_type type, bool force)
++static int __send_signal_locked(int sig, struct kernel_siginfo *info,
++				struct task_struct *t, enum pid_type type, bool force)
  {
--	return io_tlb_default_mem.nslabs ? max_segment : 0;
-+	if (!io_tlb_default_mem.nslabs)
-+		return 0;
-+	return rounddown(io_tlb_default_mem.nslabs << IO_TLB_SHIFT, PAGE_SIZE);
+ 	struct sigpending *pending;
+ 	struct sigqueue *q;
+@@ -1212,8 +1212,8 @@ static inline bool has_si_pid_and_uid(struct kernel_siginfo *info)
+ 	return ret;
  }
- EXPORT_SYMBOL_GPL(swiotlb_max_segment);
  
--void swiotlb_set_max_segment(unsigned int val)
--{
--	if (swiotlb_force = SWIOTLB_FORCE)
--		max_segment = 1;
--	else
--		max_segment = rounddown(val, PAGE_SIZE);
--}
--
- unsigned long swiotlb_size_or_default(void)
+-static int send_signal(int sig, struct kernel_siginfo *info, struct task_struct *t,
+-			enum pid_type type)
++int send_signal_locked(int sig, struct kernel_siginfo *info,
++		       struct task_struct *t, enum pid_type type)
  {
- 	return default_nslabs << IO_TLB_SHIFT;
-@@ -258,7 +246,6 @@ int __init swiotlb_init_with_tbl(char *tlb, unsigned long nslabs, int verbose)
- 
- 	if (verbose)
- 		swiotlb_print_info();
--	swiotlb_set_max_segment(mem->nslabs << IO_TLB_SHIFT);
- 	return 0;
+ 	/* Should SIGKILL or SIGSTOP be received by a pid namespace init? */
+ 	bool force = false;
+@@ -1245,7 +1245,7 @@ static int send_signal(int sig, struct kernel_siginfo *info, struct task_struct
+ 			force = true;
+ 		}
+ 	}
+-	return __send_signal(sig, info, t, type, force);
++	return __send_signal_locked(sig, info, t, type, force);
  }
  
-@@ -359,7 +346,6 @@ swiotlb_late_init_with_tbl(char *tlb, unsigned long nslabs)
- 	swiotlb_init_io_tlb_mem(mem, virt_to_phys(tlb), nslabs, true);
- 
- 	swiotlb_print_info();
--	swiotlb_set_max_segment(mem->nslabs << IO_TLB_SHIFT);
- 	return 0;
+ static void print_fatal_signal(int signr)
+@@ -1284,7 +1284,7 @@ __setup("print-fatal-signals=", setup_print_fatal_signals);
+ int
+ __group_send_sig_info(int sig, struct kernel_siginfo *info, struct task_struct *p)
+ {
+-	return send_signal(sig, info, p, PIDTYPE_TGID);
++	return send_signal_locked(sig, info, p, PIDTYPE_TGID);
  }
  
+ int do_send_sig_info(int sig, struct kernel_siginfo *info, struct task_struct *p,
+@@ -1294,7 +1294,7 @@ int do_send_sig_info(int sig, struct kernel_siginfo *info, struct task_struct *p
+ 	int ret = -ESRCH;
+ 
+ 	if (lock_task_sighand(p, &flags)) {
+-		ret = send_signal(sig, info, p, type);
++		ret = send_signal_locked(sig, info, p, type);
+ 		unlock_task_sighand(p, &flags);
+ 	}
+ 
+@@ -1347,7 +1347,7 @@ force_sig_info_to_task(struct kernel_siginfo *info, struct task_struct *t,
+ 	if (action->sa.sa_handler = SIG_DFL &&
+ 	    (!t->ptrace || (handler = HANDLER_EXIT)))
+ 		t->signal->flags &= ~SIGNAL_UNKILLABLE;
+-	ret = send_signal(sig, info, t, PIDTYPE_PID);
++	ret = send_signal_locked(sig, info, t, PIDTYPE_PID);
+ 	spin_unlock_irqrestore(&t->sighand->siglock, flags);
+ 
+ 	return ret;
+@@ -1567,7 +1567,7 @@ int kill_pid_usb_asyncio(int sig, int errno, sigval_t addr,
+ 
+ 	if (sig) {
+ 		if (lock_task_sighand(p, &flags)) {
+-			ret = __send_signal(sig, &info, p, PIDTYPE_TGID, false);
++			ret = __send_signal_locked(sig, &info, p, PIDTYPE_TGID, false);
+ 			unlock_task_sighand(p, &flags);
+ 		} else
+ 			ret = -ESRCH;
+@@ -2103,7 +2103,7 @@ bool do_notify_parent(struct task_struct *tsk, int sig)
+ 	 * parent's namespaces.
+ 	 */
+ 	if (valid_signal(sig) && sig)
+-		__send_signal(sig, &info, tsk->parent, PIDTYPE_TGID, false);
++		__send_signal_locked(sig, &info, tsk->parent, PIDTYPE_TGID, false);
+ 	__wake_up_parent(tsk, tsk->parent);
+ 	spin_unlock_irqrestore(&psig->siglock, flags);
+ 
+@@ -2601,7 +2601,7 @@ static int ptrace_signal(int signr, kernel_siginfo_t *info, enum pid_type type)
+ 	/* If the (new) signal is now blocked, requeue it.  */
+ 	if (sigismember(&current->blocked, signr) ||
+ 	    fatal_signal_pending(current)) {
+-		send_signal(signr, info, current, type);
++		send_signal_locked(signr, info, current, type);
+ 		signr = 0;
+ 	}
+ 
+@@ -4793,7 +4793,7 @@ void kdb_send_sig(struct task_struct *t, int sig)
+ 			   "the deadlock.\n");
+ 		return;
+ 	}
+-	ret = send_signal(sig, SEND_SIG_PRIV, t, PIDTYPE_PID);
++	ret = send_signal_locked(sig, SEND_SIG_PRIV, t, PIDTYPE_PID);
+ 	spin_unlock(&t->sighand->siglock);
+ 	if (ret)
+ 		kdb_printf("Fail to deliver Signal %d to process %d.\n",
 -- 
-2.30.2
+2.35.3
