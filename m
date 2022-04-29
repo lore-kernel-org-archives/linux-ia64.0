@@ -1,72 +1,153 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Mon, 04 Apr 2022 05:05:48 +0000
-Subject: [PATCH 04/15] swiotlb: rename swiotlb_late_init_with_default_size
-Message-Id: <20220404050559.132378-5-hch@lst.de>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Fri, 29 Apr 2022 21:48:28 +0000
+Subject: [PATCH v2 03/12] ptrace/um: Replace PT_DTRACE with TIF_SINGLESTEP
+Message-Id: <20220429214837.386518-3-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220404050559.132378-1-hch@lst.de>
-In-Reply-To: <20220404050559.132378-1-hch@lst.de>
+References: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: Juergen Gross <jgross@suse.com>, Tom Lendacky <thomas.lendacky@amd.com>, linux-s390@vger.kernel.org, Stefano Stabellini <sstabellini@kernel.org>, linux-ia64@vger.kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, tboot-devel@lists.sourceforge.net, linux-hyperv@vger.kernel.org, linux-pci@vger.kernel.org, xen-devel@lists.xenproject.org, Boris Ostrovsky <boris.ostrovsky@oracle.com>, David Woodhouse <dwmw2@infradead.org>, linux-riscv@lists.infradead.org, linux-arm-kernel@lists.infradead.org
+To: linux-kernel@vger.kernel.org
+Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>, stable@vger.kernel.org
 
-swiotlb_late_init_with_default_size is an overly verbose name that
-doesn't even catch what the function is doing, given that the size is
-not just a default but the actual requested size.
+User mode linux is the last user of the PT_DTRACE flag.  Using the flag to indicate
+single stepping is a little confusing and worse changing tsk->ptrace without locking
+could potentionally cause problems.
 
-Rename it to swiotlb_init_late.
+So use a thread info flag with a better name instead of flag in tsk->ptrace.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
-Reviewed-by: Anshuman Khandual <anshuman.khandual@arm.com>
+Remove the definition PT_DTRACE as uml is the last user.
+
+Cc: stable@vger.kernel.org
+Acked-by: Johannes Berg <johannes@sipsolutions.net>
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- arch/x86/pci/sta2x11-fixup.c | 2 +-
- include/linux/swiotlb.h      | 2 +-
- kernel/dma/swiotlb.c         | 6 ++----
- 3 files changed, 4 insertions(+), 6 deletions(-)
+ arch/um/include/asm/thread_info.h | 2 ++
+ arch/um/kernel/exec.c             | 2 +-
+ arch/um/kernel/process.c          | 2 +-
+ arch/um/kernel/ptrace.c           | 8 ++++----
+ arch/um/kernel/signal.c           | 4 ++--
+ include/linux/ptrace.h            | 1 -
+ 6 files changed, 10 insertions(+), 9 deletions(-)
 
-diff --git a/arch/x86/pci/sta2x11-fixup.c b/arch/x86/pci/sta2x11-fixup.c
-index 101081ad64b6d..e0c039a75b2db 100644
---- a/arch/x86/pci/sta2x11-fixup.c
-+++ b/arch/x86/pci/sta2x11-fixup.c
-@@ -57,7 +57,7 @@ static void sta2x11_new_instance(struct pci_dev *pdev)
- 		int size = STA2X11_SWIOTLB_SIZE;
- 		/* First instance: register your own swiotlb area */
- 		dev_info(&pdev->dev, "Using SWIOTLB (size %i)\n", size);
--		if (swiotlb_late_init_with_default_size(size))
-+		if (swiotlb_init_late(size))
- 			dev_emerg(&pdev->dev, "init swiotlb failed\n");
- 	}
- 	list_add(&instance->list, &sta2x11_instance_list);
-diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
-index 9fb3a568f0c51..b48b26bfa0edb 100644
---- a/include/linux/swiotlb.h
-+++ b/include/linux/swiotlb.h
-@@ -40,7 +40,7 @@ extern void swiotlb_init(int verbose);
- int swiotlb_init_with_tbl(char *tlb, unsigned long nslabs, int verbose);
- unsigned long swiotlb_size_or_default(void);
- extern int swiotlb_late_init_with_tbl(char *tlb, unsigned long nslabs);
--extern int swiotlb_late_init_with_default_size(size_t default_size);
-+int swiotlb_init_late(size_t size);
- extern void __init swiotlb_update_mem_attributes(void);
+diff --git a/arch/um/include/asm/thread_info.h b/arch/um/include/asm/thread_info.h
+index 1395cbd7e340..c7b4b49826a2 100644
+--- a/arch/um/include/asm/thread_info.h
++++ b/arch/um/include/asm/thread_info.h
+@@ -60,6 +60,7 @@ static inline struct thread_info *current_thread_info(void)
+ #define TIF_RESTORE_SIGMASK	7
+ #define TIF_NOTIFY_RESUME	8
+ #define TIF_SECCOMP		9	/* secure computing */
++#define TIF_SINGLESTEP		10	/* single stepping userspace */
  
- phys_addr_t swiotlb_tbl_map_single(struct device *hwdev, phys_addr_t phys,
-diff --git a/kernel/dma/swiotlb.c b/kernel/dma/swiotlb.c
-index e0127e397335e..9a4fe6e48a074 100644
---- a/kernel/dma/swiotlb.c
-+++ b/kernel/dma/swiotlb.c
-@@ -281,11 +281,9 @@ swiotlb_init(int verbose)
-  * initialize the swiotlb later using the slab allocator if needed.
-  * This should be just like above, but with some error catching.
-  */
--int
--swiotlb_late_init_with_default_size(size_t default_size)
-+int swiotlb_init_late(size_t size)
+ #define _TIF_SYSCALL_TRACE	(1 << TIF_SYSCALL_TRACE)
+ #define _TIF_SIGPENDING		(1 << TIF_SIGPENDING)
+@@ -68,5 +69,6 @@ static inline struct thread_info *current_thread_info(void)
+ #define _TIF_MEMDIE		(1 << TIF_MEMDIE)
+ #define _TIF_SYSCALL_AUDIT	(1 << TIF_SYSCALL_AUDIT)
+ #define _TIF_SECCOMP		(1 << TIF_SECCOMP)
++#define _TIF_SINGLESTEP		(1 << TIF_SINGLESTEP)
+ 
+ #endif
+diff --git a/arch/um/kernel/exec.c b/arch/um/kernel/exec.c
+index c85e40c72779..58938d75871a 100644
+--- a/arch/um/kernel/exec.c
++++ b/arch/um/kernel/exec.c
+@@ -43,7 +43,7 @@ void start_thread(struct pt_regs *regs, unsigned long eip, unsigned long esp)
  {
--	unsigned long nslabs -		ALIGN(default_size >> IO_TLB_SHIFT, IO_TLB_SEGSIZE);
-+	unsigned long nslabs = ALIGN(size >> IO_TLB_SHIFT, IO_TLB_SEGSIZE);
- 	unsigned long bytes;
- 	unsigned char *vstart = NULL;
- 	unsigned int order;
+ 	PT_REGS_IP(regs) = eip;
+ 	PT_REGS_SP(regs) = esp;
+-	current->ptrace &= ~PT_DTRACE;
++	clear_thread_flag(TIF_SINGLESTEP);
+ #ifdef SUBARCH_EXECVE1
+ 	SUBARCH_EXECVE1(regs->regs);
+ #endif
+diff --git a/arch/um/kernel/process.c b/arch/um/kernel/process.c
+index 80504680be08..88c5c7844281 100644
+--- a/arch/um/kernel/process.c
++++ b/arch/um/kernel/process.c
+@@ -335,7 +335,7 @@ int singlestepping(void * t)
+ {
+ 	struct task_struct *task = t ? t : current;
+ 
+-	if (!(task->ptrace & PT_DTRACE))
++	if (!test_thread_flag(TIF_SINGLESTEP))
+ 		return 0;
+ 
+ 	if (task->thread.singlestep_syscall)
+diff --git a/arch/um/kernel/ptrace.c b/arch/um/kernel/ptrace.c
+index bfaf6ab1ac03..5154b27de580 100644
+--- a/arch/um/kernel/ptrace.c
++++ b/arch/um/kernel/ptrace.c
+@@ -11,7 +11,7 @@
+ 
+ void user_enable_single_step(struct task_struct *child)
+ {
+-	child->ptrace |= PT_DTRACE;
++	set_tsk_thread_flag(child, TIF_SINGLESTEP);
+ 	child->thread.singlestep_syscall = 0;
+ 
+ #ifdef SUBARCH_SET_SINGLESTEPPING
+@@ -21,7 +21,7 @@ void user_enable_single_step(struct task_struct *child)
+ 
+ void user_disable_single_step(struct task_struct *child)
+ {
+-	child->ptrace &= ~PT_DTRACE;
++	clear_tsk_thread_flag(child, TIF_SINGLESTEP);
+ 	child->thread.singlestep_syscall = 0;
+ 
+ #ifdef SUBARCH_SET_SINGLESTEPPING
+@@ -120,7 +120,7 @@ static void send_sigtrap(struct uml_pt_regs *regs, int error_code)
+ }
+ 
+ /*
+- * XXX Check PT_DTRACE vs TIF_SINGLESTEP for singlestepping check and
++ * XXX Check TIF_SINGLESTEP for singlestepping check and
+  * PT_PTRACED vs TIF_SYSCALL_TRACE for syscall tracing check
+  */
+ int syscall_trace_enter(struct pt_regs *regs)
+@@ -144,7 +144,7 @@ void syscall_trace_leave(struct pt_regs *regs)
+ 	audit_syscall_exit(regs);
+ 
+ 	/* Fake a debug trap */
+-	if (ptraced & PT_DTRACE)
++	if (test_thread_flag(TIF_SINGLESTEP))
+ 		send_sigtrap(&regs->regs, 0);
+ 
+ 	if (!test_thread_flag(TIF_SYSCALL_TRACE))
+diff --git a/arch/um/kernel/signal.c b/arch/um/kernel/signal.c
+index 88cd9b5c1b74..ae4658f576ab 100644
+--- a/arch/um/kernel/signal.c
++++ b/arch/um/kernel/signal.c
+@@ -53,7 +53,7 @@ static void handle_signal(struct ksignal *ksig, struct pt_regs *regs)
+ 	unsigned long sp;
+ 	int err;
+ 
+-	if ((current->ptrace & PT_DTRACE) && (current->ptrace & PT_PTRACED))
++	if (test_thread_flag(TIF_SINGLESTEP) && (current->ptrace & PT_PTRACED))
+ 		singlestep = 1;
+ 
+ 	/* Did we come from a system call? */
+@@ -128,7 +128,7 @@ void do_signal(struct pt_regs *regs)
+ 	 * on the host.  The tracing thread will check this flag and
+ 	 * PTRACE_SYSCALL if necessary.
+ 	 */
+-	if (current->ptrace & PT_DTRACE)
++	if (test_thread_flag(TIF_SINGLESTEP))
+ 		current->thread.singlestep_syscall  			is_syscall(PT_REGS_IP(&current->thread.regs));
+ 
+diff --git a/include/linux/ptrace.h b/include/linux/ptrace.h
+index 15b3d176b6b4..4c06f9f8ef3f 100644
+--- a/include/linux/ptrace.h
++++ b/include/linux/ptrace.h
+@@ -30,7 +30,6 @@ extern int ptrace_access_vm(struct task_struct *tsk, unsigned long addr,
+ 
+ #define PT_SEIZED	0x00010000	/* SEIZE used, enable new behavior */
+ #define PT_PTRACED	0x00000001
+-#define PT_DTRACE	0x00000002	/* delayed trace (used on m68k, i386) */
+ 
+ #define PT_OPT_FLAG_SHIFT	3
+ /* PT_TRACE_* event enable flags */
 -- 
-2.30.2
+2.35.3
