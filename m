@@ -1,97 +1,224 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Mon, 14 Mar 2022 07:31:14 +0000
-Subject: cleanup swiotlb initialization v5
-Message-Id: <20220314073129.1862284-1-hch@lst.de>
+From: Baolin Wang <baolin.wang@linux.alibaba.com>
+Date: Fri, 29 Apr 2022 08:14:41 +0000
+Subject: [PATCH 1/3] mm: change huge_ptep_clear_flush() to return the original pte
+Message-Id: <a9038435d408cd7b9defe143537de668dfdf03be.1651216964.git.baolin.wang@linux.alibaba.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <cover.1651216964.git.baolin.wang@linux.alibaba.com>
+In-Reply-To: <cover.1651216964.git.baolin.wang@linux.alibaba.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: Juergen Gross <jgross@suse.com>, Tom Lendacky <thomas.lendacky@amd.com>, linux-s390@vger.kernel.org, Stefano Stabellini <sstabellini@kernel.org>, linux-ia64@vger.kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, tboot-devel@lists.sourceforge.net, linux-hyperv@vger.kernel.org, linux-pci@vger.kernel.org, xen-devel@lists.xenproject.org, Boris Ostrovsky <boris.ostrovsky@oracle.com>, David Woodhouse <dwmw2@infradead.org>, linux-riscv@lists.infradead.org, linux-arm-kernel@lists.infradead.org
+To: akpm@linux-foundation.org, mike.kravetz@oracle.com, catalin.marinas@arm.com, will@kernel.org
+Cc: tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, baolin.wang@linux.alibaba.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-Hi all,
+It is incorrect to use ptep_clear_flush() to nuke a hugetlb page
+table when unmapping or migrating a hugetlb page, and will change
+to use huge_ptep_clear_flush() instead in the following patches.
 
-this series tries to clean up the swiotlb initialization, including
-that of swiotlb-xen.  To get there is also removes the x86 iommu table
-infrastructure that massively obsfucates the initialization path.
+So this is a preparation patch, which changes the huge_ptep_clear_flush()
+to return the original pte to help to nuke a hugetlb page table.
 
-Git tree:
+Signed-off-by: Baolin Wang <baolin.wang@linux.alibaba.com>
+---
+ arch/arm64/include/asm/hugetlb.h   |  4 ++--
+ arch/arm64/mm/hugetlbpage.c        | 12 +++++-------
+ arch/ia64/include/asm/hugetlb.h    |  4 ++--
+ arch/mips/include/asm/hugetlb.h    |  9 ++++++---
+ arch/parisc/include/asm/hugetlb.h  |  4 ++--
+ arch/powerpc/include/asm/hugetlb.h |  9 ++++++---
+ arch/s390/include/asm/hugetlb.h    |  6 +++---
+ arch/sh/include/asm/hugetlb.h      |  4 ++--
+ arch/sparc/include/asm/hugetlb.h   |  4 ++--
+ include/asm-generic/hugetlb.h      |  4 ++--
+ 10 files changed, 32 insertions(+), 28 deletions(-)
 
-    git://git.infradead.org/users/hch/misc.git swiotlb-init-cleanup
-
-Gitweb:
-
-    http://git.infradead.org/users/hch/misc.git/shortlog/refs/heads/swiotlb-init-cleanup
-
-Changes since v5:
- - split a patch into three
- - fix setting x86_swiotlb_enable for Xen
- - fix a comment about forced bounce buffering for guest memory
-   encryption
- - remove the xen_initial_domain check from
-   xen_create_contiguous_region
-
-Changes since v3:
- - fix a compilation issue on some powerpc configfs
- - fix and cleanup how forced bounce buffering is enabled for
-   guest memory encryption
-
-Changes since v2:
- - make ppc_swiotlb_flags actually work again
- - also force enable swiotlb for guest encrypted memory to cater
-   to hyperv which doesn't set the host encrypted memory flag
-
-Changes since v1:
- - skip IOMMU initialization on Xen PV kernels
- - various small whitespace / typo fixes
-
-Diffstat:
- arch/ia64/include/asm/iommu_table.h      |    7 -
- arch/x86/include/asm/iommu_table.h       |  102 ------------------
- arch/x86/include/asm/swiotlb.h           |   30 -----
- arch/x86/kernel/pci-iommu_table.c        |   77 -------------
- arch/x86/kernel/pci-swiotlb.c            |   77 -------------
- arch/x86/xen/pci-swiotlb-xen.c           |   96 -----------------
- b/arch/arm/mm/init.c                     |    6 -
- b/arch/arm/xen/mm.c                      |   26 ++--
- b/arch/arm64/mm/init.c                   |    6 -
- b/arch/ia64/mm/init.c                    |    4 
- b/arch/mips/cavium-octeon/dma-octeon.c   |   15 --
- b/arch/mips/loongson64/dma.c             |    2 
- b/arch/mips/pci/pci-octeon.c             |    2 
- b/arch/mips/sibyte/common/dma.c          |    2 
- b/arch/powerpc/include/asm/svm.h         |    4 
- b/arch/powerpc/include/asm/swiotlb.h     |    1 
- b/arch/powerpc/kernel/dma-swiotlb.c      |    1 
- b/arch/powerpc/mm/mem.c                  |    6 -
- b/arch/powerpc/platforms/pseries/setup.c |    3 
- b/arch/powerpc/platforms/pseries/svm.c   |   26 ----
- b/arch/riscv/mm/init.c                   |    8 -
- b/arch/s390/mm/init.c                    |    3 
- b/arch/x86/include/asm/dma-mapping.h     |   12 --
- b/arch/x86/include/asm/gart.h            |    5 
- b/arch/x86/include/asm/iommu.h           |    8 +
- b/arch/x86/include/asm/xen/page.h        |    5 
- b/arch/x86/include/asm/xen/swiotlb-xen.h |    2 
- b/arch/x86/kernel/Makefile               |    2 
- b/arch/x86/kernel/amd_gart_64.c          |    5 
- b/arch/x86/kernel/aperture_64.c          |   14 --
- b/arch/x86/kernel/cpu/mshyperv.c         |    8 -
- b/arch/x86/kernel/pci-dma.c              |  113 ++++++++++++++++----
- b/arch/x86/kernel/tboot.c                |    1 
- b/arch/x86/kernel/vmlinux.lds.S          |   12 --
- b/arch/x86/mm/mem_encrypt_amd.c          |    3 
- b/arch/x86/pci/sta2x11-fixup.c           |    2 
- b/arch/x86/xen/Makefile                  |    2 
- b/drivers/iommu/amd/init.c               |    6 -
- b/drivers/iommu/amd/iommu.c              |    5 
- b/drivers/iommu/intel/dmar.c             |    6 -
- b/drivers/xen/swiotlb-xen.c              |  132 -----------------------
- b/include/linux/dmar.h                   |    6 -
- b/include/linux/swiotlb.h                |   22 +--
- b/include/trace/events/swiotlb.h         |   29 +----
- b/include/xen/arm/page.h                 |    1 
- b/include/xen/swiotlb-xen.h              |    8 +
- b/kernel/dma/direct.h                    |    2 
- b/kernel/dma/swiotlb.c                   |  175 +++++++++++++++----------------
- 48 files changed, 264 insertions(+), 826 deletions(-)
+diff --git a/arch/arm64/include/asm/hugetlb.h b/arch/arm64/include/asm/hugetlb.h
+index 1242f71..616b2ca 100644
+--- a/arch/arm64/include/asm/hugetlb.h
++++ b/arch/arm64/include/asm/hugetlb.h
+@@ -39,8 +39,8 @@ extern pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+ extern void huge_ptep_set_wrprotect(struct mm_struct *mm,
+ 				    unsigned long addr, pte_t *ptep);
+ #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
+-extern void huge_ptep_clear_flush(struct vm_area_struct *vma,
+-				  unsigned long addr, pte_t *ptep);
++extern pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
++				   unsigned long addr, pte_t *ptep);
+ #define __HAVE_ARCH_HUGE_PTE_CLEAR
+ extern void huge_pte_clear(struct mm_struct *mm, unsigned long addr,
+ 			   pte_t *ptep, unsigned long sz);
+diff --git a/arch/arm64/mm/hugetlbpage.c b/arch/arm64/mm/hugetlbpage.c
+index cbace1c..ca8e65c 100644
+--- a/arch/arm64/mm/hugetlbpage.c
++++ b/arch/arm64/mm/hugetlbpage.c
+@@ -486,19 +486,17 @@ void huge_ptep_set_wrprotect(struct mm_struct *mm,
+ 		set_pte_at(mm, addr, ptep, pfn_pte(pfn, hugeprot));
+ }
+ 
+-void huge_ptep_clear_flush(struct vm_area_struct *vma,
+-			   unsigned long addr, pte_t *ptep)
++pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
++			    unsigned long addr, pte_t *ptep)
+ {
+ 	size_t pgsize;
+ 	int ncontig;
+ 
+-	if (!pte_cont(READ_ONCE(*ptep))) {
+-		ptep_clear_flush(vma, addr, ptep);
+-		return;
+-	}
++	if (!pte_cont(READ_ONCE(*ptep)))
++		return ptep_clear_flush(vma, addr, ptep);
+ 
+ 	ncontig = find_num_contig(vma->vm_mm, addr, ptep, &pgsize);
+-	clear_flush(vma->vm_mm, addr, ptep, pgsize, ncontig);
++	return get_clear_flush(vma->vm_mm, addr, ptep, pgsize, ncontig);
+ }
+ 
+ static int __init hugetlbpage_init(void)
+diff --git a/arch/ia64/include/asm/hugetlb.h b/arch/ia64/include/asm/hugetlb.h
+index 7e46ebd..65d3811 100644
+--- a/arch/ia64/include/asm/hugetlb.h
++++ b/arch/ia64/include/asm/hugetlb.h
+@@ -23,8 +23,8 @@ static inline int is_hugepage_only_range(struct mm_struct *mm,
+ #define is_hugepage_only_range is_hugepage_only_range
+ 
+ #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
+-static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+-					 unsigned long addr, pte_t *ptep)
++static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
++					  unsigned long addr, pte_t *ptep)
+ {
+ }
+ 
+diff --git a/arch/mips/include/asm/hugetlb.h b/arch/mips/include/asm/hugetlb.h
+index c214440..fd69c88 100644
+--- a/arch/mips/include/asm/hugetlb.h
++++ b/arch/mips/include/asm/hugetlb.h
+@@ -43,16 +43,19 @@ static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+ }
+ 
+ #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
+-static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+-					 unsigned long addr, pte_t *ptep)
++static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
++					  unsigned long addr, pte_t *ptep)
+ {
++	pte_t pte;
++
+ 	/*
+ 	 * clear the huge pte entry firstly, so that the other smp threads will
+ 	 * not get old pte entry after finishing flush_tlb_page and before
+ 	 * setting new huge pte entry
+ 	 */
+-	huge_ptep_get_and_clear(vma->vm_mm, addr, ptep);
++	pte = huge_ptep_get_and_clear(vma->vm_mm, addr, ptep);
+ 	flush_tlb_page(vma, addr);
++	return pte;
+ }
+ 
+ #define __HAVE_ARCH_HUGE_PTE_NONE
+diff --git a/arch/parisc/include/asm/hugetlb.h b/arch/parisc/include/asm/hugetlb.h
+index a69cf9e..25bc560 100644
+--- a/arch/parisc/include/asm/hugetlb.h
++++ b/arch/parisc/include/asm/hugetlb.h
+@@ -28,8 +28,8 @@ static inline int prepare_hugepage_range(struct file *file,
+ }
+ 
+ #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
+-static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+-					 unsigned long addr, pte_t *ptep)
++static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
++					  unsigned long addr, pte_t *ptep)
+ {
+ }
+ 
+diff --git a/arch/powerpc/include/asm/hugetlb.h b/arch/powerpc/include/asm/hugetlb.h
+index 6a1a1ac..8a5674f 100644
+--- a/arch/powerpc/include/asm/hugetlb.h
++++ b/arch/powerpc/include/asm/hugetlb.h
+@@ -43,11 +43,14 @@ static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+ }
+ 
+ #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
+-static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+-					 unsigned long addr, pte_t *ptep)
++static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
++					  unsigned long addr, pte_t *ptep)
+ {
+-	huge_ptep_get_and_clear(vma->vm_mm, addr, ptep);
++	pte_t pte;
++
++	pte = huge_ptep_get_and_clear(vma->vm_mm, addr, ptep);
+ 	flush_hugetlb_page(vma, addr);
++	return pte;
+ }
+ 
+ #define __HAVE_ARCH_HUGE_PTEP_SET_ACCESS_FLAGS
+diff --git a/arch/s390/include/asm/hugetlb.h b/arch/s390/include/asm/hugetlb.h
+index 32c3fd6..f22beda 100644
+--- a/arch/s390/include/asm/hugetlb.h
++++ b/arch/s390/include/asm/hugetlb.h
+@@ -50,10 +50,10 @@ static inline void huge_pte_clear(struct mm_struct *mm, unsigned long addr,
+ 		set_pte(ptep, __pte(_SEGMENT_ENTRY_EMPTY));
+ }
+ 
+-static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+-					 unsigned long address, pte_t *ptep)
++static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
++					  unsigned long address, pte_t *ptep)
+ {
+-	huge_ptep_get_and_clear(vma->vm_mm, address, ptep);
++	return huge_ptep_get_and_clear(vma->vm_mm, address, ptep);
+ }
+ 
+ static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
+diff --git a/arch/sh/include/asm/hugetlb.h b/arch/sh/include/asm/hugetlb.h
+index ae4de7b..e727cc9 100644
+--- a/arch/sh/include/asm/hugetlb.h
++++ b/arch/sh/include/asm/hugetlb.h
+@@ -21,8 +21,8 @@ static inline int prepare_hugepage_range(struct file *file,
+ }
+ 
+ #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
+-static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+-					 unsigned long addr, pte_t *ptep)
++static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
++					  unsigned long addr, pte_t *ptep)
+ {
+ }
+ 
+diff --git a/arch/sparc/include/asm/hugetlb.h b/arch/sparc/include/asm/hugetlb.h
+index 53838a1..b50aa6f 100644
+--- a/arch/sparc/include/asm/hugetlb.h
++++ b/arch/sparc/include/asm/hugetlb.h
+@@ -21,8 +21,8 @@ pte_t huge_ptep_get_and_clear(struct mm_struct *mm, unsigned long addr,
+ 			      pte_t *ptep);
+ 
+ #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
+-static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+-					 unsigned long addr, pte_t *ptep)
++static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
++					  unsigned long addr, pte_t *ptep)
+ {
+ }
+ 
+diff --git a/include/asm-generic/hugetlb.h b/include/asm-generic/hugetlb.h
+index 896f341..a57d667 100644
+--- a/include/asm-generic/hugetlb.h
++++ b/include/asm-generic/hugetlb.h
+@@ -84,10 +84,10 @@ static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+ #endif
+ 
+ #ifndef __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
+-static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
++static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
+ 		unsigned long addr, pte_t *ptep)
+ {
+-	ptep_clear_flush(vma, addr, ptep);
++	return ptep_clear_flush(vma, addr, ptep);
+ }
+ #endif
+ 
+-- 
+1.8.3.1
