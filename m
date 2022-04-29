@@ -1,58 +1,106 @@
-From: Ard Biesheuvel <ardb@kernel.org>
-Date: Wed, 20 Apr 2022 22:39:32 +0000
-Subject: Re: [PATCH v2 7/9] mm: Calc the right pfn if page size is not 4K
-Message-Id: <CAMj1kXFkso9i8OqHOA_XMu90mrSsSqR1uSmcUTxnD0SxStuTpw@mail.gmail.com>
+From: Baolin Wang <baolin.wang@linux.alibaba.com>
+Date: Fri, 29 Apr 2022 08:14:42 +0000
+Subject: [PATCH 2/3] mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when migration
+Message-Id: <11b92502b3df0e0bba6a1dc71476d79cab6c79ba.1651216964.git.baolin.wang@linux.alibaba.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220414101314.1250667-1-mawupeng1@huawei.com>
- <20220414101314.1250667-8-mawupeng1@huawei.com> <672ff459-81bd-38ef-882d-e718992d295c@arm.com>
- <CAMj1kXFnEhJ4Qu50Ads9psY6kmT3ddw5Za+6-YqUM+eYj1Oafw@mail.gmail.com> <20220420152749.d41097e7d53ccd6a2a2aea5f@linux-foundation.org>
-In-Reply-To: <20220420152749.d41097e7d53ccd6a2a2aea5f@linux-foundation.org>
+References: <cover.1651216964.git.baolin.wang@linux.alibaba.com>
+In-Reply-To: <cover.1651216964.git.baolin.wang@linux.alibaba.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Anshuman Khandual <anshuman.khandual@arm.com>, Wupeng Ma <mawupeng1@huawei.com>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Jonathan Corbet <corbet@lwn.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, X86 ML <x86@kernel.org>, hpa@zyccr.com, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, Mike Rapoport <rppt@kernel.org>, "Paul E. McKenney" <paulmck@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Joerg Roedel <jroedel@suse.de>, songmuchun@bytedance.com, macro@orcam.me.uk, Frederic Weisbecker <frederic@kernel.org>, W_Armin@gmx.de, John Garry <john.garry@huawei.com>, Sean Christopherson <seanjc@google.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, chenhuacai@kernel.org, David Hildenbrand <david@redhat.com>, gpiccoli@igalia.com, Mark Rutland <mark.rutland@arm.com>, Kefeng Wang <wangkefeng.wang@huawei.com>, Linux Doc Mailing List <linux-doc@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>, linux-efi <linux-efi@vger.kernel.org>, linux-ia64@vger.kernel.org, platform-driver-x86@vger.kernel.org, Linux Memory Management List <linux-mm@kvack.org>
+To: akpm@linux-foundation.org, mike.kravetz@oracle.com, catalin.marinas@arm.com, will@kernel.org
+Cc: tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, baolin.wang@linux.alibaba.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-On Thu, 21 Apr 2022 at 00:27, Andrew Morton <akpm@linux-foundation.org> wrote:
->
-> On Tue, 19 Apr 2022 20:29:27 +0200 Ard Biesheuvel <ardb@kernel.org> wrote:
->
-> > > > --- a/mm/page_alloc.c
-> > > > +++ b/mm/page_alloc.c
-> > > > @@ -7870,7 +7870,7 @@ static void __init find_zone_movable_pfns_for_nodes(void)
-> > > >
-> > > >                       usable_startpfn = memblock_region_memory_base_pfn(r);
-> > > >
-> > > > -                     if (usable_startpfn < 0x100000) {
-> > > > +                     if (usable_startpfn < PHYS_PFN(SZ_4G)) {
-> > > >                               mem_below_4gb_not_mirrored = true;
-> > > >                               continue;
-> > > >                       }
-> > >
-> > > Regardless PFN value should never be encoded directly.
-> > >
-> > > Reviewed-by: Anshuman Khandual <anshuman.khandual@arm.com>
-> >
-> > Acked-by: Ard Biesheuvel <ardb@kernel.org>
-> >
-> > Andrew, can you please take this one through the -mm tree? The rest of
-> > the series needs a bit more work, but is an obvious fix and there is
-> > no point in holding it up.
->
-> Sure.
->
-> I'm not seeing any description of the runtime effects of this
-> shortcoming.  I tentatively queued the fix for 5.18, without a
-> cc:stable for backporting.  But that might not be the best decision?
->
+On some architectures (like ARM64), it can support CONT-PTE/PMD size
+hugetlb, which means it can support not only PMD/PUD size hugetlb:
+2M and 1G, but also CONT-PTE/PMD size: 64K and 32M if a 4K page
+size specified.
 
-As far as I can tell, mirrored memory is only used on x86 today, where
-pages are always 4k.
+When migrating a hugetlb page, we will get the relevant page table
+entry by huge_pte_offset() only once to nuke it and remap it with
+a migration pte entry. This is correct for PMD or PUD size hugetlb,
+since they always contain only one pmd entry or pud entry in the
+page table.
 
-However, the whole notion of memory below 4 GB being special is a
-x86-ism, and so this logic does not appear to extrapolate to other
-architectures anyway, and probably needs more work.
+However this is incorrect for CONT-PTE and CONT-PMD size hugetlb,
+since they can contain several continuous pte or pmd entry with
+same page table attributes. So we will nuke or remap only one pte
+or pmd entry for this CONT-PTE/PMD size hugetlb page, which is
+not expected for hugetlb migration. The problem is we can still
+continue to modify the subpages' data of a hugetlb page during
+migrating a hugetlb page, which can cause a serious data consistent
+issue, since we did not nuke the page table entry and set a
+migration pte for the subpages of a hugetlb page.
 
-So definitely not a backportable fix, but just an incremental
-improvement, so either 5.18 or 5.19 should be fine afaict (and no
-cc:stable)
+To fix this issue, we should change to use huge_ptep_clear_flush()
+to nuke a hugetlb page table, and remap it with set_huge_pte_at()
+and set_huge_swap_pte_at() when migrating a hugetlb page, which
+already considered the CONT-PTE or CONT-PMD size hugetlb.
+
+Signed-off-by: Baolin Wang <baolin.wang@linux.alibaba.com>
+---
+ mm/rmap.c | 24 ++++++++++++++++++------
+ 1 file changed, 18 insertions(+), 6 deletions(-)
+
+diff --git a/mm/rmap.c b/mm/rmap.c
+index 6fdd198..7cf2408 100644
+--- a/mm/rmap.c
++++ b/mm/rmap.c
+@@ -1924,13 +1924,15 @@ static bool try_to_migrate_one(struct folio *folio, struct vm_area_struct *vma,
+ 					break;
+ 				}
+ 			}
++
++			/* Nuke the hugetlb page table entry */
++			pteval = huge_ptep_clear_flush(vma, address, pvmw.pte);
+ 		} else {
+ 			flush_cache_page(vma, address, pte_pfn(*pvmw.pte));
++			/* Nuke the page table entry. */
++			pteval = ptep_clear_flush(vma, address, pvmw.pte);
+ 		}
+ 
+-		/* Nuke the page table entry. */
+-		pteval = ptep_clear_flush(vma, address, pvmw.pte);
+-
+ 		/* Set the dirty flag on the folio now the pte is gone. */
+ 		if (pte_dirty(pteval))
+ 			folio_mark_dirty(folio);
+@@ -2015,7 +2017,10 @@ static bool try_to_migrate_one(struct folio *folio, struct vm_area_struct *vma,
+ 			pte_t swp_pte;
+ 
+ 			if (arch_unmap_one(mm, vma, address, pteval) < 0) {
+-				set_pte_at(mm, address, pvmw.pte, pteval);
++				if (folio_test_hugetlb(folio))
++					set_huge_pte_at(mm, address, pvmw.pte, pteval);
++				else
++					set_pte_at(mm, address, pvmw.pte, pteval);
+ 				ret = false;
+ 				page_vma_mapped_walk_done(&pvmw);
+ 				break;
+@@ -2024,7 +2029,10 @@ static bool try_to_migrate_one(struct folio *folio, struct vm_area_struct *vma,
+ 				       !anon_exclusive, subpage);
+ 			if (anon_exclusive &&
+ 			    page_try_share_anon_rmap(subpage)) {
+-				set_pte_at(mm, address, pvmw.pte, pteval);
++				if (folio_test_hugetlb(folio))
++					set_huge_pte_at(mm, address, pvmw.pte, pteval);
++				else
++					set_pte_at(mm, address, pvmw.pte, pteval);
+ 				ret = false;
+ 				page_vma_mapped_walk_done(&pvmw);
+ 				break;
+@@ -2050,7 +2058,11 @@ static bool try_to_migrate_one(struct folio *folio, struct vm_area_struct *vma,
+ 				swp_pte = pte_swp_mksoft_dirty(swp_pte);
+ 			if (pte_uffd_wp(pteval))
+ 				swp_pte = pte_swp_mkuffd_wp(swp_pte);
+-			set_pte_at(mm, address, pvmw.pte, swp_pte);
++			if (folio_test_hugetlb(folio))
++				set_huge_swap_pte_at(mm, address, pvmw.pte,
++						     swp_pte, vma_mmu_pagesize(vma));
++			else
++				set_pte_at(mm, address, pvmw.pte, swp_pte);
+ 			trace_set_migration_pte(address, pte_val(swp_pte),
+ 						compound_order(&folio->page));
+ 			/*
+-- 
+1.8.3.1
