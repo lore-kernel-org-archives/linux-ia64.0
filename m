@@ -1,68 +1,49 @@
-From: Doug Anderson <dianders@chromium.org>
-Date: Fri, 20 May 2022 23:01:43 +0000
-Subject: Re: [PATCH 03/16] kdb: Use real_parent when displaying a list of processes
-Message-Id: <CAD=FV=UxzB=jZuNtg--BFfKm_=7_Bex7G5fbjkV6Vf_tJQ+dTw@mail.gmail.com>
+From: Oleg Nesterov <oleg@redhat.com>
+Date: Mon, 02 May 2022 14:37:51 +0000
+Subject: Re: [PATCH v2 06/12] ptrace: Reimplement PTRACE_KILL by always sending SIGKILL
+Message-Id: <20220502143750.GC17276@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
- <20220518225355.784371-3-ebiederm@xmission.com> <CAD=FV=UFK7h0oHGJ23y37ShO+z4vt9ubGE9E4m=jMECgNAAHgA@mail.gmail.com>
- <8735h52ief.fsf@email.froward.int.ebiederm.org>
-In-Reply-To: <8735h52ief.fsf@email.froward.int.ebiederm.org>
+References: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
+ <20220429214837.386518-6-ebiederm@xmission.com>
+In-Reply-To: <20220429214837.386518-6-ebiederm@xmission.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: "Eric W. Biederman" <ebiederm@xmission.com>
-Cc: LKML <linux-kernel@vger.kernel.org>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Oleg Nesterov <oleg@redhat.com>, Ingo Molnar <mingo@kernel.org>, Vincent Guittot <vincent.guittot@linaro.org>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Steven Rostedt <rostedt@goodmis.org>, Mel Gorman <mgorman@suse.de>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Will Deacon <will@kernel.org>, Tejun Heo <tj@kernel.org>, Linux PM <linux-pm@vger.kernel.org>, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, Robert OCallahan <roc@pernos.co>, Kyle Huey <khuey@pernos.co>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Jason Wessel <jason.wessel@windriver.com>, Daniel Thompson <daniel.thompson@linaro.org>, Douglas Miller <dougmill@linux.vnet.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>
+Cc: linux-kernel@vger.kernel.org, rjw@rjwysocki.net, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, stable@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>
 
-Hi,
+On 04/29, Eric W. Biederman wrote:
+>
+> Call send_sig_info in PTRACE_KILL instead of ptrace_resume.  Calling
+> ptrace_resume is not safe to call if the task has not been stopped
+> with ptrace_freeze_traced.
 
-On Thu, May 19, 2022 at 4:49 PM Eric W. Biederman <ebiederm@xmission.com> wrote:
->
-> Doug Anderson <dianders@chromium.org> writes:
->
-> > Hi,
-> >
-> > On Wed, May 18, 2022 at 3:54 PM Eric W. Biederman <ebiederm@xmission.com> wrote:
-> >>
-> >> kdb has a bug that when using the ps command to display a list of
-> >> processes, if a process is being debugged the debugger as the parent
-> >> process.
-> >>
-> >> This is silly, and I expect it never comes up in ptractice.  As there
-> >> is very little point in using gdb and kdb simultaneously.  Update the
-> >> code to use real_parent so that it is clear kdb does not want to
-> >> display a debugger as the parent of a process.
-> >
-> > So I would tend to defer to Daniel, but I'm not convinced that the
-> > behavior you describe for kdb today _is_ actually silly.
-> >
-> > If I was in kdb and I was listing processes, I might actually want to
-> > see that a process's parent was set to gdb. Presumably that would tell
-> > me extra information that might be relevant to my debug session.
-> >
-> > Personally, I'd rather add an extra piece of information into the list
-> > showing the real parent if it's not the same as the parent. Then
-> > you're not throwing away information.
->
-> The name of the field is confusing for anyone who isn't intimate with
-> the implementation details.  The function getppid returns
-> tsk->real_parent->tgid.
->
-> If kdb wants information of what the tracer is that is fine, but I
-> recommend putting that information in another field.
->
-> Given that the original description says give the information that ps
-> gives my sense is that kdb is currently wrong.  Especially as it does
-> not give you the actual parentage anywhere.
->
-> I can certainly be convinced, but I do want some clarity.  It looks very
-> attractive to rename task->parent to task->ptracer and leave the field
-> NULL when there is no tracer.
+Oh, I was never, never able to understand why do we have PTRACE_KILL
+and what should it actually do.
 
-Fair enough. You can consider my objection rescinded.
+I suggested many times to simply remove it but OK, we probably can't
+do this.
 
-Presumably, though, you're hoping for an Ack for your patch and you
-plan to take it with the rest of the series. That's going to need to
-come from Daniel anyway as he is the actual maintainer. I'm just the
-peanut gallery. ;-)
+> --- a/kernel/ptrace.c
+> +++ b/kernel/ptrace.c
+> @@ -1238,7 +1238,7 @@ int ptrace_request(struct task_struct *child, long request,
+>  	case PTRACE_KILL:
+>  		if (child->exit_state)	/* already dead */
+>  			return 0;
+> -		return ptrace_resume(child, request, SIGKILL);
+> +		return send_sig_info(SIGKILL, SEND_SIG_NOINFO, child);
 
--Doug
+Note that currently ptrace(PTRACE_KILL) can never fail (yes, yes, it
+is unsafe), but send_sig_info() can. If we do not remove PTRACE_KILL,
+then I'd suggest
+
+	case PTRACE_KILL:
+		if (!child->exit_state)
+			send_sig_info(SIGKILL);
+		return 0;
+
+to make this change a bit more compatible.
+
+Also, please remove the note about PTRACE_KILL in set_task_blockstep().
+
+Oleg.
