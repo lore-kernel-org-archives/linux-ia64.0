@@ -1,57 +1,24 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Thu, 05 May 2022 18:26:44 +0000
-Subject: [PATCH v4 11/12] ptrace: Always take siglock in ptrace_resume
-Message-Id: <20220505182645.497868-11-ebiederm@xmission.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Mon, 02 May 2022 07:50:44 +0000
+Subject: Re: [PATCH v2 01/12] signal: Rename send_signal send_signal_locked
+Message-Id: <Ym+NVG2kxgkaN3lb@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
-In-Reply-To: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
+References: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
+ <20220429214837.386518-1-ebiederm@xmission.com>
+In-Reply-To: <20220429214837.386518-1-ebiederm@xmission.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: linux-kernel@vger.kernel.org, rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org
 
-Make code analysis simpler and future changes easier by
-always taking siglock in ptrace_resume.
+On 2022-04-29 16:48:26 [-0500], Eric W. Biederman wrote:
+> Rename send_signal send_signal_locked and make to make
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
- kernel/ptrace.c | 13 ++-----------
- 1 file changed, 2 insertions(+), 11 deletions(-)
+s@to make@@
 
-diff --git a/kernel/ptrace.c b/kernel/ptrace.c
-index 83ed28262708..36a5b7a00d2f 100644
---- a/kernel/ptrace.c
-+++ b/kernel/ptrace.c
-@@ -837,8 +837,6 @@ static long ptrace_get_rseq_configuration(struct task_struct *task,
- static int ptrace_resume(struct task_struct *child, long request,
- 			 unsigned long data)
- {
--	bool need_siglock;
--
- 	if (!valid_signal(data))
- 		return -EIO;
- 
-@@ -874,18 +872,11 @@ static int ptrace_resume(struct task_struct *child, long request,
- 	 * Note that we need siglock even if ->exit_code = data and/or this
- 	 * status was not reported yet, the new status must not be cleared by
- 	 * wait_task_stopped() after resume.
--	 *
--	 * If data = 0 we do not care if wait_task_stopped() reports the old
--	 * status and clears the code too; this can't race with the tracee, it
--	 * takes siglock after resume.
- 	 */
--	need_siglock = data && !thread_group_empty(current);
--	if (need_siglock)
--		spin_lock_irq(&child->sighand->siglock);
-+	spin_lock_irq(&child->sighand->siglock);
- 	child->exit_code = data;
- 	wake_up_state(child, __TASK_TRACED);
--	if (need_siglock)
--		spin_unlock_irq(&child->sighand->siglock);
-+	spin_unlock_irq(&child->sighand->siglock);
- 
- 	return 0;
- }
--- 
-2.35.3
+> it usable outside of signal.c.
+> 
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+
+Sebastian
