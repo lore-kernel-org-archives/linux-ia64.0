@@ -1,28 +1,98 @@
-From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
-Date: Wed, 11 May 2022 10:12:07 +0000
-Subject: Re: [PATCH v8 01/27] notifier: Add atomic_notifier_call_chain_is_empty()
-Message-Id: <5894c310-fe50-8037-fc9c-cbedb0d8e71f@collabora.com>
+From: Gerald Schaefer <gerald.schaefer@linux.ibm.com>
+Date: Mon, 02 May 2022 14:02:32 +0000
+Subject: Re: [PATCH 3/3] mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when unmapping
+Message-Id: <20220502160232.589a6111@thinkpad>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
- <20220509233235.995021-2-dmitry.osipenko@collabora.com>
- <CAJZ5v0gApRhc9+jZLxgNXC2B2tmz450=8+mFZUjTFF1iU7C-gw@mail.gmail.com>
-In-Reply-To: <CAJZ5v0gApRhc9+jZLxgNXC2B2tmz450=8+mFZUjTFF1iU7C-gw@mail.gmail.com>
+References: <cover.1651216964.git.baolin.wang@linux.alibaba.com>
+        <c91e04ebb792ef7b72966edea8bd6fa2dfa5bfa7.1651216964.git.baolin.wang@linux.alibaba.com>
+        <20220429220214.4cfc5539@thinkpad>
+        <bcb4a3b0-4fcd-af3a-2a2c-fd662d9eaba9@linux.alibaba.com>
+In-Reply-To: <bcb4a3b0-4fcd-af3a-2a2c-fd662d9eaba9@linux.alibaba.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Rafael J. Wysocki" <rafael@kernel.org>
-Cc: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, the arch/x86 maintainers <x86@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, "open list:BROADCOM NVRAM DRIVER" <linux-mips@vger.kernel.org>, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, Linux-sh list <linux-sh@vger.kernel.org>, xen-devel@lists.xenproject.org, ACPI Devel Maling List <linux-acpi@vger.kernel.org>, Linux PM <linux-pm@vger.kernel.org>, linux-tegra <linux-tegra@vger.kernel.org>
+To: Baolin Wang <baolin.wang@linux.alibaba.com>
+Cc: akpm@linux-foundation.org, mike.kravetz@oracle.com, catalin.marinas@arm.com, will@kernel.org, tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-On 5/10/22 21:14, Rafael J. Wysocki wrote:
-> On Tue, May 10, 2022 at 1:33 AM Dmitry Osipenko
-> <dmitry.osipenko@collabora.com> wrote:
->> Add atomic_notifier_call_chain_is_empty() that returns true if given
->> atomic call chain is empty.
-> It would be good to mention a use case for it.
+On Sat, 30 Apr 2022 11:22:33 +0800
+Baolin Wang <baolin.wang@linux.alibaba.com> wrote:
+
 > 
+> 
+> On 4/30/2022 4:02 AM, Gerald Schaefer wrote:
+> > On Fri, 29 Apr 2022 16:14:43 +0800
+> > Baolin Wang <baolin.wang@linux.alibaba.com> wrote:
+> > 
+> >> On some architectures (like ARM64), it can support CONT-PTE/PMD size
+> >> hugetlb, which means it can support not only PMD/PUD size hugetlb:
+> >> 2M and 1G, but also CONT-PTE/PMD size: 64K and 32M if a 4K page
+> >> size specified.
+> >>
+> >> When unmapping a hugetlb page, we will get the relevant page table
+> >> entry by huge_pte_offset() only once to nuke it. This is correct
+> >> for PMD or PUD size hugetlb, since they always contain only one
+> >> pmd entry or pud entry in the page table.
+> >>
+> >> However this is incorrect for CONT-PTE and CONT-PMD size hugetlb,
+> >> since they can contain several continuous pte or pmd entry with
+> >> same page table attributes, so we will nuke only one pte or pmd
+> >> entry for this CONT-PTE/PMD size hugetlb page.
+> >>
+> >> And now we only use try_to_unmap() to unmap a poisoned hugetlb page,
+> >> which means now we will unmap only one pte entry for a CONT-PTE or
+> >> CONT-PMD size poisoned hugetlb page, and we can still access other
+> >> subpages of a CONT-PTE or CONT-PMD size poisoned hugetlb page,
+> >> which will cause serious issues possibly.
+> >>
+> >> So we should change to use huge_ptep_clear_flush() to nuke the
+> >> hugetlb page table to fix this issue, which already considered
+> >> CONT-PTE and CONT-PMD size hugetlb.
+> >>
+> >> Note we've already used set_huge_swap_pte_at() to set a poisoned
+> >> swap entry for a poisoned hugetlb page.
+> >>
+> >> Signed-off-by: Baolin Wang <baolin.wang@linux.alibaba.com>
+> >> ---
+> >>   mm/rmap.c | 34 +++++++++++++++++-----------------
+> >>   1 file changed, 17 insertions(+), 17 deletions(-)
+> >>
+> >> diff --git a/mm/rmap.c b/mm/rmap.c
+> >> index 7cf2408..1e168d7 100644
+> >> --- a/mm/rmap.c
+> >> +++ b/mm/rmap.c
+> >> @@ -1564,28 +1564,28 @@ static bool try_to_unmap_one(struct folio *folio, struct vm_area_struct *vma,
+> >>   					break;
+> >>   				}
+> >>   			}
+> >> +			pteval = huge_ptep_clear_flush(vma, address, pvmw.pte);
+> > 
+> > Unlike in your patch 2/3, I do not see that this (huge) pteval would later
+> > be used again with set_huge_pte_at() instead of set_pte_at(). Not sure if
+> > this (huge) pteval could end up at a set_pte_at() later, but if yes, then
+> > this would be broken on s390, and you'd need to use set_huge_pte_at()
+> > instead of set_pte_at() like in your patch 2/3.
+> 
+> IIUC, As I said in the commit message, we will only unmap a poisoned 
+> hugetlb page by try_to_unmap(), and the poisoned hugetlb page will be 
+> remapped with a poisoned entry by set_huge_swap_pte_at() in 
+> try_to_unmap_one(). So I think no need change to use set_huge_pte_at() 
+> instead of set_pte_at() for other cases, since the hugetlb page will not 
+> hit other cases.
+> 
+> if (PageHWPoison(subpage) && !(flags & TTU_IGNORE_HWPOISON)) {
+> 	pteval = swp_entry_to_pte(make_hwpoison_entry(subpage));
+> 	if (folio_test_hugetlb(folio)) {
+> 		hugetlb_count_sub(folio_nr_pages(folio), mm);
+> 		set_huge_swap_pte_at(mm, address, pvmw.pte, pteval,
+> 				     vma_mmu_pagesize(vma));
+> 	} else {
+> 		dec_mm_counter(mm, mm_counter(&folio->page));
+> 		set_pte_at(mm, address, pvmw.pte, pteval);
+> 	}
+> 
+> }
 
-I'll update this patch for v9.
-
--- 
-Best regards,
-Dmitry
+OK, but wouldn't the pteval be overwritten here with
+pteval = swp_entry_to_pte(make_hwpoison_entry(subpage))?
+IOW, what sense does it make to save the returned pteval from
+huge_ptep_clear_flush(), when it is never being used anywhere?
