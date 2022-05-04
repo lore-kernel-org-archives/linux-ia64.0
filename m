@@ -1,64 +1,77 @@
-From: Pingfan Liu <kernelfans@gmail.com>
-Date: Thu, 12 May 2022 03:06:17 +0000
-Subject: [PATCHv4 0/2] cpu/hotplug: Keep cpu hotplug disabled until the rebooting cpu is stable
-Message-Id: <20220512030619.13426-1-kernelfans@gmail.com>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Wed, 04 May 2022 22:40:54 +0000
+Subject: [PATCH v3 07/11] ptrace: Reimplement PTRACE_KILL by always sending SIGKILL
+Message-Id: <20220504224058.476193-7-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <87k0b0apne.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <87k0b0apne.fsf_-_@email.froward.int.ebiederm.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: kexec@lists.infradead.org
+To: linux-kernel@vger.kernel.org
+Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>, stable@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>
 
-For the architectures (arm/arm64/ia64/riscv), which relies on the cpu
-hot-removing mechanism to implement "kexec -e", it is important to
-ensure that the rebooting happens on a valid online cpu. And this logic
-should have been guaranteed in migrate_to_reboot_cpu().
+The current implementation of PTRACE_KILL is buggy and has been for
+many years as it assumes it's target has stopped in ptrace_stop.  At a
+quick skim it looks like this assumption has existed since ptrace
+support was added in linux v1.0.
 
-But the current code has either contradict (resolved by [2/2]) or
-redundancy (resolved by [1/2]) about the logic.
+While PTRACE_KILL has been deprecated we can not remove it as
+a quick search with google code search reveals many existing
+programs calling it.
 
+When the ptracee is not stopped at ptrace_stop some fields would be
+set that are ignored except in ptrace_stop.  Making the userspace
+visible behavior of PTRACE_KILL a noop in those case.
 
-V3 -> V4:
-Fix the cpu hotplug enable before kexec-rebooting in powerpc.
-Improve commit log and the code's note.
+As the usual rules are not obeyed it is not clear what the
+consequences are of calling PTRACE_KILL on a running process.
+Presumably userspace does not do this as it achieves nothing.
 
-V2 -> V3:
-Taking in [2/2], which also has problem with the valid rebooting
-cpu. (I had sent three patches for different arches. But maybe it is
-better to collapse them into one and collect acks from different arches'
-maintainers )
+Replace the implementation of PTRACE_KILL with a simple
+send_sig_info(SIGKILL) followed by a return 0.  This changes the
+observable user space behavior only in that PTRACE_KILL on a process
+not stopped in ptrace_stop will also kill it.  As that has always
+been the intent of the code this seems like a reasonable change.
 
-Cc: Eric Biederman <ebiederm@xmission.com>
-Cc: Peter Zijlstra <peterz@infradead.org>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Vincent Donnefort <vincent.donnefort@arm.com>
-Cc: Ingo Molnar <mingo@kernel.org>
-Cc: YueHaibing <yuehaibing@huawei.com>
-Cc: Baokun Li <libaokun1@huawei.com>
-Cc: Randy Dunlap <rdunlap@infradead.org>
-Cc: Valentin Schneider <valentin.schneider@arm.com>
-Cc: kexec@lists.infradead.org
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>
-Cc: Kees Cook <keescook@chromium.org>
-Cc: Jens Axboe <axboe@kernel.dk>
-To: linux-ia64@vger.kernel.org
-Cc: Russell King <linux@armlinux.org.uk>
-Cc: Guenter Roeck <linux@roeck-us.net>
+Cc: stable@vger.kernel.org
+Reported-by: Al Viro <viro@zeniv.linux.org.uk>
+Suggested-by: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ arch/x86/kernel/step.c | 3 +--
+ kernel/ptrace.c        | 5 ++---
+ 2 files changed, 3 insertions(+), 5 deletions(-)
 
-Pingfan Liu (2):
-  cpu/hotplug: Keep cpu hotplug disabled until the rebooting cpu is
-    stable
-  cpu/hotplug: Remove the input parameter primary_cpu of
-    smp_shutdown_nonboot_cpus()
-
- arch/arm/kernel/reboot.c          |  2 +-
- arch/arm64/kernel/process.c       |  2 +-
- arch/ia64/kernel/process.c        |  2 +-
- arch/powerpc/kexec/core_64.c      |  1 +
- arch/riscv/kernel/machine_kexec.c |  2 +-
- include/linux/cpu.h               |  4 ++--
- kernel/cpu.c                      | 14 +++++++-------
- kernel/kexec_core.c               | 11 +++++------
- 8 files changed, 19 insertions(+), 19 deletions(-)
-
+diff --git a/arch/x86/kernel/step.c b/arch/x86/kernel/step.c
+index 0f3c307b37b3..8e2b2552b5ee 100644
+--- a/arch/x86/kernel/step.c
++++ b/arch/x86/kernel/step.c
+@@ -180,8 +180,7 @@ void set_task_blockstep(struct task_struct *task, bool on)
+ 	 *
+ 	 * NOTE: this means that set/clear TIF_BLOCKSTEP is only safe if
+ 	 * task is current or it can't be running, otherwise we can race
+-	 * with __switch_to_xtra(). We rely on ptrace_freeze_traced() but
+-	 * PTRACE_KILL is not safe.
++	 * with __switch_to_xtra(). We rely on ptrace_freeze_traced().
+ 	 */
+ 	local_irq_disable();
+ 	debugctl = get_debugctlmsr();
+diff --git a/kernel/ptrace.c b/kernel/ptrace.c
+index da30dcd477a0..7105821595bc 100644
+--- a/kernel/ptrace.c
++++ b/kernel/ptrace.c
+@@ -1236,9 +1236,8 @@ int ptrace_request(struct task_struct *child, long request,
+ 		return ptrace_resume(child, request, data);
+ 
+ 	case PTRACE_KILL:
+-		if (child->exit_state)	/* already dead */
+-			return 0;
+-		return ptrace_resume(child, request, SIGKILL);
++		send_sig_info(SIGKILL, SEND_SIG_NOINFO, child);
++		return 0;
+ 
+ #ifdef CONFIG_HAVE_ARCH_TRACEHOOK
+ 	case PTRACE_GETREGSET:
 -- 
-2.31.1
+2.35.3
