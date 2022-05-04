@@ -1,117 +1,49 @@
-From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
-Date: Mon, 09 May 2022 23:32:31 +0000
-Subject: [PATCH v8 23/27] regulator: pfuze100: Use devm_register_sys_off_handler()
-Message-Id: <20220509233235.995021-24-dmitry.osipenko@collabora.com>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Wed, 04 May 2022 22:40:53 +0000
+Subject: [PATCH v3 06/11] signal: Use lockdep_assert_held instead of assert_spin_locked
+Message-Id: <20220504224058.476193-6-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
-In-Reply-To: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
+References: <87k0b0apne.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <87k0b0apne.fsf_-_@email.froward.int.ebiederm.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
 
-Use devm_register_sys_off_handler() that replaces global
-pm_power_off_prepare variable and allows to register multiple
-power-off handlers.
+The distinction is that assert_spin_locked() checks if the lock is
+held *by*anyone* whereas lockdep_assert_held() asserts the current
+context holds the lock.  Also, the check goes away if you build
+without lockdep.
 
-Acked-by: Mark Brown <broonie@kernel.org>
-Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
+Suggested-by: Peter Zijlstra <peterz@infradead.org>
+Link: https://lkml.kernel.org/r/Ympr/+PX4XgT/UKU@hirez.programming.kicks-ass.net
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- drivers/regulator/pfuze100-regulator.c | 42 +++++++++++---------------
- 1 file changed, 17 insertions(+), 25 deletions(-)
+ kernel/signal.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/regulator/pfuze100-regulator.c b/drivers/regulator/pfuze100-regulator.c
-index d60d7d1b7fa2..0322f6b1fb60 100644
---- a/drivers/regulator/pfuze100-regulator.c
-+++ b/drivers/regulator/pfuze100-regulator.c
-@@ -10,6 +10,7 @@
- #include <linux/of_device.h>
- #include <linux/regulator/of_regulator.h>
- #include <linux/platform_device.h>
-+#include <linux/reboot.h>
- #include <linux/regulator/driver.h>
- #include <linux/regulator/machine.h>
- #include <linux/regulator/pfuze100.h>
-@@ -569,10 +570,10 @@ static inline struct device_node *match_of_node(int index)
- 	return pfuze_matches[index].of_node;
- }
- 
--static struct pfuze_chip *syspm_pfuze_chip;
--
--static void pfuze_power_off_prepare(void)
-+static int pfuze_power_off_prepare(struct sys_off_data *data)
+diff --git a/kernel/signal.c b/kernel/signal.c
+index 72d96614effc..3fd2ce133387 100644
+--- a/kernel/signal.c
++++ b/kernel/signal.c
+@@ -884,7 +884,7 @@ static int check_kill_permission(int sig, struct kernel_siginfo *info,
+ static void ptrace_trap_notify(struct task_struct *t)
  {
-+	struct pfuze_chip *syspm_pfuze_chip = data->cb_data;
-+
- 	dev_info(syspm_pfuze_chip->dev, "Configure standby mode for power off");
+ 	WARN_ON_ONCE(!(t->ptrace & PT_SEIZED));
+-	assert_spin_locked(&t->sighand->siglock);
++	lockdep_assert_held(&t->sighand->siglock);
  
- 	/* Switch from default mode: APS/APS to APS/Off */
-@@ -607,28 +608,30 @@ static void pfuze_power_off_prepare(void)
- 	regmap_update_bits(syspm_pfuze_chip->regmap, PFUZE100_VGEN6VOL,
- 			   PFUZE100_VGENxLPWR | PFUZE100_VGENxSTBY,
- 			   PFUZE100_VGENxSTBY);
-+
-+	return NOTIFY_DONE;
- }
+ 	task_set_jobctl_pending(t, JOBCTL_TRAP_NOTIFY);
+ 	ptrace_signal_wake_up(t, t->jobctl & JOBCTL_LISTENING);
+@@ -1079,7 +1079,7 @@ static int __send_signal_locked(int sig, struct kernel_siginfo *info,
+ 	int override_rlimit;
+ 	int ret = 0, result;
  
- static int pfuze_power_off_prepare_init(struct pfuze_chip *pfuze_chip)
- {
-+	int err;
-+
- 	if (pfuze_chip->chip_id != PFUZE100) {
- 		dev_warn(pfuze_chip->dev, "Requested pm_power_off_prepare handler for not supported chip\n");
- 		return -ENODEV;
- 	}
+-	assert_spin_locked(&t->sighand->siglock);
++	lockdep_assert_held(&t->sighand->siglock);
  
--	if (pm_power_off_prepare) {
--		dev_warn(pfuze_chip->dev, "pm_power_off_prepare is already registered.\n");
--		return -EBUSY;
-+	err = devm_register_sys_off_handler(pfuze_chip->dev,
-+					    SYS_OFF_MODE_POWER_OFF_PREPARE,
-+					    SYS_OFF_PRIO_DEFAULT,
-+					    pfuze_power_off_prepare,
-+					    pfuze_chip);
-+	if (err) {
-+		dev_err(pfuze_chip->dev, "failed to register sys-off handler: %d\n",
-+			err);
-+		return err;
- 	}
- 
--	if (syspm_pfuze_chip) {
--		dev_warn(pfuze_chip->dev, "syspm_pfuze_chip is already set.\n");
--		return -EBUSY;
--	}
--
--	syspm_pfuze_chip = pfuze_chip;
--	pm_power_off_prepare = pfuze_power_off_prepare;
--
- 	return 0;
- }
- 
-@@ -837,23 +840,12 @@ static int pfuze100_regulator_probe(struct i2c_client *client,
- 	return 0;
- }
- 
--static int pfuze100_regulator_remove(struct i2c_client *client)
--{
--	if (syspm_pfuze_chip) {
--		syspm_pfuze_chip = NULL;
--		pm_power_off_prepare = NULL;
--	}
--
--	return 0;
--}
--
- static struct i2c_driver pfuze_driver = {
- 	.driver = {
- 		.name = "pfuze100-regulator",
- 		.of_match_table = pfuze_dt_ids,
- 	},
- 	.probe = pfuze100_regulator_probe,
--	.remove = pfuze100_regulator_remove,
- };
- module_i2c_driver(pfuze_driver);
- 
+ 	result = TRACE_SIGNAL_IGNORED;
+ 	if (!prepare_signal(sig, t, force))
 -- 
-2.35.1
+2.35.3
