@@ -1,136 +1,112 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Thu, 05 May 2022 18:26:34 +0000
-Subject: [PATCH v4 01/12] signal: Rename send_signal send_signal_locked
-Message-Id: <20220505182645.497868-1-ebiederm@xmission.com>
+Date: Wed, 04 May 2022 22:40:49 +0000
+Subject: [PATCH v3 02/11] signal: Replace __group_send_sig_info with send_signal_locked
+Message-Id: <20220504224058.476193-2-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
-In-Reply-To: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
+References: <87k0b0apne.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <87k0b0apne.fsf_-_@email.froward.int.ebiederm.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
 Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
 
-Rename send_signal and __send_signal to send_signal_locked and
-__send_signal_locked to make send_signal usable outside of
-signal.c.
+The function __group_send_sig_info is just a light wrapper around
+send_signal_locked with one parameter fixed to a constant value.  As
+the wrapper adds no real value update the code to directly call the
+wrapped function.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- include/linux/signal.h |  2 ++
- kernel/signal.c        | 24 ++++++++++++------------
- 2 files changed, 14 insertions(+), 12 deletions(-)
+ drivers/tty/tty_jobctrl.c      | 4 ++--
+ include/linux/signal.h         | 1 -
+ kernel/signal.c                | 8 +-------
+ kernel/time/posix-cpu-timers.c | 6 +++---
+ 4 files changed, 6 insertions(+), 13 deletions(-)
 
+diff --git a/drivers/tty/tty_jobctrl.c b/drivers/tty/tty_jobctrl.c
+index 80b86a7992b5..0d04287da098 100644
+--- a/drivers/tty/tty_jobctrl.c
++++ b/drivers/tty/tty_jobctrl.c
+@@ -215,8 +215,8 @@ int tty_signal_session_leader(struct tty_struct *tty, int exit_session)
+ 				spin_unlock_irq(&p->sighand->siglock);
+ 				continue;
+ 			}
+-			__group_send_sig_info(SIGHUP, SEND_SIG_PRIV, p);
+-			__group_send_sig_info(SIGCONT, SEND_SIG_PRIV, p);
++			send_signal_locked(SIGHUP, SEND_SIG_PRIV, p, PIDTYPE_TGID);
++			send_signal_locked(SIGCONT, SEND_SIG_PRIV, p, PIDTYPE_TGID);
+ 			put_pid(p->signal->tty_old_pgrp);  /* A noop */
+ 			spin_lock(&tty->ctrl.lock);
+ 			tty_pgrp = get_pid(tty->ctrl.pgrp);
 diff --git a/include/linux/signal.h b/include/linux/signal.h
-index a6db6f2ae113..55605bdf5ce9 100644
+index 55605bdf5ce9..3b98e7a28538 100644
 --- a/include/linux/signal.h
 +++ b/include/linux/signal.h
-@@ -283,6 +283,8 @@ extern int do_send_sig_info(int sig, struct kernel_siginfo *info,
+@@ -282,7 +282,6 @@ extern int do_send_sig_info(int sig, struct kernel_siginfo *info,
+ 				struct task_struct *p, enum pid_type type);
  extern int group_send_sig_info(int sig, struct kernel_siginfo *info,
  			       struct task_struct *p, enum pid_type type);
- extern int __group_send_sig_info(int, struct kernel_siginfo *, struct task_struct *);
-+extern int send_signal_locked(int sig, struct kernel_siginfo *info,
-+			      struct task_struct *p, enum pid_type type);
+-extern int __group_send_sig_info(int, struct kernel_siginfo *, struct task_struct *);
+ extern int send_signal_locked(int sig, struct kernel_siginfo *info,
+ 			      struct task_struct *p, enum pid_type type);
  extern int sigprocmask(int, sigset_t *, sigset_t *);
- extern void set_current_blocked(sigset_t *);
- extern void __set_current_blocked(const sigset_t *);
 diff --git a/kernel/signal.c b/kernel/signal.c
-index 30cd1ca43bcd..b0403197b0ad 100644
+index b0403197b0ad..72d96614effc 100644
 --- a/kernel/signal.c
 +++ b/kernel/signal.c
-@@ -1071,8 +1071,8 @@ static inline bool legacy_queue(struct sigpending *signals, int sig)
- 	return (sig < SIGRTMIN) && sigismember(&signals->signal, sig);
- }
+@@ -1281,12 +1281,6 @@ static int __init setup_print_fatal_signals(char *str)
  
--static int __send_signal(int sig, struct kernel_siginfo *info, struct task_struct *t,
--			enum pid_type type, bool force)
-+static int __send_signal_locked(int sig, struct kernel_siginfo *info,
-+				struct task_struct *t, enum pid_type type, bool force)
- {
- 	struct sigpending *pending;
- 	struct sigqueue *q;
-@@ -1212,8 +1212,8 @@ static inline bool has_si_pid_and_uid(struct kernel_siginfo *info)
- 	return ret;
- }
+ __setup("print-fatal-signals=", setup_print_fatal_signals);
  
--static int send_signal(int sig, struct kernel_siginfo *info, struct task_struct *t,
--			enum pid_type type)
-+int send_signal_locked(int sig, struct kernel_siginfo *info,
-+		       struct task_struct *t, enum pid_type type)
- {
- 	/* Should SIGKILL or SIGSTOP be received by a pid namespace init? */
- 	bool force = false;
-@@ -1245,7 +1245,7 @@ static int send_signal(int sig, struct kernel_siginfo *info, struct task_struct
- 			force = true;
- 		}
- 	}
--	return __send_signal(sig, info, t, type, force);
-+	return __send_signal_locked(sig, info, t, type, force);
- }
- 
- static void print_fatal_signal(int signr)
-@@ -1284,7 +1284,7 @@ __setup("print-fatal-signals=", setup_print_fatal_signals);
- int
- __group_send_sig_info(int sig, struct kernel_siginfo *info, struct task_struct *p)
- {
--	return send_signal(sig, info, p, PIDTYPE_TGID);
-+	return send_signal_locked(sig, info, p, PIDTYPE_TGID);
- }
- 
+-int
+-__group_send_sig_info(int sig, struct kernel_siginfo *info, struct task_struct *p)
+-{
+-	return send_signal_locked(sig, info, p, PIDTYPE_TGID);
+-}
+-
  int do_send_sig_info(int sig, struct kernel_siginfo *info, struct task_struct *p,
-@@ -1294,7 +1294,7 @@ int do_send_sig_info(int sig, struct kernel_siginfo *info, struct task_struct *p
- 	int ret = -ESRCH;
- 
- 	if (lock_task_sighand(p, &flags)) {
--		ret = send_signal(sig, info, p, type);
-+		ret = send_signal_locked(sig, info, p, type);
- 		unlock_task_sighand(p, &flags);
- 	}
- 
-@@ -1347,7 +1347,7 @@ force_sig_info_to_task(struct kernel_siginfo *info, struct task_struct *t,
- 	if (action->sa.sa_handler = SIG_DFL &&
- 	    (!t->ptrace || (handler = HANDLER_EXIT)))
- 		t->signal->flags &= ~SIGNAL_UNKILLABLE;
--	ret = send_signal(sig, info, t, PIDTYPE_PID);
-+	ret = send_signal_locked(sig, info, t, PIDTYPE_PID);
- 	spin_unlock_irqrestore(&t->sighand->siglock, flags);
- 
- 	return ret;
-@@ -1567,7 +1567,7 @@ int kill_pid_usb_asyncio(int sig, int errno, sigval_t addr,
- 
- 	if (sig) {
- 		if (lock_task_sighand(p, &flags)) {
--			ret = __send_signal(sig, &info, p, PIDTYPE_TGID, false);
-+			ret = __send_signal_locked(sig, &info, p, PIDTYPE_TGID, false);
- 			unlock_task_sighand(p, &flags);
- 		} else
- 			ret = -ESRCH;
-@@ -2103,7 +2103,7 @@ bool do_notify_parent(struct task_struct *tsk, int sig)
- 	 * parent's namespaces.
+ 			enum pid_type type)
+ {
+@@ -2173,7 +2167,7 @@ static void do_notify_parent_cldstop(struct task_struct *tsk,
+ 	spin_lock_irqsave(&sighand->siglock, flags);
+ 	if (sighand->action[SIGCHLD-1].sa.sa_handler != SIG_IGN &&
+ 	    !(sighand->action[SIGCHLD-1].sa.sa_flags & SA_NOCLDSTOP))
+-		__group_send_sig_info(SIGCHLD, &info, parent);
++		send_signal_locked(SIGCHLD, &info, parent, PIDTYPE_TGID);
+ 	/*
+ 	 * Even if SIGCHLD is not generated, we must wake up wait4 calls.
  	 */
- 	if (valid_signal(sig) && sig)
--		__send_signal(sig, &info, tsk->parent, PIDTYPE_TGID, false);
-+		__send_signal_locked(sig, &info, tsk->parent, PIDTYPE_TGID, false);
- 	__wake_up_parent(tsk, tsk->parent);
- 	spin_unlock_irqrestore(&psig->siglock, flags);
+diff --git a/kernel/time/posix-cpu-timers.c b/kernel/time/posix-cpu-timers.c
+index 0a97193984db..cb925e8ef9a8 100644
+--- a/kernel/time/posix-cpu-timers.c
++++ b/kernel/time/posix-cpu-timers.c
+@@ -870,7 +870,7 @@ static inline void check_dl_overrun(struct task_struct *tsk)
+ {
+ 	if (tsk->dl.dl_overrun) {
+ 		tsk->dl.dl_overrun = 0;
+-		__group_send_sig_info(SIGXCPU, SEND_SIG_PRIV, tsk);
++		send_signal_locked(SIGXCPU, SEND_SIG_PRIV, tsk, PIDTYPE_TGID);
+ 	}
+ }
  
-@@ -2601,7 +2601,7 @@ static int ptrace_signal(int signr, kernel_siginfo_t *info, enum pid_type type)
- 	/* If the (new) signal is now blocked, requeue it.  */
- 	if (sigismember(&current->blocked, signr) ||
- 	    fatal_signal_pending(current)) {
--		send_signal(signr, info, current, type);
-+		send_signal_locked(signr, info, current, type);
- 		signr = 0;
+@@ -884,7 +884,7 @@ static bool check_rlimit(u64 time, u64 limit, int signo, bool rt, bool hard)
+ 			rt ? "RT" : "CPU", hard ? "hard" : "soft",
+ 			current->comm, task_pid_nr(current));
+ 	}
+-	__group_send_sig_info(signo, SEND_SIG_PRIV, current);
++	send_signal_locked(signo, SEND_SIG_PRIV, current, PIDTYPE_TGID);
+ 	return true;
+ }
+ 
+@@ -958,7 +958,7 @@ static void check_cpu_itimer(struct task_struct *tsk, struct cpu_itimer *it,
+ 		trace_itimer_expire(signo = SIGPROF ?
+ 				    ITIMER_PROF : ITIMER_VIRTUAL,
+ 				    task_tgid(tsk), cur_time);
+-		__group_send_sig_info(signo, SEND_SIG_PRIV, tsk);
++		send_signal_locked(signo, SEND_SIG_PRIV, tsk, PIDTYPE_TGID);
  	}
  
-@@ -4793,7 +4793,7 @@ void kdb_send_sig(struct task_struct *t, int sig)
- 			   "the deadlock.\n");
- 		return;
- 	}
--	ret = send_signal(sig, SEND_SIG_PRIV, t, PIDTYPE_PID);
-+	ret = send_signal_locked(sig, SEND_SIG_PRIV, t, PIDTYPE_PID);
- 	spin_unlock(&t->sighand->siglock);
- 	if (ret)
- 		kdb_printf("Fail to deliver Signal %d to process %d.\n",
+ 	if (it->expires && it->expires < *expires)
 -- 
 2.35.3
