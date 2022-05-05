@@ -1,29 +1,49 @@
-From: Peng Liu <liupeng256@huawei.com>
-Date: Fri, 06 May 2022 01:57:59 +0000
-Subject: [PATCH 0/2] null_blk: fix wrong use of nr_online_nodes
-Message-Id: <20220506015801.757918-1-liupeng256@huawei.com>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Thu, 05 May 2022 18:26:39 +0000
+Subject: [PATCH v4 06/12] signal: Use lockdep_assert_held instead of assert_spin_locked
+Message-Id: <20220505182645.497868-6-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: bhelgaas@google.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, lorenzo.pieralisi@arm.com, guohanjun@huawei.com, sudeep.holla@arm.com, rafael@kernel.org, lenb@kernel.org, akpm@linux-foundation.org, logang@deltatee.com, martin.oliveira@eideticom.com, thunder.leizhen@huawei.com, axboe@kernel.dk, kch@nvidia.com, ming.lei@redhat.com, shinichiro.kawasaki@wdc.com, mcgrof@kernel.org, jiangguoqing@kylinos.cn, jpittman@redhat.com, dave@stgolabs.net, liupeng256@huawei.com, wangkefeng.wang@huawei.com, linux-block@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-mm@kvack.org
+To: linux-kernel@vger.kernel.org
+Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
 
-Helper node_available is introduced to judge whether a node can be
-used, and it is used to fix the wrong use of nr_online_nodes when
-numa node is sparse.
+The distinction is that assert_spin_locked() checks if the lock is
+held *by*anyone* whereas lockdep_assert_held() asserts the current
+context holds the lock.  Also, the check goes away if you build
+without lockdep.
 
-Peng Liu (2):
-  include/linux/nodemask.h: create node_available() helper
-  null_blk: fix wrong use of nr_online_nodes
+Suggested-by: Peter Zijlstra <peterz@infradead.org>
+Link: https://lkml.kernel.org/r/Ympr/+PX4XgT/UKU@hirez.programming.kicks-ass.net
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ kernel/signal.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
- arch/ia64/hp/common/sba_iommu.c |  2 +-
- arch/x86/pci/acpi.c             |  2 +-
- drivers/acpi/arm64/iort.c       |  2 +-
- drivers/block/null_blk/main.c   | 45 ++++++++++++++++++++-------------
- drivers/pci/pci-sysfs.c         |  2 +-
- include/linux/nodemask.h        |  3 +++
- mm/mempolicy.c                  |  2 +-
- 7 files changed, 36 insertions(+), 22 deletions(-)
-
+diff --git a/kernel/signal.c b/kernel/signal.c
+index 72d96614effc..3fd2ce133387 100644
+--- a/kernel/signal.c
++++ b/kernel/signal.c
+@@ -884,7 +884,7 @@ static int check_kill_permission(int sig, struct kernel_siginfo *info,
+ static void ptrace_trap_notify(struct task_struct *t)
+ {
+ 	WARN_ON_ONCE(!(t->ptrace & PT_SEIZED));
+-	assert_spin_locked(&t->sighand->siglock);
++	lockdep_assert_held(&t->sighand->siglock);
+ 
+ 	task_set_jobctl_pending(t, JOBCTL_TRAP_NOTIFY);
+ 	ptrace_signal_wake_up(t, t->jobctl & JOBCTL_LISTENING);
+@@ -1079,7 +1079,7 @@ static int __send_signal_locked(int sig, struct kernel_siginfo *info,
+ 	int override_rlimit;
+ 	int ret = 0, result;
+ 
+-	assert_spin_locked(&t->sighand->siglock);
++	lockdep_assert_held(&t->sighand->siglock);
+ 
+ 	result = TRACE_SIGNAL_IGNORED;
+ 	if (!prepare_signal(sig, t, force))
 -- 
-2.25.1
+2.35.3
