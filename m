@@ -1,234 +1,206 @@
-From: Baolin Wang <baolin.wang@linux.alibaba.com>
-Date: Wed, 11 May 2022 12:04:17 +0000
-Subject: [PATCH v4 1/3] mm: change huge_ptep_clear_flush() to return the original pte
-Message-Id: <20f77ddab90baa249bd24504c413189b82acde69.1652270205.git.baolin.wang@linux.alibaba.com>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Thu, 05 May 2022 18:26:42 +0000
+Subject: [PATCH v4 09/12] ptrace: Admit ptrace_stop can generate spuriuos SIGTRAPs
+Message-Id: <20220505182645.497868-9-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1652270205.git.baolin.wang@linux.alibaba.com>
-In-Reply-To: <cover.1652270205.git.baolin.wang@linux.alibaba.com>
+References: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, mike.kravetz@oracle.com
-Cc: catalin.marinas@arm.com, will@kernel.org, songmuchun@bytedance.com, tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, baolin.wang@linux.alibaba.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+To: linux-kernel@vger.kernel.org
+Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
 
-It is incorrect to use ptep_clear_flush() to nuke a hugetlb page
-table when unmapping or migrating a hugetlb page, and will change
-to use huge_ptep_clear_flush() instead in the following patches.
+Long ago and far away there was a BUG_ON at the start of ptrace_stop
+that did "BUG_ON(!(current->ptrace & PT_PTRACED));" [1].  The BUG_ON
+had never triggered but examination of the code showed that the BUG_ON
+could actually trigger.  To complement removing the BUG_ON an attempt
+to better handle the race was added.
 
-So this is a preparation patch, which changes the huge_ptep_clear_flush()
-to return the original pte to help to nuke a hugetlb page table.
+The code detected the tracer had gone away and did not call
+do_notify_parent_cldstop.  The code also attempted to prevent
+ptrace_report_syscall from sending spurious SIGTRAPs when the tracer
+went away.
 
-Signed-off-by: Baolin Wang <baolin.wang@linux.alibaba.com>
-Acked-by: Mike Kravetz <mike.kravetz@oracle.com>
-Reviewed-by: Muchun Song <songmuchun@bytedance.com>
+The code to detect when the tracer had gone away before sending a
+signal to tracer was a legitimate fix and continues to work to this
+date.
+
+The code to prevent sending spurious SIGTRAPs is a failure.  At the
+time and until today the code only catches it when the tracer goes
+away after siglock is dropped and before read_lock is acquired.  If
+the tracer goes away after read_lock is dropped a spurious SIGTRAP can
+still be sent to the tracee.  The tracer going away after read_lock
+is dropped is the far likelier case as it is the bigger window.
+
+Given that the attempt to prevent the generation of a SIGTRAP was a
+failure and continues to be a failure remove the code that attempts to
+do that.  This simplifies the code in ptrace_stop and makes
+ptrace_stop much easier to reason about.
+
+To successfully deal with the tracer going away, all of the tracer's
+instrumentation of the child would need to be removed, and reliably
+detecting when the tracer has set a signal to continue with would need
+to be implemented.
+
+[1] 66519f549ae5 ("[PATCH] fix ptracer death race yielding bogus BUG_ON")
+History-Tree: https://git.kernel.org/pub/scm/linux/kernel/git/tglx/history.git
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- arch/arm64/include/asm/hugetlb.h   |  4 ++--
- arch/arm64/mm/hugetlbpage.c        | 12 +++++-------
- arch/ia64/include/asm/hugetlb.h    |  5 +++--
- arch/mips/include/asm/hugetlb.h    |  9 ++++++---
- arch/parisc/include/asm/hugetlb.h  |  5 +++--
- arch/powerpc/include/asm/hugetlb.h |  9 ++++++---
- arch/s390/include/asm/hugetlb.h    |  6 +++---
- arch/sh/include/asm/hugetlb.h      |  5 +++--
- arch/sparc/include/asm/hugetlb.h   |  5 +++--
- include/asm-generic/hugetlb.h      |  4 ++--
- 10 files changed, 36 insertions(+), 28 deletions(-)
+ kernel/signal.c | 92 ++++++++++++++++++++-----------------------------
+ 1 file changed, 38 insertions(+), 54 deletions(-)
 
-diff --git a/arch/arm64/include/asm/hugetlb.h b/arch/arm64/include/asm/hugetlb.h
-index 1242f71..616b2ca 100644
---- a/arch/arm64/include/asm/hugetlb.h
-+++ b/arch/arm64/include/asm/hugetlb.h
-@@ -39,8 +39,8 @@ extern pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
- extern void huge_ptep_set_wrprotect(struct mm_struct *mm,
- 				    unsigned long addr, pte_t *ptep);
- #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
--extern void huge_ptep_clear_flush(struct vm_area_struct *vma,
--				  unsigned long addr, pte_t *ptep);
-+extern pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
-+				   unsigned long addr, pte_t *ptep);
- #define __HAVE_ARCH_HUGE_PTE_CLEAR
- extern void huge_pte_clear(struct mm_struct *mm, unsigned long addr,
- 			   pte_t *ptep, unsigned long sz);
-diff --git a/arch/arm64/mm/hugetlbpage.c b/arch/arm64/mm/hugetlbpage.c
-index cbace1c..ca8e65c 100644
---- a/arch/arm64/mm/hugetlbpage.c
-+++ b/arch/arm64/mm/hugetlbpage.c
-@@ -486,19 +486,17 @@ void huge_ptep_set_wrprotect(struct mm_struct *mm,
- 		set_pte_at(mm, addr, ptep, pfn_pte(pfn, hugeprot));
- }
- 
--void huge_ptep_clear_flush(struct vm_area_struct *vma,
--			   unsigned long addr, pte_t *ptep)
-+pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
-+			    unsigned long addr, pte_t *ptep)
+diff --git a/kernel/signal.c b/kernel/signal.c
+index 3fd2ce133387..d2d0c753156c 100644
+--- a/kernel/signal.c
++++ b/kernel/signal.c
+@@ -2187,13 +2187,12 @@ static void do_notify_parent_cldstop(struct task_struct *tsk,
+  * with.  If the code did not stop because the tracer is gone,
+  * the stop signal remains unchanged unless clear_code.
+  */
+-static int ptrace_stop(int exit_code, int why, int clear_code,
+-			unsigned long message, kernel_siginfo_t *info)
++static int ptrace_stop(int exit_code, int why, unsigned long message,
++		       kernel_siginfo_t *info)
+ 	__releases(&current->sighand->siglock)
+ 	__acquires(&current->sighand->siglock)
  {
- 	size_t pgsize;
- 	int ncontig;
+ 	bool gstop_done = false;
+-	bool read_code = true;
  
--	if (!pte_cont(READ_ONCE(*ptep))) {
--		ptep_clear_flush(vma, addr, ptep);
--		return;
--	}
-+	if (!pte_cont(READ_ONCE(*ptep)))
-+		return ptep_clear_flush(vma, addr, ptep);
- 
- 	ncontig = find_num_contig(vma->vm_mm, addr, ptep, &pgsize);
--	clear_flush(vma->vm_mm, addr, ptep, pgsize, ncontig);
-+	return get_clear_flush(vma->vm_mm, addr, ptep, pgsize, ncontig);
- }
- 
- static int __init hugetlbpage_init(void)
-diff --git a/arch/ia64/include/asm/hugetlb.h b/arch/ia64/include/asm/hugetlb.h
-index 7e46ebd..026ead4 100644
---- a/arch/ia64/include/asm/hugetlb.h
-+++ b/arch/ia64/include/asm/hugetlb.h
-@@ -23,9 +23,10 @@ static inline int is_hugepage_only_range(struct mm_struct *mm,
- #define is_hugepage_only_range is_hugepage_only_range
- 
- #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
--static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
--					 unsigned long addr, pte_t *ptep)
-+static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
-+					  unsigned long addr, pte_t *ptep)
- {
-+	return *ptep;
- }
- 
- #include <asm-generic/hugetlb.h>
-diff --git a/arch/mips/include/asm/hugetlb.h b/arch/mips/include/asm/hugetlb.h
-index c214440..fd69c88 100644
---- a/arch/mips/include/asm/hugetlb.h
-+++ b/arch/mips/include/asm/hugetlb.h
-@@ -43,16 +43,19 @@ static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
- }
- 
- #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
--static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
--					 unsigned long addr, pte_t *ptep)
-+static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
-+					  unsigned long addr, pte_t *ptep)
- {
-+	pte_t pte;
-+
+ 	if (arch_ptrace_stop_needed()) {
+ 		/*
+@@ -2212,7 +2211,14 @@ static int ptrace_stop(int exit_code, int why, int clear_code,
  	/*
- 	 * clear the huge pte entry firstly, so that the other smp threads will
- 	 * not get old pte entry after finishing flush_tlb_page and before
- 	 * setting new huge pte entry
+ 	 * schedule() will not sleep if there is a pending signal that
+ 	 * can awaken the task.
++	 *
++	 * After this point ptrace_signal_wake_up will clear TASK_TRACED
++	 * if ptrace_unlink happens.  Handle previous ptrace_unlinks
++	 * here to prevent ptrace_stop sleeping in schedule.
  	 */
--	huge_ptep_get_and_clear(vma->vm_mm, addr, ptep);
-+	pte = huge_ptep_get_and_clear(vma->vm_mm, addr, ptep);
- 	flush_tlb_page(vma, addr);
-+	return pte;
- }
- 
- #define __HAVE_ARCH_HUGE_PTE_NONE
-diff --git a/arch/parisc/include/asm/hugetlb.h b/arch/parisc/include/asm/hugetlb.h
-index a69cf9e..f7f078c 100644
---- a/arch/parisc/include/asm/hugetlb.h
-+++ b/arch/parisc/include/asm/hugetlb.h
-@@ -28,9 +28,10 @@ static inline int prepare_hugepage_range(struct file *file,
- }
- 
- #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
--static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
--					 unsigned long addr, pte_t *ptep)
-+static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
-+					  unsigned long addr, pte_t *ptep)
- {
-+	return *ptep;
- }
- 
- #define __HAVE_ARCH_HUGE_PTEP_SET_WRPROTECT
-diff --git a/arch/powerpc/include/asm/hugetlb.h b/arch/powerpc/include/asm/hugetlb.h
-index 6a1a1ac..8a5674f 100644
---- a/arch/powerpc/include/asm/hugetlb.h
-+++ b/arch/powerpc/include/asm/hugetlb.h
-@@ -43,11 +43,14 @@ static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
- }
- 
- #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
--static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
--					 unsigned long addr, pte_t *ptep)
-+static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
-+					  unsigned long addr, pte_t *ptep)
- {
--	huge_ptep_get_and_clear(vma->vm_mm, addr, ptep);
-+	pte_t pte;
++	if (!current->ptrace)
++		return exit_code;
 +
-+	pte = huge_ptep_get_and_clear(vma->vm_mm, addr, ptep);
- 	flush_hugetlb_page(vma, addr);
-+	return pte;
+ 	set_special_state(TASK_TRACED);
+ 
+ 	/*
+@@ -2259,54 +2265,33 @@ static int ptrace_stop(int exit_code, int why, int clear_code,
+ 
+ 	spin_unlock_irq(&current->sighand->siglock);
+ 	read_lock(&tasklist_lock);
+-	if (likely(current->ptrace)) {
+-		/*
+-		 * Notify parents of the stop.
+-		 *
+-		 * While ptraced, there are two parents - the ptracer and
+-		 * the real_parent of the group_leader.  The ptracer should
+-		 * know about every stop while the real parent is only
+-		 * interested in the completion of group stop.  The states
+-		 * for the two don't interact with each other.  Notify
+-		 * separately unless they're gonna be duplicates.
+-		 */
++	/*
++	 * Notify parents of the stop.
++	 *
++	 * While ptraced, there are two parents - the ptracer and
++	 * the real_parent of the group_leader.  The ptracer should
++	 * know about every stop while the real parent is only
++	 * interested in the completion of group stop.  The states
++	 * for the two don't interact with each other.  Notify
++	 * separately unless they're gonna be duplicates.
++	 */
++	if (current->ptrace)
+ 		do_notify_parent_cldstop(current, true, why);
+-		if (gstop_done && ptrace_reparented(current))
+-			do_notify_parent_cldstop(current, false, why);
++	if (gstop_done && (!current->ptrace || ptrace_reparented(current)))
++		do_notify_parent_cldstop(current, false, why);
+ 
+-		/*
+-		 * Don't want to allow preemption here, because
+-		 * sys_ptrace() needs this task to be inactive.
+-		 *
+-		 * XXX: implement read_unlock_no_resched().
+-		 */
+-		preempt_disable();
+-		read_unlock(&tasklist_lock);
+-		cgroup_enter_frozen();
+-		preempt_enable_no_resched();
+-		freezable_schedule();
+-		cgroup_leave_frozen(true);
+-	} else {
+-		/*
+-		 * By the time we got the lock, our tracer went away.
+-		 * Don't drop the lock yet, another tracer may come.
+-		 *
+-		 * If @gstop_done, the ptracer went away between group stop
+-		 * completion and here.  During detach, it would have set
+-		 * JOBCTL_STOP_PENDING on us and we'll re-enter
+-		 * TASK_STOPPED in do_signal_stop() on return, so notifying
+-		 * the real parent of the group stop completion is enough.
+-		 */
+-		if (gstop_done)
+-			do_notify_parent_cldstop(current, false, why);
+-
+-		/* tasklist protects us from ptrace_freeze_traced() */
+-		__set_current_state(TASK_RUNNING);
+-		read_code = false;
+-		if (clear_code)
+-			exit_code = 0;
+-		read_unlock(&tasklist_lock);
+-	}
++	/*
++	 * Don't want to allow preemption here, because
++	 * sys_ptrace() needs this task to be inactive.
++	 *
++	 * XXX: implement read_unlock_no_resched().
++	 */
++	preempt_disable();
++	read_unlock(&tasklist_lock);
++	cgroup_enter_frozen();
++	preempt_enable_no_resched();
++	freezable_schedule();
++	cgroup_leave_frozen(true);
+ 
+ 	/*
+ 	 * We are back.  Now reacquire the siglock before touching
+@@ -2314,8 +2299,7 @@ static int ptrace_stop(int exit_code, int why, int clear_code,
+ 	 * any signal-sending on another CPU that wants to examine it.
+ 	 */
+ 	spin_lock_irq(&current->sighand->siglock);
+-	if (read_code)
+-		exit_code = current->exit_code;
++	exit_code = current->exit_code;
+ 	current->last_siginfo = NULL;
+ 	current->ptrace_message = 0;
+ 	current->exit_code = 0;
+@@ -2343,7 +2327,7 @@ static int ptrace_do_notify(int signr, int exit_code, int why, unsigned long mes
+ 	info.si_uid = from_kuid_munged(current_user_ns(), current_uid());
+ 
+ 	/* Let the debugger run.  */
+-	return ptrace_stop(exit_code, why, 1, message, &info);
++	return ptrace_stop(exit_code, why, message, &info);
  }
  
- #define __HAVE_ARCH_HUGE_PTEP_SET_ACCESS_FLAGS
-diff --git a/arch/s390/include/asm/hugetlb.h b/arch/s390/include/asm/hugetlb.h
-index 32c3fd6..f22beda 100644
---- a/arch/s390/include/asm/hugetlb.h
-+++ b/arch/s390/include/asm/hugetlb.h
-@@ -50,10 +50,10 @@ static inline void huge_pte_clear(struct mm_struct *mm, unsigned long addr,
- 		set_pte(ptep, __pte(_SEGMENT_ENTRY_EMPTY));
+ int ptrace_notify(int exit_code, unsigned long message)
+@@ -2515,7 +2499,7 @@ static void do_jobctl_trap(void)
+ 				 CLD_STOPPED, 0);
+ 	} else {
+ 		WARN_ON_ONCE(!signr);
+-		ptrace_stop(signr, CLD_STOPPED, 0, 0, NULL);
++		ptrace_stop(signr, CLD_STOPPED, 0, NULL);
+ 	}
  }
  
--static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
--					 unsigned long address, pte_t *ptep)
-+static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
-+					  unsigned long address, pte_t *ptep)
- {
--	huge_ptep_get_and_clear(vma->vm_mm, address, ptep);
-+	return huge_ptep_get_and_clear(vma->vm_mm, address, ptep);
- }
+@@ -2568,7 +2552,7 @@ static int ptrace_signal(int signr, kernel_siginfo_t *info, enum pid_type type)
+ 	 * comment in dequeue_signal().
+ 	 */
+ 	current->jobctl |= JOBCTL_STOP_DEQUEUED;
+-	signr = ptrace_stop(signr, CLD_TRAPPED, 0, 0, info);
++	signr = ptrace_stop(signr, CLD_TRAPPED, 0, info);
  
- static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
-diff --git a/arch/sh/include/asm/hugetlb.h b/arch/sh/include/asm/hugetlb.h
-index ae4de7b..4d3ba39 100644
---- a/arch/sh/include/asm/hugetlb.h
-+++ b/arch/sh/include/asm/hugetlb.h
-@@ -21,9 +21,10 @@ static inline int prepare_hugepage_range(struct file *file,
- }
- 
- #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
--static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
--					 unsigned long addr, pte_t *ptep)
-+static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
-+					  unsigned long addr, pte_t *ptep)
- {
-+	return *ptep;
- }
- 
- static inline void arch_clear_hugepage_flags(struct page *page)
-diff --git a/arch/sparc/include/asm/hugetlb.h b/arch/sparc/include/asm/hugetlb.h
-index 53838a1..0a26cca 100644
---- a/arch/sparc/include/asm/hugetlb.h
-+++ b/arch/sparc/include/asm/hugetlb.h
-@@ -21,9 +21,10 @@ pte_t huge_ptep_get_and_clear(struct mm_struct *mm, unsigned long addr,
- 			      pte_t *ptep);
- 
- #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
--static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
--					 unsigned long addr, pte_t *ptep)
-+static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
-+					  unsigned long addr, pte_t *ptep)
- {
-+	return *ptep;
- }
- 
- #define __HAVE_ARCH_HUGE_PTEP_SET_WRPROTECT
-diff --git a/include/asm-generic/hugetlb.h b/include/asm-generic/hugetlb.h
-index 896f341..a57d667 100644
---- a/include/asm-generic/hugetlb.h
-+++ b/include/asm-generic/hugetlb.h
-@@ -84,10 +84,10 @@ static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
- #endif
- 
- #ifndef __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
--static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
-+static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
- 		unsigned long addr, pte_t *ptep)
- {
--	ptep_clear_flush(vma, addr, ptep);
-+	return ptep_clear_flush(vma, addr, ptep);
- }
- #endif
- 
+ 	/* We're back.  Did the debugger cancel the sig?  */
+ 	if (signr = 0)
 -- 
-1.8.3.1
+2.35.3
