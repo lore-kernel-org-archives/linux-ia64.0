@@ -1,7 +1,7 @@
 From: Oleg Nesterov <oleg@redhat.com>
-Date: Thu, 05 May 2022 14:57:22 +0000
+Date: Thu, 05 May 2022 15:01:59 +0000
 Subject: Re: [PATCH v3 08/11] ptrace: Admit ptrace_stop can generate spuriuos SIGTRAPs
-Message-Id: <20220505145721.GA13929@redhat.com>
+Message-Id: <20220505150158.GB13929@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <87k0b0apne.fsf_-_@email.froward.int.ebiederm.org>
  <20220504224058.476193-8-ebiederm@xmission.com>
@@ -14,100 +14,41 @@ Cc: linux-kernel@vger.kernel.org, rjw@rjwysocki.net, mingo@kernel.org, vincent.g
 
 On 05/04, Eric W. Biederman wrote:
 >
-> -static int ptrace_stop(int exit_code, int why, int clear_code,
-> -			unsigned long message, kernel_siginfo_t *info)
-> +static int ptrace_stop(int exit_code, int why, unsigned long message,
-> +		       kernel_siginfo_t *info)
->  	__releases(&current->sighand->siglock)
->  	__acquires(&current->sighand->siglock)
->  {
-> @@ -2259,54 +2259,33 @@ static int ptrace_stop(int exit_code, int why, int clear_code,
->  
->  	spin_unlock_irq(&current->sighand->siglock);
->  	read_lock(&tasklist_lock);
-> -	if (likely(current->ptrace)) {
-> -		/*
-> -		 * Notify parents of the stop.
-> -		 *
-> -		 * While ptraced, there are two parents - the ptracer and
-> -		 * the real_parent of the group_leader.  The ptracer should
-> -		 * know about every stop while the real parent is only
-> -		 * interested in the completion of group stop.  The states
-> -		 * for the two don't interact with each other.  Notify
-> -		 * separately unless they're gonna be duplicates.
-> -		 */
-> +	/*
-> +	 * Notify parents of the stop.
-> +	 *
-> +	 * While ptraced, there are two parents - the ptracer and
-> +	 * the real_parent of the group_leader.  The ptracer should
-> +	 * know about every stop while the real parent is only
-> +	 * interested in the completion of group stop.  The states
-> +	 * for the two don't interact with each other.  Notify
-> +	 * separately unless they're gonna be duplicates.
-> +	 */
-> +	if (current->ptrace)
->  		do_notify_parent_cldstop(current, true, why);
-> -		if (gstop_done && ptrace_reparented(current))
-> -			do_notify_parent_cldstop(current, false, why);
-> +	if (gstop_done && (!current->ptrace || ptrace_reparented(current)))
-> +		do_notify_parent_cldstop(current, false, why);
->  
-> -		/*
-> -		 * Don't want to allow preemption here, because
-> -		 * sys_ptrace() needs this task to be inactive.
-> -		 *
-> -		 * XXX: implement read_unlock_no_resched().
-> -		 */
-> -		preempt_disable();
-> -		read_unlock(&tasklist_lock);
-> -		cgroup_enter_frozen();
-> -		preempt_enable_no_resched();
-> -		freezable_schedule();
-> -		cgroup_leave_frozen(true);
-> -	} else {
-> -		/*
-> -		 * By the time we got the lock, our tracer went away.
-> -		 * Don't drop the lock yet, another tracer may come.
-> -		 *
-> -		 * If @gstop_done, the ptracer went away between group stop
-> -		 * completion and here.  During detach, it would have set
-> -		 * JOBCTL_STOP_PENDING on us and we'll re-enter
-> -		 * TASK_STOPPED in do_signal_stop() on return, so notifying
-> -		 * the real parent of the group stop completion is enough.
-> -		 */
-> -		if (gstop_done)
-> -			do_notify_parent_cldstop(current, false, why);
-> -
-> -		/* tasklist protects us from ptrace_freeze_traced() */
-> -		__set_current_state(TASK_RUNNING);
-> -		read_code = false;
-> -		if (clear_code)
-> -			exit_code = 0;
-> -		read_unlock(&tasklist_lock);
+> With the removal of the incomplete detection of the tracer going away
+> in ptrace_stop, ptrace_stop always sleeps in schedule after
+> ptrace_freeze_traced succeeds.  Modify ptrace_check_attach to
+> warn if wait_task_inactive fails.
+
+Oh. Again, I don't understand the changelog. If we forget about RT,
+ptrace_stop() will always sleep if ptrace_freeze_traced() succeeds.
+may_ptrace_stop() has gone.
+
+IOW. Lets forget about RT
+
+> --- a/kernel/ptrace.c
+> +++ b/kernel/ptrace.c
+> @@ -266,17 +266,9 @@ static int ptrace_check_attach(struct task_struct *child, bool ignore_state)
+>  	}
+>  	read_unlock(&tasklist_lock);
+>
+> -	if (!ret && !ignore_state) {
+> -		if (!wait_task_inactive(child, __TASK_TRACED)) {
+> -			/*
+> -			 * This can only happen if may_ptrace_stop() fails and
+> -			 * ptrace_stop() changes ->state back to TASK_RUNNING,
+> -			 * so we should not worry about leaking __TASK_TRACED.
+> -			 */
+> -			WARN_ON(READ_ONCE(child->__state) = __TASK_TRACED);
+> -			ret = -ESRCH;
+> -		}
 > -	}
-> +	/*
-> +	 * Don't want to allow preemption here, because
-> +	 * sys_ptrace() needs this task to be inactive.
-> +	 *
-> +	 * XXX: implement read_unlock_no_resched().
-> +	 */
-> +	preempt_disable();
-> +	read_unlock(&tasklist_lock);
-> +	cgroup_enter_frozen();
-> +	preempt_enable_no_resched();
-> +	freezable_schedule();
+> +	if (!ret && !ignore_state &&
+> +	    WARN_ON_ONCE(!wait_task_inactive(child, __TASK_TRACED)))
+> +		ret = -ESRCH;
+>
+>  	return ret;
+>  }
 
-I must have missed something.
-
-So the tracee calls ptrace_notify() but debugger goes away before the
-ptrace_notify() takes siglock. After that the no longer traced task
-will sleep in TASK_TRACED ?
-
-Looks like ptrace_stop() needs to check current->ptrace before it does
-set_special_state(TASK_TRACED) with siglock held? Then we can rely on
-ptrace_unlink() which will wake the tracee up even if debugger exits.
-
-No?
+Why do you think this change would be wrong without any other changes?
 
 Oleg.
