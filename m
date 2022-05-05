@@ -1,131 +1,76 @@
-From: Baolin Wang <baolin.wang@linux.alibaba.com>
-Date: Sun, 08 May 2022 09:19:43 +0000
-Subject: Re: [PATCH 2/3] mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when migration
-Message-Id: <1fad03a6-98cf-1b0e-e012-82dc6466c7d2@linux.alibaba.com>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Thu, 05 May 2022 18:26:41 +0000
+Subject: [PATCH v4 08/12] ptrace: Document that wait_task_inactive can't fail
+Message-Id: <20220505182645.497868-8-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1651216964.git.baolin.wang@linux.alibaba.com>
- <11b92502b3df0e0bba6a1dc71476d79cab6c79ba.1651216964.git.baolin.wang@linux.alibaba.com>
- <5cab0eca-9630-a7c6-4f5d-5cb45ff82c83@oracle.com>
- <21b11024-e893-8c11-9b98-ab1d13413b61@linux.alibaba.com>
- <85bd80b4-b4fd-0d3f-a2e5-149559f2f387@oracle.com>
- <e8b56f7d-ad95-7938-21a5-55caedbbb354@linux.alibaba.com>
-In-Reply-To: <e8b56f7d-ad95-7938-21a5-55caedbbb354@linux.alibaba.com>
+References: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Mike Kravetz <mike.kravetz@oracle.com>, akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org
-Cc: tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org
+Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
 
+After ptrace_freeze_traced succeeds it is known that the the tracee
+has a __state value of __TASK_TRACED and that no __ptrace_unlink will
+happen because the tracer is waiting for the tracee, and the tracee is
+in ptrace_stop.
 
+The function ptrace_freeze_traced can succeed at any point after
+ptrace_stop has set TASK_TRACED and dropped siglock.  The read_lock on
+tasklist_lock only excludes ptrace_attach.
 
-On 5/7/2022 10:33 AM, Baolin Wang wrote:
-> 
-> 
-> On 5/7/2022 1:56 AM, Mike Kravetz wrote:
->> On 5/5/22 20:39, Baolin Wang wrote:
->>>
->>> On 5/6/2022 7:53 AM, Mike Kravetz wrote:
->>>> On 4/29/22 01:14, Baolin Wang wrote:
->>>>> On some architectures (like ARM64), it can support CONT-PTE/PMD size
->>>>> hugetlb, which means it can support not only PMD/PUD size hugetlb:
->>>>> 2M and 1G, but also CONT-PTE/PMD size: 64K and 32M if a 4K page
->>>>> size specified.
->>>> <snip>
->>>>> diff --git a/mm/rmap.c b/mm/rmap.c
->>>>> index 6fdd198..7cf2408 100644
->>>>> --- a/mm/rmap.c
->>>>> +++ b/mm/rmap.c
->>>>> @@ -1924,13 +1924,15 @@ static bool try_to_migrate_one(struct folio 
->>>>> *folio, struct vm_area_struct *vma,
->>>>>                        break;
->>>>>                    }
->>>>>                }
->>>>> +
->>>>> +            /* Nuke the hugetlb page table entry */
->>>>> +            pteval = huge_ptep_clear_flush(vma, address, pvmw.pte);
->>>>>            } else {
->>>>>                flush_cache_page(vma, address, pte_pfn(*pvmw.pte));
->>>>> +            /* Nuke the page table entry. */
->>>>> +            pteval = ptep_clear_flush(vma, address, pvmw.pte);
->>>>>            }
->>>>
->>>> On arm64 with CONT-PTE/PMD the returned pteval will have dirty or 
->>>> young set
->>>> if ANY of the PTE/PMDs had dirty or young set.
->>>
->>> Right.
->>>
->>>>
->>>>> -        /* Nuke the page table entry. */
->>>>> -        pteval = ptep_clear_flush(vma, address, pvmw.pte);
->>>>> -
->>>>>            /* Set the dirty flag on the folio now the pte is gone. */
->>>>>            if (pte_dirty(pteval))
->>>>>                folio_mark_dirty(folio);
->>>>> @@ -2015,7 +2017,10 @@ static bool try_to_migrate_one(struct folio 
->>>>> *folio, struct vm_area_struct *vma,
->>>>>                pte_t swp_pte;
->>>>>                  if (arch_unmap_one(mm, vma, address, pteval) < 0) {
->>>>> -                set_pte_at(mm, address, pvmw.pte, pteval);
->>>>> +                if (folio_test_hugetlb(folio))
->>>>> +                    set_huge_pte_at(mm, address, pvmw.pte, pteval);
->>>>
->>>> And, we will use that pteval for ALL the PTE/PMDs here.  So, we 
->>>> would set
->>>> the dirty or young bit in ALL PTE/PMDs.
->>>>
->>>> Could that cause any issues?  May be more of a question for the 
->>>> arm64 people.
->>>
->>> I don't think this will cause any issues. Since the hugetlb can not 
->>> be split, and we should not lose the the dirty or young state if any 
->>> subpages were set. Meanwhile we already did like this in hugetlb.c:
->>>
->>> pte = huge_ptep_get_and_clear(mm, address, ptep);
->>> tlb_remove_huge_tlb_entry(h, tlb, ptep, address);
->>> if (huge_pte_dirty(pte))
->>>      set_page_dirty(page);
->>>
->>
->> Agree that it 'should not' cause issues.  It just seems inconsistent.
->> This is not a problem specifically with your patch, just the handling of
->> CONT-PTE/PMD entries.
->>
->> There does not appear to be an arm64 specific version of huge_ptep_get()
->> that takes CONT-PTE/PMD into account.  So, huge_ptep_get() would only
->> return the one specific value.  It would not take into account the dirty
->> or young bits of CONT-PTE/PMDs like your new version of
->> huge_ptep_get_and_clear.  Is that correct?  Or, am I missing something.
-> 
-> Yes, you are right.
-> 
->>
->> If I am correct, then code like the following may not work:
->>
->> static int gather_hugetlb_stats(pte_t *pte, unsigned long hmask,
->>                  unsigned long addr, unsigned long end, struct mm_walk 
->> *walk)
->> {
->>          pte_t huge_pte = huge_ptep_get(pte);
->>          struct numa_maps *md;
->>          struct page *page;
->>
->>          if (!pte_present(huge_pte))
->>                  return 0;
->>
->>          page = pte_page(huge_pte);
->>
->>          md = walk->private;
->>          gather_stats(page, md, pte_dirty(huge_pte), 1);
->>          return 0;
->> }
-> 
-> Right, this is inconsistent with current huge_ptep_get() interface like 
-> you said. So I think we can define an ARCH-specific huge_ptep_get() 
-> interface for arm64, and some sample code like below. How do you think?
+This means that the !current->ptrace which executes under a read_lock
+of tasklist_lock will never see a ptrace_freeze_trace as the tracer
+must have gone away before the tasklist_lock was taken and
+ptrace_attach can not occur until the read_lock is dropped.  As
+ptrace_freeze_traced depends upon ptrace_attach running before it can
+run that excludes ptrace_freeze_traced until __state is set to
+TASK_RUNNING.  This means that task_is_traced will fail in
+ptrace_freeze_attach and ptrace_freeze_attached will fail.
 
-After some investigation, I send out a RFC patch set[1] to address this 
-issue. We can talk about this issue in that thread. Thanks.
+On the current->ptrace branch of ptrace_stop which will be reached any
+time after ptrace_freeze_traced has succeed it is known that __state
+is __TASK_TRACED and schedule() will be called with that state.
 
-[1] 
-https://lore.kernel.org/all/cover.1651998586.git.baolin.wang@linux.alibaba.com/
+Use a WARN_ON_ONCE to document that wait_task_inactive(TASK_TRACED)
+should never fail.  Remove the stale comment about may_ptrace_stop.
+
+Strictly speaking this is not true because if PREEMPT_RT is enabled
+wait_task_inactive can fail because __state can be changed.  I don't
+see this as a problem as the ptrace code is currently broken on
+PREMPT_RT, and this is one of the issues.  Failing and warning when
+the assumptions of the code are broken is good.
+
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ kernel/ptrace.c | 14 +++-----------
+ 1 file changed, 3 insertions(+), 11 deletions(-)
+
+diff --git a/kernel/ptrace.c b/kernel/ptrace.c
+index 7105821595bc..05953ac9f7bd 100644
+--- a/kernel/ptrace.c
++++ b/kernel/ptrace.c
+@@ -266,17 +266,9 @@ static int ptrace_check_attach(struct task_struct *child, bool ignore_state)
+ 	}
+ 	read_unlock(&tasklist_lock);
+ 
+-	if (!ret && !ignore_state) {
+-		if (!wait_task_inactive(child, __TASK_TRACED)) {
+-			/*
+-			 * This can only happen if may_ptrace_stop() fails and
+-			 * ptrace_stop() changes ->state back to TASK_RUNNING,
+-			 * so we should not worry about leaking __TASK_TRACED.
+-			 */
+-			WARN_ON(READ_ONCE(child->__state) = __TASK_TRACED);
+-			ret = -ESRCH;
+-		}
+-	}
++	if (!ret && !ignore_state &&
++	    WARN_ON_ONCE(!wait_task_inactive(child, __TASK_TRACED)))
++		ret = -ESRCH;
+ 
+ 	return ret;
+ }
+-- 
+2.35.3
