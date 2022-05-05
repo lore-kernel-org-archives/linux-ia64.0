@@ -1,112 +1,91 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Wed, 04 May 2022 22:40:49 +0000
-Subject: [PATCH v3 02/11] signal: Replace __group_send_sig_info with send_signal_locked
-Message-Id: <20220504224058.476193-2-ebiederm@xmission.com>
+Date: Thu, 05 May 2022 18:26:37 +0000
+Subject: [PATCH v4 04/12] ptrace/xtensa: Replace PT_SINGLESTEP with TIF_SINGLESTEP
+Message-Id: <20220505182645.497868-4-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <87k0b0apne.fsf_-_@email.froward.int.ebiederm.org>
-In-Reply-To: <87k0b0apne.fsf_-_@email.froward.int.ebiederm.org>
+References: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>, stable@vger.kernel.org
 
-The function __group_send_sig_info is just a light wrapper around
-send_signal_locked with one parameter fixed to a constant value.  As
-the wrapper adds no real value update the code to directly call the
-wrapped function.
+xtensa is the last user of the PT_SINGLESTEP flag.  Changing tsk->ptrace in
+user_enable_single_step and user_disable_single_step without locking could
+potentiallly cause problems.
 
+So use a thread info flag instead of a flag in tsk->ptrace.  Use TIF_SINGLESTEP
+that xtensa already had defined but unused.
+
+Remove the definitions of PT_SINGLESTEP and PT_BLOCKSTEP as they have no more users.
+
+Cc: stable@vger.kernel.org
+Acked-by: Max Filippov <jcmvbkbc@gmail.com>
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- drivers/tty/tty_jobctrl.c      | 4 ++--
- include/linux/signal.h         | 1 -
- kernel/signal.c                | 8 +-------
- kernel/time/posix-cpu-timers.c | 6 +++---
- 4 files changed, 6 insertions(+), 13 deletions(-)
+ arch/xtensa/kernel/ptrace.c | 4 ++--
+ arch/xtensa/kernel/signal.c | 4 ++--
+ include/linux/ptrace.h      | 6 ------
+ 3 files changed, 4 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/tty/tty_jobctrl.c b/drivers/tty/tty_jobctrl.c
-index 80b86a7992b5..0d04287da098 100644
---- a/drivers/tty/tty_jobctrl.c
-+++ b/drivers/tty/tty_jobctrl.c
-@@ -215,8 +215,8 @@ int tty_signal_session_leader(struct tty_struct *tty, int exit_session)
- 				spin_unlock_irq(&p->sighand->siglock);
- 				continue;
- 			}
--			__group_send_sig_info(SIGHUP, SEND_SIG_PRIV, p);
--			__group_send_sig_info(SIGCONT, SEND_SIG_PRIV, p);
-+			send_signal_locked(SIGHUP, SEND_SIG_PRIV, p, PIDTYPE_TGID);
-+			send_signal_locked(SIGCONT, SEND_SIG_PRIV, p, PIDTYPE_TGID);
- 			put_pid(p->signal->tty_old_pgrp);  /* A noop */
- 			spin_lock(&tty->ctrl.lock);
- 			tty_pgrp = get_pid(tty->ctrl.pgrp);
-diff --git a/include/linux/signal.h b/include/linux/signal.h
-index 55605bdf5ce9..3b98e7a28538 100644
---- a/include/linux/signal.h
-+++ b/include/linux/signal.h
-@@ -282,7 +282,6 @@ extern int do_send_sig_info(int sig, struct kernel_siginfo *info,
- 				struct task_struct *p, enum pid_type type);
- extern int group_send_sig_info(int sig, struct kernel_siginfo *info,
- 			       struct task_struct *p, enum pid_type type);
--extern int __group_send_sig_info(int, struct kernel_siginfo *, struct task_struct *);
- extern int send_signal_locked(int sig, struct kernel_siginfo *info,
- 			      struct task_struct *p, enum pid_type type);
- extern int sigprocmask(int, sigset_t *, sigset_t *);
-diff --git a/kernel/signal.c b/kernel/signal.c
-index b0403197b0ad..72d96614effc 100644
---- a/kernel/signal.c
-+++ b/kernel/signal.c
-@@ -1281,12 +1281,6 @@ static int __init setup_print_fatal_signals(char *str)
+diff --git a/arch/xtensa/kernel/ptrace.c b/arch/xtensa/kernel/ptrace.c
+index 323c678a691f..b952e67cc0cc 100644
+--- a/arch/xtensa/kernel/ptrace.c
++++ b/arch/xtensa/kernel/ptrace.c
+@@ -225,12 +225,12 @@ const struct user_regset_view *task_user_regset_view(struct task_struct *task)
  
- __setup("print-fatal-signals=", setup_print_fatal_signals);
+ void user_enable_single_step(struct task_struct *child)
+ {
+-	child->ptrace |= PT_SINGLESTEP;
++	set_tsk_thread_flag(child, TIF_SINGLESTEP);
+ }
  
--int
--__group_send_sig_info(int sig, struct kernel_siginfo *info, struct task_struct *p)
--{
--	return send_signal_locked(sig, info, p, PIDTYPE_TGID);
--}
+ void user_disable_single_step(struct task_struct *child)
+ {
+-	child->ptrace &= ~PT_SINGLESTEP;
++	clear_tsk_thread_flag(child, TIF_SINGLESTEP);
+ }
+ 
+ /*
+diff --git a/arch/xtensa/kernel/signal.c b/arch/xtensa/kernel/signal.c
+index 6f68649e86ba..ac50ec46c8f1 100644
+--- a/arch/xtensa/kernel/signal.c
++++ b/arch/xtensa/kernel/signal.c
+@@ -473,7 +473,7 @@ static void do_signal(struct pt_regs *regs)
+ 		/* Set up the stack frame */
+ 		ret = setup_frame(&ksig, sigmask_to_save(), regs);
+ 		signal_setup_done(ret, &ksig, 0);
+-		if (current->ptrace & PT_SINGLESTEP)
++		if (test_thread_flag(TIF_SINGLESTEP))
+ 			task_pt_regs(current)->icountlevel = 1;
+ 
+ 		return;
+@@ -499,7 +499,7 @@ static void do_signal(struct pt_regs *regs)
+ 	/* If there's no signal to deliver, we just restore the saved mask.  */
+ 	restore_saved_sigmask();
+ 
+-	if (current->ptrace & PT_SINGLESTEP)
++	if (test_thread_flag(TIF_SINGLESTEP))
+ 		task_pt_regs(current)->icountlevel = 1;
+ 	return;
+ }
+diff --git a/include/linux/ptrace.h b/include/linux/ptrace.h
+index 4c06f9f8ef3f..c952c5ba8fab 100644
+--- a/include/linux/ptrace.h
++++ b/include/linux/ptrace.h
+@@ -46,12 +46,6 @@ extern int ptrace_access_vm(struct task_struct *tsk, unsigned long addr,
+ #define PT_EXITKILL		(PTRACE_O_EXITKILL << PT_OPT_FLAG_SHIFT)
+ #define PT_SUSPEND_SECCOMP	(PTRACE_O_SUSPEND_SECCOMP << PT_OPT_FLAG_SHIFT)
+ 
+-/* single stepping state bits (used on ARM and PA-RISC) */
+-#define PT_SINGLESTEP_BIT	31
+-#define PT_SINGLESTEP		(1<<PT_SINGLESTEP_BIT)
+-#define PT_BLOCKSTEP_BIT	30
+-#define PT_BLOCKSTEP		(1<<PT_BLOCKSTEP_BIT)
 -
- int do_send_sig_info(int sig, struct kernel_siginfo *info, struct task_struct *p,
- 			enum pid_type type)
- {
-@@ -2173,7 +2167,7 @@ static void do_notify_parent_cldstop(struct task_struct *tsk,
- 	spin_lock_irqsave(&sighand->siglock, flags);
- 	if (sighand->action[SIGCHLD-1].sa.sa_handler != SIG_IGN &&
- 	    !(sighand->action[SIGCHLD-1].sa.sa_flags & SA_NOCLDSTOP))
--		__group_send_sig_info(SIGCHLD, &info, parent);
-+		send_signal_locked(SIGCHLD, &info, parent, PIDTYPE_TGID);
- 	/*
- 	 * Even if SIGCHLD is not generated, we must wake up wait4 calls.
- 	 */
-diff --git a/kernel/time/posix-cpu-timers.c b/kernel/time/posix-cpu-timers.c
-index 0a97193984db..cb925e8ef9a8 100644
---- a/kernel/time/posix-cpu-timers.c
-+++ b/kernel/time/posix-cpu-timers.c
-@@ -870,7 +870,7 @@ static inline void check_dl_overrun(struct task_struct *tsk)
- {
- 	if (tsk->dl.dl_overrun) {
- 		tsk->dl.dl_overrun = 0;
--		__group_send_sig_info(SIGXCPU, SEND_SIG_PRIV, tsk);
-+		send_signal_locked(SIGXCPU, SEND_SIG_PRIV, tsk, PIDTYPE_TGID);
- 	}
- }
- 
-@@ -884,7 +884,7 @@ static bool check_rlimit(u64 time, u64 limit, int signo, bool rt, bool hard)
- 			rt ? "RT" : "CPU", hard ? "hard" : "soft",
- 			current->comm, task_pid_nr(current));
- 	}
--	__group_send_sig_info(signo, SEND_SIG_PRIV, current);
-+	send_signal_locked(signo, SEND_SIG_PRIV, current, PIDTYPE_TGID);
- 	return true;
- }
- 
-@@ -958,7 +958,7 @@ static void check_cpu_itimer(struct task_struct *tsk, struct cpu_itimer *it,
- 		trace_itimer_expire(signo = SIGPROF ?
- 				    ITIMER_PROF : ITIMER_VIRTUAL,
- 				    task_tgid(tsk), cur_time);
--		__group_send_sig_info(signo, SEND_SIG_PRIV, tsk);
-+		send_signal_locked(signo, SEND_SIG_PRIV, tsk, PIDTYPE_TGID);
- 	}
- 
- 	if (it->expires && it->expires < *expires)
+ extern long arch_ptrace(struct task_struct *child, long request,
+ 			unsigned long addr, unsigned long data);
+ extern int ptrace_readdata(struct task_struct *tsk, unsigned long src, char __user *dst, int len);
 -- 
 2.35.3
