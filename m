@@ -1,122 +1,203 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Wed, 11 May 2022 17:35:50 +0000
-Subject: Re: [PATCH v4 3/3] mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when unmapping
-Message-Id: <f1c904e7-0b16-2893-eb25-0b968817fb8c@redhat.com>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Thu, 05 May 2022 18:26:43 +0000
+Subject: [PATCH v4 10/12] ptrace: Don't change __state
+Message-Id: <20220505182645.497868-10-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1652270205.git.baolin.wang@linux.alibaba.com>
- <0a2e547238cad5bc153a85c3e9658cb9d55f9cac.1652270205.git.baolin.wang@linux.alibaba.com>
-In-Reply-To: <0a2e547238cad5bc153a85c3e9658cb9d55f9cac.1652270205.git.baolin.wang@linux.alibaba.com>
+References: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Baolin Wang <baolin.wang@linux.alibaba.com>, akpm@linux-foundation.org, mike.kravetz@oracle.com
-Cc: catalin.marinas@arm.com, will@kernel.org, songmuchun@bytedance.com, tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+To: linux-kernel@vger.kernel.org
+Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
 
-On 11.05.22 14:04, Baolin Wang wrote:
-> On some architectures (like ARM64), it can support CONT-PTE/PMD size
-> hugetlb, which means it can support not only PMD/PUD size hugetlb:
-> 2M and 1G, but also CONT-PTE/PMD size: 64K and 32M if a 4K page
-> size specified.
-> 
-> When unmapping a hugetlb page, we will get the relevant page table
-> entry by huge_pte_offset() only once to nuke it. This is correct
-> for PMD or PUD size hugetlb, since they always contain only one
-> pmd entry or pud entry in the page table.
-> 
-> However this is incorrect for CONT-PTE and CONT-PMD size hugetlb,
-> since they can contain several continuous pte or pmd entry with
-> same page table attributes, so we will nuke only one pte or pmd
-> entry for this CONT-PTE/PMD size hugetlb page.
-> 
-> And now try_to_unmap() is only passed a hugetlb page in the case
-> where the hugetlb page is poisoned. Which means now we will unmap
-> only one pte entry for a CONT-PTE or CONT-PMD size poisoned hugetlb
-> page, and we can still access other subpages of a CONT-PTE or CONT-PMD
-> size poisoned hugetlb page, which will cause serious issues possibly.
-> 
-> So we should change to use huge_ptep_clear_flush() to nuke the
-> hugetlb page table to fix this issue, which already considered
-> CONT-PTE and CONT-PMD size hugetlb.
-> 
-> We've already used set_huge_swap_pte_at() to set a poisoned
-> swap entry for a poisoned hugetlb page. Meanwhile adding a VM_BUG_ON()
-> to make sure the passed hugetlb page is poisoned in try_to_unmap().
-> 
-> Signed-off-by: Baolin Wang <baolin.wang@linux.alibaba.com>
-> Reviewed-by: Muchun Song <songmuchun@bytedance.com>
-> Reviewed-by: Mike Kravetz <mike.kravetz@oracle.com>
-> ---
->  mm/rmap.c | 39 ++++++++++++++++++++++-----------------
->  1 file changed, 22 insertions(+), 17 deletions(-)
-> 
-> diff --git a/mm/rmap.c b/mm/rmap.c
-> index 4e96daf..219e287 100644
-> --- a/mm/rmap.c
-> +++ b/mm/rmap.c
-> @@ -1528,6 +1528,11 @@ static bool try_to_unmap_one(struct folio *folio, struct vm_area_struct *vma,
->  
->  		if (folio_test_hugetlb(folio)) {
->  			/*
-> +			 * The try_to_unmap() is only passed a hugetlb page
-> +			 * in the case where the hugetlb page is poisoned.
-> +			 */
-> +			VM_BUG_ON_PAGE(!PageHWPoison(subpage), subpage);
-> +			/*
->  			 * huge_pmd_unshare may unmap an entire PMD page.
->  			 * There is no way of knowing exactly which PMDs may
->  			 * be cached for this mm, so we must flush them all.
-> @@ -1562,28 +1567,28 @@ static bool try_to_unmap_one(struct folio *folio, struct vm_area_struct *vma,
->  					break;
->  				}
->  			}
-> +			pteval = huge_ptep_clear_flush(vma, address, pvmw.pte);
->  		} else {
->  			flush_cache_page(vma, address, pte_pfn(*pvmw.pte));
-> -		}
-> -
-> -		/*
-> -		 * Nuke the page table entry. When having to clear
-> -		 * PageAnonExclusive(), we always have to flush.
-> -		 */
-> -		if (should_defer_flush(mm, flags) && !anon_exclusive) {
->  			/*
-> -			 * We clear the PTE but do not flush so potentially
-> -			 * a remote CPU could still be writing to the folio.
-> -			 * If the entry was previously clean then the
-> -			 * architecture must guarantee that a clear->dirty
-> -			 * transition on a cached TLB entry is written through
-> -			 * and traps if the PTE is unmapped.
-> +			 * Nuke the page table entry. When having to clear
-> +			 * PageAnonExclusive(), we always have to flush.
->  			 */
-> -			pteval = ptep_get_and_clear(mm, address, pvmw.pte);
-> +			if (should_defer_flush(mm, flags) && !anon_exclusive) {
-> +				/*
-> +				 * We clear the PTE but do not flush so potentially
-> +				 * a remote CPU could still be writing to the folio.
-> +				 * If the entry was previously clean then the
-> +				 * architecture must guarantee that a clear->dirty
-> +				 * transition on a cached TLB entry is written through
-> +				 * and traps if the PTE is unmapped.
-> +				 */
-> +				pteval = ptep_get_and_clear(mm, address, pvmw.pte);
->  
-> -			set_tlb_ubc_flush_pending(mm, pte_dirty(pteval));
-> -		} else {
-> -			pteval = ptep_clear_flush(vma, address, pvmw.pte);
-> +				set_tlb_ubc_flush_pending(mm, pte_dirty(pteval));
-> +			} else {
-> +				pteval = ptep_clear_flush(vma, address, pvmw.pte);
-> +			}
->  		}
->  
->  		/*
+Stop playing with tsk->__state to remove TASK_WAKEKILL while a ptrace
+command is executing.
 
-LGTM
+Instead remove TASK_WAKEKILL from the definition of TASK_TRACED, and
+implement a new jobctl flag TASK_PTRACE_FROZEN.  This new flag is set
+in jobctl_freeze_task and cleared when ptrace_stop is awoken or in
+jobctl_unfreeze_task (when ptrace_stop remains asleep).
 
-Acked-by: David Hildenbrand <david@redhat.com>
+In signal_wake_up add __TASK_TRACED to state along with TASK_WAKEKILL
+when the wake up is for a fatal signal.  Skip adding __TASK_TRACED
+when TASK_PTRACE_FROZEN is not set.  This has the same effect as
+changing TASK_TRACED to __TASK_TRACED as all of the wake_ups that use
+TASK_KILLABLE go through signal_wake_up.
 
+Handle a ptrace_stop being called with a pending fatal signal.
+Previously it would have been handled by schedule simply failing to
+sleep.  As TASK_WAKEKILL is no longer part of TASK_TRACED schedule
+will sleep with a fatal_signal_pending.   The code in signal_wake_up
+guarantees that the code will be awaked by any fatal signal that
+codes after TASK_TRACED is set.
+
+Previously the __state value of __TASK_TRACED was changed to
+TASK_RUNNING when woken up or back to TASK_TRACED when the code was
+left in ptrace_stop.  Now when woken up ptrace_stop now clears
+JOBCTL_PTRACE_FROZEN and when left sleeping ptrace_unfreezed_traced
+clears JOBCTL_PTRACE_FROZEN.
+
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ include/linux/sched.h        |  2 +-
+ include/linux/sched/jobctl.h |  2 ++
+ include/linux/sched/signal.h |  5 +++--
+ kernel/ptrace.c              | 21 ++++++++-------------
+ kernel/sched/core.c          |  5 +----
+ kernel/signal.c              | 14 ++++++--------
+ 6 files changed, 21 insertions(+), 28 deletions(-)
+
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index d5e3c00b74e1..610f2fdb1e2c 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -103,7 +103,7 @@ struct task_group;
+ /* Convenience macros for the sake of set_current_state: */
+ #define TASK_KILLABLE			(TASK_WAKEKILL | TASK_UNINTERRUPTIBLE)
+ #define TASK_STOPPED			(TASK_WAKEKILL | __TASK_STOPPED)
+-#define TASK_TRACED			(TASK_WAKEKILL | __TASK_TRACED)
++#define TASK_TRACED			__TASK_TRACED
+ 
+ #define TASK_IDLE			(TASK_UNINTERRUPTIBLE | TASK_NOLOAD)
+ 
+diff --git a/include/linux/sched/jobctl.h b/include/linux/sched/jobctl.h
+index fa067de9f1a9..d556c3425963 100644
+--- a/include/linux/sched/jobctl.h
++++ b/include/linux/sched/jobctl.h
+@@ -19,6 +19,7 @@ struct task_struct;
+ #define JOBCTL_TRAPPING_BIT	21	/* switching to TRACED */
+ #define JOBCTL_LISTENING_BIT	22	/* ptracer is listening for events */
+ #define JOBCTL_TRAP_FREEZE_BIT	23	/* trap for cgroup freezer */
++#define JOBCTL_PTRACE_FROZEN_BIT	24	/* frozen for ptrace */
+ 
+ #define JOBCTL_STOP_DEQUEUED	(1UL << JOBCTL_STOP_DEQUEUED_BIT)
+ #define JOBCTL_STOP_PENDING	(1UL << JOBCTL_STOP_PENDING_BIT)
+@@ -28,6 +29,7 @@ struct task_struct;
+ #define JOBCTL_TRAPPING		(1UL << JOBCTL_TRAPPING_BIT)
+ #define JOBCTL_LISTENING	(1UL << JOBCTL_LISTENING_BIT)
+ #define JOBCTL_TRAP_FREEZE	(1UL << JOBCTL_TRAP_FREEZE_BIT)
++#define JOBCTL_PTRACE_FROZEN	(1UL << JOBCTL_PTRACE_FROZEN_BIT)
+ 
+ #define JOBCTL_TRAP_MASK	(JOBCTL_TRAP_STOP | JOBCTL_TRAP_NOTIFY)
+ #define JOBCTL_PENDING_MASK	(JOBCTL_STOP_PENDING | JOBCTL_TRAP_MASK)
+diff --git a/include/linux/sched/signal.h b/include/linux/sched/signal.h
+index 3c8b34876744..e66948abbee4 100644
+--- a/include/linux/sched/signal.h
++++ b/include/linux/sched/signal.h
+@@ -435,9 +435,10 @@ extern void calculate_sigpending(void);
+ 
+ extern void signal_wake_up_state(struct task_struct *t, unsigned int state);
+ 
+-static inline void signal_wake_up(struct task_struct *t, bool resume)
++static inline void signal_wake_up(struct task_struct *t, bool fatal)
+ {
+-	signal_wake_up_state(t, resume ? TASK_WAKEKILL : 0);
++	fatal = fatal && !(t->jobctl & JOBCTL_PTRACE_FROZEN);
++	signal_wake_up_state(t, fatal ? TASK_WAKEKILL | __TASK_TRACED : 0);
+ }
+ static inline void ptrace_signal_wake_up(struct task_struct *t, bool resume)
+ {
+diff --git a/kernel/ptrace.c b/kernel/ptrace.c
+index 05953ac9f7bd..83ed28262708 100644
+--- a/kernel/ptrace.c
++++ b/kernel/ptrace.c
+@@ -197,7 +197,7 @@ static bool ptrace_freeze_traced(struct task_struct *task)
+ 	spin_lock_irq(&task->sighand->siglock);
+ 	if (task_is_traced(task) && !looks_like_a_spurious_pid(task) &&
+ 	    !__fatal_signal_pending(task)) {
+-		WRITE_ONCE(task->__state, __TASK_TRACED);
++		task->jobctl |= JOBCTL_PTRACE_FROZEN;
+ 		ret = true;
+ 	}
+ 	spin_unlock_irq(&task->sighand->siglock);
+@@ -207,23 +207,19 @@ static bool ptrace_freeze_traced(struct task_struct *task)
+ 
+ static void ptrace_unfreeze_traced(struct task_struct *task)
+ {
+-	if (READ_ONCE(task->__state) != __TASK_TRACED)
+-		return;
+-
+-	WARN_ON(!task->ptrace || task->parent != current);
++	unsigned long flags;
+ 
+ 	/*
+-	 * PTRACE_LISTEN can allow ptrace_trap_notify to wake us up remotely.
+-	 * Recheck state under the lock to close this race.
++	 * The child may be awake and may have cleared
++	 * JOBCTL_PTRACE_FROZEN (see ptrace_resume).  The child will
++	 * not set JOBCTL_PTRACE_FROZEN or enter __TASK_TRACED anew.
+ 	 */
+-	spin_lock_irq(&task->sighand->siglock);
+-	if (READ_ONCE(task->__state) = __TASK_TRACED) {
++	if (lock_task_sighand(task, &flags)) {
++		task->jobctl &= ~JOBCTL_PTRACE_FROZEN;
+ 		if (__fatal_signal_pending(task))
+ 			wake_up_state(task, __TASK_TRACED);
+-		else
+-			WRITE_ONCE(task->__state, TASK_TRACED);
++		unlock_task_sighand(task, &flags);
+ 	}
+-	spin_unlock_irq(&task->sighand->siglock);
+ }
+ 
+ /**
+@@ -256,7 +252,6 @@ static int ptrace_check_attach(struct task_struct *child, bool ignore_state)
+ 	 */
+ 	read_lock(&tasklist_lock);
+ 	if (child->ptrace && child->parent = current) {
+-		WARN_ON(READ_ONCE(child->__state) = __TASK_TRACED);
+ 		/*
+ 		 * child->sighand can't be NULL, release_task()
+ 		 * does ptrace_unlink() before __exit_signal().
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index d575b4914925..3c351707e830 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -6304,10 +6304,7 @@ static void __sched notrace __schedule(unsigned int sched_mode)
+ 
+ 	/*
+ 	 * We must load prev->state once (task_struct::state is volatile), such
+-	 * that:
+-	 *
+-	 *  - we form a control dependency vs deactivate_task() below.
+-	 *  - ptrace_{,un}freeze_traced() can change ->state underneath us.
++	 * that we form a control dependency vs deactivate_task() below.
+ 	 */
+ 	prev_state = READ_ONCE(prev->__state);
+ 	if (!(sched_mode & SM_MASK_PREEMPT) && prev_state) {
+diff --git a/kernel/signal.c b/kernel/signal.c
+index d2d0c753156c..a58b68a2d3c6 100644
+--- a/kernel/signal.c
++++ b/kernel/signal.c
+@@ -2209,14 +2209,12 @@ static int ptrace_stop(int exit_code, int why, unsigned long message,
+ 	}
+ 
+ 	/*
+-	 * schedule() will not sleep if there is a pending signal that
+-	 * can awaken the task.
+-	 *
+-	 * After this point ptrace_signal_wake_up will clear TASK_TRACED
+-	 * if ptrace_unlink happens.  Handle previous ptrace_unlinks
+-	 * here to prevent ptrace_stop sleeping in schedule.
++	 * After this point ptrace_signal_wake_up or signal_wake_up
++	 * will clear TASK_TRACED if ptrace_unlink happens or a fatal
++	 * signal comes in.  Handle previous ptrace_unlinks and fatal
++	 * signals here to prevent ptrace_stop sleeping in schedule.
+ 	 */
+-	if (!current->ptrace)
++	if (!current->ptrace || __fatal_signal_pending(current))
+ 		return exit_code;
+ 
+ 	set_special_state(TASK_TRACED);
+@@ -2305,7 +2303,7 @@ static int ptrace_stop(int exit_code, int why, unsigned long message,
+ 	current->exit_code = 0;
+ 
+ 	/* LISTENING can be set only during STOP traps, clear it */
+-	current->jobctl &= ~JOBCTL_LISTENING;
++	current->jobctl &= ~(JOBCTL_LISTENING | JOBCTL_PTRACE_FROZEN);
+ 
+ 	/*
+ 	 * Queued signals ignored us while we were stopped for tracing.
 -- 
-Thanks,
-
-David / dhildenb
+2.35.3
