@@ -1,97 +1,112 @@
-From: Juerg Haefliger <juerg.haefliger@canonical.com>
-Date: Fri, 20 May 2022 12:00:21 +0000
-Subject: [PATCH] ia64: Kconfig: Fix indentation and add comments
-Message-Id: <20220520120021.148069-1-juergh@canonical.com>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Thu, 05 May 2022 18:26:35 +0000
+Subject: [PATCH v4 02/12] signal: Replace __group_send_sig_info with send_signal_locked
+Message-Id: <20220505182645.497868-2-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, akpm@linux-foundation.org
-Cc: linux-kernel@vger.kernel.org, Juerg Haefliger <juergh@canonical.com>
+To: linux-kernel@vger.kernel.org
+Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
 
-The convention for indentation seems to be a single tab. Help text is
-further indented by an additional two whitespaces. Fix the lines that
-violate these rules.
+The function __group_send_sig_info is just a light wrapper around
+send_signal_locked with one parameter fixed to a constant value.  As
+the wrapper adds no real value update the code to directly call the
+wrapped function.
 
-While add it, add trailing comments to endif and endmenu statements for
-better readability.
-
-Signed-off-by: Juerg Haefliger <juergh@canonical.com>
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- arch/ia64/Kconfig | 32 ++++++++++++++++----------------
- 1 file changed, 16 insertions(+), 16 deletions(-)
+ drivers/tty/tty_jobctrl.c      | 4 ++--
+ include/linux/signal.h         | 1 -
+ kernel/signal.c                | 8 +-------
+ kernel/time/posix-cpu-timers.c | 6 +++---
+ 4 files changed, 6 insertions(+), 13 deletions(-)
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index cb93769a9f2a..caf2ace768bc 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -259,19 +259,19 @@ config PERMIT_BSP_REMOVE
- 	depends on HOTPLUG_CPU
- 	default n
- 	help
--	Say Y here if your platform SAL will support removal of BSP with HOTPLUG_CPU
--	support. 
-+	  Say Y here if your platform SAL will support removal of BSP with HOTPLUG_CPU
-+	  support.
+diff --git a/drivers/tty/tty_jobctrl.c b/drivers/tty/tty_jobctrl.c
+index 80b86a7992b5..0d04287da098 100644
+--- a/drivers/tty/tty_jobctrl.c
++++ b/drivers/tty/tty_jobctrl.c
+@@ -215,8 +215,8 @@ int tty_signal_session_leader(struct tty_struct *tty, int exit_session)
+ 				spin_unlock_irq(&p->sighand->siglock);
+ 				continue;
+ 			}
+-			__group_send_sig_info(SIGHUP, SEND_SIG_PRIV, p);
+-			__group_send_sig_info(SIGCONT, SEND_SIG_PRIV, p);
++			send_signal_locked(SIGHUP, SEND_SIG_PRIV, p, PIDTYPE_TGID);
++			send_signal_locked(SIGCONT, SEND_SIG_PRIV, p, PIDTYPE_TGID);
+ 			put_pid(p->signal->tty_old_pgrp);  /* A noop */
+ 			spin_lock(&tty->ctrl.lock);
+ 			tty_pgrp = get_pid(tty->ctrl.pgrp);
+diff --git a/include/linux/signal.h b/include/linux/signal.h
+index 55605bdf5ce9..3b98e7a28538 100644
+--- a/include/linux/signal.h
++++ b/include/linux/signal.h
+@@ -282,7 +282,6 @@ extern int do_send_sig_info(int sig, struct kernel_siginfo *info,
+ 				struct task_struct *p, enum pid_type type);
+ extern int group_send_sig_info(int sig, struct kernel_siginfo *info,
+ 			       struct task_struct *p, enum pid_type type);
+-extern int __group_send_sig_info(int, struct kernel_siginfo *, struct task_struct *);
+ extern int send_signal_locked(int sig, struct kernel_siginfo *info,
+ 			      struct task_struct *p, enum pid_type type);
+ extern int sigprocmask(int, sigset_t *, sigset_t *);
+diff --git a/kernel/signal.c b/kernel/signal.c
+index b0403197b0ad..72d96614effc 100644
+--- a/kernel/signal.c
++++ b/kernel/signal.c
+@@ -1281,12 +1281,6 @@ static int __init setup_print_fatal_signals(char *str)
  
- config FORCE_CPEI_RETARGET
- 	bool "Force assumption that CPEI can be re-targeted"
- 	depends on PERMIT_BSP_REMOVE
- 	default n
- 	help
--	Say Y if you need to force the assumption that CPEI can be re-targeted to
--	any cpu in the system. This hint is available via ACPI 3.0 specifications.
--	Tiger4 systems are capable of re-directing CPEI to any CPU other than BSP.
--	This option it useful to enable this feature on older BIOS's as well.
--	You can also enable this by using boot command line option force_cpei=1.
-+	  Say Y if you need to force the assumption that CPEI can be re-targeted to
-+	  any cpu in the system. This hint is available via ACPI 3.0 specifications.
-+	  Tiger4 systems are capable of re-directing CPEI to any CPU other than BSP.
-+	  This option it useful to enable this feature on older BIOS's as well.
-+	  You can also enable this by using boot command line option force_cpei=1.
+ __setup("print-fatal-signals=", setup_print_fatal_signals);
  
- config ARCH_SELECT_MEMORY_MODEL
- 	def_bool y
-@@ -335,7 +335,7 @@ config IA64_PALINFO
- config IA64_MC_ERR_INJECT
- 	tristate "MC error injection support"
- 	help
--	  Adds support for MC error injection. If enabled, the kernel 
-+	  Adds support for MC error injection. If enabled, the kernel
- 	  will provide a sysfs interface for user applications to
- 	  call MC error injection PAL procedures to inject various errors.
- 	  This is a useful tool for MCA testing.
-@@ -379,12 +379,12 @@ config KEXEC
- 	  made.
+-int
+-__group_send_sig_info(int sig, struct kernel_siginfo *info, struct task_struct *p)
+-{
+-	return send_signal_locked(sig, info, p, PIDTYPE_TGID);
+-}
+-
+ int do_send_sig_info(int sig, struct kernel_siginfo *info, struct task_struct *p,
+ 			enum pid_type type)
+ {
+@@ -2173,7 +2167,7 @@ static void do_notify_parent_cldstop(struct task_struct *tsk,
+ 	spin_lock_irqsave(&sighand->siglock, flags);
+ 	if (sighand->action[SIGCHLD-1].sa.sa_handler != SIG_IGN &&
+ 	    !(sighand->action[SIGCHLD-1].sa.sa_flags & SA_NOCLDSTOP))
+-		__group_send_sig_info(SIGCHLD, &info, parent);
++		send_signal_locked(SIGCHLD, &info, parent, PIDTYPE_TGID);
+ 	/*
+ 	 * Even if SIGCHLD is not generated, we must wake up wait4 calls.
+ 	 */
+diff --git a/kernel/time/posix-cpu-timers.c b/kernel/time/posix-cpu-timers.c
+index 0a97193984db..cb925e8ef9a8 100644
+--- a/kernel/time/posix-cpu-timers.c
++++ b/kernel/time/posix-cpu-timers.c
+@@ -870,7 +870,7 @@ static inline void check_dl_overrun(struct task_struct *tsk)
+ {
+ 	if (tsk->dl.dl_overrun) {
+ 		tsk->dl.dl_overrun = 0;
+-		__group_send_sig_info(SIGXCPU, SEND_SIG_PRIV, tsk);
++		send_signal_locked(SIGXCPU, SEND_SIG_PRIV, tsk, PIDTYPE_TGID);
+ 	}
+ }
  
- config CRASH_DUMP
--	  bool "kernel crash dumps"
--	  depends on IA64_MCA_RECOVERY && (!SMP || HOTPLUG_CPU)
--	  help
--	    Generate crash dump after being started by kexec.
-+	bool "kernel crash dumps"
-+	depends on IA64_MCA_RECOVERY && (!SMP || HOTPLUG_CPU)
-+	help
-+	  Generate crash dump after being started by kexec.
+@@ -884,7 +884,7 @@ static bool check_rlimit(u64 time, u64 limit, int signo, bool rt, bool hard)
+ 			rt ? "RT" : "CPU", hard ? "hard" : "soft",
+ 			current->comm, task_pid_nr(current));
+ 	}
+-	__group_send_sig_info(signo, SEND_SIG_PRIV, current);
++	send_signal_locked(signo, SEND_SIG_PRIV, current, PIDTYPE_TGID);
+ 	return true;
+ }
  
--endmenu
-+endmenu # "Processor type and features"
+@@ -958,7 +958,7 @@ static void check_cpu_itimer(struct task_struct *tsk, struct cpu_itimer *it,
+ 		trace_itimer_expire(signo = SIGPROF ?
+ 				    ITIMER_PROF : ITIMER_VIRTUAL,
+ 				    task_tgid(tsk), cur_time);
+-		__group_send_sig_info(signo, SEND_SIG_PRIV, tsk);
++		send_signal_locked(signo, SEND_SIG_PRIV, tsk, PIDTYPE_TGID);
+ 	}
  
- menu "Power management and ACPI options"
- 
-@@ -395,10 +395,10 @@ source "drivers/acpi/Kconfig"
- if PM
- menu "CPU Frequency scaling"
- source "drivers/cpufreq/Kconfig"
--endmenu
--endif
-+endmenu # "CPU Frequency scaling"
-+endif # PM
- 
--endmenu
-+endmenu # "Power management and ACPI options"
- 
- config MSPEC
- 	tristate "Memory special operations driver"
+ 	if (it->expires && it->expires < *expires)
 -- 
-2.32.0
+2.35.3
