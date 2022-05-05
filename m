@@ -1,37 +1,48 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Mon, 04 Apr 2022 05:05:45 +0000
-Subject: [PATCH 01/15] dma-direct: use is_swiotlb_active in dma_direct_map_page
-Message-Id: <20220404050559.132378-2-hch@lst.de>
+From: Mike Kravetz <mike.kravetz@oracle.com>
+Date: Thu, 05 May 2022 23:15:26 +0000
+Subject: Re: [PATCH 1/3] mm: change huge_ptep_clear_flush() to return the original pte
+Message-Id: <495c4ebe-a5b4-afb6-4cb0-956c1b18d0cc@oracle.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220404050559.132378-1-hch@lst.de>
-In-Reply-To: <20220404050559.132378-1-hch@lst.de>
+References: <cover.1651216964.git.baolin.wang@linux.alibaba.com>
+ <a9038435d408cd7b9defe143537de668dfdf03be.1651216964.git.baolin.wang@linux.alibaba.com>
+In-Reply-To: <a9038435d408cd7b9defe143537de668dfdf03be.1651216964.git.baolin.wang@linux.alibaba.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: Juergen Gross <jgross@suse.com>, Tom Lendacky <thomas.lendacky@amd.com>, linux-s390@vger.kernel.org, Stefano Stabellini <sstabellini@kernel.org>, linux-ia64@vger.kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, tboot-devel@lists.sourceforge.net, linux-hyperv@vger.kernel.org, linux-pci@vger.kernel.org, xen-devel@lists.xenproject.org, Boris Ostrovsky <boris.ostrovsky@oracle.com>, David Woodhouse <dwmw2@infradead.org>, linux-riscv@lists.infradead.org, linux-arm-kernel@lists.infradead.org
+To: Baolin Wang <baolin.wang@linux.alibaba.com>, akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org
+Cc: tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-Use the more specific is_swiotlb_active check instead of checking the
-global swiotlb_force variable.
+On 4/29/22 01:14, Baolin Wang wrote:
+> It is incorrect to use ptep_clear_flush() to nuke a hugetlb page
+> table when unmapping or migrating a hugetlb page, and will change
+> to use huge_ptep_clear_flush() instead in the following patches.
+> 
+> So this is a preparation patch, which changes the huge_ptep_clear_flush()
+> to return the original pte to help to nuke a hugetlb page table.
+> 
+> Signed-off-by: Baolin Wang <baolin.wang@linux.alibaba.com>
+> ---
+>  arch/arm64/include/asm/hugetlb.h   |  4 ++--
+>  arch/arm64/mm/hugetlbpage.c        | 12 +++++-------
+>  arch/ia64/include/asm/hugetlb.h    |  4 ++--
+>  arch/mips/include/asm/hugetlb.h    |  9 ++++++---
+>  arch/parisc/include/asm/hugetlb.h  |  4 ++--
+>  arch/powerpc/include/asm/hugetlb.h |  9 ++++++---
+>  arch/s390/include/asm/hugetlb.h    |  6 +++---
+>  arch/sh/include/asm/hugetlb.h      |  4 ++--
+>  arch/sparc/include/asm/hugetlb.h   |  4 ++--
+>  include/asm-generic/hugetlb.h      |  4 ++--
+>  10 files changed, 32 insertions(+), 28 deletions(-)
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
-Reviewed-by: Anshuman Khandual <anshuman.khandual@arm.com>
----
- kernel/dma/direct.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The above changes look straight forward.
+Happy that you Cc'ed impacted arch maintainers so they can at least
+have a look.
 
-diff --git a/kernel/dma/direct.h b/kernel/dma/direct.h
-index 4632b0f4f72eb..4dc16e08c7e1a 100644
---- a/kernel/dma/direct.h
-+++ b/kernel/dma/direct.h
-@@ -91,7 +91,7 @@ static inline dma_addr_t dma_direct_map_page(struct device *dev,
- 		return swiotlb_map(dev, phys, size, dir, attrs);
- 
- 	if (unlikely(!dma_capable(dev, dma_addr, size, true))) {
--		if (swiotlb_force != SWIOTLB_NO_FORCE)
-+		if (is_swiotlb_active(dev))
- 			return swiotlb_map(dev, phys, size, dir, attrs);
- 
- 		dev_WARN_ONCE(dev, 1,
+The only user of huge_ptep_clear_flush() today is hugetlb_cow/wp() in
+mm/hugetlb.c.  Any reason why you did not change that code?  At least
+cast the return of huge_ptep_clear_flush() to void with a comment?
+Not absolutely necessary.
+
+Acked-by: Mike Kravetz <mike.kravetz@oracle.com>
 -- 
-2.30.2
+Mike Kravetz
