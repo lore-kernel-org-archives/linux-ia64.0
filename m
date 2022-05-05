@@ -1,122 +1,89 @@
-From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
-Date: Fri, 06 May 2022 15:28:49 +0000
-Subject: Re: [PATCH v7 04/20] kernel: Add combined power-off+restart handler call chain API
-Message-Id: <296e6f6f-e96d-2db1-77b9-288dc47d1b98@collabora.com>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Thu, 05 May 2022 18:25:57 +0000
+Subject: [PATCH v4 0/12] ptrace: cleaning up ptrace_stop
+Message-Id: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220411233832.391817-1-dmitry.osipenko@collabora.com>
- <20220411233832.391817-5-dmitry.osipenko@collabora.com>
- <CAJZ5v0gnTSoeNP+QXwrZ45FQY4howVkJMuCjM=j+_-2BngJdQg@mail.gmail.com>
- <990621e7-9f8a-8b4a-02ec-fd6c1e1f48ff@collabora.com>
- <CAJZ5v0jxXtwot0qpib4UG8Tz8Hd1dEbgo58tEdPFboU8xwKHNw@mail.gmail.com>
-In-Reply-To: <CAJZ5v0jxXtwot0qpib4UG8Tz8Hd1dEbgo58tEdPFboU8xwKHNw@mail.gmail.com>
+References: <20220421150248.667412396@infradead.org>
+        <20220421150654.817117821@infradead.org>
+        <87czhap9dy.fsf@email.froward.int.ebiederm.org>
+        <878rrrh32q.fsf_-_@email.froward.int.ebiederm.org>
+        <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
+        <87k0b0apne.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <87k0b0apne.fsf_-_@email.froward.int.ebiederm.org> (Eric
+        W. Biederman's message of "Wed, 04 May 2022 17:39:33 -0500")
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Rafael J. Wysocki" <rafael@kernel.org>
-Cc: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, the arch/x86 maintainers <x86@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, "open list:BROADCOM NVRAM DRIVER" <linux-mips@vger.kernel.org>, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, Linux-sh list <linux-sh@vger.kernel.org>, xen-devel@lists.xenproject.org, ACPI Devel Maling List <linux-acpi@vger.kernel.org>, Linux PM <linux-pm@vger.kernel.org>, linux-tegra <linux-tegra@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Cc: rjw@rjwysocki.net, oleg@redhat.com, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Jann Horn <jannh@google.com>, Kees Cook <keescook@chromium.org>, linux-ia64@vger.kernel.org
 
-On 4/20/22 21:47, Rafael J. Wysocki wrote:
->>>> +       spin_unlock(&platform_power_off_lock);
->>>> +
->>>> +       if (ret)
->>>> +               return ret;
->>>> +
->>>> +       ret = register_power_off_handler(&priv->power_off_nb);
->>>> +       if (ret)
->>>> +               priv->platform_power_off_cb = NULL;
->>>> +
->>>> +       return ret;
->>>> +}
->>>> +EXPORT_SYMBOL_GPL(register_platform_power_off);
->>>> +
->>>> +/**
->>>> + *     unregister_platform_power_off - Unregister platform-level power-off callback
->>>> + *     @power_off: Power-off callback
->>>> + *
->>>> + *     Unregisters previously registered platform power-off callback.
->>>> + *
->>>> + *     Returns zero on success, or error code on failure.
->>>> + */
->>>> +int unregister_platform_power_off(void (*power_off)(void))
->>>> +{
->>>> +       struct sys_off_handler_private_data *priv;
->>>> +       int ret;
->>>> +
->>>> +       priv = sys_off_handler_private_data(&platform_power_off_handler);
->>>> +
->>>> +       if (priv->platform_power_off_cb != power_off)
->>>> +               return -EINVAL;
->>>> +
->>>> +       ret = unregister_power_off_handler(&priv->power_off_nb);
->>>> +       priv->platform_power_off_cb = NULL;
->>>> +
->>>> +       return ret;
->>>> +}
->>>> +EXPORT_SYMBOL_GPL(unregister_platform_power_off);
->>>> +
->>>> +/**
->>>> + *     do_kernel_power_off - Execute kernel power-off handler call chain
->>>> + *
->>>> + *     Calls functions registered with register_power_off_handler.
->>>> + *
->>>> + *     Expected to be called as last step of the power-off sequence.
->>>> + *
->>>> + *     Powers off the system immediately if a power-off handler function has
->>>> + *     been registered. Otherwise does nothing.
->>>> + */
->>>> +void do_kernel_power_off(void)
->>>> +{
->>>> +       /* legacy pm_power_off() is unchained and has highest priority */
->>>> +       if (pm_power_off && pm_power_off != dummy_pm_power_off)
->>>> +               return pm_power_off();
->>>> +
->>>> +       blocking_notifier_call_chain(&power_off_handler_list, POWEROFF_NORMAL,
->>>> +                                    NULL);
->>>> +}
->>>> +
->>>> +static void do_kernel_power_off_prepare(void)
->>>> +{
->>>> +       /* legacy pm_power_off_prepare() is unchained and has highest priority */
->>>> +       if (pm_power_off_prepare)
->>>> +               return pm_power_off_prepare();
->>>> +
->>>> +       blocking_notifier_call_chain(&power_off_handler_list, POWEROFF_PREPARE,
->>>> +                                    NULL);
->>>> +}
->>>> +
->>>>  /**
->>>>   *     kernel_power_off - power_off the system
->>>>   *
->>>> @@ -304,8 +893,7 @@ EXPORT_SYMBOL_GPL(kernel_halt);
->>>>  void kernel_power_off(void)
->>>>  {
->>>>         kernel_shutdown_prepare(SYSTEM_POWER_OFF);
->>>> -       if (pm_power_off_prepare)
->>>> -               pm_power_off_prepare();
->>>> +       do_kernel_power_off_prepare();
->>>>         migrate_to_reboot_cpu();
->>>>         syscore_shutdown();
->>>>         pr_emerg("Power down\n");
->>>> @@ -314,6 +902,16 @@ void kernel_power_off(void)
->>>>  }
->>>>  EXPORT_SYMBOL_GPL(kernel_power_off);
->>>>
->>>> +bool kernel_can_power_off(void)
->>>> +{
->>>> +       if (!pm_power_off &&
->>>> +           blocking_notifier_call_chain_is_empty(&power_off_handler_list))
->>>> +               return false;
->>>> +
->>>> +       return true;
->>> return pm_power_off ||
->>> blocking_notifier_call_chain_is_empty(&power_off_handler_list);
->> Thank you for the thorough review!
-> You're very welcome!
 
-Thanks again for taking a look at the patches. I don't have strong
-preferences about the names and etc, so I'll update it all in v8 like
-you suggested.
+The states TASK_STOPPED and TASK_TRACE are special in they can not
+handle spurious wake-ups.  This plus actively depending upon and
+changing the value of tsk->__state causes problems for PREEMPT_RT and
+Peter's freezer rewrite.
 
--- 
-Best regards,
-Dmitry
+There are a lot of details we have to get right to sort out the
+technical challenges and this is my parred back version of the changes
+that contains just those problems I see good solutions to that I believe
+are ready.
+
+A couple of issues have been pointed but I think this parred back set of
+changes is still on the right track.  The biggest change in v4 is the
+split of "ptrace: Admit ptrace_stop can generate spuriuos SIGTRAPs" into
+two patches because the dependency I thought exited between two
+different changes did not exist.  The rest of the changes are minor
+tweaks to "ptrace: Admit ptrace_stop can generate spuriuos SIGTRAPs";
+removing an always true branch, and adding an early  test to see if the
+ptracer had gone, before TASK_TRAPPING was set.
+
+This set of changes should support Peter's freezer rewrite, and with the
+addition of changing wait_task_inactive(TASK_TRACED) to be
+wait_task_inactive(0) in ptrace_check_attach I don't think there are any
+races or issues to be concerned about from the ptrace side.
+
+More work is needed to support PREEMPT_RT, but these changes get things
+closer.
+
+This set of changes continues to look like it will provide a firm
+foundation for solving the PREEMPT_RT and freezer challenges.
+
+Eric W. Biederman (11):
+      signal: Rename send_signal send_signal_locked
+      signal: Replace __group_send_sig_info with send_signal_locked
+      ptrace/um: Replace PT_DTRACE with TIF_SINGLESTEP
+      ptrace/xtensa: Replace PT_SINGLESTEP with TIF_SINGLESTEP
+      ptrace: Remove arch_ptrace_attach
+      signal: Use lockdep_assert_held instead of assert_spin_locked
+      ptrace: Reimplement PTRACE_KILL by always sending SIGKILL
+      ptrace: Document that wait_task_inactive can't fail
+      ptrace: Admit ptrace_stop can generate spuriuos SIGTRAPs
+      ptrace: Don't change __state
+      ptrace: Always take siglock in ptrace_resume
+
+Peter Zijlstra (1):
+      sched,signal,ptrace: Rework TASK_TRACED, TASK_STOPPED state
+
+ arch/ia64/include/asm/ptrace.h    |   4 --
+ arch/ia64/kernel/ptrace.c         |  57 ----------------
+ arch/um/include/asm/thread_info.h |   2 +
+ arch/um/kernel/exec.c             |   2 +-
+ arch/um/kernel/process.c          |   2 +-
+ arch/um/kernel/ptrace.c           |   8 +--
+ arch/um/kernel/signal.c           |   4 +-
+ arch/x86/kernel/step.c            |   3 +-
+ arch/xtensa/kernel/ptrace.c       |   4 +-
+ arch/xtensa/kernel/signal.c       |   4 +-
+ drivers/tty/tty_jobctrl.c         |   4 +-
+ include/linux/ptrace.h            |   7 --
+ include/linux/sched.h             |  10 ++-
+ include/linux/sched/jobctl.h      |   8 +++
+ include/linux/sched/signal.h      |  20 ++++--
+ include/linux/signal.h            |   3 +-
+ kernel/ptrace.c                   |  87 ++++++++---------------
+ kernel/sched/core.c               |   5 +-
+ kernel/signal.c                   | 140 +++++++++++++++++---------------------
+ kernel/time/posix-cpu-timers.c    |   6 +-
+ 20 files changed, 140 insertions(+), 240 deletions(-)
+
+Eric
