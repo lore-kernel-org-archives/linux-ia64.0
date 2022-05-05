@@ -1,34 +1,61 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Date: Tue, 24 May 2022 15:27:25 +0000
-Subject: Re: [PATCH 08/16] ptrace: Only populate last_siginfo from ptrace
-Message-Id: <20220524152725.GE14347@redhat.com>
+From: Mike Kravetz <mike.kravetz@oracle.com>
+Date: Thu, 05 May 2022 23:53:35 +0000
+Subject: Re: [PATCH 2/3] mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when migration
+Message-Id: <5cab0eca-9630-a7c6-4f5d-5cb45ff82c83@oracle.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
- <20220518225355.784371-8-ebiederm@xmission.com>
-In-Reply-To: <20220518225355.784371-8-ebiederm@xmission.com>
+References: <cover.1651216964.git.baolin.wang@linux.alibaba.com>
+ <11b92502b3df0e0bba6a1dc71476d79cab6c79ba.1651216964.git.baolin.wang@linux.alibaba.com>
+In-Reply-To: <11b92502b3df0e0bba6a1dc71476d79cab6c79ba.1651216964.git.baolin.wang@linux.alibaba.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Cc: linux-kernel@vger.kernel.org, rjw@rjwysocki.net, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, Robert OCallahan <roc@pernos.co>, Kyle Huey <khuey@pernos.co>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Jason Wessel <jason.wessel@windriver.com>, Daniel Thompson <daniel.thompson@linaro.org>, Douglas Anderson <dianders@chromium.org>, Douglas Miller <dougmill@linux.vnet.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>
+To: Baolin Wang <baolin.wang@linux.alibaba.com>, akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org
+Cc: tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-On 05/18, Eric W. Biederman wrote:
->
-> The code in ptrace_signal to populate siginfo if the signal number
-> changed is buggy.  If the tracer contined the tracee using
-> ptrace_detach it is guaranteed to use the real_parent (or possibly a
-> new tracer) but definitely not the origional tracer to populate si_pid
-> and si_uid.
+On 4/29/22 01:14, Baolin Wang wrote:
+> On some architectures (like ARM64), it can support CONT-PTE/PMD size
+> hugetlb, which means it can support not only PMD/PUD size hugetlb:
+> 2M and 1G, but also CONT-PTE/PMD size: 64K and 32M if a 4K page
+> size specified.
+<snip>
+> diff --git a/mm/rmap.c b/mm/rmap.c
+> index 6fdd198..7cf2408 100644
+> --- a/mm/rmap.c
+> +++ b/mm/rmap.c
+> @@ -1924,13 +1924,15 @@ static bool try_to_migrate_one(struct folio *folio, struct vm_area_struct *vma,
+>  					break;
+>  				}
+>  			}
+> +
+> +			/* Nuke the hugetlb page table entry */
+> +			pteval = huge_ptep_clear_flush(vma, address, pvmw.pte);
+>  		} else {
+>  			flush_cache_page(vma, address, pte_pfn(*pvmw.pte));
+> +			/* Nuke the page table entry. */
+> +			pteval = ptep_clear_flush(vma, address, pvmw.pte);
+>  		}
+>  
 
-I guess nobody cares. As the comment says
+On arm64 with CONT-PTE/PMD the returned pteval will have dirty or young set
+if ANY of the PTE/PMDs had dirty or young set.
 
-	 If the debugger wanted something
-	 specific in the siginfo structure then it should
-	 have updated *info via PTRACE_SETSIGINFO.
+> -		/* Nuke the page table entry. */
+> -		pteval = ptep_clear_flush(vma, address, pvmw.pte);
+> -
+>  		/* Set the dirty flag on the folio now the pte is gone. */
+>  		if (pte_dirty(pteval))
+>  			folio_mark_dirty(folio);
+> @@ -2015,7 +2017,10 @@ static bool try_to_migrate_one(struct folio *folio, struct vm_area_struct *vma,
+>  			pte_t swp_pte;
+>  
+>  			if (arch_unmap_one(mm, vma, address, pteval) < 0) {
+> -				set_pte_at(mm, address, pvmw.pte, pteval);
+> +				if (folio_test_hugetlb(folio))
+> +					set_huge_pte_at(mm, address, pvmw.pte, pteval);
 
-otherwise I don't think si_pid/si_uid have any value.
+And, we will use that pteval for ALL the PTE/PMDs here.  So, we would set
+the dirty or young bit in ALL PTE/PMDs.
 
-However the patch looks fine to me, just the word "buggy" looks a bit
-too strong imo.
-
-Oleg.
+Could that cause any issues?  May be more of a question for the arm64 people.
+-- 
+Mike Kravetz
