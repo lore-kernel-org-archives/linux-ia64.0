@@ -1,57 +1,29 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Wed, 04 May 2022 22:40:57 +0000
-Subject: [PATCH v3 10/11] ptrace: Always take siglock in ptrace_resume
-Message-Id: <20220504224058.476193-10-ebiederm@xmission.com>
+From: Peng Liu <liupeng256@huawei.com>
+Date: Fri, 06 May 2022 01:57:59 +0000
+Subject: [PATCH 0/2] null_blk: fix wrong use of nr_online_nodes
+Message-Id: <20220506015801.757918-1-liupeng256@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <87k0b0apne.fsf_-_@email.froward.int.ebiederm.org>
-In-Reply-To: <87k0b0apne.fsf_-_@email.froward.int.ebiederm.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
+To: bhelgaas@google.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, lorenzo.pieralisi@arm.com, guohanjun@huawei.com, sudeep.holla@arm.com, rafael@kernel.org, lenb@kernel.org, akpm@linux-foundation.org, logang@deltatee.com, martin.oliveira@eideticom.com, thunder.leizhen@huawei.com, axboe@kernel.dk, kch@nvidia.com, ming.lei@redhat.com, shinichiro.kawasaki@wdc.com, mcgrof@kernel.org, jiangguoqing@kylinos.cn, jpittman@redhat.com, dave@stgolabs.net, liupeng256@huawei.com, wangkefeng.wang@huawei.com, linux-block@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-mm@kvack.org
 
-Make code analysis simpler and future changes easier by
-always taking siglock in ptrace_resume.
+Helper node_available is introduced to judge whether a node can be
+used, and it is used to fix the wrong use of nr_online_nodes when
+numa node is sparse.
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
- kernel/ptrace.c | 13 ++-----------
- 1 file changed, 2 insertions(+), 11 deletions(-)
+Peng Liu (2):
+  include/linux/nodemask.h: create node_available() helper
+  null_blk: fix wrong use of nr_online_nodes
 
-diff --git a/kernel/ptrace.c b/kernel/ptrace.c
-index 83ed28262708..36a5b7a00d2f 100644
---- a/kernel/ptrace.c
-+++ b/kernel/ptrace.c
-@@ -837,8 +837,6 @@ static long ptrace_get_rseq_configuration(struct task_struct *task,
- static int ptrace_resume(struct task_struct *child, long request,
- 			 unsigned long data)
- {
--	bool need_siglock;
--
- 	if (!valid_signal(data))
- 		return -EIO;
- 
-@@ -874,18 +872,11 @@ static int ptrace_resume(struct task_struct *child, long request,
- 	 * Note that we need siglock even if ->exit_code = data and/or this
- 	 * status was not reported yet, the new status must not be cleared by
- 	 * wait_task_stopped() after resume.
--	 *
--	 * If data = 0 we do not care if wait_task_stopped() reports the old
--	 * status and clears the code too; this can't race with the tracee, it
--	 * takes siglock after resume.
- 	 */
--	need_siglock = data && !thread_group_empty(current);
--	if (need_siglock)
--		spin_lock_irq(&child->sighand->siglock);
-+	spin_lock_irq(&child->sighand->siglock);
- 	child->exit_code = data;
- 	wake_up_state(child, __TASK_TRACED);
--	if (need_siglock)
--		spin_unlock_irq(&child->sighand->siglock);
-+	spin_unlock_irq(&child->sighand->siglock);
- 
- 	return 0;
- }
+ arch/ia64/hp/common/sba_iommu.c |  2 +-
+ arch/x86/pci/acpi.c             |  2 +-
+ drivers/acpi/arm64/iort.c       |  2 +-
+ drivers/block/null_blk/main.c   | 45 ++++++++++++++++++++-------------
+ drivers/pci/pci-sysfs.c         |  2 +-
+ include/linux/nodemask.h        |  3 +++
+ mm/mempolicy.c                  |  2 +-
+ 7 files changed, 36 insertions(+), 22 deletions(-)
+
 -- 
-2.35.3
+2.25.1
