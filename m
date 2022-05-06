@@ -1,72 +1,49 @@
-From: Niklas Schnelle <schnelle@linux.ibm.com>
-Date: Fri, 06 May 2022 09:38:52 +0000
+From: "Maciej W. Rozycki" <macro@orcam.me.uk>
+Date: Fri, 06 May 2022 10:20:17 +0000
 Subject: Re: [RFC v2 01/39] Kconfig: introduce HAS_IOPORT option and select it as necessary
-Message-Id: <157602011a72061dd31f92bd699e8c1f9a81c988.camel@linux.ibm.com>
+Message-Id: <alpine.DEB.2.21.2205061058540.52331@angie.orcam.me.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220505195342.GA509942@bhelgaas>
-In-Reply-To: <20220505195342.GA509942@bhelgaas>
+References: <CAK8P3a0sJgMSpZB_Butx2gO0hapYZy-Dm_QH-hG5rOaq_ZgsXg@mail.gmail.com> <20220505161028.GA492600@bhelgaas> <CAK8P3a3fmPExr70+fVb564hZdGAuPtYa-QxgMMe5KLpnY_sTrQ@mail.gmail.com>
+In-Reply-To: <CAK8P3a3fmPExr70+fVb564hZdGAuPtYa-QxgMMe5KLpnY_sTrQ@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <helgaas@kernel.org>, Arnd Bergmann <arnd@kernel.org>, John Garry <john.garry@huawei.com>
-Cc: Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-arch <linux-arch@vger.kernel.org>, linux-pci <linux-pci@vger.kernel.org>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "maintainer:X86 ARCHITECTURE (32-BIT AND 64-BIT)" <x86@kernel.org>, "open list:ALPHA PORT" <linux-alpha@vger.kernel.org>, "moderated list:ARM PORT" <linux-arm-kernel@lists.infradead.org>, "open list:IA64 (Itanium) PLATFORM" <linux-ia64@vger.kernel.org>, "open list:M68K ARCHITECTURE" <linux-m68k@lists.linux-m68k.org>, "open list:MIPS" <linux-mips@vger.kernel.org>, "open list:PARISC ARCHITECTURE" <linux-parisc@vger.kernel.org>, "open list:LINUX FOR POWERPC (32-BIT AND 64-BIT)" <linuxppc-dev@lists.ozlabs.org>, "open list:RISC-V ARCHITECTURE" <linux-riscv@lists.infradead.org>, "open list:SUPERH" <linux-sh@vger.kernel.org>, "open list:SPARC + UltraSPARC (sparc/sparc64)" <sparclinux@vger.kernel.org>
+To: Arnd Bergmann <arnd@kernel.org>
+Cc: Bjorn Helgaas <helgaas@kernel.org>, Niklas Schnelle <schnelle@linux.ibm.com>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-arch <linux-arch@vger.kernel.org>, linux-pci <linux-pci@vger.kernel.org>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "maintainer:X86 ARCHITECTURE (32-BIT AND 64-BIT)" <x86@kernel.org>, "open list:ALPHA PORT" <linux-alpha@vger.kernel.org>, "moderated list:ARM PORT" <linux-arm-kernel@lists.infradead.org>, "open list:IA64 (Itanium) PLATFORM" <linux-ia64@vger.kernel.org>, "open list:M68K ARCHITECTURE" <linux-m68k@lists.linux-m68k.org>, "open list:MIPS" <linux-mips@vger.kernel.org>, "open list:PARISC ARCHITECTURE" <linux-parisc@vger.kernel.org>, "open list:LINUX FOR POWERPC (32-BIT AND 64-BIT)" <linuxppc-dev@lists.ozlabs.org>, "open list:RISC-V ARCHITECTURE" <linux-riscv@lists.infradead.org>, "open list:SUPERH" <linux-sh@vger.kernel.org>, "open list:SPARC + UltraSPARC (sparc/sparc64)" <sparclinux@vger.kernel.org>
 
-On Thu, 2022-05-05 at 14:53 -0500, Bjorn Helgaas wrote:
-> On Thu, May 05, 2022 at 07:39:42PM +0200, Arnd Bergmann wrote:
-> > On Thu, May 5, 2022 at 6:10 PM Bjorn Helgaas <helgaas@kernel.org> wrote:
-> > > On Wed, May 04, 2022 at 11:31:28PM +0200, Arnd Bergmann wrote:
-> > > > The main goal is to avoid c), which is what happens on s390, but
-> > > > can also happen elsewhere. Catching b) would be nice as well,
-> > > > but is much harder to do from generic code as you'd need an
-> > > > architecture specific inline asm statement to insert a ex_table
-> > > > fixup, or a runtime conditional on each access.
-> > > 
-> > > Or s390 could implement its own inb().
-> > > 
-> > > I'm hearing that generic powerpc kernels have to run both on machines
-> > > that have I/O port space and those that don't.  That makes me think
-> > > s390 could do something similar.
-> > 
-> > No, this is actually the current situation, and it makes absolutely no
-> > sense. s390 has no way of implementing inb()/outb() because there
-> > are no instructions for it and it cannot tunnel them through a virtual
-> > address mapping like on most of the other architectures. (it has special
-> > instructions for accessing memory space, which is not the same as
-> > a pointer dereference here).
-> > 
-> > The existing implementation gets flagged as a NULL pointer dereference
-> > by a compiler warning because it effectively is.
+On Thu, 5 May 2022, Arnd Bergmann wrote:
+
+> > I'm hearing that generic powerpc kernels have to run both on machines
+> > that have I/O port space and those that don't.  That makes me think
+> > s390 could do something similar.
 > 
-> I think s390 currently uses the inb() in asm-generic/io.h, i.e.,
-> "__raw_readb(PCI_IOBASE + addr)".  I understand that's a NULL pointer
-> dereference because the default PCI_IOBASE is 0.
-> 
-> I mooted a s390 inb() implementation like "return ~0" because that's
-> what happens on most arches when there's no device to respond to the
-> inb().
-> 
-> The HAS_IOPORT dependencies are fairly ugly IMHO, and they clutter
-> drivers that use I/O ports in some cases but not others.  But maybe
-> it's the most practical way.
-> 
-> Bjorn
+> No, this is actually the current situation, and it makes absolutely no
+> sense. s390 has no way of implementing inb()/outb() because there
+> are no instructions for it and it cannot tunnel them through a virtual
+> address mapping like on most of the other architectures. (it has special
+> instructions for accessing memory space, which is not the same as
+> a pointer dereference here).
 
-I fear such stubs are kind of equivalent to my previous patch doing the
-same in asm-generic/io.h that was pulled and then unpulled by Linus.
-Maybe it would be slightly different if instead of a warning outX()
-would just be a NOP and inX() just returned ~0 but we're in essence
-pretending that we have these functions when we know they are nonsense.
+ I think I'm missing something here.  IIUC we're talking about a PCI/PCIe 
+bus used with s390 hardware, right?
 
-Another argument I see is that as shown by POWER9 we might start to see
-more platforms that just can't do I/O port access. E.g. I would also be
-surprised if Apple's M1 has I/O port access. Sooner or later I expect
-distributions on some platforms to only support such systems. For
-example on ppc a server distribution might only support IBM POWER
-without I/O port support before too long. Then having HAS_IOPORT allows
-to get rid of drivers that won't work anyway.
+ (It has to be PCI/PCIe, because other than x86/IA-64 host buses there are 
+only PCI/PCIe and EISA/ISA buses out there that define I/O access cycles 
+and EISA/ISA have long been obsoleted except perhaps from some niche use.)
 
-There are also reports of probing a driver with I/O ports causing a
-system crash on systems without I/O port support. For example in this
-answer by John Garry (added so he may supply more information):
+ If this is PCI/PCIe indeed, then an I/O access is just a different bit 
+pattern put on the bus/in the TLP in the address phase.  So what is there 
+inherent to the s390 architecture that prevents that different bit pattern 
+from being used?
 
-https://lore.kernel.org/lkml/db043b76-880d-5fad-69cf-96abcd9cd34f@huawei.com/
+ If anything, I could imagine the same limitation as with current POWER9 
+implementations, that is whatever glue is used to wire PCI/PCIe to the 
+rest of the system does not implement a way to use said bit pattern (which 
+has nothing to do with the POWER9 processor instruction set).
+
+ But that has nothing to do with the presence or absence of any specific 
+processor instructions.  It's just a limitation of bus glue.  So I guess 
+it's just that all PCI/PCIe glue logic implementations for s390 have such 
+a limitation, right?
+
+  Maciej
