@@ -1,32 +1,28 @@
-From: Finn Thain <fthain@linux-m68k.org>
-Date: Fri, 06 May 2022 09:12:06 +0000
+From: Niklas Schnelle <schnelle@linux.ibm.com>
+Date: Fri, 06 May 2022 09:38:52 +0000
 Subject: Re: [RFC v2 01/39] Kconfig: introduce HAS_IOPORT option and select it as necessary
-Message-Id: <22bec167-241f-2cbe-829f-a3f65e40e71@linux-m68k.org>
+Message-Id: <157602011a72061dd31f92bd699e8c1f9a81c988.camel@linux.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220505195342.GA509942@bhelgaas>
 In-Reply-To: <20220505195342.GA509942@bhelgaas>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <helgaas@kernel.org>
-Cc: Arnd Bergmann <arnd@kernel.org>, Niklas Schnelle <schnelle@linux.ibm.com>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-arch <linux-arch@vger.kernel.org>, linux-pci <linux-pci@vger.kernel.org>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "maintainer:X86 ARCHITECTURE (32-BIT AND 64-BIT)" <x86@kernel.org>, "open list:ALPHA PORT" <linux-alpha@vger.kernel.org>, "moderated list:ARM PORT" <linux-arm-kernel@lists.infradead.org>, "open list:IA64 (Itanium) PLATFORM" <linux-ia64@vger.kernel.org>, "open list:M68K ARCHITECTURE" <linux-m68k@lists.linux-m68k.org>, "open list:MIPS" <linux-mips@vger.kernel.org>, "open list:PARISC ARCHITECTURE" <linux-parisc@vger.kernel.org>, "open list:LINUX FOR POWERPC (32-BIT AND 64-BIT)" <linuxppc-dev@lists.ozlabs.org>, "open list:RISC-V ARCHITECTURE" <linux-riscv@lists.infradead.org>, "open list:SUPERH" <linux-sh@vger.kernel.org>, "open list:SPARC + UltraSPARC (sparc/sparc64)" <sparclinux@vger.kernel.org>
+To: Bjorn Helgaas <helgaas@kernel.org>, Arnd Bergmann <arnd@kernel.org>, John Garry <john.garry@huawei.com>
+Cc: Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-arch <linux-arch@vger.kernel.org>, linux-pci <linux-pci@vger.kernel.org>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "maintainer:X86 ARCHITECTURE (32-BIT AND 64-BIT)" <x86@kernel.org>, "open list:ALPHA PORT" <linux-alpha@vger.kernel.org>, "moderated list:ARM PORT" <linux-arm-kernel@lists.infradead.org>, "open list:IA64 (Itanium) PLATFORM" <linux-ia64@vger.kernel.org>, "open list:M68K ARCHITECTURE" <linux-m68k@lists.linux-m68k.org>, "open list:MIPS" <linux-mips@vger.kernel.org>, "open list:PARISC ARCHITECTURE" <linux-parisc@vger.kernel.org>, "open list:LINUX FOR POWERPC (32-BIT AND 64-BIT)" <linuxppc-dev@lists.ozlabs.org>, "open list:RISC-V ARCHITECTURE" <linux-riscv@lists.infradead.org>, "open list:SUPERH" <linux-sh@vger.kernel.org>, "open list:SPARC + UltraSPARC (sparc/sparc64)" <sparclinux@vger.kernel.org>
 
-
-
-On Thu, 5 May 2022, Bjorn Helgaas wrote:
-
+On Thu, 2022-05-05 at 14:53 -0500, Bjorn Helgaas wrote:
 > On Thu, May 05, 2022 at 07:39:42PM +0200, Arnd Bergmann wrote:
 > > On Thu, May 5, 2022 at 6:10 PM Bjorn Helgaas <helgaas@kernel.org> wrote:
 > > > On Wed, May 04, 2022 at 11:31:28PM +0200, Arnd Bergmann wrote:
-> > > >
 > > > > The main goal is to avoid c), which is what happens on s390, but
 > > > > can also happen elsewhere. Catching b) would be nice as well,
 > > > > but is much harder to do from generic code as you'd need an
 > > > > architecture specific inline asm statement to insert a ex_table
 > > > > fixup, or a runtime conditional on each access.
-> > >
+> > > 
 > > > Or s390 could implement its own inb().
-> > >
+> > > 
 > > > I'm hearing that generic powerpc kernels have to run both on machines
 > > > that have I/O port space and those that don't.  That makes me think
 > > > s390 could do something similar.
@@ -53,6 +49,24 @@ On Thu, 5 May 2022, Bjorn Helgaas wrote:
 > drivers that use I/O ports in some cases but not others.  But maybe
 > it's the most practical way.
 > 
+> Bjorn
 
-Do you mean, "the most practical way to avoid a compiler warning on s390"? 
-What about "#pragma GCC diagnostic ignored"?
+I fear such stubs are kind of equivalent to my previous patch doing the
+same in asm-generic/io.h that was pulled and then unpulled by Linus.
+Maybe it would be slightly different if instead of a warning outX()
+would just be a NOP and inX() just returned ~0 but we're in essence
+pretending that we have these functions when we know they are nonsense.
+
+Another argument I see is that as shown by POWER9 we might start to see
+more platforms that just can't do I/O port access. E.g. I would also be
+surprised if Apple's M1 has I/O port access. Sooner or later I expect
+distributions on some platforms to only support such systems. For
+example on ppc a server distribution might only support IBM POWER
+without I/O port support before too long. Then having HAS_IOPORT allows
+to get rid of drivers that won't work anyway.
+
+There are also reports of probing a driver with I/O ports causing a
+system crash on systems without I/O port support. For example in this
+answer by John Garry (added so he may supply more information):
+
+https://lore.kernel.org/lkml/db043b76-880d-5fad-69cf-96abcd9cd34f@huawei.com/
