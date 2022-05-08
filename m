@@ -1,7 +1,7 @@
 From: kernel test robot <lkp@intel.com>
-Date: Sun, 08 May 2022 12:01:09 +0000
+Date: Sun, 08 May 2022 12:11:24 +0000
 Subject: Re: [PATCH v2 2/3] mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when migration
-Message-Id: <202205081910.mStoC5rj-lkp@intel.com>
+Message-Id: <202205081950.IpKFNYip-lkp@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1ec8a987be1a5400e077260a300d0079564b1472.1652002221.git.baolin.wang@linux.alibaba.com>
 In-Reply-To: <1ec8a987be1a5400e077260a300d0079564b1472.1652002221.git.baolin.wang@linux.alibaba.com>
@@ -9,7 +9,7 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Baolin Wang <baolin.wang@linux.alibaba.com>, akpm@linux-foundation.org, mike.kravetz@oracle.com, catalin.marinas@arm.com, will@kernel.org
-Cc: kbuild-all@lists.01.org, tsbogend@alpha.franken.de, James.Bottomley@hansenpartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, baolin.wang@linux.alibaba.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org
+Cc: llvm@lists.linux.dev, kbuild-all@lists.01.org, tsbogend@alpha.franken.de, James.Bottomley@hansenpartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, baolin.wang@linux.alibaba.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org
 
 Hi Baolin,
 
@@ -24,36 +24,44 @@ https://git-scm.com/docs/git-format-patch]
 
 url:    https://github.com/intel-lab-lkp/linux/commits/Baolin-Wang/Fix-CONT-PTE-PMD-size-hugetlb-issue-when-unmapping-or-migrating/20220508-174036
 base:   https://git.kernel.org/pub/scm/linux/kernel/git/akpm/mm.git mm-everything
-config: x86_64-randconfig-a013 (https://download.01.org/0day-ci/archive/20220508/202205081910.mStoC5rj-lkp@intel.com/config)
-compiler: gcc-11 (Debian 11.2.0-20) 11.2.0
+config: x86_64-randconfig-a014 (https://download.01.org/0day-ci/archive/20220508/202205081950.IpKFNYip-lkp@intel.com/config)
+compiler: clang version 15.0.0 (https://github.com/llvm/llvm-project a385645b470e2d3a1534aae618ea56b31177639f)
 reproduce (this is a W=1 build):
+        wget https://raw.githubusercontent.com/intel/lkp-tests/master/sbin/make.cross -O ~/bin/make.cross
+        chmod +x ~/bin/make.cross
         # https://github.com/intel-lab-lkp/linux/commit/907981b27213707fdb2f8a24c107d6752a09a773
         git remote add linux-review https://github.com/intel-lab-lkp/linux
         git fetch --no-tags linux-review Baolin-Wang/Fix-CONT-PTE-PMD-size-hugetlb-issue-when-unmapping-or-migrating/20220508-174036
         git checkout 907981b27213707fdb2f8a24c107d6752a09a773
         # save the config file
         mkdir build_dir && cp config build_dir/.config
-        make W=1 O=build_dir ARCH=x86_64 SHELL=/bin/bash
+        COMPILER_INSTALL_PATH=$HOME/0day COMPILER=clang make.cross W=1 O=build_dir ARCH=x86_64 SHELL=/bin/bash
 
 If you fix the issue, kindly add following tag as appropriate
 Reported-by: kernel test robot <lkp@intel.com>
 
 All errors (new ones prefixed by >>):
 
-   mm/rmap.c: In function 'try_to_migrate_one':
->> mm/rmap.c:1931:34: error: implicit declaration of function 'huge_ptep_clear_flush'; did you mean 'ptep_clear_flush'? [-Werror=implicit-function-declaration]
-    1931 |                         pteval = huge_ptep_clear_flush(vma, address, pvmw.pte);
-         |                                  ^~~~~~~~~~~~~~~~~~~~~
-         |                                  ptep_clear_flush
->> mm/rmap.c:1931:34: error: incompatible types when assigning to type 'pte_t' from type 'int'
->> mm/rmap.c:2023:41: error: implicit declaration of function 'set_huge_pte_at'; did you mean 'set_huge_swap_pte_at'? [-Werror=implicit-function-declaration]
-    2023 |                                         set_huge_pte_at(mm, address, pvmw.pte, pteval);
-         |                                         ^~~~~~~~~~~~~~~
-         |                                         set_huge_swap_pte_at
-   cc1: some warnings being treated as errors
+>> mm/rmap.c:1931:13: error: call to undeclared function 'huge_ptep_clear_flush'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+                           pteval = huge_ptep_clear_flush(vma, address, pvmw.pte);
+                                    ^
+   mm/rmap.c:1931:13: note: did you mean 'ptep_clear_flush'?
+   include/linux/pgtable.h:431:14: note: 'ptep_clear_flush' declared here
+   extern pte_t ptep_clear_flush(struct vm_area_struct *vma,
+                ^
+>> mm/rmap.c:1931:11: error: assigning to 'pte_t' from incompatible type 'int'
+                           pteval = huge_ptep_clear_flush(vma, address, pvmw.pte);
+                                  ^ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+>> mm/rmap.c:2023:6: error: call to undeclared function 'set_huge_pte_at'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+                                           set_huge_pte_at(mm, address, pvmw.pte, pteval);
+                                           ^
+   mm/rmap.c:2035:6: error: call to undeclared function 'set_huge_pte_at'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+                                           set_huge_pte_at(mm, address, pvmw.pte, pteval);
+                                           ^
+   4 errors generated.
 
 
-vim +1931 mm/rmap.c
+vim +/huge_ptep_clear_flush +1931 mm/rmap.c
 
   1883	
   1884			/* Unexpected PMD-mapped THP? */
