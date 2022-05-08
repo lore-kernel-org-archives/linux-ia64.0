@@ -1,86 +1,57 @@
-From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
-Date: Mon, 09 May 2022 23:32:12 +0000
-Subject: [PATCH v8 04/27] kernel/reboot: Wrap legacy power-off callbacks into sys-off handlers
-Message-Id: <20220509233235.995021-5-dmitry.osipenko@collabora.com>
+From: Baolin Wang <baolin.wang@linux.alibaba.com>
+Date: Sun, 08 May 2022 09:36:38 +0000
+Subject: [PATCH v2 0/3] Fix CONT-PTE/PMD size hugetlb issue when unmapping or migrating
+Message-Id: <cover.1652002221.git.baolin.wang@linux.alibaba.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
-In-Reply-To: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
+To: akpm@linux-foundation.org, mike.kravetz@oracle.com, catalin.marinas@arm.com, will@kernel.org
+Cc: tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, baolin.wang@linux.alibaba.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-Wrap legacy power-off callbacks into sys-off handlers in order to
-support co-existence of both legacy and new callbacks while we're
-in process of upgrading legacy callbacks to the new API.
+Hi,
 
-Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
----
- kernel/reboot.c | 44 ++++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 42 insertions(+), 2 deletions(-)
+Now migrating a hugetlb page or unmapping a poisoned hugetlb page, we'll
+use ptep_clear_flush() and set_pte_at() to nuke the page table entry
+and remap it, and this is incorrect for CONT-PTE or CONT-PMD size hugetlb
+page, which will cause potential data consistent issue. This patch set
+will change to use hugetlb related APIs to fix this issue, please find
+details in each patch. Thanks.
 
-diff --git a/kernel/reboot.c b/kernel/reboot.c
-index 672a658f21ee..2fb0357d9483 100644
---- a/kernel/reboot.c
-+++ b/kernel/reboot.c
-@@ -463,6 +463,47 @@ int devm_register_sys_off_handler(struct device *dev,
- }
- EXPORT_SYMBOL_GPL(devm_register_sys_off_handler);
- 
-+static int legacy_pm_power_off_prepare(struct sys_off_data *data)
-+{
-+	if (pm_power_off_prepare)
-+		pm_power_off_prepare();
-+
-+	return NOTIFY_DONE;
-+}
-+
-+static int legacy_pm_power_off(struct sys_off_data *data)
-+{
-+	if (pm_power_off)
-+		pm_power_off();
-+
-+	return NOTIFY_DONE;
-+}
-+
-+/*
-+ * Register sys-off handlers for legacy PM callbacks. This allows legacy
-+ * PM callbacks co-exist with the new sys-off API.
-+ *
-+ * TODO: Remove legacy handlers once all legacy PM users will be switched
-+ *       to the sys-off based APIs.
-+ */
-+static int __init legacy_pm_init(void)
-+{
-+	register_sys_off_handler(SYS_OFF_MODE_POWER_OFF_PREPARE,
-+				 SYS_OFF_PRIO_DEFAULT,
-+				 legacy_pm_power_off_prepare, NULL);
-+
-+	register_sys_off_handler(SYS_OFF_MODE_POWER_OFF, SYS_OFF_PRIO_DEFAULT,
-+				 legacy_pm_power_off, NULL);
-+
-+	return 0;
-+}
-+core_initcall(legacy_pm_init);
-+
-+static void do_kernel_power_off_prepare(void)
-+{
-+	blocking_notifier_call_chain(&power_off_prep_handler_list, 0, NULL);
-+}
-+
- /**
-  *	kernel_power_off - power_off the system
-  *
-@@ -471,8 +512,7 @@ EXPORT_SYMBOL_GPL(devm_register_sys_off_handler);
- void kernel_power_off(void)
- {
- 	kernel_shutdown_prepare(SYSTEM_POWER_OFF);
--	if (pm_power_off_prepare)
--		pm_power_off_prepare();
-+	do_kernel_power_off_prepare();
- 	migrate_to_reboot_cpu();
- 	syscore_shutdown();
- 	pr_emerg("Power down\n");
+Note: Mike pointed out the huge_ptep_get() will only return the one specific
+value, and it would not take into account the dirty or young bits of CONT-PTE/PMDs
+like the huge_ptep_get_and_clear() [1]. This inconsistent issue is not introduced
+by this patch set, and will address this issue in another thread [2]. Meanwhile
+the uffd for hugetlb case [3] pointed by Gerald also need another patch to address.
+
+[1] https://lore.kernel.org/linux-mm/85bd80b4-b4fd-0d3f-a2e5-149559f2f387@oracle.com/
+[2] https://lore.kernel.org/all/cover.1651998586.git.baolin.wang@linux.alibaba.com/
+[3] https://lore.kernel.org/linux-mm/20220503120343.6264e126@thinkpad/
+
+Changes from v1:
+ - Add acked tag from Mike.
+ - Update some commit message.
+ - Add VM_BUG_ON in try_to_unmap() for hugetlb case.
+ - Add an explict void casting for huge_ptep_clear_flush() in hugetlb.c.
+
+Baolin Wang (3):
+  mm: change huge_ptep_clear_flush() to return the original pte
+  mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when migration
+  mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when unmapping
+
+ arch/arm64/include/asm/hugetlb.h   |  4 +--
+ arch/arm64/mm/hugetlbpage.c        | 12 +++-----
+ arch/ia64/include/asm/hugetlb.h    |  4 +--
+ arch/mips/include/asm/hugetlb.h    |  9 ++++--
+ arch/parisc/include/asm/hugetlb.h  |  4 +--
+ arch/powerpc/include/asm/hugetlb.h |  9 ++++--
+ arch/s390/include/asm/hugetlb.h    |  6 ++--
+ arch/sh/include/asm/hugetlb.h      |  4 +--
+ arch/sparc/include/asm/hugetlb.h   |  4 +--
+ include/asm-generic/hugetlb.h      |  4 +--
+ mm/hugetlb.c                       |  2 +-
+ mm/rmap.c                          | 63 ++++++++++++++++++++++++--------------
+ 12 files changed, 73 insertions(+), 52 deletions(-)
+
 -- 
-2.35.1
+1.8.3.1
