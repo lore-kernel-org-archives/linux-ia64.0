@@ -1,75 +1,111 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Tue, 03 May 2022 19:36:55 +0000
-Subject: Re: [PATCH v2 06/12] ptrace: Reimplement PTRACE_KILL by always sending SIGKILL
-Message-Id: <87y1zio1bc.fsf@email.froward.int.ebiederm.org>
+From: Baolin Wang <baolin.wang@linux.alibaba.com>
+Date: Sun, 08 May 2022 09:36:41 +0000
+Subject: [PATCH v2 3/3] mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when unmapping
+Message-Id: <43b11b69e9f0d9d7e7960b86661db27cc404d0c7.1652002221.git.baolin.wang@linux.alibaba.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
-        <20220429214837.386518-6-ebiederm@xmission.com>
-        <20220502143750.GC17276@redhat.com>
-In-Reply-To: <20220502143750.GC17276@redhat.com> (Oleg Nesterov's message of
-        "Mon, 2 May 2022 16:37:51 +0200")
+References: <cover.1652002221.git.baolin.wang@linux.alibaba.com>
+In-Reply-To: <cover.1652002221.git.baolin.wang@linux.alibaba.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Oleg Nesterov <oleg@redhat.com>
-Cc: linux-kernel@vger.kernel.org, rjw@rjwysocki.net, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, stable@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>
+To: akpm@linux-foundation.org, mike.kravetz@oracle.com, catalin.marinas@arm.com, will@kernel.org
+Cc: tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, baolin.wang@linux.alibaba.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-Oleg Nesterov <oleg@redhat.com> writes:
+On some architectures (like ARM64), it can support CONT-PTE/PMD size
+hugetlb, which means it can support not only PMD/PUD size hugetlb:
+2M and 1G, but also CONT-PTE/PMD size: 64K and 32M if a 4K page
+size specified.
 
-> On 04/29, Eric W. Biederman wrote:
->>
->> Call send_sig_info in PTRACE_KILL instead of ptrace_resume.  Calling
->> ptrace_resume is not safe to call if the task has not been stopped
->> with ptrace_freeze_traced.
->
-> Oh, I was never, never able to understand why do we have PTRACE_KILL
-> and what should it actually do.
->
-> I suggested many times to simply remove it but OK, we probably can't
-> do this.
+When unmapping a hugetlb page, we will get the relevant page table
+entry by huge_pte_offset() only once to nuke it. This is correct
+for PMD or PUD size hugetlb, since they always contain only one
+pmd entry or pud entry in the page table.
 
-I thought I remembered you suggesting fixing it in some other way.
+However this is incorrect for CONT-PTE and CONT-PMD size hugetlb,
+since they can contain several continuous pte or pmd entry with
+same page table attributes, so we will nuke only one pte or pmd
+entry for this CONT-PTE/PMD size hugetlb page.
 
-I took at quick look in codesearch.debian.net and PTRACE_KILL is
-definitely in use. I find uses in gcc-10, firefox-esr_91.8,
-llvm_toolchain, qtwebengine.  At which point I stopped looking.
+And now try_to_unmap() is only passed a hugetlb page in the case
+where the hugetlb page is poisoned. Which means now we will unmap
+only one pte entry for a CONT-PTE or CONT-PMD size poisoned hugetlb
+page, and we can still access other subpages of a CONT-PTE or CONT-PMD
+size poisoned hugetlb page, which will cause serious issues possibly.
 
+So we should change to use huge_ptep_clear_flush() to nuke the
+hugetlb page table to fix this issue, which already considered
+CONT-PTE and CONT-PMD size hugetlb.
 
->> --- a/kernel/ptrace.c
->> +++ b/kernel/ptrace.c
->> @@ -1238,7 +1238,7 @@ int ptrace_request(struct task_struct *child, long request,
->>  	case PTRACE_KILL:
->>  		if (child->exit_state)	/* already dead */
->>  			return 0;
->> -		return ptrace_resume(child, request, SIGKILL);
->> +		return send_sig_info(SIGKILL, SEND_SIG_NOINFO, child);
->
-> Note that currently ptrace(PTRACE_KILL) can never fail (yes, yes, it
-> is unsafe), but send_sig_info() can. If we do not remove PTRACE_KILL,
-> then I'd suggest
->
-> 	case PTRACE_KILL:
-> 		if (!child->exit_state)
-> 			send_sig_info(SIGKILL);
-> 		return 0;
->
-> to make this change a bit more compatible.
+We've already used set_huge_swap_pte_at() to set a poisoned
+swap entry for a poisoned hugetlb page. Meanwhile adding a VM_BUG_ON()
+to make sure the passed hugetlb page is poisoned in try_to_unmap().
 
+Signed-off-by: Baolin Wang <baolin.wang@linux.alibaba.com>
+---
+ mm/rmap.c | 39 ++++++++++++++++++++++-----------------
+ 1 file changed, 22 insertions(+), 17 deletions(-)
 
-Quite.  The only failure I can find from send_sig_info is if
-lock_task_sighand fails and PTRACE_KILL is deliberately ignoring errors
-when the target task has exited.
-
- 	case PTRACE_KILL:
- 		send_sig_info(SIGKILL);
- 		return 0;
-
-I think that should suffice.
-
-
-> Also, please remove the note about PTRACE_KILL in
-> set_task_blockstep().
-
-Good catch, thank you.
-
-Eric
+diff --git a/mm/rmap.c b/mm/rmap.c
+index 7cf2408..37c8fd2 100644
+--- a/mm/rmap.c
++++ b/mm/rmap.c
+@@ -1530,6 +1530,11 @@ static bool try_to_unmap_one(struct folio *folio, struct vm_area_struct *vma,
+ 
+ 		if (folio_test_hugetlb(folio)) {
+ 			/*
++			 * The try_to_unmap() is only passed a hugetlb page
++			 * in the case where the hugetlb page is poisoned.
++			 */
++			VM_BUG_ON_PAGE(!PageHWPoison(subpage), subpage);
++			/*
+ 			 * huge_pmd_unshare may unmap an entire PMD page.
+ 			 * There is no way of knowing exactly which PMDs may
+ 			 * be cached for this mm, so we must flush them all.
+@@ -1564,28 +1569,28 @@ static bool try_to_unmap_one(struct folio *folio, struct vm_area_struct *vma,
+ 					break;
+ 				}
+ 			}
++			pteval = huge_ptep_clear_flush(vma, address, pvmw.pte);
+ 		} else {
+ 			flush_cache_page(vma, address, pte_pfn(*pvmw.pte));
+-		}
+-
+-		/*
+-		 * Nuke the page table entry. When having to clear
+-		 * PageAnonExclusive(), we always have to flush.
+-		 */
+-		if (should_defer_flush(mm, flags) && !anon_exclusive) {
+ 			/*
+-			 * We clear the PTE but do not flush so potentially
+-			 * a remote CPU could still be writing to the folio.
+-			 * If the entry was previously clean then the
+-			 * architecture must guarantee that a clear->dirty
+-			 * transition on a cached TLB entry is written through
+-			 * and traps if the PTE is unmapped.
++			 * Nuke the page table entry. When having to clear
++			 * PageAnonExclusive(), we always have to flush.
+ 			 */
+-			pteval = ptep_get_and_clear(mm, address, pvmw.pte);
++			if (should_defer_flush(mm, flags) && !anon_exclusive) {
++				/*
++				 * We clear the PTE but do not flush so potentially
++				 * a remote CPU could still be writing to the folio.
++				 * If the entry was previously clean then the
++				 * architecture must guarantee that a clear->dirty
++				 * transition on a cached TLB entry is written through
++				 * and traps if the PTE is unmapped.
++				 */
++				pteval = ptep_get_and_clear(mm, address, pvmw.pte);
+ 
+-			set_tlb_ubc_flush_pending(mm, pte_dirty(pteval));
+-		} else {
+-			pteval = ptep_clear_flush(vma, address, pvmw.pte);
++				set_tlb_ubc_flush_pending(mm, pte_dirty(pteval));
++			} else {
++				pteval = ptep_clear_flush(vma, address, pvmw.pte);
++			}
+ 		}
+ 
+ 		/*
+-- 
+1.8.3.1
