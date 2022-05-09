@@ -1,7 +1,7 @@
 From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
-Date: Mon, 09 May 2022 23:32:11 +0000
-Subject: [PATCH v8 03/27] kernel/reboot: Introduce sys-off handler API
-Message-Id: <20220509233235.995021-4-dmitry.osipenko@collabora.com>
+Date: Mon, 09 May 2022 23:32:31 +0000
+Subject: [PATCH v8 23/27] regulator: pfuze100: Use devm_register_sys_off_handler()
+Message-Id: <20220509233235.995021-24-dmitry.osipenko@collabora.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
 In-Reply-To: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
@@ -11,335 +11,107 @@ Content-Transfer-Encoding: 7bit
 To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-In order to support power-off chaining we need to get rid of the global
-pm_* variables, replacing them with the new kernel API functions that
-support chaining.
+Use devm_register_sys_off_handler() that replaces global
+pm_power_off_prepare variable and allows to register multiple
+power-off handlers.
 
-Introduce new generic sys-off handler API that brings the following
-features:
-
-1. Power-off and restart handlers are registered using same API function
-   that supports chaining, hence all power-off and restart modes will
-   support chaining using this unified function.
-
-2. Prevents notifier priority collisions by disallowing registration of
-   multiple handlers at the non-default priority level.
-
-3. Supports passing opaque user argument to callback, which allows us to
-   remove global variables from drivers.
-
-This patch adds support of the following sys-off modes:
-
-- SYS_OFF_MODE_POWER_OFF_PREPARE that replaces global pm_power_off_prepare
-  variable and provides chaining support for power-off-prepare handlers.
-
-- SYS_OFF_MODE_POWER_OFF that replaces global pm_power_off variable and
-  provides chaining support for power-off handlers.
-
-- SYS_OFF_MODE_RESTART that provides a better restart API, removing a need
-  from drivers to have a global scratch variable by utilizing the opaque
-  callback argument.
-
+Acked-by: Mark Brown <broonie@kernel.org>
 Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
 ---
- include/linux/reboot.h |  77 +++++++++++++++++
- kernel/reboot.c        | 182 +++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 259 insertions(+)
+ drivers/regulator/pfuze100-regulator.c | 42 +++++++++++---------------
+ 1 file changed, 17 insertions(+), 25 deletions(-)
 
-diff --git a/include/linux/reboot.h b/include/linux/reboot.h
-index a2429648d831..05981ef079d8 100644
---- a/include/linux/reboot.h
-+++ b/include/linux/reboot.h
-@@ -7,6 +7,7 @@
- #include <uapi/linux/reboot.h>
- 
- struct device;
-+struct sys_off_handler;
- 
- #define SYS_DOWN	0x0001	/* Notify of system down */
- #define SYS_RESTART	SYS_DOWN
-@@ -62,6 +63,82 @@ extern void machine_shutdown(void);
- struct pt_regs;
- extern void machine_crash_shutdown(struct pt_regs *);
- 
-+/*
-+ * sys-off handler API.
-+ */
-+
-+/*
-+ * Standard sys-off priority levels. Users are expected to set priorities
-+ * relative to the standard levels.
-+ *
-+ * SYS_OFF_PRIO_PLATFORM:	Use this for platform-level handlers.
-+ *
-+ * SYS_OFF_PRIO_LOW:		Use this for handler of last resort.
-+ *
-+ * SYS_OFF_PRIO_DEFAULT:	Use this for normal handlers.
-+ *
-+ * SYS_OFF_PRIO_HIGH:		Use this for higher priority handlers.
-+ *
-+ * SYS_OFF_PRIO_FIRMWARE:	Use this if handler uses firmware call.
-+ */
-+#define SYS_OFF_PRIO_PLATFORM		-256
-+#define SYS_OFF_PRIO_LOW		-128
-+#define SYS_OFF_PRIO_DEFAULT		0
-+#define SYS_OFF_PRIO_HIGH		192
-+#define SYS_OFF_PRIO_FIRMWARE		224
-+
-+enum sys_off_mode {
-+	/**
-+	 * @SYS_OFF_MODE_POWER_OFF_PREPARE:
-+	 *
-+	 * Handlers prepare system to be powered off. Handlers are
-+	 * allowed to sleep.
-+	 */
-+	SYS_OFF_MODE_POWER_OFF_PREPARE,
-+
-+	/**
-+	 * @SYS_OFF_MODE_POWER_OFF:
-+	 *
-+	 * Handlers power-off system. Handlers are disallowed to sleep.
-+	 */
-+	SYS_OFF_MODE_POWER_OFF,
-+
-+	/**
-+	 * @SYS_OFF_MODE_RESTART:
-+	 *
-+	 * Handlers restart system. Handlers are disallowed to sleep.
-+	 */
-+	SYS_OFF_MODE_RESTART,
-+};
-+
-+/**
-+ * struct sys_off_data - sys-off callback argument
-+ *
-+ * @mode: Mode ID. Currently used only by the sys-off restart mode,
-+ *        see enum reboot_mode for the available modes.
-+ * @cb_data: User's callback data.
-+ * @cmd: Command string. Currently used only by the sys-off restart mode,
-+ *       NULL otherwise.
-+ */
-+struct sys_off_data {
-+	int mode;
-+	void *cb_data;
-+	const char *cmd;
-+};
-+
-+struct sys_off_handler *
-+register_sys_off_handler(enum sys_off_mode mode,
-+			 int priority,
-+			 int (*callback)(struct sys_off_data *data),
-+			 void *cb_data);
-+void unregister_sys_off_handler(struct sys_off_handler *handler);
-+
-+int devm_register_sys_off_handler(struct device *dev,
-+				  enum sys_off_mode mode,
-+				  int priority,
-+				  int (*callback)(struct sys_off_data *data),
-+				  void *cb_data);
-+
- /*
-  * Architecture independent implemenations of sys_reboot commands.
-  */
-diff --git a/kernel/reboot.c b/kernel/reboot.c
-index 8ce30fa0a104..672a658f21ee 100644
---- a/kernel/reboot.c
-+++ b/kernel/reboot.c
-@@ -48,6 +48,15 @@ int reboot_cpu;
- enum reboot_type reboot_type = BOOT_ACPI;
- int reboot_force;
- 
-+struct sys_off_handler {
-+	struct notifier_block nb;
-+	int (*sys_off_cb)(struct sys_off_data *data);
-+	void *cb_data;
-+	enum sys_off_mode mode;
-+	bool blocking;
-+	void *list;
-+};
-+
- /*
-  * If set, this is used for preparing the system to power off.
-  */
-@@ -281,6 +290,179 @@ void kernel_halt(void)
+diff --git a/drivers/regulator/pfuze100-regulator.c b/drivers/regulator/pfuze100-regulator.c
+index d60d7d1b7fa2..0322f6b1fb60 100644
+--- a/drivers/regulator/pfuze100-regulator.c
++++ b/drivers/regulator/pfuze100-regulator.c
+@@ -10,6 +10,7 @@
+ #include <linux/of_device.h>
+ #include <linux/regulator/of_regulator.h>
+ #include <linux/platform_device.h>
++#include <linux/reboot.h>
+ #include <linux/regulator/driver.h>
+ #include <linux/regulator/machine.h>
+ #include <linux/regulator/pfuze100.h>
+@@ -569,10 +570,10 @@ static inline struct device_node *match_of_node(int index)
+ 	return pfuze_matches[index].of_node;
  }
- EXPORT_SYMBOL_GPL(kernel_halt);
  
-+/*
-+ *	Notifier list for kernel code which wants to be called
-+ *	to prepare system for power off.
-+ */
-+static BLOCKING_NOTIFIER_HEAD(power_off_prep_handler_list);
+-static struct pfuze_chip *syspm_pfuze_chip;
+-
+-static void pfuze_power_off_prepare(void)
++static int pfuze_power_off_prepare(struct sys_off_data *data)
+ {
++	struct pfuze_chip *syspm_pfuze_chip = data->cb_data;
 +
-+/*
-+ *	Notifier list for kernel code which wants to be called
-+ *	to power off system.
-+ */
-+static ATOMIC_NOTIFIER_HEAD(power_off_handler_list);
+ 	dev_info(syspm_pfuze_chip->dev, "Configure standby mode for power off");
+ 
+ 	/* Switch from default mode: APS/APS to APS/Off */
+@@ -607,28 +608,30 @@ static void pfuze_power_off_prepare(void)
+ 	regmap_update_bits(syspm_pfuze_chip->regmap, PFUZE100_VGEN6VOL,
+ 			   PFUZE100_VGENxLPWR | PFUZE100_VGENxSTBY,
+ 			   PFUZE100_VGENxSTBY);
 +
-+static int sys_off_notify(struct notifier_block *nb,
-+			  unsigned long mode, void *cmd)
-+{
-+	struct sys_off_handler *handler;
-+	struct sys_off_data data = {};
-+
-+	handler = container_of(nb, struct sys_off_handler, nb);
-+	data.cb_data = handler->cb_data;
-+	data.mode = mode;
-+	data.cmd = cmd;
-+
-+	return handler->sys_off_cb(&data);
-+}
-+
-+/**
-+ *	register_sys_off_handler - Register sys-off handler
-+ *	@mode: Sys-off mode
-+ *	@priority: Handler priority
-+ *	@callback: Callback function
-+ *	@cb_data: Callback argument
-+ *
-+ *	Registers system power-off or restart handler that will be invoked
-+ *	at the step corresponding to the given sys-off mode. Handler's callback
-+ *	should return NOTIFY_DONE to permit execution of the next handler in
-+ *	the call chain or NOTIFY_STOP to break the chain (in error case for
-+ *	example).
-+ *
-+ *	Multiple handlers can be registered at the default priority level.
-+ *
-+ *	Only one handler can be registered at the non-default priority level,
-+ *	otherwise ERR_PTR(-EBUSY) is returned.
-+ *
-+ *	Returns a new instance of struct sys_off_handler on success, or
-+ *	an ERR_PTR()-encoded error code otherwise.
-+ */
-+struct sys_off_handler *
-+register_sys_off_handler(enum sys_off_mode mode,
-+			 int priority,
-+			 int (*callback)(struct sys_off_data *data),
-+			 void *cb_data)
-+{
-+	struct sys_off_handler *handler;
++	return NOTIFY_DONE;
+ }
+ 
+ static int pfuze_power_off_prepare_init(struct pfuze_chip *pfuze_chip)
+ {
 +	int err;
 +
-+	handler = kzalloc(sizeof(*handler), GFP_KERNEL);
-+	if (!handler)
-+		return ERR_PTR(-ENOMEM);
-+
-+	switch (mode) {
-+	case SYS_OFF_MODE_POWER_OFF_PREPARE:
-+		handler->list = &power_off_prep_handler_list;
-+		handler->blocking = true;
-+		break;
-+
-+	case SYS_OFF_MODE_POWER_OFF:
-+		handler->list = &power_off_handler_list;
-+		break;
-+
-+	case SYS_OFF_MODE_RESTART:
-+		handler->list = &restart_handler_list;
-+		break;
-+
-+	default:
-+		kfree(handler);
-+		return ERR_PTR(-EINVAL);
-+	}
-+
-+	handler->nb.notifier_call = sys_off_notify;
-+	handler->nb.priority = priority;
-+	handler->sys_off_cb = callback;
-+	handler->cb_data = cb_data;
-+	handler->mode = mode;
-+
-+	if (handler->blocking) {
-+		if (priority = SYS_OFF_PRIO_DEFAULT)
-+			err = blocking_notifier_chain_register(handler->list,
-+							       &handler->nb);
-+		else
-+			err = blocking_notifier_chain_register_unique_prio(handler->list,
-+									   &handler->nb);
-+	} else {
-+		if (priority = SYS_OFF_PRIO_DEFAULT)
-+			err = atomic_notifier_chain_register(handler->list,
-+							     &handler->nb);
-+		else
-+			err = atomic_notifier_chain_register_unique_prio(handler->list,
-+									 &handler->nb);
-+	}
-+
+ 	if (pfuze_chip->chip_id != PFUZE100) {
+ 		dev_warn(pfuze_chip->dev, "Requested pm_power_off_prepare handler for not supported chip\n");
+ 		return -ENODEV;
+ 	}
+ 
+-	if (pm_power_off_prepare) {
+-		dev_warn(pfuze_chip->dev, "pm_power_off_prepare is already registered.\n");
+-		return -EBUSY;
++	err = devm_register_sys_off_handler(pfuze_chip->dev,
++					    SYS_OFF_MODE_POWER_OFF_PREPARE,
++					    SYS_OFF_PRIO_DEFAULT,
++					    pfuze_power_off_prepare,
++					    pfuze_chip);
 +	if (err) {
-+		kfree(handler);
-+		return ERR_PTR(err);
-+	}
-+
-+	return handler;
-+}
-+EXPORT_SYMBOL_GPL(register_sys_off_handler);
-+
-+/**
-+ *	unregister_sys_off_handler - Unregister sys-off handler
-+ *	@handler: Sys-off handler
-+ *
-+ *	Unregisters given sys-off handler.
-+ */
-+void unregister_sys_off_handler(struct sys_off_handler *handler)
-+{
-+	int err;
-+
-+	if (!handler)
-+		return;
-+
-+	if (handler->blocking)
-+		err = blocking_notifier_chain_unregister(handler->list,
-+							 &handler->nb);
-+	else
-+		err = atomic_notifier_chain_unregister(handler->list,
-+						       &handler->nb);
-+
-+	/* sanity check, shall never happen */
-+	WARN_ON(err);
-+
-+	kfree(handler);
-+}
-+EXPORT_SYMBOL_GPL(unregister_sys_off_handler);
-+
-+static void devm_unregister_sys_off_handler(void *data)
-+{
-+	struct sys_off_handler *handler = data;
-+
-+	unregister_sys_off_handler(handler);
-+}
-+
-+/**
-+ *	devm_register_sys_off_handler - Register sys-off handler
-+ *	@dev: Device that registers handler
-+ *	@mode: Sys-off mode
-+ *	@priority: Handler priority
-+ *	@callback: Callback function
-+ *	@cb_data: Callback argument
-+ *
-+ *	Registers resource-managed sys-off handler.
-+ *
-+ *	Returns zero on success, or error code on failure.
-+ */
-+int devm_register_sys_off_handler(struct device *dev,
-+				  enum sys_off_mode mode,
-+				  int priority,
-+				  int (*callback)(struct sys_off_data *data),
-+				  void *cb_data)
-+{
-+	struct sys_off_handler *handler;
-+
-+	handler = register_sys_off_handler(mode, priority, callback, cb_data);
-+	if (IS_ERR(handler))
-+		return PTR_ERR(handler);
-+
-+	return devm_add_action_or_reset(dev, devm_unregister_sys_off_handler,
-+					handler);
-+}
-+EXPORT_SYMBOL_GPL(devm_register_sys_off_handler);
-+
- /**
-  *	kernel_power_off - power_off the system
-  *
++		dev_err(pfuze_chip->dev, "failed to register sys-off handler: %d\n",
++			err);
++		return err;
+ 	}
+ 
+-	if (syspm_pfuze_chip) {
+-		dev_warn(pfuze_chip->dev, "syspm_pfuze_chip is already set.\n");
+-		return -EBUSY;
+-	}
+-
+-	syspm_pfuze_chip = pfuze_chip;
+-	pm_power_off_prepare = pfuze_power_off_prepare;
+-
+ 	return 0;
+ }
+ 
+@@ -837,23 +840,12 @@ static int pfuze100_regulator_probe(struct i2c_client *client,
+ 	return 0;
+ }
+ 
+-static int pfuze100_regulator_remove(struct i2c_client *client)
+-{
+-	if (syspm_pfuze_chip) {
+-		syspm_pfuze_chip = NULL;
+-		pm_power_off_prepare = NULL;
+-	}
+-
+-	return 0;
+-}
+-
+ static struct i2c_driver pfuze_driver = {
+ 	.driver = {
+ 		.name = "pfuze100-regulator",
+ 		.of_match_table = pfuze_dt_ids,
+ 	},
+ 	.probe = pfuze100_regulator_probe,
+-	.remove = pfuze100_regulator_remove,
+ };
+ module_i2c_driver(pfuze_driver);
+ 
 -- 
 2.35.1
