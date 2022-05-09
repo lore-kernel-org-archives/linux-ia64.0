@@ -1,68 +1,49 @@
-From: Pingfan Liu <kernelfans@gmail.com>
-Date: Mon, 09 May 2022 04:13:03 +0000
-Subject: [PATCHv3 0/2] cpu/hotplug: Keep cpu hotplug disabled until the rebooting cpu is stable
-Message-Id: <20220509041305.15056-1-kernelfans@gmail.com>
+From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
+Date: Mon, 09 May 2022 23:32:22 +0000
+Subject: [PATCH v8 14/27] xen/x86: Use do_kernel_power_off()
+Message-Id: <20220509233235.995021-15-dmitry.osipenko@collabora.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
+In-Reply-To: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-Cc: Pingfan Liu <kernelfans@gmail.com>, Eric Biederman <ebiederm@xmission.com>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Valentin Schneider <valentin.schneider@arm.com>, Vincent Donnefort <vincent.donnefort@arm.com>, Ingo Molnar <mingo@kernel.org>, YueHaibing <yuehaibing@huawei.com>, Baokun Li <libaokun1@huawei.com>, Randy Dunlap <rdunlap@infradead.org>, kexec@lists.infradead.org, Geert Uytterhoeven <geert@linux-m68k.org>, Kees Cook <keescook@chromium.org>, Jens Axboe <axboe@kernel.dk>, Russell King <linux@armlinux.org.uk>, Guenter Roeck <linux@roeck-us.net>, Arnd Bergmann <arnd@arndb.de>, Wolfram Sang <wsa+renesas@sang-engineering.com>, Lee Jones <lee.jones@linaro.org>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Peter Collingbourne <pcc@google.com>, Marc Zyngier <maz@kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-For the arches (arm/arm64/ia64/riscv), which relies on the cpu hot-removing
-mechanism to implement "kexec -e", it is important to make sure that the
-rebooting happens on a valid online cpu. And this logic should have been
-guaranteed in migrate_to_reboot_cpu().
+Kernel now supports chained power-off handlers. Use do_kernel_power_off()
+that invokes chained power-off handlers. It also invokes legacy
+pm_power_off() for now, which will be removed once all drivers will
+be converted to the new sys-off API.
 
-But the current code has either contradict (resolved by [2/2]) or
-redundancy (resolved by [1/2]) about the logic.
+Acked-by: Juergen Gross <jgross@suse.com>
+Reviewed-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
+Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
+---
+ arch/x86/xen/enlighten_pv.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-V2 -> V3:
-Taking in [2/2], which also has problem with the valid rebooting
-cpu. (I had sent three patches for different arches. But maybe it is
-better to collapse them into one and collect acks from different arches'
-maintainers )
-
-Cc: Eric Biederman <ebiederm@xmission.com>
-Cc: Peter Zijlstra <peterz@infradead.org>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Valentin Schneider <valentin.schneider@arm.com>
-Cc: Vincent Donnefort <vincent.donnefort@arm.com>
-Cc: Ingo Molnar <mingo@kernel.org>
-Cc: YueHaibing <yuehaibing@huawei.com>
-Cc: Baokun Li <libaokun1@huawei.com>
-Cc: Randy Dunlap <rdunlap@infradead.org>
-Cc: Valentin Schneider <valentin.schneider@arm.com>
-Cc: kexec@lists.infradead.org
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>
-Cc: Kees Cook <keescook@chromium.org>
-Cc: Jens Axboe <axboe@kernel.dk>
-To: linux-ia64@vger.kernel.org
-Cc: Russell King <linux@armlinux.org.uk>
-Cc: Guenter Roeck <linux@roeck-us.net>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: Wolfram Sang <wsa+renesas@sang-engineering.com>
-Cc: Lee Jones <lee.jones@linaro.org>
-Cc: Catalin Marinas <catalin.marinas@arm.com>
-Cc: Will Deacon <will@kernel.org>
-Cc: Mark Rutland <mark.rutland@arm.com>
-Cc: Peter Collingbourne <pcc@google.com>
-Cc: Marc Zyngier <maz@kernel.org>
-To: linux-arm-kernel@lists.infradead.org
-To: linux-kernel@vger.kernel.org
-
-Pingfan Liu (2):
-  cpu/hotplug: Keep cpu hotplug disabled until the rebooting cpu is
-    stable
-  arm/arm64/ia64: kexec: fix the primary cpu passed to
-    smp_shutdown_nonboot_cpus()
-
- arch/arm/kernel/reboot.c    |  2 +-
- arch/arm64/kernel/process.c |  2 +-
- arch/ia64/kernel/process.c  |  2 +-
- kernel/cpu.c                | 16 ++++++++++------
- kernel/kexec_core.c         | 10 ++++------
- 5 files changed, 17 insertions(+), 15 deletions(-)
-
+diff --git a/arch/x86/xen/enlighten_pv.c b/arch/x86/xen/enlighten_pv.c
+index 5038edb79ad5..af1f6e886225 100644
+--- a/arch/x86/xen/enlighten_pv.c
++++ b/arch/x86/xen/enlighten_pv.c
+@@ -31,6 +31,7 @@
+ #include <linux/gfp.h>
+ #include <linux/edd.h>
+ #include <linux/objtool.h>
++#include <linux/reboot.h>
+ 
+ #include <xen/xen.h>
+ #include <xen/events.h>
+@@ -1071,8 +1072,7 @@ static void xen_machine_halt(void)
+ 
+ static void xen_machine_power_off(void)
+ {
+-	if (pm_power_off)
+-		pm_power_off();
++	do_kernel_power_off();
+ 	xen_reboot(SHUTDOWN_poweroff);
+ }
+ 
 -- 
-2.31.1
+2.35.1
