@@ -1,50 +1,41 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Wed, 18 May 2022 22:53:48 +0000
-Subject: [PATCH 09/16] ptrace: In ptrace_setsiginfo deal with invalid si_signo
-Message-Id: <20220518225355.784371-9-ebiederm@xmission.com>
+From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
+Date: Mon, 09 May 2022 23:32:14 +0000
+Subject: [PATCH v8 06/27] kernel/reboot: Add stub for pm_power_off
+Message-Id: <20220509233235.995021-7-dmitry.osipenko@collabora.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
-In-Reply-To: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
+References: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
+In-Reply-To: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, Robert OCallahan <roc@pernos.co>, Kyle Huey <khuey@pernos.co>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Jason Wessel <jason.wessel@windriver.com>, Daniel Thompson <daniel.thompson@linaro.org>, Douglas Anderson <dianders@chromium.org>, Douglas Miller <dougmill@linux.vnet.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, "Eric W. Biederman" <ebiederm@xmission.com>
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-If the tracer calls PTRACE_SETSIGINFO it only has an effect if the
-tracee is stopped in ptrace_signal.
+Add weak stub for the global pm_power_off callback variable. This will
+allow us to remove pm_power_off definitions from arch/ code and transition
+to the new sys-off based API that will replace the global variable.
 
-When one of PTRACE_DETACH, PTRACE_SINGLESTEP, PTRACE_SINGLEBLOCK,
-PTRACE_SYSEMU, PTRACE_SYSEMU_SINGLESTEP, PTRACE_SYSCALL, or
-PTRACE_CONT pass in a signel number to continue with the kernel
-validates that signal number and the ptrace_signal verifies the signal
-number matches the si_signo, before the siginfo is used.
-
-As the signal number to continue with is verified to be a valid signal
-number the signal number in si_signo must be a valid signal number.
-
-Make this obvious and avoid needing checks later by immediately
-clearing siginfo if si_signo is not valid.
-
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
 ---
- kernel/ptrace.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ kernel/reboot.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/kernel/ptrace.c b/kernel/ptrace.c
-index a24eed725cec..a0a07d140751 100644
---- a/kernel/ptrace.c
-+++ b/kernel/ptrace.c
-@@ -716,7 +716,9 @@ static int ptrace_setsiginfo(struct task_struct *child, const kernel_siginfo_t *
- 	if (unlikely(!child->last_siginfo))
- 		return -EINVAL;
+diff --git a/kernel/reboot.c b/kernel/reboot.c
+index 9afa99a32d62..eaede35f45e2 100644
+--- a/kernel/reboot.c
++++ b/kernel/reboot.c
+@@ -57,6 +57,12 @@ struct sys_off_handler {
+ 	void *list;
+ };
  
--	copy_siginfo(child->last_siginfo, info);
-+	clear_siginfo(child->last_siginfo);
-+	if (valid_signal(info->si_signo))
-+		copy_siginfo(child->last_siginfo, info);
- 	return 0;
- }
- 
++/*
++ * Temporary stub that prevents linkage failure while we're in process
++ * of removing all uses of legacy pm_power_off() around the kernel.
++ */
++void __weak (*pm_power_off)(void);
++
+ /*
+  * If set, this is used for preparing the system to power off.
+  */
 -- 
-2.35.3
+2.35.1
