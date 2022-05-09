@@ -1,50 +1,59 @@
-From: Baolin Wang <baolin.wang@linux.alibaba.com>
-Date: Sat, 07 May 2022 01:32:46 +0000
+From: Peter Xu <peterx@redhat.com>
+Date: Mon, 09 May 2022 16:41:38 +0000
 Subject: Re: [PATCH 3/3] mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when unmapping
-Message-Id: <971cfb54-f5a6-921c-b0c5-195a5daed0fb@linux.alibaba.com>
+Message-Id: <YnlEQvipCM6hnIYT@xz-m1.local>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <cover.1651216964.git.baolin.wang@linux.alibaba.com>
  <c91e04ebb792ef7b72966edea8bd6fa2dfa5bfa7.1651216964.git.baolin.wang@linux.alibaba.com>
- <f64f0d4f-f0fc-f07c-3c17-96f124da21e4@oracle.com>
-In-Reply-To: <f64f0d4f-f0fc-f07c-3c17-96f124da21e4@oracle.com>
+ <20220429220214.4cfc5539@thinkpad>
+ <bcb4a3b0-4fcd-af3a-2a2c-fd662d9eaba9@linux.alibaba.com>
+ <20220502160232.589a6111@thinkpad>
+ <48a05075-a323-e7f1-9e99-6c0d106eb2cb@linux.alibaba.com>
+ <20220503120343.6264e126@thinkpad>
+ <927dfbf4-c899-b88a-4d58-36a637d611f9@oracle.com>
+In-Reply-To: <927dfbf4-c899-b88a-4d58-36a637d611f9@oracle.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mike Kravetz <mike.kravetz@oracle.com>, akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org
-Cc: tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+To: Mike Kravetz <mike.kravetz@oracle.com>
+Cc: Gerald Schaefer <gerald.schaefer@linux.ibm.com>, Baolin Wang <baolin.wang@linux.alibaba.com>, akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org, tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
+On Fri, May 06, 2022 at 12:07:13PM -0700, Mike Kravetz wrote:
+> On 5/3/22 03:03, Gerald Schaefer wrote:
+> > On Tue, 3 May 2022 10:19:46 +0800
+> > Baolin Wang <baolin.wang@linux.alibaba.com> wrote:
+> >> On 5/2/2022 10:02 PM, Gerald Schaefer wrote:
 
+[...]
 
-On 5/7/2022 2:55 AM, Mike Kravetz wrote:
-> On 4/29/22 01:14, Baolin Wang wrote:
->> On some architectures (like ARM64), it can support CONT-PTE/PMD size
->> hugetlb, which means it can support not only PMD/PUD size hugetlb:
->> 2M and 1G, but also CONT-PTE/PMD size: 64K and 32M if a 4K page
->> size specified.
->>
->> When unmapping a hugetlb page, we will get the relevant page table
->> entry by huge_pte_offset() only once to nuke it. This is correct
->> for PMD or PUD size hugetlb, since they always contain only one
->> pmd entry or pud entry in the page table.
->>
->> However this is incorrect for CONT-PTE and CONT-PMD size hugetlb,
->> since they can contain several continuous pte or pmd entry with
->> same page table attributes, so we will nuke only one pte or pmd
->> entry for this CONT-PTE/PMD size hugetlb page.
->>
->> And now we only use try_to_unmap() to unmap a poisoned hugetlb page,
-> 
-> Since try_to_unmap can be called for non-hugetlb pages, perhaps the following
-> is more accurate?
-> 
-> try_to_unmap is only passed a hugetlb page in the case where the
-> hugetlb page is poisoned.
+> >> Please see previous code, we'll use the original pte value to check if 
+> >> it is uffd-wp armed, and if need to mark it dirty though the hugetlbfs 
+> >> is set noop_dirty_folio().
+> >>
+> >> pte_install_uffd_wp_if_needed(vma, address, pvmw.pte, pteval);
+> > 
+> > Uh, ok, that wouldn't work on s390, but we also don't have
+> > CONFIG_PTE_MARKER_UFFD_WP / HAVE_ARCH_USERFAULTFD_WP set, so
+> > I guess we will be fine (for now).
+> > 
+> > Still, I find it a bit unsettling that pte_install_uffd_wp_if_needed()
+> > would work on a potential hugetlb *pte, directly de-referencing it
+> > instead of using huge_ptep_get().
+> > 
+> > The !pte_none(*pte) check at the beginning would be broken in the
+> > hugetlb case for s390 (not sure about other archs, but I think s390
+> > might be the only exception strictly requiring huge_ptep_get()
+> > for de-referencing hugetlb *pte pointers).
 
-Yes, will update in next version.
+We could have used is_vm_hugetlb_page(vma) within the helper so as to
+properly use either generic pte or hugetlb version of pte fetching.  We may
+want to conditionally do set_[huge_]pte_at() too at the end.
 
-> It does concern me that this assumption is built into the code as
-> pointed out in your discussion with Gerald.  Should we perhaps add
-> a VM_BUG_ON() to make sure the passed huge page is poisoned?  This
-> would be in the same 'if block' where we call
-> adjust_range_if_pmd_sharing_possible.
-Good point. Will do in next version. Thanks.
+I could prepare a patch for that even if it's not really anything urgently
+needed. I assume that won't need to block this patchset since we need the
+pteval for pte_dirty() check anyway and uffd-wp definitely needs it too.
+
+Thanks,
+
+-- 
+Peter Xu
