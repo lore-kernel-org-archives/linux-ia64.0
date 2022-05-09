@@ -1,7 +1,7 @@
 From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
-Date: Mon, 09 May 2022 23:32:26 +0000
-Subject: [PATCH v8 18/27] x86: Use do_kernel_power_off()
-Message-Id: <20220509233235.995021-19-dmitry.osipenko@collabora.com>
+Date: Mon, 09 May 2022 23:32:18 +0000
+Subject: [PATCH v8 10/27] csky: Use do_kernel_power_off()
+Message-Id: <20220509233235.995021-11-dmitry.osipenko@collabora.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
 In-Reply-To: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
@@ -16,28 +16,35 @@ that invokes chained power-off handlers. It also invokes legacy
 pm_power_off() for now, which will be removed once all drivers will
 be converted to the new sys-off API.
 
+Acked-by: Guo Ren <guoren@kernel.org>
 Reviewed-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
 Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
 ---
- arch/x86/kernel/reboot.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ arch/csky/kernel/power.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/arch/x86/kernel/reboot.c b/arch/x86/kernel/reboot.c
-index fa700b46588e..c3636ea4aa71 100644
---- a/arch/x86/kernel/reboot.c
-+++ b/arch/x86/kernel/reboot.c
-@@ -739,10 +739,10 @@ static void native_machine_halt(void)
- 
- static void native_machine_power_off(void)
+diff --git a/arch/csky/kernel/power.c b/arch/csky/kernel/power.c
+index 923ee4e381b8..86ee202906f8 100644
+--- a/arch/csky/kernel/power.c
++++ b/arch/csky/kernel/power.c
+@@ -9,16 +9,14 @@ EXPORT_SYMBOL(pm_power_off);
+ void machine_power_off(void)
  {
--	if (pm_power_off) {
-+	if (kernel_can_power_off()) {
- 		if (!reboot_force)
- 			machine_shutdown();
+ 	local_irq_disable();
+-	if (pm_power_off)
 -		pm_power_off();
-+		do_kernel_power_off();
- 	}
- 	/* A fallback in case there is no PM info available */
- 	tboot_shutdown(TB_SHUTDOWN_HALT);
++	do_kernel_power_off();
+ 	asm volatile ("bkpt");
+ }
+ 
+ void machine_halt(void)
+ {
+ 	local_irq_disable();
+-	if (pm_power_off)
+-		pm_power_off();
++	do_kernel_power_off();
+ 	asm volatile ("bkpt");
+ }
+ 
 -- 
 2.35.1
