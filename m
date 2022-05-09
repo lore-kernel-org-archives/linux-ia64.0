@@ -1,116 +1,197 @@
-From: Peng Liu <liupeng256@huawei.com>
-Date: Fri, 20 May 2022 07:37:46 +0000
-Subject: [PATCH v2 1/2] numa: create node_available() helper
-Message-Id: <20220520073747.1184091-2-liupeng256@huawei.com>
+From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
+Date: Mon, 09 May 2022 23:32:10 +0000
+Subject: [PATCH v8 02/27] notifier: Add blocking/atomic_notifier_chain_register_unique_prio()
+Message-Id: <20220509233235.995021-3-dmitry.osipenko@collabora.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220520073747.1184091-1-liupeng256@huawei.com>
-In-Reply-To: <20220520073747.1184091-1-liupeng256@huawei.com>
+References: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
+In-Reply-To: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: bhelgaas@google.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, lorenzo.pieralisi@arm.com, guohanjun@huawei.com, sudeep.holla@arm.com, rafael@kernel.org, lenb@kernel.org, akpm@linux-foundation.org, logang@deltatee.com, martin.oliveira@eideticom.com, thunder.leizhen@huawei.com, axboe@kernel.dk, kch@nvidia.com, ming.lei@redhat.com, shinichiro.kawasaki@wdc.com, mcgrof@kernel.org, jiangguoqing@kylinos.cn, jpittman@redhat.com, dave@stgolabs.net, liupeng256@huawei.com, wangkefeng.wang@huawei.com, linux-block@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-mm@kvack.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-Lots of code does
-	node != NUMA_NO_NODE && !node_online(node)
-or
-	node = NUMA_NO_NODE || node_online(node)
-so create node_available() to do this to simplify code.
+Add variant of blocking/atomic_notifier_chain_register() functions that
+allow registration of a notifier only if it has unique priority, otherwise
+-EBUSY error code is returned by the new functions.
 
-Signed-off-by: Peng Liu <liupeng256@huawei.com>
+Reviewed-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
+Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
 ---
- arch/ia64/hp/common/sba_iommu.c | 2 +-
- arch/x86/pci/acpi.c             | 2 +-
- drivers/acpi/arm64/iort.c       | 2 +-
- drivers/pci/pci-sysfs.c         | 2 +-
- include/linux/nodemask.h        | 3 +++
- mm/mempolicy.c                  | 2 +-
- 6 files changed, 8 insertions(+), 5 deletions(-)
+ include/linux/notifier.h |  5 +++
+ kernel/notifier.c        | 88 +++++++++++++++++++++++++++++++---------
+ 2 files changed, 74 insertions(+), 19 deletions(-)
 
-diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
-index 8ad6946521d8..da3a010bb5fb 100644
---- a/arch/ia64/hp/common/sba_iommu.c
-+++ b/arch/ia64/hp/common/sba_iommu.c
-@@ -1969,7 +1969,7 @@ sba_map_ioc_to_node(struct ioc *ioc, acpi_handle handle)
- 	unsigned int node;
+diff --git a/include/linux/notifier.h b/include/linux/notifier.h
+index 95e2440037de..aef88c2d1173 100644
+--- a/include/linux/notifier.h
++++ b/include/linux/notifier.h
+@@ -150,6 +150,11 @@ extern int raw_notifier_chain_register(struct raw_notifier_head *nh,
+ extern int srcu_notifier_chain_register(struct srcu_notifier_head *nh,
+ 		struct notifier_block *nb);
  
- 	node = acpi_get_node(handle);
--	if (node != NUMA_NO_NODE && !node_online(node))
-+	if (!node_available(node))
- 		node = NUMA_NO_NODE;
++extern int atomic_notifier_chain_register_unique_prio(
++		struct atomic_notifier_head *nh, struct notifier_block *nb);
++extern int blocking_notifier_chain_register_unique_prio(
++		struct blocking_notifier_head *nh, struct notifier_block *nb);
++
+ extern int atomic_notifier_chain_unregister(struct atomic_notifier_head *nh,
+ 		struct notifier_block *nb);
+ extern int blocking_notifier_chain_unregister(struct blocking_notifier_head *nh,
+diff --git a/kernel/notifier.c b/kernel/notifier.c
+index aaf5b56452a6..684fe04f5f70 100644
+--- a/kernel/notifier.c
++++ b/kernel/notifier.c
+@@ -20,7 +20,8 @@ BLOCKING_NOTIFIER_HEAD(reboot_notifier_list);
+  */
  
- 	ioc->node = node;
-diff --git a/arch/x86/pci/acpi.c b/arch/x86/pci/acpi.c
-index 052f1d78a562..d4909daa44d9 100644
---- a/arch/x86/pci/acpi.c
-+++ b/arch/x86/pci/acpi.c
-@@ -254,7 +254,7 @@ static int pci_acpi_root_get_node(struct acpi_pci_root *root)
- 			dev_info(&device->dev, FW_BUG "no _PXM; falling back to node %d from hardware (may be inconsistent with ACPI node numbers)\n",
- 				node);
- 	}
--	if (node != NUMA_NO_NODE && !node_online(node))
-+	if (!node_available(node))
- 		node = NUMA_NO_NODE;
- 
- 	return node;
-diff --git a/drivers/acpi/arm64/iort.c b/drivers/acpi/arm64/iort.c
-index f2f8f05662de..bdf690010b97 100644
---- a/drivers/acpi/arm64/iort.c
-+++ b/drivers/acpi/arm64/iort.c
-@@ -1251,7 +1251,7 @@ static int  __init arm_smmu_v3_set_proximity(struct device *dev,
- 	if (smmu->flags & ACPI_IORT_SMMU_V3_PXM_VALID) {
- 		int dev_node = pxm_to_node(smmu->pxm);
- 
--		if (dev_node != NUMA_NO_NODE && !node_online(dev_node))
-+		if (!node_available(dev_node))
- 			return -EINVAL;
- 
- 		set_dev_node(dev, dev_node);
-diff --git a/drivers/pci/pci-sysfs.c b/drivers/pci/pci-sysfs.c
-index c263ffc5884a..502490d26c1d 100644
---- a/drivers/pci/pci-sysfs.c
-+++ b/drivers/pci/pci-sysfs.c
-@@ -344,7 +344,7 @@ static ssize_t numa_node_store(struct device *dev,
- 	if ((node < 0 && node != NUMA_NO_NODE) || node >= MAX_NUMNODES)
- 		return -EINVAL;
- 
--	if (node != NUMA_NO_NODE && !node_online(node))
-+	if (!node_available(node))
- 		return -EINVAL;
- 
- 	add_taint(TAINT_FIRMWARE_WORKAROUND, LOCKDEP_STILL_OK);
-diff --git a/include/linux/nodemask.h b/include/linux/nodemask.h
-index 567c3ddba2c4..e7d30807df5b 100644
---- a/include/linux/nodemask.h
-+++ b/include/linux/nodemask.h
-@@ -70,6 +70,7 @@
-  *
-  * int node_online(node)		Is some node online?
-  * int node_possible(node)		Is some node possible?
-+ * int node_available(node)		Node online or NUMA_NO_NODE
-  *
-  * node_set_online(node)		set bit 'node' in node_online_map
-  * node_set_offline(node)		clear bit 'node' in node_online_map
-@@ -510,6 +511,8 @@ static inline int node_random(const nodemask_t *mask)
- #define num_possible_nodes()	num_node_state(N_POSSIBLE)
- #define node_online(node)	node_state((node), N_ONLINE)
- #define node_possible(node)	node_state((node), N_POSSIBLE)
-+#define node_available(node) \
-+		((node) = NUMA_NO_NODE || node_state((node), N_ONLINE))
- 
- #define for_each_node(node)	   for_each_node_state(node, N_POSSIBLE)
- #define for_each_online_node(node) for_each_node_state(node, N_ONLINE)
-diff --git a/mm/mempolicy.c b/mm/mempolicy.c
-index 8c74107a2b15..7a31b006c5e8 100644
---- a/mm/mempolicy.c
-+++ b/mm/mempolicy.c
-@@ -141,7 +141,7 @@ int numa_map_to_online_node(int node)
+ static int notifier_chain_register(struct notifier_block **nl,
+-				   struct notifier_block *n)
++				   struct notifier_block *n,
++				   bool unique_priority)
  {
- 	int min_dist = INT_MAX, dist, n, min_node;
+ 	while ((*nl) != NULL) {
+ 		if (unlikely((*nl) = n)) {
+@@ -30,6 +31,8 @@ static int notifier_chain_register(struct notifier_block **nl,
+ 		}
+ 		if (n->priority > (*nl)->priority)
+ 			break;
++		if (n->priority = (*nl)->priority && unique_priority)
++			return -EBUSY;
+ 		nl = &((*nl)->next);
+ 	}
+ 	n->next = *nl;
+@@ -144,12 +147,35 @@ int atomic_notifier_chain_register(struct atomic_notifier_head *nh,
+ 	int ret;
  
--	if (node = NUMA_NO_NODE || node_online(node))
-+	if (node_available(node))
- 		return node;
+ 	spin_lock_irqsave(&nh->lock, flags);
+-	ret = notifier_chain_register(&nh->head, n);
++	ret = notifier_chain_register(&nh->head, n, false);
+ 	spin_unlock_irqrestore(&nh->lock, flags);
+ 	return ret;
+ }
+ EXPORT_SYMBOL_GPL(atomic_notifier_chain_register);
  
- 	min_node = node;
++/**
++ *	atomic_notifier_chain_register_unique_prio - Add notifier to an atomic notifier chain
++ *	@nh: Pointer to head of the atomic notifier chain
++ *	@n: New entry in notifier chain
++ *
++ *	Adds a notifier to an atomic notifier chain if there is no other
++ *	notifier registered using the same priority.
++ *
++ *	Returns 0 on success, %-EEXIST or %-EBUSY on error.
++ */
++int atomic_notifier_chain_register_unique_prio(struct atomic_notifier_head *nh,
++					       struct notifier_block *n)
++{
++	unsigned long flags;
++	int ret;
++
++	spin_lock_irqsave(&nh->lock, flags);
++	ret = notifier_chain_register(&nh->head, n, true);
++	spin_unlock_irqrestore(&nh->lock, flags);
++	return ret;
++}
++EXPORT_SYMBOL_GPL(atomic_notifier_chain_register_unique_prio);
++
+ /**
+  *	atomic_notifier_chain_unregister - Remove notifier from an atomic notifier chain
+  *	@nh: Pointer to head of the atomic notifier chain
+@@ -222,18 +248,9 @@ bool atomic_notifier_call_chain_is_empty(struct atomic_notifier_head *nh)
+  *	synchronized by an rwsem.
+  */
+ 
+-/**
+- *	blocking_notifier_chain_register - Add notifier to a blocking notifier chain
+- *	@nh: Pointer to head of the blocking notifier chain
+- *	@n: New entry in notifier chain
+- *
+- *	Adds a notifier to a blocking notifier chain.
+- *	Must be called in process context.
+- *
+- *	Returns 0 on success, %-EEXIST on error.
+- */
+-int blocking_notifier_chain_register(struct blocking_notifier_head *nh,
+-		struct notifier_block *n)
++static int __blocking_notifier_chain_register(struct blocking_notifier_head *nh,
++					      struct notifier_block *n,
++					      bool unique_priority)
+ {
+ 	int ret;
+ 
+@@ -243,15 +260,48 @@ int blocking_notifier_chain_register(struct blocking_notifier_head *nh,
+ 	 * such times we must not call down_write().
+ 	 */
+ 	if (unlikely(system_state = SYSTEM_BOOTING))
+-		return notifier_chain_register(&nh->head, n);
++		return notifier_chain_register(&nh->head, n, unique_priority);
+ 
+ 	down_write(&nh->rwsem);
+-	ret = notifier_chain_register(&nh->head, n);
++	ret = notifier_chain_register(&nh->head, n, unique_priority);
+ 	up_write(&nh->rwsem);
+ 	return ret;
+ }
++
++/**
++ *	blocking_notifier_chain_register - Add notifier to a blocking notifier chain
++ *	@nh: Pointer to head of the blocking notifier chain
++ *	@n: New entry in notifier chain
++ *
++ *	Adds a notifier to a blocking notifier chain.
++ *	Must be called in process context.
++ *
++ *	Returns 0 on success, %-EEXIST on error.
++ */
++int blocking_notifier_chain_register(struct blocking_notifier_head *nh,
++		struct notifier_block *n)
++{
++	return __blocking_notifier_chain_register(nh, n, false);
++}
+ EXPORT_SYMBOL_GPL(blocking_notifier_chain_register);
+ 
++/**
++ *	blocking_notifier_chain_register_unique_prio - Add notifier to a blocking notifier chain
++ *	@nh: Pointer to head of the blocking notifier chain
++ *	@n: New entry in notifier chain
++ *
++ *	Adds a notifier to an blocking notifier chain if there is no other
++ *	notifier registered using the same priority.
++ *
++ *	Returns 0 on success, %-EEXIST or %-EBUSY on error.
++ */
++int blocking_notifier_chain_register_unique_prio(struct blocking_notifier_head *nh,
++						 struct notifier_block *n)
++{
++	return __blocking_notifier_chain_register(nh, n, true);
++}
++EXPORT_SYMBOL_GPL(blocking_notifier_chain_register_unique_prio);
++
+ /**
+  *	blocking_notifier_chain_unregister - Remove notifier from a blocking notifier chain
+  *	@nh: Pointer to head of the blocking notifier chain
+@@ -354,7 +404,7 @@ EXPORT_SYMBOL_GPL(blocking_notifier_call_chain);
+ int raw_notifier_chain_register(struct raw_notifier_head *nh,
+ 		struct notifier_block *n)
+ {
+-	return notifier_chain_register(&nh->head, n);
++	return notifier_chain_register(&nh->head, n, false);
+ }
+ EXPORT_SYMBOL_GPL(raw_notifier_chain_register);
+ 
+@@ -433,10 +483,10 @@ int srcu_notifier_chain_register(struct srcu_notifier_head *nh,
+ 	 * such times we must not call mutex_lock().
+ 	 */
+ 	if (unlikely(system_state = SYSTEM_BOOTING))
+-		return notifier_chain_register(&nh->head, n);
++		return notifier_chain_register(&nh->head, n, false);
+ 
+ 	mutex_lock(&nh->mutex);
+-	ret = notifier_chain_register(&nh->head, n);
++	ret = notifier_chain_register(&nh->head, n, false);
+ 	mutex_unlock(&nh->mutex);
+ 	return ret;
+ }
 -- 
-2.25.1
+2.35.1
