@@ -1,77 +1,49 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Wed, 04 May 2022 22:40:54 +0000
-Subject: [PATCH v3 07/11] ptrace: Reimplement PTRACE_KILL by always sending SIGKILL
-Message-Id: <20220504224058.476193-7-ebiederm@xmission.com>
+From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
+Date: Mon, 09 May 2022 23:32:21 +0000
+Subject: [PATCH v8 13/27] parisc: Use do_kernel_power_off()
+Message-Id: <20220509233235.995021-14-dmitry.osipenko@collabora.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <87k0b0apne.fsf_-_@email.froward.int.ebiederm.org>
-In-Reply-To: <87k0b0apne.fsf_-_@email.froward.int.ebiederm.org>
+References: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
+In-Reply-To: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>, stable@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-The current implementation of PTRACE_KILL is buggy and has been for
-many years as it assumes it's target has stopped in ptrace_stop.  At a
-quick skim it looks like this assumption has existed since ptrace
-support was added in linux v1.0.
+Kernel now supports chained power-off handlers. Use do_kernel_power_off()
+that invokes chained power-off handlers. It also invokes legacy
+pm_power_off() for now, which will be removed once all drivers will
+be converted to the new sys-off API.
 
-While PTRACE_KILL has been deprecated we can not remove it as
-a quick search with google code search reveals many existing
-programs calling it.
-
-When the ptracee is not stopped at ptrace_stop some fields would be
-set that are ignored except in ptrace_stop.  Making the userspace
-visible behavior of PTRACE_KILL a noop in those case.
-
-As the usual rules are not obeyed it is not clear what the
-consequences are of calling PTRACE_KILL on a running process.
-Presumably userspace does not do this as it achieves nothing.
-
-Replace the implementation of PTRACE_KILL with a simple
-send_sig_info(SIGKILL) followed by a return 0.  This changes the
-observable user space behavior only in that PTRACE_KILL on a process
-not stopped in ptrace_stop will also kill it.  As that has always
-been the intent of the code this seems like a reasonable change.
-
-Cc: stable@vger.kernel.org
-Reported-by: Al Viro <viro@zeniv.linux.org.uk>
-Suggested-by: Al Viro <viro@zeniv.linux.org.uk>
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Acked-by: Helge Deller <deller@gmx.de> # parisc
+Reviewed-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
+Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
 ---
- arch/x86/kernel/step.c | 3 +--
- kernel/ptrace.c        | 5 ++---
- 2 files changed, 3 insertions(+), 5 deletions(-)
+ arch/parisc/kernel/process.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/x86/kernel/step.c b/arch/x86/kernel/step.c
-index 0f3c307b37b3..8e2b2552b5ee 100644
---- a/arch/x86/kernel/step.c
-+++ b/arch/x86/kernel/step.c
-@@ -180,8 +180,7 @@ void set_task_blockstep(struct task_struct *task, bool on)
- 	 *
- 	 * NOTE: this means that set/clear TIF_BLOCKSTEP is only safe if
- 	 * task is current or it can't be running, otherwise we can race
--	 * with __switch_to_xtra(). We rely on ptrace_freeze_traced() but
--	 * PTRACE_KILL is not safe.
-+	 * with __switch_to_xtra(). We rely on ptrace_freeze_traced().
- 	 */
- 	local_irq_disable();
- 	debugctl = get_debugctlmsr();
-diff --git a/kernel/ptrace.c b/kernel/ptrace.c
-index da30dcd477a0..7105821595bc 100644
---- a/kernel/ptrace.c
-+++ b/kernel/ptrace.c
-@@ -1236,9 +1236,8 @@ int ptrace_request(struct task_struct *child, long request,
- 		return ptrace_resume(child, request, data);
+diff --git a/arch/parisc/kernel/process.c b/arch/parisc/kernel/process.c
+index a6a2a558fc5b..7c37e09c92da 100644
+--- a/arch/parisc/kernel/process.c
++++ b/arch/parisc/kernel/process.c
+@@ -26,6 +26,7 @@
+ #include <linux/module.h>
+ #include <linux/personality.h>
+ #include <linux/ptrace.h>
++#include <linux/reboot.h>
+ #include <linux/sched.h>
+ #include <linux/sched/debug.h>
+ #include <linux/sched/task.h>
+@@ -116,8 +117,7 @@ void machine_power_off(void)
+ 	pdc_chassis_send_status(PDC_CHASSIS_DIRECT_SHUTDOWN);
  
- 	case PTRACE_KILL:
--		if (child->exit_state)	/* already dead */
--			return 0;
--		return ptrace_resume(child, request, SIGKILL);
-+		send_sig_info(SIGKILL, SEND_SIG_NOINFO, child);
-+		return 0;
- 
- #ifdef CONFIG_HAVE_ARCH_TRACEHOOK
- 	case PTRACE_GETREGSET:
+ 	/* ipmi_poweroff may have been installed. */
+-	if (pm_power_off)
+-		pm_power_off();
++	do_kernel_power_off();
+ 		
+ 	/* It seems we have no way to power the system off via
+ 	 * software. The user has to press the button himself. */
 -- 
-2.35.3
+2.35.1
