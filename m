@@ -1,73 +1,69 @@
-From: Mike Kravetz <mike.kravetz@oracle.com>
-Date: Mon, 09 May 2022 22:25:57 +0000
-Subject: Re: [PATCH v2 3/3] mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when unmapping
-Message-Id: <918c0479-4d1a-3f3c-346c-051de4b26d30@oracle.com>
+From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
+Date: Mon, 09 May 2022 23:32:15 +0000
+Subject: [PATCH v8 07/27] kernel/reboot: Add kernel_can_power_off()
+Message-Id: <20220509233235.995021-8-dmitry.osipenko@collabora.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1652002221.git.baolin.wang@linux.alibaba.com>
- <43b11b69e9f0d9d7e7960b86661db27cc404d0c7.1652002221.git.baolin.wang@linux.alibaba.com>
-In-Reply-To: <43b11b69e9f0d9d7e7960b86661db27cc404d0c7.1652002221.git.baolin.wang@linux.alibaba.com>
+References: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
+In-Reply-To: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Baolin Wang <baolin.wang@linux.alibaba.com>, akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org
-Cc: tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-On 5/8/22 02:36, Baolin Wang wrote:
-> On some architectures (like ARM64), it can support CONT-PTE/PMD size
-> hugetlb, which means it can support not only PMD/PUD size hugetlb:
-> 2M and 1G, but also CONT-PTE/PMD size: 64K and 32M if a 4K page
-> size specified.
-> 
-> When unmapping a hugetlb page, we will get the relevant page table
-> entry by huge_pte_offset() only once to nuke it. This is correct
-> for PMD or PUD size hugetlb, since they always contain only one
-> pmd entry or pud entry in the page table.
-> 
-> However this is incorrect for CONT-PTE and CONT-PMD size hugetlb,
-> since they can contain several continuous pte or pmd entry with
-> same page table attributes, so we will nuke only one pte or pmd
-> entry for this CONT-PTE/PMD size hugetlb page.
-> 
-> And now try_to_unmap() is only passed a hugetlb page in the case
-> where the hugetlb page is poisoned. Which means now we will unmap
-> only one pte entry for a CONT-PTE or CONT-PMD size poisoned hugetlb
-> page, and we can still access other subpages of a CONT-PTE or CONT-PMD
-> size poisoned hugetlb page, which will cause serious issues possibly.
-> 
-> So we should change to use huge_ptep_clear_flush() to nuke the
-> hugetlb page table to fix this issue, which already considered
-> CONT-PTE and CONT-PMD size hugetlb.
-> 
-> We've already used set_huge_swap_pte_at() to set a poisoned
-> swap entry for a poisoned hugetlb page. Meanwhile adding a VM_BUG_ON()
-> to make sure the passed hugetlb page is poisoned in try_to_unmap().
-> 
-> Signed-off-by: Baolin Wang <baolin.wang@linux.alibaba.com>
-> ---
->  mm/rmap.c | 39 ++++++++++++++++++++++-----------------
->  1 file changed, 22 insertions(+), 17 deletions(-)
-> 
-> diff --git a/mm/rmap.c b/mm/rmap.c
-> index 7cf2408..37c8fd2 100644
-> --- a/mm/rmap.c
-> +++ b/mm/rmap.c
-> @@ -1530,6 +1530,11 @@ static bool try_to_unmap_one(struct folio *folio, struct vm_area_struct *vma,
->  
->  		if (folio_test_hugetlb(folio)) {
->  			/*
-> +			 * The try_to_unmap() is only passed a hugetlb page
-> +			 * in the case where the hugetlb page is poisoned.
-> +			 */
-> +			VM_BUG_ON_PAGE(!PageHWPoison(subpage), subpage);
-> +			/*
+Add kernel_can_power_off() helper that replaces open-coded checks of
+the global pm_power_off variable. This is a necessary step towards
+supporting chained power-off handlers.
 
-It is unfortunate that this could not easily be added to the first
-if (folio_test_hugetlb(folio)) block in this routine.  However, it
-is fine to add here.
+Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
+---
+ include/linux/reboot.h |  1 +
+ kernel/reboot.c        | 14 +++++++++++++-
+ 2 files changed, 14 insertions(+), 1 deletion(-)
 
-Looks good.  Thanks for all these changes,
-
-Reviewed-by: Mike Kravetz <mike.kravetz@oracle.com>
-
+diff --git a/include/linux/reboot.h b/include/linux/reboot.h
+index 6b951d68c0c7..c52f77ee4ddd 100644
+--- a/include/linux/reboot.h
++++ b/include/linux/reboot.h
+@@ -149,6 +149,7 @@ extern void kernel_restart_prepare(char *cmd);
+ extern void kernel_restart(char *cmd);
+ extern void kernel_halt(void);
+ extern void kernel_power_off(void);
++extern bool kernel_can_power_off(void);
+ 
+ void ctrl_alt_del(void);
+ 
+diff --git a/kernel/reboot.c b/kernel/reboot.c
+index eaede35f45e2..982e58c11ce8 100644
+--- a/kernel/reboot.c
++++ b/kernel/reboot.c
+@@ -523,6 +523,18 @@ void do_kernel_power_off(void)
+ 	atomic_notifier_call_chain(&power_off_handler_list, 0, NULL);
+ }
+ 
++/**
++ *	kernel_can_power_off - check whether system can be powered off
++ *
++ *	Returns true if power-off handler is registered and system can be
++ *	powered off, false otherwise.
++ */
++bool kernel_can_power_off(void)
++{
++	return !atomic_notifier_call_chain_is_empty(&power_off_handler_list);
++}
++EXPORT_SYMBOL_GPL(kernel_can_power_off);
++
+ /**
+  *	kernel_power_off - power_off the system
+  *
+@@ -581,7 +593,7 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
+ 	/* Instead of trying to make the power_off code look like
+ 	 * halt when pm_power_off is not set do it the easy way.
+ 	 */
+-	if ((cmd = LINUX_REBOOT_CMD_POWER_OFF) && !pm_power_off)
++	if ((cmd = LINUX_REBOOT_CMD_POWER_OFF) && !kernel_can_power_off())
+ 		cmd = LINUX_REBOOT_CMD_HALT;
+ 
+ 	mutex_lock(&system_transition_mutex);
 -- 
-Mike Kravetz
+2.35.1
