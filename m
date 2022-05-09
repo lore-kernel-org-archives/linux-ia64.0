@@ -1,90 +1,80 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Wed, 04 May 2022 22:39:33 +0000
-Subject: [PATCH v3 0/11] ptrace: cleaning up ptrace_stop
-Message-Id: <87k0b0apne.fsf_-_@email.froward.int.ebiederm.org>
+From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
+Date: Mon, 09 May 2022 23:32:32 +0000
+Subject: [PATCH v8 24/27] reboot: Remove pm_power_off_prepare()
+Message-Id: <20220509233235.995021-25-dmitry.osipenko@collabora.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220421150248.667412396@infradead.org>
-        <20220421150654.817117821@infradead.org>
-        <87czhap9dy.fsf@email.froward.int.ebiederm.org>
-        <878rrrh32q.fsf_-_@email.froward.int.ebiederm.org>
-        <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
-In-Reply-To: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org> (Eric
-        W. Biederman's message of "Fri, 29 Apr 2022 16:46:59 -0500")
+References: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
+In-Reply-To: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: rjw@rjwysocki.net, oleg@redhat.com, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Jann Horn <jannh@google.com>, Kees Cook <keescook@chromium.org>, linux-ia64@vger.kernel.org
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
+All pm_power_off_prepare() users were converted to sys-off handler API.
+Remove the obsolete global callback variable.
 
-The states TASK_STOPPED and TASK_TRACE are special in they can not
-handle spurious wake-ups.  This plus actively depending upon and
-changing the value of tsk->__state causes problems for PREEMPT_RT and
-Peter's freezer rewrite.
+Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
+---
+ include/linux/pm.h |  1 -
+ kernel/reboot.c    | 19 -------------------
+ 2 files changed, 20 deletions(-)
 
-There are a lot of details we have to get right to sort out the
-technical challenges and this is my parred back version of the changes
-that contains just those problems I see good solutions to that I believe
-are ready.
-
-A couple of issues have been pointed but I think this parred back set of
-changes is still on the right track.  The biggest change in v3 is that
-instead of trying to prevent sending a spurious SIGTRAP when the tracer
-dies with the tracee in ptrace_report_syscall, I have modified the code
-to just stop trying.  While I still have taken TASK_WAKEKILL out of
-TASK_TRACED I have implemented simpler logic in signal_wake_up.  Further
-I have followed Oleg's advice and exit early from ptrace_stop if a fatal
-signal is pending.
-
-This set of changes should support Peter's freezer rewrite, and with the
-addition of changing wait_task_inactive(TASK_TRACED) to be
-wait_task_inactive(0) in ptrace_check_attach I don't think there are any
-races or issues to be concerned about from the ptrace side.
-
-More work is needed to support PREEMPT_RT, but these changes get things
-closer.
-
-I believe this set of changes will provide a firm foundation for solving
-the PREEMPT_RT and freezer challenges.
-
-With fewer lines added and more lines removed this set of changes looks
-like it is moving in a good direction.
-
-Eric W. Biederman (10):
-      signal: Rename send_signal send_signal_locked
-      signal: Replace __group_send_sig_info with send_signal_locked
-      ptrace/um: Replace PT_DTRACE with TIF_SINGLESTEP
-      ptrace/xtensa: Replace PT_SINGLESTEP with TIF_SINGLESTEP
-      ptrace: Remove arch_ptrace_attach
-      signal: Use lockdep_assert_held instead of assert_spin_locked
-      ptrace: Reimplement PTRACE_KILL by always sending SIGKILL
-      ptrace: Admit ptrace_stop can generate spuriuos SIGTRAPs
-      ptrace: Don't change __state
-      ptrace: Always take siglock in ptrace_resume
-
-Peter Zijlstra (1):
-      sched,signal,ptrace: Rework TASK_TRACED, TASK_STOPPED state
-
- arch/ia64/include/asm/ptrace.h    |   4 --
- arch/ia64/kernel/ptrace.c         |  57 ----------------
- arch/um/include/asm/thread_info.h |   2 +
- arch/um/kernel/exec.c             |   2 +-
- arch/um/kernel/process.c          |   2 +-
- arch/um/kernel/ptrace.c           |   8 +--
- arch/um/kernel/signal.c           |   4 +-
- arch/x86/kernel/step.c            |   3 +-
- arch/xtensa/kernel/ptrace.c       |   4 +-
- arch/xtensa/kernel/signal.c       |   4 +-
- drivers/tty/tty_jobctrl.c         |   4 +-
- include/linux/ptrace.h            |   7 --
- include/linux/sched.h             |  10 ++-
- include/linux/sched/jobctl.h      |   8 +++
- include/linux/sched/signal.h      |  20 ++++--
- include/linux/signal.h            |   3 +-
- kernel/ptrace.c                   |  87 ++++++++----------------
- kernel/sched/core.c               |   5 +-
- kernel/signal.c                   | 135 +++++++++++++++++---------------------
- kernel/time/posix-cpu-timers.c    |   6 +-
- 20 files changed, 138 insertions(+), 237 deletions(-)
-
-Eric
+diff --git a/include/linux/pm.h b/include/linux/pm.h
+index 70ec69d8bafd..871c9c49ec9d 100644
+--- a/include/linux/pm.h
++++ b/include/linux/pm.h
+@@ -21,7 +21,6 @@
+  * Callbacks for platform drivers to implement.
+  */
+ extern void (*pm_power_off)(void);
+-extern void (*pm_power_off_prepare)(void);
+ 
+ struct device; /* we have a circular dep with device.h */
+ #ifdef CONFIG_VT_CONSOLE_SLEEP
+diff --git a/kernel/reboot.c b/kernel/reboot.c
+index e74103f2a801..66033e12e8eb 100644
+--- a/kernel/reboot.c
++++ b/kernel/reboot.c
+@@ -63,13 +63,6 @@ struct sys_off_handler {
+  */
+ void __weak (*pm_power_off)(void);
+ 
+-/*
+- * If set, this is used for preparing the system to power off.
+- */
+-
+-void (*pm_power_off_prepare)(void);
+-EXPORT_SYMBOL_GPL(pm_power_off_prepare);
+-
+ /**
+  *	emergency_restart - reboot the system
+  *
+@@ -524,14 +517,6 @@ void unregister_platform_power_off(void (*power_off)(void))
+ }
+ EXPORT_SYMBOL_GPL(unregister_platform_power_off);
+ 
+-static int legacy_pm_power_off_prepare(struct sys_off_data *data)
+-{
+-	if (pm_power_off_prepare)
+-		pm_power_off_prepare();
+-
+-	return NOTIFY_DONE;
+-}
+-
+ static int legacy_pm_power_off(struct sys_off_data *data)
+ {
+ 	if (pm_power_off)
+@@ -549,10 +534,6 @@ static int legacy_pm_power_off(struct sys_off_data *data)
+  */
+ static int __init legacy_pm_init(void)
+ {
+-	register_sys_off_handler(SYS_OFF_MODE_POWER_OFF_PREPARE,
+-				 SYS_OFF_PRIO_DEFAULT,
+-				 legacy_pm_power_off_prepare, NULL);
+-
+ 	register_sys_off_handler(SYS_OFF_MODE_POWER_OFF, SYS_OFF_PRIO_DEFAULT,
+ 				 legacy_pm_power_off, NULL);
+ 
+-- 
+2.35.1
