@@ -1,103 +1,63 @@
-From: Peng Liu <liupeng256@huawei.com>
-Date: Fri, 06 May 2022 01:58:01 +0000
-Subject: [PATCH 2/2] null_blk: fix wrong use of nr_online_nodes
-Message-Id: <20220506015801.757918-3-liupeng256@huawei.com>
+From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
+Date: Mon, 09 May 2022 23:32:13 +0000
+Subject: [PATCH v8 05/27] kernel/reboot: Add do_kernel_power_off()
+Message-Id: <20220509233235.995021-6-dmitry.osipenko@collabora.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220506015801.757918-1-liupeng256@huawei.com>
-In-Reply-To: <20220506015801.757918-1-liupeng256@huawei.com>
+References: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
+In-Reply-To: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: bhelgaas@google.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, lorenzo.pieralisi@arm.com, guohanjun@huawei.com, sudeep.holla@arm.com, rafael@kernel.org, lenb@kernel.org, akpm@linux-foundation.org, logang@deltatee.com, martin.oliveira@eideticom.com, thunder.leizhen@huawei.com, axboe@kernel.dk, kch@nvidia.com, ming.lei@redhat.com, shinichiro.kawasaki@wdc.com, mcgrof@kernel.org, jiangguoqing@kylinos.cn, jpittman@redhat.com, dave@stgolabs.net, liupeng256@huawei.com, wangkefeng.wang@huawei.com, linux-block@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-mm@kvack.org
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-Certain systems are designed to have sparse/discontiguous nodes,
-a valid node may be greater than nr_online_nodes. So, the use of
-"nid >= nr_online_nodes" to judge if a node is online is wrong.
+Add do_kernel_power_off() helper that will remove open-coded pm_power_off
+invocations from the architecture code. This is the first step on the way
+to remove the global pm_power_off variable, which will allow us to
+implement consistent power-off chaining support.
 
-Node id is a basic parameter of the system, a user-configured node
-must be checked as early as possible. Otherwise, it may cause panic
-when calling some vulnerable functions such as node_online which
-will cause panic if a very big node is received.
-
-Check g_home_node once users config it, and use node_available to
-make node-checking compatible with sparse/discontiguous nodes.
-
-Fixes: 7ff684a683d7 ("null_blk: prevent crash from bad home_node value")
-Signed-off-by: Peng Liu <liupeng256@huawei.com>
-Suggested-by: Davidlohr Bueso <dave@stgolabs.net>
+Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
 ---
- drivers/block/null_blk/main.c | 45 ++++++++++++++++++++++-------------
- 1 file changed, 28 insertions(+), 17 deletions(-)
+ include/linux/reboot.h |  2 ++
+ kernel/reboot.c        | 13 +++++++++++++
+ 2 files changed, 15 insertions(+)
 
-diff --git a/drivers/block/null_blk/main.c b/drivers/block/null_blk/main.c
-index 05b1120e6623..995348d6e7e7 100644
---- a/drivers/block/null_blk/main.c
-+++ b/drivers/block/null_blk/main.c
-@@ -97,7 +97,33 @@ module_param_named(poll_queues, g_poll_queues, int, 0444);
- MODULE_PARM_DESC(poll_queues, "Number of IOPOLL submission queues");
+diff --git a/include/linux/reboot.h b/include/linux/reboot.h
+index 05981ef079d8..6b951d68c0c7 100644
+--- a/include/linux/reboot.h
++++ b/include/linux/reboot.h
+@@ -63,6 +63,8 @@ extern void machine_shutdown(void);
+ struct pt_regs;
+ extern void machine_crash_shutdown(struct pt_regs *);
  
- static int g_home_node = NUMA_NO_NODE;
--module_param_named(home_node, g_home_node, int, 0444);
++void do_kernel_power_off(void);
 +
-+static int null_param_store_val(const char *str, int *val, int min, int max)
+ /*
+  * sys-off handler API.
+  */
+diff --git a/kernel/reboot.c b/kernel/reboot.c
+index 2fb0357d9483..9afa99a32d62 100644
+--- a/kernel/reboot.c
++++ b/kernel/reboot.c
+@@ -504,6 +504,19 @@ static void do_kernel_power_off_prepare(void)
+ 	blocking_notifier_call_chain(&power_off_prep_handler_list, 0, NULL);
+ }
+ 
++/**
++ *	do_kernel_power_off - Execute kernel power-off handler call chain
++ *
++ *	Expected to be called as last step of the power-off sequence.
++ *
++ *	Powers off the system immediately if a power-off handler function has
++ *	been registered. Otherwise does nothing.
++ */
++void do_kernel_power_off(void)
 +{
-+	int ret, new_val;
-+
-+	ret = kstrtoint(str, 10, &new_val);
-+	if (ret)
-+		return -EINVAL;
-+
-+	if (new_val < min || new_val > max)
-+		return -EINVAL;
-+
-+	*val = new_val;
-+	return 0;
++	atomic_notifier_call_chain(&power_off_handler_list, 0, NULL);
 +}
 +
-+static int null_set_home_node(const char *str, const struct kernel_param *kp)
-+{
-+	return null_param_store_val(str, &g_home_node, 0, MAX_NUMNODES - 1);
-+}
-+
-+static const struct kernel_param_ops null_home_node_param_ops = {
-+	.set	= null_set_home_node,
-+	.get	= param_get_int,
-+};
-+
-+device_param_cb(home_node, &null_home_node_param_ops, &g_home_node, 0444);
- MODULE_PARM_DESC(home_node, "Home node for the device");
- 
- #ifdef CONFIG_BLK_DEV_NULL_BLK_FAULT_INJECTION
-@@ -120,21 +146,6 @@ MODULE_PARM_DESC(init_hctx, "Fault injection to fail hctx init. init_hctx=<inter
- 
- static int g_queue_mode = NULL_Q_MQ;
- 
--static int null_param_store_val(const char *str, int *val, int min, int max)
--{
--	int ret, new_val;
--
--	ret = kstrtoint(str, 10, &new_val);
--	if (ret)
--		return -EINVAL;
--
--	if (new_val < min || new_val > max)
--		return -EINVAL;
--
--	*val = new_val;
--	return 0;
--}
--
- static int null_set_queue_mode(const char *str, const struct kernel_param *kp)
- {
- 	return null_param_store_val(str, &g_queue_mode, NULL_Q_BIO, NULL_Q_MQ);
-@@ -2107,7 +2118,7 @@ static int __init null_init(void)
- 		g_max_sectors = BLK_DEF_MAX_SECTORS;
- 	}
- 
--	if (g_home_node != NUMA_NO_NODE && g_home_node >= nr_online_nodes) {
-+	if (!node_available(g_home_node)) {
- 		pr_err("invalid home_node value\n");
- 		g_home_node = NUMA_NO_NODE;
- 	}
+ /**
+  *	kernel_power_off - power_off the system
+  *
 -- 
-2.25.1
+2.35.1
