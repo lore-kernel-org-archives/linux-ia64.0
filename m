@@ -1,112 +1,345 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Thu, 05 May 2022 18:26:35 +0000
-Subject: [PATCH v4 02/12] signal: Replace __group_send_sig_info with send_signal_locked
-Message-Id: <20220505182645.497868-2-ebiederm@xmission.com>
+From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
+Date: Mon, 09 May 2022 23:32:11 +0000
+Subject: [PATCH v8 03/27] kernel/reboot: Introduce sys-off handler API
+Message-Id: <20220509233235.995021-4-dmitry.osipenko@collabora.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
-In-Reply-To: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
+References: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
+In-Reply-To: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
+To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
 
-The function __group_send_sig_info is just a light wrapper around
-send_signal_locked with one parameter fixed to a constant value.  As
-the wrapper adds no real value update the code to directly call the
-wrapped function.
+In order to support power-off chaining we need to get rid of the global
+pm_* variables, replacing them with the new kernel API functions that
+support chaining.
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Introduce new generic sys-off handler API that brings the following
+features:
+
+1. Power-off and restart handlers are registered using same API function
+   that supports chaining, hence all power-off and restart modes will
+   support chaining using this unified function.
+
+2. Prevents notifier priority collisions by disallowing registration of
+   multiple handlers at the non-default priority level.
+
+3. Supports passing opaque user argument to callback, which allows us to
+   remove global variables from drivers.
+
+This patch adds support of the following sys-off modes:
+
+- SYS_OFF_MODE_POWER_OFF_PREPARE that replaces global pm_power_off_prepare
+  variable and provides chaining support for power-off-prepare handlers.
+
+- SYS_OFF_MODE_POWER_OFF that replaces global pm_power_off variable and
+  provides chaining support for power-off handlers.
+
+- SYS_OFF_MODE_RESTART that provides a better restart API, removing a need
+  from drivers to have a global scratch variable by utilizing the opaque
+  callback argument.
+
+Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
 ---
- drivers/tty/tty_jobctrl.c      | 4 ++--
- include/linux/signal.h         | 1 -
- kernel/signal.c                | 8 +-------
- kernel/time/posix-cpu-timers.c | 6 +++---
- 4 files changed, 6 insertions(+), 13 deletions(-)
+ include/linux/reboot.h |  77 +++++++++++++++++
+ kernel/reboot.c        | 182 +++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 259 insertions(+)
 
-diff --git a/drivers/tty/tty_jobctrl.c b/drivers/tty/tty_jobctrl.c
-index 80b86a7992b5..0d04287da098 100644
---- a/drivers/tty/tty_jobctrl.c
-+++ b/drivers/tty/tty_jobctrl.c
-@@ -215,8 +215,8 @@ int tty_signal_session_leader(struct tty_struct *tty, int exit_session)
- 				spin_unlock_irq(&p->sighand->siglock);
- 				continue;
- 			}
--			__group_send_sig_info(SIGHUP, SEND_SIG_PRIV, p);
--			__group_send_sig_info(SIGCONT, SEND_SIG_PRIV, p);
-+			send_signal_locked(SIGHUP, SEND_SIG_PRIV, p, PIDTYPE_TGID);
-+			send_signal_locked(SIGCONT, SEND_SIG_PRIV, p, PIDTYPE_TGID);
- 			put_pid(p->signal->tty_old_pgrp);  /* A noop */
- 			spin_lock(&tty->ctrl.lock);
- 			tty_pgrp = get_pid(tty->ctrl.pgrp);
-diff --git a/include/linux/signal.h b/include/linux/signal.h
-index 55605bdf5ce9..3b98e7a28538 100644
---- a/include/linux/signal.h
-+++ b/include/linux/signal.h
-@@ -282,7 +282,6 @@ extern int do_send_sig_info(int sig, struct kernel_siginfo *info,
- 				struct task_struct *p, enum pid_type type);
- extern int group_send_sig_info(int sig, struct kernel_siginfo *info,
- 			       struct task_struct *p, enum pid_type type);
--extern int __group_send_sig_info(int, struct kernel_siginfo *, struct task_struct *);
- extern int send_signal_locked(int sig, struct kernel_siginfo *info,
- 			      struct task_struct *p, enum pid_type type);
- extern int sigprocmask(int, sigset_t *, sigset_t *);
-diff --git a/kernel/signal.c b/kernel/signal.c
-index b0403197b0ad..72d96614effc 100644
---- a/kernel/signal.c
-+++ b/kernel/signal.c
-@@ -1281,12 +1281,6 @@ static int __init setup_print_fatal_signals(char *str)
+diff --git a/include/linux/reboot.h b/include/linux/reboot.h
+index a2429648d831..05981ef079d8 100644
+--- a/include/linux/reboot.h
++++ b/include/linux/reboot.h
+@@ -7,6 +7,7 @@
+ #include <uapi/linux/reboot.h>
  
- __setup("print-fatal-signals=", setup_print_fatal_signals);
+ struct device;
++struct sys_off_handler;
  
--int
--__group_send_sig_info(int sig, struct kernel_siginfo *info, struct task_struct *p)
--{
--	return send_signal_locked(sig, info, p, PIDTYPE_TGID);
--}
--
- int do_send_sig_info(int sig, struct kernel_siginfo *info, struct task_struct *p,
- 			enum pid_type type)
- {
-@@ -2173,7 +2167,7 @@ static void do_notify_parent_cldstop(struct task_struct *tsk,
- 	spin_lock_irqsave(&sighand->siglock, flags);
- 	if (sighand->action[SIGCHLD-1].sa.sa_handler != SIG_IGN &&
- 	    !(sighand->action[SIGCHLD-1].sa.sa_flags & SA_NOCLDSTOP))
--		__group_send_sig_info(SIGCHLD, &info, parent);
-+		send_signal_locked(SIGCHLD, &info, parent, PIDTYPE_TGID);
- 	/*
- 	 * Even if SIGCHLD is not generated, we must wake up wait4 calls.
- 	 */
-diff --git a/kernel/time/posix-cpu-timers.c b/kernel/time/posix-cpu-timers.c
-index 0a97193984db..cb925e8ef9a8 100644
---- a/kernel/time/posix-cpu-timers.c
-+++ b/kernel/time/posix-cpu-timers.c
-@@ -870,7 +870,7 @@ static inline void check_dl_overrun(struct task_struct *tsk)
- {
- 	if (tsk->dl.dl_overrun) {
- 		tsk->dl.dl_overrun = 0;
--		__group_send_sig_info(SIGXCPU, SEND_SIG_PRIV, tsk);
-+		send_signal_locked(SIGXCPU, SEND_SIG_PRIV, tsk, PIDTYPE_TGID);
- 	}
+ #define SYS_DOWN	0x0001	/* Notify of system down */
+ #define SYS_RESTART	SYS_DOWN
+@@ -62,6 +63,82 @@ extern void machine_shutdown(void);
+ struct pt_regs;
+ extern void machine_crash_shutdown(struct pt_regs *);
+ 
++/*
++ * sys-off handler API.
++ */
++
++/*
++ * Standard sys-off priority levels. Users are expected to set priorities
++ * relative to the standard levels.
++ *
++ * SYS_OFF_PRIO_PLATFORM:	Use this for platform-level handlers.
++ *
++ * SYS_OFF_PRIO_LOW:		Use this for handler of last resort.
++ *
++ * SYS_OFF_PRIO_DEFAULT:	Use this for normal handlers.
++ *
++ * SYS_OFF_PRIO_HIGH:		Use this for higher priority handlers.
++ *
++ * SYS_OFF_PRIO_FIRMWARE:	Use this if handler uses firmware call.
++ */
++#define SYS_OFF_PRIO_PLATFORM		-256
++#define SYS_OFF_PRIO_LOW		-128
++#define SYS_OFF_PRIO_DEFAULT		0
++#define SYS_OFF_PRIO_HIGH		192
++#define SYS_OFF_PRIO_FIRMWARE		224
++
++enum sys_off_mode {
++	/**
++	 * @SYS_OFF_MODE_POWER_OFF_PREPARE:
++	 *
++	 * Handlers prepare system to be powered off. Handlers are
++	 * allowed to sleep.
++	 */
++	SYS_OFF_MODE_POWER_OFF_PREPARE,
++
++	/**
++	 * @SYS_OFF_MODE_POWER_OFF:
++	 *
++	 * Handlers power-off system. Handlers are disallowed to sleep.
++	 */
++	SYS_OFF_MODE_POWER_OFF,
++
++	/**
++	 * @SYS_OFF_MODE_RESTART:
++	 *
++	 * Handlers restart system. Handlers are disallowed to sleep.
++	 */
++	SYS_OFF_MODE_RESTART,
++};
++
++/**
++ * struct sys_off_data - sys-off callback argument
++ *
++ * @mode: Mode ID. Currently used only by the sys-off restart mode,
++ *        see enum reboot_mode for the available modes.
++ * @cb_data: User's callback data.
++ * @cmd: Command string. Currently used only by the sys-off restart mode,
++ *       NULL otherwise.
++ */
++struct sys_off_data {
++	int mode;
++	void *cb_data;
++	const char *cmd;
++};
++
++struct sys_off_handler *
++register_sys_off_handler(enum sys_off_mode mode,
++			 int priority,
++			 int (*callback)(struct sys_off_data *data),
++			 void *cb_data);
++void unregister_sys_off_handler(struct sys_off_handler *handler);
++
++int devm_register_sys_off_handler(struct device *dev,
++				  enum sys_off_mode mode,
++				  int priority,
++				  int (*callback)(struct sys_off_data *data),
++				  void *cb_data);
++
+ /*
+  * Architecture independent implemenations of sys_reboot commands.
+  */
+diff --git a/kernel/reboot.c b/kernel/reboot.c
+index 8ce30fa0a104..672a658f21ee 100644
+--- a/kernel/reboot.c
++++ b/kernel/reboot.c
+@@ -48,6 +48,15 @@ int reboot_cpu;
+ enum reboot_type reboot_type = BOOT_ACPI;
+ int reboot_force;
+ 
++struct sys_off_handler {
++	struct notifier_block nb;
++	int (*sys_off_cb)(struct sys_off_data *data);
++	void *cb_data;
++	enum sys_off_mode mode;
++	bool blocking;
++	void *list;
++};
++
+ /*
+  * If set, this is used for preparing the system to power off.
+  */
+@@ -281,6 +290,179 @@ void kernel_halt(void)
  }
+ EXPORT_SYMBOL_GPL(kernel_halt);
  
-@@ -884,7 +884,7 @@ static bool check_rlimit(u64 time, u64 limit, int signo, bool rt, bool hard)
- 			rt ? "RT" : "CPU", hard ? "hard" : "soft",
- 			current->comm, task_pid_nr(current));
- 	}
--	__group_send_sig_info(signo, SEND_SIG_PRIV, current);
-+	send_signal_locked(signo, SEND_SIG_PRIV, current, PIDTYPE_TGID);
- 	return true;
- }
- 
-@@ -958,7 +958,7 @@ static void check_cpu_itimer(struct task_struct *tsk, struct cpu_itimer *it,
- 		trace_itimer_expire(signo = SIGPROF ?
- 				    ITIMER_PROF : ITIMER_VIRTUAL,
- 				    task_tgid(tsk), cur_time);
--		__group_send_sig_info(signo, SEND_SIG_PRIV, tsk);
-+		send_signal_locked(signo, SEND_SIG_PRIV, tsk, PIDTYPE_TGID);
- 	}
- 
- 	if (it->expires && it->expires < *expires)
++/*
++ *	Notifier list for kernel code which wants to be called
++ *	to prepare system for power off.
++ */
++static BLOCKING_NOTIFIER_HEAD(power_off_prep_handler_list);
++
++/*
++ *	Notifier list for kernel code which wants to be called
++ *	to power off system.
++ */
++static ATOMIC_NOTIFIER_HEAD(power_off_handler_list);
++
++static int sys_off_notify(struct notifier_block *nb,
++			  unsigned long mode, void *cmd)
++{
++	struct sys_off_handler *handler;
++	struct sys_off_data data = {};
++
++	handler = container_of(nb, struct sys_off_handler, nb);
++	data.cb_data = handler->cb_data;
++	data.mode = mode;
++	data.cmd = cmd;
++
++	return handler->sys_off_cb(&data);
++}
++
++/**
++ *	register_sys_off_handler - Register sys-off handler
++ *	@mode: Sys-off mode
++ *	@priority: Handler priority
++ *	@callback: Callback function
++ *	@cb_data: Callback argument
++ *
++ *	Registers system power-off or restart handler that will be invoked
++ *	at the step corresponding to the given sys-off mode. Handler's callback
++ *	should return NOTIFY_DONE to permit execution of the next handler in
++ *	the call chain or NOTIFY_STOP to break the chain (in error case for
++ *	example).
++ *
++ *	Multiple handlers can be registered at the default priority level.
++ *
++ *	Only one handler can be registered at the non-default priority level,
++ *	otherwise ERR_PTR(-EBUSY) is returned.
++ *
++ *	Returns a new instance of struct sys_off_handler on success, or
++ *	an ERR_PTR()-encoded error code otherwise.
++ */
++struct sys_off_handler *
++register_sys_off_handler(enum sys_off_mode mode,
++			 int priority,
++			 int (*callback)(struct sys_off_data *data),
++			 void *cb_data)
++{
++	struct sys_off_handler *handler;
++	int err;
++
++	handler = kzalloc(sizeof(*handler), GFP_KERNEL);
++	if (!handler)
++		return ERR_PTR(-ENOMEM);
++
++	switch (mode) {
++	case SYS_OFF_MODE_POWER_OFF_PREPARE:
++		handler->list = &power_off_prep_handler_list;
++		handler->blocking = true;
++		break;
++
++	case SYS_OFF_MODE_POWER_OFF:
++		handler->list = &power_off_handler_list;
++		break;
++
++	case SYS_OFF_MODE_RESTART:
++		handler->list = &restart_handler_list;
++		break;
++
++	default:
++		kfree(handler);
++		return ERR_PTR(-EINVAL);
++	}
++
++	handler->nb.notifier_call = sys_off_notify;
++	handler->nb.priority = priority;
++	handler->sys_off_cb = callback;
++	handler->cb_data = cb_data;
++	handler->mode = mode;
++
++	if (handler->blocking) {
++		if (priority = SYS_OFF_PRIO_DEFAULT)
++			err = blocking_notifier_chain_register(handler->list,
++							       &handler->nb);
++		else
++			err = blocking_notifier_chain_register_unique_prio(handler->list,
++									   &handler->nb);
++	} else {
++		if (priority = SYS_OFF_PRIO_DEFAULT)
++			err = atomic_notifier_chain_register(handler->list,
++							     &handler->nb);
++		else
++			err = atomic_notifier_chain_register_unique_prio(handler->list,
++									 &handler->nb);
++	}
++
++	if (err) {
++		kfree(handler);
++		return ERR_PTR(err);
++	}
++
++	return handler;
++}
++EXPORT_SYMBOL_GPL(register_sys_off_handler);
++
++/**
++ *	unregister_sys_off_handler - Unregister sys-off handler
++ *	@handler: Sys-off handler
++ *
++ *	Unregisters given sys-off handler.
++ */
++void unregister_sys_off_handler(struct sys_off_handler *handler)
++{
++	int err;
++
++	if (!handler)
++		return;
++
++	if (handler->blocking)
++		err = blocking_notifier_chain_unregister(handler->list,
++							 &handler->nb);
++	else
++		err = atomic_notifier_chain_unregister(handler->list,
++						       &handler->nb);
++
++	/* sanity check, shall never happen */
++	WARN_ON(err);
++
++	kfree(handler);
++}
++EXPORT_SYMBOL_GPL(unregister_sys_off_handler);
++
++static void devm_unregister_sys_off_handler(void *data)
++{
++	struct sys_off_handler *handler = data;
++
++	unregister_sys_off_handler(handler);
++}
++
++/**
++ *	devm_register_sys_off_handler - Register sys-off handler
++ *	@dev: Device that registers handler
++ *	@mode: Sys-off mode
++ *	@priority: Handler priority
++ *	@callback: Callback function
++ *	@cb_data: Callback argument
++ *
++ *	Registers resource-managed sys-off handler.
++ *
++ *	Returns zero on success, or error code on failure.
++ */
++int devm_register_sys_off_handler(struct device *dev,
++				  enum sys_off_mode mode,
++				  int priority,
++				  int (*callback)(struct sys_off_data *data),
++				  void *cb_data)
++{
++	struct sys_off_handler *handler;
++
++	handler = register_sys_off_handler(mode, priority, callback, cb_data);
++	if (IS_ERR(handler))
++		return PTR_ERR(handler);
++
++	return devm_add_action_or_reset(dev, devm_unregister_sys_off_handler,
++					handler);
++}
++EXPORT_SYMBOL_GPL(devm_register_sys_off_handler);
++
+ /**
+  *	kernel_power_off - power_off the system
+  *
 -- 
-2.35.3
+2.35.1
