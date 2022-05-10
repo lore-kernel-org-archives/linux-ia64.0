@@ -1,91 +1,113 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Wed, 04 May 2022 22:40:51 +0000
-Subject: [PATCH v3 04/11] ptrace/xtensa: Replace PT_SINGLESTEP with TIF_SINGLESTEP
-Message-Id: <20220504224058.476193-4-ebiederm@xmission.com>
+From: Baolin Wang <baolin.wang@linux.alibaba.com>
+Date: Tue, 10 May 2022 03:46:00 +0000
+Subject: [PATCH v3 3/3] mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when unmapping
+Message-Id: <730ea4b6d292f32fb10b7a4e87dad49b0eb30474.1652147571.git.baolin.wang@linux.alibaba.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <87k0b0apne.fsf_-_@email.froward.int.ebiederm.org>
-In-Reply-To: <87k0b0apne.fsf_-_@email.froward.int.ebiederm.org>
+References: <cover.1652147571.git.baolin.wang@linux.alibaba.com>
+In-Reply-To: <cover.1652147571.git.baolin.wang@linux.alibaba.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>, stable@vger.kernel.org
+To: akpm@linux-foundation.org, mike.kravetz@oracle.com, catalin.marinas@arm.com, will@kernel.org
+Cc: songmuchun@bytedance.com, tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, baolin.wang@linux.alibaba.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-xtensa is the last user of the PT_SINGLESTEP flag.  Changing tsk->ptrace in
-user_enable_single_step and user_disable_single_step without locking could
-potentiallly cause problems.
+On some architectures (like ARM64), it can support CONT-PTE/PMD size
+hugetlb, which means it can support not only PMD/PUD size hugetlb:
+2M and 1G, but also CONT-PTE/PMD size: 64K and 32M if a 4K page
+size specified.
 
-So use a thread info flag instead of a flag in tsk->ptrace.  Use TIF_SINGLESTEP
-that xtensa already had defined but unused.
+When unmapping a hugetlb page, we will get the relevant page table
+entry by huge_pte_offset() only once to nuke it. This is correct
+for PMD or PUD size hugetlb, since they always contain only one
+pmd entry or pud entry in the page table.
 
-Remove the definitions of PT_SINGLESTEP and PT_BLOCKSTEP as they have no more users.
+However this is incorrect for CONT-PTE and CONT-PMD size hugetlb,
+since they can contain several continuous pte or pmd entry with
+same page table attributes, so we will nuke only one pte or pmd
+entry for this CONT-PTE/PMD size hugetlb page.
 
-Cc: stable@vger.kernel.org
-Acked-by: Max Filippov <jcmvbkbc@gmail.com>
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+And now try_to_unmap() is only passed a hugetlb page in the case
+where the hugetlb page is poisoned. Which means now we will unmap
+only one pte entry for a CONT-PTE or CONT-PMD size poisoned hugetlb
+page, and we can still access other subpages of a CONT-PTE or CONT-PMD
+size poisoned hugetlb page, which will cause serious issues possibly.
+
+So we should change to use huge_ptep_clear_flush() to nuke the
+hugetlb page table to fix this issue, which already considered
+CONT-PTE and CONT-PMD size hugetlb.
+
+We've already used set_huge_swap_pte_at() to set a poisoned
+swap entry for a poisoned hugetlb page. Meanwhile adding a VM_BUG_ON()
+to make sure the passed hugetlb page is poisoned in try_to_unmap().
+
+Signed-off-by: Baolin Wang <baolin.wang@linux.alibaba.com>
+Reviewed-by: Muchun Song <songmuchun@bytedance.com>
+Reviewed-by: Mike Kravetz <mike.kravetz@oracle.com>
 ---
- arch/xtensa/kernel/ptrace.c | 4 ++--
- arch/xtensa/kernel/signal.c | 4 ++--
- include/linux/ptrace.h      | 6 ------
- 3 files changed, 4 insertions(+), 10 deletions(-)
+ mm/rmap.c | 39 ++++++++++++++++++++++-----------------
+ 1 file changed, 22 insertions(+), 17 deletions(-)
 
-diff --git a/arch/xtensa/kernel/ptrace.c b/arch/xtensa/kernel/ptrace.c
-index 323c678a691f..b952e67cc0cc 100644
---- a/arch/xtensa/kernel/ptrace.c
-+++ b/arch/xtensa/kernel/ptrace.c
-@@ -225,12 +225,12 @@ const struct user_regset_view *task_user_regset_view(struct task_struct *task)
+diff --git a/mm/rmap.c b/mm/rmap.c
+index 4e96daf..219e287 100644
+--- a/mm/rmap.c
++++ b/mm/rmap.c
+@@ -1528,6 +1528,11 @@ static bool try_to_unmap_one(struct folio *folio, struct vm_area_struct *vma,
  
- void user_enable_single_step(struct task_struct *child)
- {
--	child->ptrace |= PT_SINGLESTEP;
-+	set_tsk_thread_flag(child, TIF_SINGLESTEP);
- }
- 
- void user_disable_single_step(struct task_struct *child)
- {
--	child->ptrace &= ~PT_SINGLESTEP;
-+	clear_tsk_thread_flag(child, TIF_SINGLESTEP);
- }
- 
- /*
-diff --git a/arch/xtensa/kernel/signal.c b/arch/xtensa/kernel/signal.c
-index 6f68649e86ba..ac50ec46c8f1 100644
---- a/arch/xtensa/kernel/signal.c
-+++ b/arch/xtensa/kernel/signal.c
-@@ -473,7 +473,7 @@ static void do_signal(struct pt_regs *regs)
- 		/* Set up the stack frame */
- 		ret = setup_frame(&ksig, sigmask_to_save(), regs);
- 		signal_setup_done(ret, &ksig, 0);
--		if (current->ptrace & PT_SINGLESTEP)
-+		if (test_thread_flag(TIF_SINGLESTEP))
- 			task_pt_regs(current)->icountlevel = 1;
- 
- 		return;
-@@ -499,7 +499,7 @@ static void do_signal(struct pt_regs *regs)
- 	/* If there's no signal to deliver, we just restore the saved mask.  */
- 	restore_saved_sigmask();
- 
--	if (current->ptrace & PT_SINGLESTEP)
-+	if (test_thread_flag(TIF_SINGLESTEP))
- 		task_pt_regs(current)->icountlevel = 1;
- 	return;
- }
-diff --git a/include/linux/ptrace.h b/include/linux/ptrace.h
-index 4c06f9f8ef3f..c952c5ba8fab 100644
---- a/include/linux/ptrace.h
-+++ b/include/linux/ptrace.h
-@@ -46,12 +46,6 @@ extern int ptrace_access_vm(struct task_struct *tsk, unsigned long addr,
- #define PT_EXITKILL		(PTRACE_O_EXITKILL << PT_OPT_FLAG_SHIFT)
- #define PT_SUSPEND_SECCOMP	(PTRACE_O_SUSPEND_SECCOMP << PT_OPT_FLAG_SHIFT)
- 
--/* single stepping state bits (used on ARM and PA-RISC) */
--#define PT_SINGLESTEP_BIT	31
--#define PT_SINGLESTEP		(1<<PT_SINGLESTEP_BIT)
--#define PT_BLOCKSTEP_BIT	30
--#define PT_BLOCKSTEP		(1<<PT_BLOCKSTEP_BIT)
+ 		if (folio_test_hugetlb(folio)) {
+ 			/*
++			 * The try_to_unmap() is only passed a hugetlb page
++			 * in the case where the hugetlb page is poisoned.
++			 */
++			VM_BUG_ON_PAGE(!PageHWPoison(subpage), subpage);
++			/*
+ 			 * huge_pmd_unshare may unmap an entire PMD page.
+ 			 * There is no way of knowing exactly which PMDs may
+ 			 * be cached for this mm, so we must flush them all.
+@@ -1562,28 +1567,28 @@ static bool try_to_unmap_one(struct folio *folio, struct vm_area_struct *vma,
+ 					break;
+ 				}
+ 			}
++			pteval = huge_ptep_clear_flush(vma, address, pvmw.pte);
+ 		} else {
+ 			flush_cache_page(vma, address, pte_pfn(*pvmw.pte));
+-		}
 -
- extern long arch_ptrace(struct task_struct *child, long request,
- 			unsigned long addr, unsigned long data);
- extern int ptrace_readdata(struct task_struct *tsk, unsigned long src, char __user *dst, int len);
+-		/*
+-		 * Nuke the page table entry. When having to clear
+-		 * PageAnonExclusive(), we always have to flush.
+-		 */
+-		if (should_defer_flush(mm, flags) && !anon_exclusive) {
+ 			/*
+-			 * We clear the PTE but do not flush so potentially
+-			 * a remote CPU could still be writing to the folio.
+-			 * If the entry was previously clean then the
+-			 * architecture must guarantee that a clear->dirty
+-			 * transition on a cached TLB entry is written through
+-			 * and traps if the PTE is unmapped.
++			 * Nuke the page table entry. When having to clear
++			 * PageAnonExclusive(), we always have to flush.
+ 			 */
+-			pteval = ptep_get_and_clear(mm, address, pvmw.pte);
++			if (should_defer_flush(mm, flags) && !anon_exclusive) {
++				/*
++				 * We clear the PTE but do not flush so potentially
++				 * a remote CPU could still be writing to the folio.
++				 * If the entry was previously clean then the
++				 * architecture must guarantee that a clear->dirty
++				 * transition on a cached TLB entry is written through
++				 * and traps if the PTE is unmapped.
++				 */
++				pteval = ptep_get_and_clear(mm, address, pvmw.pte);
+ 
+-			set_tlb_ubc_flush_pending(mm, pte_dirty(pteval));
+-		} else {
+-			pteval = ptep_clear_flush(vma, address, pvmw.pte);
++				set_tlb_ubc_flush_pending(mm, pte_dirty(pteval));
++			} else {
++				pteval = ptep_clear_flush(vma, address, pvmw.pte);
++			}
+ 		}
+ 
+ 		/*
 -- 
-2.35.3
+1.8.3.1
