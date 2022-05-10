@@ -1,33 +1,47 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Tue, 10 May 2022 04:04:04 +0000
+From: Baolin Wang <baolin.wang@linux.alibaba.com>
+Date: Tue, 10 May 2022 04:26:32 +0000
 Subject: Re: [PATCH v3 0/3] Fix CONT-PTE/PMD size hugetlb issue when unmapping or migrating
-Message-Id: <20220509210404.6a43aff15d0d6b3af0741001@linux-foundation.org>
+Message-Id: <0db300f4-8a91-b330-5c6f-bbc63cf2f151@linux.alibaba.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <cover.1652147571.git.baolin.wang@linux.alibaba.com>
-In-Reply-To: <cover.1652147571.git.baolin.wang@linux.alibaba.com>
+ <20220509210404.6a43aff15d0d6b3af0741001@linux-foundation.org>
+In-Reply-To: <20220509210404.6a43aff15d0d6b3af0741001@linux-foundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Baolin Wang <baolin.wang@linux.alibaba.com>
+To: Andrew Morton <akpm@linux-foundation.org>
 Cc: mike.kravetz@oracle.com, catalin.marinas@arm.com, will@kernel.org, songmuchun@bytedance.com, tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.osdn.me, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-On Tue, 10 May 2022 11:45:57 +0800 Baolin Wang <baolin.wang@linux.alibaba.com> wrote:
 
-> Hi,
+
+On 5/10/2022 12:04 PM, Andrew Morton wrote:
+> On Tue, 10 May 2022 11:45:57 +0800 Baolin Wang <baolin.wang@linux.alibaba.com> wrote:
 > 
-> Now migrating a hugetlb page or unmapping a poisoned hugetlb page, we'll
-> use ptep_clear_flush() and set_pte_at() to nuke the page table entry
-> and remap it, and this is incorrect for CONT-PTE or CONT-PMD size hugetlb
-> page,
+>> Hi,
+>>
+>> Now migrating a hugetlb page or unmapping a poisoned hugetlb page, we'll
+>> use ptep_clear_flush() and set_pte_at() to nuke the page table entry
+>> and remap it, and this is incorrect for CONT-PTE or CONT-PMD size hugetlb
+>> page,
+> 
+> It would be helpful to describe why it's wrong.  Something like "should
+> use huge_ptep_clear_flush() and huge_ptep_clear_flush() for this
+> purpose"?
 
-It would be helpful to describe why it's wrong.  Something like "should
-use huge_ptep_clear_flush() and huge_ptep_clear_flush() for this
-purpose"?
+Sorry for the confusing description. I described the problem explicitly 
+in each patch's commit message.
 
-> which will cause potential data consistent issue. This patch set
-> will change to use hugetlb related APIs to fix this issue, please find
-> details in each patch. Thanks.
+https://lore.kernel.org/all/ea5abf529f0997b5430961012bfda6166c1efc8c.1652147571.git.baolin.wang@linux.alibaba.com/
+https://lore.kernel.org/all/730ea4b6d292f32fb10b7a4e87dad49b0eb30474.1652147571.git.baolin.wang@linux.alibaba.com/
 
-Is a cc:stable needed here?  And are we able to identify a target for a
-Fixes: tag?
+> 
+>> which will cause potential data consistent issue. This patch set
+>> will change to use hugetlb related APIs to fix this issue, please find
+>> details in each patch. Thanks.
+> 
+> Is a cc:stable needed here?  And are we able to identify a target for a
+> Fixes: tag?
 
+I think need a cc:stable tag, however I am not sure the target fixes 
+tag, since we should trace back to the introduction of CONT-PTE/PMD 
+hugetlb? 66b3923a1a0f ("arm64: hugetlb: add support for PTE contiguous bit")
