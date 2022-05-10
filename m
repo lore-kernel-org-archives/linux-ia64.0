@@ -1,110 +1,131 @@
-From: Heiko Carstens <hca@linux.ibm.com>
-Date: Tue, 31 May 2022 07:59:37 +0000
-Subject: Re: [PATCH v5] mm: Avoid unnecessary page fault retires on shared memory types
-Message-Id: <YpXK6VO8y6ZQlimG@osiris>
+From: Baolin Wang <baolin.wang@linux.alibaba.com>
+Date: Tue, 10 May 2022 03:45:59 +0000
+Subject: [PATCH v3 2/3] mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when migration
+Message-Id: <ea5abf529f0997b5430961012bfda6166c1efc8c.1652147571.git.baolin.wang@linux.alibaba.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220530183450.42886-1-peterx@redhat.com>
-In-Reply-To: <20220530183450.42886-1-peterx@redhat.com>
+References: <cover.1652147571.git.baolin.wang@linux.alibaba.com>
+In-Reply-To: <cover.1652147571.git.baolin.wang@linux.alibaba.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Xu <peterx@redhat.com>
-Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org, Ingo Molnar <mingo@redhat.com>, Vasily Gorbik <gor@linux.ibm.com>, linuxppc-dev@lists.ozlabs.org, Stafford Horne <shorne@gmail.com>, "David S . Miller" <davem@davemloft.net>, Johannes Berg <johannes@sipsolutions.net>, Brian Cain <bcain@quicinc.com>, x86@kernel.org, linux-parisc@vger.kernel.org, Richard Henderson <rth@twiddle.net>, Christian Borntraeger <borntraeger@linux.ibm.com>, Richard Weinberger <richard@nod.at>, linux-hexagon@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Janosch Frank <frankja@linux.ibm.com>, Albert Ou <aou@eecs.berkeley.edu>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Dave Hansen <dave.hansen@linux.intel.com>, linux-ia64@vger.kernel.org, Borislav Petkov <bp@alien8.de>, Russell King <linux@armlinux.org.uk>, Sven Schnelle <svens@linux.ibm.com>, Andrea Arcangeli <aarcange@redhat.com>, "James E . J . Bottomley" <James.Bottomley@hansenpartnership.com>, Al Viro <viro@zeniv.linux.org.uk>, Alexander Gordeev <agordeev@linux.ibm.com>, Peter Zijlstra <peterz@infradead.org>, Alistair Popple <apopple@nvidia.com>, Jonas Bonn <jonas@southpole.se>, sparclinux@vger.kernel.org, linux-csky@vger.kernel.org, Will Deacon <will@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Vlastimil Babka <vbabka@suse.cz>, linux-um@lists.infradead.org, Michal Simek <monstr@monstr.eu>, Matt Turner <mattst88@gmail.com>, linux-m68k@lists.linux-m68k.org, Paul Mackerras <paulus@samba.org>, linux-xtensa@linux-xtensa.org, Geert Uytterhoeven <geert@linux-m68k.org>, David Hildenbrand <david@redhat.com>, openrisc@lists.librecores.org, linux-arm-kernel@lists.infradead.org, Nicholas Piggin <npiggin@gmail.com>, Palmer Dabbelt <palmer@dabbelt.com>, Michael Ellerman <mpe@ellerman.id.au>, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, Paul Walmsley <paul.walmsley@sifive.com>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Chris Zankel <chris@zankel.net>, Hugh Dickins <hughd@google.com>, Vineet Gupta <vgupta@kernel.org>, Dinh Nguyen <dinguyen@kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, Rich Felker <dalias@libc.org>, "H . Peter Anvin" <hpa@zytor.com>, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-riscv@lists.infradead.org, Johannes Weiner <hannes@cmpxchg.org>, Andy Lutomirski <luto@kernel.org>, Max Filippov <jcmvbkbc@gmail.com>, Guo Ren <guoren@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, linux-snps-arc@lists.infradead.org, linux-alpha@vger.kernel.org, linux-mips@vger.kernel.org, Helge Deller <deller@gmx.de>, Yoshinori Sato <ysato@users.sourceforge.jp>, Ingo Molnar <mingo@kernel.org>
+To: akpm@linux-foundation.org, mike.kravetz@oracle.com, catalin.marinas@arm.com, will@kernel.org
+Cc: songmuchun@bytedance.com, tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, baolin.wang@linux.alibaba.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-On Mon, May 30, 2022 at 02:34:50PM -0400, Peter Xu wrote:
-> I observed that for each of the shared file-backed page faults, we're very
-> likely to retry one more time for the 1st write fault upon no page.  It's
-> because we'll need to release the mmap lock for dirty rate limit purpose
-> with balance_dirty_pages_ratelimited() (in fault_dirty_shared_page()).
-> 
-> Then after that throttling we return VM_FAULT_RETRY.
-> 
-> We did that probably because VM_FAULT_RETRY is the only way we can return
-> to the fault handler at that time telling it we've released the mmap lock.
-> 
-> However that's not ideal because it's very likely the fault does not need
-> to be retried at all since the pgtable was well installed before the
-> throttling, so the next continuous fault (including taking mmap read lock,
-> walk the pgtable, etc.) could be in most cases unnecessary.
-> 
-> It's not only slowing down page faults for shared file-backed, but also add
-> more mmap lock contention which is in most cases not needed at all.
-> 
-> To observe this, one could try to write to some shmem page and look at
-> "pgfault" value in /proc/vmstat, then we should expect 2 counts for each
-> shmem write simply because we retried, and vm event "pgfault" will capture
-> that.
-> 
-> To make it more efficient, add a new VM_FAULT_COMPLETED return code just to
-> show that we've completed the whole fault and released the lock.  It's also
-> a hint that we should very possibly not need another fault immediately on
-> this page because we've just completed it.
-> 
-> This patch provides a ~12% perf boost on my aarch64 test VM with a simple
-> program sequentially dirtying 400MB shmem file being mmap()ed and these are
-> the time it needs:
-> 
->   Before: 650.980 ms (+-1.94%)
->   After:  569.396 ms (+-1.38%)
-> 
-> I believe it could help more than that.
-> 
-> We need some special care on GUP and the s390 pgfault handler (for gmap
-> code before returning from pgfault), the rest changes in the page fault
-> handlers should be relatively straightforward.
-> 
-> Another thing to mention is that mm_account_fault() does take this new
-> fault as a generic fault to be accounted, unlike VM_FAULT_RETRY.
-> 
-> I explicitly didn't touch hmm_vma_fault() and break_ksm() because they do
-> not handle VM_FAULT_RETRY even with existing code, so I'm literally keeping
-> them as-is.
-> 
-> Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
-> Acked-by: Johannes Weiner <hannes@cmpxchg.org>
-> Acked-by: Vineet Gupta <vgupta@kernel.org>
-> Acked-by: Guo Ren <guoren@kernel.org>
-> Acked-by: Max Filippov <jcmvbkbc@gmail.com>
-> Acked-by: Christian Borntraeger <borntraeger@linux.ibm.com>
-> Acked-by: Michael Ellerman <mpe@ellerman.id.au> (powerpc)
-> Acked-by: Catalin Marinas <catalin.marinas@arm.com>
-> Reviewed-by: Alistair Popple <apopple@nvidia.com>
-> Reviewed-by: Ingo Molnar <mingo@kernel.org>
-> Signed-off-by: Peter Xu <peterx@redhat.com>
-> ---
-...
->  arch/s390/mm/fault.c          | 12 ++++++++++++
-> diff --git a/arch/s390/mm/fault.c b/arch/s390/mm/fault.c
-> index e173b6187ad5..973dcd05c293 100644
-> --- a/arch/s390/mm/fault.c
-> +++ b/arch/s390/mm/fault.c
-> @@ -433,6 +433,17 @@ static inline vm_fault_t do_exception(struct pt_regs *regs, int access)
->  			goto out_up;
->  		goto out;
->  	}
-> +
-> +	/* The fault is fully completed (including releasing mmap lock) */
-> +	if (fault & VM_FAULT_COMPLETED) {
-> +		if (gmap) {
-> +			mmap_read_lock(mm);
-> +			goto out_gmap;
-> +		}
-> +		fault = 0;
-> +		goto out;
-> +	}
-> +
->  	if (unlikely(fault & VM_FAULT_ERROR))
->  		goto out_up;
->  
-> @@ -452,6 +463,7 @@ static inline vm_fault_t do_exception(struct pt_regs *regs, int access)
->  		mmap_read_lock(mm);
->  		goto retry;
->  	}
-> +out_gmap:
->  	if (IS_ENABLED(CONFIG_PGSTE) && gmap) {
->  		address =  __gmap_link(gmap, current->thread.gmap_addr,
->  				       address);
+On some architectures (like ARM64), it can support CONT-PTE/PMD size
+hugetlb, which means it can support not only PMD/PUD size hugetlb:
+2M and 1G, but also CONT-PTE/PMD size: 64K and 32M if a 4K page
+size specified.
 
-FWIW:
-Acked-by: Heiko Carstens <hca@linux.ibm.com>
+When migrating a hugetlb page, we will get the relevant page table
+entry by huge_pte_offset() only once to nuke it and remap it with
+a migration pte entry. This is correct for PMD or PUD size hugetlb,
+since they always contain only one pmd entry or pud entry in the
+page table.
+
+However this is incorrect for CONT-PTE and CONT-PMD size hugetlb,
+since they can contain several continuous pte or pmd entry with
+same page table attributes. So we will nuke or remap only one pte
+or pmd entry for this CONT-PTE/PMD size hugetlb page, which is
+not expected for hugetlb migration. The problem is we can still
+continue to modify the subpages' data of a hugetlb page during
+migrating a hugetlb page, which can cause a serious data consistent
+issue, since we did not nuke the page table entry and set a
+migration pte for the subpages of a hugetlb page.
+
+To fix this issue, we should change to use huge_ptep_clear_flush()
+to nuke a hugetlb page table, and remap it with set_huge_pte_at()
+and set_huge_swap_pte_at() when migrating a hugetlb page, which
+already considered the CONT-PTE or CONT-PMD size hugetlb.
+
+Signed-off-by: Baolin Wang <baolin.wang@linux.alibaba.com>
+Reviewed-by: Muchun Song <songmuchun@bytedance.com>
+Reviewed-by: Mike Kravetz <mike.kravetz@oracle.com>
+---
+ include/linux/hugetlb.h | 11 +++++++++++
+ mm/rmap.c               | 24 ++++++++++++++++++------
+ 2 files changed, 29 insertions(+), 6 deletions(-)
+
+diff --git a/include/linux/hugetlb.h b/include/linux/hugetlb.h
+index 306d6ef..9f71043 100644
+--- a/include/linux/hugetlb.h
++++ b/include/linux/hugetlb.h
+@@ -1093,6 +1093,17 @@ static inline void set_huge_swap_pte_at(struct mm_struct *mm, unsigned long addr
+ 					pte_t *ptep, pte_t pte, unsigned long sz)
+ {
+ }
++
++static inline pte_t huge_ptep_clear_flush(struct vm_area_struct *vma,
++					  unsigned long addr, pte_t *ptep)
++{
++	return ptep_get(ptep);
++}
++
++static inline void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
++				   pte_t *ptep, pte_t pte)
++{
++}
+ #endif	/* CONFIG_HUGETLB_PAGE */
+ 
+ static inline spinlock_t *huge_pte_lock(struct hstate *h,
+diff --git a/mm/rmap.c b/mm/rmap.c
+index 94d6b24..4e96daf 100644
+--- a/mm/rmap.c
++++ b/mm/rmap.c
+@@ -1926,13 +1926,15 @@ static bool try_to_migrate_one(struct folio *folio, struct vm_area_struct *vma,
+ 					break;
+ 				}
+ 			}
++
++			/* Nuke the hugetlb page table entry */
++			pteval = huge_ptep_clear_flush(vma, address, pvmw.pte);
+ 		} else {
+ 			flush_cache_page(vma, address, pte_pfn(*pvmw.pte));
++			/* Nuke the page table entry. */
++			pteval = ptep_clear_flush(vma, address, pvmw.pte);
+ 		}
+ 
+-		/* Nuke the page table entry. */
+-		pteval = ptep_clear_flush(vma, address, pvmw.pte);
+-
+ 		/* Set the dirty flag on the folio now the pte is gone. */
+ 		if (pte_dirty(pteval))
+ 			folio_mark_dirty(folio);
+@@ -2017,7 +2019,10 @@ static bool try_to_migrate_one(struct folio *folio, struct vm_area_struct *vma,
+ 			pte_t swp_pte;
+ 
+ 			if (arch_unmap_one(mm, vma, address, pteval) < 0) {
+-				set_pte_at(mm, address, pvmw.pte, pteval);
++				if (folio_test_hugetlb(folio))
++					set_huge_pte_at(mm, address, pvmw.pte, pteval);
++				else
++					set_pte_at(mm, address, pvmw.pte, pteval);
+ 				ret = false;
+ 				page_vma_mapped_walk_done(&pvmw);
+ 				break;
+@@ -2026,7 +2031,10 @@ static bool try_to_migrate_one(struct folio *folio, struct vm_area_struct *vma,
+ 				       !anon_exclusive, subpage);
+ 			if (anon_exclusive &&
+ 			    page_try_share_anon_rmap(subpage)) {
+-				set_pte_at(mm, address, pvmw.pte, pteval);
++				if (folio_test_hugetlb(folio))
++					set_huge_pte_at(mm, address, pvmw.pte, pteval);
++				else
++					set_pte_at(mm, address, pvmw.pte, pteval);
+ 				ret = false;
+ 				page_vma_mapped_walk_done(&pvmw);
+ 				break;
+@@ -2052,7 +2060,11 @@ static bool try_to_migrate_one(struct folio *folio, struct vm_area_struct *vma,
+ 				swp_pte = pte_swp_mksoft_dirty(swp_pte);
+ 			if (pte_uffd_wp(pteval))
+ 				swp_pte = pte_swp_mkuffd_wp(swp_pte);
+-			set_pte_at(mm, address, pvmw.pte, swp_pte);
++			if (folio_test_hugetlb(folio))
++				set_huge_swap_pte_at(mm, address, pvmw.pte,
++						     swp_pte, vma_mmu_pagesize(vma));
++			else
++				set_pte_at(mm, address, pvmw.pte, swp_pte);
+ 			trace_set_migration_pte(address, pte_val(swp_pte),
+ 						compound_order(&folio->page));
+ 			/*
+-- 
+1.8.3.1
