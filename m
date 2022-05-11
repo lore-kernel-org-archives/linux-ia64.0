@@ -1,52 +1,65 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Date: Mon, 02 May 2022 10:18:29 +0000
-Subject: Re: [PATCH v2 12/12] sched,signal,ptrace: Rework TASK_TRACED, TASK_STOPPED state
-Message-Id: <Ym+v9VAf71oOlDLF@linutronix.de>
+From: Baolin Wang <baolin.wang@linux.alibaba.com>
+Date: Wed, 11 May 2022 12:04:16 +0000
+Subject: [PATCH v4 0/3] Fix CONT-PTE/PMD size hugetlb issue when unmapping or migrating
+Message-Id: <cover.1652270205.git.baolin.wang@linux.alibaba.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
- <20220429214837.386518-12-ebiederm@xmission.com>
-In-Reply-To: <20220429214837.386518-12-ebiederm@xmission.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Cc: linux-kernel@vger.kernel.org, rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org
+To: akpm@linux-foundation.org, mike.kravetz@oracle.com
+Cc: catalin.marinas@arm.com, will@kernel.org, songmuchun@bytedance.com, tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, baolin.wang@linux.alibaba.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-On 2022-04-29 16:48:37 [-0500], Eric W. Biederman wrote:
+Hi,
 
-Needs
- From: Peter Zijlstra (Intel) <peterz@infradead.org>
+Now migrating a hugetlb page or unmapping a poisoned hugetlb page, we'll
+use ptep_clear_flush() and set_pte_at() to nuke the page table entry
+and remap it, and this is incorrect for CONT-PTE or CONT-PMD size hugetlb
+page, which will cause potential data consistent issue. This patch set
+will change to use hugetlb related APIs to fix this issue, please find
+details in each patch. Thanks.
 
-at the top.
+Note: Mike pointed out the huge_ptep_get() will only return the one specific
+value, and it would not take into account the dirty or young bits of CONT-PTE/PMDs
+like the huge_ptep_get_and_clear() [1]. This inconsistent issue is not introduced
+by this patch set, and will address this issue in another thread [2]. Meanwhile
+the uffd for hugetlb case [3] pointed by Gerald also need another patch to address.
 
-> Currently ptrace_stop() / do_signal_stop() rely on the special states
-> TASK_TRACED and TASK_STOPPED resp. to keep unique state. That is, this
-> state exists only in task->__state and nowhere else.
-> 
-> There's two spots of bother with this:
-> 
->  - PREEMPT_RT has task->saved_state which complicates matters,
->    meaning task_is_{traced,stopped}() needs to check an additional
->    variable.
-> 
->  - An alternative freezer implementation that itself relies on a
->    special TASK state would loose TASK_TRACED/TASK_STOPPED and will
->    result in misbehaviour.
-> 
-> As such, add additional state to task->jobctl to track this state
-> outside of task->__state.
-> 
-> NOTE: this doesn't actually fix anything yet, just adds extra state.
-> 
-> --EWB
->   * didn't add a unnecessary newline in signal.h
->   * Update t->jobctl in signal_wake_up and ptrace_signal_wake_up
->     instead of in signal_wake_up_state.  This prevents the clearing
->     of TASK_STOPPED and TASK_TRACED from getting lost.
->   * Added warnings if JOBCTL_STOPPED or JOBCTL_TRACED are not cleared
-> 
-> Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
-> Link: https://lkml.kernel.org/r/20220421150654.757693825@infradead.org
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+[1] https://lore.kernel.org/linux-mm/85bd80b4-b4fd-0d3f-a2e5-149559f2f387@oracle.com/
+[2] https://lore.kernel.org/all/cover.1651998586.git.baolin.wang@linux.alibaba.com/
+[3] https://lore.kernel.org/linux-mm/20220503120343.6264e126@thinkpad/
 
-Sebastian
+Changes from v3:
+ - Fix building errors for !CONFIG_MMU.
+
+Changes from v2:
+ - Collect reviewed tags from Muchun and Mike.
+ - Drop the unnecessary casting in hugetlb.c.
+ - Fix building errors with adding dummy functions for !CONFIG_HUGETLB_PAGE.
+
+Changes from v1:
+ - Add acked tag from Mike.
+ - Update some commit message.
+ - Add VM_BUG_ON in try_to_unmap() for hugetlb case.
+ - Add an explict void casting for huge_ptep_clear_flush() in hugetlb.c.
+
+Baolin Wang (3):
+  mm: change huge_ptep_clear_flush() to return the original pte
+  mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when migration
+  mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when unmapping
+
+ arch/arm64/include/asm/hugetlb.h   |  4 +--
+ arch/arm64/mm/hugetlbpage.c        | 12 +++-----
+ arch/ia64/include/asm/hugetlb.h    |  5 +--
+ arch/mips/include/asm/hugetlb.h    |  9 ++++--
+ arch/parisc/include/asm/hugetlb.h  |  5 +--
+ arch/powerpc/include/asm/hugetlb.h |  9 ++++--
+ arch/s390/include/asm/hugetlb.h    |  6 ++--
+ arch/sh/include/asm/hugetlb.h      |  5 +--
+ arch/sparc/include/asm/hugetlb.h   |  5 +--
+ include/asm-generic/hugetlb.h      |  4 +--
+ include/linux/hugetlb.h            | 11 +++++++
+ mm/rmap.c                          | 63 ++++++++++++++++++++++++--------------
+ 12 files changed, 87 insertions(+), 51 deletions(-)
+
+-- 
+1.8.3.1
