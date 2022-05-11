@@ -1,21 +1,113 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Date: Tue, 24 May 2022 13:25:01 +0000
-Subject: Re: [PATCH 06/16] ptrace: Remove unnecessary locking in ptrace_(get|set)siginfo
-Message-Id: <20220524132500.GC14347@redhat.com>
+From: Baolin Wang <baolin.wang@linux.alibaba.com>
+Date: Wed, 11 May 2022 12:04:19 +0000
+Subject: [PATCH v4 3/3] mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when unmapping
+Message-Id: <0a2e547238cad5bc153a85c3e9658cb9d55f9cac.1652270205.git.baolin.wang@linux.alibaba.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
- <20220518225355.784371-6-ebiederm@xmission.com>
-In-Reply-To: <20220518225355.784371-6-ebiederm@xmission.com>
+References: <cover.1652270205.git.baolin.wang@linux.alibaba.com>
+In-Reply-To: <cover.1652270205.git.baolin.wang@linux.alibaba.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Cc: linux-kernel@vger.kernel.org, rjw@rjwysocki.net, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, Robert OCallahan <roc@pernos.co>, Kyle Huey <khuey@pernos.co>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Jason Wessel <jason.wessel@windriver.com>, Daniel Thompson <daniel.thompson@linaro.org>, Douglas Anderson <dianders@chromium.org>, Douglas Miller <dougmill@linux.vnet.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>
+To: akpm@linux-foundation.org, mike.kravetz@oracle.com
+Cc: catalin.marinas@arm.com, will@kernel.org, songmuchun@bytedance.com, tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, baolin.wang@linux.alibaba.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-On 05/18, Eric W. Biederman wrote:
->
-> Since commit 9899d11f6544 ("ptrace: ensure arch_ptrace/ptrace_request
-> can never race with SIGKILL") it has been unnecessary for
-> ptrace_getsiginfo and ptrace_setsiginfo to use lock_task_sighand.
+On some architectures (like ARM64), it can support CONT-PTE/PMD size
+hugetlb, which means it can support not only PMD/PUD size hugetlb:
+2M and 1G, but also CONT-PTE/PMD size: 64K and 32M if a 4K page
+size specified.
 
-ACK
+When unmapping a hugetlb page, we will get the relevant page table
+entry by huge_pte_offset() only once to nuke it. This is correct
+for PMD or PUD size hugetlb, since they always contain only one
+pmd entry or pud entry in the page table.
+
+However this is incorrect for CONT-PTE and CONT-PMD size hugetlb,
+since they can contain several continuous pte or pmd entry with
+same page table attributes, so we will nuke only one pte or pmd
+entry for this CONT-PTE/PMD size hugetlb page.
+
+And now try_to_unmap() is only passed a hugetlb page in the case
+where the hugetlb page is poisoned. Which means now we will unmap
+only one pte entry for a CONT-PTE or CONT-PMD size poisoned hugetlb
+page, and we can still access other subpages of a CONT-PTE or CONT-PMD
+size poisoned hugetlb page, which will cause serious issues possibly.
+
+So we should change to use huge_ptep_clear_flush() to nuke the
+hugetlb page table to fix this issue, which already considered
+CONT-PTE and CONT-PMD size hugetlb.
+
+We've already used set_huge_swap_pte_at() to set a poisoned
+swap entry for a poisoned hugetlb page. Meanwhile adding a VM_BUG_ON()
+to make sure the passed hugetlb page is poisoned in try_to_unmap().
+
+Signed-off-by: Baolin Wang <baolin.wang@linux.alibaba.com>
+Reviewed-by: Muchun Song <songmuchun@bytedance.com>
+Reviewed-by: Mike Kravetz <mike.kravetz@oracle.com>
+---
+ mm/rmap.c | 39 ++++++++++++++++++++++-----------------
+ 1 file changed, 22 insertions(+), 17 deletions(-)
+
+diff --git a/mm/rmap.c b/mm/rmap.c
+index 4e96daf..219e287 100644
+--- a/mm/rmap.c
++++ b/mm/rmap.c
+@@ -1528,6 +1528,11 @@ static bool try_to_unmap_one(struct folio *folio, struct vm_area_struct *vma,
+ 
+ 		if (folio_test_hugetlb(folio)) {
+ 			/*
++			 * The try_to_unmap() is only passed a hugetlb page
++			 * in the case where the hugetlb page is poisoned.
++			 */
++			VM_BUG_ON_PAGE(!PageHWPoison(subpage), subpage);
++			/*
+ 			 * huge_pmd_unshare may unmap an entire PMD page.
+ 			 * There is no way of knowing exactly which PMDs may
+ 			 * be cached for this mm, so we must flush them all.
+@@ -1562,28 +1567,28 @@ static bool try_to_unmap_one(struct folio *folio, struct vm_area_struct *vma,
+ 					break;
+ 				}
+ 			}
++			pteval = huge_ptep_clear_flush(vma, address, pvmw.pte);
+ 		} else {
+ 			flush_cache_page(vma, address, pte_pfn(*pvmw.pte));
+-		}
+-
+-		/*
+-		 * Nuke the page table entry. When having to clear
+-		 * PageAnonExclusive(), we always have to flush.
+-		 */
+-		if (should_defer_flush(mm, flags) && !anon_exclusive) {
+ 			/*
+-			 * We clear the PTE but do not flush so potentially
+-			 * a remote CPU could still be writing to the folio.
+-			 * If the entry was previously clean then the
+-			 * architecture must guarantee that a clear->dirty
+-			 * transition on a cached TLB entry is written through
+-			 * and traps if the PTE is unmapped.
++			 * Nuke the page table entry. When having to clear
++			 * PageAnonExclusive(), we always have to flush.
+ 			 */
+-			pteval = ptep_get_and_clear(mm, address, pvmw.pte);
++			if (should_defer_flush(mm, flags) && !anon_exclusive) {
++				/*
++				 * We clear the PTE but do not flush so potentially
++				 * a remote CPU could still be writing to the folio.
++				 * If the entry was previously clean then the
++				 * architecture must guarantee that a clear->dirty
++				 * transition on a cached TLB entry is written through
++				 * and traps if the PTE is unmapped.
++				 */
++				pteval = ptep_get_and_clear(mm, address, pvmw.pte);
+ 
+-			set_tlb_ubc_flush_pending(mm, pte_dirty(pteval));
+-		} else {
+-			pteval = ptep_clear_flush(vma, address, pvmw.pte);
++				set_tlb_ubc_flush_pending(mm, pte_dirty(pteval));
++			} else {
++				pteval = ptep_clear_flush(vma, address, pvmw.pte);
++			}
+ 		}
+ 
+ 		/*
+-- 
+1.8.3.1
