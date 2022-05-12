@@ -1,75 +1,64 @@
-From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
-Date: Mon, 09 May 2022 23:32:35 +0000
-Subject: [PATCH v8 27/27] kernel/reboot: Add devm_register_restart_handler()
-Message-Id: <20220509233235.995021-28-dmitry.osipenko@collabora.com>
+From: Pingfan Liu <kernelfans@gmail.com>
+Date: Thu, 12 May 2022 03:06:17 +0000
+Subject: [PATCHv4 0/2] cpu/hotplug: Keep cpu hotplug disabled until the rebooting cpu is stable
+Message-Id: <20220512030619.13426-1-kernelfans@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
-In-Reply-To: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Cc: linux-kernel@vger.kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-tegra@vger.kernel.org
+To: kexec@lists.infradead.org
 
-Add devm_register_restart_handler() helper that registers sys-off
-handler using restart mode and with a default priority. Most drivers
-will want to register restart handler with a default priority, so this
-helper will reduce the boilerplate code and make code easier to read and
-follow.
+For the architectures (arm/arm64/ia64/riscv), which relies on the cpu
+hot-removing mechanism to implement "kexec -e", it is important to
+ensure that the rebooting happens on a valid online cpu. And this logic
+should have been guaranteed in migrate_to_reboot_cpu().
 
-Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
----
- include/linux/reboot.h |  4 ++++
- kernel/reboot.c        | 22 ++++++++++++++++++++++
- 2 files changed, 26 insertions(+)
+But the current code has either contradict (resolved by [2/2]) or
+redundancy (resolved by [1/2]) about the logic.
 
-diff --git a/include/linux/reboot.h b/include/linux/reboot.h
-index 7c6e1f308f7c..e5d9ef886179 100644
---- a/include/linux/reboot.h
-+++ b/include/linux/reboot.h
-@@ -145,6 +145,10 @@ int devm_register_power_off_handler(struct device *dev,
- 				    int (*callback)(struct sys_off_data *data),
- 				    void *cb_data);
- 
-+int devm_register_restart_handler(struct device *dev,
-+				  int (*callback)(struct sys_off_data *data),
-+				  void *cb_data);
-+
- int register_platform_power_off(void (*power_off)(void));
- void unregister_platform_power_off(void (*power_off)(void));
- 
-diff --git a/kernel/reboot.c b/kernel/reboot.c
-index b790025154ac..2e78bd754a75 100644
---- a/kernel/reboot.c
-+++ b/kernel/reboot.c
-@@ -484,6 +484,28 @@ int devm_register_power_off_handler(struct device *dev,
- }
- EXPORT_SYMBOL_GPL(devm_register_power_off_handler);
- 
-+/**
-+ *	devm_register_restart_handler - Register restart handler
-+ *	@dev: Device that registers callback
-+ *	@callback: Callback function
-+ *	@cb_data: Callback's argument
-+ *
-+ *	Registers resource-managed sys-off handler with a default priority
-+ *	and using restart mode.
-+ *
-+ *	Returns zero on success, or error code on failure.
-+ */
-+int devm_register_restart_handler(struct device *dev,
-+				  int (*callback)(struct sys_off_data *data),
-+				  void *cb_data)
-+{
-+	return devm_register_sys_off_handler(dev,
-+					     SYS_OFF_MODE_RESTART,
-+					     SYS_OFF_PRIO_DEFAULT,
-+					     callback, cb_data);
-+}
-+EXPORT_SYMBOL_GPL(devm_register_restart_handler);
-+
- static struct sys_off_handler *platform_power_off_handler;
- 
- static int platform_power_off_notify(struct sys_off_data *data)
+
+V3 -> V4:
+Fix the cpu hotplug enable before kexec-rebooting in powerpc.
+Improve commit log and the code's note.
+
+V2 -> V3:
+Taking in [2/2], which also has problem with the valid rebooting
+cpu. (I had sent three patches for different arches. But maybe it is
+better to collapse them into one and collect acks from different arches'
+maintainers )
+
+Cc: Eric Biederman <ebiederm@xmission.com>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Vincent Donnefort <vincent.donnefort@arm.com>
+Cc: Ingo Molnar <mingo@kernel.org>
+Cc: YueHaibing <yuehaibing@huawei.com>
+Cc: Baokun Li <libaokun1@huawei.com>
+Cc: Randy Dunlap <rdunlap@infradead.org>
+Cc: Valentin Schneider <valentin.schneider@arm.com>
+Cc: kexec@lists.infradead.org
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>
+Cc: Kees Cook <keescook@chromium.org>
+Cc: Jens Axboe <axboe@kernel.dk>
+To: linux-ia64@vger.kernel.org
+Cc: Russell King <linux@armlinux.org.uk>
+Cc: Guenter Roeck <linux@roeck-us.net>
+
+Pingfan Liu (2):
+  cpu/hotplug: Keep cpu hotplug disabled until the rebooting cpu is
+    stable
+  cpu/hotplug: Remove the input parameter primary_cpu of
+    smp_shutdown_nonboot_cpus()
+
+ arch/arm/kernel/reboot.c          |  2 +-
+ arch/arm64/kernel/process.c       |  2 +-
+ arch/ia64/kernel/process.c        |  2 +-
+ arch/powerpc/kexec/core_64.c      |  1 +
+ arch/riscv/kernel/machine_kexec.c |  2 +-
+ include/linux/cpu.h               |  4 ++--
+ kernel/cpu.c                      | 14 +++++++-------
+ kernel/kexec_core.c               | 11 +++++------
+ 8 files changed, 19 insertions(+), 19 deletions(-)
+
 -- 
-2.35.1
+2.31.1
