@@ -1,104 +1,71 @@
-From: mawupeng <mawupeng1@huawei.com>
-Date: Tue, 24 May 2022 01:11:59 +0000
-Subject: Re: [PATCH 0/2] Add support to relocate kernel image to mirrored region
-Message-Id: <262cab19-0bca-a088-77a5-6a41f475f4a4@huawei.com>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Wed, 18 May 2022 22:53:46 +0000
+Subject: [PATCH 07/16] signal: Wake up the designated parent
+Message-Id: <20220518225355.784371-7-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <CAMj1kXGSStDgj9ABmUaTLnBmpQFksh3wx4tx=mJohum4GQe3Gg@mail.gmail.com>
- <20220419070150.254377-1-mawupeng1@huawei.com>
- <CAMj1kXHr2RdYSPor1st1ZnL=O42c8N6e=bNG+eFhatfefWLUrw@mail.gmail.com>
- <c65d22b4-f654-21aa-bd5f-d4f8b0939a25@huawei.com>
- <7058b8d8-c0cb-108e-0db9-2fdf5fb154cf@huawei.com>
- <CAMj1kXHnL12j6FPGtEeSQB2-kHzoVF+LJMUF9YBq43Yi1UntDg@mail.gmail.com>
- <7a1ce182-343a-75f9-5447-f7ca12cb0c36@huawei.com>
- <CAMj1kXE_xc4FvdOLqfK+awqTqoGje=Gy7bmVUFTZY_hjw1K9=w@mail.gmail.com>
-In-Reply-To: <CAMj1kXE_xc4FvdOLqfK+awqTqoGje=Gy7bmVUFTZY_hjw1K9=w@mail.gmail.com>
+References: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: ardb@kernel.org
-Cc: akpm@linux-foundation.org, catalin.marinas@arm.com, will@kernel.org, corbet@lwn.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, dvhart@infradead.org, andy@infradead.org, rppt@kernel.org, paulmck@kernel.org, peterz@infradead.org, jroedel@suse.de, songmuchun@bytedance.com, macro@orcam.me.uk, frederic@kernel.org, W_Armin@gmx.de, john.garry@huawei.com, seanjc@google.com, tsbogend@alpha.franken.de, anshuman.khandual@arm.com, chenhuacai@kernel.org, david@redhat.com, gpiccoli@igalia.com, mark.rutland@arm.com, wangkefeng.wang@huawei.com, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org, mawupeng1@huawei.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org
+Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, Robert OCallahan <roc@pernos.co>, Kyle Huey <khuey@pernos.co>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Jason Wessel <jason.wessel@windriver.com>, Daniel Thompson <daniel.thompson@linaro.org>, Douglas Anderson <dianders@chromium.org>, Douglas Miller <dougmill@linux.vnet.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, "Eric W. Biederman" <ebiederm@xmission.com>
 
+Today if a process is ptraced only the ptracer will ever be woken up in
+wait, if the parent is waiting with __WNOTHREAD.  Update the code
+so that the real_parent can also be woken up with __WNOTHREAD even
+when the code is ptraced.
 
+Fixes: 75b95953a569 ("job control: Add @for_ptrace to do_notify_parent_cldstop()")
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ kernel/exit.c | 19 ++++++++++++++-----
+ 1 file changed, 14 insertions(+), 5 deletions(-)
 
-在 2022/5/23 22:41, Ard Biesheuvel 写道:
-> On Mon, 23 May 2022 at 03:18, mawupeng <mawupeng1@huawei.com> wrote:
->>
->>
->>
->> 在 2022/5/20 14:52, Ard Biesheuvel 写道:
->>> On Thu, 19 May 2022 at 13:09, mawupeng <mawupeng1@huawei.com> wrote:
->>>>
->>>>
->>>>
->>>> 在 2022/5/7 17:28, mawupeng 写道:
->>>>>
->>>>>
->>>>> 在 2022/5/3 17:58, Ard Biesheuvel 写道:
->>>>>> On Tue, 19 Apr 2022 at 08:43, Wupeng Ma <mawupeng1@huawei.com> wrote:
->>>>>>>
->>>>>>> From: Ma Wupeng <mawupeng1@huawei.com>
->>>>>>>
->>>>>>> Now system image will perfer to be located to mirrored regions both KASLR
->>>>>>> on and off.
->>>>>>>
->>>>>>
->>>>>> Hello Ma Wupeng,
->>>>>>
->>>>>> I wonder if we could simplify this as follows:
->>>>>> - ignore the non-KASLR case for now, and rely on the bootloader  > load the image into mirrored memory if it exists;
->>>>>
->>>>> In grub, memory for static image is allocated via the following path:
->>>>>
->>>>> grub_cmd_linux
->>>>>      kernel = grub_malloc(filelen)
->>>>>      kernel_alloc_addr = grub_efi_allocate_any_pages (kernel_alloc_pages)
->>>>>      grub_memcpy (kernel_addr, kernel, grub_min(filelen, kernel_size))
->>>>>       grub_loader_set (grub_linux_boot, grub_linux_unload, 0)
->>>>>
->>>>> Can we get memory from mirrored region by the following steps:
->>>>> 1. get memory map by calling grub_efi_get_memory_map()
->>>>> 2. iter all memory map to find a suitable mirrored memory area
->>>>> 3. locate kernel image to this area
->>>>>
->>>>> So, if kaslr is not enabled
->>>>>     - grub will load kernel into mirrored region
->>>>> else
->>>>>     - arm64-stub.c will relocate kernel image to mirrored region
->>>>>
->>>>> Is this feasible?
->>>>
->>>> Is this a feasible proposal to relocate the static kernel image itself
->>>> into more reliable memory?
->>>>
->>>
->>> I'm not sure, it all depends on the firmware.
->>>
->>> When GRUB calls LoadImage(), the firmware will reallocate the image
->>> and unpack it there. So it is really the firmware's job to ensure that
->>> the image is loaded into a suitable location.
->>>
->>> I have some code here that implements a EFI based decompressor, and
->>> which loads the kernel image into mirrored memory if it exists,
->>> without the need to move it again. It could trivially be modified to
->>> deal with non-randomized loads as well.
->>>
->>> But the bottom line is that UEFI should expose the ability to target
->>> mirrored memory, hacking around it like this is not a sustainable
->>> approach.
->>
->> Since firmware is responsible for put kernel static image into mirrored
->> region and kernel is responsible for relocate this image into mirrored
->> region if kaslr is enabled. There is no conflict between these two.
->>
->> Can we integrate the kernel part(introduce mirrored support to arm64) first?
->>
-> 
-> Yes. If you drop the changes related to fake memmap and rebase, please
-> resend them after -rc1 is released.
-
-Ok, I will drop the changes related to fake memmap and rebase and then
-resend them after -rc1 is released.
-
-Thanks for reviewing.
-
-> .
+diff --git a/kernel/exit.c b/kernel/exit.c
+index f072959fcab7..0e26f73c49ac 100644
+--- a/kernel/exit.c
++++ b/kernel/exit.c
+@@ -1421,26 +1421,35 @@ static int ptrace_do_wait(struct wait_opts *wo, struct task_struct *tsk)
+ 	return 0;
+ }
+ 
++struct child_wait_info {
++	struct task_struct *p;
++	struct task_struct *parent;
++};
++
+ static int child_wait_callback(wait_queue_entry_t *wait, unsigned mode,
+ 				int sync, void *key)
+ {
+ 	struct wait_opts *wo = container_of(wait, struct wait_opts,
+ 						child_wait);
+-	struct task_struct *p = key;
++	struct child_wait_info *info = key;
+ 
+-	if (!eligible_pid(wo, p))
++	if (!eligible_pid(wo, info->p))
+ 		return 0;
+ 
+-	if ((wo->wo_flags & __WNOTHREAD) && wait->private != p->parent)
+-		return 0;
++	if ((wo->wo_flags & __WNOTHREAD) && (wait->private != info->parent))
++			return 0;
+ 
+ 	return default_wake_function(wait, mode, sync, key);
+ }
+ 
+ void __wake_up_parent(struct task_struct *p, struct task_struct *parent)
+ {
++	struct child_wait_info info = {
++		.p = p,
++		.parent = parent,
++	};
+ 	__wake_up_sync_key(&parent->signal->wait_chldexit,
+-			   TASK_INTERRUPTIBLE, p);
++			   TASK_INTERRUPTIBLE, &info);
+ }
+ 
+ static bool is_effectively_child(struct wait_opts *wo, bool ptrace,
+-- 
+2.35.3
