@@ -1,24 +1,50 @@
-From: =?UTF-8?B?6ZmI5a2m5YW1?= <chenxuebing@jari.cn>
-Date: Sun, 22 May 2022 08:23:47 +0000
-Subject: [PATCH] ia64: Use strscpy to replace strlcpy
-Message-Id: <6af8430e.9e0.180eadd8394.Coremail.chenxuebing@jari.cn>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Wed, 18 May 2022 22:53:48 +0000
+Subject: [PATCH 09/16] ptrace: In ptrace_setsiginfo deal with invalid si_signo
+Message-Id: <20220518225355.784371-9-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, Robert OCallahan <roc@pernos.co>, Kyle Huey <khuey@pernos.co>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Jason Wessel <jason.wessel@windriver.com>, Daniel Thompson <daniel.thompson@linaro.org>, Douglas Anderson <dianders@chromium.org>, Douglas Miller <dougmill@linux.vnet.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, "Eric W. Biederman" <ebiederm@xmission.com>
 
-ClRoZSBzdHJsY3B5IHNob3VsZCBub3QgYmUgdXNlZCBiZWNhdXNlIGl0IGRvZXNuJ3QgbGltaXQg
-dGhlIHNvdXJjZQpsZW5ndGguICBQcmVmZXJyZWQgaXMgc3Ryc2NweS4KClNpZ25lZC1vZmYtYnk6
-IFh1ZUJpbmcgQ2hlbiA8Y2hlbnh1ZWJpbmdAamFyaS5jbj4KLS0tCiBhcmNoL2lhNjQva2VybmVs
-L3NldHVwLmMgfCAyICstCiAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKyksIDEgZGVsZXRp
-b24oLSkKCmRpZmYgLS1naXQgYS9hcmNoL2lhNjQva2VybmVsL3NldHVwLmMgYi9hcmNoL2lhNjQv
-a2VybmVsL3NldHVwLmMKaW5kZXggNTAxMDM0OGZhMjFiLi4wOWE5YzY2YjgxODggMTAwNjQ0Ci0t
-LSBhL2FyY2gvaWE2NC9rZXJuZWwvc2V0dXAuYworKysgYi9hcmNoL2lhNjQva2VybmVsL3NldHVw
-LmMKQEAgLTU1Miw3ICs1NTIsNyBAQCBzZXR1cF9hcmNoIChjaGFyICoqY21kbGluZV9wKQogCWlh
-NjRfcGF0Y2hfdnRvcCgodTY0KSBfX3N0YXJ0X19fdnRvcF9wYXRjaGxpc3QsICh1NjQpIF9fZW5k
-X19fdnRvcF9wYXRjaGxpc3QpOwogCiAJKmNtZGxpbmVfcCA9IF9fdmEoaWE2NF9ib290X3BhcmFt
-LT5jb21tYW5kX2xpbmUpOwotCXN0cmxjcHkoYm9vdF9jb21tYW5kX2xpbmUsICpjbWRsaW5lX3As
-IENPTU1BTkRfTElORV9TSVpFKTsKKwlzdHJzY3B5KGJvb3RfY29tbWFuZF9saW5lLCAqY21kbGlu
-ZV9wLCBDT01NQU5EX0xJTkVfU0laRSk7CiAKIAllZmlfaW5pdCgpOwogCWlvX3BvcnRfaW5pdCgp
-OwotLSAKMi4zNi4xCg=
+If the tracer calls PTRACE_SETSIGINFO it only has an effect if the
+tracee is stopped in ptrace_signal.
+
+When one of PTRACE_DETACH, PTRACE_SINGLESTEP, PTRACE_SINGLEBLOCK,
+PTRACE_SYSEMU, PTRACE_SYSEMU_SINGLESTEP, PTRACE_SYSCALL, or
+PTRACE_CONT pass in a signel number to continue with the kernel
+validates that signal number and the ptrace_signal verifies the signal
+number matches the si_signo, before the siginfo is used.
+
+As the signal number to continue with is verified to be a valid signal
+number the signal number in si_signo must be a valid signal number.
+
+Make this obvious and avoid needing checks later by immediately
+clearing siginfo if si_signo is not valid.
+
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ kernel/ptrace.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/kernel/ptrace.c b/kernel/ptrace.c
+index a24eed725cec..a0a07d140751 100644
+--- a/kernel/ptrace.c
++++ b/kernel/ptrace.c
+@@ -716,7 +716,9 @@ static int ptrace_setsiginfo(struct task_struct *child, const kernel_siginfo_t *
+ 	if (unlikely(!child->last_siginfo))
+ 		return -EINVAL;
+ 
+-	copy_siginfo(child->last_siginfo, info);
++	clear_siginfo(child->last_siginfo);
++	if (valid_signal(info->si_signo))
++		copy_siginfo(child->last_siginfo, info);
+ 	return 0;
+ }
+ 
+-- 
+2.35.3
