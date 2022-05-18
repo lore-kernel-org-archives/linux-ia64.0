@@ -1,85 +1,45 @@
-From: Pingfan Liu <kernelfans@gmail.com>
-Date: Mon, 09 May 2022 04:13:05 +0000
-Subject: [PATCHv3 2/2] arm/arm64/ia64: kexec: fix the primary cpu passed to smp_shutdown_nonboot_cpus()
-Message-Id: <20220509041305.15056-3-kernelfans@gmail.com>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Wed, 18 May 2022 22:53:43 +0000
+Subject: [PATCH 04/16] powerpc/xmon:  Use real_parent when displaying a list of processes
+Message-Id: <20220518225355.784371-4-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220509041305.15056-1-kernelfans@gmail.com>
-In-Reply-To: <20220509041305.15056-1-kernelfans@gmail.com>
+References: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-Cc: Pingfan Liu <kernelfans@gmail.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Peter Zijlstra <peterz@infradead.org>, Kees Cook <keescook@chromium.org>, Jens Axboe <axboe@kernel.dk>, Russell King <linux@armlinux.org.uk>, Guenter Roeck <linux@roeck-us.net>, Arnd Bergmann <arnd@arndb.de>, Wolfram Sang <wsa+renesas@sang-engineering.com>, Lee Jones <lee.jones@linaro.org>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Peter Collingbourne <pcc@google.com>, Marc Zyngier <maz@kernel.org>, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, Robert OCallahan <roc@pernos.co>, Kyle Huey <khuey@pernos.co>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Jason Wessel <jason.wessel@windriver.com>, Daniel Thompson <daniel.thompson@linaro.org>, Douglas Anderson <dianders@chromium.org>, Douglas Miller <dougmill@linux.vnet.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, "Eric W. Biederman" <ebiederm@xmission.com>
 
-kernel_kexec()->migrate_to_reboot_cpu() has already pinned the reboot
-thread on a valid online cpu, either reboot_cpu or the first online cpu.
+xmon has a bug (copied from kdb) that when showing a list of processes
+the debugger is listed as the parent, if a processes is being debugged.
 
-So machine_shutdown() should pass smp_processor_id() of the pinned
-thread as the primary cpu to smp_shutdown_nonboot_cpus().
+This is silly, and I expect it is rare enough no has noticed in
+practice.  Update the code to use real_parent so that it is clear xmon
+does not want to display a debugger as the parent of a process.
 
-Signed-off-by: Pingfan Liu <kernelfans@gmail.com>
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>
-Cc: Peter Zijlstra <peterz@infradead.org>
-Cc: Kees Cook <keescook@chromium.org>
-Cc: Jens Axboe <axboe@kernel.dk>
-To: linux-ia64@vger.kernel.org
-Cc: Russell King <linux@armlinux.org.uk>
-Cc: Guenter Roeck <linux@roeck-us.net>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: Wolfram Sang <wsa+renesas@sang-engineering.com>
-Cc: Lee Jones <lee.jones@linaro.org>
-Cc: Catalin Marinas <catalin.marinas@arm.com>
-Cc: Will Deacon <will@kernel.org>
-Cc: Mark Rutland <mark.rutland@arm.com>
-Cc: Peter Zijlstra <peterz@infradead.org>
-Cc: Peter Collingbourne <pcc@google.com>
-Cc: Marc Zyngier <maz@kernel.org>
-To: linux-arm-kernel@lists.infradead.org
-Cc: linux-kernel@vger.kernel.org
+Cc: Douglas Miller <dougmill@linux.vnet.ibm.com>
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Fixes: 6dfb54049f9a ("powerpc/xmon: Add xmon command to dump process/task similar to ps(1)")
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- arch/arm/kernel/reboot.c    | 2 +-
- arch/arm64/kernel/process.c | 2 +-
- arch/ia64/kernel/process.c  | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ arch/powerpc/xmon/xmon.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/arm/kernel/reboot.c b/arch/arm/kernel/reboot.c
-index 3044fcb8d073..898405682e08 100644
---- a/arch/arm/kernel/reboot.c
-+++ b/arch/arm/kernel/reboot.c
-@@ -91,7 +91,7 @@ void soft_restart(unsigned long addr)
-  */
- void machine_shutdown(void)
- {
--	smp_shutdown_nonboot_cpus(reboot_cpu);
-+	smp_shutdown_nonboot_cpus(smp_processor_id());
+diff --git a/arch/powerpc/xmon/xmon.c b/arch/powerpc/xmon/xmon.c
+index fd72753e8ad5..b308ef9ce604 100644
+--- a/arch/powerpc/xmon/xmon.c
++++ b/arch/powerpc/xmon/xmon.c
+@@ -3282,7 +3282,7 @@ static void show_task(struct task_struct *volatile tsk)
+ 
+ 	printf("%16px %16lx %16px %6d %6d %c %2d %s\n", tsk,
+ 		tsk->thread.ksp, tsk->thread.regs,
+-		tsk->pid, rcu_dereference(tsk->parent)->pid,
++		tsk->pid, rcu_dereference(tsk->real_parent)->pid,
+ 		state, task_cpu(tsk),
+ 		tsk->comm);
  }
- 
- /*
-diff --git a/arch/arm64/kernel/process.c b/arch/arm64/kernel/process.c
-index 7fa97df55e3a..e5c130582cc6 100644
---- a/arch/arm64/kernel/process.c
-+++ b/arch/arm64/kernel/process.c
-@@ -86,7 +86,7 @@ void arch_cpu_idle_dead(void)
-  */
- void machine_shutdown(void)
- {
--	smp_shutdown_nonboot_cpus(reboot_cpu);
-+	smp_shutdown_nonboot_cpus(smp_processor_id());
- }
- 
- /*
-diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
-index d7a256bd9d6b..ae732e35e7da 100644
---- a/arch/ia64/kernel/process.c
-+++ b/arch/ia64/kernel/process.c
-@@ -575,7 +575,7 @@ cpu_halt (void)
- 
- void machine_shutdown(void)
- {
--	smp_shutdown_nonboot_cpus(reboot_cpu);
-+	smp_shutdown_nonboot_cpus(smp_processor_id());
- 
- #ifdef CONFIG_KEXEC
- 	kexec_disable_iosapic();
 -- 
-2.31.1
+2.35.3
