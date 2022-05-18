@@ -1,58 +1,75 @@
-From: Peter Xu <peterx@redhat.com>
-Date: Mon, 30 May 2022 18:29:31 +0000
-Subject: Re: [PATCH v4] mm: Avoid unnecessary page fault retires on shared memory types
-Message-Id: <YpUNC6iGrZRlWMyA@xz-m1.local>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Wed, 18 May 2022 22:49:50 +0000
+Subject: [PATCH 00/16] ptrace: cleanups and calling do_cldstop with only siglock
+Message-Id: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220527193936.30678-1-peterx@redhat.com>
- <YpPYkzbrQmy4FjrI@osiris>
- <33fd4731-9765-d78b-bdc3-f8243c98e81f@linux.ibm.com>
- <YpToVpjXmdFqGOpY@xz-m1.local>
- <YpTqNKMTt8PoA41n@xz-m1.local>
- <YpT443jVZtM6p9OD@osiris>
-In-Reply-To: <YpT443jVZtM6p9OD@osiris>
+References: <20220421150248.667412396@infradead.org>
+        <20220421150654.817117821@infradead.org>
+        <87czhap9dy.fsf@email.froward.int.ebiederm.org>
+        <878rrrh32q.fsf_-_@email.froward.int.ebiederm.org>
+        <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
+        <87k0b0apne.fsf_-_@email.froward.int.ebiederm.org>
+        <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org> (Eric
+        W. Biederman's message of "Thu, 05 May 2022 13:25:57 -0500")
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Heiko Carstens <hca@linux.ibm.com>
-Cc: Christian Borntraeger <borntraeger@linux.ibm.com>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, Will Deacon <will@kernel.org>, Matt Turner <mattst88@gmail.com>, linux-s390@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Brian Cain <bcain@quicinc.com>, Borislav Petkov <bp@alien8.de>, linux-alpha@vger.kernel.org, Alistair Popple <apopple@nvidia.com>, Jonas Bonn <jonas@southpole.se>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, linux-snps-arc@lists.infradead.org, Vineet Gupta <vgupta@kernel.org>, Vasily Gorbik <gor@linux.ibm.com>, Vlastimil Babka <vbabka@suse.cz>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Rich Felker <dalias@libc.org>, sparclinux@vger.kernel.org, Russell King <linux@armlinux.org.uk>, David Hildenbrand <david@redhat.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Nicholas Piggin <npiggin@gmail.com>, "James E . J . Bottomley" <James.Bottomley@hansenpartnership.com>, linux-xtensa@linux-xtensa.org, linux-sh@vger.kernel.org, Paul Walmsley <paul.walmsley@sifive.com>, linux-m68k@lists.linux-m68k.org, linuxppc-dev@lists.ozlabs.org, Richard Henderson <rth@twiddle.net>, Guo Ren <guoren@kernel.org>, linux-parisc@vger.kernel.org, Andrea Arcangeli <aarcange@redhat.com>, Helge Deller <deller@gmx.de>, Al Viro <viro@zeniv.linux.org.uk>, Albert Ou <aou@eecs.berkeley.edu>, linux-um@lists.infradead.org, "H . Peter Anvin" <hpa@zytor.com>, Janosch Frank <frankja@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, openrisc@lists.librecores.org, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, linux-hexagon@vger.kernel.org, Andy Lutomirski <luto@kernel.org>, Stafford Horne <shorne@gmail.com>, linux-csky@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, linux-mips@vger.kernel.org, Paul Mackerras <paulus@samba.org>, Alexander Gordeev <agordeev@linux.ibm.com>, Dinh Nguyen <dinguyen@kernel.org>, Palmer Dabbelt <palmer@dabbelt.com>, "David S . Miller" <davem@davemloft.net>, Johannes Weiner <hannes@cmpxchg.org>, Hugh Dickins <hughd@google.com>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, linux-riscv@lists.infradead.org, Max Filippov <jcmvbkbc@gmail.com>, Catalin Marinas <catalin.marinas@arm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Johannes Berg <johannes@sipsolutions.net>, Chris Zankel <chris@zankel.net>, Michal Simek <monstr@monstr.eu>, x86@kernel.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Dave Hansen <dave.hansen@linux.intel.com>, Richard Weinberger <richard@nod.at>, Ingo Molnar <mingo@kernel.org>
+To: linux-kernel@vger.kernel.org
+Cc: rjw@rjwysocki.net, oleg@redhat.com, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Jann Horn <jannh@google.com>, Kees Cook <keescook@chromium.org>, linux-ia64@vger.kernel.org, Robert O'Callahan <roc@pernos.co>, Kyle Huey <khuey@pernos.co>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Jason Wessel <jason.wessel@windriver.com>, Daniel Thompson <daniel.thompson@linaro.org>, Douglas Anderson <dianders@chromium.org>, Douglas Miller <dougmill@linux.vnet.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>
 
-On Mon, May 30, 2022 at 07:03:31PM +0200, Heiko Carstens wrote:
-> On Mon, May 30, 2022 at 12:00:52PM -0400, Peter Xu wrote:
-> > On Mon, May 30, 2022 at 11:52:54AM -0400, Peter Xu wrote:
-> > > On Mon, May 30, 2022 at 11:35:10AM +0200, Christian Borntraeger wrote:
-> > > > > diff --git a/arch/s390/mm/fault.c b/arch/s390/mm/fault.c
-> > > > > index 4608cc962ecf..e1d40ca341b7 100644
-> > > > > --- a/arch/s390/mm/fault.c
-> > > > > +++ b/arch/s390/mm/fault.c
-> > > > > @@ -436,12 +436,11 @@ static inline vm_fault_t do_exception(struct pt_regs *regs, int access)
-> > > > >   	/* The fault is fully completed (including releasing mmap lock) */
-> > > > >   	if (fault & VM_FAULT_COMPLETED) {
-> > > > > -		/*
-> > > > > -		 * Gmap will need the mmap lock again, so retake it.  TODO:
-> > > > > -		 * only conditionally take the lock when CONFIG_PGSTE set.
-> > > > > -		 */
-> > > > > -		mmap_read_lock(mm);
-> > > > > -		goto out_gmap;
-> > > > > +		if (gmap) {
-> > > > > +			mmap_read_lock(mm);
-> > > > > +			goto out_gmap;
-> > > > > +		}
-> 			fault = 0;  <----
-> > > > > +		goto out;
-> > 
-> > Hmm, right after I replied I found "goto out" could be problematic, since
-> > all s390 callers of do_exception() will assume it an error condition (side
-> > note: "goto out_gmap" contains one step to clear "fault" to 0).  I'll
-> > replace this with "return 0" instead if it looks good to both of you.
-> > 
-> > I'll wait for a confirmation before reposting.  Thanks,
-> 
-> Right, that was stupid. Thanks for double checking!
-> 
-> However could you please add "fault = 0" just in front of the goto out
-> like above? I'd like to avoid having returns and gotos mixed.
 
-Sure thing.
+For ptrace_stop to work on PREEMT_RT no spinlocks can be taken once
+ptrace_freeze_traced has completed successfully.  Which fundamentally
+means the lock dance of dropping siglock and grabbing tasklist_lock does
+not work on PREEMPT_RT.  So I have worked through what is necessary so
+that tasklist_lock does not need to be grabbed in ptrace_stop after
+siglock is dropped.
 
--- 
-Peter Xu
+I have explored several alternate ways of getting there and along the
+way I found a lot of small bug fixes/cleanups that don't necessarily
+contribute to the final result but that or worthwhile on their own.  So
+I have included those changes in this set of changes just so they don't
+get lost.
+
+In addition I had a conversation with Thomas Gleixner recently that
+emphasized for me the need to reduce the hold times of tasklist_lock,
+and that made me realize that in principle it is possible.
+https://lkml.kernel.org/r/87mtfmhap2.fsf@email.froward.int.ebiederm.org
+
+Which is a long way of saying that not taking tasklist_lock in
+ptrace_stop is good not just for PREMPT_RT but also for improving the
+scalability of the kernel in general.
+
+After this set of changes only cgroup_enter_frozen should remain a
+stumbling block for PREEMPT_RT in the ptrace_stop path.
+
+Eric W. Biederman (16):
+      signal/alpha: Remove unused definition of TASK_REAL_PARENT
+      signal/ia64: Remove unused definition of IA64_TASK_REAL_PARENT_OFFSET
+      kdb: Use real_parent when displaying a list of processes
+      powerpc/xmon:  Use real_parent when displaying a list of processes
+      ptrace: Remove dead code from __ptrace_detach
+      ptrace: Remove unnecessary locking in ptrace_(get|set)siginfo
+      signal: Wake up the designated parent
+      ptrace: Only populate last_siginfo from ptrace
+      ptrace: In ptrace_setsiginfo deal with invalid si_signo
+      ptrace: In ptrace_signal look at what the debugger did with siginfo
+      ptrace: Use si_sino as the signal number to resume with
+      ptrace: Stop protecting ptrace_set_signr with tasklist_lock
+      ptrace: Document why ptrace_setoptions does not need a lock
+      signal: Protect parent child relationships by childs siglock
+      ptrace: Use siglock instead of tasklist_lock in ptrace_check_attach
+      signal: Always call do_notify_parent_cldstop with siglock held
+
+ arch/alpha/kernel/asm-offsets.c |   1 -
+ arch/ia64/kernel/asm-offsets.c  |   1 -
+ arch/powerpc/xmon/xmon.c        |   2 +-
+ kernel/debug/kdb/kdb_main.c     |   2 +-
+ kernel/exit.c                   |  23 +++-
+ kernel/fork.c                   |  12 +-
+ kernel/ptrace.c                 | 132 ++++++++----------
+ kernel/signal.c                 | 296 ++++++++++++++++++++++++++--------------
+ 8 files changed, 279 insertions(+), 190 deletions(-)
+
+Eric
