@@ -1,83 +1,46 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Fri, 20 May 2022 19:58:48 +0000
-Subject: Re: [PATCH 00/16] ptrace: cleanups and calling do_cldstop with only siglock
-Message-Id: <20220520195848.GY2578@worktop.programming.kicks-ass.net>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Wed, 18 May 2022 22:53:42 +0000
+Subject: [PATCH 03/16] kdb: Use real_parent when displaying a list of processes
+Message-Id: <20220518225355.784371-3-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220421150248.667412396@infradead.org>
- <20220421150654.817117821@infradead.org>
- <87czhap9dy.fsf@email.froward.int.ebiederm.org>
- <878rrrh32q.fsf_-_@email.froward.int.ebiederm.org>
- <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
- <87k0b0apne.fsf_-_@email.froward.int.ebiederm.org>
- <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
- <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
- <YodEWlfo4kFd8+mt@linutronix.de>
- <87wnegyp87.fsf@email.froward.int.ebiederm.org>
-In-Reply-To: <87wnegyp87.fsf@email.froward.int.ebiederm.org>
+References: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Cc: Sebastian Andrzej Siewior <bigeasy@linutronix.de>, linux-kernel@vger.kernel.org, rjw@rjwysocki.net, oleg@redhat.com, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Jann Horn <jannh@google.com>, Kees Cook <keescook@chromium.org>, linux-ia64@vger.kernel.org, Robert O'Callahan <roc@pernos.co>, Kyle Huey <khuey@pernos.co>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Jason Wessel <jason.wessel@windriver.com>, Daniel Thompson <daniel.thompson@linaro.org>, Douglas Anderson <dianders@chromium.org>, Douglas Miller <dougmill@linux.vnet.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org
+Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, Robert OCallahan <roc@pernos.co>, Kyle Huey <khuey@pernos.co>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Jason Wessel <jason.wessel@windriver.com>, Daniel Thompson <daniel.thompson@linaro.org>, Douglas Anderson <dianders@chromium.org>, Douglas Miller <dougmill@linux.vnet.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, "Eric W. Biederman" <ebiederm@xmission.com>
 
-On Fri, May 20, 2022 at 02:32:24PM -0500, Eric W. Biederman wrote:
-> Sebastian Andrzej Siewior <bigeasy@linutronix.de> writes:
-> 
-> > On 2022-05-18 17:49:50 [-0500], Eric W. Biederman wrote:
-> >> 
-> >> For ptrace_stop to work on PREEMT_RT no spinlocks can be taken once
-> >> ptrace_freeze_traced has completed successfully.  Which fundamentally
-> >> means the lock dance of dropping siglock and grabbing tasklist_lock does
-> >> not work on PREEMPT_RT.  So I have worked through what is necessary so
-> >> that tasklist_lock does not need to be grabbed in ptrace_stop after
-> >> siglock is dropped.
-> > …
-> > It took me a while to realise that this is a follow-up I somehow assumed
-> > that you added a few patches on top. Might have been the yesterday's
-> > heat. b4 also refused to download this series because the v4 in this
-> > thread looked newer… Anyway. Both series applied:
-> >
-> > | ==============> > | WARNING: suspicious RCU usage
-> > | 5.18.0-rc7+ #16 Not tainted
-> > | -----------------------------
-> > | include/linux/ptrace.h:120 suspicious rcu_dereference_check() usage!
-> > |
-> > | other info that might help us debug this:
-> > |
-> > | rcu_scheduler_active = 2, debug_locks = 1
-> > | 2 locks held by ssdd/1734:
-> > |  #0: ffff88800eaa6918 (&sighand->siglock){....}-{2:2}, at: lock_parents_siglocks+0xf0/0x3b0
-> > |  #1: ffff88800eaa71d8 (&sighand->siglock/2){....}-{2:2}, at: lock_parents_siglocks+0x115/0x3b0
-> > |
-> > | stack backtrace:
-> > | CPU: 2 PID: 1734 Comm: ssdd Not tainted 5.18.0-rc7+ #16
-> > | Hardware name: QEMU Standard PC (Q35 + ICH9, 2009), BIOS 1.16.0-debian-1.16.0-4 04/01/2014
-> > | Call Trace:
-> > |  <TASK>
-> > |  dump_stack_lvl+0x45/0x5a
-> > |  unlock_parents_siglocks+0xb6/0xc0
-> > |  ptrace_stop+0xb9/0x390
-> > |  get_signal+0x51c/0x8d0
-> > |  arch_do_signal_or_restart+0x31/0x750
-> > |  exit_to_user_mode_prepare+0x157/0x220
-> > |  irqentry_exit_to_user_mode+0x5/0x50
-> > |  asm_sysvec_apic_timer_interrupt+0x12/0x20
-> >
-> > That is ptrace_parent() in unlock_parents_siglocks().
-> 
-> How odd.  I thought I had the appropriate lockdep config options enabled
-> in my test build to catch things like this.  I guess not.
-> 
-> Now I am trying to think how to tell it that holding the appropriate
-> iglock makes this ok.
+kdb has a bug that when using the ps command to display a list of
+processes, if a process is being debugged the debugger as the parent
+process.
 
-The typical annotation is something like:
+This is silly, and I expect it never comes up in ptractice.  As there
+is very little point in using gdb and kdb simultaneously.  Update the
+code to use real_parent so that it is clear kdb does not want to
+display a debugger as the parent of a process.
 
-	rcu_dereference_protected(foo, lockdep_is_held(&bar))
+Cc: Jason Wessel <jason.wessel@windriver.com>
+Cc: Daniel Thompson <daniel.thompson@linaro.org>
+Cc: Douglas Anderson <dianders@chromium.org>
+Fixes: 5d5314d6795f ("kdb: core for kgdb back end (1 of 2)"
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ kernel/debug/kdb/kdb_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Except in this case I think the problem is that bar depends on foo in
-non-trivial ways. That is, foo is 'task->parent' and bar is
-'task->parent->sighand->siglock' or something.
-
-The other option is to use rcu_dereference_raw() in this one instance
-and have a comment that explains the situation.
+diff --git a/kernel/debug/kdb/kdb_main.c b/kernel/debug/kdb/kdb_main.c
+index 0852a537dad4..db49f1026eaa 100644
+--- a/kernel/debug/kdb/kdb_main.c
++++ b/kernel/debug/kdb/kdb_main.c
+@@ -2306,7 +2306,7 @@ void kdb_ps1(const struct task_struct *p)
+ 
+ 	cpu = kdb_process_cpu(p);
+ 	kdb_printf("0x%px %8d %8d  %d %4d   %c  0x%px %c%s\n",
+-		   (void *)p, p->pid, p->parent->pid,
++		   (void *)p, p->pid, p->real_parent->pid,
+ 		   kdb_task_has_cpu(p), kdb_process_cpu(p),
+ 		   kdb_task_state_char(p),
+ 		   (void *)(&p->thread),
+-- 
+2.35.3
