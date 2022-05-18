@@ -1,57 +1,43 @@
-From: Baolin Wang <baolin.wang@linux.alibaba.com>
-Date: Sun, 08 May 2022 09:36:38 +0000
-Subject: [PATCH v2 0/3] Fix CONT-PTE/PMD size hugetlb issue when unmapping or migrating
-Message-Id: <cover.1652002221.git.baolin.wang@linux.alibaba.com>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Wed, 18 May 2022 22:53:49 +0000
+Subject: [PATCH 10/16] ptrace: In ptrace_signal look at what the debugger did with siginfo
+Message-Id: <20220518225355.784371-10-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, mike.kravetz@oracle.com, catalin.marinas@arm.com, will@kernel.org
-Cc: tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, baolin.wang@linux.alibaba.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+To: linux-kernel@vger.kernel.org
+Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, Robert OCallahan <roc@pernos.co>, Kyle Huey <khuey@pernos.co>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Jason Wessel <jason.wessel@windriver.com>, Daniel Thompson <daniel.thompson@linaro.org>, Douglas Anderson <dianders@chromium.org>, Douglas Miller <dougmill@linux.vnet.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, "Eric W. Biederman" <ebiederm@xmission.com>
 
-Hi,
+Now that siginfo is only modified by the tracer and that siginfo is
+cleared with the signal is canceled have ptrace_signal directly examine
+siginfo.
 
-Now migrating a hugetlb page or unmapping a poisoned hugetlb page, we'll
-use ptep_clear_flush() and set_pte_at() to nuke the page table entry
-and remap it, and this is incorrect for CONT-PTE or CONT-PMD size hugetlb
-page, which will cause potential data consistent issue. This patch set
-will change to use hugetlb related APIs to fix this issue, please find
-details in each patch. Thanks.
+This makes the code a little simpler and handles the case when
+the tracer exits without calling ptrace_detach.
 
-Note: Mike pointed out the huge_ptep_get() will only return the one specific
-value, and it would not take into account the dirty or young bits of CONT-PTE/PMDs
-like the huge_ptep_get_and_clear() [1]. This inconsistent issue is not introduced
-by this patch set, and will address this issue in another thread [2]. Meanwhile
-the uffd for hugetlb case [3] pointed by Gerald also need another patch to address.
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ kernel/signal.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-[1] https://lore.kernel.org/linux-mm/85bd80b4-b4fd-0d3f-a2e5-149559f2f387@oracle.com/
-[2] https://lore.kernel.org/all/cover.1651998586.git.baolin.wang@linux.alibaba.com/
-[3] https://lore.kernel.org/linux-mm/20220503120343.6264e126@thinkpad/
-
-Changes from v1:
- - Add acked tag from Mike.
- - Update some commit message.
- - Add VM_BUG_ON in try_to_unmap() for hugetlb case.
- - Add an explict void casting for huge_ptep_clear_flush() in hugetlb.c.
-
-Baolin Wang (3):
-  mm: change huge_ptep_clear_flush() to return the original pte
-  mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when migration
-  mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when unmapping
-
- arch/arm64/include/asm/hugetlb.h   |  4 +--
- arch/arm64/mm/hugetlbpage.c        | 12 +++-----
- arch/ia64/include/asm/hugetlb.h    |  4 +--
- arch/mips/include/asm/hugetlb.h    |  9 ++++--
- arch/parisc/include/asm/hugetlb.h  |  4 +--
- arch/powerpc/include/asm/hugetlb.h |  9 ++++--
- arch/s390/include/asm/hugetlb.h    |  6 ++--
- arch/sh/include/asm/hugetlb.h      |  4 +--
- arch/sparc/include/asm/hugetlb.h   |  4 +--
- include/asm-generic/hugetlb.h      |  4 +--
- mm/hugetlb.c                       |  2 +-
- mm/rmap.c                          | 63 ++++++++++++++++++++++++--------------
- 12 files changed, 73 insertions(+), 52 deletions(-)
-
+diff --git a/kernel/signal.c b/kernel/signal.c
+index ff4a52352390..3d955c23b13d 100644
+--- a/kernel/signal.c
++++ b/kernel/signal.c
+@@ -2556,9 +2556,10 @@ static int ptrace_signal(int signr, kernel_siginfo_t *info, enum pid_type type)
+ 	 * comment in dequeue_signal().
+ 	 */
+ 	current->jobctl |= JOBCTL_STOP_DEQUEUED;
+-	signr = ptrace_stop(signr, CLD_TRAPPED, 0, info);
++	ptrace_stop(signr, CLD_TRAPPED, 0, info);
+ 
+ 	/* We're back.  Did the debugger cancel the sig?  */
++	signr = info->si_signo;
+ 	if (signr = 0)
+ 		return signr;
+ 
 -- 
-1.8.3.1
+2.35.3
