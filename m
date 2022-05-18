@@ -1,62 +1,69 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Wed, 11 May 2022 20:00:12 +0000
-Subject: Re: [PATCH v4 0/12] ptrace: cleaning up ptrace_stop
-Message-Id: <87zgjnsuur.fsf@email.froward.int.ebiederm.org>
+Date: Wed, 18 May 2022 22:53:44 +0000
+Subject: [PATCH 05/16] ptrace: Remove dead code from __ptrace_detach
+Message-Id: <20220518225355.784371-5-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220421150248.667412396@infradead.org>
-        <20220421150654.817117821@infradead.org>
-        <87czhap9dy.fsf@email.froward.int.ebiederm.org>
-        <878rrrh32q.fsf_-_@email.froward.int.ebiederm.org>
-        <87k0b7v9yk.fsf_-_@email.froward.int.ebiederm.org>
-        <87k0b0apne.fsf_-_@email.froward.int.ebiederm.org>
-        <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
-        <20220510141119.GA23277@redhat.com>
-        <87lev9xy3n.fsf@email.froward.int.ebiederm.org>
-In-Reply-To: <87lev9xy3n.fsf@email.froward.int.ebiederm.org> (Eric
-        W. Biederman's message of "Tue, 10 May 2022 09:26:36 -0500")
+References: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
+In-Reply-To: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Oleg Nesterov <oleg@redhat.com>
-Cc: linux-kernel@vger.kernel.org, rjw@rjwysocki.net, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Jann Horn <jannh@google.com>, Kees Cook <keescook@chromium.org>, linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, Robert OCallahan <roc@pernos.co>, Kyle Huey <khuey@pernos.co>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Jason Wessel <jason.wessel@windriver.com>, Daniel Thompson <daniel.thompson@linaro.org>, Douglas Anderson <dianders@chromium.org>, Douglas Miller <dougmill@linux.vnet.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, "Eric W. Biederman" <ebiederm@xmission.com>
 
-"Eric W. Biederman" <ebiederm@xmission.com> writes:
+Ever since commit 28d838cc4dfe ("Fix ptrace self-attach rule") it has
+been impossible to attach another thread in the same thread group.
 
-> Oleg Nesterov <oleg@redhat.com> writes:
->
->> On 05/05, Eric W. Biederman wrote:
->>>
->>> Eric W. Biederman (11):
->>>       signal: Rename send_signal send_signal_locked
->>>       signal: Replace __group_send_sig_info with send_signal_locked
->>>       ptrace/um: Replace PT_DTRACE with TIF_SINGLESTEP
->>>       ptrace/xtensa: Replace PT_SINGLESTEP with TIF_SINGLESTEP
->>>       ptrace: Remove arch_ptrace_attach
->>>       signal: Use lockdep_assert_held instead of assert_spin_locked
->>>       ptrace: Reimplement PTRACE_KILL by always sending SIGKILL
->>>       ptrace: Document that wait_task_inactive can't fail
->>>       ptrace: Admit ptrace_stop can generate spuriuos SIGTRAPs
->>>       ptrace: Don't change __state
->>>       ptrace: Always take siglock in ptrace_resume
->>>
->>> Peter Zijlstra (1):
->>>       sched,signal,ptrace: Rework TASK_TRACED, TASK_STOPPED state
->>
->> OK, lgtm.
->>
->> Reviewed-by: Oleg Nesterov <oleg@redhat.com>
->>
->>
->> I still dislike you removed TASK_WAKEKILL from TASK_TRACED, but I can't
->> find a good argument against it ;) and yes, this is subjective.
->
-> Does anyone else have any comments on this patchset?
->
-> If not I am going to apply this to a branch and get it into linux-next.
+Remove the code from __ptrace_detach that was trying to support
+detaching from a thread in the same thread group.  The code is
+dead and I can not make sense of what it is trying to do.
 
-Thank you all.
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ kernel/ptrace.c | 24 +++---------------------
+ 1 file changed, 3 insertions(+), 21 deletions(-)
 
-I have pushed this to my ptrace_stop-cleanup-for-v5.19 branch
-and placed the branch in linux-next.
-
-Eric
+diff --git a/kernel/ptrace.c b/kernel/ptrace.c
+index 328a34a99124..ca0e47691229 100644
+--- a/kernel/ptrace.c
++++ b/kernel/ptrace.c
+@@ -526,19 +526,6 @@ static int ptrace_traceme(void)
+ 	return ret;
+ }
+ 
+-/*
+- * Called with irqs disabled, returns true if childs should reap themselves.
+- */
+-static int ignoring_children(struct sighand_struct *sigh)
+-{
+-	int ret;
+-	spin_lock(&sigh->siglock);
+-	ret = (sigh->action[SIGCHLD-1].sa.sa_handler = SIG_IGN) ||
+-	      (sigh->action[SIGCHLD-1].sa.sa_flags & SA_NOCLDWAIT);
+-	spin_unlock(&sigh->siglock);
+-	return ret;
+-}
+-
+ /*
+  * Called with tasklist_lock held for writing.
+  * Unlink a traced task, and clean it up if it was a traced zombie.
+@@ -565,14 +552,9 @@ static bool __ptrace_detach(struct task_struct *tracer, struct task_struct *p)
+ 
+ 	dead = !thread_group_leader(p);
+ 
+-	if (!dead && thread_group_empty(p)) {
+-		if (!same_thread_group(p->real_parent, tracer))
+-			dead = do_notify_parent(p, p->exit_signal);
+-		else if (ignoring_children(tracer->sighand)) {
+-			__wake_up_parent(p, tracer);
+-			dead = true;
+-		}
+-	}
++	if (!dead && thread_group_empty(p))
++		dead = do_notify_parent(p, p->exit_signal);
++
+ 	/* Mark it as in the process of being reaped. */
+ 	if (dead)
+ 		p->exit_state = EXIT_DEAD;
+-- 
+2.35.3
