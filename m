@@ -1,437 +1,426 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Wed, 18 May 2022 22:53:55 +0000
-Subject: [PATCH 16/16] signal: Always call do_notify_parent_cldstop with siglock held
-Message-Id: <20220518225355.784371-16-ebiederm@xmission.com>
+From: kernel test robot <lkp@intel.com>
+Date: Fri, 20 May 2022 16:19:05 +0000
+Subject: Re: [PATCH 16/16] signal: Always call do_notify_parent_cldstop with siglock held
+Message-Id: <202205210010.E4Hyn2kD-lkp@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
-In-Reply-To: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
+References: <20220518225355.784371-16-ebiederm@xmission.com>
+In-Reply-To: <20220518225355.784371-16-ebiederm@xmission.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, Robert OCallahan <roc@pernos.co>, Kyle Huey <khuey@pernos.co>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Jason Wessel <jason.wessel@windriver.com>, Daniel Thompson <daniel.thompson@linaro.org>, Douglas Anderson <dianders@chromium.org>, Douglas Miller <dougmill@linux.vnet.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, "Eric W. Biederman" <ebiederm@xmission.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>, linux-kernel@vger.kernel.org
+Cc: kbuild-all@lists.01.org, rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, Robert OCallahan <roc@pernos.co>, Kyle Huey <khuey@pernos.co>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Jason Wessel <jason.wessel@windriver.com>, Daniel Thompson <daniel.thompson@linaro.org>
 
-Now that siglock keeps tsk->parent and tsk->real_parent constant
-require that do_notify_parent_cldstop is called with tsk->siglock held
-instead of the tasklist_lock.
+Hi "Eric,
 
-As all of the callers of do_notify_parent_cldstop had to drop the
-siglock and take tasklist_lock this simplifies all of it's callers.
+Thank you for the patch! Perhaps something to improve:
 
-This removes one reason for taking tasklist_lock.
+[auto build test WARNING on next-20220518]
+[cannot apply to linux/master powerpc/next wireless-next/main wireless/main linus/master v5.18-rc7 v5.18-rc6 v5.18-rc5 v5.18-rc7]
+[If your patch is applied to the wrong git tree, kindly drop us a note.
+And when submitting patch, we suggest to use '--base' as documented in
+https://git-scm.com/docs/git-format-patch]
 
-This makes ptrace_stop so that it should reliably work correctly and
-reliably with PREEMPT_RT enabled and CONFIG_CGROUPS disabled.  The
-remaining challenge is that cgroup_enter_frozen takes spin_lock after
-__state has been set to TASK_TRACED.  Which on PREEMPT_RT means the
-code can sleep and change __state.  Not only that but it means that
-wait_task_inactive could potentially detect the code scheduling away
-at that point and fail, causing ptrace_check_attach to fail.
+url:    https://github.com/intel-lab-lkp/linux/commits/Eric-W-Biederman/signal-alpha-Remove-unused-definition-of-TASK_REAL_PARENT/20220519-065947
+base:    736ee37e2e8eed7fe48d0a37ee5a709514d478b3
+config: parisc-randconfig-s032-20220519 (https://download.01.org/0day-ci/archive/20220521/202205210010.E4Hyn2kD-lkp@intel.com/config)
+compiler: hppa-linux-gcc (GCC) 11.3.0
+reproduce:
+        wget https://raw.githubusercontent.com/intel/lkp-tests/master/sbin/make.cross -O ~/bin/make.cross
+        chmod +x ~/bin/make.cross
+        # apt-get install sparse
+        # sparse version: v0.6.4-dirty
+        # https://github.com/intel-lab-lkp/linux/commit/4b66a617bf6d095d33fe43e9dbcfdf2e0de9fb29
+        git remote add linux-review https://github.com/intel-lab-lkp/linux
+        git fetch --no-tags linux-review Eric-W-Biederman/signal-alpha-Remove-unused-definition-of-TASK_REAL_PARENT/20220519-065947
+        git checkout 4b66a617bf6d095d33fe43e9dbcfdf2e0de9fb29
+        # save the config file
+        mkdir build_dir && cp config build_dir/.config
+        COMPILER_INSTALL_PATH=$HOME/0day COMPILER=gcc-11.3.0 make.cross C=1 CF='-fdiagnostic-prefix -D__CHECK_ENDIAN__' O=build_dir ARCH=parisc SHELL=/bin/bash
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
- kernel/signal.c | 262 ++++++++++++++++++++++++++++++++++--------------
- 1 file changed, 189 insertions(+), 73 deletions(-)
+If you fix the issue, kindly add following tag where applicable
+Reported-by: kernel test robot <lkp@intel.com>
 
-diff --git a/kernel/signal.c b/kernel/signal.c
-index 2cc45e8448e2..d4956be51939 100644
---- a/kernel/signal.c
-+++ b/kernel/signal.c
-@@ -1994,6 +1994,129 @@ int send_sigqueue(struct sigqueue *q, struct pid *pid, enum pid_type type)
- 	return ret;
- }
- 
-+/**
-+ * lock_parents_siglocks - Take current, real_parent, and parent's siglock
-+ * @lock_tracer: The tracers siglock is needed.
-+ *
-+ * There is no natural ordering to these locks so they must be sorted
-+ * before being taken.
-+ *
-+ * There are two complicating factors here:
-+ * - The locks live in sighand and sighand can be arbitrarily shared
-+ * - parent and real_parent can change when current's siglock is unlocked.
-+ *
-+ * To deal with this first the all of the sighand pointers are
-+ * gathered under current's siglock, and the sighand pointers are
-+ * sorted.  As siglock lives inside of sighand this also sorts the
-+ * siglock's by address.
-+ *
-+ * Then the siglocks are taken in order dropping current's siglock if
-+ * necessary.
-+ *
-+ * Finally if parent and real_parent have not changed return.
-+ * If they either parent has changed drop their locks and try again.
-+ *
-+ * Changing sighand is an infrequent and somewhat expensive operation
-+ * (unshare or exec) and so even in the worst case this loop
-+ * should not loop too many times before all of the proper locks are
-+ * taken in order.
-+ *
-+ * CONTEXT:
-+ * Must be called with @current->sighand->siglock held
-+ *
-+ * RETURNS:
-+ * current's, real_parent's, and parent's siglock held.
-+ */
-+static void lock_parents_siglocks(bool lock_tracer)
-+	__releases(&current->sighand->siglock)
-+	__acquires(&current->sighand->siglock)
-+	__acquires(&current->real_parent->sighand->siglock)
-+	__acquires(&current->parent->sighand->siglock)
-+{
-+	struct task_struct *me = current;
-+	struct sighand_struct *m_sighand = me->sighand;
-+
-+	lockdep_assert_held(&m_sighand->siglock);
-+
-+	rcu_read_lock();
-+	for (;;) {
-+		struct task_struct *parent, *tracer;
-+		struct sighand_struct *p_sighand, *t_sighand, *s1, *s2, *s3;
-+
-+		parent = me->real_parent;
-+		tracer = ptrace_parent(me);
-+		if (!tracer || !lock_tracer)
-+			tracer = parent;
-+
-+		p_sighand = rcu_dereference(parent->sighand);
-+		t_sighand = rcu_dereference(tracer->sighand);
-+
-+		/* Sort the sighands so that s1 >= s2 >= s3 */
-+		s1 = m_sighand;
-+		s2 = p_sighand;
-+		s3 = t_sighand;
-+		if (s1 > s2)
-+			swap(s1, s2);
-+		if (s1 > s3)
-+			swap(s1, s3);
-+		if (s2 > s3)
-+			swap(s2, s3);
-+
-+		/* Take the locks in order */
-+		if (s1 != m_sighand) {
-+			spin_unlock(&m_sighand->siglock);
-+			spin_lock(&s1->siglock);
-+		}
-+		if (s1 != s2)
-+			spin_lock_nested(&s2->siglock, 1);
-+		if (s2 != s3)
-+			spin_lock_nested(&s3->siglock, 2);
-+
-+		/* Verify the proper locks are held */
-+		if (likely((s1 = m_sighand) ||
-+			   ((me->real_parent = parent) &&
-+			    (me->parent = tracer) &&
-+			    (parent->sighand = p_sighand) &&
-+			    (tracer->sighand = t_sighand)))) {
-+			break;
-+		}
-+
-+		/* Drop all but current's siglock */
-+		if (p_sighand != m_sighand)
-+			spin_unlock(&p_sighand->siglock);
-+		if (t_sighand != p_sighand)
-+			spin_unlock(&t_sighand->siglock);
-+
-+		/*
-+		 * Since [pt]_sighand will likely change if we go
-+		 * around, and m_sighand is the only one held, make sure
-+		 * it is subclass-0, since the above 's1 != m_sighand'
-+		 * clause very much relies on that.
-+		 */
-+		lock_set_subclass(&m_sighand->siglock.dep_map, 0, _RET_IP_);
-+	}
-+	rcu_read_unlock();
-+}
-+
-+static void unlock_parents_siglocks(bool unlock_tracer)
-+	__releases(&current->real_parent->sighand->siglock)
-+	__releases(&current->parent->sighand->siglock)
-+{
-+	struct task_struct *me = current;
-+	struct task_struct *parent = me->real_parent;
-+	struct task_struct *tracer = ptrace_parent(me);
-+	struct sighand_struct *m_sighand = me->sighand;
-+	struct sighand_struct *p_sighand = parent->sighand;
-+
-+	if (p_sighand != m_sighand)
-+		spin_unlock(&p_sighand->siglock);
-+	if (tracer && unlock_tracer) {
-+		struct sighand_struct *t_sighand = tracer->sighand;
-+		if (t_sighand != p_sighand)
-+			spin_unlock(&t_sighand->siglock);
-+	}
-+}
-+
- static void do_notify_pidfd(struct task_struct *task)
- {
- 	struct pid *pid;
-@@ -2125,11 +2248,12 @@ static void do_notify_parent_cldstop(struct task_struct *tsk,
- 				     bool for_ptracer, int why)
- {
- 	struct kernel_siginfo info;
--	unsigned long flags;
- 	struct task_struct *parent;
- 	struct sighand_struct *sighand;
- 	u64 utime, stime;
- 
-+	lockdep_assert_held(&tsk->sighand->siglock);
-+
- 	if (for_ptracer) {
- 		parent = tsk->parent;
- 	} else {
-@@ -2137,6 +2261,8 @@ static void do_notify_parent_cldstop(struct task_struct *tsk,
- 		parent = tsk->real_parent;
- 	}
- 
-+	lockdep_assert_held(&parent->sighand->siglock);
-+
- 	clear_siginfo(&info);
- 	info.si_signo = SIGCHLD;
- 	info.si_errno = 0;
-@@ -2168,7 +2294,6 @@ static void do_notify_parent_cldstop(struct task_struct *tsk,
-  	}
- 
- 	sighand = parent->sighand;
--	spin_lock_irqsave(&sighand->siglock, flags);
- 	if (sighand->action[SIGCHLD-1].sa.sa_handler != SIG_IGN &&
- 	    !(sighand->action[SIGCHLD-1].sa.sa_flags & SA_NOCLDSTOP))
- 		send_signal_locked(SIGCHLD, &info, parent, PIDTYPE_TGID);
-@@ -2176,7 +2301,6 @@ static void do_notify_parent_cldstop(struct task_struct *tsk,
- 	 * Even if SIGCHLD is not generated, we must wake up wait4 calls.
- 	 */
- 	__wake_up_parent(tsk, parent);
--	spin_unlock_irqrestore(&sighand->siglock, flags);
- }
- 
- /*
-@@ -2208,14 +2332,18 @@ static void ptrace_stop(int exit_code, int why, unsigned long message,
- 		spin_lock_irq(&current->sighand->siglock);
- 	}
- 
-+	lock_parents_siglocks(true);
- 	/*
- 	 * After this point ptrace_signal_wake_up or signal_wake_up
- 	 * will clear TASK_TRACED if ptrace_unlink happens or a fatal
- 	 * signal comes in.  Handle previous ptrace_unlinks and fatal
- 	 * signals here to prevent ptrace_stop sleeping in schedule.
- 	 */
--	if (!current->ptrace || __fatal_signal_pending(current))
-+
-+	if (!current->ptrace || __fatal_signal_pending(current)) {
-+		unlock_parents_siglocks(true);
- 		return;
-+	}
- 
- 	set_special_state(TASK_TRACED);
- 	current->jobctl |= JOBCTL_TRACED;
-@@ -2254,16 +2382,6 @@ static void ptrace_stop(int exit_code, int why, unsigned long message,
- 	if (why = CLD_STOPPED && (current->jobctl & JOBCTL_STOP_PENDING))
- 		gstop_done = task_participate_group_stop(current);
- 
--	/* any trap clears pending STOP trap, STOP trap clears NOTIFY */
--	task_clear_jobctl_pending(current, JOBCTL_TRAP_STOP);
--	if (info && info->si_code >> 8 = PTRACE_EVENT_STOP)
--		task_clear_jobctl_pending(current, JOBCTL_TRAP_NOTIFY);
--
--	/* entering a trap, clear TRAPPING */
--	task_clear_jobctl_trapping(current);
--
--	spin_unlock_irq(&current->sighand->siglock);
--	read_lock(&tasklist_lock);
- 	/*
- 	 * Notify parents of the stop.
- 	 *
-@@ -2279,14 +2397,25 @@ static void ptrace_stop(int exit_code, int why, unsigned long message,
- 	if (gstop_done && (!current->ptrace || ptrace_reparented(current)))
- 		do_notify_parent_cldstop(current, false, why);
- 
-+	unlock_parents_siglocks(true);
-+
-+	/* any trap clears pending STOP trap, STOP trap clears NOTIFY */
-+	task_clear_jobctl_pending(current, JOBCTL_TRAP_STOP);
-+	if (info && info->si_code >> 8 = PTRACE_EVENT_STOP)
-+		task_clear_jobctl_pending(current, JOBCTL_TRAP_NOTIFY);
-+
-+	/* entering a trap, clear TRAPPING */
-+	task_clear_jobctl_trapping(current);
-+
- 	/*
- 	 * Don't want to allow preemption here, because
- 	 * sys_ptrace() needs this task to be inactive.
- 	 *
--	 * XXX: implement read_unlock_no_resched().
-+	 * XXX: implement spin_unlock_no_resched().
- 	 */
- 	preempt_disable();
--	read_unlock(&tasklist_lock);
-+	spin_unlock_irq(&current->sighand->siglock);
-+
- 	cgroup_enter_frozen();
- 	preempt_enable_no_resched();
- 	freezable_schedule();
-@@ -2361,8 +2490,8 @@ int ptrace_notify(int exit_code, unsigned long message)
-  * on %true return.
-  *
-  * RETURNS:
-- * %false if group stop is already cancelled or ptrace trap is scheduled.
-- * %true if participated in group stop.
-+ * %false if group stop is already cancelled.
-+ * %true otherwise (as lock_parents_siglocks may have dropped siglock).
-  */
- static bool do_signal_stop(int signr)
- 	__releases(&current->sighand->siglock)
-@@ -2425,36 +2554,24 @@ static bool do_signal_stop(int signr)
- 		}
- 	}
- 
-+	lock_parents_siglocks(false);
-+	/* Recheck JOBCTL_STOP_PENDING after unlock+lock of siglock */
-+	if (unlikely(!(current->jobctl & JOBCTL_STOP_PENDING)))
-+		goto out;
- 	if (likely(!current->ptrace)) {
--		int notify = 0;
--
- 		/*
- 		 * If there are no other threads in the group, or if there
- 		 * is a group stop in progress and we are the last to stop,
--		 * report to the parent.
-+		 * report to the real_parent.
- 		 */
- 		if (task_participate_group_stop(current))
--			notify = CLD_STOPPED;
-+			do_notify_parent_cldstop(current, false, CLD_STOPPED);
-+		unlock_parents_siglocks(false);
- 
- 		current->jobctl |= JOBCTL_STOPPED;
- 		set_special_state(TASK_STOPPED);
- 		spin_unlock_irq(&current->sighand->siglock);
- 
--		/*
--		 * Notify the parent of the group stop completion.  Because
--		 * we're not holding either the siglock or tasklist_lock
--		 * here, ptracer may attach inbetween; however, this is for
--		 * group stop and should always be delivered to the real
--		 * parent of the group leader.  The new ptracer will get
--		 * its notification when this task transitions into
--		 * TASK_TRACED.
--		 */
--		if (notify) {
--			read_lock(&tasklist_lock);
--			do_notify_parent_cldstop(current, false, notify);
--			read_unlock(&tasklist_lock);
--		}
--
- 		/* Now we don't run again until woken by SIGCONT or SIGKILL */
- 		cgroup_enter_frozen();
- 		freezable_schedule();
-@@ -2465,8 +2582,11 @@ static bool do_signal_stop(int signr)
- 		 * Schedule it and let the caller deal with it.
- 		 */
- 		task_set_jobctl_pending(current, JOBCTL_TRAP_STOP);
--		return false;
- 	}
-+out:
-+	unlock_parents_siglocks(false);
-+	spin_unlock_irq(&current->sighand->siglock);
-+	return true;
- }
- 
- /**
-@@ -2624,32 +2744,30 @@ bool get_signal(struct ksignal *ksig)
- 	if (unlikely(signal->flags & SIGNAL_CLD_MASK)) {
- 		int why;
- 
--		if (signal->flags & SIGNAL_CLD_CONTINUED)
--			why = CLD_CONTINUED;
--		else
--			why = CLD_STOPPED;
-+		lock_parents_siglocks(true);
-+		/* Recheck signal->flags after unlock+lock of siglock */
-+		if (likely(signal->flags & SIGNAL_CLD_MASK)) {
-+			if (signal->flags & SIGNAL_CLD_CONTINUED)
-+				why = CLD_CONTINUED;
-+			else
-+				why = CLD_STOPPED;
- 
--		signal->flags &= ~SIGNAL_CLD_MASK;
-+			signal->flags &= ~SIGNAL_CLD_MASK;
- 
--		spin_unlock_irq(&sighand->siglock);
--
--		/*
--		 * Notify the parent that we're continuing.  This event is
--		 * always per-process and doesn't make whole lot of sense
--		 * for ptracers, who shouldn't consume the state via
--		 * wait(2) either, but, for backward compatibility, notify
--		 * the ptracer of the group leader too unless it's gonna be
--		 * a duplicate.
--		 */
--		read_lock(&tasklist_lock);
--		do_notify_parent_cldstop(current, false, why);
--
--		if (ptrace_reparented(current->group_leader))
--			do_notify_parent_cldstop(current->group_leader,
--						true, why);
--		read_unlock(&tasklist_lock);
--
--		goto relock;
-+			/*
-+			 * Notify the parent that we're continuing.  This event is
-+			 * always per-process and doesn't make whole lot of sense
-+			 * for ptracers, who shouldn't consume the state via
-+			 * wait(2) either, but, for backward compatibility, notify
-+			 * the ptracer of the group leader too unless it's gonna be
-+			 * a duplicate.
-+			 */
-+			do_notify_parent_cldstop(current, false, why);
-+			if (ptrace_reparented(current->group_leader))
-+				do_notify_parent_cldstop(current->group_leader,
-+							 true, why);
-+		}
-+		unlock_parents_siglocks(true);
- 	}
- 
- 	for (;;) {
-@@ -2906,7 +3024,6 @@ static void retarget_shared_pending(struct task_struct *tsk, sigset_t *which)
- 
- void exit_signals(struct task_struct *tsk)
- {
--	int group_stop = 0;
- 	sigset_t unblocked;
- 
- 	/*
-@@ -2937,21 +3054,20 @@ void exit_signals(struct task_struct *tsk)
- 	signotset(&unblocked);
- 	retarget_shared_pending(tsk, &unblocked);
- 
--	if (unlikely(tsk->jobctl & JOBCTL_STOP_PENDING) &&
--	    task_participate_group_stop(tsk))
--		group_stop = CLD_STOPPED;
--out:
--	spin_unlock_irq(&tsk->sighand->siglock);
--
- 	/*
- 	 * If group stop has completed, deliver the notification.  This
- 	 * should always go to the real parent of the group leader.
- 	 */
--	if (unlikely(group_stop)) {
--		read_lock(&tasklist_lock);
--		do_notify_parent_cldstop(tsk, false, group_stop);
--		read_unlock(&tasklist_lock);
-+	if (unlikely(tsk->jobctl & JOBCTL_STOP_PENDING)) {
-+		lock_parents_siglocks(false);
-+		/* Recheck JOBCTL_STOP_PENDING after unlock+lock of siglock */
-+		if ((tsk->jobctl & JOBCTL_STOP_PENDING) &&
-+		    task_participate_group_stop(tsk))
-+			do_notify_parent_cldstop(tsk, false, CLD_STOPPED);
-+		unlock_parents_siglocks(false);
- 	}
-+out:
-+	spin_unlock_irq(&tsk->sighand->siglock);
- }
- 
- /*
+
+sparse warnings: (new ones prefixed by >>)
+   kernel/signal.c: note: in included file (through arch/parisc/include/uapi/asm/signal.h, arch/parisc/include/asm/signal.h, include/uapi/linux/signal.h, ...):
+   include/uapi/asm-generic/signal-defs.h:83:29: sparse: sparse: multiple address spaces given
+   kernel/signal.c:195:31: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:195:31: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:195:31: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:198:33: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:198:33: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:198:33: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:480:9: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:480:9: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:480:9: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:484:34: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:484:34: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:484:34: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:542:53: sparse: sparse: incorrect type in initializer (different address spaces) @@     expected struct k_sigaction *ka @@     got struct k_sigaction [noderef] __rcu * @@
+   kernel/signal.c:542:53: sparse:     expected struct k_sigaction *ka
+   kernel/signal.c:542:53: sparse:     got struct k_sigaction [noderef] __rcu *
+   include/uapi/asm-generic/signal-defs.h:83:29: sparse: sparse: multiple address spaces given
+   kernel/signal.c:1261:9: sparse: sparse: no member 'ip' in struct pt_regs
+   kernel/signal.c:1267:29: sparse: sparse: no member 'ip' in struct pt_regs
+   kernel/signal.c:1267:29: sparse: sparse: cast from unknown type
+   kernel/signal.c:1267:29: sparse: sparse: cannot dereference this type
+   kernel/signal.c:1267:29: sparse: sparse: no member 'ip' in struct pt_regs
+   kernel/signal.c:1267:29: sparse: sparse: cast from unknown type
+   kernel/signal.c:1267:29: sparse: sparse: no member 'ip' in struct pt_regs
+   kernel/signal.c:1267:29: sparse: sparse: cast from unknown type
+   kernel/signal.c:1267:29: sparse: sparse: cannot dereference this type
+   kernel/signal.c:1267:29: sparse: sparse: no member 'ip' in struct pt_regs
+   kernel/signal.c:1267:29: sparse: sparse: cast from unknown type
+   kernel/signal.c:1267:29: sparse: sparse: no member 'ip' in struct pt_regs
+   kernel/signal.c:1267:29: sparse: sparse: cast from unknown type
+   kernel/signal.c:1267:29: sparse: sparse: cannot dereference this type
+   kernel/signal.c:1267:29: sparse: sparse: no member 'ip' in struct pt_regs
+   kernel/signal.c:1267:29: sparse: sparse: cast from unknown type
+   kernel/signal.c:1267:29: sparse: sparse: no member 'ip' in struct pt_regs
+   kernel/signal.c:1267:29: sparse: sparse: cast from unknown type
+   kernel/signal.c:1267:29: sparse: sparse: cannot dereference this type
+   kernel/signal.c:1267:29: sparse: sparse: no member 'ip' in struct pt_regs
+   kernel/signal.c:1267:29: sparse: sparse: cast from unknown type
+   kernel/signal.c:1267:29: sparse: sparse: cannot dereference this type
+   kernel/signal.c:1267:29: sparse: sparse: no member 'ip' in struct pt_regs
+   kernel/signal.c:1267:29: sparse: sparse: cast from unknown type
+   kernel/signal.c:1267:29: sparse: sparse: incompatible types for 'case' statement
+   kernel/signal.c:1267:29: sparse: sparse: incompatible types for 'case' statement
+   kernel/signal.c:1267:29: sparse: sparse: incompatible types for 'case' statement
+   kernel/signal.c:1267:29: sparse: sparse: incompatible types for 'case' statement
+   kernel/signal.c:1328:9: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:1328:9: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:1328:9: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:1329:16: sparse: sparse: incorrect type in assignment (different address spaces) @@     expected struct k_sigaction *action @@     got struct k_sigaction [noderef] __rcu * @@
+   kernel/signal.c:1329:16: sparse:     expected struct k_sigaction *action
+   kernel/signal.c:1329:16: sparse:     got struct k_sigaction [noderef] __rcu *
+   kernel/signal.c:1349:34: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:1349:34: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:1349:34: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:1938:36: sparse: sparse: incorrect type in initializer (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:1938:36: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:1938:36: sparse:     got struct spinlock [noderef] __rcu *
+>> kernel/signal.c:2048:46: sparse: sparse: incorrect type in initializer (different address spaces) @@     expected struct sighand_struct *m_sighand @@     got struct sighand_struct [noderef] __rcu *sighand @@
+   kernel/signal.c:2048:46: sparse:     expected struct sighand_struct *m_sighand
+   kernel/signal.c:2048:46: sparse:     got struct sighand_struct [noderef] __rcu *sighand
+   kernel/signal.c:2057:24: sparse: sparse: incorrect type in assignment (different address spaces) @@     expected struct task_struct *parent @@     got struct task_struct [noderef] __rcu *real_parent @@
+   kernel/signal.c:2057:24: sparse:     expected struct task_struct *parent
+   kernel/signal.c:2057:24: sparse:     got struct task_struct [noderef] __rcu *real_parent
+   kernel/signal.c:2087:21: sparse: sparse: incompatible types in comparison expression (different address spaces):
+>> kernel/signal.c:2087:21: sparse:    struct task_struct [noderef] __rcu *
+>> kernel/signal.c:2087:21: sparse:    struct task_struct *
+>> kernel/signal.c:2117:40: sparse: sparse: incorrect type in initializer (different address spaces) @@     expected struct task_struct *parent @@     got struct task_struct [noderef] __rcu *real_parent @@
+   kernel/signal.c:2117:40: sparse:     expected struct task_struct *parent
+   kernel/signal.c:2117:40: sparse:     got struct task_struct [noderef] __rcu *real_parent
+   kernel/signal.c:2119:46: sparse: sparse: incorrect type in initializer (different address spaces) @@     expected struct sighand_struct *m_sighand @@     got struct sighand_struct [noderef] __rcu *sighand @@
+   kernel/signal.c:2119:46: sparse:     expected struct sighand_struct *m_sighand
+   kernel/signal.c:2119:46: sparse:     got struct sighand_struct [noderef] __rcu *sighand
+>> kernel/signal.c:2120:50: sparse: sparse: incorrect type in initializer (different address spaces) @@     expected struct sighand_struct *p_sighand @@     got struct sighand_struct [noderef] __rcu *sighand @@
+   kernel/signal.c:2120:50: sparse:     expected struct sighand_struct *p_sighand
+   kernel/signal.c:2120:50: sparse:     got struct sighand_struct [noderef] __rcu *sighand
+>> kernel/signal.c:2125:58: sparse: sparse: incorrect type in initializer (different address spaces) @@     expected struct sighand_struct *t_sighand @@     got struct sighand_struct [noderef] __rcu *sighand @@
+   kernel/signal.c:2125:58: sparse:     expected struct sighand_struct *t_sighand
+   kernel/signal.c:2125:58: sparse:     got struct sighand_struct [noderef] __rcu *sighand
+   kernel/signal.c:2171:44: sparse: sparse: cast removes address space '__rcu' of expression
+   kernel/signal.c:2190:65: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct task_struct *tsk @@     got struct task_struct [noderef] __rcu *parent @@
+   kernel/signal.c:2190:65: sparse:     expected struct task_struct *tsk
+   kernel/signal.c:2190:65: sparse:     got struct task_struct [noderef] __rcu *parent
+   kernel/signal.c:2191:40: sparse: sparse: cast removes address space '__rcu' of expression
+   kernel/signal.c:2209:14: sparse: sparse: incorrect type in assignment (different address spaces) @@     expected struct sighand_struct *psig @@     got struct sighand_struct [noderef] __rcu *[noderef] __rcu sighand @@
+   kernel/signal.c:2209:14: sparse:     expected struct sighand_struct *psig
+   kernel/signal.c:2209:14: sparse:     got struct sighand_struct [noderef] __rcu *[noderef] __rcu sighand
+   kernel/signal.c:2238:53: sparse: sparse: incorrect type in argument 3 (different address spaces) @@     expected struct task_struct *t @@     got struct task_struct [noderef] __rcu *parent @@
+   kernel/signal.c:2238:53: sparse:     expected struct task_struct *t
+   kernel/signal.c:2238:53: sparse:     got struct task_struct [noderef] __rcu *parent
+   kernel/signal.c:2239:34: sparse: sparse: incorrect type in argument 2 (different address spaces) @@     expected struct task_struct *parent @@     got struct task_struct [noderef] __rcu *parent @@
+   kernel/signal.c:2239:34: sparse:     expected struct task_struct *parent
+   kernel/signal.c:2239:34: sparse:     got struct task_struct [noderef] __rcu *parent
+   kernel/signal.c:2269:24: sparse: sparse: incorrect type in assignment (different address spaces) @@     expected struct task_struct *parent @@     got struct task_struct [noderef] __rcu *parent @@
+   kernel/signal.c:2269:24: sparse:     expected struct task_struct *parent
+   kernel/signal.c:2269:24: sparse:     got struct task_struct [noderef] __rcu *parent
+   kernel/signal.c:2272:24: sparse: sparse: incorrect type in assignment (different address spaces) @@     expected struct task_struct *parent @@     got struct task_struct [noderef] __rcu *real_parent @@
+   kernel/signal.c:2272:24: sparse:     expected struct task_struct *parent
+   kernel/signal.c:2272:24: sparse:     got struct task_struct [noderef] __rcu *real_parent
+   kernel/signal.c:2307:17: sparse: sparse: incorrect type in assignment (different address spaces) @@     expected struct sighand_struct *sighand @@     got struct sighand_struct [noderef] __rcu *sighand @@
+   kernel/signal.c:2307:17: sparse:     expected struct sighand_struct *sighand
+   kernel/signal.c:2307:17: sparse:     got struct sighand_struct [noderef] __rcu *sighand
+   kernel/signal.c:2341:41: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:2341:41: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:2341:41: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:2343:39: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:2343:39: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:2343:39: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:2428:33: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:2428:33: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:2428:33: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:2440:31: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:2440:31: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:2440:31: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:2479:31: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:2479:31: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:2479:31: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:2481:33: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:2481:33: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:2481:33: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:2584:41: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:2584:41: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:2584:41: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:2599:33: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:2599:33: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:2599:33: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:2656:41: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:2656:41: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:2656:41: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:2668:33: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:2668:33: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:2668:33: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:2726:49: sparse: sparse: incorrect type in initializer (different address spaces) @@     expected struct sighand_struct *sighand @@     got struct sighand_struct [noderef] __rcu *sighand @@
+   kernel/signal.c:2726:49: sparse:     expected struct sighand_struct *sighand
+   kernel/signal.c:2726:49: sparse:     got struct sighand_struct [noderef] __rcu *sighand
+   kernel/signal.c:3052:27: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:3052:27: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:3052:27: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:3081:29: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:3081:29: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:3081:29: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:3138:27: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:3138:27: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:3138:27: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:3140:29: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:3140:29: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:3140:29: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:3291:31: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:3291:31: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:3291:31: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:3294:33: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:3294:33: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:3294:33: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:3683:27: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:3683:27: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:3683:27: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:3695:37: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:3695:37: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:3695:37: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:3700:35: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:3700:35: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:3700:35: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:3705:29: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:3705:29: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:3705:29: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:4159:31: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:4159:31: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:4159:31: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:4171:33: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:4171:33: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:4171:33: sparse:     got struct spinlock [noderef] __rcu *
+   kernel/signal.c:4189:11: sparse: sparse: incorrect type in assignment (different address spaces) @@     expected struct k_sigaction *k @@     got struct k_sigaction [noderef] __rcu * @@
+   kernel/signal.c:4189:11: sparse:     expected struct k_sigaction *k
+   kernel/signal.c:4189:11: sparse:     got struct k_sigaction [noderef] __rcu *
+   kernel/signal.c:4191:25: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
+   kernel/signal.c:4191:25: sparse:     expected struct spinlock [usertype] *lock
+   kernel/signal.c:4191:25: sparse:     got struct spinlock [noderef] __rcu *
+
+vim +2048 kernel/signal.c
+
+  1934	
+  1935	void sigqueue_free(struct sigqueue *q)
+  1936	{
+  1937		unsigned long flags;
+> 1938		spinlock_t *lock = &current->sighand->siglock;
+  1939	
+  1940		BUG_ON(!(q->flags & SIGQUEUE_PREALLOC));
+  1941		/*
+  1942		 * We must hold ->siglock while testing q->list
+  1943		 * to serialize with collect_signal() or with
+  1944		 * __exit_signal()->flush_sigqueue().
+  1945		 */
+  1946		spin_lock_irqsave(lock, flags);
+  1947		q->flags &= ~SIGQUEUE_PREALLOC;
+  1948		/*
+  1949		 * If it is queued it will be freed when dequeued,
+  1950		 * like the "regular" sigqueue.
+  1951		 */
+  1952		if (!list_empty(&q->list))
+  1953			q = NULL;
+  1954		spin_unlock_irqrestore(lock, flags);
+  1955	
+  1956		if (q)
+  1957			__sigqueue_free(q);
+  1958	}
+  1959	
+  1960	int send_sigqueue(struct sigqueue *q, struct pid *pid, enum pid_type type)
+  1961	{
+  1962		int sig = q->info.si_signo;
+  1963		struct sigpending *pending;
+  1964		struct task_struct *t;
+  1965		unsigned long flags;
+  1966		int ret, result;
+  1967	
+  1968		BUG_ON(!(q->flags & SIGQUEUE_PREALLOC));
+  1969	
+  1970		ret = -1;
+  1971		rcu_read_lock();
+  1972		t = pid_task(pid, type);
+  1973		if (!t || !likely(lock_task_sighand(t, &flags)))
+  1974			goto ret;
+  1975	
+  1976		ret = 1; /* the signal is ignored */
+  1977		result = TRACE_SIGNAL_IGNORED;
+  1978		if (!prepare_signal(sig, t, false))
+  1979			goto out;
+  1980	
+  1981		ret = 0;
+  1982		if (unlikely(!list_empty(&q->list))) {
+  1983			/*
+  1984			 * If an SI_TIMER entry is already queue just increment
+  1985			 * the overrun count.
+  1986			 */
+  1987			BUG_ON(q->info.si_code != SI_TIMER);
+  1988			q->info.si_overrun++;
+  1989			result = TRACE_SIGNAL_ALREADY_PENDING;
+  1990			goto out;
+  1991		}
+  1992		q->info.si_overrun = 0;
+  1993	
+  1994		signalfd_notify(t, sig);
+  1995		pending = (type != PIDTYPE_PID) ? &t->signal->shared_pending : &t->pending;
+  1996		list_add_tail(&q->list, &pending->list);
+  1997		sigaddset(&pending->signal, sig);
+  1998		complete_signal(sig, t, type);
+  1999		result = TRACE_SIGNAL_DELIVERED;
+  2000	out:
+  2001		trace_signal_generate(sig, &q->info, t, type != PIDTYPE_PID, result);
+  2002		unlock_task_sighand(t, &flags);
+  2003	ret:
+  2004		rcu_read_unlock();
+  2005		return ret;
+  2006	}
+  2007	
+  2008	/**
+  2009	 * lock_parents_siglocks - Take current, real_parent, and parent's siglock
+  2010	 * @lock_tracer: The tracers siglock is needed.
+  2011	 *
+  2012	 * There is no natural ordering to these locks so they must be sorted
+  2013	 * before being taken.
+  2014	 *
+  2015	 * There are two complicating factors here:
+  2016	 * - The locks live in sighand and sighand can be arbitrarily shared
+  2017	 * - parent and real_parent can change when current's siglock is unlocked.
+  2018	 *
+  2019	 * To deal with this first the all of the sighand pointers are
+  2020	 * gathered under current's siglock, and the sighand pointers are
+  2021	 * sorted.  As siglock lives inside of sighand this also sorts the
+  2022	 * siglock's by address.
+  2023	 *
+  2024	 * Then the siglocks are taken in order dropping current's siglock if
+  2025	 * necessary.
+  2026	 *
+  2027	 * Finally if parent and real_parent have not changed return.
+  2028	 * If they either parent has changed drop their locks and try again.
+  2029	 *
+  2030	 * Changing sighand is an infrequent and somewhat expensive operation
+  2031	 * (unshare or exec) and so even in the worst case this loop
+  2032	 * should not loop too many times before all of the proper locks are
+  2033	 * taken in order.
+  2034	 *
+  2035	 * CONTEXT:
+  2036	 * Must be called with @current->sighand->siglock held
+  2037	 *
+  2038	 * RETURNS:
+  2039	 * current's, real_parent's, and parent's siglock held.
+  2040	 */
+  2041	static void lock_parents_siglocks(bool lock_tracer)
+  2042		__releases(&current->sighand->siglock)
+  2043		__acquires(&current->sighand->siglock)
+  2044		__acquires(&current->real_parent->sighand->siglock)
+  2045		__acquires(&current->parent->sighand->siglock)
+  2046	{
+  2047		struct task_struct *me = current;
+> 2048		struct sighand_struct *m_sighand = me->sighand;
+  2049	
+  2050		lockdep_assert_held(&m_sighand->siglock);
+  2051	
+  2052		rcu_read_lock();
+  2053		for (;;) {
+  2054			struct task_struct *parent, *tracer;
+  2055			struct sighand_struct *p_sighand, *t_sighand, *s1, *s2, *s3;
+  2056	
+  2057			parent = me->real_parent;
+  2058			tracer = ptrace_parent(me);
+  2059			if (!tracer || !lock_tracer)
+  2060				tracer = parent;
+  2061	
+  2062			p_sighand = rcu_dereference(parent->sighand);
+  2063			t_sighand = rcu_dereference(tracer->sighand);
+  2064	
+  2065			/* Sort the sighands so that s1 >= s2 >= s3 */
+  2066			s1 = m_sighand;
+  2067			s2 = p_sighand;
+  2068			s3 = t_sighand;
+  2069			if (s1 > s2)
+  2070				swap(s1, s2);
+  2071			if (s1 > s3)
+  2072				swap(s1, s3);
+  2073			if (s2 > s3)
+  2074				swap(s2, s3);
+  2075	
+  2076			/* Take the locks in order */
+  2077			if (s1 != m_sighand) {
+  2078				spin_unlock(&m_sighand->siglock);
+  2079				spin_lock(&s1->siglock);
+  2080			}
+  2081			if (s1 != s2)
+  2082				spin_lock_nested(&s2->siglock, 1);
+  2083			if (s2 != s3)
+  2084				spin_lock_nested(&s3->siglock, 2);
+  2085	
+  2086			/* Verify the proper locks are held */
+> 2087			if (likely((s1 = m_sighand) ||
+  2088				   ((me->real_parent = parent) &&
+  2089				    (me->parent = tracer) &&
+  2090				    (parent->sighand = p_sighand) &&
+  2091				    (tracer->sighand = t_sighand)))) {
+  2092				break;
+  2093			}
+  2094	
+  2095			/* Drop all but current's siglock */
+  2096			if (p_sighand != m_sighand)
+  2097				spin_unlock(&p_sighand->siglock);
+  2098			if (t_sighand != p_sighand)
+  2099				spin_unlock(&t_sighand->siglock);
+  2100	
+  2101			/*
+  2102			 * Since [pt]_sighand will likely change if we go
+  2103			 * around, and m_sighand is the only one held, make sure
+  2104			 * it is subclass-0, since the above 's1 != m_sighand'
+  2105			 * clause very much relies on that.
+  2106			 */
+  2107			lock_set_subclass(&m_sighand->siglock.dep_map, 0, _RET_IP_);
+  2108		}
+  2109		rcu_read_unlock();
+  2110	}
+  2111	
+  2112	static void unlock_parents_siglocks(bool unlock_tracer)
+  2113		__releases(&current->real_parent->sighand->siglock)
+  2114		__releases(&current->parent->sighand->siglock)
+  2115	{
+  2116		struct task_struct *me = current;
+> 2117		struct task_struct *parent = me->real_parent;
+  2118		struct task_struct *tracer = ptrace_parent(me);
+  2119		struct sighand_struct *m_sighand = me->sighand;
+> 2120		struct sighand_struct *p_sighand = parent->sighand;
+  2121	
+  2122		if (p_sighand != m_sighand)
+  2123			spin_unlock(&p_sighand->siglock);
+  2124		if (tracer && unlock_tracer) {
+> 2125			struct sighand_struct *t_sighand = tracer->sighand;
+  2126			if (t_sighand != p_sighand)
+  2127				spin_unlock(&t_sighand->siglock);
+  2128		}
+  2129	}
+  2130	
+
 -- 
-2.35.3
+0-DAY CI Kernel Test Service
+https://01.org/lkp
