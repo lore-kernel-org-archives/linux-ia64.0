@@ -1,172 +1,103 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Thu, 05 May 2022 18:26:38 +0000
-Subject: [PATCH v4 05/12] ptrace: Remove arch_ptrace_attach
-Message-Id: <20220505182645.497868-5-ebiederm@xmission.com>
+From: Peng Liu <liupeng256@huawei.com>
+Date: Fri, 20 May 2022 07:37:47 +0000
+Subject: [PATCH v2 2/2] null_blk: fix wrong use of nr_online_nodes
+Message-Id: <20220520073747.1184091-3-liupeng256@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
-In-Reply-To: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
+References: <20220520073747.1184091-1-liupeng256@huawei.com>
+In-Reply-To: <20220520073747.1184091-1-liupeng256@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
+To: bhelgaas@google.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, lorenzo.pieralisi@arm.com, guohanjun@huawei.com, sudeep.holla@arm.com, rafael@kernel.org, lenb@kernel.org, akpm@linux-foundation.org, logang@deltatee.com, martin.oliveira@eideticom.com, thunder.leizhen@huawei.com, axboe@kernel.dk, kch@nvidia.com, ming.lei@redhat.com, shinichiro.kawasaki@wdc.com, mcgrof@kernel.org, jiangguoqing@kylinos.cn, jpittman@redhat.com, dave@stgolabs.net, liupeng256@huawei.com, wangkefeng.wang@huawei.com, linux-block@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-mm@kvack.org
 
-The last remaining implementation of arch_ptrace_attach is ia64's
-ptrace_attach_sync_user_rbs which was added at the end of 2007 in
-commit aa91a2e90044 ("[IA64] Synchronize RBS on PTRACE_ATTACH").
+Certain systems are designed to have sparse/discontiguous nodes,
+a valid node may be greater than nr_online_nodes. So, the use of
+"nid >= nr_online_nodes" to judge if a node is online is wrong.
 
-Reading the comments and examining the code ptrace_attach_sync_user_rbs
-has the sole purpose of saving registers to the stack when ptrace_attach
-changes TASK_STOPPED to TASK_TRACED.  In all other cases arch_ptrace_stop
-takes care of the register saving.
+Node id is a basic parameter of the system, a user-configured node
+must be checked as early as possible. Otherwise, it may cause panic
+when calling some vulnerable functions such as node_online which
+will cause panic if a very big node is received.
 
-In commit d79fdd6d96f4 ("ptrace: Clean transitions between TASK_STOPPED and TRACED")
-modified ptrace_attach to wake up the thread and enter ptrace_stop normally even
-when the thread starts out stopped.
+Check g_home_node once users config it, and use node_available to
+make node-checking compatible with sparse/discontiguous nodes.
 
-This makes ptrace_attach_sync_user_rbs completely unnecessary.  So just
-remove it.
-
-Cc: linux-ia64@vger.kernel.org
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Fixes: 7ff684a683d7 ("null_blk: prevent crash from bad home_node value")
+Signed-off-by: Peng Liu <liupeng256@huawei.com>
+Suggested-by: Davidlohr Bueso <dave@stgolabs.net>
 ---
- arch/ia64/include/asm/ptrace.h |  4 ---
- arch/ia64/kernel/ptrace.c      | 57 ----------------------------------
- kernel/ptrace.c                | 18 -----------
- 3 files changed, 79 deletions(-)
+ drivers/block/null_blk/main.c | 45 ++++++++++++++++++++++-------------
+ 1 file changed, 28 insertions(+), 17 deletions(-)
 
-diff --git a/arch/ia64/include/asm/ptrace.h b/arch/ia64/include/asm/ptrace.h
-index a10a498eede1..402874489890 100644
---- a/arch/ia64/include/asm/ptrace.h
-+++ b/arch/ia64/include/asm/ptrace.h
-@@ -139,10 +139,6 @@ static inline long regs_return_value(struct pt_regs *regs)
-   #define arch_ptrace_stop_needed() \
- 	(!test_thread_flag(TIF_RESTORE_RSE))
+diff --git a/drivers/block/null_blk/main.c b/drivers/block/null_blk/main.c
+index c441a4972064..312903f3a09e 100644
+--- a/drivers/block/null_blk/main.c
++++ b/drivers/block/null_blk/main.c
+@@ -97,7 +97,33 @@ module_param_named(poll_queues, g_poll_queues, int, 0444);
+ MODULE_PARM_DESC(poll_queues, "Number of IOPOLL submission queues");
  
--  extern void ptrace_attach_sync_user_rbs (struct task_struct *);
--  #define arch_ptrace_attach(child) \
--	ptrace_attach_sync_user_rbs(child)
--
-   #define arch_has_single_step()  (1)
-   #define arch_has_block_step()   (1)
+ static int g_home_node = NUMA_NO_NODE;
+-module_param_named(home_node, g_home_node, int, 0444);
++
++static int null_param_store_val(const char *str, int *val, int min, int max)
++{
++	int ret, new_val;
++
++	ret = kstrtoint(str, 10, &new_val);
++	if (ret)
++		return -EINVAL;
++
++	if (new_val < min || new_val > max)
++		return -EINVAL;
++
++	*val = new_val;
++	return 0;
++}
++
++static int null_set_home_node(const char *str, const struct kernel_param *kp)
++{
++	return null_param_store_val(str, &g_home_node, 0, MAX_NUMNODES - 1);
++}
++
++static const struct kernel_param_ops null_home_node_param_ops = {
++	.set	= null_set_home_node,
++	.get	= param_get_int,
++};
++
++device_param_cb(home_node, &null_home_node_param_ops, &g_home_node, 0444);
+ MODULE_PARM_DESC(home_node, "Home node for the device");
  
-diff --git a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
-index a19acd9f5e1f..a45f529046c3 100644
---- a/arch/ia64/kernel/ptrace.c
-+++ b/arch/ia64/kernel/ptrace.c
-@@ -617,63 +617,6 @@ void ia64_sync_krbs(void)
- 	unw_init_running(do_sync_rbs, ia64_sync_kernel_rbs);
- }
+ #ifdef CONFIG_BLK_DEV_NULL_BLK_FAULT_INJECTION
+@@ -120,21 +146,6 @@ MODULE_PARM_DESC(init_hctx, "Fault injection to fail hctx init. init_hctx=<inter
  
--/*
-- * After PTRACE_ATTACH, a thread's register backing store area in user
-- * space is assumed to contain correct data whenever the thread is
-- * stopped.  arch_ptrace_stop takes care of this on tracing stops.
-- * But if the child was already stopped for job control when we attach
-- * to it, then it might not ever get into ptrace_stop by the time we
-- * want to examine the user memory containing the RBS.
-- */
--void
--ptrace_attach_sync_user_rbs (struct task_struct *child)
+ static int g_queue_mode = NULL_Q_MQ;
+ 
+-static int null_param_store_val(const char *str, int *val, int min, int max)
 -{
--	int stopped = 0;
--	struct unw_frame_info info;
+-	int ret, new_val;
 -
--	/*
--	 * If the child is in TASK_STOPPED, we need to change that to
--	 * TASK_TRACED momentarily while we operate on it.  This ensures
--	 * that the child won't be woken up and return to user mode while
--	 * we are doing the sync.  (It can only be woken up for SIGKILL.)
--	 */
+-	ret = kstrtoint(str, 10, &new_val);
+-	if (ret)
+-		return -EINVAL;
 -
--	read_lock(&tasklist_lock);
--	if (child->sighand) {
--		spin_lock_irq(&child->sighand->siglock);
--		if (READ_ONCE(child->__state) = TASK_STOPPED &&
--		    !test_and_set_tsk_thread_flag(child, TIF_RESTORE_RSE)) {
--			set_notify_resume(child);
+-	if (new_val < min || new_val > max)
+-		return -EINVAL;
 -
--			WRITE_ONCE(child->__state, TASK_TRACED);
--			stopped = 1;
--		}
--		spin_unlock_irq(&child->sighand->siglock);
--	}
--	read_unlock(&tasklist_lock);
--
--	if (!stopped)
--		return;
--
--	unw_init_from_blocked_task(&info, child);
--	do_sync_rbs(&info, ia64_sync_user_rbs);
--
--	/*
--	 * Now move the child back into TASK_STOPPED if it should be in a
--	 * job control stop, so that SIGCONT can be used to wake it up.
--	 */
--	read_lock(&tasklist_lock);
--	if (child->sighand) {
--		spin_lock_irq(&child->sighand->siglock);
--		if (READ_ONCE(child->__state) = TASK_TRACED &&
--		    (child->signal->flags & SIGNAL_STOP_STOPPED)) {
--			WRITE_ONCE(child->__state, TASK_STOPPED);
--		}
--		spin_unlock_irq(&child->sighand->siglock);
--	}
--	read_unlock(&tasklist_lock);
+-	*val = new_val;
+-	return 0;
 -}
 -
- /*
-  * Write f32-f127 back to task->thread.fph if it has been modified.
-  */
-diff --git a/kernel/ptrace.c b/kernel/ptrace.c
-index ccc4b465775b..da30dcd477a0 100644
---- a/kernel/ptrace.c
-+++ b/kernel/ptrace.c
-@@ -1285,10 +1285,6 @@ int ptrace_request(struct task_struct *child, long request,
- 	return ret;
- }
- 
--#ifndef arch_ptrace_attach
--#define arch_ptrace_attach(child)	do { } while (0)
--#endif
--
- SYSCALL_DEFINE4(ptrace, long, request, long, pid, unsigned long, addr,
- 		unsigned long, data)
+ static int null_set_queue_mode(const char *str, const struct kernel_param *kp)
  {
-@@ -1297,8 +1293,6 @@ SYSCALL_DEFINE4(ptrace, long, request, long, pid, unsigned long, addr,
- 
- 	if (request = PTRACE_TRACEME) {
- 		ret = ptrace_traceme();
--		if (!ret)
--			arch_ptrace_attach(current);
- 		goto out;
+ 	return null_param_store_val(str, &g_queue_mode, NULL_Q_BIO, NULL_Q_MQ);
+@@ -2107,7 +2118,7 @@ static int __init null_init(void)
+ 		g_max_sectors = BLK_DEF_MAX_SECTORS;
  	}
  
-@@ -1310,12 +1304,6 @@ SYSCALL_DEFINE4(ptrace, long, request, long, pid, unsigned long, addr,
- 
- 	if (request = PTRACE_ATTACH || request = PTRACE_SEIZE) {
- 		ret = ptrace_attach(child, request, addr, data);
--		/*
--		 * Some architectures need to do book-keeping after
--		 * a ptrace attach.
--		 */
--		if (!ret)
--			arch_ptrace_attach(child);
- 		goto out_put_task_struct;
+-	if (g_home_node != NUMA_NO_NODE && g_home_node >= nr_online_nodes) {
++	if (!node_available(g_home_node)) {
+ 		pr_err("invalid home_node value\n");
+ 		g_home_node = NUMA_NO_NODE;
  	}
- 
-@@ -1455,12 +1443,6 @@ COMPAT_SYSCALL_DEFINE4(ptrace, compat_long_t, request, compat_long_t, pid,
- 
- 	if (request = PTRACE_ATTACH || request = PTRACE_SEIZE) {
- 		ret = ptrace_attach(child, request, addr, data);
--		/*
--		 * Some architectures need to do book-keeping after
--		 * a ptrace attach.
--		 */
--		if (!ret)
--			arch_ptrace_attach(child);
- 		goto out_put_task_struct;
- 	}
- 
 -- 
-2.35.3
+2.25.1
