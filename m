@@ -1,176 +1,84 @@
 From: Peter Xu <peterx@redhat.com>
-Date: Fri, 27 May 2022 13:49:01 +0000
+Date: Fri, 27 May 2022 14:53:36 +0000
 Subject: Re: [PATCH v3] mm: Avoid unnecessary page fault retires on shared memory types
-Message-Id: <YpDWzX8dyh1259Mo@xz-m1.local>
+Message-Id: <YpDl8IM0FF6GeJ4B@xz-m1.local>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220524234531.1949-1-peterx@redhat.com>
- <YpDCzvLER9AYJJc8@osiris>
-In-Reply-To: <YpDCzvLER9AYJJc8@osiris>
+ <YpCsBwFArieTpvg2@gmail.com>
+In-Reply-To: <YpCsBwFArieTpvg2@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Heiko Carstens <hca@linux.ibm.com>
-Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org, Richard Henderson <rth@twiddle.net>, David Hildenbrand <david@redhat.com>, Matt Turner <mattst88@gmail.com>, Albert Ou <aou@eecs.berkeley.edu>, Michal Simek <monstr@monstr.eu>, Russell King <linux@armlinux.org.uk>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, linux-riscv@lists.infradead.org, Alexander Gordeev <agordeev@linux.ibm.com>, Dave Hansen <dave.hansen@linux.intel.com>, Jonas Bonn <jonas@southpole.se>, Will Deacon <will@kernel.org>, "James E . J . Bottomley" <James.Bottomley@hansenpartnership.com>, "H . Peter Anvin" <hpa@zytor.com>, Andrea Arcangeli <aarcange@redhat.com>, openrisc@lists.librecores.org, linux-s390@vger.kernel.org, Ingo Molnar <mingo@redhat.com>, linux-m68k@lists.linux-m68k.org, Palmer Dabbelt <palmer@dabbelt.com>, Chris Zankel <chris@zankel.net>, Peter Zijlstra <peterz@infradead.org>, Alistair Popple <apopple@nvidia.com>, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, Vlastimil Babka <vbabka@suse.cz>, Thomas Gleixner <tglx@linutronix.de>, sparclinux@vger.kernel.org, Christian Borntraeger <borntraeger@linux.ibm.com>, Stafford Horne <shorne@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, x86@kernel.org, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Paul Mackerras <paulus@samba.org>, linux-arm-kernel@lists.infradead.org, Sven Schnelle <svens@linux.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-xtensa@linux-xtensa.org, Nicholas Piggin <npiggin@gmail.com>, linux-sh@vger.kernel.org, Vasily Gorbik <gor@linux.ibm.com>, Borislav Petkov <bp@alien8.de>, linux-mips@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>, Helge Deller <deller@gmx.de>, Vineet Gupta <vgupta@kernel.org>, Al Viro <viro@zeniv.linux.org.uk>, Paul Walmsley <paul.walmsley@sifive.com>, Johannes Weiner <hannes@cmpxchg.org>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Catalin Marinas <catalin.marinas@arm.com>, linux-um@lists.infradead.org, linux-alpha@vger.kernel.org, Johannes Berg <johannes@sipsolutions.net>, linux-ia64@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>, Dinh Nguyen <dinguyen@kernel.org>, Guo Ren <guoren@kernel.org>, linux-snps-arc@lists.infradead.org, Hugh Dickins <hughd@google.com>, Rich Felker <dalias@libc.org>, Andy Lutomirski <luto@kernel.org>, Richard Weinberger <richard@nod.at>, linuxppc-dev@lists.ozlabs.org, Brian Cain <bcain@quicinc.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Andrew Morton <akpm@linux-foundation.org>, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, linux-parisc@vger.kernel.org, "David S . Miller" <davem@davemloft.net>, Janosch Frank <frankja@linux.ibm.com>
+To: Ingo Molnar <mingo@kernel.org>
+Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org, Richard Henderson <rth@twiddle.net>, David Hildenbrand <david@redhat.com>, Matt Turner <mattst88@gmail.com>, Albert Ou <aou@eecs.berkeley.edu>, Michal Simek <monstr@monstr.eu>, Russell King <linux@armlinux.org.uk>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, linux-riscv@lists.infradead.org, Alexander Gordeev <agordeev@linux.ibm.com>, Dave Hansen <dave.hansen@linux.intel.com>, Jonas Bonn <jonas@southpole.se>, Will Deacon <will@kernel.org>, "James E . J . Bottomley" <James.Bottomley@hansenpartnership.com>, "H . Peter Anvin" <hpa@zytor.com>, Andrea Arcangeli <aarcange@redhat.com>, openrisc@lists.librecores.org, linux-s390@vger.kernel.org, Ingo Molnar <mingo@redhat.com>, linux-m68k@lists.linux-m68k.org, Palmer Dabbelt <palmer@dabbelt.com>, Heiko Carstens <hca@linux.ibm.com>, Chris Zankel <chris@zankel.net>, Peter Zijlstra <peterz@infradead.org>, Alistair Popple <apopple@nvidia.com>, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, Vlastimil Babka <vbabka@suse.cz>, Thomas Gleixner <tglx@linutronix.de>, sparclinux@vger.kernel.org, Christian Borntraeger <borntraeger@linux.ibm.com>, Stafford Horne <shorne@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, x86@kernel.org, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Paul Mackerras <paulus@samba.org>, linux-arm-kernel@lists.infradead.org, Sven Schnelle <svens@linux.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-xtensa@linux-xtensa.org, Nicholas Piggin <npiggin@gmail.com>, linux-sh@vger.kernel.org, Vasily Gorbik <gor@linux.ibm.com>, Borislav Petkov <bp@alien8.de>, linux-mips@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>, Helge Deller <deller@gmx.de>, Vineet Gupta <vgupta@kernel.org>, Al Viro <viro@zeniv.linux.org.uk>, Paul Walmsley <paul.walmsley@sifive.com>, Johannes Weiner <hannes@cmpxchg.org>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Catalin Marinas <catalin.marinas@arm.com>, linux-um@lists.infradead.org, linux-alpha@vger.kernel.org, Johannes Berg <johannes@sipsolutions.net>, linux-ia64@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>, Dinh Nguyen <dinguyen@kernel.org>, Guo Ren <guoren@kernel.org>, linux-snps-arc@lists.infradead.org, Hugh Dickins <hughd@google.com>, Rich Felker <dalias@libc.org>, Andy Lutomirski <luto@kernel.org>, Richard Weinberger <richard@nod.at>, linuxppc-dev@lists.ozlabs.org, Brian Cain <bcain@quicinc.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Andrew Morton <akpm@linux-foundation.org>, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, linux-parisc@vger.kernel.org, "David S . Miller" <davem@davemloft.net>
 
-Hi, Heiko,
-
-On Fri, May 27, 2022 at 02:23:42PM +0200, Heiko Carstens wrote:
-> On Tue, May 24, 2022 at 07:45:31PM -0400, Peter Xu wrote:
-> > I observed that for each of the shared file-backed page faults, we're very
-> > likely to retry one more time for the 1st write fault upon no page.  It's
-> > because we'll need to release the mmap lock for dirty rate limit purpose
-> > with balance_dirty_pages_ratelimited() (in fault_dirty_shared_page()).
-> > 
-> > Then after that throttling we return VM_FAULT_RETRY.
-> > 
-> > We did that probably because VM_FAULT_RETRY is the only way we can return
-> > to the fault handler at that time telling it we've released the mmap lock.
-> > 
-> > However that's not ideal because it's very likely the fault does not need
-> > to be retried at all since the pgtable was well installed before the
-> > throttling, so the next continuous fault (including taking mmap read lock,
-> > walk the pgtable, etc.) could be in most cases unnecessary.
-> > 
-> > It's not only slowing down page faults for shared file-backed, but also add
-> > more mmap lock contention which is in most cases not needed at all.
-> > 
-> > To observe this, one could try to write to some shmem page and look at
-> > "pgfault" value in /proc/vmstat, then we should expect 2 counts for each
-> > shmem write simply because we retried, and vm event "pgfault" will capture
-> > that.
-> > 
-> > To make it more efficient, add a new VM_FAULT_COMPLETED return code just to
-> > show that we've completed the whole fault and released the lock.  It's also
-> > a hint that we should very possibly not need another fault immediately on
-> > this page because we've just completed it.
-> > 
+On Fri, May 27, 2022 at 12:46:31PM +0200, Ingo Molnar wrote:
+> 
+> * Peter Xu <peterx@redhat.com> wrote:
+> 
 > > This patch provides a ~12% perf boost on my aarch64 test VM with a simple
 > > program sequentially dirtying 400MB shmem file being mmap()ed and these are
 > > the time it needs:
-> > 
+> >
 > >   Before: 650.980 ms (+-1.94%)
 > >   After:  569.396 ms (+-1.38%)
-> > 
-> > I believe it could help more than that.
-> > 
-> > We need some special care on GUP and the s390 pgfault handler (for gmap
-> > code before returning from pgfault), the rest changes in the page fault
-> > handlers should be relatively straightforward.
-> > 
-> > Another thing to mention is that mm_account_fault() does take this new
-> > fault as a generic fault to be accounted, unlike VM_FAULT_RETRY.
-> > 
-> > I explicitly didn't touch hmm_vma_fault() and break_ksm() because they do
-> > not handle VM_FAULT_RETRY even with existing code, so I'm literally keeping
-> > them as-is.
-> > 
-> > Signed-off-by: Peter Xu <peterx@redhat.com>
-> ...
-> > diff --git a/arch/s390/mm/fault.c b/arch/s390/mm/fault.c
-> > index e173b6187ad5..9503a7cfaf03 100644
-> > --- a/arch/s390/mm/fault.c
-> > +++ b/arch/s390/mm/fault.c
-> > @@ -339,6 +339,7 @@ static inline vm_fault_t do_exception(struct pt_regs *regs, int access)
-> >  	unsigned long address;
-> >  	unsigned int flags;
-> >  	vm_fault_t fault;
-> > +	bool need_unlock = true;
-> >  	bool is_write;
-> >  
-> >  	tsk = current;
-> > @@ -433,6 +434,13 @@ static inline vm_fault_t do_exception(struct pt_regs *regs, int access)
-> >  			goto out_up;
-> >  		goto out;
-> >  	}
-> > +
-> > +	/* The fault is fully completed (including releasing mmap lock) */
-> > +	if (fault & VM_FAULT_COMPLETED) {
-> > +		need_unlock = false;
-> > +		goto out_gmap;
-> > +	}
-> > +
-> >  	if (unlikely(fault & VM_FAULT_ERROR))
-> >  		goto out_up;
-> >  
-> > @@ -452,6 +460,7 @@ static inline vm_fault_t do_exception(struct pt_regs *regs, int access)
-> >  		mmap_read_lock(mm);
-> >  		goto retry;
-> >  	}
-> > +out_gmap:
-> >  	if (IS_ENABLED(CONFIG_PGSTE) && gmap) {
-> >  		address =  __gmap_link(gmap, current->thread.gmap_addr,
-> >  				       address);
-> > @@ -466,7 +475,8 @@ static inline vm_fault_t do_exception(struct pt_regs *regs, int access)
-> >  	}
-> >  	fault = 0;
-> >  out_up:
-> > -	mmap_read_unlock(mm);
-> > +	if (need_unlock)
-> > +		mmap_read_unlock(mm);
-> >  out:
 > 
-> This seems to be incorrect. __gmap_link() requires the mmap_lock to be
-> held. Christian, Janosch, or David, could you please check?
+> Nice!
+> 
+> >  arch/x86/mm/fault.c           |  4 ++++
+> 
+> Reviewed-by: Ingo Molnar <mingo@kernel.org>
+> 
+> Minor comment typo:
+> 
+> > +		/*
+> > +		 * We should do the same as VM_FAULT_RETRY, but let's not
+> > +		 * return -EBUSY since that's not reflecting the reality on
+> > +		 * what has happened - we've just fully completed a page
+> > +		 * fault, with the mmap lock released.  Use -EAGAIN to show
+> > +		 * that we want to take the mmap lock _again_.
+> > +		 */
+> 
+> s/reflecting the reality on what has happened
+>  /reflecting the reality of what has happened
 
-Thanks for pointing that out.  Indeed I see the clue right above the
-comment of __gmap_link():
+Will fix.
 
-/*
- * ...
- * The mmap_lock of the mm that belongs to the address space must be held
- * when this function gets called.
- */
-int __gmap_link(struct gmap *gmap, unsigned long gaddr, unsigned long vmaddr)
+> 
+> >  	ret = handle_mm_fault(vma, address, fault_flags, NULL);
+> > +
+> > +	if (ret & VM_FAULT_COMPLETED) {
+> > +		/*
+> > +		 * NOTE: it's a pity that we need to retake the lock here
+> > +		 * to pair with the unlock() in the callers. Ideally we
+> > +		 * could tell the callers so they do not need to unlock.
+> > +		 */
+> > +		mmap_read_lock(mm);
+> > +		*unlocked = true;
+> > +		return 0;
+> 
+> Indeed that's a pity - I guess more performance could be gained here, 
+> especially in highly parallel threaded workloads?
 
-A further fact is it'll walk the pgtable right afterwards, assuming
-gmap->mm will definitely be the current mm or it'll definitely go wrong.
+Yes I think so.
 
-I'll change s390 to retake the lock with the new COMPLETE retcode, so at
-least it'll avoid one pgtable work procedure even if the lock overhead was
-kept.
+The patch avoids the page fault retry, including the mmap lock/unlock side.
+Now if we retake the lock for fixup_user_fault() we still safe time for
+pgtable walks but the lock overhead will be somehow kept, just with smaller
+critical sections.
 
-With that, one more possible further optimization for s390 only will be
-conditionally not taking that lock when !CONFIG_PGSTE, but I have totally
-no idea whether that'll be a common use case, so I plan to leave that for
-later in all cases.
+Some fixup_user_fault() callers won't be affected as long as unlocked=NULL
+is passed - e.g. the futex code path (fault_in_user_writeable).  After all
+they never needed to retake the lock before/after this patch.
 
-Actually after doing that the whole changeset of s390 is even more
-straightforward:
+It's about the other callers, and they may need some more touch-ups case by
+case.  Examples are follow_fault_pfn() in vfio and hva_to_pfn_remapped() in
+KVM: both of them returns -EAGAIN when *unlocked=true.  We need to teach
+them to know "*unlocked=true" does not necessarily mean a retry attempt.
 
----8<---
-diff --git a/arch/s390/mm/fault.c b/arch/s390/mm/fault.c
-index e173b6187ad5..4608cc962ecf 100644
---- a/arch/s390/mm/fault.c
-+++ b/arch/s390/mm/fault.c
-@@ -433,6 +433,17 @@ static inline vm_fault_t do_exception(struct pt_regs *regs, int access)
-                        goto out_up;
-                goto out;
-        }
-+
-+       /* The fault is fully completed (including releasing mmap lock) */
-+       if (fault & VM_FAULT_COMPLETED) {
-+               /*
-+                * Gmap will need the mmap lock again, so retake it.  TODO:
-+                * only conditionally take the lock when CONFIG_PGSTE set.
-+                */
-+               mmap_read_lock(mm);
-+               goto out_gmap;
-+       }
-+
-        if (unlikely(fault & VM_FAULT_ERROR))
-                goto out_up;
- 
-@@ -452,6 +463,7 @@ static inline vm_fault_t do_exception(struct pt_regs *regs, int access)
-                mmap_read_lock(mm);
-                goto retry;
-        }
-+out_gmap:
-        if (IS_ENABLED(CONFIG_PGSTE) && gmap) {
-                address =  __gmap_link(gmap, current->thread.gmap_addr,
-                                       address);
----8<---
+I think I can look into them if this patch can be accepted as a follow up.
 
-Thanks,
+Thanks for taking a look!
 
 -- 
 Peter Xu
