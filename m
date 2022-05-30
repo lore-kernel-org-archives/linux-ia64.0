@@ -1,185 +1,582 @@
-From: Dmitry Osipenko <dmitry.osipenko@collabora.com>
-Date: Tue, 31 May 2022 21:24:49 +0000
-Subject: Re: [PATCH v8 16/27] m68k: Switch to new sys-off handler API
-Message-Id: <a41c323a-5d69-0ff1-d0da-38eb55e1e4db@collabora.com>
+From: Peter Xu <peterx@redhat.com>
+Date: Mon, 30 May 2022 18:34:50 +0000
+Subject: [PATCH v5] mm: Avoid unnecessary page fault retires on shared memory types
+Message-Id: <20220530183450.42886-1-peterx@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220509233235.995021-1-dmitry.osipenko@collabora.com>
- <20220509233235.995021-17-dmitry.osipenko@collabora.com>
- <CAMuHMdUFqf58F31EAGnhp_cu9k-G4Sx1cmwx-PGb3mU+6bjRnQ@mail.gmail.com>
-In-Reply-To: <CAMuHMdUFqf58F31EAGnhp_cu9k-G4Sx1cmwx-PGb3mU+6bjRnQ@mail.gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Cc: Thierry Reding <thierry.reding@gmail.com>, Jonathan Hunter <jonathanh@nvidia.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Greg Ungerer <gerg@linux-m68k.org>, Joshua Thompson <funaho@jurai.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Sebastian Reichel <sre@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, Philipp Zabel <p.zabel@pengutronix.de>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, the arch/x86 maintainers <x86@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Stefano Stabellini <sstabellini@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Krzysztof Kozlowski <krzk@kernel.org>, Liam Girdwood <lgirdwood@gmail.com>, Mark Brown <broonie@kernel.org>, Pavel Machek <pavel@ucw.cz>, Lee Jones <lee.jones@linaro.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Daniel Lezcano <daniel.lezcano@linaro.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Ulf Hansson <ulf.hansson@linaro.org>, =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-csky@vger.kernel.org, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, "open list:BROADCOM NVRAM DRIVER" <linux-mips@vger.kernel.org>, Parisc List <linux-parisc@vger.kernel.org>, linux-riscv <linux-riscv@lists.infradead.org>, Linux-sh list <linux-sh@vger.kernel.org>, xen-devel@lists.xenproject.org, ACPI Devel Maling List <linux-acpi@vger.kernel.org>, Linux PM list <linux-pm@vger.kernel.org>, linux-tegra <linux-tegra@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org, linux-mm@kvack.org
+Cc: Ingo Molnar <mingo@redhat.com>, Vasily Gorbik <gor@linux.ibm.com>, linuxppc-dev@lists.ozlabs.org, Stafford Horne <shorne@gmail.com>, "David S . Miller" <davem@davemloft.net>, Johannes Berg <johannes@sipsolutions.net>, Brian Cain <bcain@quicinc.com>, x86@kernel.org, linux-parisc@vger.kernel.org, peterx@redhat.com, Richard Henderson <rth@twiddle.net>, Christian Borntraeger <borntraeger@linux.ibm.com>, Richard Weinberger <richard@nod.at>, linux-hexagon@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Janosch Frank <frankja@linux.ibm.com>, Albert Ou <aou@eecs.berkeley.edu>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Dave Hansen <dave.hansen@linux.intel.com>, linux-ia64@vger.kernel.org, Borislav Petkov <bp@alien8.de>, Russell King <linux@armlinux.org.uk>, Sven Schnelle <svens@linux.ibm.com>, Andrea Arcangeli <aarcange@redhat.com>, "James E . J . Bottomley" <James.Bottomley@HansenPartnership.com>, Al Viro <viro@zeniv.linux.org.uk>, Alexander Gordeev <agordeev@linux.ibm.com>, Peter Zijlstra <peterz@infradead.org>, Alistair Popple <apopple@nvidia.com>, Jonas Bonn <jonas@southpole.se>, sparclinux@vger.kernel.org, linux-csky@vger.kernel.org, Will Deacon <will@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Vlastimil Babka <vbabka@suse.cz>, linux-um@lists.infradead.org, Michal Simek <monstr@monstr.eu>, Matt Turner <mattst88@gmail.com>, linux-m68k@lists.linux-m68k.org, Paul Mackerras <paulus@samba.org>, linux-xtensa@linux-xtensa.org, Geert Uytterhoeven <geert@linux-m68k.org>, David Hildenbrand <david@redhat.com>, openrisc@lists.librecores.org, linux-arm-kernel@lists.infradead.org, Nicholas Piggin <npiggin@gmail.com>, Palmer Dabbelt <palmer@dabbelt.com>, Michael Ellerman <mpe@ellerman.id.au>, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, Paul Walmsley <paul.walmsley@sifive.com>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Chris Zankel <chris@zankel.net>, Hugh Dickins <hughd@google.com>, Vineet Gupta <vgupta@kernel.org>, Dinh Nguyen <dinguyen@kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, Rich Felker <dalias@libc.org>, "H . Peter Anvin" <hpa@zytor.com>, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-riscv@lists.infradead.org, Heiko Carstens <hca@linux.ibm.com>, Johannes Weiner <hannes@cmpxchg.org>, Andy Lutomirski <luto@kernel.org>, Max Filippov <jcmvbkbc@gmail.com>, Guo Ren <guoren@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, linux-snps-arc@lists.infradead.org, linux-alpha@vger.kernel.org, linux-mips@vger.kernel.org, Helge Deller <deller@gmx.de>, Yoshinori Sato <ysato@users.sourceforge.jp>, Ingo Molnar <mingo@kernel.org>
 
-On 5/31/22 22:04, Geert Uytterhoeven wrote:
-> Hi Dmitry,
-> 
-> On Tue, May 10, 2022 at 1:34 AM Dmitry Osipenko
-> <dmitry.osipenko@collabora.com> wrote:
->> Kernel now supports chained power-off handlers. Use
->> register_power_off_handler() that registers power-off handlers and
->> do_kernel_power_off() that invokes chained power-off handlers. Legacy
->> pm_power_off() will be removed once all drivers will be converted to
->> the new sys-off API.
->>
->> Normally arch code should adopt only the do_kernel_power_off() at first,
->> but m68k is a special case because it uses pm_power_off() "inside out",
->> i.e. pm_power_off() invokes machine_power_off() [in fact it does nothing],
->> while it's machine_power_off() that should invoke the pm_power_off(), and
->> thus, we can't convert platforms to the new API separately. There are only
->> two platforms changed here, so it's not a big deal.
->>
->> Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
->> Reviewed-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
->> Signed-off-by: Dmitry Osipenko <dmitry.osipenko@collabora.com>
-> 
-> Thanks for your patch, which is now commit f0f7e5265b3b37b0
-> ("m68k: Switch to new sys-off handler API") upstream.
-> 
->> --- a/arch/m68k/emu/natfeat.c
->> +++ b/arch/m68k/emu/natfeat.c
->> @@ -15,6 +15,7 @@
->>  #include <linux/string.h>
->>  #include <linux/kernel.h>
->>  #include <linux/module.h>
->> +#include <linux/reboot.h>
->>  #include <linux/io.h>
->>  #include <asm/machdep.h>
->>  #include <asm/natfeat.h>
->> @@ -90,5 +91,5 @@ void __init nf_init(void)
->>         pr_info("NatFeats found (%s, %lu.%lu)\n", buf, version >> 16,
->>                 version & 0xffff);
->>
->> -       mach_power_off = nf_poweroff;
->> +       register_platform_power_off(nf_poweroff);
-> 
-> Unfortunately nothing is registered, as this is called very early
-> (from setup_arch(), before the memory allocator is available.
-> Hence register_sys_off_handler() fails with -ENOMEM, and poweroff
-> stops working.
-> 
-> Possible solutions:
->   - As at most one handler can be registered,
->     register_platform_power_off() could use a static struct sys_off_handler
->     instance,
->   - Keep mach_power_off, and call register_platform_power_off() later.
-> 
-> Anything else?
-> Thanks!
-> 
->> --- a/arch/m68k/mac/config.c
->> +++ b/arch/m68k/mac/config.c
->> @@ -12,6 +12,7 @@
->>
->>  #include <linux/errno.h>
->>  #include <linux/module.h>
->> +#include <linux/reboot.h>
->>  #include <linux/types.h>
->>  #include <linux/mm.h>
->>  #include <linux/tty.h>
->> @@ -140,7 +141,6 @@ void __init config_mac(void)
->>         mach_hwclk = mac_hwclk;
->>         mach_reset = mac_reset;
->>         mach_halt = mac_poweroff;
->> -       mach_power_off = mac_poweroff;
->>  #if IS_ENABLED(CONFIG_INPUT_M68K_BEEP)
->>         mach_beep = mac_mksound;
->>  #endif
->> @@ -160,6 +160,8 @@ void __init config_mac(void)
->>
->>         if (macintosh_config->ident = MAC_MODEL_IICI)
->>                 mach_l2_flush = via_l2_flush;
->> +
->> +       register_platform_power_off(mac_poweroff);
->>  }
-> 
-> This must have the same problem.
+I observed that for each of the shared file-backed page faults, we're very
+likely to retry one more time for the 1st write fault upon no page.  It's
+because we'll need to release the mmap lock for dirty rate limit purpose
+with balance_dirty_pages_ratelimited() (in fault_dirty_shared_page()).
 
-The static variant should be better, IMO. I'm not sure whether other platforms won't face the same problem once they will start using register_platform_power_off(). I'll send the fix, thank you for the testing!
+Then after that throttling we return VM_FAULT_RETRY.
 
---- >8 ---
+We did that probably because VM_FAULT_RETRY is the only way we can return
+to the fault handler at that time telling it we've released the mmap lock.
 
-diff --git a/kernel/reboot.c b/kernel/reboot.c
-index a091145ee710..4fea05d387dc 100644
---- a/kernel/reboot.c
-+++ b/kernel/reboot.c
-@@ -315,6 +315,37 @@ static int sys_off_notify(struct notifier_block *nb,
- 	return handler->sys_off_cb(&data);
- }
+However that's not ideal because it's very likely the fault does not need
+to be retried at all since the pgtable was well installed before the
+throttling, so the next continuous fault (including taking mmap read lock,
+walk the pgtable, etc.) could be in most cases unnecessary.
+
+It's not only slowing down page faults for shared file-backed, but also add
+more mmap lock contention which is in most cases not needed at all.
+
+To observe this, one could try to write to some shmem page and look at
+"pgfault" value in /proc/vmstat, then we should expect 2 counts for each
+shmem write simply because we retried, and vm event "pgfault" will capture
+that.
+
+To make it more efficient, add a new VM_FAULT_COMPLETED return code just to
+show that we've completed the whole fault and released the lock.  It's also
+a hint that we should very possibly not need another fault immediately on
+this page because we've just completed it.
+
+This patch provides a ~12% perf boost on my aarch64 test VM with a simple
+program sequentially dirtying 400MB shmem file being mmap()ed and these are
+the time it needs:
+
+  Before: 650.980 ms (+-1.94%)
+  After:  569.396 ms (+-1.38%)
+
+I believe it could help more than that.
+
+We need some special care on GUP and the s390 pgfault handler (for gmap
+code before returning from pgfault), the rest changes in the page fault
+handlers should be relatively straightforward.
+
+Another thing to mention is that mm_account_fault() does take this new
+fault as a generic fault to be accounted, unlike VM_FAULT_RETRY.
+
+I explicitly didn't touch hmm_vma_fault() and break_ksm() because they do
+not handle VM_FAULT_RETRY even with existing code, so I'm literally keeping
+them as-is.
+
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+Acked-by: Johannes Weiner <hannes@cmpxchg.org>
+Acked-by: Vineet Gupta <vgupta@kernel.org>
+Acked-by: Guo Ren <guoren@kernel.org>
+Acked-by: Max Filippov <jcmvbkbc@gmail.com>
+Acked-by: Christian Borntraeger <borntraeger@linux.ibm.com>
+Acked-by: Michael Ellerman <mpe@ellerman.id.au> (powerpc)
+Acked-by: Catalin Marinas <catalin.marinas@arm.com>
+Reviewed-by: Alistair Popple <apopple@nvidia.com>
+Reviewed-by: Ingo Molnar <mingo@kernel.org>
+Signed-off-by: Peter Xu <peterx@redhat.com>
+---
+v5:
+- Picked up a few more a-bs
+- For s390, further optimize gmap=NULL case [Heiko]
+---
+ arch/alpha/mm/fault.c         |  4 ++++
+ arch/arc/mm/fault.c           |  4 ++++
+ arch/arm/mm/fault.c           |  4 ++++
+ arch/arm64/mm/fault.c         |  4 ++++
+ arch/csky/mm/fault.c          |  4 ++++
+ arch/hexagon/mm/vm_fault.c    |  4 ++++
+ arch/ia64/mm/fault.c          |  4 ++++
+ arch/m68k/mm/fault.c          |  4 ++++
+ arch/microblaze/mm/fault.c    |  4 ++++
+ arch/mips/mm/fault.c          |  4 ++++
+ arch/nios2/mm/fault.c         |  4 ++++
+ arch/openrisc/mm/fault.c      |  4 ++++
+ arch/parisc/mm/fault.c        |  4 ++++
+ arch/powerpc/mm/copro_fault.c |  5 +++++
+ arch/powerpc/mm/fault.c       |  5 +++++
+ arch/riscv/mm/fault.c         |  4 ++++
+ arch/s390/mm/fault.c          | 12 ++++++++++++
+ arch/sh/mm/fault.c            |  4 ++++
+ arch/sparc/mm/fault_32.c      |  4 ++++
+ arch/sparc/mm/fault_64.c      |  5 +++++
+ arch/um/kernel/trap.c         |  4 ++++
+ arch/x86/mm/fault.c           |  4 ++++
+ arch/xtensa/mm/fault.c        |  4 ++++
+ include/linux/mm_types.h      |  2 ++
+ mm/gup.c                      | 34 +++++++++++++++++++++++++++++++++-
+ mm/memory.c                   |  2 +-
+ 26 files changed, 139 insertions(+), 2 deletions(-)
+
+diff --git a/arch/alpha/mm/fault.c b/arch/alpha/mm/fault.c
+index ec20c1004abf..ef427a6bdd1a 100644
+--- a/arch/alpha/mm/fault.c
++++ b/arch/alpha/mm/fault.c
+@@ -155,6 +155,10 @@ do_page_fault(unsigned long address, unsigned long mmcsr,
+ 	if (fault_signal_pending(fault, regs))
+ 		return;
  
-+static struct sys_off_handler platform_sys_off_handler;
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (fault & VM_FAULT_COMPLETED)
++		return;
 +
-+static struct sys_off_handler *alloc_sys_off_handler(int priority)
-+{
-+	struct sys_off_handler *handler;
+ 	if (unlikely(fault & VM_FAULT_ERROR)) {
+ 		if (fault & VM_FAULT_OOM)
+ 			goto out_of_memory;
+diff --git a/arch/arc/mm/fault.c b/arch/arc/mm/fault.c
+index dad27e4d69ff..5ca59a482632 100644
+--- a/arch/arc/mm/fault.c
++++ b/arch/arc/mm/fault.c
+@@ -146,6 +146,10 @@ void do_page_fault(unsigned long address, struct pt_regs *regs)
+ 		return;
+ 	}
+ 
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (fault & VM_FAULT_COMPLETED)
++		return;
 +
-+	/*
-+	 * Platforms like m68k can't allocate sys_off handler dynamically
-+	 * at the early boot time.
-+	 */
-+	if (priority = SYS_OFF_PRIO_PLATFORM) {
-+		handler = &platform_sys_off_handler;
-+		if (handler->cb_data)
-+			return ERR_PTR(-EBUSY);
-+	} else {
-+		handler = kzalloc(sizeof(*handler), GFP_KERNEL);
-+		if (!handler)
-+			return ERR_PTR(-ENOMEM);
+ 	/*
+ 	 * Fault retry nuances, mmap_lock already relinquished by core mm
+ 	 */
+diff --git a/arch/arm/mm/fault.c b/arch/arm/mm/fault.c
+index a062e07516dd..46cccd6bf705 100644
+--- a/arch/arm/mm/fault.c
++++ b/arch/arm/mm/fault.c
+@@ -322,6 +322,10 @@ do_page_fault(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
+ 		return 0;
+ 	}
+ 
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (fault & VM_FAULT_COMPLETED)
++		return 0;
++
+ 	if (!(fault & VM_FAULT_ERROR)) {
+ 		if (fault & VM_FAULT_RETRY) {
+ 			flags |= FAULT_FLAG_TRIED;
+diff --git a/arch/arm64/mm/fault.c b/arch/arm64/mm/fault.c
+index 77341b160aca..e401d416bbd6 100644
+--- a/arch/arm64/mm/fault.c
++++ b/arch/arm64/mm/fault.c
+@@ -607,6 +607,10 @@ static int __kprobes do_page_fault(unsigned long far, unsigned int esr,
+ 		return 0;
+ 	}
+ 
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (fault & VM_FAULT_COMPLETED)
++		return 0;
++
+ 	if (fault & VM_FAULT_RETRY) {
+ 		mm_flags |= FAULT_FLAG_TRIED;
+ 		goto retry;
+diff --git a/arch/csky/mm/fault.c b/arch/csky/mm/fault.c
+index 7215a46b6b8e..e15f736cca4b 100644
+--- a/arch/csky/mm/fault.c
++++ b/arch/csky/mm/fault.c
+@@ -285,6 +285,10 @@ asmlinkage void do_page_fault(struct pt_regs *regs)
+ 		return;
+ 	}
+ 
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (fault & VM_FAULT_COMPLETED)
++		return;
++
+ 	if (unlikely((fault & VM_FAULT_RETRY) && (flags & FAULT_FLAG_ALLOW_RETRY))) {
+ 		flags |= FAULT_FLAG_TRIED;
+ 
+diff --git a/arch/hexagon/mm/vm_fault.c b/arch/hexagon/mm/vm_fault.c
+index 4fac4b9eb316..f73c7cbfe326 100644
+--- a/arch/hexagon/mm/vm_fault.c
++++ b/arch/hexagon/mm/vm_fault.c
+@@ -96,6 +96,10 @@ void do_page_fault(unsigned long address, long cause, struct pt_regs *regs)
+ 	if (fault_signal_pending(fault, regs))
+ 		return;
+ 
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (fault & VM_FAULT_COMPLETED)
++		return;
++
+ 	/* The most common case -- we are done. */
+ 	if (likely(!(fault & VM_FAULT_ERROR))) {
+ 		if (fault & VM_FAULT_RETRY) {
+diff --git a/arch/ia64/mm/fault.c b/arch/ia64/mm/fault.c
+index 07379d1a227f..ef78c2d66cdd 100644
+--- a/arch/ia64/mm/fault.c
++++ b/arch/ia64/mm/fault.c
+@@ -139,6 +139,10 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
+ 	if (fault_signal_pending(fault, regs))
+ 		return;
+ 
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (fault & VM_FAULT_COMPLETED)
++		return;
++
+ 	if (unlikely(fault & VM_FAULT_ERROR)) {
+ 		/*
+ 		 * We ran out of memory, or some other thing happened
+diff --git a/arch/m68k/mm/fault.c b/arch/m68k/mm/fault.c
+index 71aa9f6315dc..4d2837eb3e2a 100644
+--- a/arch/m68k/mm/fault.c
++++ b/arch/m68k/mm/fault.c
+@@ -141,6 +141,10 @@ int do_page_fault(struct pt_regs *regs, unsigned long address,
+ 	if (fault_signal_pending(fault, regs))
+ 		return 0;
+ 
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (fault & VM_FAULT_COMPLETED)
++		return 0;
++
+ 	if (unlikely(fault & VM_FAULT_ERROR)) {
+ 		if (fault & VM_FAULT_OOM)
+ 			goto out_of_memory;
+diff --git a/arch/microblaze/mm/fault.c b/arch/microblaze/mm/fault.c
+index a9626e6a68af..5c40c3ebe52f 100644
+--- a/arch/microblaze/mm/fault.c
++++ b/arch/microblaze/mm/fault.c
+@@ -222,6 +222,10 @@ void do_page_fault(struct pt_regs *regs, unsigned long address,
+ 	if (fault_signal_pending(fault, regs))
+ 		return;
+ 
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (fault & VM_FAULT_COMPLETED)
++		return;
++
+ 	if (unlikely(fault & VM_FAULT_ERROR)) {
+ 		if (fault & VM_FAULT_OOM)
+ 			goto out_of_memory;
+diff --git a/arch/mips/mm/fault.c b/arch/mips/mm/fault.c
+index 44f98100e84e..6f72bac39bf2 100644
+--- a/arch/mips/mm/fault.c
++++ b/arch/mips/mm/fault.c
+@@ -162,6 +162,10 @@ static void __kprobes __do_page_fault(struct pt_regs *regs, unsigned long write,
+ 		return;
+ 	}
+ 
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (fault & VM_FAULT_COMPLETED)
++		return;
++
+ 	if (unlikely(fault & VM_FAULT_ERROR)) {
+ 		if (fault & VM_FAULT_OOM)
+ 			goto out_of_memory;
+diff --git a/arch/nios2/mm/fault.c b/arch/nios2/mm/fault.c
+index a32f14cd72f2..edaca0a6c1c1 100644
+--- a/arch/nios2/mm/fault.c
++++ b/arch/nios2/mm/fault.c
+@@ -139,6 +139,10 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long cause,
+ 	if (fault_signal_pending(fault, regs))
+ 		return;
+ 
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (fault & VM_FAULT_COMPLETED)
++		return;
++
+ 	if (unlikely(fault & VM_FAULT_ERROR)) {
+ 		if (fault & VM_FAULT_OOM)
+ 			goto out_of_memory;
+diff --git a/arch/openrisc/mm/fault.c b/arch/openrisc/mm/fault.c
+index 80bb66ad42f6..c18f7abd64df 100644
+--- a/arch/openrisc/mm/fault.c
++++ b/arch/openrisc/mm/fault.c
+@@ -167,6 +167,10 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long address,
+ 	if (fault_signal_pending(fault, regs))
+ 		return;
+ 
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (fault & VM_FAULT_COMPLETED)
++		return;
++
+ 	if (unlikely(fault & VM_FAULT_ERROR)) {
+ 		if (fault & VM_FAULT_OOM)
+ 			goto out_of_memory;
+diff --git a/arch/parisc/mm/fault.c b/arch/parisc/mm/fault.c
+index f114e102aaf2..fe57175a7792 100644
+--- a/arch/parisc/mm/fault.c
++++ b/arch/parisc/mm/fault.c
+@@ -309,6 +309,10 @@ void do_page_fault(struct pt_regs *regs, unsigned long code,
+ 	if (fault_signal_pending(fault, regs))
+ 		return;
+ 
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (fault & VM_FAULT_COMPLETED)
++		return;
++
+ 	if (unlikely(fault & VM_FAULT_ERROR)) {
+ 		/*
+ 		 * We hit a shared mapping outside of the file, or some
+diff --git a/arch/powerpc/mm/copro_fault.c b/arch/powerpc/mm/copro_fault.c
+index c1cb21a00884..7c507fb48182 100644
+--- a/arch/powerpc/mm/copro_fault.c
++++ b/arch/powerpc/mm/copro_fault.c
+@@ -65,6 +65,11 @@ int copro_handle_mm_fault(struct mm_struct *mm, unsigned long ea,
+ 
+ 	ret = 0;
+ 	*flt = handle_mm_fault(vma, ea, is_write ? FAULT_FLAG_WRITE : 0, NULL);
++
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (*flt & VM_FAULT_COMPLETED)
++		return 0;
++
+ 	if (unlikely(*flt & VM_FAULT_ERROR)) {
+ 		if (*flt & VM_FAULT_OOM) {
+ 			ret = -ENOMEM;
+diff --git a/arch/powerpc/mm/fault.c b/arch/powerpc/mm/fault.c
+index d53fed4eccbd..014005428687 100644
+--- a/arch/powerpc/mm/fault.c
++++ b/arch/powerpc/mm/fault.c
+@@ -511,6 +511,10 @@ static int ___do_page_fault(struct pt_regs *regs, unsigned long address,
+ 	if (fault_signal_pending(fault, regs))
+ 		return user_mode(regs) ? 0 : SIGBUS;
+ 
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (fault & VM_FAULT_COMPLETED)
++		goto out;
++
+ 	/*
+ 	 * Handle the retry right now, the mmap_lock has been released in that
+ 	 * case.
+@@ -525,6 +529,7 @@ static int ___do_page_fault(struct pt_regs *regs, unsigned long address,
+ 	if (unlikely(fault & VM_FAULT_ERROR))
+ 		return mm_fault_error(regs, address, fault);
+ 
++out:
+ 	/*
+ 	 * Major/minor page fault accounting.
+ 	 */
+diff --git a/arch/riscv/mm/fault.c b/arch/riscv/mm/fault.c
+index 4e9efbe46d5f..d6a87f4137ca 100644
+--- a/arch/riscv/mm/fault.c
++++ b/arch/riscv/mm/fault.c
+@@ -330,6 +330,10 @@ asmlinkage void do_page_fault(struct pt_regs *regs)
+ 	if (fault_signal_pending(fault, regs))
+ 		return;
+ 
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (fault & VM_FAULT_COMPLETED)
++		return;
++
+ 	if (unlikely(fault & VM_FAULT_RETRY)) {
+ 		flags |= FAULT_FLAG_TRIED;
+ 
+diff --git a/arch/s390/mm/fault.c b/arch/s390/mm/fault.c
+index e173b6187ad5..973dcd05c293 100644
+--- a/arch/s390/mm/fault.c
++++ b/arch/s390/mm/fault.c
+@@ -433,6 +433,17 @@ static inline vm_fault_t do_exception(struct pt_regs *regs, int access)
+ 			goto out_up;
+ 		goto out;
+ 	}
++
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (fault & VM_FAULT_COMPLETED) {
++		if (gmap) {
++			mmap_read_lock(mm);
++			goto out_gmap;
++		}
++		fault = 0;
++		goto out;
 +	}
 +
-+	return handler;
-+}
+ 	if (unlikely(fault & VM_FAULT_ERROR))
+ 		goto out_up;
+ 
+@@ -452,6 +463,7 @@ static inline vm_fault_t do_exception(struct pt_regs *regs, int access)
+ 		mmap_read_lock(mm);
+ 		goto retry;
+ 	}
++out_gmap:
+ 	if (IS_ENABLED(CONFIG_PGSTE) && gmap) {
+ 		address =  __gmap_link(gmap, current->thread.gmap_addr,
+ 				       address);
+diff --git a/arch/sh/mm/fault.c b/arch/sh/mm/fault.c
+index e175667b1363..acd2f5e50bfc 100644
+--- a/arch/sh/mm/fault.c
++++ b/arch/sh/mm/fault.c
+@@ -485,6 +485,10 @@ asmlinkage void __kprobes do_page_fault(struct pt_regs *regs,
+ 		if (mm_fault_error(regs, error_code, address, fault))
+ 			return;
+ 
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (fault & VM_FAULT_COMPLETED)
++		return;
 +
-+static void free_sys_off_handler(struct sys_off_handler *handler)
-+{
-+	if (handler = &platform_sys_off_handler)
-+		memset(handler, 0, sizeof(*handler));
-+	else
-+		kfree(handler);
-+}
+ 	if (fault & VM_FAULT_RETRY) {
+ 		flags |= FAULT_FLAG_TRIED;
+ 
+diff --git a/arch/sparc/mm/fault_32.c b/arch/sparc/mm/fault_32.c
+index ad569d9bd124..91259f291c54 100644
+--- a/arch/sparc/mm/fault_32.c
++++ b/arch/sparc/mm/fault_32.c
+@@ -190,6 +190,10 @@ asmlinkage void do_sparc_fault(struct pt_regs *regs, int text_fault, int write,
+ 	if (fault_signal_pending(fault, regs))
+ 		return;
+ 
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (fault & VM_FAULT_COMPLETED)
++		return;
 +
- /**
-  *	register_sys_off_handler - Register sys-off handler
-  *	@mode: Sys-off mode
-@@ -345,9 +376,9 @@ register_sys_off_handler(enum sys_off_mode mode,
- 	struct sys_off_handler *handler;
- 	int err;
+ 	if (unlikely(fault & VM_FAULT_ERROR)) {
+ 		if (fault & VM_FAULT_OOM)
+ 			goto out_of_memory;
+diff --git a/arch/sparc/mm/fault_64.c b/arch/sparc/mm/fault_64.c
+index 253e07043298..4acc12eafbf5 100644
+--- a/arch/sparc/mm/fault_64.c
++++ b/arch/sparc/mm/fault_64.c
+@@ -427,6 +427,10 @@ asmlinkage void __kprobes do_sparc64_fault(struct pt_regs *regs)
+ 	if (fault_signal_pending(fault, regs))
+ 		goto exit_exception;
  
--	handler = kzalloc(sizeof(*handler), GFP_KERNEL);
--	if (!handler)
--		return ERR_PTR(-ENOMEM);
-+	handler = alloc_sys_off_handler(priority);
-+	if (IS_ERR(handler))
-+		return handler;
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (fault & VM_FAULT_COMPLETED)
++		goto lock_released;
++
+ 	if (unlikely(fault & VM_FAULT_ERROR)) {
+ 		if (fault & VM_FAULT_OOM)
+ 			goto out_of_memory;
+@@ -449,6 +453,7 @@ asmlinkage void __kprobes do_sparc64_fault(struct pt_regs *regs)
+ 	}
+ 	mmap_read_unlock(mm);
  
- 	switch (mode) {
- 	case SYS_OFF_MODE_POWER_OFF_PREPARE:
-@@ -364,7 +395,7 @@ register_sys_off_handler(enum sys_off_mode mode,
- 		break;
++lock_released:
+ 	mm_rss = get_mm_rss(mm);
+ #if defined(CONFIG_TRANSPARENT_HUGEPAGE)
+ 	mm_rss -= (mm->context.thp_pte_count * (HPAGE_SIZE / PAGE_SIZE));
+diff --git a/arch/um/kernel/trap.c b/arch/um/kernel/trap.c
+index d1d5d0be0308..d3ce21c4ca32 100644
+--- a/arch/um/kernel/trap.c
++++ b/arch/um/kernel/trap.c
+@@ -76,6 +76,10 @@ int handle_page_fault(unsigned long address, unsigned long ip,
+ 		if ((fault & VM_FAULT_RETRY) && fatal_signal_pending(current))
+ 			goto out_nosemaphore;
  
- 	default:
--		kfree(handler);
-+		free_sys_off_handler(handler);
- 		return ERR_PTR(-EINVAL);
++		/* The fault is fully completed (including releasing mmap lock) */
++		if (fault & VM_FAULT_COMPLETED)
++			return 0;
++
+ 		if (unlikely(fault & VM_FAULT_ERROR)) {
+ 			if (fault & VM_FAULT_OOM) {
+ 				goto out_of_memory;
+diff --git a/arch/x86/mm/fault.c b/arch/x86/mm/fault.c
+index d0074c6ed31a..12ed70b432d6 100644
+--- a/arch/x86/mm/fault.c
++++ b/arch/x86/mm/fault.c
+@@ -1408,6 +1408,10 @@ void do_user_addr_fault(struct pt_regs *regs,
+ 		return;
  	}
  
-@@ -391,7 +422,7 @@ register_sys_off_handler(enum sys_off_mode mode,
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (fault & VM_FAULT_COMPLETED)
++		return;
++
+ 	/*
+ 	 * If we need to retry the mmap_lock has already been released,
+ 	 * and if there is a fatal signal pending there is no guarantee
+diff --git a/arch/xtensa/mm/fault.c b/arch/xtensa/mm/fault.c
+index 06d0973a0d74..5f64305ba8d7 100644
+--- a/arch/xtensa/mm/fault.c
++++ b/arch/xtensa/mm/fault.c
+@@ -118,6 +118,10 @@ void do_page_fault(struct pt_regs *regs)
+ 		return;
  	}
  
- 	if (err) {
--		kfree(handler);
-+		free_sys_off_handler(handler);
- 		return ERR_PTR(err);
++	/* The fault is fully completed (including releasing mmap lock) */
++	if (fault & VM_FAULT_COMPLETED)
++		return;
++
+ 	if (unlikely(fault & VM_FAULT_ERROR)) {
+ 		if (fault & VM_FAULT_OOM)
+ 			goto out_of_memory;
+diff --git a/include/linux/mm_types.h b/include/linux/mm_types.h
+index c09b7f0555b8..decc275db3c9 100644
+--- a/include/linux/mm_types.h
++++ b/include/linux/mm_types.h
+@@ -729,6 +729,7 @@ typedef __bitwise unsigned int vm_fault_t;
+  * @VM_FAULT_NEEDDSYNC:		->fault did not modify page tables and needs
+  *				fsync() to complete (for synchronous page faults
+  *				in DAX)
++ * @VM_FAULT_COMPLETED:		->fault completed, meanwhile mmap lock released
+  * @VM_FAULT_HINDEX_MASK:	mask HINDEX value
+  *
+  */
+@@ -746,6 +747,7 @@ enum vm_fault_reason {
+ 	VM_FAULT_FALLBACK       = (__force vm_fault_t)0x000800,
+ 	VM_FAULT_DONE_COW       = (__force vm_fault_t)0x001000,
+ 	VM_FAULT_NEEDDSYNC      = (__force vm_fault_t)0x002000,
++	VM_FAULT_COMPLETED      = (__force vm_fault_t)0x004000,
+ 	VM_FAULT_HINDEX_MASK    = (__force vm_fault_t)0x0f0000,
+ };
+ 
+diff --git a/mm/gup.c b/mm/gup.c
+index 2e07cff3b31b..a63d330b9d43 100644
+--- a/mm/gup.c
++++ b/mm/gup.c
+@@ -951,6 +951,25 @@ static int faultin_page(struct vm_area_struct *vma,
  	}
  
-@@ -422,7 +453,7 @@ void unregister_sys_off_handler(struct sys_off_handler *handler)
- 	/* sanity check, shall never happen */
- 	WARN_ON(err);
+ 	ret = handle_mm_fault(vma, address, fault_flags, NULL);
++
++	if (ret & VM_FAULT_COMPLETED) {
++		/*
++		 * With FAULT_FLAG_RETRY_NOWAIT we'll never release the
++		 * mmap lock in the page fault handler. Sanity check this.
++		 */
++		WARN_ON_ONCE(fault_flags & FAULT_FLAG_RETRY_NOWAIT);
++		if (locked)
++			*locked = 0;
++		/*
++		 * We should do the same as VM_FAULT_RETRY, but let's not
++		 * return -EBUSY since that's not reflecting the reality of
++		 * what has happened - we've just fully completed a page
++		 * fault, with the mmap lock released.  Use -EAGAIN to show
++		 * that we want to take the mmap lock _again_.
++		 */
++		return -EAGAIN;
++	}
++
+ 	if (ret & VM_FAULT_ERROR) {
+ 		int err = vm_fault_to_errno(ret, *flags);
  
--	kfree(handler);
-+	free_sys_off_handler(handler);
- }
- EXPORT_SYMBOL_GPL(unregister_sys_off_handler);
+@@ -1177,6 +1196,7 @@ static long __get_user_pages(struct mm_struct *mm,
+ 			case 0:
+ 				goto retry;
+ 			case -EBUSY:
++			case -EAGAIN:
+ 				ret = 0;
+ 				fallthrough;
+ 			case -EFAULT:
+@@ -1303,6 +1323,18 @@ int fixup_user_fault(struct mm_struct *mm,
+ 		return -EINTR;
  
+ 	ret = handle_mm_fault(vma, address, fault_flags, NULL);
++
++	if (ret & VM_FAULT_COMPLETED) {
++		/*
++		 * NOTE: it's a pity that we need to retake the lock here
++		 * to pair with the unlock() in the callers. Ideally we
++		 * could tell the callers so they do not need to unlock.
++		 */
++		mmap_read_lock(mm);
++		*unlocked = true;
++		return 0;
++	}
++
+ 	if (ret & VM_FAULT_ERROR) {
+ 		int err = vm_fault_to_errno(ret, 0);
+ 
+@@ -1368,7 +1400,7 @@ static __always_inline long __get_user_pages_locked(struct mm_struct *mm,
+ 			/* VM_FAULT_RETRY couldn't trigger, bypass */
+ 			return ret;
+ 
+-		/* VM_FAULT_RETRY cannot return errors */
++		/* VM_FAULT_RETRY or VM_FAULT_COMPLETED cannot return errors */
+ 		if (!*locked) {
+ 			BUG_ON(ret < 0);
+ 			BUG_ON(ret >= nr_pages);
+diff --git a/mm/memory.c b/mm/memory.c
+index 54d106e0c999..a8be2d7a8718 100644
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -3020,7 +3020,7 @@ static vm_fault_t fault_dirty_shared_page(struct vm_fault *vmf)
+ 		balance_dirty_pages_ratelimited(mapping);
+ 		if (fpin) {
+ 			fput(fpin);
+-			return VM_FAULT_RETRY;
++			return VM_FAULT_COMPLETED;
+ 		}
+ 	}
+ 
+-- 
+2.32.0
