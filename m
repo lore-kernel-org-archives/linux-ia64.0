@@ -1,50 +1,96 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Mon, 27 Jun 2022 05:49:26 +0000
-Subject: Re: [PATCH V5 01/26] mm/mmap: Build protect protection_map[] with __P000
-Message-Id: <d273b5e5-ebb9-b279-b9f7-a595494afa53@csgroup.eu>
+From: Nathan Chancellor <nathan@kernel.org>
+Date: Wed, 01 Jun 2022 17:25:31 +0000
+Subject: Re: [PATCH 09/15] swiotlb: make the swiotlb_init interface more useful
+Message-Id: <YpehC7BwBlnuxplF@dev-arch.thelio-3990X>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220627045833.1590055-1-anshuman.khandual@arm.com>
- <20220627045833.1590055-2-anshuman.khandual@arm.com>
-In-Reply-To: <20220627045833.1590055-2-anshuman.khandual@arm.com>
+References: <20220404050559.132378-1-hch@lst.de>
+ <20220404050559.132378-10-hch@lst.de>
+In-Reply-To: <20220404050559.132378-10-hch@lst.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Anshuman Khandual <anshuman.khandual@arm.com>, "linux-mm@kvack.org" <linux-mm@kvack.org>
-Cc: "hch@infradead.org" <hch@infradead.org>, Andrew Morton <akpm@linux-foundation.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>, "x86@kernel.org" <x86@kernel.org>, "openrisc@lists.librecores.org" <openrisc@lists.librecores.org>, "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>, "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>, "linux-hexagon@vger.kernel.org" <linux-hexagon@vger.kernel.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>, "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>, "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Christoph Hellwig <hch@lst.de>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Christoph Hellwig <hch@lst.de>
+Cc: iommu@lists.linux-foundation.org, x86@kernel.org, Anshuman Khandual <anshuman.khandual@arm.com>, Tom Lendacky <thomas.lendacky@amd.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Stefano Stabellini <sstabellini@kernel.org>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Juergen Gross <jgross@suse.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Robin Murphy <robin.murphy@arm.com>, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-hyperv@vger.kernel.org, tboot-devel@lists.sourceforge.net, linux-pci@vger.kernel.org
 
-DQoNCkxlIDI3LzA2LzIwMjIgw6AgMDY6NTgsIEFuc2h1bWFuIEtoYW5kdWFsIGEgw6ljcml0wqA6
-DQo+IEJ1aWxkIHByb3RlY3QgZ2VuZXJpYyBwcm90ZWN0aW9uX21hcFtdIGFycmF5IHdpdGggX19Q
-MDAwLCBzbyB0aGF0IGl0IGNhbiBiZQ0KPiBtb3ZlZCBpbnNpZGUgYWxsIHRoZSBwbGF0Zm9ybXMg
-b25lIGFmdGVyIHRoZSBvdGhlci4gT3RoZXJ3aXNlIHRoZXJlIHdpbGwgYmUNCj4gYnVpbGQgZmFp
-bHVyZXMgZHVyaW5nIHRoaXMgcHJvY2Vzcy4gQ09ORklHX0FSQ0hfSEFTX1ZNX0dFVF9QQUdFX1BS
-T1QgY2Fubm90DQo+IGJlIHVzZWQgZm9yIHRoaXMgcHVycG9zZSBhcyBvbmx5IGNlcnRhaW4gcGxh
-dGZvcm1zIGVuYWJsZSB0aGlzIGNvbmZpZyBub3cuDQo+IA0KPiBDYzogQW5kcmV3IE1vcnRvbiA8
-YWtwbUBsaW51eC1mb3VuZGF0aW9uLm9yZz4NCj4gQ2M6IGxpbnV4LW1tQGt2YWNrLm9yZw0KPiBD
-YzogbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiBSZXZpZXdlZC1ieTogQ2hyaXN0b3Bo
-IEhlbGx3aWcgPGhjaEBsc3QuZGU+DQo+IFN1Z2dlc3RlZC1ieTogQ2hyaXN0b3BoZSBMZXJveSA8
-Y2hyaXN0b3BoZS5sZXJveUBjc2dyb3VwLmV1Pg0KPiBTaWduZWQtb2ZmLWJ5OiBBbnNodW1hbiBL
-aGFuZHVhbCA8YW5zaHVtYW4ua2hhbmR1YWxAYXJtLmNvbT4NCg0KUmV2aWV3ZWQtYnk6IENocmlz
-dG9waGUgTGVyb3kgPGNocmlzdG9waGUubGVyb3lAY3Nncm91cC5ldT4NCg0KPiAtLS0NCj4gICBp
-bmNsdWRlL2xpbnV4L21tLmggfCAyICsrDQo+ICAgbW0vbW1hcC5jICAgICAgICAgIHwgMiArKw0K
-PiAgIDIgZmlsZXMgY2hhbmdlZCwgNCBpbnNlcnRpb25zKCspDQo+IA0KPiBkaWZmIC0tZ2l0IGEv
-aW5jbHVkZS9saW51eC9tbS5oIGIvaW5jbHVkZS9saW51eC9tbS5oDQo+IGluZGV4IGJjOGYzMjZi
-ZTBjZS4uNDdiZmUwMzhkNDZlIDEwMDY0NA0KPiAtLS0gYS9pbmNsdWRlL2xpbnV4L21tLmgNCj4g
-KysrIGIvaW5jbHVkZS9saW51eC9tbS5oDQo+IEBAIC00MjQsNyArNDI0LDkgQEAgZXh0ZXJuIHVu
-c2lnbmVkIGludCBrb2Jqc2l6ZShjb25zdCB2b2lkICpvYmpwKTsNCj4gICAgKiBtYXBwaW5nIGZy
-b20gdGhlIGN1cnJlbnRseSBhY3RpdmUgdm1fZmxhZ3MgcHJvdGVjdGlvbiBiaXRzICh0aGUNCj4g
-ICAgKiBsb3cgZm91ciBiaXRzKSB0byBhIHBhZ2UgcHJvdGVjdGlvbiBtYXNrLi4NCj4gICAgKi8N
-Cj4gKyNpZmRlZiBfX1AwMDANCj4gICBleHRlcm4gcGdwcm90X3QgcHJvdGVjdGlvbl9tYXBbMTZd
-Ow0KPiArI2VuZGlmDQo+ICAgDQo+ICAgLyoNCj4gICAgKiBUaGUgZGVmYXVsdCBmYXVsdCBmbGFn
-cyB0aGF0IHNob3VsZCBiZSB1c2VkIGJ5IG1vc3Qgb2YgdGhlDQo+IGRpZmYgLS1naXQgYS9tbS9t
-bWFwLmMgYi9tbS9tbWFwLmMNCj4gaW5kZXggNjFlNjEzNWM1NGVmLi5iMDFmMDI4MGJkYTIgMTAw
-NjQ0DQo+IC0tLSBhL21tL21tYXAuYw0KPiArKysgYi9tbS9tbWFwLmMNCj4gQEAgLTEwMSw2ICsx
-MDEsNyBAQCBzdGF0aWMgdm9pZCB1bm1hcF9yZWdpb24oc3RydWN0IG1tX3N0cnVjdCAqbW0sDQo+
-ICAgICoJCQkJCQkJCXc6IChubykgbm8NCj4gICAgKgkJCQkJCQkJeDogKHllcykgeWVzDQo+ICAg
-ICovDQo+ICsjaWZkZWYgX19QMDAwDQo+ICAgcGdwcm90X3QgcHJvdGVjdGlvbl9tYXBbMTZdIF9f
-cm9fYWZ0ZXJfaW5pdCA9IHsNCj4gICAJW1ZNX05PTkVdCQkJCQk9IF9fUDAwMCwNCj4gICAJW1ZN
-X1JFQURdCQkJCQk9IF9fUDAwMSwNCj4gQEAgLTExOSw2ICsxMjAsNyBAQCBwZ3Byb3RfdCBwcm90
-ZWN0aW9uX21hcFsxNl0gX19yb19hZnRlcl9pbml0ID0gew0KPiAgIAlbVk1fU0hBUkVEIHwgVk1f
-RVhFQyB8IFZNX1dSSVRFXQkJPSBfX1MxMTAsDQo+ICAgCVtWTV9TSEFSRUQgfCBWTV9FWEVDIHwg
-Vk1fV1JJVEUgfCBWTV9SRUFEXQk9IF9fUzExMQ0KPiAgIH07DQo+ICsjZW5kaWYNCj4gICANCj4g
-ICAjaWZuZGVmIENPTkZJR19BUkNIX0hBU19WTV9HRVRfUEFHRV9QUk9UDQo+ICAgcGdwcm90X3Qg
-dm1fZ2V0X3BhZ2VfcHJvdCh1bnNpZ25lZCBsb25nIHZtX2ZsYWdzKQ=
+Hi Christoph,
+
+On Mon, Apr 04, 2022 at 07:05:53AM +0200, Christoph Hellwig wrote:
+> Pass a bool to pass if swiotlb needs to be enabled based on the
+> addressing needs and replace the verbose argument with a set of
+> flags, including one to force enable bounce buffering.
+> 
+> Note that this patch removes the possibility to force xen-swiotlb
+> use using swiotlb=force on the command line on x86 (arm and arm64
+> never supported that), but this interface will be restored shortly.
+> 
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
+
+I bisected a performance regression in WSL2 to this change as commit
+c6af2aa9ffc9 ("swiotlb: make the swiotlb_init interface more useful") in
+mainline (bisect log below). I initially noticed it because accessing the
+Windows filesystem through the /mnt/c mount is about 40x slower if I am doing
+my math right based on the benchmarks below.
+
+Before:
+
+$ uname -r; and hyperfine "ls -l /mnt/c/Users/natec/Downloads"
+5.18.0-rc3-microsoft-standard-WSL2-00008-ga3e230926708
+Benchmark 1: ls -l /mnt/c/Users/natec/Downloads
+  Time (mean ± σ):     564.5 ms ±  24.1 ms    [User: 2.5 ms, System: 130.3 ms]
+  Range (min … max):   510.2 ms … 588.0 ms    10 runs
+
+After
+
+$ uname -r; and hyperfine "ls -l /mnt/c/Users/natec/Downloads"
+5.18.0-rc3-microsoft-standard-WSL2-00009-gc6af2aa9ffc9
+Benchmark 1: ls -l /mnt/c/Users/natec/Downloads
+  Time (mean ± σ):     23.282 s ±  1.220 s    [User: 0.013 s, System: 0.101 s]
+  Range (min … max):   21.793 s … 25.317 s    10 runs
+
+I do see 'swiotlb=force' on the cmdline:
+
+$ cat /proc/cmdline
+initrd=\initrd.img panic=-1 nr_cpus=8 swiotlb=force earlycon=uart8250,io,0x3f8,115200 console=hvc0 debug pty.legacy_count=0
+
+/mnt/c appears to be a 9p mount, not sure if that is relevant here:
+
+$ mount &| grep /mnt/c
+drvfs on /mnt/c type 9p (rw,noatime,dirsync,aname=drvfs;path=C:\;uid00;gid00;symlinkroot=/mnt/,mmap,access=client,msize&2144,trans=virtio)
+
+If there is any other information I can provide, please let me know.
+
+Cheers,
+Nathan
+
+# bad: [700170bf6b4d773e328fa54ebb70ba444007c702] Merge tag 'nfs-for-5.19-1' of git://git.linux-nfs.org/projects/anna/linux-nfs
+# good: [4b0986a3613c92f4ec1bdc7f60ec66fea135991f] Linux 5.18
+git bisect start '700170bf6b4d773e328fa54ebb70ba444007c702' 'v5.18'
+# good: [86c87bea6b42100c67418af690919c44de6ede6e] Merge tag 'devicetree-for-5.19' of git://git.kernel.org/pub/scm/linux/kernel/git/robh/linux
+git bisect good 86c87bea6b42100c67418af690919c44de6ede6e
+# bad: [ae862183285cbb2ef9032770d98ffa9becffe9d5] Merge tag 'arm-dt-5.19' of git://git.kernel.org/pub/scm/linux/kernel/git/soc/soc
+git bisect bad ae862183285cbb2ef9032770d98ffa9becffe9d5
+# good: [2518f226c60d8e04d18ba4295500a5b0b8ac7659] Merge tag 'drm-next-2022-05-25' of git://anongit.freedesktop.org/drm/drm
+git bisect good 2518f226c60d8e04d18ba4295500a5b0b8ac7659
+# bad: [babf0bb978e3c9fce6c4eba6b744c8754fd43d8e] Merge tag 'xfs-5.19-for-linus' of git://git.kernel.org/pub/scm/fs/xfs/xfs-linux
+git bisect bad babf0bb978e3c9fce6c4eba6b744c8754fd43d8e
+# good: [beed983621fbdfd291e6e3a0cdc4d10517e60af8] ASoC: Intel: avs: Machine board registration
+git bisect good beed983621fbdfd291e6e3a0cdc4d10517e60af8
+# good: [fbe86daca0ba878b04fa241b85e26e54d17d4229] Merge tag 'scsi-misc' of git://git.kernel.org/pub/scm/linux/kernel/git/jejb/scsi
+git bisect good fbe86daca0ba878b04fa241b85e26e54d17d4229
+# good: [166afc45ed5523298541fd0297f9ad585cc2708c] Merge tag 'reflink-speedups-5.19_2022-04-28' of git://git.kernel.org/pub/scm/linux/kernel/git/djwong/xfs-linux into xfs-5.19-for-next
+git bisect good 166afc45ed5523298541fd0297f9ad585cc2708c
+# bad: [e375780b631a5fc2a61a3b4fa12429255361a31e] Merge tag 'fsnotify_for_v5.19-rc1' of git://git.kernel.org/pub/scm/linux/kernel/git/jack/linux-fs
+git bisect bad e375780b631a5fc2a61a3b4fa12429255361a31e
+# bad: [4a37f3dd9a83186cb88d44808ab35b78375082c9] dma-direct: don't over-decrypt memory
+git bisect bad 4a37f3dd9a83186cb88d44808ab35b78375082c9
+# bad: [742519538e6b07250c8085bbff4bd358bc03bf16] swiotlb: pass a gfp_mask argument to swiotlb_init_late
+git bisect bad 742519538e6b07250c8085bbff4bd358bc03bf16
+# good: [9bbe7a7fc126e3d14fefa4b035854aba080926d9] arm/xen: don't check for xen_initial_domain() in xen_create_contiguous_region
+git bisect good 9bbe7a7fc126e3d14fefa4b035854aba080926d9
+# good: [a3e230926708125205ffd06d3dc2175a8263ae7e] x86: centralize setting SWIOTLB_FORCE when guest memory encryption is enabled
+git bisect good a3e230926708125205ffd06d3dc2175a8263ae7e
+# bad: [8ba2ed1be90fc210126f68186564707478552c95] swiotlb: add a SWIOTLB_ANY flag to lift the low memory restriction
+git bisect bad 8ba2ed1be90fc210126f68186564707478552c95
+# bad: [c6af2aa9ffc9763826607bc2664ef3ea4475ed18] swiotlb: make the swiotlb_init interface more useful
+git bisect bad c6af2aa9ffc9763826607bc2664ef3ea4475ed18
+# first bad commit: [c6af2aa9ffc9763826607bc2664ef3ea4475ed18] swiotlb: make the swiotlb_init interface more useful
