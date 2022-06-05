@@ -1,65 +1,124 @@
-From: Baolin Wang <baolin.wang@linux.alibaba.com>
-Date: Wed, 11 May 2022 12:04:16 +0000
-Subject: [PATCH v4 0/3] Fix CONT-PTE/PMD size hugetlb issue when unmapping or migrating
-Message-Id: <cover.1652270205.git.baolin.wang@linux.alibaba.com>
+From: Luc Van Oostenryck <luc.vanoostenryck@gmail.com>
+Date: Sun, 05 Jun 2022 16:07:38 +0000
+Subject: [PATCH] ia64: fix sparse warnings with cmpxchg() & xchg()
+Message-Id: <20220605160738.79736-1-luc.vanoostenryck@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <87h7547k8c.fsf@toke.dk>
+In-Reply-To: <87h7547k8c.fsf@toke.dk>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, mike.kravetz@oracle.com
-Cc: catalin.marinas@arm.com, will@kernel.org, songmuchun@bytedance.com, tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, arnd@arndb.de, baolin.wang@linux.alibaba.com, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Arnd Bergmann <arnd@arndb.de>
+Cc: Andrew Morton <akpm@linux-foundation.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, "Paul E. McKenney" <paulmck@kernel.org>, Luc Van Oostenryck <luc.vanoostenryck@gmail.com>, kernel test robot <lkp@intel.com>, =?UTF-8?q?Toke=20H=C3=B8iland-J=C3=B8rgensen?= <toke@redhat.com>
 
-Hi,
+On IA64, new sparse's warnings where issued after fixing
+some __rcu annotations in kernel/bpf/.
 
-Now migrating a hugetlb page or unmapping a poisoned hugetlb page, we'll
-use ptep_clear_flush() and set_pte_at() to nuke the page table entry
-and remap it, and this is incorrect for CONT-PTE or CONT-PMD size hugetlb
-page, which will cause potential data consistent issue. This patch set
-will change to use hugetlb related APIs to fix this issue, please find
-details in each patch. Thanks.
+These new warnings are false positives and appear on IA64 because
+on this architecture, the macros for cmpxchg() and xchg() make
+casts that ignore sparse annotations.
 
-Note: Mike pointed out the huge_ptep_get() will only return the one specific
-value, and it would not take into account the dirty or young bits of CONT-PTE/PMDs
-like the huge_ptep_get_and_clear() [1]. This inconsistent issue is not introduced
-by this patch set, and will address this issue in another thread [2]. Meanwhile
-the uffd for hugetlb case [3] pointed by Gerald also need another patch to address.
+This patch contains the minimal patch to fix this issue:
+adding a missing cast and some missing '__force'.
 
-[1] https://lore.kernel.org/linux-mm/85bd80b4-b4fd-0d3f-a2e5-149559f2f387@oracle.com/
-[2] https://lore.kernel.org/all/cover.1651998586.git.baolin.wang@linux.alibaba.com/
-[3] https://lore.kernel.org/linux-mm/20220503120343.6264e126@thinkpad/
+Link: https://lore.kernel.org/r/20220601120013.bq5a3ynbkc3hngm5@mail
+Reported-by: kernel test robot <lkp@intel.com>
+Cc: Toke Høiland-Jørgensen <toke@redhat.com>
+Signed-off-by: Luc Van Oostenryck <luc.vanoostenryck@gmail.com>
+---
 
-Changes from v3:
- - Fix building errors for !CONFIG_MMU.
+Note: This patch is only compile tested on defconfig. The corresponding
+      binary is unchanged (except some .rodata with the kernel version)
+      as it should be.
 
-Changes from v2:
- - Collect reviewed tags from Muchun and Mike.
- - Drop the unnecessary casting in hugetlb.c.
- - Fix building errors with adding dummy functions for !CONFIG_HUGETLB_PAGE.
+ arch/ia64/include/uapi/asm/cmpxchg.h | 28 ++++++++++++++--------------
+ 1 file changed, 14 insertions(+), 14 deletions(-)
 
-Changes from v1:
- - Add acked tag from Mike.
- - Update some commit message.
- - Add VM_BUG_ON in try_to_unmap() for hugetlb case.
- - Add an explict void casting for huge_ptep_clear_flush() in hugetlb.c.
-
-Baolin Wang (3):
-  mm: change huge_ptep_clear_flush() to return the original pte
-  mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when migration
-  mm: rmap: Fix CONT-PTE/PMD size hugetlb issue when unmapping
-
- arch/arm64/include/asm/hugetlb.h   |  4 +--
- arch/arm64/mm/hugetlbpage.c        | 12 +++-----
- arch/ia64/include/asm/hugetlb.h    |  5 +--
- arch/mips/include/asm/hugetlb.h    |  9 ++++--
- arch/parisc/include/asm/hugetlb.h  |  5 +--
- arch/powerpc/include/asm/hugetlb.h |  9 ++++--
- arch/s390/include/asm/hugetlb.h    |  6 ++--
- arch/sh/include/asm/hugetlb.h      |  5 +--
- arch/sparc/include/asm/hugetlb.h   |  5 +--
- include/asm-generic/hugetlb.h      |  4 +--
- include/linux/hugetlb.h            | 11 +++++++
- mm/rmap.c                          | 63 ++++++++++++++++++++++++--------------
- 12 files changed, 87 insertions(+), 51 deletions(-)
-
+diff --git a/arch/ia64/include/uapi/asm/cmpxchg.h b/arch/ia64/include/uapi/asm/cmpxchg.h
+index 2c2f3cfeaa77..ca2e02685343 100644
+--- a/arch/ia64/include/uapi/asm/cmpxchg.h
++++ b/arch/ia64/include/uapi/asm/cmpxchg.h
+@@ -33,24 +33,24 @@ extern void ia64_xchg_called_with_bad_pointer(void);
+ 									\
+ 	switch (size) {							\
+ 	case 1:								\
+-		__xchg_result = ia64_xchg1((__u8 *)ptr, x);		\
++		__xchg_result = ia64_xchg1((__u8 __force *)ptr, x);	\
+ 		break;							\
+ 									\
+ 	case 2:								\
+-		__xchg_result = ia64_xchg2((__u16 *)ptr, x);		\
++		__xchg_result = ia64_xchg2((__u16 __force *)ptr, x);	\
+ 		break;							\
+ 									\
+ 	case 4:								\
+-		__xchg_result = ia64_xchg4((__u32 *)ptr, x);		\
++		__xchg_result = ia64_xchg4((__u32 __force *)ptr, x);	\
+ 		break;							\
+ 									\
+ 	case 8:								\
+-		__xchg_result = ia64_xchg8((__u64 *)ptr, x);		\
++		__xchg_result = ia64_xchg8((__u64 __force *)ptr, x);	\
+ 		break;							\
+ 	default:							\
+ 		ia64_xchg_called_with_bad_pointer();			\
+ 	}								\
+-	__xchg_result;							\
++	(__typeof__ (*(ptr)) __force) __xchg_result;			\
+ })
+ 
+ #ifndef __KERNEL__
+@@ -76,42 +76,42 @@ extern long ia64_cmpxchg_called_with_bad_pointer(void);
+ 									\
+ 	switch (size) {							\
+ 	case 1:								\
+-		_o_ = (__u8) (long) (old);				\
++		_o_ = (__u8) (long __force) (old);			\
+ 		break;							\
+ 	case 2:								\
+-		_o_ = (__u16) (long) (old);				\
++		_o_ = (__u16) (long __force) (old);			\
+ 		break;							\
+ 	case 4:								\
+-		_o_ = (__u32) (long) (old);				\
++		_o_ = (__u32) (long __force) (old);			\
+ 		break;							\
+ 	case 8:								\
+-		_o_ = (__u64) (long) (old);				\
++		_o_ = (__u64) (long __force) (old);			\
+ 		break;							\
+ 	default:							\
+ 		break;							\
+ 	}								\
+ 	switch (size) {							\
+ 	case 1:								\
+-		_r_ = ia64_cmpxchg1_##sem((__u8 *) ptr, new, _o_);	\
++		_r_ = ia64_cmpxchg1_##sem((__u8 __force *) ptr, new, _o_);	\
+ 		break;							\
+ 									\
+ 	case 2:								\
+-		_r_ = ia64_cmpxchg2_##sem((__u16 *) ptr, new, _o_);	\
++		_r_ = ia64_cmpxchg2_##sem((__u16 __force *) ptr, new, _o_);	\
+ 		break;							\
+ 									\
+ 	case 4:								\
+-		_r_ = ia64_cmpxchg4_##sem((__u32 *) ptr, new, _o_);	\
++		_r_ = ia64_cmpxchg4_##sem((__u32 __force *) ptr, new, _o_);	\
+ 		break;							\
+ 									\
+ 	case 8:								\
+-		_r_ = ia64_cmpxchg8_##sem((__u64 *) ptr, new, _o_);	\
++		_r_ = ia64_cmpxchg8_##sem((__u64 __force *) ptr, new, _o_);	\
+ 		break;							\
+ 									\
+ 	default:							\
+ 		_r_ = ia64_cmpxchg_called_with_bad_pointer();		\
+ 		break;							\
+ 	}								\
+-	(__typeof__(old)) _r_;						\
++	(__typeof__(old) __force) _r_;					\
+ })
+ 
+ #define cmpxchg_acq(ptr, o, n)	\
 -- 
-1.8.3.1
+2.36.1
