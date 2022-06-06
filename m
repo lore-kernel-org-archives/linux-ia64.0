@@ -1,113 +1,48 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Mon, 27 Jun 2022 05:10:26 +0000
-Subject: [PATCH V5 19/26] ia64/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <20220627045833.1590055-20-anshuman.khandual@arm.com>
+From: Alexander Lobakin <alexandr.lobakin@intel.com>
+Date: Mon, 06 Jun 2022 11:49:02 +0000
+Subject: [PATCH 1/6] ia64, processor: fix -Wincompatible-pointer-types in ia64_get_irr()
+Message-Id: <20220606114908.962562-2-alexandr.lobakin@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220627045833.1590055-1-anshuman.khandual@arm.com>
-In-Reply-To: <20220627045833.1590055-1-anshuman.khandual@arm.com>
+References: <20220606114908.962562-1-alexandr.lobakin@intel.com>
+In-Reply-To: <20220606114908.962562-1-alexandr.lobakin@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org
-Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>
+Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Richard Henderson <rth@twiddle.net>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, stable@vger.kernel.org, kernel test robot <lkp@intel.com>
 
-This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
-vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
-up a private and static protection_map[] array. Subsequently all __SXXX and
-__PXXX macros can be dropped which are no longer needed.
+test_bit(), as any other bitmap op, takes `unsigned long *` as a
+second argument (pointer to the actual bitmap), as any bitmap
+itself is an array of unsigned longs. However, the ia64_get_irr()
+code passes a ref to `u64` as a second argument.
+This works with the ia64 bitops implementation due to that they
+have `void *` as the second argument and then cast it later on.
+This works with the bitmap API itself due to that `unsigned long`
+has the same size on ia64 as `u64` (`unsigned long long`), but
+from the compiler PoV those two are different.
+Define @irr as `unsigned long` to fix that. That implies no
+functional changes. Has been hidden for 16 years!
 
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+Fixes: a58786917ce2 ("[IA64] avoid broken SAL_CACHE_FLUSH implementations")
+Cc: stable@vger.kernel.org # 2.6.16+
+Reported-by: kernel test robot <lkp@intel.com>
+Signed-off-by: Alexander Lobakin <alexandr.lobakin@intel.com>
 ---
- arch/ia64/Kconfig               |  1 +
- arch/ia64/include/asm/pgtable.h | 18 ------------------
- arch/ia64/mm/init.c             | 28 +++++++++++++++++++++++++++-
- 3 files changed, 28 insertions(+), 19 deletions(-)
+ arch/ia64/include/asm/processor.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index cb93769a9f2a..0510a5737711 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -12,6 +12,7 @@ config IA64
- 	select ARCH_HAS_DMA_MARK_CLEAN
- 	select ARCH_HAS_STRNCPY_FROM_USER
- 	select ARCH_HAS_STRNLEN_USER
-+	select ARCH_HAS_VM_GET_PAGE_PROT
- 	select ARCH_MIGHT_HAVE_PC_PARPORT
- 	select ARCH_MIGHT_HAVE_PC_SERIO
- 	select ACPI
-diff --git a/arch/ia64/include/asm/pgtable.h b/arch/ia64/include/asm/pgtable.h
-index 7aa8f2330fb1..6925e28ae61d 100644
---- a/arch/ia64/include/asm/pgtable.h
-+++ b/arch/ia64/include/asm/pgtable.h
-@@ -161,24 +161,6 @@
-  * attempts to write to the page.
-  */
- 	/* xwr */
--#define __P000	PAGE_NONE
--#define __P001	PAGE_READONLY
--#define __P010	PAGE_READONLY	/* write to priv pg -> copy & make writable */
--#define __P011	PAGE_READONLY	/* ditto */
--#define __P100	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_X_RX)
--#define __P101	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RX)
--#define __P110	PAGE_COPY_EXEC
--#define __P111	PAGE_COPY_EXEC
--
--#define __S000	PAGE_NONE
--#define __S001	PAGE_READONLY
--#define __S010	PAGE_SHARED	/* we don't have (and don't need) write-only */
--#define __S011	PAGE_SHARED
--#define __S100	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_X_RX)
--#define __S101	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RX)
--#define __S110	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RWX)
--#define __S111	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RWX)
--
- #define pgd_ERROR(e)	printk("%s:%d: bad pgd %016lx.\n", __FILE__, __LINE__, pgd_val(e))
- #if CONFIG_PGTABLE_LEVELS = 4
- #define pud_ERROR(e)	printk("%s:%d: bad pud %016lx.\n", __FILE__, __LINE__, pud_val(e))
-diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-index 855d949d81df..fc4e4217e87f 100644
---- a/arch/ia64/mm/init.c
-+++ b/arch/ia64/mm/init.c
-@@ -273,7 +273,7 @@ static int __init gate_vma_init(void)
- 	gate_vma.vm_start = FIXADDR_USER_START;
- 	gate_vma.vm_end = FIXADDR_USER_END;
- 	gate_vma.vm_flags = VM_READ | VM_MAYREAD | VM_EXEC | VM_MAYEXEC;
--	gate_vma.vm_page_prot = __P101;
-+	gate_vma.vm_page_prot = __pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RX);
+diff --git a/arch/ia64/include/asm/processor.h b/arch/ia64/include/asm/processor.h
+index 7cbce290f4e5..757c2f6d8d4b 100644
+--- a/arch/ia64/include/asm/processor.h
++++ b/arch/ia64/include/asm/processor.h
+@@ -538,7 +538,7 @@ ia64_get_irr(unsigned int vector)
+ {
+ 	unsigned int reg = vector / 64;
+ 	unsigned int bit = vector % 64;
+-	u64 irr;
++	unsigned long irr;
  
- 	return 0;
- }
-@@ -490,3 +490,29 @@ void arch_remove_memory(u64 start, u64 size, struct vmem_altmap *altmap)
- 	__remove_pages(start_pfn, nr_pages, altmap);
- }
- #endif
-+
-+static const pgprot_t protection_map[16] = {
-+	[VM_NONE]					= PAGE_NONE,
-+	[VM_READ]					= PAGE_READONLY,
-+	[VM_WRITE]					= PAGE_READONLY,
-+	[VM_WRITE | VM_READ]				= PAGE_READONLY,
-+	[VM_EXEC]					= __pgprot(__ACCESS_BITS | _PAGE_PL_3 |
-+								   _PAGE_AR_X_RX),
-+	[VM_EXEC | VM_READ]				= __pgprot(__ACCESS_BITS | _PAGE_PL_3 |
-+								   _PAGE_AR_RX),
-+	[VM_EXEC | VM_WRITE]				= PAGE_COPY_EXEC,
-+	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_COPY_EXEC,
-+	[VM_SHARED]					= PAGE_NONE,
-+	[VM_SHARED | VM_READ]				= PAGE_READONLY,
-+	[VM_SHARED | VM_WRITE]				= PAGE_SHARED,
-+	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_SHARED,
-+	[VM_SHARED | VM_EXEC]				= __pgprot(__ACCESS_BITS | _PAGE_PL_3 |
-+								   _PAGE_AR_X_RX),
-+	[VM_SHARED | VM_EXEC | VM_READ]			= __pgprot(__ACCESS_BITS | _PAGE_PL_3 |
-+								   _PAGE_AR_RX),
-+	[VM_SHARED | VM_EXEC | VM_WRITE]		= __pgprot(__ACCESS_BITS | _PAGE_PL_3 |
-+								   _PAGE_AR_RWX),
-+	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= __pgprot(__ACCESS_BITS | _PAGE_PL_3 |
-+								   _PAGE_AR_RWX)
-+};
-+DECLARE_VM_GET_PAGE_PROT
+ 	switch (reg) {
+ 	case 0: irr = ia64_getreg(_IA64_REG_CR_IRR0); break;
 -- 
-2.25.1
+2.36.1
