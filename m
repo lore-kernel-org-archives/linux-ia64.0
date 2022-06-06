@@ -1,25 +1,103 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Fri, 24 Jun 2022 05:10:59 +0000
-Subject: Re: [PATCH V4 16/26] riscv/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <YrVHYwb3z0Wv+vZx@infradead.org>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Mon, 06 Jun 2022 16:06:01 +0000
+Subject: Re: [PATCH 05/16] ptrace: Remove dead code from __ptrace_detach
+Message-Id: <87ee014w0m.fsf@email.froward.int.ebiederm.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220624044339.1533882-1-anshuman.khandual@arm.com>
- <20220624044339.1533882-17-anshuman.khandual@arm.com>
-In-Reply-To: <20220624044339.1533882-17-anshuman.khandual@arm.com>
+References: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
+        <20220518225355.784371-5-ebiederm@xmission.com>
+        <20220524114250.GB14347@redhat.com> <20220525143303.GB2687@redhat.com>
+In-Reply-To: <20220525143303.GB2687@redhat.com> (Oleg Nesterov's message of
+        "Wed, 25 May 2022 16:33:03 +0200")
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Anshuman Khandual <anshuman.khandual@arm.com>
-Cc: linux-mm@kvack.org, hch@infradead.org, christophe.leroy@csgroup.eu, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>
+To: Oleg Nesterov <oleg@redhat.com>
+Cc: linux-kernel@vger.kernel.org, rjw@rjwysocki.net, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, Robert OCallahan <roc@pernos.co>, Kyle Huey <khuey@pernos.co>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Jason Wessel <jason.wessel@windriver.com>, Daniel Thompson <daniel.thompson@linaro.org>, Douglas Anderson <dianders@chromium.org>, Douglas Miller <dougmill@linux.vnet.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>
 
-On Fri, Jun 24, 2022 at 10:13:29AM +0530, Anshuman Khandual wrote:
-index d466ec670e1f..f976580500b1 100644
-> --- a/arch/riscv/mm/init.c
-> +++ b/arch/riscv/mm/init.c
-> @@ -288,6 +288,26 @@ static pmd_t __maybe_unused early_dtb_pmd[PTRS_PER_PMD] __initdata __aligned(PAG
->  #define early_pg_dir           ((pgd_t *)XIP_FIXUP(early_pg_dir))
->  #endif /* CONFIG_XIP_KERNEL */
->  
-> +static pgprot_t protection_map[16] __ro_after_init = {
+Oleg Nesterov <oleg@redhat.com> writes:
 
-Can't this be marked const now?
+> On 05/24, Oleg Nesterov wrote:
+>>
+>> Sorry for delay.
+>>
+>> On 05/18, Eric W. Biederman wrote:
+>> >
+>> > Ever since commit 28d838cc4dfe ("Fix ptrace self-attach rule") it has
+>> > been impossible to attach another thread in the same thread group.
+>> >
+>> > Remove the code from __ptrace_detach that was trying to support
+>> > detaching from a thread in the same thread group.
+>>
+>> may be I am totally confused, but I think you misunderstood this code
+>> and thus this patch is very wrong.
+>>
+>> The same_thread_group() check does NOT try to check if debugger and
+>> tracee is in the same thread group, this is indeed impossible.
+>>
+>> We need this check to know if the tracee was ptrace_reparented() before
+>> __ptrace_unlink() or not.
+>>
+>>
+>> > -static int ignoring_children(struct sighand_struct *sigh)
+>> > -{
+>> > -	int ret;
+>> > -	spin_lock(&sigh->siglock);
+>> > -	ret = (sigh->action[SIGCHLD-1].sa.sa_handler = SIG_IGN) ||
+>> > -	      (sigh->action[SIGCHLD-1].sa.sa_flags & SA_NOCLDWAIT);
+>> > -	spin_unlock(&sigh->siglock);
+>> > -	return ret;
+>> > -}
+>>
+>> ...
+>>
+>> > @@ -565,14 +552,9 @@ static bool __ptrace_detach(struct task_struct *tracer, struct task_struct *p)
+>> >
+>> >  	dead = !thread_group_leader(p);
+>> >
+>> > -	if (!dead && thread_group_empty(p)) {
+>> > -		if (!same_thread_group(p->real_parent, tracer))
+>> > -			dead = do_notify_parent(p, p->exit_signal);
+>> > -		else if (ignoring_children(tracer->sighand)) {
+>> > -			__wake_up_parent(p, tracer);
+>> > -			dead = true;
+>> > -		}
+>> > -	}
+>>
+>> So the code above does:
+>>
+>> 	- if !same_thread_group(p->real_parent, tracer), then the tracee was
+>> 	  ptrace_reparented(), and now we need to notify its natural parent
+>> 	  to let it know it has a zombie child.
+>>
+>> 	- otherwise, the tracee is our natural child, and it is actually dead.
+>> 	  however, since we are going to reap this task, we need to wake up our
+>> 	  sub-threads possibly sleeping on ->wait_chldexit wait_queue_head_t.
+>>
+>> See?
+>>
+>> > +	if (!dead && thread_group_empty(p))
+>> > +		dead = do_notify_parent(p, p->exit_signal);
+>>
+>> No, this looks wrong. Or I missed something?
+>
+> Yes, but...
+>
+> That said, it seems that we do not need __wake_up_parent() if it was our
+> natural child?
+
+Agreed on both counts.
+
+Hmm.  I see where the logic comes from.  The ignoring_children test and
+the __wake_up_parent are what do_notify_parent does when the parent
+ignores children.  Hmm.  I even see all of this document in the comment
+above __ptrace_detach.
+
+So I am just going to drop this change.
+
+> I'll recheck. Eric, I'll continue to read this series tomorrow, can't
+> concentrate on ptrace today.
+
+No worries.  This was entirely too close to the merge window so I
+dropped it all until today.
+
+Eric
