@@ -1,138 +1,82 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Tue, 28 Jun 2022 03:24:24 +0000
-Subject: Re: [PATCH V5 04/26] sparc/mm: Move protection_map[] inside the platform
-Message-Id: <f26804cf-e342-5826-8f01-4b087a7baa63@arm.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Wed, 08 Jun 2022 14:27:27 +0000
+Subject: [PATCH 04/36] cpuidle,intel_idle: Fix CPUIDLE_FLAG_IRQ_ENABLE
+Message-Id: <20220608144516.172460444@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220627045833.1590055-1-anshuman.khandual@arm.com>
- <20220627045833.1590055-5-anshuman.khandual@arm.com>
- <YrnlkLbyYSbI0EQw@ravnborg.org>
-In-Reply-To: <YrnlkLbyYSbI0EQw@ravnborg.org>
+References: <20220608142723.103523089@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Sam Ravnborg <sam@ravnborg.org>
-Cc: linux-mm@kvack.org, hch@infradead.org, christophe.leroy@csgroup.eu, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: peterz@infradead.org
+Cc: rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@kernel.org, linux@armlinux.org.uk, ulli.kroll@googlemail.com, linus.walleij@linaro.org, shawnguo@kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, kernel@pengutronix.de, festevam@gmail.com, linux-imx@nxp.com, tony@atomide.com, khilman@kernel.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, bcain@quicinc.com, chenhuacai@kernel.org, kernel@xen0n.name, geert@linux-m68k.org, sammy@sammy.net, monstr@monstr.eu, tsbogend@alpha.franken.de, dinguyen@kernel.org, jonas@southpole.se, stefan.kristiansson@saunalahti.fi, shorne@gmail.com, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, paul.walmsley@sifive.com, palmer@dabbelt.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, richard@nod.at, anton.ivanov@cambridgegreys.com, johannes@sipsolutions.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, acme@kernel.org, mark.rutland@arm.com, alexander.shishkin@linux.intel.com, jolsa@kernel.org, namhyung@kernel.org, jgross@suse.com, srivatsa@csail.mit.edu, amakhalov@vmware.com, pv-drivers@vmware.com, boris.ostrovsky@oracle.com, chris@zankel.net, jcmvbkbc@gmail.com, rafael@kernel.org, lenb@kernel.org, pavel@ucw.cz, gregkh@linuxfoundation.org, mturquette@baylibre.com, sboyd@kernel.org, daniel.lezcano@linaro.org, lpieralisi@kernel.org, sudeep.holla@arm.com, agross@kernel.org, bjorn.andersson@linaro.org, anup@brainfault.org, thierry.reding@gmail.com, jonathanh@nvidia.com, jacob.jun.pan@linux.intel.com, Arnd Bergmann <arnd@arndb.de>, yury.norov@gmail.com, andriy.shevchenko@linux.intel.com, linux@rasmusvillemoes.dk, rostedt@goodmis.org, pmladek@suse.com, senozhatsky@chromium.org, john.ogness@linutronix.de, paulmck@kernel.org, frederic@kernel.org, quic_neeraju@quicinc.com, josh@joshtriplett.org, mathieu.desnoyers@efficios.com, jiangshanlai@gmail.com, joel@joelfernandes.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, jpoimboe@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-perf-users@vger.kernel.org, virtualization@lists.linux-foundation.org, xen-devel@lists.xenproject.org, linux-xtensa@linux-xtensa.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-clk@vger.kernel.org, linux-arm-msm@vger.kernel.org, linux-tegra@vger.kernel.org, linux-arch@vger.kernel.org, rcu@vger.kernel.org
 
+Commit c227233ad64c ("intel_idle: enable interrupts before C1 on
+Xeons") wrecked intel_idle in two ways:
 
+ - must not have tracing in idle functions
+ - must return with IRQs disabled
 
-On 6/27/22 22:44, Sam Ravnborg wrote:
-> Hi Anshuman,
-> 
-> On Mon, Jun 27, 2022 at 10:28:11AM +0530, Anshuman Khandual wrote:
->> This moves protection_map[] inside the platform and while here, also enable
->> ARCH_HAS_VM_GET_PAGE_PROT on 32 bit platforms via DECLARE_VM_GET_PAGE_PROT.
->>
->> Cc: "David S. Miller" <davem@davemloft.net>
->> Cc: sparclinux@vger.kernel.org
->> Cc: linux-kernel@vger.kernel.org
->> Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
->> ---
->>  arch/sparc/Kconfig                  |  2 +-
->>  arch/sparc/include/asm/pgtable_32.h | 19 -------------------
->>  arch/sparc/include/asm/pgtable_64.h | 19 -------------------
->>  arch/sparc/mm/init_32.c             | 20 ++++++++++++++++++++
->>  arch/sparc/mm/init_64.c             |  3 +++
->>  5 files changed, 24 insertions(+), 39 deletions(-)
->>
->> diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
->> index ba449c47effd..09f868613a4d 100644
->> --- a/arch/sparc/Kconfig
->> +++ b/arch/sparc/Kconfig
->> @@ -13,6 +13,7 @@ config 64BIT
->>  config SPARC
->>  	bool
->>  	default y
->> +	select ARCH_HAS_VM_GET_PAGE_PROT
->>  	select ARCH_MIGHT_HAVE_PC_PARPORT if SPARC64 && PCI
->>  	select ARCH_MIGHT_HAVE_PC_SERIO
->>  	select DMA_OPS
->> @@ -84,7 +85,6 @@ config SPARC64
->>  	select PERF_USE_VMALLOC
->>  	select ARCH_HAVE_NMI_SAFE_CMPXCHG
->>  	select HAVE_C_RECORDMCOUNT
->> -	select ARCH_HAS_VM_GET_PAGE_PROT
->>  	select HAVE_ARCH_AUDITSYSCALL
->>  	select ARCH_SUPPORTS_ATOMIC_RMW
->>  	select ARCH_SUPPORTS_DEBUG_PAGEALLOC
->> diff --git a/arch/sparc/include/asm/pgtable_32.h b/arch/sparc/include/asm/pgtable_32.h
->> index 4866625da314..8ff549004fac 100644
->> --- a/arch/sparc/include/asm/pgtable_32.h
->> +++ b/arch/sparc/include/asm/pgtable_32.h
->> @@ -64,25 +64,6 @@ void paging_init(void);
->>  
->>  extern unsigned long ptr_in_current_pgd;
->>  
->> -/*         xwr */
->> -#define __P000  PAGE_NONE
->> -#define __P001  PAGE_READONLY
->> -#define __P010  PAGE_COPY
->> -#define __P011  PAGE_COPY
->> -#define __P100  PAGE_READONLY
->> -#define __P101  PAGE_READONLY
->> -#define __P110  PAGE_COPY
->> -#define __P111  PAGE_COPY
->> -
->> -#define __S000	PAGE_NONE
->> -#define __S001	PAGE_READONLY
->> -#define __S010	PAGE_SHARED
->> -#define __S011	PAGE_SHARED
->> -#define __S100	PAGE_READONLY
->> -#define __S101	PAGE_READONLY
->> -#define __S110	PAGE_SHARED
->> -#define __S111	PAGE_SHARED
->> -
->>  /* First physical page can be anywhere, the following is needed so that
->>   * va-->pa and vice versa conversions work properly without performance
->>   * hit for all __pa()/__va() operations.
->> diff --git a/arch/sparc/include/asm/pgtable_64.h b/arch/sparc/include/asm/pgtable_64.h
->> index 4679e45c8348..a779418ceba9 100644
->> --- a/arch/sparc/include/asm/pgtable_64.h
->> +++ b/arch/sparc/include/asm/pgtable_64.h
->> @@ -187,25 +187,6 @@ bool kern_addr_valid(unsigned long addr);
->>  #define _PAGE_SZHUGE_4U	_PAGE_SZ4MB_4U
->>  #define _PAGE_SZHUGE_4V	_PAGE_SZ4MB_4V
->>  
->> -/* These are actually filled in at boot time by sun4{u,v}_pgprot_init() */
->> -#define __P000	__pgprot(0)
->> -#define __P001	__pgprot(0)
->> -#define __P010	__pgprot(0)
->> -#define __P011	__pgprot(0)
->> -#define __P100	__pgprot(0)
->> -#define __P101	__pgprot(0)
->> -#define __P110	__pgprot(0)
->> -#define __P111	__pgprot(0)
->> -
->> -#define __S000	__pgprot(0)
->> -#define __S001	__pgprot(0)
->> -#define __S010	__pgprot(0)
->> -#define __S011	__pgprot(0)
->> -#define __S100	__pgprot(0)
->> -#define __S101	__pgprot(0)
->> -#define __S110	__pgprot(0)
->> -#define __S111	__pgprot(0)
->> -
->>  #ifndef __ASSEMBLY__
->>  
->>  pte_t mk_pte_io(unsigned long, pgprot_t, int, unsigned long);
->> diff --git a/arch/sparc/mm/init_32.c b/arch/sparc/mm/init_32.c
->> index 1e9f577f084d..8693e4e28b86 100644
->> --- a/arch/sparc/mm/init_32.c
->> +++ b/arch/sparc/mm/init_32.c
->> @@ -302,3 +302,23 @@ void sparc_flush_page_to_ram(struct page *page)
->>  		__flush_page_to_ram(vaddr);
->>  }
->>  EXPORT_SYMBOL(sparc_flush_page_to_ram);
->> +
->> +static pgprot_t protection_map[16] __ro_after_init = {
-> This can be const - like done for powerpc and others.
-> sparc32 and sparc64 uses each their own - and I do not see sparc32 do
-> any modifications to protection_map.
+Additionally, it added a branch for no good reason.
 
-Indeed protection_map[] arrays are independent both for sparc32 and spacr64.
-sparc32 platform never changes the protection_map[] array during boot. Sure,
-will make it into a const instead. Thanks for pointing this out.
+Fixes: c227233ad64c ("intel_idle: enable interrupts before C1 on Xeons")
+Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+---
+ drivers/idle/intel_idle.c |   48 +++++++++++++++++++++++++++++++++++-----------
+ 1 file changed, 37 insertions(+), 11 deletions(-)
 
-> 
-> With this change:
-> Reviewed-by: Sam Ravnborg <sam@ravnborg.org>
-> 
+--- a/drivers/idle/intel_idle.c
++++ b/drivers/idle/intel_idle.c
+@@ -129,21 +137,37 @@ static unsigned int mwait_substates __in
+  *
+  * Must be called under local_irq_disable().
+  */
++
+-static __cpuidle int intel_idle(struct cpuidle_device *dev,
+-				struct cpuidle_driver *drv, int index)
++static __always_inline int __intel_idle(struct cpuidle_device *dev,
++					struct cpuidle_driver *drv, int index)
+ {
+ 	struct cpuidle_state *state = &drv->states[index];
+ 	unsigned long eax = flg2MWAIT(state->flags);
+ 	unsigned long ecx = 1; /* break on interrupt flag */
+ 
+-	if (state->flags & CPUIDLE_FLAG_IRQ_ENABLE)
+-		local_irq_enable();
+-
+ 	mwait_idle_with_hints(eax, ecx);
+ 
+ 	return index;
+ }
+ 
++static __cpuidle int intel_idle(struct cpuidle_device *dev,
++				struct cpuidle_driver *drv, int index)
++{
++	return __intel_idle(dev, drv, index);
++}
++
++static __cpuidle int intel_idle_irq(struct cpuidle_device *dev,
++				    struct cpuidle_driver *drv, int index)
++{
++	int ret;
++
++	raw_local_irq_enable();
++	ret = __intel_idle(dev, drv, index);
++	raw_local_irq_disable();
++
++	return ret;
++}
++
+ /**
+  * intel_idle_s2idle - Ask the processor to enter the given idle state.
+  * @dev: cpuidle device of the target CPU.
+@@ -1801,6 +1824,9 @@ static void __init intel_idle_init_cstat
+ 		/* Structure copy. */
+ 		drv->states[drv->state_count] = cpuidle_state_table[cstate];
+ 
++		if (cpuidle_state_table[cstate].flags & CPUIDLE_FLAG_IRQ_ENABLE)
++			drv->states[drv->state_count].enter = intel_idle_irq;
++
+ 		if ((disabled_states_mask & BIT(drv->state_count)) ||
+ 		    ((icpu->use_acpi || force_use_acpi) &&
+ 		     intel_idle_off_by_default(mwait_hint) &&
+
