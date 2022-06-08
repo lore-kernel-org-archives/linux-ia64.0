@@ -1,109 +1,51 @@
-From: Alexander Lobakin <alexandr.lobakin@intel.com>
-Date: Wed, 15 Jun 2022 14:00:30 +0000
-Subject: Re: [PATCH v2 6/6] bitops: let optimize out non-atomic bitops on compile-time constants
-Message-Id: <20220615140030.1265068-1-alexandr.lobakin@intel.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Wed, 08 Jun 2022 14:27:38 +0000
+Subject: [PATCH 15/36] cpuidle,cpu_pm: Remove RCU fiddling from cpu_pm_{enter,exit}()
+Message-Id: <20220608144516.871305980@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220610113427.908751-1-alexandr.lobakin@intel.com> <20220610113427.908751-7-alexandr.lobakin@intel.com> <YqlRfoB5+VBIw8gJ@yury-laptop>
-In-Reply-To: <YqlRfoB5+VBIw8gJ@yury-laptop>
+References: <20220608142723.103523089@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Yury Norov <yury.norov@gmail.com>
-Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Arnd Bergmann <arnd@arndb.de>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: peterz@infradead.org
+Cc: rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@kernel.org, linux@armlinux.org.uk, ulli.kroll@googlemail.com, linus.walleij@linaro.org, shawnguo@kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, kernel@pengutronix.de, festevam@gmail.com, linux-imx@nxp.com, tony@atomide.com, khilman@kernel.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, bcain@quicinc.com, chenhuacai@kernel.org, kernel@xen0n.name, geert@linux-m68k.org, sammy@sammy.net, monstr@monstr.eu, tsbogend@alpha.franken.de, dinguyen@kernel.org, jonas@southpole.se, stefan.kristiansson@saunalahti.fi, shorne@gmail.com, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, paul.walmsley@sifive.com, palmer@dabbelt.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, richard@nod.at, anton.ivanov@cambridgegreys.com, johannes@sipsolutions.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, acme@kernel.org, mark.rutland@arm.com, alexander.shishkin@linux.intel.com, jolsa@kernel.org, namhyung@kernel.org, jgross@suse.com, srivatsa@csail.mit.edu, amakhalov@vmware.com, pv-drivers@vmware.com, boris.ostrovsky@oracle.com, chris@zankel.net, jcmvbkbc@gmail.com, rafael@kernel.org, lenb@kernel.org, pavel@ucw.cz, gregkh@linuxfoundation.org, mturquette@baylibre.com, sboyd@kernel.org, daniel.lezcano@linaro.org, lpieralisi@kernel.org, sudeep.holla@arm.com, agross@kernel.org, bjorn.andersson@linaro.org, anup@brainfault.org, thierry.reding@gmail.com, jonathanh@nvidia.com, jacob.jun.pan@linux.intel.com, Arnd Bergmann <arnd@arndb.de>, yury.norov@gmail.com, andriy.shevchenko@linux.intel.com, linux@rasmusvillemoes.dk, rostedt@goodmis.org, pmladek@suse.com, senozhatsky@chromium.org, john.ogness@linutronix.de, paulmck@kernel.org, frederic@kernel.org, quic_neeraju@quicinc.com, josh@joshtriplett.org, mathieu.desnoyers@efficios.com, jiangshanlai@gmail.com, joel@joelfernandes.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, jpoimboe@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-perf-users@vger.kernel.org, virtualization@lists.linux-foundation.org, xen-devel@lists.xenproject.org, linux-xtensa@linux-xtensa.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-clk@vger.kernel.org, linux-arm-msm@vger.kernel.org, linux-tegra@vger.kernel.org, linux-arch@vger.kernel.org, rcu@vger.kernel.org
 
-From: Yury Norov <yury.norov@gmail.com>
-Date: Tue, 14 Jun 2022 20:26:54 -0700
+All callers should still have RCU enabled.
 
-> Hi Alexander,
-> 
-> On Fri, Jun 10, 2022 at 01:34:27PM +0200, Alexander Lobakin wrote:
-> > Currently, many architecture-specific non-atomic bitop
-> > implementations use inline asm or other hacks which are faster or
-> > more robust when working with "real" variables (i.e. fields from
-> > the structures etc.), but the compilers have no clue how to optimize
-> > them out when called on compile-time constants. That said, the
-> > following code:
-> > 
-> > 	DECLARE_BITMAP(foo, BITS_PER_LONG) = { }; // -> unsigned long foo[1];
-> > 	unsigned long bar = BIT(BAR_BIT);
-> > 	unsigned long baz = 0;
-> > 
-> > 	__set_bit(FOO_BIT, foo);
-> > 	baz |= BIT(BAZ_BIT);
-> > 
-> > 	BUILD_BUG_ON(!__builtin_constant_p(test_bit(FOO_BIT, foo));
-> > 	BUILD_BUG_ON(!__builtin_constant_p(bar & BAR_BIT));
-> > 	BUILD_BUG_ON(!__builtin_constant_p(baz & BAZ_BIT));
-> 
-> Can you put this snippet into lib/test_bitops.c?
+Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+---
+ kernel/cpu_pm.c |    9 ---------
+ 1 file changed, 9 deletions(-)
 
-Great idea, sure!
+--- a/kernel/cpu_pm.c
++++ b/kernel/cpu_pm.c
+@@ -30,16 +30,9 @@ static int cpu_pm_notify(enum cpu_pm_eve
+ {
+ 	int ret;
+ 
+-	/*
+-	 * This introduces a RCU read critical section, which could be
+-	 * disfunctional in cpu idle. Copy RCU_NONIDLE code to let RCU know
+-	 * this.
+-	 */
+-	rcu_irq_enter_irqson();
+ 	rcu_read_lock();
+ 	ret = raw_notifier_call_chain(&cpu_pm_notifier.chain, event, NULL);
+ 	rcu_read_unlock();
+-	rcu_irq_exit_irqson();
+ 
+ 	return notifier_to_errno(ret);
+ }
+@@ -49,11 +42,9 @@ static int cpu_pm_notify_robust(enum cpu
+ 	unsigned long flags;
+ 	int ret;
+ 
+-	rcu_irq_enter_irqson();
+ 	raw_spin_lock_irqsave(&cpu_pm_notifier.lock, flags);
+ 	ret = raw_notifier_call_chain_robust(&cpu_pm_notifier.chain, event_up, event_down, NULL);
+ 	raw_spin_unlock_irqrestore(&cpu_pm_notifier.lock, flags);
+-	rcu_irq_exit_irqson();
+ 
+ 	return notifier_to_errno(ret);
+ }
 
-> 
-> Thanks,
-> Yury
-> 
-> > triggers the first assertion on x86_64, which means that the
-> > compiler is unable to evaluate it to a compile-time initializer
-> > when the architecture-specific bitop is used even if it's obvious.
-> > In order to let the compiler optimize out such cases, expand the
-> > bitop() macro to use the "constant" C non-atomic bitop
-> > implementations when all of the arguments passed are compile-time
-> > constants, which means that the result will be a compile-time
-> > constant as well, so that it produces more efficient and simple
-> > code in 100% cases, comparing to the architecture-specific
-> > counterparts.
-> > 
-> > The savings are architecture, compiler and compiler flags dependent,
-> > for example, on x86_64 -O2:
-> > 
-> > GCC 12: add/remove: 78/29 grow/shrink: 332/525 up/down: 31325/-61560 (-30235)
-> > LLVM 13: add/remove: 79/76 grow/shrink: 184/537 up/down: 55076/-141892 (-86816)
-> > LLVM 14: add/remove: 10/3 grow/shrink: 93/138 up/down: 3705/-6992 (-3287)
-> > 
-> > and ARM64 (courtesy of Mark):
-> > 
-> > GCC 11: add/remove: 92/29 grow/shrink: 933/2766 up/down: 39340/-82580 (-43240)
-> > LLVM 14: add/remove: 21/11 grow/shrink: 620/651 up/down: 12060/-15824 (-3764)
-> > 
-> > Cc: Mark Rutland <mark.rutland@arm.com>
-> > Signed-off-by: Alexander Lobakin <alexandr.lobakin@intel.com>
-> > ---
-> >  include/linux/bitops.h | 18 +++++++++++++++++-
-> >  1 file changed, 17 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/include/linux/bitops.h b/include/linux/bitops.h
-> > index 753f98e0dcf5..364bdc3606b4 100644
-> > --- a/include/linux/bitops.h
-> > +++ b/include/linux/bitops.h
-> > @@ -33,8 +33,24 @@ extern unsigned long __sw_hweight64(__u64 w);
-> >  
-> >  #include <asm-generic/bitops/generic-non-atomic.h>
-> >  
-> > +/*
-> > + * Many architecture-specific non-atomic bitops contain inline asm code and due
-> > + * to that the compiler can't optimize them to compile-time expressions or
-> > + * constants. In contrary, gen_*() helpers are defined in pure C and compilers
-> > + * optimize them just well.
-> > + * Therefore, to make `unsigned long foo = 0; __set_bit(BAR, &foo)` effectively
-> > + * equal to `unsigned long foo = BIT(BAR)`, pick the generic C alternative when
-> > + * the arguments can be resolved at compile time. That expression itself is a
-> > + * constant and doesn't bring any functional changes to the rest of cases.
-> > + * The casts to `uintptr_t` are needed to mitigate `-Waddress` warnings when
-> > + * passing a bitmap from .bss or .data (-> `!!addr` is always true).
-> > + */
-> >  #define bitop(op, nr, addr)						\
-> > -	op(nr, addr)
-> > +	((__builtin_constant_p(nr) &&					\
-> > +	  __builtin_constant_p((uintptr_t)(addr) != (uintptr_t)NULL) &&	\
-> > +	  (uintptr_t)(addr) != (uintptr_t)NULL &&			\
-> > +	  __builtin_constant_p(*(const unsigned long *)(addr))) ?	\
-> > +	 const##op(nr, addr) : op(nr, addr))
-> >  
-> >  #define __set_bit(nr, addr)		bitop(___set_bit, nr, addr)
-> >  #define __clear_bit(nr, addr)		bitop(___clear_bit, nr, addr)
-> > -- 
-> 2.36.1
-
-Thanks,
-Olek
