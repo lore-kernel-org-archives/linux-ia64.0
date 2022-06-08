@@ -1,115 +1,37 @@
-From: Guo Ren <guoren@kernel.org>
-Date: Sat, 25 Jun 2022 03:07:24 +0000
-Subject: Re: [PATCH V4 17/26] csky/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <CAJF2gTQXpYggbN8vbv+XVkORDEBbUAJJaJsbN2ZtSbjGfem1Tg@mail.gmail.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Wed, 08 Jun 2022 14:27:56 +0000
+Subject: [PATCH 33/36] cpuidle,omap3: Use WFI for omap3_pm_idle()
+Message-Id: <20220608144518.010587032@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220624044339.1533882-1-anshuman.khandual@arm.com> <20220624044339.1533882-18-anshuman.khandual@arm.com>
-In-Reply-To: <20220624044339.1533882-18-anshuman.khandual@arm.com>
+References: <20220608142723.103523089@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Anshuman Khandual <anshuman.khandual@arm.com>
-Cc: Linux-MM <linux-mm@kvack.org>, Christoph Hellwig <hch@infradead.org>, Christophe Leroy <christophe.leroy@csgroup.eu>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, sparclinux <sparclinux@vger.kernel.org>, the arch/x86 maintainers <x86@kernel.org>, Openrisc <openrisc@lists.librecores.org>, "open list:TENSILICA XTENSA PORT (xtensa)" <linux-xtensa@linux-xtensa.org>, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, Parisc List <linux-parisc@vger.kernel.org>, linux-alpha@vger.kernel.org, linux-riscv <linux-riscv@lists.infradead.org>, linux-s390 <linux-s390@vger.kernel.org>, linux-ia64@vger.kernel.org, "open list:BROADCOM NVRAM DRIVER" <linux-mips@vger.kernel.org>, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, Linux ARM <linux-arm-kernel@lists.infradead.org>, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>
+To: peterz@infradead.org
+Cc: juri.lelli@redhat.com, rafael@kernel.org, benh@kernel.crashing.org, linus.walleij@linaro.org, bsegall@google.com, guoren@kernel.org, pavel@ucw.cz, agordeev@linux.ibm.com, linux-arch@vger.kernel.org, vincent.guittot@linaro.org, mpe@ellerman.id.au, chenhuacai@kernel.org, linux-acpi@vger.kernel.org, agross@kernel.org, geert@linux-m68k.org, linux-imx@nxp.com, catalin.marinas@arm.com, xen-devel@lists.xenproject.org, mattst88@gmail.com, mturquette@baylibre.com, sammy@sammy.net, pmladek@suse.com, linux-pm@vger.kernel.org, jiangshanlai@gmail.com, Sascha Hauer <s.hauer@pengutronix.de>, linux-um@lists.infradead.org, acme@kernel.org, tglx@linutronix.de, linux-omap@vger.kernel.org, dietmar.eggemann@arm.com, rth@twiddle.net, gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org, linux-perf-users@vger.kernel.org, senozhatsky@chromium.org, svens@linux.ibm.com, jolsa@kernel.org, paulus@samba.org, mark.rutland@arm.com, linux-ia64@vger.kernel.org, dave.hansen@linux.intel.com, virtualization@lists.linux-foundation.org, James.Bottomley@HansenPartnership.com, jcmvbkbc@gmail.com, thierry.reding@gmail.com, kernel@xen0n.name, quic_neeraju@quicinc.com, linux-s390@vger.kernel.org, vschneid@redhat.com, john.ogness@linutronix.de, ysato@users.sourceforge.jp, linux-sh@vger.kernel.org, festevam@gmail.com, deller@gmx.de, daniel.lezcano@linaro.org, jonathanh@nvidia.com, mathieu.desnoyers@efficios.com, frederic@kernel.org, lenb@kernel.org, linux-xtensa@linux-xtensa.org, kernel@pengutronix.de, gor@linux.ibm.com, linux-arm-msm@vger.kernel.org, linux-alpha@vger.kernel.org, linux-m68k@lists.linux-m68k.org, shorne@gmail.com, linux-arm-kernel@lists.infradead.org, chris@zankel.net, sboyd@kernel.org, dinguyen@kernel.org, bristot@redhat.com, alexander.shishkin@linux.intel.com, lpieralisi@kernel.org, linux@rasmusvillemoes.dk, joel@joelfernandes.org, will@kernel.org, boris.ostrovsky@oracle.com, khilman@kernel.org, linux-csky@vger.kernel.org, pv-drivers@vmware.com, linux-snps-arc@lists.infradead.org, mgorman@suse.de, jacob.jun.pan@linux.intel.com, Arnd Bergmann <arnd@arndb.de>, ulli.kroll@googlemail.com, vgupta@kernel.org, linux-clk@vger.kernel.org, josh@joshtriplett.org, rostedt@goodmis.org, rcu@vger.kernel.org, bp@alien8.de, bcain@quicinc.com, tsbogend@alpha.franken.de, linux-parisc@vger.kernel.org, sudeep.holla@arm.com, shawnguo@kernel.org, davem@davemloft.net, dalias@libc.org, tony@atomide.com, amakhalov@vmware.com, bjorn.andersson@linaro.org, hpa@zytor.com, sparclinux@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-riscv@lists.infradead.org, anton.ivanov@cambridgegreys.com, jonas@southpole.se, yury.norov@gmail.com, richard@nod.at, x86@kernel.org, linux@armlinux.org.uk, mingo@redhat.com, aou@eecs.berkeley.edu, paulmck@kernel.org, hca@linux.ibm.com, stefan.kristiansson@saunalahti.fi, openrisc@lists.librecores.org, paul.walmsley@sifive.com, linux-tegra@vger.kernel.org, namhyung@kernel.org, andriy.shevchenko@linux.intel.com, jpoimboe@kernel.org, jgross@suse.com, monstr@monstr.eu, linux-mips@vger.kernel.org, palmer@dabbelt.com, anup@brainfault.org, ink@jurassic.park.msu.ru, johannes@sipsolutions.net, linuxppc-dev@lists.ozlabs.org
 
-For csky part.
+arch_cpu_idle() is a very simple idle interface and exposes only a
+single idle state and is expected to not require RCU and not do any
+tracing/instrumentation.
 
-Acked-by: Guo Ren <guoren@kernel.org>
+As such, omap_sram_idle() is not a valid implementation. Replace it
+with the simple (shallow) omap3_do_wfi() call. Leaving the more
+complicated idle states for the cpuidle driver.
 
+Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+---
+ arch/arm/mach-omap2/pm34xx.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-On Fri, Jun 24, 2022 at 12:48 PM Anshuman Khandual
-<anshuman.khandual@arm.com> wrote:
->
-> This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
-> vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
-> up a private and static protection_map[] array. Subsequently all __SXXX and
-> __PXXX macros can be dropped which are no longer needed.
->
-> Cc: Geert Uytterhoeven <geert@linux-m68k.org>
-> Cc: linux-csky@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
-> ---
->  arch/csky/Kconfig               |  1 +
->  arch/csky/include/asm/pgtable.h | 18 ------------------
->  arch/csky/mm/init.c             | 20 ++++++++++++++++++++
->  3 files changed, 21 insertions(+), 18 deletions(-)
->
-> diff --git a/arch/csky/Kconfig b/arch/csky/Kconfig
-> index 21d72b078eef..588b8a9c68ed 100644
-> --- a/arch/csky/Kconfig
-> +++ b/arch/csky/Kconfig
-> @@ -6,6 +6,7 @@ config CSKY
->         select ARCH_HAS_GCOV_PROFILE_ALL
->         select ARCH_HAS_SYNC_DMA_FOR_CPU
->         select ARCH_HAS_SYNC_DMA_FOR_DEVICE
-> +       select ARCH_HAS_VM_GET_PAGE_PROT
->         select ARCH_USE_BUILTIN_BSWAP
->         select ARCH_USE_QUEUED_RWLOCKS
->         select ARCH_WANT_FRAME_POINTERS if !CPU_CK610 && $(cc-option,-mbacktrace)
-> diff --git a/arch/csky/include/asm/pgtable.h b/arch/csky/include/asm/pgtable.h
-> index bbe245117777..229a5f4ad7fc 100644
-> --- a/arch/csky/include/asm/pgtable.h
-> +++ b/arch/csky/include/asm/pgtable.h
-> @@ -77,24 +77,6 @@
->  #define MAX_SWAPFILES_CHECK() \
->                 BUILD_BUG_ON(MAX_SWAPFILES_SHIFT != 5)
->
-> -#define __P000 PAGE_NONE
-> -#define __P001 PAGE_READ
-> -#define __P010 PAGE_READ
-> -#define __P011 PAGE_READ
-> -#define __P100 PAGE_READ
-> -#define __P101 PAGE_READ
-> -#define __P110 PAGE_READ
-> -#define __P111 PAGE_READ
-> -
-> -#define __S000 PAGE_NONE
-> -#define __S001 PAGE_READ
-> -#define __S010 PAGE_WRITE
-> -#define __S011 PAGE_WRITE
-> -#define __S100 PAGE_READ
-> -#define __S101 PAGE_READ
-> -#define __S110 PAGE_WRITE
-> -#define __S111 PAGE_WRITE
-> -
->  extern unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)];
->  #define ZERO_PAGE(vaddr)       (virt_to_page(empty_zero_page))
->
-> diff --git a/arch/csky/mm/init.c b/arch/csky/mm/init.c
-> index bf2004aa811a..1bf7b2a748fd 100644
-> --- a/arch/csky/mm/init.c
-> +++ b/arch/csky/mm/init.c
-> @@ -197,3 +197,23 @@ void __init fixaddr_init(void)
->         vaddr = __fix_to_virt(__end_of_fixed_addresses - 1) & PMD_MASK;
->         fixrange_init(vaddr, vaddr + PMD_SIZE, swapper_pg_dir);
->  }
-> +
-> +static pgprot_t protection_map[16] __ro_after_init = {
-> +       [VM_NONE]                                       = PAGE_NONE,
-> +       [VM_READ]                                       = PAGE_READ,
-> +       [VM_WRITE]                                      = PAGE_READ,
-> +       [VM_WRITE | VM_READ]                            = PAGE_READ,
-> +       [VM_EXEC]                                       = PAGE_READ,
-> +       [VM_EXEC | VM_READ]                             = PAGE_READ,
-> +       [VM_EXEC | VM_WRITE]                            = PAGE_READ,
-> +       [VM_EXEC | VM_WRITE | VM_READ]                  = PAGE_READ,
-> +       [VM_SHARED]                                     = PAGE_NONE,
-> +       [VM_SHARED | VM_READ]                           = PAGE_READ,
-> +       [VM_SHARED | VM_WRITE]                          = PAGE_WRITE,
-> +       [VM_SHARED | VM_WRITE | VM_READ]                = PAGE_WRITE,
-> +       [VM_SHARED | VM_EXEC]                           = PAGE_READ,
-> +       [VM_SHARED | VM_EXEC | VM_READ]                 = PAGE_READ,
-> +       [VM_SHARED | VM_EXEC | VM_WRITE]                = PAGE_WRITE,
-> +       [VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]      = PAGE_WRITE
-> +};
-> +DECLARE_VM_GET_PAGE_PROT
-> --
-> 2.25.1
->
+--- a/arch/arm/mach-omap2/pm34xx.c
++++ b/arch/arm/mach-omap2/pm34xx.c
+@@ -294,7 +294,7 @@ static void omap3_pm_idle(void)
+ 	if (omap_irq_pending())
+ 		return;
+ 
+-	omap_sram_idle();
++	omap3_do_wfi();
+ }
+ 
+ #ifdef CONFIG_SUSPEND
 
-
---
-Best Regards
- Guo Ren
-
-ML: https://lore.kernel.org/linux-csky/
