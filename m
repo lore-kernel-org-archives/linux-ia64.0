@@ -1,113 +1,67 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Thu, 30 Jun 2022 05:28:23 +0000
-Subject: [PATCH V6 19/26] ia64/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <20220630051630.1718927-20-anshuman.khandual@arm.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Wed, 08 Jun 2022 14:27:54 +0000
+Subject: [PATCH 31/36] cpuidle,acpi: Make noinstr clean
+Message-Id: <20220608144517.885263942@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220630051630.1718927-1-anshuman.khandual@arm.com>
-In-Reply-To: <20220630051630.1718927-1-anshuman.khandual@arm.com>
+References: <20220608142723.103523089@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, akpm@linux-foundation.org
-Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
+To: peterz@infradead.org
+Cc: juri.lelli@redhat.com, rafael@kernel.org, benh@kernel.crashing.org, linus.walleij@linaro.org, bsegall@google.com, guoren@kernel.org, pavel@ucw.cz, agordeev@linux.ibm.com, linux-arch@vger.kernel.org, vincent.guittot@linaro.org, mpe@ellerman.id.au, chenhuacai@kernel.org, linux-acpi@vger.kernel.org, agross@kernel.org, geert@linux-m68k.org, linux-imx@nxp.com, catalin.marinas@arm.com, xen-devel@lists.xenproject.org, mattst88@gmail.com, mturquette@baylibre.com, sammy@sammy.net, pmladek@suse.com, linux-pm@vger.kernel.org, jiangshanlai@gmail.com, Sascha Hauer <s.hauer@pengutronix.de>, linux-um@lists.infradead.org, acme@kernel.org, tglx@linutronix.de, linux-omap@vger.kernel.org, dietmar.eggemann@arm.com, rth@twiddle.net, gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org, linux-perf-users@vger.kernel.org, senozhatsky@chromium.org, svens@linux.ibm.com, jolsa@kernel.org, paulus@samba.org, mark.rutland@arm.com, linux-ia64@vger.kernel.org, dave.hansen@linux.intel.com, virtualization@lists.linux-foundation.org, James.Bottomley@HansenPartnership.com, jcmvbkbc@gmail.com, thierry.reding@gmail.com, kernel@xen0n.name, quic_neeraju@quicinc.com, linux-s390@vger.kernel.org, vschneid@redhat.com, john.ogness@linutronix.de, ysato@users.sourceforge.jp, linux-sh@vger.kernel.org, festevam@gmail.com, deller@gmx.de, daniel.lezcano@linaro.org, jonathanh@nvidia.com, mathieu.desnoyers@efficios.com, frederic@kernel.org, lenb@kernel.org, linux-xtensa@linux-xtensa.org, kernel@pengutronix.de, gor@linux.ibm.com, linux-arm-msm@vger.kernel.org, linux-alpha@vger.kernel.org, linux-m68k@lists.linux-m68k.org, shorne@gmail.com, linux-arm-kernel@lists.infradead.org, chris@zankel.net, sboyd@kernel.org, dinguyen@kernel.org, bristot@redhat.com, alexander.shishkin@linux.intel.com, lpieralisi@kernel.org, linux@rasmusvillemoes.dk, joel@joelfernandes.org, will@kernel.org, boris.ostrovsky@oracle.com, khilman@kernel.org, linux-csky@vger.kernel.org, pv-drivers@vmware.com, linux-snps-arc@lists.infradead.org, mgorman@suse.de, jacob.jun.pan@linux.intel.com, Arnd Bergmann <arnd@arndb.de>, ulli.kroll@googlemail.com, vgupta@kernel.org, linux-clk@vger.kernel.org, josh@joshtriplett.org, rostedt@goodmis.org, rcu@vger.kernel.org, bp@alien8.de, bcain@quicinc.com, tsbogend@alpha.franken.de, linux-parisc@vger.kernel.org, sudeep.holla@arm.com, shawnguo@kernel.org, davem@davemloft.net, dalias@libc.org, tony@atomide.com, amakhalov@vmware.com, bjorn.andersson@linaro.org, hpa@zytor.com, sparclinux@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-riscv@lists.infradead.org, anton.ivanov@cambridgegreys.com, jonas@southpole.se, yury.norov@gmail.com, richard@nod.at, x86@kernel.org, linux@armlinux.org.uk, mingo@redhat.com, aou@eecs.berkeley.edu, paulmck@kernel.org, hca@linux.ibm.com, stefan.kristiansson@saunalahti.fi, openrisc@lists.librecores.org, paul.walmsley@sifive.com, linux-tegra@vger.kernel.org, namhyung@kernel.org, andriy.shevchenko@linux.intel.com, jpoimboe@kernel.org, jgross@suse.com, monstr@monstr.eu, linux-mips@vger.kernel.org, palmer@dabbelt.com, anup@brainfault.org, ink@jurassic.park.msu.ru, johannes@sipsolutions.net, linuxppc-dev@lists.ozlabs.org
 
-This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
-vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
-up a private and static protection_map[] array. Subsequently all __SXXX and
-__PXXX macros can be dropped which are no longer needed.
+vmlinux.o: warning: objtool: io_idle+0xc: call to __inb.isra.0() leaves .noinstr.text section
+vmlinux.o: warning: objtool: acpi_idle_enter+0xfe: call to num_online_cpus() leaves .noinstr.text section
+vmlinux.o: warning: objtool: acpi_idle_enter+0x115: call to acpi_idle_fallback_to_c1.isra.0() leaves .noinstr.text section
 
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
 ---
- arch/ia64/Kconfig               |  1 +
- arch/ia64/include/asm/pgtable.h | 18 ------------------
- arch/ia64/mm/init.c             | 28 +++++++++++++++++++++++++++-
- 3 files changed, 28 insertions(+), 19 deletions(-)
+ arch/x86/include/asm/shared/io.h |    4 ++--
+ drivers/acpi/processor_idle.c    |    2 +-
+ include/linux/cpumask.h          |    4 ++--
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index cb93769a9f2a..0510a5737711 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -12,6 +12,7 @@ config IA64
- 	select ARCH_HAS_DMA_MARK_CLEAN
- 	select ARCH_HAS_STRNCPY_FROM_USER
- 	select ARCH_HAS_STRNLEN_USER
-+	select ARCH_HAS_VM_GET_PAGE_PROT
- 	select ARCH_MIGHT_HAVE_PC_PARPORT
- 	select ARCH_MIGHT_HAVE_PC_SERIO
- 	select ACPI
-diff --git a/arch/ia64/include/asm/pgtable.h b/arch/ia64/include/asm/pgtable.h
-index 7aa8f2330fb1..6925e28ae61d 100644
---- a/arch/ia64/include/asm/pgtable.h
-+++ b/arch/ia64/include/asm/pgtable.h
-@@ -161,24 +161,6 @@
-  * attempts to write to the page.
-  */
- 	/* xwr */
--#define __P000	PAGE_NONE
--#define __P001	PAGE_READONLY
--#define __P010	PAGE_READONLY	/* write to priv pg -> copy & make writable */
--#define __P011	PAGE_READONLY	/* ditto */
--#define __P100	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_X_RX)
--#define __P101	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RX)
--#define __P110	PAGE_COPY_EXEC
--#define __P111	PAGE_COPY_EXEC
--
--#define __S000	PAGE_NONE
--#define __S001	PAGE_READONLY
--#define __S010	PAGE_SHARED	/* we don't have (and don't need) write-only */
--#define __S011	PAGE_SHARED
--#define __S100	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_X_RX)
--#define __S101	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RX)
--#define __S110	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RWX)
--#define __S111	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RWX)
--
- #define pgd_ERROR(e)	printk("%s:%d: bad pgd %016lx.\n", __FILE__, __LINE__, pgd_val(e))
- #if CONFIG_PGTABLE_LEVELS = 4
- #define pud_ERROR(e)	printk("%s:%d: bad pud %016lx.\n", __FILE__, __LINE__, pud_val(e))
-diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-index 855d949d81df..fc4e4217e87f 100644
---- a/arch/ia64/mm/init.c
-+++ b/arch/ia64/mm/init.c
-@@ -273,7 +273,7 @@ static int __init gate_vma_init(void)
- 	gate_vma.vm_start = FIXADDR_USER_START;
- 	gate_vma.vm_end = FIXADDR_USER_END;
- 	gate_vma.vm_flags = VM_READ | VM_MAYREAD | VM_EXEC | VM_MAYEXEC;
--	gate_vma.vm_page_prot = __P101;
-+	gate_vma.vm_page_prot = __pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RX);
+--- a/arch/x86/include/asm/shared/io.h
++++ b/arch/x86/include/asm/shared/io.h
+@@ -5,13 +5,13 @@
+ #include <linux/types.h>
  
+ #define BUILDIO(bwl, bw, type)						\
+-static inline void __out##bwl(type value, u16 port)			\
++static __always_inline void __out##bwl(type value, u16 port)		\
+ {									\
+ 	asm volatile("out" #bwl " %" #bw "0, %w1"			\
+ 		     : : "a"(value), "Nd"(port));			\
+ }									\
+ 									\
+-static inline type __in##bwl(u16 port)					\
++static __always_inline type __in##bwl(u16 port)				\
+ {									\
+ 	type value;							\
+ 	asm volatile("in" #bwl " %w1, %" #bw "0"			\
+--- a/drivers/acpi/processor_idle.c
++++ b/drivers/acpi/processor_idle.c
+@@ -593,7 +593,7 @@ static int acpi_idle_play_dead(struct cp
  	return 0;
  }
-@@ -490,3 +490,29 @@ void arch_remove_memory(u64 start, u64 size, struct vmem_altmap *altmap)
- 	__remove_pages(start_pfn, nr_pages, altmap);
+ 
+-static bool acpi_idle_fallback_to_c1(struct acpi_processor *pr)
++static __always_inline bool acpi_idle_fallback_to_c1(struct acpi_processor *pr)
+ {
+ 	return IS_ENABLED(CONFIG_HOTPLUG_CPU) && !pr->flags.has_cst &&
+ 		!(acpi_gbl_FADT.flags & ACPI_FADT_C2_MP_SUPPORTED);
+--- a/include/linux/cpumask.h
++++ b/include/linux/cpumask.h
+@@ -908,9 +908,9 @@ static inline const struct cpumask *get_
+  * concurrent CPU hotplug operations unless invoked from a cpuhp_lock held
+  * region.
+  */
+-static inline unsigned int num_online_cpus(void)
++static __always_inline unsigned int num_online_cpus(void)
+ {
+-	return atomic_read(&__num_online_cpus);
++	return arch_atomic_read(&__num_online_cpus);
  }
- #endif
-+
-+static const pgprot_t protection_map[16] = {
-+	[VM_NONE]					= PAGE_NONE,
-+	[VM_READ]					= PAGE_READONLY,
-+	[VM_WRITE]					= PAGE_READONLY,
-+	[VM_WRITE | VM_READ]				= PAGE_READONLY,
-+	[VM_EXEC]					= __pgprot(__ACCESS_BITS | _PAGE_PL_3 |
-+								   _PAGE_AR_X_RX),
-+	[VM_EXEC | VM_READ]				= __pgprot(__ACCESS_BITS | _PAGE_PL_3 |
-+								   _PAGE_AR_RX),
-+	[VM_EXEC | VM_WRITE]				= PAGE_COPY_EXEC,
-+	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_COPY_EXEC,
-+	[VM_SHARED]					= PAGE_NONE,
-+	[VM_SHARED | VM_READ]				= PAGE_READONLY,
-+	[VM_SHARED | VM_WRITE]				= PAGE_SHARED,
-+	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_SHARED,
-+	[VM_SHARED | VM_EXEC]				= __pgprot(__ACCESS_BITS | _PAGE_PL_3 |
-+								   _PAGE_AR_X_RX),
-+	[VM_SHARED | VM_EXEC | VM_READ]			= __pgprot(__ACCESS_BITS | _PAGE_PL_3 |
-+								   _PAGE_AR_RX),
-+	[VM_SHARED | VM_EXEC | VM_WRITE]		= __pgprot(__ACCESS_BITS | _PAGE_PL_3 |
-+								   _PAGE_AR_RWX),
-+	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= __pgprot(__ACCESS_BITS | _PAGE_PL_3 |
-+								   _PAGE_AR_RWX)
-+};
-+DECLARE_VM_GET_PAGE_PROT
--- 
-2.25.1
+ #define num_possible_cpus()	cpumask_weight(cpu_possible_mask)
+ #define num_present_cpus()	cpumask_weight(cpu_present_mask)
+
