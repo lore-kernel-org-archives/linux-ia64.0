@@ -1,99 +1,52 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Mon, 27 Jun 2022 05:10:32 +0000
-Subject: [PATCH V5 25/26] sh/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <20220627045833.1590055-26-anshuman.khandual@arm.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Wed, 08 Jun 2022 14:27:59 +0000
+Subject: [PATCH 36/36] cpuidle,clk: Remove trace_.*_rcuidle()
+Message-Id: <20220608144518.199614455@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220627045833.1590055-1-anshuman.khandual@arm.com>
-In-Reply-To: <20220627045833.1590055-1-anshuman.khandual@arm.com>
+References: <20220608142723.103523089@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org
-Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>
+To: peterz@infradead.org
+Cc: juri.lelli@redhat.com, rafael@kernel.org, benh@kernel.crashing.org, linus.walleij@linaro.org, bsegall@google.com, guoren@kernel.org, pavel@ucw.cz, agordeev@linux.ibm.com, linux-arch@vger.kernel.org, vincent.guittot@linaro.org, mpe@ellerman.id.au, chenhuacai@kernel.org, linux-acpi@vger.kernel.org, agross@kernel.org, geert@linux-m68k.org, linux-imx@nxp.com, catalin.marinas@arm.com, xen-devel@lists.xenproject.org, mattst88@gmail.com, mturquette@baylibre.com, sammy@sammy.net, pmladek@suse.com, linux-pm@vger.kernel.org, jiangshanlai@gmail.com, Sascha Hauer <s.hauer@pengutronix.de>, linux-um@lists.infradead.org, acme@kernel.org, tglx@linutronix.de, linux-omap@vger.kernel.org, dietmar.eggemann@arm.com, rth@twiddle.net, gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org, linux-perf-users@vger.kernel.org, senozhatsky@chromium.org, svens@linux.ibm.com, jolsa@kernel.org, paulus@samba.org, mark.rutland@arm.com, linux-ia64@vger.kernel.org, dave.hansen@linux.intel.com, virtualization@lists.linux-foundation.org, James.Bottomley@HansenPartnership.com, jcmvbkbc@gmail.com, thierry.reding@gmail.com, kernel@xen0n.name, quic_neeraju@quicinc.com, linux-s390@vger.kernel.org, vschneid@redhat.com, john.ogness@linutronix.de, ysato@users.sourceforge.jp, linux-sh@vger.kernel.org, festevam@gmail.com, deller@gmx.de, daniel.lezcano@linaro.org, jonathanh@nvidia.com, mathieu.desnoyers@efficios.com, frederic@kernel.org, lenb@kernel.org, linux-xtensa@linux-xtensa.org, kernel@pengutronix.de, gor@linux.ibm.com, linux-arm-msm@vger.kernel.org, linux-alpha@vger.kernel.org, linux-m68k@lists.linux-m68k.org, shorne@gmail.com, linux-arm-kernel@lists.infradead.org, chris@zankel.net, sboyd@kernel.org, dinguyen@kernel.org, bristot@redhat.com, alexander.shishkin@linux.intel.com, lpieralisi@kernel.org, linux@rasmusvillemoes.dk, joel@joelfernandes.org, will@kernel.org, boris.ostrovsky@oracle.com, khilman@kernel.org, linux-csky@vger.kernel.org, pv-drivers@vmware.com, linux-snps-arc@lists.infradead.org, mgorman@suse.de, jacob.jun.pan@linux.intel.com, Arnd Bergmann <arnd@arndb.de>, ulli.kroll@googlemail.com, vgupta@kernel.org, linux-clk@vger.kernel.org, josh@joshtriplett.org, rostedt@goodmis.org, rcu@vger.kernel.org, bp@alien8.de, bcain@quicinc.com, tsbogend@alpha.franken.de, linux-parisc@vger.kernel.org, sudeep.holla@arm.com, shawnguo@kernel.org, davem@davemloft.net, dalias@libc.org, tony@atomide.com, amakhalov@vmware.com, bjorn.andersson@linaro.org, hpa@zytor.com, sparclinux@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-riscv@lists.infradead.org, anton.ivanov@cambridgegreys.com, jonas@southpole.se, yury.norov@gmail.com, richard@nod.at, x86@kernel.org, linux@armlinux.org.uk, mingo@redhat.com, aou@eecs.berkeley.edu, paulmck@kernel.org, hca@linux.ibm.com, stefan.kristiansson@saunalahti.fi, openrisc@lists.librecores.org, paul.walmsley@sifive.com, linux-tegra@vger.kernel.org, namhyung@kernel.org, andriy.shevchenko@linux.intel.com, jpoimboe@kernel.org, jgross@suse.com, monstr@monstr.eu, linux-mips@vger.kernel.org, palmer@dabbelt.com, anup@brainfault.org, ink@jurassic.park.msu.ru, johannes@sipsolutions.net, linuxppc-dev@lists.ozlabs.org
 
-This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
-vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
-up a private and static protection_map[] array. Subsequently all __SXXX and
-__PXXX macros can be dropped which are no longer needed.
+OMAP was the one and only user.
 
-Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
-Cc: Rich Felker <dalias@libc.org>
-Cc: linux-sh@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
 ---
- arch/sh/Kconfig               |  1 +
- arch/sh/include/asm/pgtable.h | 17 -----------------
- arch/sh/mm/mmap.c             | 20 ++++++++++++++++++++
- 3 files changed, 21 insertions(+), 17 deletions(-)
+ drivers/clk/clk.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/arch/sh/Kconfig b/arch/sh/Kconfig
-index 5f220e903e5a..91f3ea325388 100644
---- a/arch/sh/Kconfig
-+++ b/arch/sh/Kconfig
-@@ -12,6 +12,7 @@ config SUPERH
- 	select ARCH_HAS_GCOV_PROFILE_ALL
- 	select ARCH_HAS_PTE_SPECIAL
- 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
-+	select ARCH_HAS_VM_GET_PAGE_PROT
- 	select ARCH_HIBERNATION_POSSIBLE if MMU
- 	select ARCH_MIGHT_HAVE_PC_PARPORT
- 	select ARCH_WANT_IPC_PARSE_VERSION
-diff --git a/arch/sh/include/asm/pgtable.h b/arch/sh/include/asm/pgtable.h
-index d7ddb1ec86a0..6fb9ec54cf9b 100644
---- a/arch/sh/include/asm/pgtable.h
-+++ b/arch/sh/include/asm/pgtable.h
-@@ -89,23 +89,6 @@ static inline unsigned long phys_addr_mask(void)
-  * completely separate permission bits for user and kernel space.
-  */
- 	 /*xwr*/
--#define __P000	PAGE_NONE
--#define __P001	PAGE_READONLY
--#define __P010	PAGE_COPY
--#define __P011	PAGE_COPY
--#define __P100	PAGE_EXECREAD
--#define __P101	PAGE_EXECREAD
--#define __P110	PAGE_COPY
--#define __P111	PAGE_COPY
--
--#define __S000	PAGE_NONE
--#define __S001	PAGE_READONLY
--#define __S010	PAGE_WRITEONLY
--#define __S011	PAGE_SHARED
--#define __S100	PAGE_EXECREAD
--#define __S101	PAGE_EXECREAD
--#define __S110	PAGE_RWX
--#define __S111	PAGE_RWX
+--- a/drivers/clk/clk.c
++++ b/drivers/clk/clk.c
+@@ -978,12 +978,12 @@ static void clk_core_disable(struct clk_
+ 	if (--core->enable_count > 0)
+ 		return;
  
- typedef pte_t *pte_addr_t;
+-	trace_clk_disable_rcuidle(core);
++	trace_clk_disable(core);
  
-diff --git a/arch/sh/mm/mmap.c b/arch/sh/mm/mmap.c
-index 6a1a1297baae..46c1183493af 100644
---- a/arch/sh/mm/mmap.c
-+++ b/arch/sh/mm/mmap.c
-@@ -162,3 +162,23 @@ int valid_mmap_phys_addr_range(unsigned long pfn, size_t size)
- {
- 	return 1;
+ 	if (core->ops->disable)
+ 		core->ops->disable(core->hw);
+ 
+-	trace_clk_disable_complete_rcuidle(core);
++	trace_clk_disable_complete(core);
+ 
+ 	clk_core_disable(core->parent);
  }
-+
-+static const pgprot_t protection_map[16] = {
-+	[VM_NONE]					= PAGE_NONE,
-+	[VM_READ]					= PAGE_READONLY,
-+	[VM_WRITE]					= PAGE_COPY,
-+	[VM_WRITE | VM_READ]				= PAGE_COPY,
-+	[VM_EXEC]					= PAGE_EXECREAD,
-+	[VM_EXEC | VM_READ]				= PAGE_EXECREAD,
-+	[VM_EXEC | VM_WRITE]				= PAGE_COPY,
-+	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_COPY,
-+	[VM_SHARED]					= PAGE_NONE,
-+	[VM_SHARED | VM_READ]				= PAGE_READONLY,
-+	[VM_SHARED | VM_WRITE]				= PAGE_WRITEONLY,
-+	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_SHARED,
-+	[VM_SHARED | VM_EXEC]				= PAGE_EXECREAD,
-+	[VM_SHARED | VM_EXEC | VM_READ]			= PAGE_EXECREAD,
-+	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_RWX,
-+	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= PAGE_RWX
-+};
-+DECLARE_VM_GET_PAGE_PROT
--- 
-2.25.1
+@@ -1037,12 +1037,12 @@ static int clk_core_enable(struct clk_co
+ 		if (ret)
+ 			return ret;
+ 
+-		trace_clk_enable_rcuidle(core);
++		trace_clk_enable(core);
+ 
+ 		if (core->ops->enable)
+ 			ret = core->ops->enable(core->hw);
+ 
+-		trace_clk_enable_complete_rcuidle(core);
++		trace_clk_enable_complete(core);
+ 
+ 		if (ret) {
+ 			clk_core_disable(core->parent);
+
