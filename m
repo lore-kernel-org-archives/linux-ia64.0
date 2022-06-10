@@ -1,294 +1,70 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Thu, 30 Jun 2022 05:28:25 +0000
-Subject: [PATCH V6 21/26] m68k/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <20220630051630.1718927-22-anshuman.khandual@arm.com>
+From: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
+Date: Fri, 10 Jun 2022 16:32:12 +0000
+Subject: [PATCH 0/2] Introduce CABA helper process tree
+Message-Id: <20220610163214.49974-1-ptikhomirov@virtuozzo.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220630051630.1718927-1-anshuman.khandual@arm.com>
-In-Reply-To: <20220630051630.1718927-1-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, akpm@linux-foundation.org
-Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+To: linux-kernel@vger.kernel.org
+Cc: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>, Eric Biederman <ebiederm@xmission.com>, Kees Cook <keescook@chromium.org>, Alexander Viro <viro@zeniv.linux.org.uk>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Juri Lelli <juri.lelli@redhat.com>, Vincent Guittot <vincent.guittot@linaro.org>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Steven Rostedt <rostedt@goodmis.org>, Ben Segall <bsegall@google.com>, Mel Gorman <mgorman@suse.de>, Daniel Bristot de Oliveira <bristot@redhat.com>, Valentin Schneider <vschneid@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, linux-ia64@vger.kernel.org, linux-mm@kvack.org, linux-fsdevel@vger.kernel.org
 
-This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
-vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
-up a private and static protection_map[] array. Subsequently all __SXXX and
-__PXXX macros can be dropped which are no longer needed.
+Please see "Add CABA tree to task_struct" for deeper explanation, and
+"tests: Add CABA selftest" for a small test and an actual case for which
+we might need CABA.
 
-Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-Cc: linux-m68k@lists.linux-m68k.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
----
- arch/m68k/Kconfig                        |  1 +
- arch/m68k/include/asm/mcf_pgtable.h      | 54 -----------------------
- arch/m68k/include/asm/motorola_pgtable.h | 22 ----------
- arch/m68k/include/asm/sun3_pgtable.h     | 17 --------
- arch/m68k/mm/mcfmmu.c                    | 55 ++++++++++++++++++++++++
- arch/m68k/mm/motorola.c                  | 20 +++++++++
- arch/m68k/mm/sun3mmu.c                   | 20 +++++++++
- 7 files changed, 96 insertions(+), 93 deletions(-)
+Probably the original problem of restoring process tree with complex
+sessions can be resolved by allowing sessions copying, like we do for
+process group, but I'm not sure if that would be too secure to do it,
+and if there would not be another similar resource in future.
 
-diff --git a/arch/m68k/Kconfig b/arch/m68k/Kconfig
-index 936cce42ae9a..49aa0cf13e96 100644
---- a/arch/m68k/Kconfig
-+++ b/arch/m68k/Kconfig
-@@ -7,6 +7,7 @@ config M68K
- 	select ARCH_HAS_CURRENT_STACK_POINTER
- 	select ARCH_HAS_DMA_PREP_COHERENT if HAS_DMA && MMU && !COLDFIRE
- 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE if HAS_DMA
-+	select ARCH_HAS_VM_GET_PAGE_PROT
- 	select ARCH_HAVE_NMI_SAFE_CMPXCHG if RMW_INSNS
- 	select ARCH_MIGHT_HAVE_PC_PARPORT if ISA
- 	select ARCH_NO_PREEMPT if !COLDFIRE
-diff --git a/arch/m68k/include/asm/mcf_pgtable.h b/arch/m68k/include/asm/mcf_pgtable.h
-index 94f38d76e278..0e9c1b28dcab 100644
---- a/arch/m68k/include/asm/mcf_pgtable.h
-+++ b/arch/m68k/include/asm/mcf_pgtable.h
-@@ -91,60 +91,6 @@
-  * for use. In general, the bit positions are xwr, and P-items are
-  * private, the S-items are shared.
-  */
--#define __P000		PAGE_NONE
--#define __P001		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_READABLE)
--#define __P010		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_WRITABLE)
--#define __P011		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_READABLE \
--				 | CF_PAGE_WRITABLE)
--#define __P100		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_EXEC)
--#define __P101		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_READABLE \
--				 | CF_PAGE_EXEC)
--#define __P110		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_WRITABLE \
--				 | CF_PAGE_EXEC)
--#define __P111		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_READABLE \
--				 | CF_PAGE_WRITABLE \
--				 | CF_PAGE_EXEC)
--
--#define __S000		PAGE_NONE
--#define __S001		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_READABLE)
--#define __S010		PAGE_SHARED
--#define __S011		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_SHARED \
--				 | CF_PAGE_READABLE)
--#define __S100		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_EXEC)
--#define __S101		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_READABLE \
--				 | CF_PAGE_EXEC)
--#define __S110		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_SHARED \
--				 | CF_PAGE_EXEC)
--#define __S111		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_SHARED \
--				 | CF_PAGE_READABLE \
--				 | CF_PAGE_EXEC)
--
- #define PTE_MASK	PAGE_MASK
- #define CF_PAGE_CHG_MASK (PTE_MASK | CF_PAGE_ACCESSED | CF_PAGE_DIRTY)
- 
-diff --git a/arch/m68k/include/asm/motorola_pgtable.h b/arch/m68k/include/asm/motorola_pgtable.h
-index 7c9b56e2a750..63aaece0722f 100644
---- a/arch/m68k/include/asm/motorola_pgtable.h
-+++ b/arch/m68k/include/asm/motorola_pgtable.h
-@@ -83,28 +83,6 @@ extern unsigned long mm_cachebits;
- #define PAGE_COPY_C	__pgprot(_PAGE_PRESENT | _PAGE_RONLY | _PAGE_ACCESSED)
- #define PAGE_READONLY_C	__pgprot(_PAGE_PRESENT | _PAGE_RONLY | _PAGE_ACCESSED)
- 
--/*
-- * The m68k can't do page protection for execute, and considers that the same are read.
-- * Also, write permissions imply read permissions. This is the closest we can get..
-- */
--#define __P000	PAGE_NONE_C
--#define __P001	PAGE_READONLY_C
--#define __P010	PAGE_COPY_C
--#define __P011	PAGE_COPY_C
--#define __P100	PAGE_READONLY_C
--#define __P101	PAGE_READONLY_C
--#define __P110	PAGE_COPY_C
--#define __P111	PAGE_COPY_C
--
--#define __S000	PAGE_NONE_C
--#define __S001	PAGE_READONLY_C
--#define __S010	PAGE_SHARED_C
--#define __S011	PAGE_SHARED_C
--#define __S100	PAGE_READONLY_C
--#define __S101	PAGE_READONLY_C
--#define __S110	PAGE_SHARED_C
--#define __S111	PAGE_SHARED_C
--
- #define pmd_pgtable(pmd) ((pgtable_t)pmd_page_vaddr(pmd))
- 
- /*
-diff --git a/arch/m68k/include/asm/sun3_pgtable.h b/arch/m68k/include/asm/sun3_pgtable.h
-index 5e4e753f0d24..9d919491765b 100644
---- a/arch/m68k/include/asm/sun3_pgtable.h
-+++ b/arch/m68k/include/asm/sun3_pgtable.h
-@@ -71,23 +71,6 @@
-  * protection settings, valid (implying read and execute) and writeable. These
-  * are as close as we can get...
-  */
--#define __P000	PAGE_NONE
--#define __P001	PAGE_READONLY
--#define __P010	PAGE_COPY
--#define __P011	PAGE_COPY
--#define __P100	PAGE_READONLY
--#define __P101	PAGE_READONLY
--#define __P110	PAGE_COPY
--#define __P111	PAGE_COPY
--
--#define __S000	PAGE_NONE
--#define __S001	PAGE_READONLY
--#define __S010	PAGE_SHARED
--#define __S011	PAGE_SHARED
--#define __S100	PAGE_READONLY
--#define __S101	PAGE_READONLY
--#define __S110	PAGE_SHARED
--#define __S111	PAGE_SHARED
- 
- /* Use these fake page-protections on PMDs. */
- #define SUN3_PMD_VALID	(0x00000001)
-diff --git a/arch/m68k/mm/mcfmmu.c b/arch/m68k/mm/mcfmmu.c
-index 6f1f25125294..70aa0979e027 100644
---- a/arch/m68k/mm/mcfmmu.c
-+++ b/arch/m68k/mm/mcfmmu.c
-@@ -234,3 +234,58 @@ void steal_context(void)
- 	destroy_context(mm);
- }
- 
-+static const pgprot_t protection_map[16] = {
-+	[VM_NONE]					= PAGE_NONE,
-+	[VM_READ]					= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_READABLE),
-+	[VM_WRITE]					= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_WRITABLE),
-+	[VM_WRITE | VM_READ]				= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_READABLE |
-+								   CF_PAGE_WRITABLE),
-+	[VM_EXEC]					= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_EXEC),
-+	[VM_EXEC | VM_READ]				= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_READABLE |
-+								   CF_PAGE_EXEC),
-+	[VM_EXEC | VM_WRITE]				= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_WRITABLE |
-+								   CF_PAGE_EXEC),
-+	[VM_EXEC | VM_WRITE | VM_READ]			=  __pgprot(CF_PAGE_VALID |
-+								    CF_PAGE_ACCESSED |
-+								    CF_PAGE_READABLE |
-+								    CF_PAGE_WRITABLE |
-+								    CF_PAGE_EXEC),
-+	[VM_SHARED]					= PAGE_NONE,
-+	[VM_SHARED | VM_READ]				= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_READABLE),
-+	[VM_SHARED | VM_WRITE]				= PAGE_SHARED,
-+	[VM_SHARED | VM_WRITE | VM_READ]		= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_READABLE |
-+								   CF_PAGE_SHARED),
-+	[VM_SHARED | VM_EXEC]				= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_EXEC),
-+	[VM_SHARED | VM_EXEC | VM_READ]			= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_READABLE |
-+								   CF_PAGE_EXEC),
-+	[VM_SHARED | VM_EXEC | VM_WRITE]		= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_SHARED |
-+								   CF_PAGE_EXEC),
-+	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_READABLE |
-+								   CF_PAGE_SHARED |
-+								   CF_PAGE_EXEC)
-+};
-+DECLARE_VM_GET_PAGE_PROT
-diff --git a/arch/m68k/mm/motorola.c b/arch/m68k/mm/motorola.c
-index df7f797c908a..31fba64bc530 100644
---- a/arch/m68k/mm/motorola.c
-+++ b/arch/m68k/mm/motorola.c
-@@ -382,6 +382,26 @@ static void __init map_node(int node)
- #endif
- }
- 
-+static pgprot_t protection_map[16] __ro_after_init = {
-+	[VM_NONE]					= PAGE_NONE_C,
-+	[VM_READ]					= PAGE_READONLY_C,
-+	[VM_WRITE]					= PAGE_COPY_C,
-+	[VM_WRITE | VM_READ]				= PAGE_COPY_C,
-+	[VM_EXEC]					= PAGE_READONLY_C,
-+	[VM_EXEC | VM_READ]				= PAGE_READONLY_C,
-+	[VM_EXEC | VM_WRITE]				= PAGE_COPY_C,
-+	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_COPY_C,
-+	[VM_SHARED]					= PAGE_NONE_C,
-+	[VM_SHARED | VM_READ]				= PAGE_READONLY_C,
-+	[VM_SHARED | VM_WRITE]				= PAGE_SHARED_C,
-+	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_SHARED_C,
-+	[VM_SHARED | VM_EXEC]				= PAGE_READONLY_C,
-+	[VM_SHARED | VM_EXEC | VM_READ]			= PAGE_READONLY_C,
-+	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_SHARED_C,
-+	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= PAGE_SHARED_C
-+};
-+DECLARE_VM_GET_PAGE_PROT
-+
- /*
-  * paging_init() continues the virtual memory environment setup which
-  * was begun by the code in arch/head.S.
-diff --git a/arch/m68k/mm/sun3mmu.c b/arch/m68k/mm/sun3mmu.c
-index dad494224497..b619d0d4319c 100644
---- a/arch/m68k/mm/sun3mmu.c
-+++ b/arch/m68k/mm/sun3mmu.c
-@@ -95,3 +95,23 @@ void __init paging_init(void)
- 
- 
- }
-+
-+static const pgprot_t protection_map[16] = {
-+	[VM_NONE]					= PAGE_NONE,
-+	[VM_READ]					= PAGE_READONLY,
-+	[VM_WRITE]					= PAGE_COPY,
-+	[VM_WRITE | VM_READ]				= PAGE_COPY,
-+	[VM_EXEC]					= PAGE_READONLY,
-+	[VM_EXEC | VM_READ]				= PAGE_READONLY,
-+	[VM_EXEC | VM_WRITE]				= PAGE_COPY,
-+	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_COPY,
-+	[VM_SHARED]					= PAGE_NONE,
-+	[VM_SHARED | VM_READ]				= PAGE_READONLY,
-+	[VM_SHARED | VM_WRITE]				= PAGE_SHARED,
-+	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_SHARED,
-+	[VM_SHARED | VM_EXEC]				= PAGE_READONLY,
-+	[VM_SHARED | VM_EXEC | VM_READ]			= PAGE_READONLY,
-+	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_SHARED,
-+	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= PAGE_SHARED
-+};
-+DECLARE_VM_GET_PAGE_PROT
+We can use CABA not only for CRIU for restoring processes, in normal
+life when processes detach CABA will help to understand from which place
+in process tree they were originally started from sshd/crond or
+something else.
+
+Hope my idea is not completely insane =)
+
+CC: Eric Biederman <ebiederm@xmission.com>
+CC: Kees Cook <keescook@chromium.org>
+CC: Alexander Viro <viro@zeniv.linux.org.uk>
+CC: Ingo Molnar <mingo@redhat.com>
+CC: Peter Zijlstra <peterz@infradead.org>
+CC: Juri Lelli <juri.lelli@redhat.com>
+CC: Vincent Guittot <vincent.guittot@linaro.org>
+CC: Dietmar Eggemann <dietmar.eggemann@arm.com>
+CC: Steven Rostedt <rostedt@goodmis.org>
+CC: Ben Segall <bsegall@google.com>
+CC: Mel Gorman <mgorman@suse.de>
+CC: Daniel Bristot de Oliveira <bristot@redhat.com>
+CC: Valentin Schneider <vschneid@redhat.com>
+CC: Andrew Morton <akpm@linux-foundation.org>
+CC: linux-ia64@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
+CC: linux-mm@kvack.org
+CC: linux-fsdevel@vger.kernel.org
+
+Pavel Tikhomirov (2):
+  Add CABA tree to task_struct
+  tests: Add CABA selftest
+
+ arch/ia64/kernel/mca.c                   |   3 +
+ fs/exec.c                                |   1 +
+ fs/proc/array.c                          |  18 +
+ include/linux/sched.h                    |   7 +
+ init/init_task.c                         |   3 +
+ kernel/exit.c                            |  50 ++-
+ kernel/fork.c                            |   4 +
+ tools/testing/selftests/Makefile         |   1 +
+ tools/testing/selftests/caba/.gitignore  |   1 +
+ tools/testing/selftests/caba/Makefile    |   7 +
+ tools/testing/selftests/caba/caba_test.c | 501 +++++++++++++++++++++++
+ tools/testing/selftests/caba/config      |   1 +
+ 12 files changed, 591 insertions(+), 6 deletions(-)
+ create mode 100644 tools/testing/selftests/caba/.gitignore
+ create mode 100644 tools/testing/selftests/caba/Makefile
+ create mode 100644 tools/testing/selftests/caba/caba_test.c
+ create mode 100644 tools/testing/selftests/caba/config
+
 -- 
-2.25.1
+2.35.3
