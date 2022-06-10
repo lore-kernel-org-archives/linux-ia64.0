@@ -1,7 +1,7 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Date: Fri, 10 Jun 2022 12:18:03 +0000
-Subject: RE: [PATCH v2 1/6] ia64, processor: fix -Wincompatible-pointer-types in ia64_get_irr()
-Message-Id: <8711f7d6bdc148bd916d87515e71b3c2@AcuMS.aculab.com>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Date: Fri, 10 Jun 2022 13:46:21 +0000
+Subject: Re: [PATCH v2 1/6] ia64, processor: fix -Wincompatible-pointer-types in ia64_get_irr()
+Message-Id: <YqNLLTAY0t62Jxq4@smile.fi.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220610113427.908751-1-alexandr.lobakin@intel.com>
  <20220610113427.908751-2-alexandr.lobakin@intel.com>
@@ -9,12 +9,10 @@ In-Reply-To: <20220610113427.908751-2-alexandr.lobakin@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 'Alexander Lobakin' <alexandr.lobakin@intel.com>, Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>
-Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux-hexagon@vger.kernel.org" <linux-hexagon@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "stable@vger.kernel.org" <stable@vger.kernel.org>, kernel test robot <lkp@intel.com>
+To: Alexander Lobakin <alexandr.lobakin@intel.com>
+Cc: Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, stable@vger.kernel.org, kernel test robot <lkp@intel.com>
 
-From: Alexander Lobakin
-> Sent: 10 June 2022 12:34
-> 
+On Fri, Jun 10, 2022 at 01:34:22PM +0200, Alexander Lobakin wrote:
 > test_bit(), as any other bitmap op, takes `unsigned long *` as a
 > second argument (pointer to the actual bitmap), as any bitmap
 > itself is an array of unsigned longs. However, the ia64_get_irr()
@@ -27,13 +25,8 @@ From: Alexander Lobakin
 > Define @irr as `unsigned long` to fix that. That implies no
 > functional changes. Has been hidden for 16 years!
 
-Wouldn't it be better to just test the bit?
-As in:
-	return irr & (1ull << bit);
+Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 
-    David
-
-> 
 > Fixes: a58786917ce2 ("[IA64] avoid broken SAL_CACHE_FLUSH implementations")
 > Cc: stable@vger.kernel.org # 2.6.16+
 > Reported-by: kernel test robot <lkp@intel.com>
@@ -52,12 +45,14 @@ As in:
 >  	unsigned int bit = vector % 64;
 > -	u64 irr;
 > +	unsigned long irr;
-> 
+>  
 >  	switch (reg) {
 >  	case 0: irr = ia64_getreg(_IA64_REG_CR_IRR0); break;
-> --
+> -- 
 > 2.36.1
+> 
 
--
-Registered Address Lakeside, Bramley Road, Mount Farm, Milton Keynes, MK1 1PT, UK
-Registration No: 1397386 (Wales)
+-- 
+With Best Regards,
+Andy Shevchenko
+
