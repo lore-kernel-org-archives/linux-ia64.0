@@ -1,13 +1,15 @@
 From: Li kunyu <kunyu@nfschina.com>
-Date: Fri, 10 Jun 2022 10:36:44 +0000
+Date: Fri, 10 Jun 2022 10:43:05 +0000
 Subject: [PATCH] x86: Change the return type of acpi_map_cpu2node to void
-Message-Id: <20220610103644.201245-1-kunyu@nfschina.com>
+Message-Id: <20220610104305.201688-1-kunyu@nfschina.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20220610103644.201245-1-kunyu@nfschina.com>
+In-Reply-To: <20220610103644.201245-1-kunyu@nfschina.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: chenhuacai@kernel.org, kernel@xen0n.name, rafael@kernel.org, len.brown@intel.com, pavel@ucw.cz, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pm@vger.kernel.org, Li kunyu <kunyu@nfschina.com>
+To: chenhuacai@kernel.org, rafael@kernel.org, len.brown@intel.com, pavel@ucw.cz, mingo@redhat.com, bp@alien8.de
+Cc: kernel@xen0n.name, tglx@linutronix.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pm@vger.kernel.org, Li kunyu <kunyu@nfschina.com>
 
 Reduce eax register calls by removing unused return values.
 
