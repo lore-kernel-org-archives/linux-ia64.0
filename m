@@ -1,22 +1,19 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Fri, 10 Jun 2022 14:21:47 +0000
+From: Li kunyu <kunyu@nfschina.com>
+Date: Fri, 10 Jun 2022 15:17:04 +0000
 Subject: Re: [PATCH] x86: Change the return type of acpi_map_cpu2node to void
-Message-Id: <YqNTewtUzizxovJO@hirez.programming.kicks-ass.net>
+Message-Id: <20220610151705.8383-1-kunyu@nfschina.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220610104423.201739-1-kunyu@nfschina.com>
- <7eb4762e-723b-51e8-3d70-1c28568ac4f5@intel.com>
+References: <7eb4762e-723b-51e8-3d70-1c28568ac4f5@intel.com>
 In-Reply-To: <7eb4762e-723b-51e8-3d70-1c28568ac4f5@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Dave Hansen <dave.hansen@intel.com>
-Cc: Li kunyu <kunyu@nfschina.com>, chenhuacai@kernel.org, rafael@kernel.org, len.brown@intel.com, pavel@ucw.cz, mingo@redhat.com, bp@alien8.de, tglx@linutronix.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pm@vger.kernel.org
+To: dave.hansen@intel.com
+Cc: bp@alien8.de, chenhuacai@kernel.org, dave.hansen@linux.intel.com, hpa@zytor.com, kunyu@nfschina.com, len.brown@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pm@vger.kernel.org, mingo@redhat.com, pavel@ucw.cz, rafael@kernel.org, tglx@linutronix.de, x86@kernel.org
 
-On Fri, Jun 10, 2022 at 05:35:29AM -0700, Dave Hansen wrote:
-> On 6/10/22 03:44, Li kunyu wrote:
-> > Reduce eax register calls by removing unused return values.
-> 
-> Please stop sending these patches, at least with these repetitive,
-> inaccurate descriptions.
 
-Dave, just add them to the /dev/null mailbox.
+I'm really sorry, Dave. My email prompted abnormal sending (when I sent patch before), so I sent it three times, but there was no abnormal message for the third time.
+
+Static functions are called from the current source file, and their basic functions are similar to global functions (perhaps I don't fully understand).
+
+In addition, the x86 architecture is EAX in the IA64 architecture did not pay much attention, which is my oversight.
