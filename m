@@ -1,103 +1,85 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Mon, 06 Jun 2022 16:06:01 +0000
-Subject: Re: [PATCH 05/16] ptrace: Remove dead code from __ptrace_detach
-Message-Id: <87ee014w0m.fsf@email.froward.int.ebiederm.org>
+From: Li kunyu <kunyu@nfschina.com>
+Date: Fri, 10 Jun 2022 10:36:44 +0000
+Subject: [PATCH] x86: Change the return type of acpi_map_cpu2node to void
+Message-Id: <20220610103644.201245-1-kunyu@nfschina.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
-        <20220518225355.784371-5-ebiederm@xmission.com>
-        <20220524114250.GB14347@redhat.com> <20220525143303.GB2687@redhat.com>
-In-Reply-To: <20220525143303.GB2687@redhat.com> (Oleg Nesterov's message of
-        "Wed, 25 May 2022 16:33:03 +0200")
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Oleg Nesterov <oleg@redhat.com>
-Cc: linux-kernel@vger.kernel.org, rjw@rjwysocki.net, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, Robert OCallahan <roc@pernos.co>, Kyle Huey <khuey@pernos.co>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Jason Wessel <jason.wessel@windriver.com>, Daniel Thompson <daniel.thompson@linaro.org>, Douglas Anderson <dianders@chromium.org>, Douglas Miller <dougmill@linux.vnet.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>
+To: chenhuacai@kernel.org, kernel@xen0n.name, rafael@kernel.org, len.brown@intel.com, pavel@ucw.cz, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pm@vger.kernel.org, Li kunyu <kunyu@nfschina.com>
 
-Oleg Nesterov <oleg@redhat.com> writes:
+Reduce eax register calls by removing unused return values.
 
-> On 05/24, Oleg Nesterov wrote:
->>
->> Sorry for delay.
->>
->> On 05/18, Eric W. Biederman wrote:
->> >
->> > Ever since commit 28d838cc4dfe ("Fix ptrace self-attach rule") it has
->> > been impossible to attach another thread in the same thread group.
->> >
->> > Remove the code from __ptrace_detach that was trying to support
->> > detaching from a thread in the same thread group.
->>
->> may be I am totally confused, but I think you misunderstood this code
->> and thus this patch is very wrong.
->>
->> The same_thread_group() check does NOT try to check if debugger and
->> tracee is in the same thread group, this is indeed impossible.
->>
->> We need this check to know if the tracee was ptrace_reparented() before
->> __ptrace_unlink() or not.
->>
->>
->> > -static int ignoring_children(struct sighand_struct *sigh)
->> > -{
->> > -	int ret;
->> > -	spin_lock(&sigh->siglock);
->> > -	ret = (sigh->action[SIGCHLD-1].sa.sa_handler = SIG_IGN) ||
->> > -	      (sigh->action[SIGCHLD-1].sa.sa_flags & SA_NOCLDWAIT);
->> > -	spin_unlock(&sigh->siglock);
->> > -	return ret;
->> > -}
->>
->> ...
->>
->> > @@ -565,14 +552,9 @@ static bool __ptrace_detach(struct task_struct *tracer, struct task_struct *p)
->> >
->> >  	dead = !thread_group_leader(p);
->> >
->> > -	if (!dead && thread_group_empty(p)) {
->> > -		if (!same_thread_group(p->real_parent, tracer))
->> > -			dead = do_notify_parent(p, p->exit_signal);
->> > -		else if (ignoring_children(tracer->sighand)) {
->> > -			__wake_up_parent(p, tracer);
->> > -			dead = true;
->> > -		}
->> > -	}
->>
->> So the code above does:
->>
->> 	- if !same_thread_group(p->real_parent, tracer), then the tracee was
->> 	  ptrace_reparented(), and now we need to notify its natural parent
->> 	  to let it know it has a zombie child.
->>
->> 	- otherwise, the tracee is our natural child, and it is actually dead.
->> 	  however, since we are going to reap this task, we need to wake up our
->> 	  sub-threads possibly sleeping on ->wait_chldexit wait_queue_head_t.
->>
->> See?
->>
->> > +	if (!dead && thread_group_empty(p))
->> > +		dead = do_notify_parent(p, p->exit_signal);
->>
->> No, this looks wrong. Or I missed something?
->
-> Yes, but...
->
-> That said, it seems that we do not need __wake_up_parent() if it was our
-> natural child?
+Signed-off-by: Li kunyu <kunyu@nfschina.com>
+---
+ arch/ia64/kernel/acpi.c      | 3 +--
+ arch/loongarch/kernel/acpi.c | 3 +--
+ arch/x86/kernel/acpi/boot.c  | 3 +--
+ 3 files changed, 3 insertions(+), 6 deletions(-)
 
-Agreed on both counts.
-
-Hmm.  I see where the logic comes from.  The ignoring_children test and
-the __wake_up_parent are what do_notify_parent does when the parent
-ignores children.  Hmm.  I even see all of this document in the comment
-above __ptrace_detach.
-
-So I am just going to drop this change.
-
-> I'll recheck. Eric, I'll continue to read this series tomorrow, can't
-> concentrate on ptrace today.
-
-No worries.  This was entirely too close to the merge window so I
-dropped it all until today.
-
-Eric
+diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
+index 96d13cb7c19f..2665cc873f0a 100644
+--- a/arch/ia64/kernel/acpi.c
++++ b/arch/ia64/kernel/acpi.c
+@@ -712,7 +712,7 @@ int acpi_isa_irq_to_gsi(unsigned isa_irq, u32 *gsi)
+  *  ACPI based hotplug CPU support
+  */
+ #ifdef CONFIG_ACPI_HOTPLUG_CPU
+-int acpi_map_cpu2node(acpi_handle handle, int cpu, int physid)
++void acpi_map_cpu2node(acpi_handle handle, int cpu, int physid)
+ {
+ #ifdef CONFIG_ACPI_NUMA
+ 	/*
+@@ -725,7 +725,6 @@ int acpi_map_cpu2node(acpi_handle handle, int cpu, int physid)
+ 	node_cpuid[cpu].phys_id = physid;
+ 	node_cpuid[cpu].nid = acpi_get_node(handle);
+ #endif
+-	return 0;
+ }
+ 
+ int additional_cpus __initdata = -1;
+diff --git a/arch/loongarch/kernel/acpi.c b/arch/loongarch/kernel/acpi.c
+index b16c3dea5eeb..369b49343563 100644
+--- a/arch/loongarch/kernel/acpi.c
++++ b/arch/loongarch/kernel/acpi.c
+@@ -282,7 +282,7 @@ void __init arch_reserve_mem_area(acpi_physical_address addr, size_t size)
+ 
+ #include <acpi/processor.h>
+ 
+-static int __ref acpi_map_cpu2node(acpi_handle handle, int cpu, int physid)
++static void __ref acpi_map_cpu2node(acpi_handle handle, int cpu, int physid)
+ {
+ #ifdef CONFIG_ACPI_NUMA
+ 	int nid;
+@@ -295,7 +295,6 @@ static int __ref acpi_map_cpu2node(acpi_handle handle, int cpu, int physid)
+ 		cpumask_set_cpu(cpu, cpumask_of_node(nid));
+ 	}
+ #endif
+-	return 0;
+ }
+ 
+ int acpi_map_cpu(acpi_handle handle, phys_cpuid_t physid, u32 acpi_id, int *pcpu)
+diff --git a/arch/x86/kernel/acpi/boot.c b/arch/x86/kernel/acpi/boot.c
+index 907cc98b1938..d63ec3ea3be3 100644
+--- a/arch/x86/kernel/acpi/boot.c
++++ b/arch/x86/kernel/acpi/boot.c
+@@ -799,7 +799,7 @@ static void __init acpi_set_irq_model_ioapic(void)
+ #ifdef CONFIG_ACPI_HOTPLUG_CPU
+ #include <acpi/processor.h>
+ 
+-static int acpi_map_cpu2node(acpi_handle handle, int cpu, int physid)
++static void acpi_map_cpu2node(acpi_handle handle, int cpu, int physid)
+ {
+ #ifdef CONFIG_ACPI_NUMA
+ 	int nid;
+@@ -810,7 +810,6 @@ static int acpi_map_cpu2node(acpi_handle handle, int cpu, int physid)
+ 		numa_set_node(cpu, nid);
+ 	}
+ #endif
+-	return 0;
+ }
+ 
+ int acpi_map_cpu(acpi_handle handle, phys_cpuid_t physid, u32 acpi_id,
+-- 
+2.18.2
