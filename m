@@ -1,310 +1,66 @@
-From: Marco Elver <elver@google.com>
-Date: Mon, 20 Jun 2022 09:49:10 +0000
-Subject: Re: [PATCH v3 2/7] bitops: always define asm-generic non-atomic bitops
-Message-Id: <CANpmjNMoM1K1GhWpiHu+WvEeOqOW1NMw0ii7Npup2PD-y+Ratw@mail.gmail.com>
+From: Masahiro Yamada <masahiroy@kernel.org>
+Date: Fri, 10 Jun 2022 18:32:33 +0000
+Subject: [PATCH 4/7] ia64,export.h: replace EXPORT_DATA_SYMBOL* with EXPORT_SYMBOL*
+Message-Id: <20220610183236.1272216-5-masahiroy@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220617144031.2549432-1-alexandr.lobakin@intel.com> <20220617144031.2549432-3-alexandr.lobakin@intel.com>
-In-Reply-To: <20220617144031.2549432-3-alexandr.lobakin@intel.com>
+References: <20220610183236.1272216-1-masahiroy@kernel.org>
+In-Reply-To: <20220610183236.1272216-1-masahiroy@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Alexander Lobakin <alexandr.lobakin@intel.com>
-Cc: Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Maciej Fijalkowski <maciej.fijalkowski@intel.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-kbuild@vger.kernel.org
+Cc: Al Viro <viro@zeniv.linux.org.uk>, Nicolas Pitre <npitre@baylibre.com>, Luis Chamberlain <mcgrof@kernel.org>, linux-modules@vger.kernel.org, Ard Biesheuvel <ardb@kernel.org>, Masahiro Yamada <masahiroy@kernel.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Fri, 17 Jun 2022 at 19:19, Alexander Lobakin
-<alexandr.lobakin@intel.com> wrote:
->
-> Move generic non-atomic bitops from the asm-generic header which
-> gets included only when there are no architecture-specific
-> alternatives, to a separate independent file to make them always
-> available.
-> Almost no actual code changes, only one comment added to
-> generic_test_bit() saying that it's an atomic operation itself
-> and thus `volatile` must always stay there with no cast-aways.
->
-> Suggested-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com> # comment
-> Suggested-by: Marco Elver <elver@google.com> # reference to kernel-doc
-> Signed-off-by: Alexander Lobakin <alexandr.lobakin@intel.com>
-> Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+With the previous refactoring, you no longer need to know whether the
+exported symbol is a function or a data.
 
-Reviewed-by: Marco Elver <elver@google.com>
+Replace two instances in ia64, then remove EXPORT_DATA_SYMBOL*.
 
-> ---
->  .../asm-generic/bitops/generic-non-atomic.h   | 130 ++++++++++++++++++
->  include/asm-generic/bitops/non-atomic.h       | 110 ++-------------
->  2 files changed, 138 insertions(+), 102 deletions(-)
->  create mode 100644 include/asm-generic/bitops/generic-non-atomic.h
->
-> diff --git a/include/asm-generic/bitops/generic-non-atomic.h b/include/asm-generic/bitops/generic-non-atomic.h
-> new file mode 100644
-> index 000000000000..7226488810e5
-> --- /dev/null
-> +++ b/include/asm-generic/bitops/generic-non-atomic.h
-> @@ -0,0 +1,130 @@
-> +/* SPDX-License-Identifier: GPL-2.0-only */
-> +
-> +#ifndef __ASM_GENERIC_BITOPS_GENERIC_NON_ATOMIC_H
-> +#define __ASM_GENERIC_BITOPS_GENERIC_NON_ATOMIC_H
-> +
-> +#include <linux/bits.h>
-> +
-> +#ifndef _LINUX_BITOPS_H
-> +#error only <linux/bitops.h> can be included directly
-> +#endif
-> +
-> +/*
-> + * Generic definitions for bit operations, should not be used in regular code
-> + * directly.
-> + */
-> +
-> +/**
-> + * generic___set_bit - Set a bit in memory
-> + * @nr: the bit to set
-> + * @addr: the address to start counting from
-> + *
-> + * Unlike set_bit(), this function is non-atomic and may be reordered.
-> + * If it's called on the same region of memory simultaneously, the effect
-> + * may be that only one operation succeeds.
-> + */
-> +static __always_inline void
-> +generic___set_bit(unsigned int nr, volatile unsigned long *addr)
-> +{
-> +       unsigned long mask = BIT_MASK(nr);
-> +       unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-> +
-> +       *p  |= mask;
-> +}
-> +
-> +static __always_inline void
-> +generic___clear_bit(unsigned int nr, volatile unsigned long *addr)
-> +{
-> +       unsigned long mask = BIT_MASK(nr);
-> +       unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-> +
-> +       *p &= ~mask;
-> +}
-> +
-> +/**
-> + * generic___change_bit - Toggle a bit in memory
-> + * @nr: the bit to change
-> + * @addr: the address to start counting from
-> + *
-> + * Unlike change_bit(), this function is non-atomic and may be reordered.
-> + * If it's called on the same region of memory simultaneously, the effect
-> + * may be that only one operation succeeds.
-> + */
-> +static __always_inline
-> +void generic___change_bit(unsigned int nr, volatile unsigned long *addr)
-> +{
-> +       unsigned long mask = BIT_MASK(nr);
-> +       unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-> +
-> +       *p ^= mask;
-> +}
-> +
-> +/**
-> + * generic___test_and_set_bit - Set a bit and return its old value
-> + * @nr: Bit to set
-> + * @addr: Address to count from
-> + *
-> + * This operation is non-atomic and can be reordered.
-> + * If two examples of this operation race, one can appear to succeed
-> + * but actually fail.  You must protect multiple accesses with a lock.
-> + */
-> +static __always_inline int
-> +generic___test_and_set_bit(unsigned int nr, volatile unsigned long *addr)
-> +{
-> +       unsigned long mask = BIT_MASK(nr);
-> +       unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-> +       unsigned long old = *p;
-> +
-> +       *p = old | mask;
-> +       return (old & mask) != 0;
-> +}
-> +
-> +/**
-> + * generic___test_and_clear_bit - Clear a bit and return its old value
-> + * @nr: Bit to clear
-> + * @addr: Address to count from
-> + *
-> + * This operation is non-atomic and can be reordered.
-> + * If two examples of this operation race, one can appear to succeed
-> + * but actually fail.  You must protect multiple accesses with a lock.
-> + */
-> +static __always_inline int
-> +generic___test_and_clear_bit(unsigned int nr, volatile unsigned long *addr)
-> +{
-> +       unsigned long mask = BIT_MASK(nr);
-> +       unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-> +       unsigned long old = *p;
-> +
-> +       *p = old & ~mask;
-> +       return (old & mask) != 0;
-> +}
-> +
-> +/* WARNING: non atomic and it can be reordered! */
-> +static __always_inline int
-> +generic___test_and_change_bit(unsigned int nr, volatile unsigned long *addr)
-> +{
-> +       unsigned long mask = BIT_MASK(nr);
-> +       unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-> +       unsigned long old = *p;
-> +
-> +       *p = old ^ mask;
-> +       return (old & mask) != 0;
-> +}
-> +
-> +/**
-> + * generic_test_bit - Determine whether a bit is set
-> + * @nr: bit number to test
-> + * @addr: Address to start counting from
-> + */
-> +static __always_inline int
-> +generic_test_bit(unsigned int nr, const volatile unsigned long *addr)
-> +{
-> +       /*
-> +        * Unlike the bitops with the '__' prefix above, this one *is* atomic,
-> +        * so `volatile` must always stay here with no cast-aways. See
-> +        * `Documentation/atomic_bitops.txt` for the details.
-> +        */
-> +       return 1UL & (addr[BIT_WORD(nr)] >> (nr & (BITS_PER_LONG-1)));
-> +}
-> +
-> +#endif /* __ASM_GENERIC_BITOPS_GENERIC_NON_ATOMIC_H */
-> diff --git a/include/asm-generic/bitops/non-atomic.h b/include/asm-generic/bitops/non-atomic.h
-> index 078cc68be2f1..23d3abc1e10d 100644
-> --- a/include/asm-generic/bitops/non-atomic.h
-> +++ b/include/asm-generic/bitops/non-atomic.h
-> @@ -2,121 +2,27 @@
->  #ifndef _ASM_GENERIC_BITOPS_NON_ATOMIC_H_
->  #define _ASM_GENERIC_BITOPS_NON_ATOMIC_H_
->
-> -#include <asm/types.h>
-> +#include <asm-generic/bitops/generic-non-atomic.h>
->
-> -/**
-> - * arch___set_bit - Set a bit in memory
-> - * @nr: the bit to set
-> - * @addr: the address to start counting from
-> - *
-> - * Unlike set_bit(), this function is non-atomic and may be reordered.
-> - * If it's called on the same region of memory simultaneously, the effect
-> - * may be that only one operation succeeds.
-> - */
-> -static __always_inline void
-> -arch___set_bit(unsigned int nr, volatile unsigned long *addr)
-> -{
-> -       unsigned long mask = BIT_MASK(nr);
-> -       unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-> -
-> -       *p  |= mask;
-> -}
-> +#define arch___set_bit generic___set_bit
->  #define __set_bit arch___set_bit
->
-> -static __always_inline void
-> -arch___clear_bit(unsigned int nr, volatile unsigned long *addr)
-> -{
-> -       unsigned long mask = BIT_MASK(nr);
-> -       unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-> -
-> -       *p &= ~mask;
-> -}
-> +#define arch___clear_bit generic___clear_bit
->  #define __clear_bit arch___clear_bit
->
-> -/**
-> - * arch___change_bit - Toggle a bit in memory
-> - * @nr: the bit to change
-> - * @addr: the address to start counting from
-> - *
-> - * Unlike change_bit(), this function is non-atomic and may be reordered.
-> - * If it's called on the same region of memory simultaneously, the effect
-> - * may be that only one operation succeeds.
-> - */
-> -static __always_inline
-> -void arch___change_bit(unsigned int nr, volatile unsigned long *addr)
-> -{
-> -       unsigned long mask = BIT_MASK(nr);
-> -       unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-> -
-> -       *p ^= mask;
-> -}
-> +#define arch___change_bit generic___change_bit
->  #define __change_bit arch___change_bit
->
-> -/**
-> - * arch___test_and_set_bit - Set a bit and return its old value
-> - * @nr: Bit to set
-> - * @addr: Address to count from
-> - *
-> - * This operation is non-atomic and can be reordered.
-> - * If two examples of this operation race, one can appear to succeed
-> - * but actually fail.  You must protect multiple accesses with a lock.
-> - */
-> -static __always_inline int
-> -arch___test_and_set_bit(unsigned int nr, volatile unsigned long *addr)
-> -{
-> -       unsigned long mask = BIT_MASK(nr);
-> -       unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-> -       unsigned long old = *p;
-> -
-> -       *p = old | mask;
-> -       return (old & mask) != 0;
-> -}
-> +#define arch___test_and_set_bit generic___test_and_set_bit
->  #define __test_and_set_bit arch___test_and_set_bit
->
-> -/**
-> - * arch___test_and_clear_bit - Clear a bit and return its old value
-> - * @nr: Bit to clear
-> - * @addr: Address to count from
-> - *
-> - * This operation is non-atomic and can be reordered.
-> - * If two examples of this operation race, one can appear to succeed
-> - * but actually fail.  You must protect multiple accesses with a lock.
-> - */
-> -static __always_inline int
-> -arch___test_and_clear_bit(unsigned int nr, volatile unsigned long *addr)
-> -{
-> -       unsigned long mask = BIT_MASK(nr);
-> -       unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-> -       unsigned long old = *p;
-> -
-> -       *p = old & ~mask;
-> -       return (old & mask) != 0;
-> -}
-> +#define arch___test_and_clear_bit generic___test_and_clear_bit
->  #define __test_and_clear_bit arch___test_and_clear_bit
->
-> -/* WARNING: non atomic and it can be reordered! */
-> -static __always_inline int
-> -arch___test_and_change_bit(unsigned int nr, volatile unsigned long *addr)
-> -{
-> -       unsigned long mask = BIT_MASK(nr);
-> -       unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-> -       unsigned long old = *p;
-> -
-> -       *p = old ^ mask;
-> -       return (old & mask) != 0;
-> -}
-> +#define arch___test_and_change_bit generic___test_and_change_bit
->  #define __test_and_change_bit arch___test_and_change_bit
->
-> -/**
-> - * arch_test_bit - Determine whether a bit is set
-> - * @nr: bit number to test
-> - * @addr: Address to start counting from
-> - */
-> -static __always_inline int
-> -arch_test_bit(unsigned int nr, const volatile unsigned long *addr)
-> -{
-> -       return 1UL & (addr[BIT_WORD(nr)] >> (nr & (BITS_PER_LONG-1)));
-> -}
-> +#define arch_test_bit generic_test_bit
->  #define test_bit arch_test_bit
->
->  #endif /* _ASM_GENERIC_BITOPS_NON_ATOMIC_H_ */
-> --
-> 2.36.1
->
+Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
+---
+
+ arch/ia64/kernel/head.S      | 2 +-
+ arch/ia64/kernel/ivt.S       | 2 +-
+ include/asm-generic/export.h | 3 ---
+ 3 files changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/arch/ia64/kernel/head.S b/arch/ia64/kernel/head.S
+index f22469f1c1fc..c096500590e9 100644
+--- a/arch/ia64/kernel/head.S
++++ b/arch/ia64/kernel/head.S
+@@ -170,7 +170,7 @@ RestRR:											\
+ 	__PAGE_ALIGNED_DATA
+ 
+ 	.global empty_zero_page
+-EXPORT_DATA_SYMBOL_GPL(empty_zero_page)
++EXPORT_SYMBOL_GPL(empty_zero_page)
+ empty_zero_page:
+ 	.skip PAGE_SIZE
+ 
+diff --git a/arch/ia64/kernel/ivt.S b/arch/ia64/kernel/ivt.S
+index d6d4229b28db..7a418e324d30 100644
+--- a/arch/ia64/kernel/ivt.S
++++ b/arch/ia64/kernel/ivt.S
+@@ -87,7 +87,7 @@
+ 
+ 	.align 32768	// align on 32KB boundary
+ 	.global ia64_ivt
+-	EXPORT_DATA_SYMBOL(ia64_ivt)
++	EXPORT_SYMBOL(ia64_ivt)
+ ia64_ivt:
+ /////////////////////////////////////////////////////////////////////////////////////////
+ // 0x0000 Entry 0 (size 64 bundles) VHPT Translation (8,20,47)
+diff --git a/include/asm-generic/export.h b/include/asm-generic/export.h
+index 0ae9f38a904c..570cd4da7210 100644
+--- a/include/asm-generic/export.h
++++ b/include/asm-generic/export.h
+@@ -8,7 +8,4 @@
+  */
+ #include <linux/export.h>
+ 
+-#define EXPORT_DATA_SYMBOL(name)	EXPORT_SYMBOL(name)
+-#define EXPORT_DATA_SYMBOL_GPL(name)	EXPORT_SYMBOL_GPL(name)
+-
+ #endif
+-- 
+2.32.0
