@@ -1,83 +1,35 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Mon, 27 Jun 2022 05:49:44 +0000
-Subject: Re: [PATCH V5 03/26] powerpc/mm: Move protection_map[] inside the platform
-Message-Id: <78a5d6ed-d1b5-2007-5d45-9c307d565349@csgroup.eu>
+From: Nadav Amit <namit@vmware.com>
+Date: Mon, 13 Jun 2022 19:23:13 +0000
+Subject: Re: [Pv-drivers] [PATCH 29/36] cpuidle,        xenpv: Make more PARAVIRT_XXL noinstr clean
+Message-Id: <BAE566A0-AEA3-493E-8AC5-912C795BF1DE@vmware.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220627045833.1590055-1-anshuman.khandual@arm.com>
- <20220627045833.1590055-4-anshuman.khandual@arm.com>
-In-Reply-To: <20220627045833.1590055-4-anshuman.khandual@arm.com>
+References: <20220608142723.103523089@infradead.org>
+ <20220608144517.759631860@infradead.org>
+ <510b9b68-7d53-7d4d-5a05-37fbd199eb4b@csail.mit.edu>
+In-Reply-To: <510b9b68-7d53-7d4d-5a05-37fbd199eb4b@csail.mit.edu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Anshuman Khandual <anshuman.khandual@arm.com>, "linux-mm@kvack.org" <linux-mm@kvack.org>
-Cc: "hch@infradead.org" <hch@infradead.org>, Andrew Morton <akpm@linux-foundation.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>, "x86@kernel.org" <x86@kernel.org>, "openrisc@lists.librecores.org" <openrisc@lists.librecores.org>, "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>, "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>, "linux-hexagon@vger.kernel.org" <linux-hexagon@vger.kernel.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>, "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>, "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Michael Ellerman <mpe@ellerman.id.au>, Paul Mackerras <paulus@samba.org>, Nicholas Piggin <npiggin@gmail.com>
+To: "srivatsa@csail.mit.edu" <srivatsa@csail.mit.edu>
+Cc: Peter Zijlstra <peterz@infradead.org>, "juri.lelli@redhat.com" <juri.lelli@redhat.com>, "rafael@kernel.org" <rafael@kernel.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, "linus.walleij@linaro.org" <linus.walleij@linaro.org>, "bsegall@google.com" <bsegall@google.com>, "guoren@kernel.org" <guoren@kernel.org>, "pavel@ucw.cz" <pavel@ucw.cz>, "agordeev@linux.ibm.com" <agordeev@linux.ibm.com>, "linux-clk@vger.kernel.org" <linux-clk@vger.kernel.org>, linux-arch <linux-arch@vger.kernel.org>, "vincent.guittot@linaro.org" <vincent.guittot@linaro.org>, "mpe@ellerman.id.au" <mpe@ellerman.id.au>, "chenhuacai@kernel.org" <chenhuacai@kernel.org>, "linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>, "agross@kernel.org" <agross@kernel.org>, "geert@linux-m68k.org" <geert@linux-m68k.org>, "linux-imx@nxp.com" <linux-imx@nxp.com>, Catalin Marinas <catalin.marinas@arm.com>, "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>, "mattst88@gmail.com" <mattst88@gmail.com>, "borntraeger@linux.ibm.com" <borntraeger@linux.ibm.com>, "mturquette@baylibre.com" <mturquette@baylibre.com>, "sammy@sammy.net" <sammy@sammy.net>, "pmladek@suse.com" <pmladek@suse.com>, "linux-pm@vger.kernel.org" <linux-pm@vger.kernel.org>, "jiangshanlai@gmail.com" <jiangshanlai@gmail.com>, Sascha Hauer <s.hauer@pengutronix.de>, "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>, "acme@kernel.org" <acme@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, "linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>, "dietmar.eggemann@arm.com" <dietmar.eggemann@arm.com>, "rth@twiddle.net" <rth@twiddle.net>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, LKML <linux-kernel@vger.kernel.org>, "linux-perf-users@vger.kernel.org" <linux-perf-users@vger.kernel.org>, "senozhatsky@chromium.org" <senozhatsky@chromium.org>, "svens@linux.ibm.com" <svens@linux.ibm.com>, "jolsa@kernel.org" <jolsa@kernel.org>, "paulus@samba.org" <paulus@samba.org>, "mark.rutland@arm.com" <mark.rutland@arm.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Dave Hansen <dave.hansen@linux.intel.com>, Linux Virtualization <virtualization@lists.linux-foundation.org>, "James.Bottomley@hansenpartnership.com" <James.Bottomley@HansenPartnership.com>, "jcmvbkbc@gmail.com" <jcmvbkbc@gmail.com>, "thierry.reding@gmail.com" <thierry.reding@gmail.com>, "kernel@xen0n.name" <kernel@xen0n.name>, "quic_neeraju@quicinc.com" <quic_neeraju@quicinc.com>, linux-s390 <linux-s390@vger.kernel.org>, "vschneid@redhat.com" <vschneid@redhat.com>, "john.ogness@linutronix.de" <john.ogness@linutronix.de>, "ysato@users.sourceforge.jp" <ysato@users.sourceforge.jp>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "festevam@gmail.com" <festevam@gmail.com>, "deller@gmx.de" <deller@gmx.de>, "daniel.lezcano@linaro.org" <daniel.lezcano@linaro.org>, "jonathanh@nvidia.com" <jonathanh@nvidia.com>, Mathieu Desnoyers <mathieu.desnoyers@efficios.com>, "frederic@kernel.org" <frederic@kernel.org>, "lenb@kernel.org" <lenb@kernel.org>, "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>, "kernel@pengutronix.de" <kernel@pengutronix.de>, "gor@linux.ibm.com" <gor@linux.ibm.com>, "linux-arm-msm@vger.kernel.org" <linux-arm-msm@vger.kernel.org>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>, "shorne@gmail.com" <shorne@gmail.com>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "chris@zankel.net" <chris@zankel.net>, "sboyd@kernel.org" <sboyd@kernel.org>, "dinguyen@kernel.org" <dinguyen@kernel.org>, "bristot@redhat.com" <bristot@redhat.com>, "alexander.shishkin@linux.intel.com" <alexander.shishkin@linux.intel.com>, "lpieralisi@kernel.org" <lpieralisi@kernel.org>, "linux@rasmusvillemoes.dk" <linux@rasmusvillemoes.dk>, "joel@joelfernandes.org" <joel@joelfernandes.org>, Will Deacon <will@kernel.org>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, "khilman@kernel.org" <khilman@kernel.org>, "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>, Pv-drivers <Pv-drivers@vmware.com>, "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>, Mel Gorman <mgorman@suse.de>, "jacob.jun.pan@linux.intel.com" <jacob.jun.pan@linux.intel.com>, Arnd Bergmann <arnd@arndb.de>, "ulli.kroll@googlemail.com" <ulli.kroll@googlemail.com>, "vgupta@kernel.org" <vgupta@kernel.org>, "josh@joshtriplett.org" <josh@joshtriplett.org>, Steven Rostedt <rostedt@goodmis.org>, "rcu@vger.kernel.org" <rcu@vger.kernel.org>, Borislav Petkov <bp@alien8.de>, "bcain@quicinc.com" <bcain@quicinc.com>, "tsbogend@alpha.franken.de" <tsbogend@alpha.franken.de>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "sudeep.holla@arm.com" <sudeep.holla@arm.com>, "shawnguo@kernel.org" <shawnguo@kernel.org>, "davem@davemloft.net" <davem@davemloft.net>, "dalias@libc.org" <dalias@libc.org>, "tony@atomide.com" <tony@atomide.com>, "bjorn.andersson@linaro.org" <bjorn.andersson@linaro.org>, "H. Peter Anvin" <hpa@zytor.com>, "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>, "linux-hexagon@vger.kernel.org" <linux-hexagon@vger.kernel.org>, "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, "jonas@southpole.se" <jonas@southpole.se>, "yury.norov@gmail.com" <yury.norov@gmail.com>, "richard@nod.at" <richard@nod.at>, X86 ML <x86@kernel.org>, "linux@armlinux.org.uk" <linux@armlinux.org.uk>, Ingo Molnar <mingo@redhat.com>, "aou@eecs.berkeley.edu" <aou@eecs.berkeley.edu>, "paulmck@kernel.org" <paulmck@kernel.org>, "hca@linux.ibm.com" <hca@linux.ibm.com>, "stefan.kristiansson@saunalahti.fi" <stefan.kristiansson@saunalahti.fi>, "openrisc@lists.librecores.org" <openrisc@lists.librecores.org>, "paul.walmsley@sifive.com" <paul.walmsley@sifive.com>, "linux-tegra@vger.kernel.org" <linux-tegra@vger.kernel.org>, "namhyung@kernel.org" <namhyung@kernel.org>, "andriy.shevchenko@linux.intel.com" <andriy.shevchenko@linux.intel.com>, "jpoimboe@kernel.org" <jpoimboe@kernel.org>, Juergen Gross <jgross@suse.com>, "monstr@monstr.eu" <monstr@monstr.eu>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "palmer@dabbelt.com" <palmer@dabbelt.com>, "anup@brainfault.org" <anup@brainfault.org>, "ink@jurassic.park.msu.ru" <ink@jurassic.park.msu.ru>, "johannes@sipsolutions.net" <johannes@sipsolutions.net>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>
 
-DQoNCkxlIDI3LzA2LzIwMjIgw6AgMDY6NTgsIEFuc2h1bWFuIEtoYW5kdWFsIGEgw6ljcml0wqA6
-DQo+IFRoaXMgbW92ZXMgcHJvdGVjdGlvbl9tYXBbXSBpbnNpZGUgdGhlIHBsYXRmb3JtIGFuZCB3
-aGlsZSBoZXJlLCBhbHNvIGVuYWJsZQ0KPiBBUkNIX0hBU19WTV9HRVRfUEFHRV9QUk9UIG9uIDMy
-IGJpdCBhbmQgbm9oYXNoIDY0IChha2EgYm9vazNlLzY0KSBwbGF0Zm9ybXMNCj4gdmlhIERFQ0xB
-UkVfVk1fR0VUX1BBR0VfUFJPVC4NCj4gDQo+IENjOiBNaWNoYWVsIEVsbGVybWFuIDxtcGVAZWxs
-ZXJtYW4uaWQuYXU+DQo+IENjOiBQYXVsIE1hY2tlcnJhcyA8cGF1bHVzQHNhbWJhLm9yZz4NCj4g
-Q2M6IE5pY2hvbGFzIFBpZ2dpbiA8bnBpZ2dpbkBnbWFpbC5jb20+DQo+IENjOiBsaW51eHBwYy1k
-ZXZAbGlzdHMub3psYWJzLm9yZw0KPiBDYzogbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZw0K
-PiBTaWduZWQtb2ZmLWJ5OiBBbnNodW1hbiBLaGFuZHVhbCA8YW5zaHVtYW4ua2hhbmR1YWxAYXJt
-LmNvbT4NCg0KUmV2aWV3ZWQtYnk6IENocmlzdG9waGUgTGVyb3kgPGNocmlzdG9waGUubGVyb3lA
-Y3Nncm91cC5ldT4NCg0KPiAtLS0NCj4gICBhcmNoL3Bvd2VycGMvS2NvbmZpZyAgICAgICAgICAg
-ICAgIHwgIDIgKy0NCj4gICBhcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vcGd0YWJsZS5oIHwgMjAg
-Ky0tLS0tLS0tLS0tLS0tLS0tLS0NCj4gICBhcmNoL3Bvd2VycGMvbW0vcGd0YWJsZS5jICAgICAg
-ICAgIHwgMjQgKysrKysrKysrKysrKysrKysrKysrKysrDQo+ICAgMyBmaWxlcyBjaGFuZ2VkLCAy
-NiBpbnNlcnRpb25zKCspLCAyMCBkZWxldGlvbnMoLSkNCj4gDQo+IGRpZmYgLS1naXQgYS9hcmNo
-L3Bvd2VycGMvS2NvbmZpZyBiL2FyY2gvcG93ZXJwYy9LY29uZmlnDQo+IGluZGV4IGMyY2UyZTYw
-YzhmMC4uMTAzNWQxNzJjN2RkIDEwMDY0NA0KPiAtLS0gYS9hcmNoL3Bvd2VycGMvS2NvbmZpZw0K
-PiArKysgYi9hcmNoL3Bvd2VycGMvS2NvbmZpZw0KPiBAQCAtMTQwLDcgKzE0MCw3IEBAIGNvbmZp
-ZyBQUEMNCj4gICAJc2VsZWN0IEFSQ0hfSEFTX1RJQ0tfQlJPQURDQVNUCQlpZiBHRU5FUklDX0NM
-T0NLRVZFTlRTX0JST0FEQ0FTVA0KPiAgIAlzZWxlY3QgQVJDSF9IQVNfVUFDQ0VTU19GTFVTSENB
-Q0hFDQo+ICAgCXNlbGVjdCBBUkNIX0hBU19VQlNBTl9TQU5JVElaRV9BTEwNCj4gLQlzZWxlY3Qg
-QVJDSF9IQVNfVk1fR0VUX1BBR0VfUFJPVAlpZiBQUENfQk9PSzNTXzY0DQo+ICsJc2VsZWN0IEFS
-Q0hfSEFTX1ZNX0dFVF9QQUdFX1BST1QNCj4gICAJc2VsZWN0IEFSQ0hfSEFWRV9OTUlfU0FGRV9D
-TVBYQ0hHDQo+ICAgCXNlbGVjdCBBUkNIX0tFRVBfTUVNQkxPQ0sNCj4gICAJc2VsZWN0IEFSQ0hf
-TUlHSFRfSEFWRV9QQ19QQVJQT1JUDQo+IGRpZmYgLS1naXQgYS9hcmNoL3Bvd2VycGMvaW5jbHVk
-ZS9hc20vcGd0YWJsZS5oIGIvYXJjaC9wb3dlcnBjL2luY2x1ZGUvYXNtL3BndGFibGUuaA0KPiBp
-bmRleCBkNTY0ZDBlY2Q0Y2QuLjMzZjRiZjhkMjJiMCAxMDA2NDQNCj4gLS0tIGEvYXJjaC9wb3dl
-cnBjL2luY2x1ZGUvYXNtL3BndGFibGUuaA0KPiArKysgYi9hcmNoL3Bvd2VycGMvaW5jbHVkZS9h
-c20vcGd0YWJsZS5oDQo+IEBAIC0yMCwyNSArMjAsNiBAQCBzdHJ1Y3QgbW1fc3RydWN0Ow0KPiAg
-ICNpbmNsdWRlIDxhc20vbm9oYXNoL3BndGFibGUuaD4NCj4gICAjZW5kaWYgLyogIUNPTkZJR19Q
-UENfQk9PSzNTICovDQo+ICAgDQo+IC0vKiBOb3RlIGR1ZSB0byB0aGUgd2F5IHZtIGZsYWdzIGFy
-ZSBsYWlkIG91dCwgdGhlIGJpdHMgYXJlIFhXUiAqLw0KPiAtI2RlZmluZSBfX1AwMDAJUEFHRV9O
-T05FDQo+IC0jZGVmaW5lIF9fUDAwMQlQQUdFX1JFQURPTkxZDQo+IC0jZGVmaW5lIF9fUDAxMAlQ
-QUdFX0NPUFkNCj4gLSNkZWZpbmUgX19QMDExCVBBR0VfQ09QWQ0KPiAtI2RlZmluZSBfX1AxMDAJ
-UEFHRV9SRUFET05MWV9YDQo+IC0jZGVmaW5lIF9fUDEwMQlQQUdFX1JFQURPTkxZX1gNCj4gLSNk
-ZWZpbmUgX19QMTEwCVBBR0VfQ09QWV9YDQo+IC0jZGVmaW5lIF9fUDExMQlQQUdFX0NPUFlfWA0K
-PiAtDQo+IC0jZGVmaW5lIF9fUzAwMAlQQUdFX05PTkUNCj4gLSNkZWZpbmUgX19TMDAxCVBBR0Vf
-UkVBRE9OTFkNCj4gLSNkZWZpbmUgX19TMDEwCVBBR0VfU0hBUkVEDQo+IC0jZGVmaW5lIF9fUzAx
-MQlQQUdFX1NIQVJFRA0KPiAtI2RlZmluZSBfX1MxMDAJUEFHRV9SRUFET05MWV9YDQo+IC0jZGVm
-aW5lIF9fUzEwMQlQQUdFX1JFQURPTkxZX1gNCj4gLSNkZWZpbmUgX19TMTEwCVBBR0VfU0hBUkVE
-X1gNCj4gLSNkZWZpbmUgX19TMTExCVBBR0VfU0hBUkVEX1gNCj4gLQ0KPiAgICNpZm5kZWYgX19B
-U1NFTUJMWV9fDQo+ICAgDQo+ICAgI2lmbmRlZiBNQVhfUFRSU19QRVJfUEdEDQo+IEBAIC03OSw2
-ICs2MCw3IEBAIGV4dGVybiB2b2lkIHBhZ2luZ19pbml0KHZvaWQpOw0KPiAgIHZvaWQgcG9raW5n
-X2luaXQodm9pZCk7DQo+ICAgDQo+ICAgZXh0ZXJuIHVuc2lnbmVkIGxvbmcgaW9yZW1hcF9ib3Q7
-DQo+ICtleHRlcm4gY29uc3QgcGdwcm90X3QgcHJvdGVjdGlvbl9tYXBbMTZdOw0KPiAgIA0KPiAg
-IC8qDQo+ICAgICoga2Vybl9hZGRyX3ZhbGlkIGlzIGludGVuZGVkIHRvIGluZGljYXRlIHdoZXRo
-ZXIgYW4gYWRkcmVzcyBpcyBhIHZhbGlkDQo+IGRpZmYgLS1naXQgYS9hcmNoL3Bvd2VycGMvbW0v
-cGd0YWJsZS5jIGIvYXJjaC9wb3dlcnBjL21tL3BndGFibGUuYw0KPiBpbmRleCBlNjE2NmI3MWQz
-NmQuLmNiMmRjZGIxOGY4ZSAxMDA2NDQNCj4gLS0tIGEvYXJjaC9wb3dlcnBjL21tL3BndGFibGUu
-Yw0KPiArKysgYi9hcmNoL3Bvd2VycGMvbW0vcGd0YWJsZS5jDQo+IEBAIC00NzIsMyArNDcyLDI3
-IEBAIHB0ZV90ICpfX2ZpbmRfbGludXhfcHRlKHBnZF90ICpwZ2RpciwgdW5zaWduZWQgbG9uZyBl
-YSwNCj4gICAJcmV0dXJuIHJldF9wdGU7DQo+ICAgfQ0KPiAgIEVYUE9SVF9TWU1CT0xfR1BMKF9f
-ZmluZF9saW51eF9wdGUpOw0KPiArDQo+ICsvKiBOb3RlIGR1ZSB0byB0aGUgd2F5IHZtIGZsYWdz
-IGFyZSBsYWlkIG91dCwgdGhlIGJpdHMgYXJlIFhXUiAqLw0KPiArY29uc3QgcGdwcm90X3QgcHJv
-dGVjdGlvbl9tYXBbMTZdID0gew0KPiArCVtWTV9OT05FXQkJCQkJPSBQQUdFX05PTkUsDQo+ICsJ
-W1ZNX1JFQURdCQkJCQk9IFBBR0VfUkVBRE9OTFksDQo+ICsJW1ZNX1dSSVRFXQkJCQkJPSBQQUdF
-X0NPUFksDQo+ICsJW1ZNX1dSSVRFIHwgVk1fUkVBRF0JCQkJPSBQQUdFX0NPUFksDQo+ICsJW1ZN
-X0VYRUNdCQkJCQk9IFBBR0VfUkVBRE9OTFlfWCwNCj4gKwlbVk1fRVhFQyB8IFZNX1JFQURdCQkJ
-CT0gUEFHRV9SRUFET05MWV9YLA0KPiArCVtWTV9FWEVDIHwgVk1fV1JJVEVdCQkJCT0gUEFHRV9D
-T1BZX1gsDQo+ICsJW1ZNX0VYRUMgfCBWTV9XUklURSB8IFZNX1JFQURdCQkJPSBQQUdFX0NPUFlf
-WCwNCj4gKwlbVk1fU0hBUkVEXQkJCQkJPSBQQUdFX05PTkUsDQo+ICsJW1ZNX1NIQVJFRCB8IFZN
-X1JFQURdCQkJCT0gUEFHRV9SRUFET05MWSwNCj4gKwlbVk1fU0hBUkVEIHwgVk1fV1JJVEVdCQkJ
-CT0gUEFHRV9TSEFSRUQsDQo+ICsJW1ZNX1NIQVJFRCB8IFZNX1dSSVRFIHwgVk1fUkVBRF0JCT0g
-UEFHRV9TSEFSRUQsDQo+ICsJW1ZNX1NIQVJFRCB8IFZNX0VYRUNdCQkJCT0gUEFHRV9SRUFET05M
-WV9YLA0KPiArCVtWTV9TSEFSRUQgfCBWTV9FWEVDIHwgVk1fUkVBRF0JCQk9IFBBR0VfUkVBRE9O
-TFlfWCwNCj4gKwlbVk1fU0hBUkVEIHwgVk1fRVhFQyB8IFZNX1dSSVRFXQkJPSBQQUdFX1NIQVJF
-RF9YLA0KPiArCVtWTV9TSEFSRUQgfCBWTV9FWEVDIHwgVk1fV1JJVEUgfCBWTV9SRUFEXQk9IFBB
-R0VfU0hBUkVEX1gNCj4gK307DQo+ICsNCj4gKyNpZm5kZWYgQ09ORklHX1BQQ19CT09LM1NfNjQN
-Cj4gK0RFQ0xBUkVfVk1fR0VUX1BBR0VfUFJPVA0KPiArI2VuZGlm
+T24gSnVuIDEzLCAyMDIyLCBhdCAxMTo0OCBBTSwgU3JpdmF0c2EgUy4gQmhhdCA8c3JpdmF0c2FA
+Y3NhaWwubWl0LmVkdT4gd3JvdGU6DQoNCj4g4pqgIEV4dGVybmFsIEVtYWlsDQo+IA0KPiBPbiA2
+LzgvMjIgNDoyNyBQTSwgUGV0ZXIgWmlqbHN0cmEgd3JvdGU6DQo+PiB2bWxpbnV4Lm86IHdhcm5p
+bmc6IG9ianRvb2w6IGFjcGlfaWRsZV9lbnRlcl9zMmlkbGUrMHhkZTogY2FsbCB0byB3YmludmQo
+KSBsZWF2ZXMgLm5vaW5zdHIudGV4dCBzZWN0aW9uDQo+PiB2bWxpbnV4Lm86IHdhcm5pbmc6IG9i
+anRvb2w6IGRlZmF1bHRfaWRsZSsweDQ6IGNhbGwgdG8gYXJjaF9zYWZlX2hhbHQoKSBsZWF2ZXMg
+Lm5vaW5zdHIudGV4dCBzZWN0aW9uDQo+PiB2bWxpbnV4Lm86IHdhcm5pbmc6IG9ianRvb2w6IHhl
+bl9zYWZlX2hhbHQrMHhhOiBjYWxsIHRvIEhZUEVSVklTT1Jfc2NoZWRfb3AuY29uc3Rwcm9wLjAo
+KSBsZWF2ZXMgLm5vaW5zdHIudGV4dCBzZWN0aW9uDQo+PiANCj4+IFNpZ25lZC1vZmYtYnk6IFBl
+dGVyIFppamxzdHJhIChJbnRlbCkgPHBldGVyekBpbmZyYWRlYWQub3JnPg0KPiANCj4gUmV2aWV3
+ZWQtYnk6IFNyaXZhdHNhIFMuIEJoYXQgKFZNd2FyZSkgPHNyaXZhdHNhQGNzYWlsLm1pdC5lZHU+
+DQo+IA0KPj4gDQo+PiAtc3RhdGljIGlubGluZSB2b2lkIHdiaW52ZCh2b2lkKQ0KPj4gK2V4dGVy
+biBub2luc3RyIHZvaWQgcHZfbmF0aXZlX3diaW52ZCh2b2lkKTsNCj4+ICsNCj4+ICtzdGF0aWMg
+X19hbHdheXNfaW5saW5lIHZvaWQgd2JpbnZkKHZvaWQpDQo+PiB7DQo+PiAgICAgIFBWT1BfQUxU
+X1ZDQUxMMChjcHUud2JpbnZkLCAid2JpbnZkIiwgQUxUX05PVChYODZfRkVBVFVSRV9YRU5QVikp
+Ow0KPj4gfQ0KDQpJIGd1ZXNzIGl0IGlzIHlldCBhbm90aGVyIGluc3RhbmNlIG9mIHdyb25nIGFj
+Y291bnRpbmcgb2YgR0NDIGZvcg0KdGhlIGFzc2VtYmx5IGJsb2Nrc+KAmSB3ZWlnaHQuIEkgZ3Vl
+c3MgaXQgaXMgbm90IGEgc29sdXRpb24gZm9yIG9sZGVyDQpHQ0NzLCBidXQgcHJlc3VtYWJseSBf
+X19fUFZPUF9BTFRfQ0FMTCgpIGFuZCBmcmllbmRzIHNob3VsZCBoYXZlDQp1c2VkIGFzbV9pbmxp
+bmUgb3Igc29tZSBuZXcg4oCcYXNtX3ZvbGF0aWxlX2lubGluZeKAnSB2YXJpYW50Lg0KDQo
