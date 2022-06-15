@@ -1,53 +1,71 @@
-From: Mike Kravetz <mike.kravetz@oracle.com>
-Date: Tue, 21 Jun 2022 23:56:20 +0000
-Subject: [PATCH v2 4/4] hugetlb: Lazy page table copies in fork()
-Message-Id: <20220621235620.291305-5-mike.kravetz@oracle.com>
+From: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
+Date: Wed, 15 Jun 2022 16:08:17 +0000
+Subject: [PATCH v2 0/2] Introduce CABA helper process tree
+Message-Id: <20220615160819.242520-1-ptikhomirov@virtuozzo.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220621235620.291305-1-mike.kravetz@oracle.com>
-In-Reply-To: <20220621235620.291305-1-mike.kravetz@oracle.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-arm-kernel@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-Cc: Muchun Song <songmuchun@bytedance.com>, Baolin Wang <baolin.wang@linux.alibaba.com>, Michal Hocko <mhocko@suse.com>, Peter Xu <peterx@redhat.com>, Naoya Horiguchi <naoya.horiguchi@linux.dev>, James Houghton <jthoughton@google.com>, Mina Almasry <almasrymina@google.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.vnet.ibm.com>, Anshuman Khandual <anshuman.khandual@arm.com>, Paul Walmsley <paul.walmsley@sifive.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, catalin.marinas@arm.com, will@kernel.org, Rolf Eike Beer <eike-kernel@sf-tec.de>, Andrew Morton <akpm@linux-foundation.org>, Mike Kravetz <mike.kravetz@oracle.com>, David Hildenbrand <david@redhat.com>
+To: linux-kernel@vger.kernel.org
+Cc: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>, Alexander Mikhalitsyn <alexander.mikhalitsyn@virtuozzo.com>, Eric Biederman <ebiederm@xmission.com>, Kees Cook <keescook@chromium.org>, Alexander Viro <viro@zeniv.linux.org.uk>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Juri Lelli <juri.lelli@redhat.com>, Vincent Guittot <vincent.guittot@linaro.org>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Steven Rostedt <rostedt@goodmis.org>, Ben Segall <bsegall@google.com>, Mel Gorman <mgorman@suse.de>, Daniel Bristot de Oliveira <bristot@redhat.com>, Valentin Schneider <vschneid@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, linux-ia64@vger.kernel.org, linux-mm@kvack.org, linux-fsdevel@vger.kernel.org, kernel@openvz.org
 
-Lazy page table copying at fork time was introduced with commit
-d992895ba2b2 ("[PATCH] Lazy page table copies in fork()").  At the
-time, hugetlb was very new and did not support page faulting.  As a
-result, it was excluded.  When full page fault support was added for
-hugetlb, the exclusion was not removed.
+Please see "Add CABA tree to task_struct" for deeper explanation, and
+"tests: Add CABA selftest" for a small test and an actual case for which
+we might need CABA.
 
-Simply remove the check that prevents lazy copying of hugetlb page
-tables at fork.  Of course, like other mappings this only applies to
-shared mappings.
+Probably the original problem of restoring process tree with complex
+sessions can be resolved by allowing sessions copying, like we do for
+process group, but I'm not sure if that would be too secure to do it,
+and if there would not be another similar resource in future.
 
-Lazy page table copying at fork will be less advantageous for hugetlb
-mappings because:
-- There are fewer page table entries with hugetlb
-- hugetlb pmds can be shared instead of copied
+We can use CABA not only for CRIU for restoring processes, in normal
+life when processes detach CABA will help to understand from which place
+in process tree they were originally started from sshd/crond or
+something else.
 
-In any case, completely eliminating the copy at fork time should speed
-things up.
+Hope my idea is not completely insane =)
 
-Signed-off-by: Mike Kravetz <mike.kravetz@oracle.com>
-Acked-by: Muchun Song <songmuchun@bytedance.com>
-Acked-by: David Hildenbrand <david@redhat.com>
----
- mm/memory.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+CC: Eric Biederman <ebiederm@xmission.com>
+CC: Kees Cook <keescook@chromium.org>
+CC: Alexander Viro <viro@zeniv.linux.org.uk>
+CC: Ingo Molnar <mingo@redhat.com>
+CC: Peter Zijlstra <peterz@infradead.org>
+CC: Juri Lelli <juri.lelli@redhat.com>
+CC: Vincent Guittot <vincent.guittot@linaro.org>
+CC: Dietmar Eggemann <dietmar.eggemann@arm.com>
+CC: Steven Rostedt <rostedt@goodmis.org>
+CC: Ben Segall <bsegall@google.com>
+CC: Mel Gorman <mgorman@suse.de>
+CC: Daniel Bristot de Oliveira <bristot@redhat.com>
+CC: Valentin Schneider <vschneid@redhat.com>
+CC: Andrew Morton <akpm@linux-foundation.org>
+CC: linux-ia64@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
+CC: linux-mm@kvack.org
+CC: linux-fsdevel@vger.kernel.org
+CC: kernel@openvz.org
 
-diff --git a/mm/memory.c b/mm/memory.c
-index fee2884481f2..90d2a614b2de 100644
---- a/mm/memory.c
-+++ b/mm/memory.c
-@@ -1262,7 +1262,7 @@ vma_needs_copy(struct vm_area_struct *dst_vma, struct vm_area_struct *src_vma)
- 	if (userfaultfd_wp(dst_vma))
- 		return true;
- 
--	if (src_vma->vm_flags & (VM_HUGETLB | VM_PFNMAP | VM_MIXEDMAP))
-+	if (src_vma->vm_flags & (VM_PFNMAP | VM_MIXEDMAP))
- 		return true;
- 
- 	if (src_vma->anon_vma)
+Pavel Tikhomirov (2):
+  Add CABA tree to task_struct
+  tests: Add CABA selftest
+
+ arch/ia64/kernel/mca.c                   |   3 +
+ fs/exec.c                                |   1 +
+ fs/proc/array.c                          |  20 +
+ include/linux/sched.h                    |   7 +
+ init/init_task.c                         |   3 +
+ kernel/exit.c                            |  50 ++-
+ kernel/fork.c                            |   4 +
+ tools/testing/selftests/Makefile         |   1 +
+ tools/testing/selftests/caba/.gitignore  |   1 +
+ tools/testing/selftests/caba/Makefile    |   7 +
+ tools/testing/selftests/caba/caba_test.c | 501 +++++++++++++++++++++++
+ tools/testing/selftests/caba/config      |   1 +
+ 12 files changed, 593 insertions(+), 6 deletions(-)
+ create mode 100644 tools/testing/selftests/caba/.gitignore
+ create mode 100644 tools/testing/selftests/caba/Makefile
+ create mode 100644 tools/testing/selftests/caba/caba_test.c
+ create mode 100644 tools/testing/selftests/caba/config
+
 -- 
 2.35.3
