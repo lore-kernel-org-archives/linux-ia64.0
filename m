@@ -1,29 +1,93 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Date: Tue, 07 Jun 2022 15:29:55 +0000
-Subject: Re: [PATCH 08/16] ptrace: Only populate last_siginfo from ptrace
-Message-Id: <20220607152954.GB10192@redhat.com>
+From: Alexander Lobakin <alexandr.lobakin@intel.com>
+Date: Fri, 17 Jun 2022 14:40:31 +0000
+Subject: [PATCH v3 7/7] lib: test_bitmap: add compile-time optimization/evaluations assertions
+Message-Id: <20220617144031.2549432-8-alexandr.lobakin@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
- <20220518225355.784371-8-ebiederm@xmission.com>
- <20220524152725.GE14347@redhat.com>
- <87pmjl1lr2.fsf@email.froward.int.ebiederm.org>
-In-Reply-To: <87pmjl1lr2.fsf@email.froward.int.ebiederm.org>
+References: <20220617144031.2549432-1-alexandr.lobakin@intel.com>
+In-Reply-To: <20220617144031.2549432-1-alexandr.lobakin@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Cc: linux-kernel@vger.kernel.org, rjw@rjwysocki.net, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, Robert OCallahan <roc@pernos.co>, Kyle Huey <khuey@pernos.co>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Jason Wessel <jason.wessel@windriver.com>, Daniel Thompson <daniel.thompson@linaro.org>, Douglas Anderson <dianders@chromium.org>, Douglas Miller <dougmill@linux.vnet.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>
+To: Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>
+Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Maciej Fijalkowski <maciej.fijalkowski@intel.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On 06/06, Eric W. Biederman wrote:
->
-> Oleg Nesterov <oleg@redhat.com> writes:
->
-> > However the patch looks fine to me, just the word "buggy" looks a bit
-> > too strong imo.
->
-> I guess I am in general agreement.  Perhaps I can just say they values
-> are wrong by definition?
+Add a function to the bitmap test suite, which will ensure that
+compilers are able to evaluate operations performed by the
+bitops/bitmap helpers to compile-time constants when all of the
+arguments are compile-time constants as well, or trigger a build
+bug otherwise. This should work on all architectures and all the
+optimization levels supported by Kbuild.
+The function doesn't perform any runtime tests and gets optimized
+out to nothing after passing the build assertions.
 
-Up to you. I won't really argue with "buggy".
+Suggested-by: Yury Norov <yury.norov@gmail.com>
+Signed-off-by: Alexander Lobakin <alexandr.lobakin@intel.com>
+---
+ lib/test_bitmap.c | 45 +++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 45 insertions(+)
 
-Oleg.
+diff --git a/lib/test_bitmap.c b/lib/test_bitmap.c
+index d5923a640457..3a7b09b82794 100644
+--- a/lib/test_bitmap.c
++++ b/lib/test_bitmap.c
+@@ -869,6 +869,50 @@ static void __init test_bitmap_print_buf(void)
+ 	}
+ }
+ 
++static void __init test_bitmap_const_eval(void)
++{
++	DECLARE_BITMAP(bitmap, BITS_PER_LONG);
++	unsigned long initvar = BIT(2);
++	unsigned long bitopvar = 0;
++	unsigned long var = 0;
++	int res;
++
++	/*
++	 * Compilers must be able to optimize all of those to compile-time
++	 * constants on any supported optimization level (-O2, -Os) and any
++	 * architecture. Otherwise, trigger a build bug.
++	 * The whole function gets optimized out then, there's nothing to do
++	 * in runtime.
++	 */
++
++	/* Equals to `unsigned long bitmap[1] = { BIT(5), }` */
++	bitmap_clear(bitmap, 0, BITS_PER_LONG);
++	if (!test_bit(7, bitmap))
++		bitmap_set(bitmap, 5, 1);
++
++	/* Equals to `unsigned long bitopvar = BIT(20)` */
++	__change_bit(31, &bitopvar);
++	bitmap_shift_right(&bitopvar, &bitopvar, 11, BITS_PER_LONG);
++
++	/* Equals to `unsigned long var = BIT(25)` */
++	var |= BIT(25);
++	if (var & BIT(0))
++		var ^= GENMASK(9, 6);
++
++	/* __const_hweight<32|64>(BIT(5)) = 1 */
++	res = bitmap_weight(bitmap, 20);
++	BUILD_BUG_ON(!__builtin_constant_p(res));
++
++	/* !(BIT(31) & BIT(18)) = 1 */
++	res = !test_bit(18, &bitopvar);
++	BUILD_BUG_ON(!__builtin_constant_p(res));
++
++	/* BIT(2) & GENMASK(14, 8) = 0 */
++	BUILD_BUG_ON(!__builtin_constant_p(initvar & GENMASK(14, 8)));
++	/* ~BIT(25) */
++	BUILD_BUG_ON(!__builtin_constant_p(~var));
++}
++
+ static void __init selftest(void)
+ {
+ 	test_zero_clear();
+@@ -884,6 +928,7 @@ static void __init selftest(void)
+ 	test_for_each_set_clump8();
+ 	test_bitmap_cut();
+ 	test_bitmap_print_buf();
++	test_bitmap_const_eval();
+ }
+ 
+ KSTM_MODULE_LOADERS(test_bitmap);
+-- 
+2.36.1
