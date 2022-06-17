@@ -1,83 +1,75 @@
-From: kernel test robot <lkp@intel.com>
-Date: Fri, 17 Jun 2022 17:06:42 +0000
+From: Mike Kravetz <mike.kravetz@oracle.com>
+Date: Fri, 17 Jun 2022 17:17:33 +0000
 Subject: Re: [PATCH 1/4] hugetlb: skip to end of PT page mapping when pte not present
-Message-Id: <202206180021.rcc4B1by-lkp@intel.com>
+Message-Id: <Yqy3LZUOdH5GsZ9j@monkey>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220616210518.125287-2-mike.kravetz@oracle.com>
-In-Reply-To: <20220616210518.125287-2-mike.kravetz@oracle.com>
+References: <20220616210518.125287-1-mike.kravetz@oracle.com>
+ <20220616210518.125287-2-mike.kravetz@oracle.com>
+ <YqyMhmAjrQ4C+EyA@xz-m1.local>
+In-Reply-To: <YqyMhmAjrQ4C+EyA@xz-m1.local>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mike Kravetz <mike.kravetz@oracle.com>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-arm-kernel@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-Cc: kbuild-all@lists.01.org, Muchun Song <songmuchun@bytedance.com>, Baolin Wang <baolin.wang@linux.alibaba.com>, Michal Hocko <mhocko@suse.com>, Peter Xu <peterx@redhat.com>, Naoya Horiguchi <naoya.horiguchi@linux.dev>, James Houghton <jthoughton@google.com>, Mina Almasry <almasrymina@google.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.vnet.ibm.com>, Anshuman Khandual <anshuman.khandual@arm.com>, Paul Walmsley <paul.walmsley@sifive.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, catalin.marinas@arm.com, will@kernel.org, Andrew Morton <akpm@linux-foundation.org>, Mike Kravetz <mike.kravetz@oracle.com>
+To: Peter Xu <peterx@redhat.com>
+Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-arm-kernel@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, Muchun Song <songmuchun@bytedance.com>, Baolin Wang <baolin.wang@linux.alibaba.com>, Michal Hocko <mhocko@suse.com>, Naoya Horiguchi <naoya.horiguchi@linux.dev>, James Houghton <jthoughton@google.com>, Mina Almasry <almasrymina@google.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.vnet.ibm.com>, Anshuman Khandual <anshuman.khandual@arm.com>, Paul Walmsley <paul.walmsley@sifive.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, catalin.marinas@arm.com, will@kernel.org, Andrew Morton <akpm@linux-foundation.org>
 
-Hi Mike,
+On 06/17/22 10:15, Peter Xu wrote:
+> Hi, Mike,
+> 
+> On Thu, Jun 16, 2022 at 02:05:15PM -0700, Mike Kravetz wrote:
+> > @@ -6877,6 +6896,39 @@ pte_t *huge_pte_offset(struct mm_struct *mm,
+> >  	return (pte_t *)pmd;
+> >  }
+> >  
+> > +/*
+> > + * Return a mask that can be used to update an address to the last huge
+> > + * page in a page table page mapping size.  Used to skip non-present
+> > + * page table entries when linearly scanning address ranges.  Architectures
+> > + * with unique huge page to page table relationships can define their own
+> > + * version of this routine.
+> > + */
+> > +unsigned long hugetlb_mask_last_page(struct hstate *h)
+> > +{
+> > +	unsigned long hp_size = huge_page_size(h);
+> > +
+> > +	switch (hp_size) {
+> > +	case P4D_SIZE:
+> > +		return PGDIR_SIZE - P4D_SIZE;
+> > +	case PUD_SIZE:
+> > +		return P4D_SIZE - PUD_SIZE;
+> > +	case PMD_SIZE:
+> > +		return PUD_SIZE - PMD_SIZE;
+> > +	default:
+> 
+> Should we add a WARN_ON_ONCE() if it should never trigger?
+> 
 
-I love your patch! Yet something to improve:
+Sure.  I will add this.
 
-[auto build test ERROR on soc/for-next]
-[also build test ERROR on linus/master v5.19-rc2 next-20220617]
-[cannot apply to arm64/for-next/core arm/for-next kvmarm/next xilinx-xlnx/master]
-[If your patch is applied to the wrong git tree, kindly drop us a note.
-And when submitting patch, we suggest to use '--base' as documented in
-https://git-scm.com/docs/git-format-patch]
+> > +		break; /* Should never happen */
+> > +	}
+> > +
+> > +	return ~(0UL);
+> > +}
+> > +
+> > +#else
+> > +
+> > +/* See description above.  Architectures can provide their own version. */
+> > +__weak unsigned long hugetlb_mask_last_page(struct hstate *h)
+> > +{
+> > +	return ~(0UL);
+> 
+> I'm wondering whether it's better to return 0 rather than ~0 by default.
+> Could an arch with !CONFIG_ARCH_WANT_GENERAL_HUGETLB wrongly skip some
+> valid address ranges with ~0, or perhaps I misread?
 
-url:    https://github.com/intel-lab-lkp/linux/commits/Mike-Kravetz/hugetlb-speed-up-linear-address-scanning/20220617-050726
-base:   https://git.kernel.org/pub/scm/linux/kernel/git/soc/soc.git for-next
-config: i386-debian-10.3 (https://download.01.org/0day-ci/archive/20220618/202206180021.rcc4B1by-lkp@intel.com/config)
-compiler: gcc-11 (Debian 11.3.0-3) 11.3.0
-reproduce (this is a W=1 build):
-        # https://github.com/intel-lab-lkp/linux/commit/4c647687607f10fece04967b8180c0dadaf765e6
-        git remote add linux-review https://github.com/intel-lab-lkp/linux
-        git fetch --no-tags linux-review Mike-Kravetz/hugetlb-speed-up-linear-address-scanning/20220617-050726
-        git checkout 4c647687607f10fece04967b8180c0dadaf765e6
-        # save the config file
-        mkdir build_dir && cp config build_dir/.config
-        make W=1 O=build_dir ARCH=i386 SHELL=/bin/bash
+Thank you, thank you, thank you Peter!
 
-If you fix the issue, kindly add following tag where applicable
-Reported-by: kernel test robot <lkp@intel.com>
+Yes, the 'default' return for hugetlb_mask_last_page() should be 0.  If
+there is no 'optimization', we do not want to modify the address so we
+want to OR with 0 not ~0.  My bad, I must have been thinking AND instead
+of OR.
 
-All errors (new ones prefixed by >>):
-
-   mm/hugetlb.c: In function 'hugetlb_mask_last_page':
->> mm/hugetlb.c:6901:9: error: duplicate case value
-    6901 |         case PUD_SIZE:
-         |         ^~~~
-   mm/hugetlb.c:6899:9: note: previously used here
-    6899 |         case P4D_SIZE:
-         |         ^~~~
-
-
-vim +6901 mm/hugetlb.c
-
-  6886	
-  6887	/*
-  6888	 * Return a mask that can be used to update an address to the last huge
-  6889	 * page in a page table page mapping size.  Used to skip non-present
-  6890	 * page table entries when linearly scanning address ranges.  Architectures
-  6891	 * with unique huge page to page table relationships can define their own
-  6892	 * version of this routine.
-  6893	 */
-  6894	unsigned long hugetlb_mask_last_page(struct hstate *h)
-  6895	{
-  6896		unsigned long hp_size = huge_page_size(h);
-  6897	
-  6898		switch (hp_size) {
-  6899		case P4D_SIZE:
-  6900			return PGDIR_SIZE - P4D_SIZE;
-> 6901		case PUD_SIZE:
-  6902			return P4D_SIZE - PUD_SIZE;
-  6903		case PMD_SIZE:
-  6904			return PUD_SIZE - PMD_SIZE;
-  6905		default:
-  6906			break; /* Should never happen */
-  6907		}
-  6908	
-  6909		return ~(0UL);
-  6910	}
-  6911	
-
+I will change here as well as in Baolin's patch.
 -- 
-0-DAY CI Kernel Test Service
-https://01.org/lkp
+Mike Kravetz
