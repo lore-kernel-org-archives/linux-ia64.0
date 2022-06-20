@@ -1,128 +1,128 @@
-From: Tony Lindgren <tony@atomide.com>
-Date: Wed, 15 Jun 2022 05:35:38 +0000
-Subject: Re: [PATCH 34.5/36] cpuidle,omap4: Push RCU-idle into omap4_enter_lowpower()
-Message-Id: <YqlvqhdlFsNvUBeG@atomide.com>
+From: Alexander Lobakin <alexandr.lobakin@intel.com>
+Date: Mon, 20 Jun 2022 13:51:46 +0000
+Subject: Re: [alobakin:bitops 3/7] block/elevator.c:222:9: sparse: sparse: cast from restricted req_flags_t
+Message-Id: <20220620135146.2628908-1-alexandr.lobakin@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220608142723.103523089@infradead.org>
- <20220608144518.073801916@infradead.org>
- <Yqcv6crSNKuSWoTu@atomide.com>
- <YqkHto+zgAPs4kQI@worktop.programming.kicks-ass.net>
-In-Reply-To: <YqkHto+zgAPs4kQI@worktop.programming.kicks-ass.net>
+References: <202206191726.wq70mbMK-lkp@intel.com> <20220617144031.2549432-1-alexandr.lobakin@intel.com>
+In-Reply-To: <20220617144031.2549432-1-alexandr.lobakin@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>
-Cc: rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@kernel.org, linux@armlinux.org.uk, ulli.kroll@googlemail.com, linus.walleij@linaro.org, shawnguo@kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, kernel@pengutronix.de, festevam@gmail.com, linux-imx@nxp.com, khilman@kernel.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, bcain@quicinc.com, chenhuacai@kernel.org, kernel@xen0n.name, geert@linux-m68k.org, sammy@sammy.net, monstr@monstr.eu, tsbogend@alpha.franken.de, dinguyen@kernel.org, jonas@southpole.se, stefan.kristiansson@saunalahti.fi, shorne@gmail.com, James.Bottomley@hansenpartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, paul.walmsley@sifive.com, palmer@dabbelt.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, richard@nod.at, anton.ivanov@cambridgegreys.com, johannes@sipsolutions.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, acme@kernel.org, mark.rutland@arm.com, alexander.shishkin@linux.intel.com, jolsa@kernel.org, namhyung@kernel.org, jgross@suse.com, srivatsa@csail.mit.edu, amakhalov@vmware.com, pv-drivers@vmware.com, boris.ostrovsky@oracle.com, chris@zankel.net, jcmvbkbc@gmail.com, rafael@kernel.org, lenb@kernel.org, pavel@ucw.cz, gregkh@linuxfoundation.org, mturquette@baylibre.com, sboyd@kernel.org, daniel.lezcano@linaro.org, lpieralisi@kernel.org, sudeep.holla@arm.com, agross@kernel.org, bjorn.andersson@linaro.org, anup@brainfault.org, thierry.reding@gmail.com, jonathanh@nvidia.com, jacob.jun.pan@linux.intel.com, Arnd Bergmann <arnd@arndb.de>, yury.norov@gmail.com, andriy.shevchenko@linux.intel.com, linux@rasmusvillemoes.dk, rostedt@goodmis.org, pmladek@suse.com, senozhatsky@chromium.org, john.ogness@linutronix.de, paulmck@kernel.org, frederic@kernel.org, quic_neeraju@quicinc.com, josh@joshtriplett.org, mathieu.desnoyers@efficios.com, jiangshanlai@gmail.com, joel@joelfernandes.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, jpoimboe@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-perf-users@vger.kernel.org, virtualization@lists.linux-foundation.org, xen-devel@lists.xenproject.org, linux-xtensa@linux-xtensa.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-clk@vger.kernel.org, linux-arm-msm@vger.kernel.org, linux-tegra@vger.kernel.org, linux-arch@vger.kernel.org, rcu@vger.kernel.org, Peter Vasil <petervasil@gmail.com>, Aaro Koskinen <aaro.koskinen@iki.fi>
+To: Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>
+Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Maciej Fijalkowski <maciej.fijalkowski@intel.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, kbuild-all@lists.01.org, kernel test robot <lkp@intel.com>
 
-Hi,
+From: kernel test robot <lkp@intel.com>
+Date: Sun, 19 Jun 2022 17:20:05 +0800
 
-Adding Aaro Koskinen and Peter Vasil for pm24xx for n800 and n810 related
-idle.
+Also, could someone please help me with this? I don't get what went
+wrong with sparse, it's not even some new code, just moving old
+stuff.
 
-* Peter Zijlstra <peterz@infradead.org> [220614 22:07]:
-> On Mon, Jun 13, 2022 at 03:39:05PM +0300, Tony Lindgren wrote:
-> > OMAP4 uses full SoC suspend modes as idle states, as such it needs the
-> > whole power-domain and clock-domain code from the idle path.
-> > 
-> > All that code is not suitable to run with RCU disabled, as such push
-> > RCU-idle deeper still.
-> > 
-> > Signed-off-by: Tony Lindgren <tony@atomide.com>
-> > ---
-> > 
-> > Peter here's one more for your series, looks like this is needed to avoid
-> > warnings similar to what you did for omap3.
+> tree:   https://github.com/alobakin/linux bitops
+> head:   9bd39b17ce49d350eed93a031e0da6389067013e
+> commit: 521611f961a7dda92eefa26e1afd3914c06af64e [3/7] bitops: unify non-atomic bitops prototypes across architectures
+> config: mips-randconfig-s031-20220619 (https://download.01.org/0day-ci/archive/20220619/202206191726.wq70mbMK-lkp@intel.com/config)
+> compiler: mips64el-linux-gcc (GCC) 11.3.0
+> reproduce:
+>         wget https://raw.githubusercontent.com/intel/lkp-tests/master/sbin/make.cross -O ~/bin/make.cross
+>         chmod +x ~/bin/make.cross
+>         # apt-get install sparse
+>         # sparse version: v0.6.4-30-g92122700-dirty
+>         # https://github.com/alobakin/linux/commit/521611f961a7dda92eefa26e1afd3914c06af64e
+>         git remote add alobakin https://github.com/alobakin/linux
+>         git fetch --no-tags alobakin bitops
+>         git checkout 521611f961a7dda92eefa26e1afd3914c06af64e
+>         # save the config file
+>         mkdir build_dir && cp config build_dir/.config
+>         COMPILER_INSTALL_PATH=$HOME/0day COMPILER=gcc-11.3.0 make.cross C=1 CF='-fdiagnostic-prefix -D__CHECK_ENDIAN__' O=build_dir ARCH=mips SHELL=/bin/bash
 > 
-> Thanks Tony!
+> If you fix the issue, kindly add following tag where applicable
+> Reported-by: kernel test robot <lkp@intel.com>
 > 
-> I've had a brief look at omap2_pm_idle() and do I understand it right
-> that something like the below patch would reduce it to a simple 'WFI'?
+> 
+> sparse warnings: (new ones prefixed by >>)
+>    command-line: note: in included file:
+>    builtin:1:9: sparse: sparse: preprocessor token __ATOMIC_ACQUIRE redefined
+>    builtin:0:0: sparse: this was the original definition
+>    builtin:1:9: sparse: sparse: preprocessor token __ATOMIC_SEQ_CST redefined
+>    builtin:0:0: sparse: this was the original definition
+>    builtin:1:9: sparse: sparse: preprocessor token __ATOMIC_ACQ_REL redefined
+>    builtin:0:0: sparse: this was the original definition
+>    builtin:1:9: sparse: sparse: preprocessor token __ATOMIC_RELEASE redefined
+>    builtin:0:0: sparse: this was the original definition
+>    block/elevator.c: note: in included file (through include/linux/bitops.h, include/linux/kernel.h):
+>    include/asm-generic/bitops/generic-non-atomic.h:29:9: sparse: sparse: unreplaced symbol 'mask'
+>    include/asm-generic/bitops/generic-non-atomic.h:30:9: sparse: sparse: unreplaced symbol 'p'
+>    include/asm-generic/bitops/generic-non-atomic.h:32:10: sparse: sparse: unreplaced symbol 'p'
+>    include/asm-generic/bitops/generic-non-atomic.h:32:16: sparse: sparse: unreplaced symbol 'mask'
+>    include/asm-generic/bitops/generic-non-atomic.h:27:1: sparse: sparse: unreplaced symbol 'return'
+>    include/asm-generic/bitops/generic-non-atomic.h:38:9: sparse: sparse: unreplaced symbol 'mask'
+>    include/asm-generic/bitops/generic-non-atomic.h:39:9: sparse: sparse: unreplaced symbol 'p'
+>    include/asm-generic/bitops/generic-non-atomic.h:41:10: sparse: sparse: unreplaced symbol 'p'
+>    include/asm-generic/bitops/generic-non-atomic.h:41:16: sparse: sparse: unreplaced symbol 'mask'
+>    include/asm-generic/bitops/generic-non-atomic.h:36:1: sparse: sparse: unreplaced symbol 'return'
+>    include/asm-generic/bitops/generic-non-atomic.h:56:9: sparse: sparse: unreplaced symbol 'mask'
+>    include/asm-generic/bitops/generic-non-atomic.h:57:9: sparse: sparse: unreplaced symbol 'p'
+>    include/asm-generic/bitops/generic-non-atomic.h:59:10: sparse: sparse: unreplaced symbol 'p'
+>    include/asm-generic/bitops/generic-non-atomic.h:59:15: sparse: sparse: unreplaced symbol 'mask'
+>    include/asm-generic/bitops/generic-non-atomic.h:54:1: sparse: sparse: unreplaced symbol 'return'
+>    include/asm-generic/bitops/generic-non-atomic.h:74:9: sparse: sparse: unreplaced symbol 'mask'
+>    include/asm-generic/bitops/generic-non-atomic.h:75:9: sparse: sparse: unreplaced symbol 'p'
+>    include/asm-generic/bitops/generic-non-atomic.h:76:9: sparse: sparse: unreplaced symbol 'old'
+>    include/asm-generic/bitops/generic-non-atomic.h:78:10: sparse: sparse: unreplaced symbol 'p'
+>    include/asm-generic/bitops/generic-non-atomic.h:78:14: sparse: sparse: unreplaced symbol 'old'
+>    include/asm-generic/bitops/generic-non-atomic.h:78:20: sparse: sparse: unreplaced symbol 'mask'
+>    include/asm-generic/bitops/generic-non-atomic.h:79:17: sparse: sparse: unreplaced symbol 'old'
+>    include/asm-generic/bitops/generic-non-atomic.h:79:23: sparse: sparse: unreplaced symbol 'mask'
+>    include/asm-generic/bitops/generic-non-atomic.h:79:9: sparse: sparse: unreplaced symbol 'return'
+>    include/asm-generic/bitops/generic-non-atomic.h:72:1: sparse: sparse: unreplaced symbol 'return'
+>    include/asm-generic/bitops/generic-non-atomic.h:94:9: sparse: sparse: unreplaced symbol 'mask'
+>    include/asm-generic/bitops/generic-non-atomic.h:95:9: sparse: sparse: unreplaced symbol 'p'
+>    include/asm-generic/bitops/generic-non-atomic.h:96:9: sparse: sparse: unreplaced symbol 'old'
+>    include/asm-generic/bitops/generic-non-atomic.h:98:10: sparse: sparse: unreplaced symbol 'p'
+>    include/asm-generic/bitops/generic-non-atomic.h:98:14: sparse: sparse: unreplaced symbol 'old'
+>    include/asm-generic/bitops/generic-non-atomic.h:98:21: sparse: sparse: unreplaced symbol 'mask'
+>    include/asm-generic/bitops/generic-non-atomic.h:99:17: sparse: sparse: unreplaced symbol 'old'
+>    include/asm-generic/bitops/generic-non-atomic.h:99:23: sparse: sparse: unreplaced symbol 'mask'
+>    include/asm-generic/bitops/generic-non-atomic.h:99:9: sparse: sparse: unreplaced symbol 'return'
+>    include/asm-generic/bitops/generic-non-atomic.h:92:1: sparse: sparse: unreplaced symbol 'return'
+>    include/asm-generic/bitops/generic-non-atomic.h:106:9: sparse: sparse: unreplaced symbol 'mask'
+>    include/asm-generic/bitops/generic-non-atomic.h:107:9: sparse: sparse: unreplaced symbol 'p'
+>    include/asm-generic/bitops/generic-non-atomic.h:108:9: sparse: sparse: unreplaced symbol 'old'
+>    include/asm-generic/bitops/generic-non-atomic.h:110:10: sparse: sparse: unreplaced symbol 'p'
+>    include/asm-generic/bitops/generic-non-atomic.h:110:14: sparse: sparse: unreplaced symbol 'old'
+>    include/asm-generic/bitops/generic-non-atomic.h:110:20: sparse: sparse: unreplaced symbol 'mask'
+>    include/asm-generic/bitops/generic-non-atomic.h:111:17: sparse: sparse: unreplaced symbol 'old'
+>    include/asm-generic/bitops/generic-non-atomic.h:111:23: sparse: sparse: unreplaced symbol 'mask'
+>    include/asm-generic/bitops/generic-non-atomic.h:111:9: sparse: sparse: unreplaced symbol 'return'
+>    include/asm-generic/bitops/generic-non-atomic.h:104:1: sparse: sparse: unreplaced symbol 'return'
+>    include/asm-generic/bitops/generic-non-atomic.h:127:9: sparse: sparse: unreplaced symbol 'return'
+>    include/asm-generic/bitops/generic-non-atomic.h:120:1: sparse: sparse: unreplaced symbol 'return'
+> >> block/elevator.c:222:9: sparse: sparse: cast from restricted req_flags_t
+> 
+> vim +222 block/elevator.c
+> 
+> 9817064b68fef7 Jens Axboe        2006-07-28  217  
+> 70b3ea056f3074 Jens Axboe        2016-12-07  218  void elv_rqhash_add(struct request_queue *q, struct request *rq)
+> 9817064b68fef7 Jens Axboe        2006-07-28  219  {
+> b374d18a4bfce7 Jens Axboe        2008-10-31  220  	struct elevator_queue *e = q->elevator;
+> 9817064b68fef7 Jens Axboe        2006-07-28  221  
+> 9817064b68fef7 Jens Axboe        2006-07-28 @222  	BUG_ON(ELV_ON_HASH(rq));
+> 242d98f077ac0a Sasha Levin       2012-12-17  223  	hash_add(e->hash, &rq->hash, rq_hash_key(rq));
+> e806402130c9c4 Christoph Hellwig 2016-10-20  224  	rq->rq_flags |= RQF_HASHED;
+> 9817064b68fef7 Jens Axboe        2006-07-28  225  }
+> bd166ef183c263 Jens Axboe        2017-01-17  226  EXPORT_SYMBOL_GPL(elv_rqhash_add);
+> 9817064b68fef7 Jens Axboe        2006-07-28  227  
+> 
+> :::::: The code at line 222 was first introduced by commit
+> :::::: 9817064b68fef7e4580c6df1ea597e106b9ff88b [PATCH] elevator: move the backmerging logic into the elevator core
+> 
+> :::::: TO: Jens Axboe <axboe@suse.de>
+> :::::: CC: Jens Axboe <axboe@nelson.home.kernel.dk>
+> 
+> -- 
+> 0-DAY CI Kernel Test Service
+> https://01.org/lkp
 
-Yes that should do for omap2_do_wfi().
-
-> What do I do with the rest of that code, because I don't think this
-> thing has a cpuidle driver to take over, effectively turning it into
-> dead code.
-
-As we are establishing a policy where deeper idle states must be
-handled by cpuidle, and for most part that has been the case for at least
-10 years, I'd just drop the unused functions with an explanation in the
-patch why we're doing it. Or the functions could be tagged with
-__maybe_unused if folks prefer that.
-
-In the pm24xx case we are not really causing a regression for users as
-there are still pending patches to make n800 and n810 truly usable with
-the mainline kernel. At least the PMIC and LCD related patches need some
-work [0]. The deeper idle states can be added back later using cpuidle
-as needed so we have a clear path.
-
-Aaro & Peter V, do you have any better suggestions here as this will
-mostly affect you guys currently?
-
-Regards,
-
-Tony
-
-[0] https://lore.kernel.org/linux-omap/20211224214512.1583430-1-peter.vasil@gmail.com/
-
-
-> --- a/arch/arm/mach-omap2/pm24xx.c
-> +++ b/arch/arm/mach-omap2/pm24xx.c
-> @@ -126,10 +126,20 @@ static int omap2_allow_mpu_retention(voi
->  	return 1;
->  }
->  
-> -static void omap2_enter_mpu_retention(void)
-> +static void omap2_do_wfi(void)
->  {
->  	const int zero = 0;
->  
-> +	/* WFI */
-> +	asm("mcr p15, 0, %0, c7, c0, 4" : : "r" (zero) : "memory", "cc");
-> +}
-> +
-> +#if 0
-> +/*
-> + * possible cpuidle implementation between WFI and full_retention above
-> + */
-> +static void omap2_enter_mpu_retention(void)
-> +{
->  	/* The peripherals seem not to be able to wake up the MPU when
->  	 * it is in retention mode. */
->  	if (omap2_allow_mpu_retention()) {
-> @@ -146,8 +157,7 @@ static void omap2_enter_mpu_retention(vo
->  		pwrdm_set_next_pwrst(mpu_pwrdm, PWRDM_POWER_ON);
->  	}
->  
-> -	/* WFI */
-> -	asm("mcr p15, 0, %0, c7, c0, 4" : : "r" (zero) : "memory", "cc");
-> +	omap2_do_wfi();
->  
->  	pwrdm_set_next_pwrst(mpu_pwrdm, PWRDM_POWER_ON);
->  }
-> @@ -161,6 +171,7 @@ static int omap2_can_sleep(void)
->  
->  	return 1;
->  }
-> +#endif
->  
->  static void omap2_pm_idle(void)
->  {
-> @@ -169,6 +180,7 @@ static void omap2_pm_idle(void)
->  	if (omap_irq_pending())
->  		return;
->  
-> +#if 0
->  	error = cpu_cluster_pm_enter();
->  	if (error || !omap2_can_sleep()) {
->  		omap2_enter_mpu_retention();
-> @@ -179,6 +191,9 @@ static void omap2_pm_idle(void)
->  
->  out_cpu_cluster_pm:
->  	cpu_cluster_pm_exit();
-> +#else
-> +	omap2_do_wfi();
-> +#endif
->  }
->  
->  static void __init prcm_setup_regs(void)
+Thanks,
+Olek
