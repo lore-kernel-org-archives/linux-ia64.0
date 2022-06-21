@@ -1,151 +1,120 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Wed, 08 Jun 2022 14:27:36 +0000
-Subject: [PATCH 13/36] cpuidle,dt: Push RCU-idle into driver
-Message-Id: <20220608144516.743744529@infradead.org>
+From: Alexander Lobakin <alexandr.lobakin@intel.com>
+Date: Tue, 21 Jun 2022 19:15:52 +0000
+Subject: [PATCH v4 7/8] bitmap: don't assume compiler evaluates small mem*() builtins calls
+Message-Id: <20220621191553.69455-8-alexandr.lobakin@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220608142723.103523089@infradead.org>
+References: <20220621191553.69455-1-alexandr.lobakin@intel.com>
+In-Reply-To: <20220621191553.69455-1-alexandr.lobakin@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: peterz@infradead.org
-Cc: rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@kernel.org, linux@armlinux.org.uk, ulli.kroll@googlemail.com, linus.walleij@linaro.org, shawnguo@kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, kernel@pengutronix.de, festevam@gmail.com, linux-imx@nxp.com, tony@atomide.com, khilman@kernel.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, bcain@quicinc.com, chenhuacai@kernel.org, kernel@xen0n.name, geert@linux-m68k.org, sammy@sammy.net, monstr@monstr.eu, tsbogend@alpha.franken.de, dinguyen@kernel.org, jonas@southpole.se, stefan.kristiansson@saunalahti.fi, shorne@gmail.com, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, paul.walmsley@sifive.com, palmer@dabbelt.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, richard@nod.at, anton.ivanov@cambridgegreys.com, johannes@sipsolutions.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, acme@kernel.org, mark.rutland@arm.com, alexander.shishkin@linux.intel.com, jolsa@kernel.org, namhyung@kernel.org, jgross@suse.com, srivatsa@csail.mit.edu, amakhalov@vmware.com, pv-drivers@vmware.com, boris.ostrovsky@oracle.com, chris@zankel.net, jcmvbkbc@gmail.com, rafael@kernel.org, lenb@kernel.org, pavel@ucw.cz, gregkh@linuxfoundation.org, mturquette@baylibre.com, sboyd@kernel.org, daniel.lezcano@linaro.org, lpieralisi@kernel.org, sudeep.holla@arm.com, agross@kernel.org, bjorn.andersson@linaro.org, anup@brainfault.org, thierry.reding@gmail.com, jonathanh@nvidia.com, jacob.jun.pan@linux.intel.com, Arnd Bergmann <arnd@arndb.de>, yury.norov@gmail.com, andriy.shevchenko@linux.intel.com, linux@rasmusvillemoes.dk, rostedt@goodmis.org, pmladek@suse.com, senozhatsky@chromium.org, john.ogness@linutronix.de, paulmck@kernel.org, frederic@kernel.org, quic_neeraju@quicinc.com, josh@joshtriplett.org, mathieu.desnoyers@efficios.com, jiangshanlai@gmail.com, joel@joelfernandes.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, jpoimboe@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-perf-users@vger.kernel.org, virtualization@lists.linux-foundation.org, xen-devel@lists.xenproject.org, linux-xtensa@linux-xtensa.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-clk@vger.kernel.org, linux-arm-msm@vger.kernel.org, linux-tegra@vger.kernel.org, linux-arch@vger.kernel.org, rcu@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>
+Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Maciej Fijalkowski <maciej.fijalkowski@intel.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Doing RCU-idle outside the driver, only to then temporarily enable it
-again before going idle is daft.
+Intel kernel bot triggered the build bug on ARC architecture that
+in fact is as follows:
 
-Notably: this converts all dt_init_idle_driver() and
-__CPU_PM_CPU_IDLE_ENTER() users for they are inextrably intertwined.
+	DECLARE_BITMAP(bitmap, BITS_PER_LONG);
 
-Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+	bitmap_clear(bitmap, 0, BITS_PER_LONG);
+	BUILD_BUG_ON(!__builtin_constant_p(*bitmap));
+
+which can be expanded to:
+
+	unsigned long bitmap[1];
+
+	memset(bitmap, 0, sizeof(*bitmap));
+	BUILD_BUG_ON(!__builtin_constant_p(*bitmap));
+
+In most cases, a compiler is able to expand small/simple mem*()
+calls to simple assignments or bitops, in this case that would mean:
+
+	unsigned long bitmap[1] = { 0 };
+
+	BUILD_BUG_ON(!__builtin_constant_p(*bitmap));
+
+and on most architectures this works, but not on ARC, despite having
+-O3 for every build.
+So, to make this work, in case when the last bit to modify is still
+within the first long (small_const_nbits()), just use plain
+assignments for the rest of bitmap_*() functions which still use
+mem*(), but didn't receive such compile-time optimizations yet.
+This doesn't have the same coverage as compilers provide, but at
+least something to start:
+
+text: add/remove: 3/7 grow/shrink: 43/78 up/down: 1848/-3370 (-1546)
+data: add/remove: 1/11 grow/shrink: 0/8 up/down: 4/-356 (-352)
+
+notably cpumask_*() family when NR_CPUS <= BITS_PER_LONG:
+
+netif_get_num_default_rss_queues              38       4     -34
+cpumask_copy                                  90       -     -90
+cpumask_clear                                146       -    -146
+
+and the abovementioned assertion started passing.
+
+Signed-off-by: Alexander Lobakin <alexandr.lobakin@intel.com>
 ---
- arch/arm/mach-omap2/cpuidle34xx.c    |    4 ++--
- drivers/acpi/processor_idle.c        |    2 ++
- drivers/cpuidle/cpuidle-arm.c        |    1 +
- drivers/cpuidle/cpuidle-big_little.c |    8 ++++++--
- drivers/cpuidle/cpuidle-psci.c       |    1 +
- drivers/cpuidle/cpuidle-qcom-spm.c   |    1 +
- drivers/cpuidle/cpuidle-riscv-sbi.c  |    1 +
- drivers/cpuidle/dt_idle_states.c     |    2 +-
- include/linux/cpuidle.h              |    4 ++++
- 9 files changed, 19 insertions(+), 5 deletions(-)
+ include/linux/bitmap.h | 22 +++++++++++++++++++---
+ 1 file changed, 19 insertions(+), 3 deletions(-)
 
---- a/drivers/acpi/processor_idle.c
-+++ b/drivers/acpi/processor_idle.c
-@@ -1200,6 +1200,8 @@ static int acpi_processor_setup_lpi_stat
- 		state->target_residency = lpi->min_residency;
- 		if (lpi->arch_flags)
- 			state->flags |= CPUIDLE_FLAG_TIMER_STOP;
-+		if (lpi->entry_method = ACPI_CSTATE_FFH)
-+			state->flags |= CPUIDLE_FLAG_RCU_IDLE;
- 		state->enter = acpi_idle_lpi_enter;
- 		drv->safe_state_index = i;
- 	}
---- a/drivers/cpuidle/cpuidle-arm.c
-+++ b/drivers/cpuidle/cpuidle-arm.c
-@@ -53,6 +53,7 @@ static struct cpuidle_driver arm_idle_dr
- 	 * handler for idle state index 0.
- 	 */
- 	.states[0] = {
-+		.flags			= CPUIDLE_FLAG_RCU_IDLE,
- 		.enter                  = arm_enter_idle_state,
- 		.exit_latency           = 1,
- 		.target_residency       = 1,
---- a/drivers/cpuidle/cpuidle-big_little.c
-+++ b/drivers/cpuidle/cpuidle-big_little.c
-@@ -64,7 +64,8 @@ static struct cpuidle_driver bl_idle_lit
- 		.enter			= bl_enter_powerdown,
- 		.exit_latency		= 700,
- 		.target_residency	= 2500,
--		.flags			= CPUIDLE_FLAG_TIMER_STOP,
-+		.flags			= CPUIDLE_FLAG_TIMER_STOP |
-+					  CPUIDLE_FLAG_RCU_IDLE,
- 		.name			= "C1",
- 		.desc			= "ARM little-cluster power down",
- 	},
-@@ -85,7 +86,8 @@ static struct cpuidle_driver bl_idle_big
- 		.enter			= bl_enter_powerdown,
- 		.exit_latency		= 500,
- 		.target_residency	= 2000,
--		.flags			= CPUIDLE_FLAG_TIMER_STOP,
-+		.flags			= CPUIDLE_FLAG_TIMER_STOP |
-+					  CPUIDLE_FLAG_RCU_IDLE,
- 		.name			= "C1",
- 		.desc			= "ARM big-cluster power down",
- 	},
-@@ -124,11 +126,13 @@ static int bl_enter_powerdown(struct cpu
- 				struct cpuidle_driver *drv, int idx)
+diff --git a/include/linux/bitmap.h b/include/linux/bitmap.h
+index 2e6cd5681040..a0f4f3af8d30 100644
+--- a/include/linux/bitmap.h
++++ b/include/linux/bitmap.h
+@@ -238,20 +238,32 @@ extern int bitmap_print_list_to_buf(char *buf, const unsigned long *maskp,
+ static inline void bitmap_zero(unsigned long *dst, unsigned int nbits)
  {
- 	cpu_pm_enter();
-+	rcu_idle_enter();
+ 	unsigned int len = BITS_TO_LONGS(nbits) * sizeof(unsigned long);
+-	memset(dst, 0, len);
++
++	if (small_const_nbits(nbits))
++		*dst = 0;
++	else
++		memset(dst, 0, len);
+ }
  
- 	cpu_suspend(0, bl_powerdown_finisher);
+ static inline void bitmap_fill(unsigned long *dst, unsigned int nbits)
+ {
+ 	unsigned int len = BITS_TO_LONGS(nbits) * sizeof(unsigned long);
+-	memset(dst, 0xff, len);
++
++	if (small_const_nbits(nbits))
++		*dst = ~0UL;
++	else
++		memset(dst, 0xff, len);
+ }
  
- 	/* signals the MCPM core that CPU is out of low power state */
- 	mcpm_cpu_powered_up();
-+	rcu_idle_exit();
+ static inline void bitmap_copy(unsigned long *dst, const unsigned long *src,
+ 			unsigned int nbits)
+ {
+ 	unsigned int len = BITS_TO_LONGS(nbits) * sizeof(unsigned long);
+-	memcpy(dst, src, len);
++
++	if (small_const_nbits(nbits))
++		*dst = *src;
++	else
++		memcpy(dst, src, len);
+ }
  
- 	cpu_pm_exit();
- 
---- a/drivers/cpuidle/cpuidle-psci.c
-+++ b/drivers/cpuidle/cpuidle-psci.c
-@@ -357,6 +357,7 @@ static int psci_idle_init_cpu(struct dev
- 	 * PSCI idle states relies on architectural WFI to be represented as
- 	 * state index 0.
- 	 */
-+	drv->states[0].flags = CPUIDLE_FLAG_RCU_IDLE;
- 	drv->states[0].enter = psci_enter_idle_state;
- 	drv->states[0].exit_latency = 1;
- 	drv->states[0].target_residency = 1;
---- a/drivers/cpuidle/cpuidle-qcom-spm.c
-+++ b/drivers/cpuidle/cpuidle-qcom-spm.c
-@@ -72,6 +72,7 @@ static struct cpuidle_driver qcom_spm_id
- 	.owner = THIS_MODULE,
- 	.states[0] = {
- 		.enter			= spm_enter_idle_state,
-+		.flags			= CPUIDLE_FLAG_RCU_IDLE,
- 		.exit_latency		= 1,
- 		.target_residency	= 1,
- 		.power_usage		= UINT_MAX,
---- a/drivers/cpuidle/cpuidle-riscv-sbi.c
-+++ b/drivers/cpuidle/cpuidle-riscv-sbi.c
-@@ -332,6 +332,7 @@ static int sbi_cpuidle_init_cpu(struct d
- 	drv->cpumask = (struct cpumask *)cpumask_of(cpu);
- 
- 	/* RISC-V architectural WFI to be represented as state index 0. */
-+	drv->states[0].flags = CPUIDLE_FLAG_RCU_IDLE;
- 	drv->states[0].enter = sbi_cpuidle_enter_state;
- 	drv->states[0].exit_latency = 1;
- 	drv->states[0].target_residency = 1;
---- a/drivers/cpuidle/dt_idle_states.c
-+++ b/drivers/cpuidle/dt_idle_states.c
-@@ -77,7 +77,7 @@ static int init_state_node(struct cpuidl
- 	if (err)
- 		desc = state_node->name;
- 
--	idle_state->flags = 0;
-+	idle_state->flags = CPUIDLE_FLAG_RCU_IDLE;
- 	if (of_property_read_bool(state_node, "local-timer-stop"))
- 		idle_state->flags |= CPUIDLE_FLAG_TIMER_STOP;
- 	/*
---- a/include/linux/cpuidle.h
-+++ b/include/linux/cpuidle.h
-@@ -282,14 +282,18 @@ extern s64 cpuidle_governor_latency_req(
- 	int __ret = 0;							\
- 									\
- 	if (!idx) {							\
-+		rcu_idle_enter();					\
- 		cpu_do_idle();						\
-+		rcu_idle_exit();					\
- 		return idx;						\
- 	}								\
- 									\
- 	if (!is_retention)						\
- 		__ret =  cpu_pm_enter();				\
- 	if (!__ret) {							\
-+		rcu_idle_enter();					\
- 		__ret = low_level_idle_enter(state);			\
-+		rcu_idle_exit();					\
- 		if (!is_retention)					\
- 			cpu_pm_exit();					\
- 	}								\
-
+ /*
+@@ -431,6 +443,8 @@ static __always_inline void bitmap_set(unsigned long *map, unsigned int start,
+ {
+ 	if (__builtin_constant_p(nbits) && nbits = 1)
+ 		__set_bit(start, map);
++	else if (small_const_nbits(start + nbits))
++		*map |= GENMASK(start + nbits - 1, start);
+ 	else if (__builtin_constant_p(start & BITMAP_MEM_MASK) &&
+ 		 IS_ALIGNED(start, BITMAP_MEM_ALIGNMENT) &&
+ 		 __builtin_constant_p(nbits & BITMAP_MEM_MASK) &&
+@@ -445,6 +459,8 @@ static __always_inline void bitmap_clear(unsigned long *map, unsigned int start,
+ {
+ 	if (__builtin_constant_p(nbits) && nbits = 1)
+ 		__clear_bit(start, map);
++	else if (small_const_nbits(start + nbits))
++		*map &= ~GENMASK(start + nbits - 1, start);
+ 	else if (__builtin_constant_p(start & BITMAP_MEM_MASK) &&
+ 		 IS_ALIGNED(start, BITMAP_MEM_ALIGNMENT) &&
+ 		 __builtin_constant_p(nbits & BITMAP_MEM_MASK) &&
+-- 
+2.36.1
