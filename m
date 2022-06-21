@@ -1,104 +1,143 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Date: Mon, 20 Jun 2022 10:07:56 +0000
-Subject: Re: [PATCH v3 7/7] lib: test_bitmap: add compile-time optimization/evaluations assertions
-Message-Id: <YrBG/OQG9UTs303n@smile.fi.intel.com>
+From: Alexander Gordeev <agordeev@linux.ibm.com>
+Date: Tue, 21 Jun 2022 13:00:21 +0000
+Subject: Re: [PATCH v4 12/12] sched,signal,ptrace: Rework TASK_TRACED, TASK_STOPPED state
+Message-Id: <YrHA5UkJLornOdCz@li-4a3a4a4c-28e5-11b2-a85c-a8d192c6f089.ibm.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="N4j0vMBA8JArVaRj"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220617144031.2549432-1-alexandr.lobakin@intel.com>
- <20220617144031.2549432-8-alexandr.lobakin@intel.com>
-In-Reply-To: <20220617144031.2549432-8-alexandr.lobakin@intel.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Alexander Lobakin <alexandr.lobakin@intel.com>
-Cc: Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Maciej Fijalkowski <maciej.fijalkowski@intel.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+References: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
+ <20220505182645.497868-12-ebiederm@xmission.com>
+In-Reply-To: <20220505182645.497868-12-ebiederm@xmission.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: linux-kernel@vger.kernel.org, rjw@rjwysocki.net, Oleg Nesterov <oleg@redhat.com>, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org
 
-On Fri, Jun 17, 2022 at 04:40:31PM +0200, Alexander Lobakin wrote:
-> Add a function to the bitmap test suite, which will ensure that
-> compilers are able to evaluate operations performed by the
-> bitops/bitmap helpers to compile-time constants when all of the
-> arguments are compile-time constants as well, or trigger a build
-> bug otherwise. This should work on all architectures and all the
-> optimization levels supported by Kbuild.
-> The function doesn't perform any runtime tests and gets optimized
-> out to nothing after passing the build assertions.
 
-Always in favour of new test cases!
-Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+--N4j0vMBA8JArVaRj
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: 
 
-> Suggested-by: Yury Norov <yury.norov@gmail.com>
-> Signed-off-by: Alexander Lobakin <alexandr.lobakin@intel.com>
-> ---
->  lib/test_bitmap.c | 45 +++++++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 45 insertions(+)
+On Thu, May 05, 2022 at 01:26:45PM -0500, Eric W. Biederman wrote:
+> From: Peter Zijlstra <peterz@infradead.org>
 > 
-> diff --git a/lib/test_bitmap.c b/lib/test_bitmap.c
-> index d5923a640457..3a7b09b82794 100644
-> --- a/lib/test_bitmap.c
-> +++ b/lib/test_bitmap.c
-> @@ -869,6 +869,50 @@ static void __init test_bitmap_print_buf(void)
->  	}
->  }
->  
-> +static void __init test_bitmap_const_eval(void)
-> +{
-> +	DECLARE_BITMAP(bitmap, BITS_PER_LONG);
-> +	unsigned long initvar = BIT(2);
-> +	unsigned long bitopvar = 0;
-> +	unsigned long var = 0;
-> +	int res;
-> +
-> +	/*
-> +	 * Compilers must be able to optimize all of those to compile-time
-> +	 * constants on any supported optimization level (-O2, -Os) and any
-> +	 * architecture. Otherwise, trigger a build bug.
-> +	 * The whole function gets optimized out then, there's nothing to do
-> +	 * in runtime.
-> +	 */
-> +
-> +	/* Equals to `unsigned long bitmap[1] = { BIT(5), }` */
-> +	bitmap_clear(bitmap, 0, BITS_PER_LONG);
-> +	if (!test_bit(7, bitmap))
-> +		bitmap_set(bitmap, 5, 1);
-> +
-> +	/* Equals to `unsigned long bitopvar = BIT(20)` */
-> +	__change_bit(31, &bitopvar);
-> +	bitmap_shift_right(&bitopvar, &bitopvar, 11, BITS_PER_LONG);
-> +
-> +	/* Equals to `unsigned long var = BIT(25)` */
-> +	var |= BIT(25);
-> +	if (var & BIT(0))
-> +		var ^= GENMASK(9, 6);
-> +
-> +	/* __const_hweight<32|64>(BIT(5)) = 1 */
-> +	res = bitmap_weight(bitmap, 20);
-> +	BUILD_BUG_ON(!__builtin_constant_p(res));
-> +
-> +	/* !(BIT(31) & BIT(18)) = 1 */
-> +	res = !test_bit(18, &bitopvar);
-> +	BUILD_BUG_ON(!__builtin_constant_p(res));
-> +
-> +	/* BIT(2) & GENMASK(14, 8) = 0 */
-> +	BUILD_BUG_ON(!__builtin_constant_p(initvar & GENMASK(14, 8)));
-> +	/* ~BIT(25) */
-> +	BUILD_BUG_ON(!__builtin_constant_p(~var));
-> +}
-> +
->  static void __init selftest(void)
->  {
->  	test_zero_clear();
-> @@ -884,6 +928,7 @@ static void __init selftest(void)
->  	test_for_each_set_clump8();
->  	test_bitmap_cut();
->  	test_bitmap_print_buf();
-> +	test_bitmap_const_eval();
->  }
->  
->  KSTM_MODULE_LOADERS(test_bitmap);
-> -- 
-> 2.36.1
+> Currently ptrace_stop() / do_signal_stop() rely on the special states
+> TASK_TRACED and TASK_STOPPED resp. to keep unique state. That is, this
+> state exists only in task->__state and nowhere else.
 > 
+> There's two spots of bother with this:
+> 
+>  - PREEMPT_RT has task->saved_state which complicates matters,
+>    meaning task_is_{traced,stopped}() needs to check an additional
+>    variable.
+> 
+>  - An alternative freezer implementation that itself relies on a
+>    special TASK state would loose TASK_TRACED/TASK_STOPPED and will
+>    result in misbehaviour.
+> 
+> As such, add additional state to task->jobctl to track this state
+> outside of task->__state.
+> 
+> NOTE: this doesn't actually fix anything yet, just adds extra state.
+> 
+> --EWB
+>   * didn't add a unnecessary newline in signal.h
+>   * Update t->jobctl in signal_wake_up and ptrace_signal_wake_up
+>     instead of in signal_wake_up_state.  This prevents the clearing
+>     of TASK_STOPPED and TASK_TRACED from getting lost.
+>   * Added warnings if JOBCTL_STOPPED or JOBCTL_TRACED are not cleared
 
--- 
-With Best Regards,
-Andy Shevchenko
+Hi Eric, Peter,
 
+On s390 this patch triggers warning at kernel/ptrace.c:272 when
+kill_child testcase from strace tool is repeatedly used (the source
+is attached for reference):
+
+while :; do
+	strace -f -qq -e signal=none -e trace=sched_yield,/kill ./kill_child
+done
+
+It normally takes few minutes to cause the warning in -rc3, but FWIW
+it hits almost immediately for ptrace_stop-cleanup-for-v5.19 tag of
+git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/user-namespace.
+
+Commit 7b0fe1367ef2 ("ptrace: Document that wait_task_inactive can't
+fail") suggests this WARN_ON_ONCE() is not really expected, yet we
+observe a child in __TASK_TRACED state. Could you please comment here?
+
+Thanks!
+
+--N4j0vMBA8JArVaRj
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="kill_child.c"
+
+/*
+ * Check for the corner case that previously lead to segfault
+ * due to an attempt to access unitialised tcp->s_ent.
+ *
+ * 13994 ????( <unfinished ...>
+ * ...
+ * 13994 <... ???? resumed>) = ?
+ *
+ * Copyright (c) 2019 The strace developers.
+ * All rights reserved.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+#include "tests.h"
+
+#include <sched.h>
+#include <signal.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <sys/wait.h>
+
+#define ITERS    10000
+#define SC_ITERS 10000
+
+int
+main(void)
+{
+	volatile sig_atomic_t *const mem =
+		mmap(NULL, get_page_size(), PROT_READ | PROT_WRITE,
+		     MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	if (mem == MAP_FAILED)
+		perror_msg_and_fail("mmap");
+
+	for (unsigned int i = 0; i < ITERS; ++i) {
+		mem[0] = mem[1] = 0;
+
+		const pid_t pid = fork();
+		if (pid < 0)
+			perror_msg_and_fail("fork");
+
+		if (!pid) {
+			/* wait for the parent */
+			while (!mem[0])
+				;
+			/* let the parent know we are running */
+			mem[1] = 1;
+
+			for (unsigned int j = 0; j < SC_ITERS; j++)
+				sched_yield();
+
+			pause();
+			return 0;
+		}
+
+		/* let the child know we are running */
+		mem[0] = 1;
+		/* wait for the child */
+		while (!mem[1])
+			;
+
+		if (kill(pid, SIGKILL))
+			perror_msg_and_fail("kill");
+		if (wait(NULL) != pid)
+			perror_msg_and_fail("wait");
+	}
+
+	return 0;
+}
+
+--N4j0vMBA8JArVaRj--
