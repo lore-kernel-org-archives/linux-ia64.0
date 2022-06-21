@@ -1,126 +1,86 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Mon, 27 Jun 2022 04:58:10 +0000
-Subject: [PATCH V5 06/26] x86/mm: Move protection_map[] inside the platform
-Message-Id: <20220627045833.1590055-7-anshuman.khandual@arm.com>
+From: Alexander Lobakin <alexandr.lobakin@intel.com>
+Date: Tue, 21 Jun 2022 19:15:49 +0000
+Subject: [PATCH v4 4/8] bitops: define const_*() versions of the non-atomics
+Message-Id: <20220621191553.69455-5-alexandr.lobakin@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220627045833.1590055-1-anshuman.khandual@arm.com>
-In-Reply-To: <20220627045833.1590055-1-anshuman.khandual@arm.com>
+References: <20220621191553.69455-1-alexandr.lobakin@intel.com>
+In-Reply-To: <20220621191553.69455-1-alexandr.lobakin@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org
-Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Christoph Hellwig <hch@lst.de>
+To: Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>
+Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Maciej Fijalkowski <maciej.fijalkowski@intel.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-This moves protection_map[] inside the platform and makes it a static. This
-also defines a helper function add_encrypt_protection_map() that can update
-the protection_map[] array with pgprot_encrypted().
+Define const_*() variants of the non-atomic bitops to be used when
+the input arguments are compile-time constants, so that the compiler
+will be always able to resolve those to compile-time constants as
+well. Those are mostly direct aliases for generic_*() with one
+exception for const_test_bit(): the original one is declared
+atomic-safe and thus doesn't discard the `volatile` qualifier, so
+in order to let optimize code, define it separately disregarding
+the qualifier.
+Add them to the compile-time type checks as well just in case.
 
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: x86@kernel.org
-Cc: linux-kernel@vger.kernel.org
-Reviewed-by: Christoph Hellwig <hch@lst.de>
-Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+Suggested-by: Marco Elver <elver@google.com>
+Signed-off-by: Alexander Lobakin <alexandr.lobakin@intel.com>
+Reviewed-by: Marco Elver <elver@google.com>
+Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 ---
- arch/x86/include/asm/pgtable_types.h | 19 -------------------
- arch/x86/mm/mem_encrypt_amd.c        |  7 +++----
- arch/x86/mm/pgprot.c                 | 27 +++++++++++++++++++++++++++
- 3 files changed, 30 insertions(+), 23 deletions(-)
+ .../asm-generic/bitops/generic-non-atomic.h   | 31 +++++++++++++++++++
+ include/linux/bitops.h                        |  1 +
+ 2 files changed, 32 insertions(+)
 
-diff --git a/arch/x86/include/asm/pgtable_types.h b/arch/x86/include/asm/pgtable_types.h
-index bdaf8391e2e0..aa174fed3a71 100644
---- a/arch/x86/include/asm/pgtable_types.h
-+++ b/arch/x86/include/asm/pgtable_types.h
-@@ -230,25 +230,6 @@ enum page_cache_mode {
- 
- #endif	/* __ASSEMBLY__ */
- 
--/*         xwr */
--#define __P000	PAGE_NONE
--#define __P001	PAGE_READONLY
--#define __P010	PAGE_COPY
--#define __P011	PAGE_COPY
--#define __P100	PAGE_READONLY_EXEC
--#define __P101	PAGE_READONLY_EXEC
--#define __P110	PAGE_COPY_EXEC
--#define __P111	PAGE_COPY_EXEC
--
--#define __S000	PAGE_NONE
--#define __S001	PAGE_READONLY
--#define __S010	PAGE_SHARED
--#define __S011	PAGE_SHARED
--#define __S100	PAGE_READONLY_EXEC
--#define __S101	PAGE_READONLY_EXEC
--#define __S110	PAGE_SHARED_EXEC
--#define __S111	PAGE_SHARED_EXEC
--
- /*
-  * early identity mapping  pte attrib macros.
-  */
-diff --git a/arch/x86/mm/mem_encrypt_amd.c b/arch/x86/mm/mem_encrypt_amd.c
-index f6d038e2cd8e..4b3ec87e8c7d 100644
---- a/arch/x86/mm/mem_encrypt_amd.c
-+++ b/arch/x86/mm/mem_encrypt_amd.c
-@@ -484,10 +484,10 @@ void __init early_set_mem_enc_dec_hypercall(unsigned long vaddr, int npages, boo
- 	enc_dec_hypercall(vaddr, npages, enc);
+diff --git a/include/asm-generic/bitops/generic-non-atomic.h b/include/asm-generic/bitops/generic-non-atomic.h
+index b85b8a2ac239..3d5ebd24652b 100644
+--- a/include/asm-generic/bitops/generic-non-atomic.h
++++ b/include/asm-generic/bitops/generic-non-atomic.h
+@@ -127,4 +127,35 @@ generic_test_bit(unsigned long nr, const volatile unsigned long *addr)
+ 	return 1UL & (addr[BIT_WORD(nr)] >> (nr & (BITS_PER_LONG-1)));
  }
  
-+void add_encrypt_protection_map(void);
++/*
++ * const_*() definitions provide good compile-time optimizations when
++ * the passed arguments can be resolved at compile time.
++ */
++#define const___set_bit			generic___set_bit
++#define const___clear_bit		generic___clear_bit
++#define const___change_bit		generic___change_bit
++#define const___test_and_set_bit	generic___test_and_set_bit
++#define const___test_and_clear_bit	generic___test_and_clear_bit
++#define const___test_and_change_bit	generic___test_and_change_bit
 +
- void __init sme_early_init(void)
- {
--	unsigned int i;
--
- 	if (!sme_me_mask)
- 		return;
- 
-@@ -496,8 +496,7 @@ void __init sme_early_init(void)
- 	__supported_pte_mask = __sme_set(__supported_pte_mask);
- 
- 	/* Update the protection map with memory encryption mask */
--	for (i = 0; i < ARRAY_SIZE(protection_map); i++)
--		protection_map[i] = pgprot_encrypted(protection_map[i]);
-+	add_encrypt_protection_map();
- 
- 	x86_platform.guest.enc_status_change_prepare = amd_enc_status_change_prepare;
- 	x86_platform.guest.enc_status_change_finish  = amd_enc_status_change_finish;
-diff --git a/arch/x86/mm/pgprot.c b/arch/x86/mm/pgprot.c
-index 763742782286..b867839b16aa 100644
---- a/arch/x86/mm/pgprot.c
-+++ b/arch/x86/mm/pgprot.c
-@@ -4,6 +4,33 @@
- #include <linux/mm.h>
- #include <asm/pgtable.h>
- 
-+static pgprot_t protection_map[16] __ro_after_init = {
-+	[VM_NONE]					= PAGE_NONE,
-+	[VM_READ]					= PAGE_READONLY,
-+	[VM_WRITE]					= PAGE_COPY,
-+	[VM_WRITE | VM_READ]				= PAGE_COPY,
-+	[VM_EXEC]					= PAGE_READONLY_EXEC,
-+	[VM_EXEC | VM_READ]				= PAGE_READONLY_EXEC,
-+	[VM_EXEC | VM_WRITE]				= PAGE_COPY_EXEC,
-+	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_COPY_EXEC,
-+	[VM_SHARED]					= PAGE_NONE,
-+	[VM_SHARED | VM_READ]				= PAGE_READONLY,
-+	[VM_SHARED | VM_WRITE]				= PAGE_SHARED,
-+	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_SHARED,
-+	[VM_SHARED | VM_EXEC]				= PAGE_READONLY_EXEC,
-+	[VM_SHARED | VM_EXEC | VM_READ]			= PAGE_READONLY_EXEC,
-+	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_SHARED_EXEC,
-+	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= PAGE_SHARED_EXEC
-+};
-+
-+void add_encrypt_protection_map(void)
++/**
++ * const_test_bit - Determine whether a bit is set
++ * @nr: bit number to test
++ * @addr: Address to start counting from
++ *
++ * A version of generic_test_bit() which discards the `volatile` qualifier to
++ * allow a compiler to optimize code harder. Non-atomic and to be called only
++ * for testing compile-time constants, e.g. by the corresponding macros, not
++ * directly from "regular" code.
++ */
++static __always_inline bool
++const_test_bit(unsigned long nr, const volatile unsigned long *addr)
 +{
-+	unsigned int i;
++	const unsigned long *p = (const unsigned long *)addr + BIT_WORD(nr);
++	unsigned long mask = BIT_MASK(nr);
++	unsigned long val = *p;
 +
-+	for (i = 0; i < ARRAY_SIZE(protection_map); i++)
-+		protection_map[i] = pgprot_encrypted(protection_map[i]);
++	return !!(val & mask);
 +}
 +
- pgprot_t vm_get_page_prot(unsigned long vm_flags)
- {
- 	unsigned long val = pgprot_val(protection_map[vm_flags &
+ #endif /* __ASM_GENERIC_BITOPS_GENERIC_NON_ATOMIC_H */
+diff --git a/include/linux/bitops.h b/include/linux/bitops.h
+index 87087454a288..d393297287d5 100644
+--- a/include/linux/bitops.h
++++ b/include/linux/bitops.h
+@@ -37,6 +37,7 @@ extern unsigned long __sw_hweight64(__u64 w);
+ /* Check that the bitops prototypes are sane */
+ #define __check_bitop_pr(name)						\
+ 	static_assert(__same_type(arch_##name, generic_##name) &&	\
++		      __same_type(const_##name, generic_##name) &&	\
+ 		      __same_type(name, generic_##name))
+ 
+ __check_bitop_pr(__set_bit);
 -- 
-2.25.1
+2.36.1
