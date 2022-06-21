@@ -1,73 +1,94 @@
-From: "Paul E. McKenney" <paulmck@kernel.org>
-Date: Wed, 15 Jun 2022 00:44:12 +0000
-Subject: Re: [PATCH 16/36] rcu: Fix rcu_idle_exit()
-Message-Id: <20220615004412.GA5766@paulmck-ThinkPad-P17-Gen-1>
+From: Alexander Lobakin <alexandr.lobakin@intel.com>
+Date: Tue, 21 Jun 2022 19:15:53 +0000
+Subject: [PATCH v4 8/8] lib: test_bitmap: add compile-time optimization/evaluations assertions
+Message-Id: <20220621191553.69455-9-alexandr.lobakin@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220608142723.103523089@infradead.org>
- <20220608144516.935970247@infradead.org>
-In-Reply-To: <20220608144516.935970247@infradead.org>
+References: <20220621191553.69455-1-alexandr.lobakin@intel.com>
+In-Reply-To: <20220621191553.69455-1-alexandr.lobakin@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>
-Cc: rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@kernel.org, linux@armlinux.org.uk, ulli.kroll@googlemail.com, linus.walleij@linaro.org, shawnguo@kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, kernel@pengutronix.de, festevam@gmail.com, linux-imx@nxp.com, tony@atomide.com, khilman@kernel.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, bcain@quicinc.com, chenhuacai@kernel.org, kernel@xen0n.name, geert@linux-m68k.org, sammy@sammy.net, monstr@monstr.eu, tsbogend@alpha.franken.de, dinguyen@kernel.org, jonas@southpole.se, stefan.kristiansson@saunalahti.fi, shorne@gmail.com, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, paul.walmsley@sifive.com, palmer@dabbelt.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, richard@nod.at, anton.ivanov@cambridgegreys.com, johannes@sipsolutions.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, acme@kernel.org, mark.rutland@arm.com, alexander.shishkin@linux.intel.com, jolsa@kernel.org, namhyung@kernel.org, jgross@suse.com, srivatsa@csail.mit.edu, amakhalov@vmware.com, pv-drivers@vmware.com, boris.ostrovsky@oracle.com, chris@zankel.net, jcmvbkbc@gmail.com, rafael@kernel.org, lenb@kernel.org, pavel@ucw.cz, gregkh@linuxfoundation.org, mturquette@baylibre.com, sboyd@kernel.org, daniel.lezcano@linaro.org, lpieralisi@kernel.org, sudeep.holla@arm.com, agross@kernel.org, bjorn.andersson@linaro.org, anup@brainfault.org, thierry.reding@gmail.com, jonathanh@nvidia.com, jacob.jun.pan@linux.intel.com, Arnd Bergmann <arnd@arndb.de>, yury.norov@gmail.com, andriy.shevchenko@linux.intel.com, linux@rasmusvillemoes.dk, rostedt@goodmis.org, pmladek@suse.com, senozhatsky@chromium.org, john.ogness@linutronix.de, frederic@kernel.org, quic_neeraju@quicinc.com, josh@joshtriplett.org, mathieu.desnoyers@efficios.com, jiangshanlai@gmail.com, joel@joelfernandes.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, jpoimboe@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-perf-users@vger.kernel.org, virtualization@lists.linux-foundation.org, xen-devel@lists.xenproject.org, linux-xtensa@linux-xtensa.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-clk@vger.kernel.org, linux-arm-msm@vger.kernel.org, linux-tegra@vger.kernel.org, linux-arch@vger.kernel.org, rcu@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>
+Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Maciej Fijalkowski <maciej.fijalkowski@intel.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Wed, Jun 08, 2022 at 04:27:39PM +0200, Peter Zijlstra wrote:
-> Current rcu_idle_exit() is terminally broken because it uses
-> local_irq_{save,restore}(), which are traced which uses RCU.
-> 
-> However, now that all the callers are sure to have IRQs disabled, we
-> can remove these calls.
-> 
-> Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
-> Acked-by: Paul E. McKenney <paulmck@kernel.org>
+Add a function to the bitmap test suite, which will ensure that
+compilers are able to evaluate operations performed by the
+bitops/bitmap helpers to compile-time constants when all of the
+arguments are compile-time constants as well, or trigger a build
+bug otherwise. This should work on all architectures and all the
+optimization levels supported by Kbuild.
+The function doesn't perform any runtime tests and gets optimized
+out to nothing after passing the build assertions.
 
-We have some fun conflicts between this series and Frederic's context-tracking
-series.  But it looks like these can be resolved by:
+Suggested-by: Yury Norov <yury.norov@gmail.com>
+Signed-off-by: Alexander Lobakin <alexandr.lobakin@intel.com>
+Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+---
+ lib/test_bitmap.c | 45 +++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 45 insertions(+)
 
-1.	A patch on top of Frederic's series that provides the old rcu_*()
-	names for the functions now prefixed with ct_*() such as
-	ct_idle_exit().
-
-2.	Another patch on top of Frederic's series that takes the
-	changes remaining from this patch, shown below.  Frederic's
-	series uses raw_local_irq_save() and raw_local_irq_restore(),
-	which can then be removed.
-
-Or is there a better way to do this?
-
-							Thanx, Paul
-
-------------------------------------------------------------------------
-
-commit f64cee8c159e9863a74594efe3d33fb513a6a7b5
-Author: Peter Zijlstra <peterz@infradead.org>
-Date:   Tue Jun 14 17:24:43 2022 -0700
-
-    context_tracking: Interrupts always disabled for ct_idle_exit()
-    
-    Now that the idle-loop cleanups have ensured that rcu_idle_exit() is
-    always invoked with interrupts disabled, remove the interrupt disabling
-    in favor of a debug check.
-    
-    Signed-off-by: Peter Zijlstra <peterz@infradead.org>
-    Cc: Frederic Weisbecker <frederic@kernel.org>
-    Signed-off-by: Paul E. McKenney <paulmck@kernel.org>
-
-diff --git a/kernel/context_tracking.c b/kernel/context_tracking.c
-index 1da44803fd319..99310cf5b0254 100644
---- a/kernel/context_tracking.c
-+++ b/kernel/context_tracking.c
-@@ -332,11 +332,8 @@ EXPORT_SYMBOL_GPL(ct_idle_enter);
-  */
- void noinstr ct_idle_exit(void)
- {
--	unsigned long flags;
--
--	raw_local_irq_save(flags);
-+	WARN_ON_ONCE(IS_ENABLED(CONFIG_RCU_EQS_DEBUG) && !raw_irqs_disabled());
- 	ct_kernel_enter(false, RCU_DYNTICKS_IDX - CONTEXT_IDLE);
--	raw_local_irq_restore(flags);
+diff --git a/lib/test_bitmap.c b/lib/test_bitmap.c
+index d5923a640457..3a7b09b82794 100644
+--- a/lib/test_bitmap.c
++++ b/lib/test_bitmap.c
+@@ -869,6 +869,50 @@ static void __init test_bitmap_print_buf(void)
+ 	}
  }
- EXPORT_SYMBOL_GPL(ct_idle_exit);
  
++static void __init test_bitmap_const_eval(void)
++{
++	DECLARE_BITMAP(bitmap, BITS_PER_LONG);
++	unsigned long initvar = BIT(2);
++	unsigned long bitopvar = 0;
++	unsigned long var = 0;
++	int res;
++
++	/*
++	 * Compilers must be able to optimize all of those to compile-time
++	 * constants on any supported optimization level (-O2, -Os) and any
++	 * architecture. Otherwise, trigger a build bug.
++	 * The whole function gets optimized out then, there's nothing to do
++	 * in runtime.
++	 */
++
++	/* Equals to `unsigned long bitmap[1] = { BIT(5), }` */
++	bitmap_clear(bitmap, 0, BITS_PER_LONG);
++	if (!test_bit(7, bitmap))
++		bitmap_set(bitmap, 5, 1);
++
++	/* Equals to `unsigned long bitopvar = BIT(20)` */
++	__change_bit(31, &bitopvar);
++	bitmap_shift_right(&bitopvar, &bitopvar, 11, BITS_PER_LONG);
++
++	/* Equals to `unsigned long var = BIT(25)` */
++	var |= BIT(25);
++	if (var & BIT(0))
++		var ^= GENMASK(9, 6);
++
++	/* __const_hweight<32|64>(BIT(5)) = 1 */
++	res = bitmap_weight(bitmap, 20);
++	BUILD_BUG_ON(!__builtin_constant_p(res));
++
++	/* !(BIT(31) & BIT(18)) = 1 */
++	res = !test_bit(18, &bitopvar);
++	BUILD_BUG_ON(!__builtin_constant_p(res));
++
++	/* BIT(2) & GENMASK(14, 8) = 0 */
++	BUILD_BUG_ON(!__builtin_constant_p(initvar & GENMASK(14, 8)));
++	/* ~BIT(25) */
++	BUILD_BUG_ON(!__builtin_constant_p(~var));
++}
++
+ static void __init selftest(void)
+ {
+ 	test_zero_clear();
+@@ -884,6 +928,7 @@ static void __init selftest(void)
+ 	test_for_each_set_clump8();
+ 	test_bitmap_cut();
+ 	test_bitmap_print_buf();
++	test_bitmap_const_eval();
+ }
+ 
+ KSTM_MODULE_LOADERS(test_bitmap);
+-- 
+2.36.1
