@@ -1,99 +1,93 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Thu, 30 Jun 2022 05:28:22 +0000
-Subject: [PATCH V6 18/26] s390/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <20220630051630.1718927-19-anshuman.khandual@arm.com>
+From: Alexander Lobakin <alexandr.lobakin@intel.com>
+Date: Tue, 21 Jun 2022 19:15:51 +0000
+Subject: [PATCH v4 6/8] bitops: let optimize out non-atomic bitops on compile-time constants
+Message-Id: <20220621191553.69455-7-alexandr.lobakin@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220630051630.1718927-1-anshuman.khandual@arm.com>
-In-Reply-To: <20220630051630.1718927-1-anshuman.khandual@arm.com>
+References: <20220621191553.69455-1-alexandr.lobakin@intel.com>
+In-Reply-To: <20220621191553.69455-1-alexandr.lobakin@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, akpm@linux-foundation.org
-Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>
+To: Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>
+Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Maciej Fijalkowski <maciej.fijalkowski@intel.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
-vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
-up a private and static protection_map[] array. Subsequently all __SXXX and
-__PXXX macros can be dropped which are no longer needed.
+Currently, many architecture-specific non-atomic bitop
+implementations use inline asm or other hacks which are faster or
+more robust when working with "real" variables (i.e. fields from
+the structures etc.), but the compilers have no clue how to optimize
+them out when called on compile-time constants. That said, the
+following code:
 
-Cc: Heiko Carstens <hca@linux.ibm.com>
-Cc: Vasily Gorbik <gor@linux.ibm.com>
-Cc: linux-s390@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+	DECLARE_BITMAP(foo, BITS_PER_LONG) = { }; // -> unsigned long foo[1];
+	unsigned long bar = BIT(BAR_BIT);
+	unsigned long baz = 0;
+
+	__set_bit(FOO_BIT, foo);
+	baz |= BIT(BAZ_BIT);
+
+	BUILD_BUG_ON(!__builtin_constant_p(test_bit(FOO_BIT, foo));
+	BUILD_BUG_ON(!__builtin_constant_p(bar & BAR_BIT));
+	BUILD_BUG_ON(!__builtin_constant_p(baz & BAZ_BIT));
+
+triggers the first assertion on x86_64, which means that the
+compiler is unable to evaluate it to a compile-time initializer
+when the architecture-specific bitop is used even if it's obvious.
+In order to let the compiler optimize out such cases, expand the
+bitop() macro to use the "constant" C non-atomic bitop
+implementations when all of the arguments passed are compile-time
+constants, which means that the result will be a compile-time
+constant as well, so that it produces more efficient and simple
+code in 100% cases, comparing to the architecture-specific
+counterparts.
+
+The savings are architecture, compiler and compiler flags dependent,
+for example, on x86_64 -O2:
+
+GCC 12: add/remove: 78/29 grow/shrink: 332/525 up/down: 31325/-61560 (-30235)
+LLVM 13: add/remove: 79/76 grow/shrink: 184/537 up/down: 55076/-141892 (-86816)
+LLVM 14: add/remove: 10/3 grow/shrink: 93/138 up/down: 3705/-6992 (-3287)
+
+and ARM64 (courtesy of Mark):
+
+GCC 11: add/remove: 92/29 grow/shrink: 933/2766 up/down: 39340/-82580 (-43240)
+LLVM 14: add/remove: 21/11 grow/shrink: 620/651 up/down: 12060/-15824 (-3764)
+
+Cc: Mark Rutland <mark.rutland@arm.com>
+Signed-off-by: Alexander Lobakin <alexandr.lobakin@intel.com>
+Reviewed-by: Marco Elver <elver@google.com>
 ---
- arch/s390/Kconfig               |  1 +
- arch/s390/include/asm/pgtable.h | 17 -----------------
- arch/s390/mm/mmap.c             | 20 ++++++++++++++++++++
- 3 files changed, 21 insertions(+), 17 deletions(-)
+ include/linux/bitops.h | 18 +++++++++++++++++-
+ 1 file changed, 17 insertions(+), 1 deletion(-)
 
-diff --git a/arch/s390/Kconfig b/arch/s390/Kconfig
-index 91c0b80a8bf0..c4481377ca83 100644
---- a/arch/s390/Kconfig
-+++ b/arch/s390/Kconfig
-@@ -81,6 +81,7 @@ config S390
- 	select ARCH_HAS_SYSCALL_WRAPPER
- 	select ARCH_HAS_UBSAN_SANITIZE_ALL
- 	select ARCH_HAS_VDSO_DATA
-+	select ARCH_HAS_VM_GET_PAGE_PROT
- 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
- 	select ARCH_INLINE_READ_LOCK
- 	select ARCH_INLINE_READ_LOCK_BH
-diff --git a/arch/s390/include/asm/pgtable.h b/arch/s390/include/asm/pgtable.h
-index a397b072a580..c63a05b5368a 100644
---- a/arch/s390/include/asm/pgtable.h
-+++ b/arch/s390/include/asm/pgtable.h
-@@ -424,23 +424,6 @@ static inline int is_module_addr(void *addr)
-  * implies read permission.
-  */
-          /*xwr*/
--#define __P000	PAGE_NONE
--#define __P001	PAGE_RO
--#define __P010	PAGE_RO
--#define __P011	PAGE_RO
--#define __P100	PAGE_RX
--#define __P101	PAGE_RX
--#define __P110	PAGE_RX
--#define __P111	PAGE_RX
--
--#define __S000	PAGE_NONE
--#define __S001	PAGE_RO
--#define __S010	PAGE_RW
--#define __S011	PAGE_RW
--#define __S100	PAGE_RX
--#define __S101	PAGE_RX
--#define __S110	PAGE_RWX
--#define __S111	PAGE_RWX
+diff --git a/include/linux/bitops.h b/include/linux/bitops.h
+index 3c3afbae1533..cf9bf65039f2 100644
+--- a/include/linux/bitops.h
++++ b/include/linux/bitops.h
+@@ -33,8 +33,24 @@ extern unsigned long __sw_hweight64(__u64 w);
  
- /*
-  * Segment entry (large page) protection definitions.
-diff --git a/arch/s390/mm/mmap.c b/arch/s390/mm/mmap.c
-index d545f5c39f7e..5980ce348832 100644
---- a/arch/s390/mm/mmap.c
-+++ b/arch/s390/mm/mmap.c
-@@ -188,3 +188,23 @@ void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
- 		mm->get_unmapped_area = arch_get_unmapped_area_topdown;
- 	}
- }
-+
-+static const pgprot_t protection_map[16] = {
-+	[VM_NONE]					= PAGE_NONE,
-+	[VM_READ]					= PAGE_RO,
-+	[VM_WRITE]					= PAGE_RO,
-+	[VM_WRITE | VM_READ]				= PAGE_RO,
-+	[VM_EXEC]					= PAGE_RX,
-+	[VM_EXEC | VM_READ]				= PAGE_RX,
-+	[VM_EXEC | VM_WRITE]				= PAGE_RX,
-+	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_RX,
-+	[VM_SHARED]					= PAGE_NONE,
-+	[VM_SHARED | VM_READ]				= PAGE_RO,
-+	[VM_SHARED | VM_WRITE]				= PAGE_RW,
-+	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_RW,
-+	[VM_SHARED | VM_EXEC]				= PAGE_RX,
-+	[VM_SHARED | VM_EXEC | VM_READ]			= PAGE_RX,
-+	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_RWX,
-+	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= PAGE_RWX
-+};
-+DECLARE_VM_GET_PAGE_PROT
+ #include <asm-generic/bitops/generic-non-atomic.h>
+ 
++/*
++ * Many architecture-specific non-atomic bitops contain inline asm code and due
++ * to that the compiler can't optimize them to compile-time expressions or
++ * constants. In contrary, generic_*() helpers are defined in pure C and
++ * compilers optimize them just well.
++ * Therefore, to make `unsigned long foo = 0; __set_bit(BAR, &foo)` effectively
++ * equal to `unsigned long foo = BIT(BAR)`, pick the generic C alternative when
++ * the arguments can be resolved at compile time. That expression itself is a
++ * constant and doesn't bring any functional changes to the rest of cases.
++ * The casts to `uintptr_t` are needed to mitigate `-Waddress` warnings when
++ * passing a bitmap from .bss or .data (-> `!!addr` is always true).
++ */
+ #define bitop(op, nr, addr)						\
+-	op(nr, addr)
++	((__builtin_constant_p(nr) &&					\
++	  __builtin_constant_p((uintptr_t)(addr) != (uintptr_t)NULL) &&	\
++	  (uintptr_t)(addr) != (uintptr_t)NULL &&			\
++	  __builtin_constant_p(*(const unsigned long *)(addr))) ?	\
++	 const##op(nr, addr) : op(nr, addr))
+ 
+ #define __set_bit(nr, addr)		bitop(___set_bit, nr, addr)
+ #define __clear_bit(nr, addr)		bitop(___clear_bit, nr, addr)
 -- 
-2.25.1
+2.36.1
