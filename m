@@ -1,99 +1,69 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Fri, 24 Jun 2022 04:55:35 +0000
-Subject: [PATCH V4 22/26] arc/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <20220624044339.1533882-23-anshuman.khandual@arm.com>
+From: Mike Kravetz <mike.kravetz@oracle.com>
+Date: Tue, 21 Jun 2022 23:56:18 +0000
+Subject: [PATCH v2 2/4] arm64/hugetlb: Implement arm64 specific hugetlb_mask_last_page
+Message-Id: <20220621235620.291305-3-mike.kravetz@oracle.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220624044339.1533882-1-anshuman.khandual@arm.com>
-In-Reply-To: <20220624044339.1533882-1-anshuman.khandual@arm.com>
+References: <20220621235620.291305-1-mike.kravetz@oracle.com>
+In-Reply-To: <20220621235620.291305-1-mike.kravetz@oracle.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org
-Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Vineet Gupta <vgupta@kernel.org>
+To: linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-arm-kernel@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+Cc: Muchun Song <songmuchun@bytedance.com>, Baolin Wang <baolin.wang@linux.alibaba.com>, Michal Hocko <mhocko@suse.com>, Peter Xu <peterx@redhat.com>, Naoya Horiguchi <naoya.horiguchi@linux.dev>, James Houghton <jthoughton@google.com>, Mina Almasry <almasrymina@google.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.vnet.ibm.com>, Anshuman Khandual <anshuman.khandual@arm.com>, Paul Walmsley <paul.walmsley@sifive.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, catalin.marinas@arm.com, will@kernel.org, Rolf Eike Beer <eike-kernel@sf-tec.de>, Andrew Morton <akpm@linux-foundation.org>, Mike Kravetz <mike.kravetz@oracle.com>
 
-This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
-vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
-up a private and static protection_map[] array. Subsequently all __SXXX and
-__PXXX macros can be dropped which are no longer needed.
+From: Baolin Wang <baolin.wang@linux.alibaba.com>
 
-Cc: Vineet Gupta <vgupta@kernel.org>
-Cc: linux-snps-arc@lists.infradead.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+The HugeTLB address ranges are linearly scanned during fork, unmap and
+remap operations, and the linear scan can skip to the end of range mapped
+by the page table page if hitting a non-present entry, which can help
+to speed linear scanning of the HugeTLB address ranges.
+
+So hugetlb_mask_last_page() is introduced to help to update the address in
+the loop of HugeTLB linear scanning with getting the last huge page mapped
+by the associated page table page[1], when a non-present entry is encountered.
+
+Considering ARM64 specific cont-pte/pmd size HugeTLB, this patch implemented
+an ARM64 specific hugetlb_mask_last_page() to help this case.
+
+[1] https://lore.kernel.org/linux-mm/20220527225849.284839-1-mike.kravetz@oracle.com/
+
+Signed-off-by: Baolin Wang <baolin.wang@linux.alibaba.com>
+Signed-off-by: Mike Kravetz <mike.kravetz@oracle.com>
+Acked-by: Muchun Song <songmuchun@bytedance.com>
 ---
- arch/arc/Kconfig                          |  1 +
- arch/arc/include/asm/pgtable-bits-arcv2.h | 18 ------------------
- arch/arc/mm/mmap.c                        | 20 ++++++++++++++++++++
- 3 files changed, 21 insertions(+), 18 deletions(-)
+ arch/arm64/mm/hugetlbpage.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
 
-diff --git a/arch/arc/Kconfig b/arch/arc/Kconfig
-index 9e3653253ef2..8be56a5d8a9b 100644
---- a/arch/arc/Kconfig
-+++ b/arch/arc/Kconfig
-@@ -13,6 +13,7 @@ config ARC
- 	select ARCH_HAS_SETUP_DMA_OPS
- 	select ARCH_HAS_SYNC_DMA_FOR_CPU
- 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE
-+	select ARCH_HAS_VM_GET_PAGE_PROT
- 	select ARCH_SUPPORTS_ATOMIC_RMW if ARC_HAS_LLSC
- 	select ARCH_32BIT_OFF_T
- 	select BUILDTIME_TABLE_SORT
-diff --git a/arch/arc/include/asm/pgtable-bits-arcv2.h b/arch/arc/include/asm/pgtable-bits-arcv2.h
-index 183d23bc1e00..b23be557403e 100644
---- a/arch/arc/include/asm/pgtable-bits-arcv2.h
-+++ b/arch/arc/include/asm/pgtable-bits-arcv2.h
-@@ -72,24 +72,6 @@
-  *     This is to enable COW mechanism
-  */
- 	/* xwr */
--#define __P000  PAGE_U_NONE
--#define __P001  PAGE_U_R
--#define __P010  PAGE_U_R	/* Pvt-W => !W */
--#define __P011  PAGE_U_R	/* Pvt-W => !W */
--#define __P100  PAGE_U_X_R	/* X => R */
--#define __P101  PAGE_U_X_R
--#define __P110  PAGE_U_X_R	/* Pvt-W => !W and X => R */
--#define __P111  PAGE_U_X_R	/* Pvt-W => !W */
--
--#define __S000  PAGE_U_NONE
--#define __S001  PAGE_U_R
--#define __S010  PAGE_U_W_R	/* W => R */
--#define __S011  PAGE_U_W_R
--#define __S100  PAGE_U_X_R	/* X => R */
--#define __S101  PAGE_U_X_R
--#define __S110  PAGE_U_X_W_R	/* X => R */
--#define __S111  PAGE_U_X_W_R
--
- #ifndef __ASSEMBLY__
- 
- #define pte_write(pte)		(pte_val(pte) & _PAGE_WRITE)
-diff --git a/arch/arc/mm/mmap.c b/arch/arc/mm/mmap.c
-index 722d26b94307..7dd50b66f266 100644
---- a/arch/arc/mm/mmap.c
-+++ b/arch/arc/mm/mmap.c
-@@ -74,3 +74,23 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
- 	info.align_offset = pgoff << PAGE_SHIFT;
- 	return vm_unmapped_area(&info);
+diff --git a/arch/arm64/mm/hugetlbpage.c b/arch/arm64/mm/hugetlbpage.c
+index e2a5ec9fdc0d..c9e076683e5d 100644
+--- a/arch/arm64/mm/hugetlbpage.c
++++ b/arch/arm64/mm/hugetlbpage.c
+@@ -368,6 +368,26 @@ pte_t *huge_pte_offset(struct mm_struct *mm,
+ 	return NULL;
  }
+ 
++unsigned long hugetlb_mask_last_page(struct hstate *h)
++{
++	unsigned long hp_size = huge_page_size(h);
 +
-+static pgprot_t protection_map[16] __ro_after_init = {
-+	[VM_NONE]					= PAGE_U_NONE,
-+	[VM_READ]					= PAGE_U_R,
-+	[VM_WRITE]					= PAGE_U_R,
-+	[VM_WRITE | VM_READ]				= PAGE_U_R,
-+	[VM_EXEC]					= PAGE_U_X_R,
-+	[VM_EXEC | VM_READ]				= PAGE_U_X_R,
-+	[VM_EXEC | VM_WRITE]				= PAGE_U_X_R,
-+	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_U_X_R,
-+	[VM_SHARED]					= PAGE_U_NONE,
-+	[VM_SHARED | VM_READ]				= PAGE_U_R,
-+	[VM_SHARED | VM_WRITE]				= PAGE_U_W_R,
-+	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_U_W_R,
-+	[VM_SHARED | VM_EXEC]				= PAGE_U_X_R,
-+	[VM_SHARED | VM_EXEC | VM_READ]			= PAGE_U_X_R,
-+	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_U_X_W_R,
-+	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= PAGE_U_X_W_R
-+};
-+DECLARE_VM_GET_PAGE_PROT
++	switch (hp_size) {
++	case PUD_SIZE:
++		return PGDIR_SIZE - PUD_SIZE;
++	case CONT_PMD_SIZE:
++		return PUD_SIZE - CONT_PMD_SIZE;
++	case PMD_SIZE:
++		return PUD_SIZE - PMD_SIZE;
++	case CONT_PTE_SIZE:
++		return PMD_SIZE - CONT_PTE_SIZE;
++	default:
++		break;
++	}
++
++	return 0UL;
++}
++
+ pte_t arch_make_huge_pte(pte_t entry, unsigned int shift, vm_flags_t flags)
+ {
+ 	size_t pagesize = 1UL << shift;
 -- 
-2.25.1
+2.35.3
