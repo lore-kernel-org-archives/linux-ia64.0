@@ -1,66 +1,24 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Fri, 24 Jun 2022 04:55:15 +0000
-Subject: [PATCH V4 02/26] mm/mmap: Define DECLARE_VM_GET_PAGE_PROT
-Message-Id: <20220624044339.1533882-3-anshuman.khandual@arm.com>
+From: Christoph Hellwig <hch@infradead.org>
+Date: Fri, 24 Jun 2022 05:09:39 +0000
+Subject: Re: [PATCH V4 02/26] mm/mmap: Define DECLARE_VM_GET_PAGE_PROT
+Message-Id: <YrVHEw6bjUf62Eh5@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220624044339.1533882-1-anshuman.khandual@arm.com>
-In-Reply-To: <20220624044339.1533882-1-anshuman.khandual@arm.com>
+ <20220624044339.1533882-3-anshuman.khandual@arm.com>
+In-Reply-To: <20220624044339.1533882-3-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org
-Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Anshuman Khandual <anshuman.khandual@arm.com>
+Cc: linux-mm@kvack.org, hch@infradead.org, christophe.leroy@csgroup.eu, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
 
-This just converts the generic vm_get_page_prot() implementation into a new
-macro i.e DECLARE_VM_GET_PAGE_PROT which later can be used across platforms
-when enabling them with ARCH_HAS_VM_GET_PAGE_PROT. This does not create any
-functional change.
+On Fri, Jun 24, 2022 at 10:13:15AM +0530, Anshuman Khandual wrote:
+> This just converts the generic vm_get_page_prot() implementation into a new
+> macro i.e DECLARE_VM_GET_PAGE_PROT which later can be used across platforms
+> when enabling them with ARCH_HAS_VM_GET_PAGE_PROT. This does not create any
+> functional change.
 
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-mm@kvack.org
-Cc: linux-kernel@vger.kernel.org
-Suggested-by: Christoph Hellwig <hch@infradead.org>
-Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
----
- include/linux/mm.h | 8 ++++++++
- mm/mmap.c          | 6 +-----
- 2 files changed, 9 insertions(+), 5 deletions(-)
-
-diff --git a/include/linux/mm.h b/include/linux/mm.h
-index 47bfe038d46e..237828c2bae2 100644
---- a/include/linux/mm.h
-+++ b/include/linux/mm.h
-@@ -428,6 +428,14 @@ extern unsigned int kobjsize(const void *objp);
- extern pgprot_t protection_map[16];
- #endif
- 
-+#define DECLARE_VM_GET_PAGE_PROT					\
-+pgprot_t vm_get_page_prot(unsigned long vm_flags)			\
-+{									\
-+		return protection_map[vm_flags &			\
-+			(VM_READ | VM_WRITE | VM_EXEC | VM_SHARED)];	\
-+}									\
-+EXPORT_SYMBOL(vm_get_page_prot);
-+
- /*
-  * The default fault flags that should be used by most of the
-  * arch-specific page fault handlers.
-diff --git a/mm/mmap.c b/mm/mmap.c
-index b01f0280bda2..55c30aee3999 100644
---- a/mm/mmap.c
-+++ b/mm/mmap.c
-@@ -123,11 +123,7 @@ pgprot_t protection_map[16] __ro_after_init = {
- #endif
- 
- #ifndef CONFIG_ARCH_HAS_VM_GET_PAGE_PROT
--pgprot_t vm_get_page_prot(unsigned long vm_flags)
--{
--	return protection_map[vm_flags & (VM_READ|VM_WRITE|VM_EXEC|VM_SHARED)];
--}
--EXPORT_SYMBOL(vm_get_page_prot);
-+DECLARE_VM_GET_PAGE_PROT
- #endif	/* CONFIG_ARCH_HAS_VM_GET_PAGE_PROT */
- 
- static pgprot_t vm_pgprot_modify(pgprot_t oldprot, unsigned long vm_flags)
--- 
-2.25.1
+mm.h is a huhe header included by almost everything in the kernel.
+I'd rather have it in something only included in a few files.  If we
+can't find anything suitable it might be worth to add a header just
+for this even.
