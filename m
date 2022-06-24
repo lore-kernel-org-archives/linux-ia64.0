@@ -1,85 +1,175 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Mon, 27 Jun 2022 05:49:35 +0000
-Subject: Re: [PATCH V5 02/26] mm/mmap: Define DECLARE_VM_GET_PAGE_PROT
-Message-Id: <ebbd557e-b31a-0f56-1225-e8940b63d64b@csgroup.eu>
+From: Alexander Lobakin <alexandr.lobakin@intel.com>
+Date: Fri, 24 Jun 2022 12:13:04 +0000
+Subject: [PATCH v5 0/9] bitops: let optimize out non-atomic bitops on compile-time constants
+Message-Id: <20220624121313.2382500-1-alexandr.lobakin@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220627045833.1590055-1-anshuman.khandual@arm.com>
- <20220627045833.1590055-3-anshuman.khandual@arm.com>
-In-Reply-To: <20220627045833.1590055-3-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Anshuman Khandual <anshuman.khandual@arm.com>, "linux-mm@kvack.org" <linux-mm@kvack.org>
-Cc: "hch@infradead.org" <hch@infradead.org>, Andrew Morton <akpm@linux-foundation.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>, "x86@kernel.org" <x86@kernel.org>, "openrisc@lists.librecores.org" <openrisc@lists.librecores.org>, "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>, "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>, "linux-hexagon@vger.kernel.org" <linux-hexagon@vger.kernel.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>, "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>, "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>
+Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Maciej Fijalkowski <maciej.fijalkowski@intel.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Nathan Chancellor <nathan@kernel.org>, Nick Desaulniers <ndesaulniers@google.com>, Tom Rix <trix@redhat.com>, kernel test robot <lkp@intel.com>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, llvm@lists.linux.dev, linux-kernel@vger.kernel.org
 
-DQoNCkxlIDI3LzA2LzIwMjIgw6AgMDY6NTgsIEFuc2h1bWFuIEtoYW5kdWFsIGEgw6ljcml0wqA6
-DQo+IFRoaXMganVzdCBjb252ZXJ0cyB0aGUgZ2VuZXJpYyB2bV9nZXRfcGFnZV9wcm90KCkgaW1w
-bGVtZW50YXRpb24gaW50byBhIG5ldw0KPiBtYWNybyBpLmUgREVDTEFSRV9WTV9HRVRfUEFHRV9Q
-Uk9UIHdoaWNoIGxhdGVyIGNhbiBiZSB1c2VkIGFjcm9zcyBwbGF0Zm9ybXMNCj4gd2hlbiBlbmFi
-bGluZyB0aGVtIHdpdGggQVJDSF9IQVNfVk1fR0VUX1BBR0VfUFJPVC4gVGhpcyBkb2VzIG5vdCBj
-cmVhdGUgYW55DQo+IGZ1bmN0aW9uYWwgY2hhbmdlLg0KPiANCj4gQ2M6IEFuZHJldyBNb3J0b24g
-PGFrcG1AbGludXgtZm91bmRhdGlvbi5vcmc+DQo+IENjOiBsaW51eC1tbUBrdmFjay5vcmcNCj4g
-Q2M6IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcNCj4gU3VnZ2VzdGVkLWJ5OiBDaHJpc3Rv
-cGggSGVsbHdpZyA8aGNoQGluZnJhZGVhZC5vcmc+DQo+IFNpZ25lZC1vZmYtYnk6IEFuc2h1bWFu
-IEtoYW5kdWFsIDxhbnNodW1hbi5raGFuZHVhbEBhcm0uY29tPg0KDQpSZXZpZXdlZC1ieTogQ2hy
-aXN0b3BoZSBMZXJveSA8Y2hyaXN0b3BoZS5sZXJveUBjc2dyb3VwLmV1Pg0KDQo+IC0tLQ0KPiAg
-IGluY2x1ZGUvbGludXgvcGd0YWJsZS5oIHwgMjggKysrKysrKysrKysrKysrKysrKysrKysrKysr
-Kw0KPiAgIG1tL21tYXAuYyAgICAgICAgICAgICAgIHwgMjYgKy0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0NCj4gICAyIGZpbGVzIGNoYW5nZWQsIDI5IGluc2VydGlvbnMoKyksIDI1IGRlbGV0aW9u
-cygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvcGd0YWJsZS5oIGIvaW5jbHVk
-ZS9saW51eC9wZ3RhYmxlLmgNCj4gaW5kZXggM2NkYzE2Y2ZkODY3Li4wMTRlZThmMGZiYWEgMTAw
-NjQ0DQo+IC0tLSBhL2luY2x1ZGUvbGludXgvcGd0YWJsZS5oDQo+ICsrKyBiL2luY2x1ZGUvbGlu
-dXgvcGd0YWJsZS5oDQo+IEBAIC0xNjg5LDQgKzE2ODksMzIgQEAgdHlwZWRlZiB1bnNpZ25lZCBp
-bnQgcGd0YmxfbW9kX21hc2s7DQo+ICAgI2RlZmluZSBNQVhfUFRSU19QRVJfUDREIFBUUlNfUEVS
-X1A0RA0KPiAgICNlbmRpZg0KPiAgIA0KPiArLyogZGVzY3JpcHRpb24gb2YgZWZmZWN0cyBvZiBt
-YXBwaW5nIHR5cGUgYW5kIHByb3QgaW4gY3VycmVudCBpbXBsZW1lbnRhdGlvbi4NCj4gKyAqIHRo
-aXMgaXMgZHVlIHRvIHRoZSBsaW1pdGVkIHg4NiBwYWdlIHByb3RlY3Rpb24gaGFyZHdhcmUuICBU
-aGUgZXhwZWN0ZWQNCj4gKyAqIGJlaGF2aW9yIGlzIGluIHBhcmVuczoNCj4gKyAqDQo+ICsgKiBt
-YXBfdHlwZQlwcm90DQo+ICsgKgkJUFJPVF9OT05FCVBST1RfUkVBRAlQUk9UX1dSSVRFCVBST1Rf
-RVhFQw0KPiArICogTUFQX1NIQVJFRAlyOiAobm8pIG5vCXI6ICh5ZXMpIHllcwlyOiAobm8pIHll
-cwlyOiAobm8pIHllcw0KPiArICoJCXc6IChubykgbm8JdzogKG5vKSBubwl3OiAoeWVzKSB5ZXMJ
-dzogKG5vKSBubw0KPiArICoJCXg6IChubykgbm8JeDogKG5vKSB5ZXMJeDogKG5vKSB5ZXMJeDog
-KHllcykgeWVzDQo+ICsgKg0KPiArICogTUFQX1BSSVZBVEUJcjogKG5vKSBubwlyOiAoeWVzKSB5
-ZXMJcjogKG5vKSB5ZXMJcjogKG5vKSB5ZXMNCj4gKyAqCQl3OiAobm8pIG5vCXc6IChubykgbm8J
-dzogKGNvcHkpIGNvcHkJdzogKG5vKSBubw0KPiArICoJCXg6IChubykgbm8JeDogKG5vKSB5ZXMJ
-eDogKG5vKSB5ZXMJeDogKHllcykgeWVzDQo+ICsgKg0KPiArICogT24gYXJtNjQsIFBST1RfRVhF
-QyBoYXMgdGhlIGZvbGxvd2luZyBiZWhhdmlvdXIgZm9yIGJvdGggTUFQX1NIQVJFRCBhbmQNCj4g
-KyAqIE1BUF9QUklWQVRFICh3aXRoIEVuaGFuY2VkIFBBTiBzdXBwb3J0ZWQpOg0KPiArICoJCQkJ
-CQkJCXI6IChubykgbm8NCj4gKyAqCQkJCQkJCQl3OiAobm8pIG5vDQo+ICsgKgkJCQkJCQkJeDog
-KHllcykgeWVzDQo+ICsgKi8NCj4gKyNkZWZpbmUgREVDTEFSRV9WTV9HRVRfUEFHRV9QUk9UCQkJ
-CQlcDQo+ICtwZ3Byb3RfdCB2bV9nZXRfcGFnZV9wcm90KHVuc2lnbmVkIGxvbmcgdm1fZmxhZ3Mp
-CQkJXA0KPiArewkJCQkJCQkJCVwNCj4gKwkJcmV0dXJuIHByb3RlY3Rpb25fbWFwW3ZtX2ZsYWdz
-ICYJCQlcDQo+ICsJCQkoVk1fUkVBRCB8IFZNX1dSSVRFIHwgVk1fRVhFQyB8IFZNX1NIQVJFRCld
-OwlcDQo+ICt9CQkJCQkJCQkJXA0KPiArRVhQT1JUX1NZTUJPTCh2bV9nZXRfcGFnZV9wcm90KTsN
-Cj4gKw0KPiAgICNlbmRpZiAvKiBfTElOVVhfUEdUQUJMRV9IICovDQo+IGRpZmYgLS1naXQgYS9t
-bS9tbWFwLmMgYi9tbS9tbWFwLmMNCj4gaW5kZXggYjAxZjAyODBiZGEyLi5iNDZkNWU5MzFiYjMg
-MTAwNjQ0DQo+IC0tLSBhL21tL21tYXAuYw0KPiArKysgYi9tbS9tbWFwLmMNCj4gQEAgLTgxLDI2
-ICs4MSw2IEBAIHN0YXRpYyB2b2lkIHVubWFwX3JlZ2lvbihzdHJ1Y3QgbW1fc3RydWN0ICptbSwN
-Cj4gICAJCXN0cnVjdCB2bV9hcmVhX3N0cnVjdCAqdm1hLCBzdHJ1Y3Qgdm1fYXJlYV9zdHJ1Y3Qg
-KnByZXYsDQo+ICAgCQl1bnNpZ25lZCBsb25nIHN0YXJ0LCB1bnNpZ25lZCBsb25nIGVuZCk7DQo+
-ICAgDQo+IC0vKiBkZXNjcmlwdGlvbiBvZiBlZmZlY3RzIG9mIG1hcHBpbmcgdHlwZSBhbmQgcHJv
-dCBpbiBjdXJyZW50IGltcGxlbWVudGF0aW9uLg0KPiAtICogdGhpcyBpcyBkdWUgdG8gdGhlIGxp
-bWl0ZWQgeDg2IHBhZ2UgcHJvdGVjdGlvbiBoYXJkd2FyZS4gIFRoZSBleHBlY3RlZA0KPiAtICog
-YmVoYXZpb3IgaXMgaW4gcGFyZW5zOg0KPiAtICoNCj4gLSAqIG1hcF90eXBlCXByb3QNCj4gLSAq
-CQlQUk9UX05PTkUJUFJPVF9SRUFECVBST1RfV1JJVEUJUFJPVF9FWEVDDQo+IC0gKiBNQVBfU0hB
-UkVECXI6IChubykgbm8JcjogKHllcykgeWVzCXI6IChubykgeWVzCXI6IChubykgeWVzDQo+IC0g
-KgkJdzogKG5vKSBubwl3OiAobm8pIG5vCXc6ICh5ZXMpIHllcwl3OiAobm8pIG5vDQo+IC0gKgkJ
-eDogKG5vKSBubwl4OiAobm8pIHllcwl4OiAobm8pIHllcwl4OiAoeWVzKSB5ZXMNCj4gLSAqDQo+
-IC0gKiBNQVBfUFJJVkFURQlyOiAobm8pIG5vCXI6ICh5ZXMpIHllcwlyOiAobm8pIHllcwlyOiAo
-bm8pIHllcw0KPiAtICoJCXc6IChubykgbm8JdzogKG5vKSBubwl3OiAoY29weSkgY29weQl3OiAo
-bm8pIG5vDQo+IC0gKgkJeDogKG5vKSBubwl4OiAobm8pIHllcwl4OiAobm8pIHllcwl4OiAoeWVz
-KSB5ZXMNCj4gLSAqDQo+IC0gKiBPbiBhcm02NCwgUFJPVF9FWEVDIGhhcyB0aGUgZm9sbG93aW5n
-IGJlaGF2aW91ciBmb3IgYm90aCBNQVBfU0hBUkVEIGFuZA0KPiAtICogTUFQX1BSSVZBVEUgKHdp
-dGggRW5oYW5jZWQgUEFOIHN1cHBvcnRlZCk6DQo+IC0gKgkJCQkJCQkJcjogKG5vKSBubw0KPiAt
-ICoJCQkJCQkJCXc6IChubykgbm8NCj4gLSAqCQkJCQkJCQl4OiAoeWVzKSB5ZXMNCj4gLSAqLw0K
-PiAgICNpZmRlZiBfX1AwMDANCj4gICBwZ3Byb3RfdCBwcm90ZWN0aW9uX21hcFsxNl0gX19yb19h
-ZnRlcl9pbml0ID0gew0KPiAgIAlbVk1fTk9ORV0JCQkJCT0gX19QMDAwLA0KPiBAQCAtMTIzLDEx
-ICsxMDMsNyBAQCBwZ3Byb3RfdCBwcm90ZWN0aW9uX21hcFsxNl0gX19yb19hZnRlcl9pbml0ID0g
-ew0KPiAgICNlbmRpZg0KPiAgIA0KPiAgICNpZm5kZWYgQ09ORklHX0FSQ0hfSEFTX1ZNX0dFVF9Q
-QUdFX1BST1QNCj4gLXBncHJvdF90IHZtX2dldF9wYWdlX3Byb3QodW5zaWduZWQgbG9uZyB2bV9m
-bGFncykNCj4gLXsNCj4gLQlyZXR1cm4gcHJvdGVjdGlvbl9tYXBbdm1fZmxhZ3MgJiAoVk1fUkVB
-RHxWTV9XUklURXxWTV9FWEVDfFZNX1NIQVJFRCldOw0KPiAtfQ0KPiAtRVhQT1JUX1NZTUJPTCh2
-bV9nZXRfcGFnZV9wcm90KTsNCj4gK0RFQ0xBUkVfVk1fR0VUX1BBR0VfUFJPVA0KPiAgICNlbmRp
-ZgkvKiBDT05GSUdfQVJDSF9IQVNfVk1fR0VUX1BBR0VfUFJPVCAqLw0KPiAgIA0KPiAgIHN0YXRp
-YyBwZ3Byb3RfdCB2bV9wZ3Byb3RfbW9kaWZ5KHBncHJvdF90IG9sZHByb3QsIHVuc2lnbmVkIGxv
-bmcgdm1fZmxhZ3Mp
+While I was working on converting some structure fields from a fixed
+type to a bitmap, I started observing code size increase not only in
+places where the code works with the converted structure fields, but
+also where the converted vars were on the stack. That said, the
+following code:
+
+	DECLARE_BITMAP(foo, BITS_PER_LONG) = { }; // -> unsigned long foo[1];
+	unsigned long bar = BIT(BAR_BIT);
+	unsigned long baz = 0;
+
+	__set_bit(FOO_BIT, foo);
+	baz |= BIT(BAZ_BIT);
+
+	BUILD_BUG_ON(!__builtin_constant_p(test_bit(FOO_BIT, foo));
+	BUILD_BUG_ON(!__builtin_constant_p(bar & BAR_BIT));
+	BUILD_BUG_ON(!__builtin_constant_p(baz & BAZ_BIT));
+
+triggers the first assertion on x86_64, which means that the
+compiler is unable to evaluate it to a compile-time initializer
+when the architecture-specific bitop is used even if it's obvious.
+I found that this is due to that many architecture-specific
+non-atomic bitop implementations use inline asm or other hacks which
+are faster or more robust when working with "real" variables (i.e.
+fields from the structures etc.), but the compilers have no clue how
+to optimize them out when called on compile-time constants.
+
+So, in order to let the compiler optimize out such cases, expand the
+test_bit() and __*_bit() definitions with a compile-time condition
+check, so that they will pick the generic C non-atomic bitop
+implementations when all of the arguments passed are compile-time
+constants, which means that the result will be a compile-time
+constant as well and the compiler will produce more efficient and
+simple code in 100% cases (no changes when there's at least one
+non-compile-time-constant argument).
+The condition itself:
+
+if (
+__builtin_constant_p(nr) &&	/* <- bit position is constant */
+__builtin_constant_p(!!addr) &&	/* <- compiler knows bitmap addr is
+				      always either NULL or not */
+addr &&				/* <- bitmap addr is not NULL */
+__builtin_constant_p(*addr)	/* <- compiler knows the value of
+				      the target bitmap */
+)
+	/* then pick the generic C variant
+else
+	/* old code path, arch-specific
+
+I also tried __is_constexpr() as suggested by Andy, but it was
+always returning 0 ('not a constant') for the 2,3 and 4th
+conditions.
+
+The object code size changes are architecture, compiler and compiler
+flags dependent, there could be 80 Kb saved in one case and then 5
+Kb added in another, but what most important is that the bitops are
+now often transparent for the compilers, e.g. the following:
+
+	DECLARE_BITMAP(flags, __IP_TUNNEL_FLAG_NUM) = { };
+	__be16 flags;
+
+	__set_bit(IP_TUNNEL_CSUM_BIT, flags);
+
+	tun_flags = cpu_to_be16(*flags & U16_MAX);
+
+	if (test_bit(IP_TUNNEL_VTI_BIT, flags))
+		tun_flags |= VTI_ISVTI;
+
+	BUILD_BUG_ON(!__builtin_constant_p(tun_flags));
+
+doesn't blow up anymore (which is being checked now at build time),
+so that we can now e.g. use fixed bitmaps in compile-time assertions
+etc.
+
+Runtime-tested on x86_64 built with LLVM 14 and GCC 10-12,
+compile-time tested on ARC (GCC 11), S390 (GCC 11-12, Clang 14,
+Clang 15-git) (+ some tests on m68k and ARM64 from the reviewers).
+
+From v4[0]:
+* add a workaround to the bitmap compile-time tests code for Clang
+  for s390: it is able to optimize the operations, but at the same
+  time triggers the assertions (in a weird way) (lkp);
+* added missed bits for unification the prototypes on s390 as well;
+* fixed the issue in the ice driver code revealed by one of the
+  optimizations (lkp);
+* there also was one report that GCC 11 on Debian was unable to
+  perform optimizations on x86 with v3 applied, but I couldn't
+  reproduce it on generic GCC 10-12. Hope it was some random
+  unrelated one-time issue.
+
+From v3[1]:
+* fix a typo in the comment in 0006 (Andy);
+* pick more Reviewed-bys (Andy, Marco);
+* don't assume compiler expands small mem*() builtins in bitmap_*()
+  (me, with a small hint from lkp).
+
+From v2[2]:
+* collect several Reviewed-bys (Andy, Yury);
+* add a comment to generic_test_bit() that it is atomic-safe and
+  must always stay like that (the first version of this series
+  erroneously tried to change this) (Andy, Marco);
+* unify the way how architectures define platform-specific bitops,
+  both supporting instrumentation and not: now they define only
+  'arch_' versions and asm-generic includes take care of the rest;
+* micro-optimize the diffstat of 0004/0007 (__check_bitop_pr())
+  (Andy);
+* add compile-time tests to lib/test_bitmap to make sure everything
+  works as expected on any setup (Yury).
+
+From v1[3]:
+* change 'gen_' prefixes to '_generic' to disambiguate from
+  'generated' etc. (Mark);
+* define a separate 'const_' set to use in the optimization to keep
+  the generic test_bit() atomic-safe (Marco);
+* unify arch_{test,__*}_bit() as well and include them in the type
+  check;
+* add more relevant and up-to-date bloat-o-meter results, including
+  ARM64 (me, Mark);
+* pick a couple '*-by' tags (Mark, Yury).
+
+Also available on my open GH[4].
+
+[0] https://lore.kernel.org/linux-arch/20220621191553.69455-1-alexandr.lobakin@intel.com
+[1] https://lore.kernel.org/linux-arch/20220617144031.2549432-1-alexandr.lobakin@intel.com
+[2] https://lore.kernel.org/linux-arch/20220610113427.908751-1-alexandr.lobakin@intel.com
+[3] https://lore.kernel.org/linux-arch/20220606114908.962562-1-alexandr.lobakin@intel.com
+[4] https://github.com/alobakin/linux/commits/bitops
+
+Alexander Lobakin (9):
+  ia64, processor: fix -Wincompatible-pointer-types in ia64_get_irr()
+  bitops: always define asm-generic non-atomic bitops
+  bitops: unify non-atomic bitops prototypes across architectures
+  bitops: define const_*() versions of the non-atomics
+  bitops: wrap non-atomic bitops with a transparent macro
+  bitops: let optimize out non-atomic bitops on compile-time constants
+  net/ice: fix initializing the bitmap in the switch code
+  bitmap: don't assume compiler evaluates small mem*() builtins calls
+  lib: test_bitmap: add compile-time optimization/evaluations assertions
+
+ arch/alpha/include/asm/bitops.h               |  32 ++--
+ arch/hexagon/include/asm/bitops.h             |  24 ++-
+ arch/ia64/include/asm/bitops.h                |  42 ++---
+ arch/ia64/include/asm/processor.h             |   2 +-
+ arch/m68k/include/asm/bitops.h                |  49 ++++--
+ arch/s390/include/asm/bitops.h                |  61 +++----
+ arch/sh/include/asm/bitops-op32.h             |  34 ++--
+ arch/sparc/include/asm/bitops_32.h            |  18 +-
+ arch/sparc/lib/atomic32.c                     |  12 +-
+ arch/x86/include/asm/bitops.h                 |  22 +--
+ drivers/net/ethernet/intel/ice/ice_switch.c   |   2 +-
+ .../asm-generic/bitops/generic-non-atomic.h   | 161 ++++++++++++++++++
+ .../bitops/instrumented-non-atomic.h          |  35 ++--
+ include/asm-generic/bitops/non-atomic.h       | 121 +------------
+ .../bitops/non-instrumented-non-atomic.h      |  16 ++
+ include/linux/bitmap.h                        |  22 ++-
+ include/linux/bitops.h                        |  50 ++++++
+ lib/test_bitmap.c                             |  62 +++++++
+ tools/include/asm-generic/bitops/non-atomic.h |  34 ++--
+ tools/include/linux/bitops.h                  |  16 ++
+ 20 files changed, 544 insertions(+), 271 deletions(-)
+ create mode 100644 include/asm-generic/bitops/generic-non-atomic.h
+ create mode 100644 include/asm-generic/bitops/non-instrumented-non-atomic.h
+
+-- 
+2.36.1
