@@ -1,59 +1,64 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Date: Tue, 07 Jun 2022 15:26:54 +0000
-Subject: Re: [PATCH 07/16] signal: Wake up the designated parent
-Message-Id: <20220607152627.GA10192@redhat.com>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Fri, 24 Jun 2022 04:55:20 +0000
+Subject: [PATCH V4 07/26] mm/mmap: Build protect protection_map[] with ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <20220624044339.1533882-8-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <871qwq5ucx.fsf_-_@email.froward.int.ebiederm.org>
- <20220518225355.784371-7-ebiederm@xmission.com>
- <20220524132553.GD14347@redhat.com>
- <20220524162808.GF14347@redhat.com>
- <20220525142845.GA2687@redhat.com>
- <87a6ap30lh.fsf@email.froward.int.ebiederm.org>
-In-Reply-To: <87a6ap30lh.fsf@email.froward.int.ebiederm.org>
+References: <20220624044339.1533882-1-anshuman.khandual@arm.com>
+In-Reply-To: <20220624044339.1533882-1-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Cc: linux-kernel@vger.kernel.org, rjw@rjwysocki.net, mingo@kernel.org, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, mgorman@suse.de, bigeasy@linutronix.de, Will Deacon <will@kernel.org>, tj@kernel.org, linux-pm@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, linux-um@lists.infradead.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linux-ia64@vger.kernel.org, Robert OCallahan <roc@pernos.co>, Kyle Huey <khuey@pernos.co>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Jason Wessel <jason.wessel@windriver.com>, Daniel Thompson <daniel.thompson@linaro.org>, Douglas Anderson <dianders@chromium.org>, Douglas Miller <dougmill@linux.vnet.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>
+To: linux-mm@kvack.org
+Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On 06/06, Eric W. Biederman wrote:
->
-> Which if I have had enough sleep reduces this patch to just:
->
-> diff --git a/kernel/exit.c b/kernel/exit.c
-> index f072959fcab7..c8156366b722 100644
-> --- a/kernel/exit.c
-> +++ b/kernel/exit.c
-> @@ -1431,8 +1431,10 @@ static int child_wait_callback(wait_queue_entry_t *wait, unsigned mode,
->         if (!eligible_pid(wo, p))
->                 return 0;
->
-> -       if ((wo->wo_flags & __WNOTHREAD) && wait->private != p->parent)
-> -               return 0;
-> +       if ((wo->wo_flags & __WNOTHREAD) &&
-> +           (wait->private != p->parent) &&
-> +           (wait->private != p->real_parent))
-> +                       return 0;
->
->         return default_wake_function(wait, mode, sync, key);
->  }
->
->
-> I think that solves the issue without missing wake-ups without adding
-> any more.
+protection_map[] has already been moved inside those platforms which enable
+ARCH_HAS_VM_GET_PAGE_PROT. Hence generic protection_map[] array now can be
+protected with CONFIG_ARCH_HAS_VM_GET_PAGE_PROT intead of __P000.
 
-Agreed, and looks much simpler.
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-mm@kvack.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+---
+ include/linux/mm.h | 2 +-
+ mm/mmap.c          | 5 +----
+ 2 files changed, 2 insertions(+), 5 deletions(-)
 
-> For the same set of reasons it looks like the __wake_up_parent in
-> __ptrace_detach is just simply dead code.  I don't think there is a case
-> where when !ptrace_reparented the thread that is the real_parent can
-> sleep in do_wait when the thread that was calling ptrace could not.
-
-Yes... this doesn't really differ from the case when one thread reaps
-a natural child and another thread sleep in do_wait().
-
-> That needs a very close look to confirm.
-
-Yes.
-
-Oleg.
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index 237828c2bae2..70d900f6df43 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -424,7 +424,7 @@ extern unsigned int kobjsize(const void *objp);
+  * mapping from the currently active vm_flags protection bits (the
+  * low four bits) to a page protection mask..
+  */
+-#ifdef __P000
++#ifndef CONFIG_ARCH_HAS_VM_GET_PAGE_PROT
+ extern pgprot_t protection_map[16];
+ #endif
+ 
+diff --git a/mm/mmap.c b/mm/mmap.c
+index 55c30aee3999..43db3bd49071 100644
+--- a/mm/mmap.c
++++ b/mm/mmap.c
+@@ -101,7 +101,7 @@ static void unmap_region(struct mm_struct *mm,
+  *								w: (no) no
+  *								x: (yes) yes
+  */
+-#ifdef __P000
++#ifndef CONFIG_ARCH_HAS_VM_GET_PAGE_PROT
+ pgprot_t protection_map[16] __ro_after_init = {
+ 	[VM_NONE]					= __P000,
+ 	[VM_READ]					= __P001,
+@@ -120,9 +120,6 @@ pgprot_t protection_map[16] __ro_after_init = {
+ 	[VM_SHARED | VM_EXEC | VM_WRITE]		= __S110,
+ 	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= __S111
+ };
+-#endif
+-
+-#ifndef CONFIG_ARCH_HAS_VM_GET_PAGE_PROT
+ DECLARE_VM_GET_PAGE_PROT
+ #endif	/* CONFIG_ARCH_HAS_VM_GET_PAGE_PROT */
+ 
+-- 
+2.25.1
