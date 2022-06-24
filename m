@@ -1,83 +1,93 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Mon, 27 Jun 2022 05:48:05 +0000
-Subject: Re: [PATCH V4 03/26] powerpc/mm: Move protection_map[] inside the platform
-Message-Id: <3374e97e-e5d0-e789-440c-e39dd3e66693@csgroup.eu>
+From: Alexander Lobakin <alexandr.lobakin@intel.com>
+Date: Fri, 24 Jun 2022 12:13:10 +0000
+Subject: [PATCH v5 6/9] bitops: let optimize out non-atomic bitops on compile-time constants
+Message-Id: <20220624121313.2382500-7-alexandr.lobakin@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220624044339.1533882-1-anshuman.khandual@arm.com>
- <20220624044339.1533882-4-anshuman.khandual@arm.com>
-In-Reply-To: <20220624044339.1533882-4-anshuman.khandual@arm.com>
+References: <20220624121313.2382500-1-alexandr.lobakin@intel.com>
+In-Reply-To: <20220624121313.2382500-1-alexandr.lobakin@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Anshuman Khandual <anshuman.khandual@arm.com>, "linux-mm@kvack.org" <linux-mm@kvack.org>
-Cc: "hch@infradead.org" <hch@infradead.org>, Andrew Morton <akpm@linux-foundation.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>, "x86@kernel.org" <x86@kernel.org>, "openrisc@lists.librecores.org" <openrisc@lists.librecores.org>, "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>, "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>, "linux-hexagon@vger.kernel.org" <linux-hexagon@vger.kernel.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>, "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>, "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Michael Ellerman <mpe@ellerman.id.au>, Paul Mackerras <paulus@samba.org>, Nicholas Piggin <npiggin@gmail.com>
+To: Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>
+Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Maciej Fijalkowski <maciej.fijalkowski@intel.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Nathan Chancellor <nathan@kernel.org>, Nick Desaulniers <ndesaulniers@google.com>, Tom Rix <trix@redhat.com>, kernel test robot <lkp@intel.com>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, llvm@lists.linux.dev, linux-kernel@vger.kernel.org
 
-DQoNCkxlIDI0LzA2LzIwMjIgw6AgMDY6NDMsIEFuc2h1bWFuIEtoYW5kdWFsIGEgw6ljcml0wqA6
-DQo+IFRoaXMgbW92ZXMgcHJvdGVjdGlvbl9tYXBbXSBpbnNpZGUgdGhlIHBsYXRmb3JtIGFuZCB3
-aGlsZSBoZXJlLCBhbHNvIGVuYWJsZQ0KPiBBUkNIX0hBU19WTV9HRVRfUEFHRV9QUk9UIG9uIDMy
-IGJpdCBwbGF0Zm9ybXMgdmlhIERFQ0xBUkVfVk1fR0VUX1BBR0VfUFJPVC4NCj4gDQo+IENjOiBN
-aWNoYWVsIEVsbGVybWFuIDxtcGVAZWxsZXJtYW4uaWQuYXU+DQo+IENjOiBQYXVsIE1hY2tlcnJh
-cyA8cGF1bHVzQHNhbWJhLm9yZz4NCj4gQ2M6IE5pY2hvbGFzIFBpZ2dpbiA8bnBpZ2dpbkBnbWFp
-bC5jb20+DQo+IENjOiBsaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZw0KPiBDYzogbGludXgt
-a2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiBTaWduZWQtb2ZmLWJ5OiBBbnNodW1hbiBLaGFuZHVh
-bCA8YW5zaHVtYW4ua2hhbmR1YWxAYXJtLmNvbT4NCg0KUmV2aWV3ZWQtYnk6IENocmlzdG9waGUg
-TGVyb3kgPGNocmlzdG9waGUubGVyb3lAY3Nncm91cC5ldT4NCg0KPiAtLS0NCj4gICBhcmNoL3Bv
-d2VycGMvS2NvbmZpZyAgICAgICAgICAgICAgIHwgIDIgKy0NCj4gICBhcmNoL3Bvd2VycGMvaW5j
-bHVkZS9hc20vcGd0YWJsZS5oIHwgMjAgKy0tLS0tLS0tLS0tLS0tLS0tLS0NCj4gICBhcmNoL3Bv
-d2VycGMvbW0vcGd0YWJsZS5jICAgICAgICAgIHwgMjQgKysrKysrKysrKysrKysrKysrKysrKysr
-DQo+ICAgMyBmaWxlcyBjaGFuZ2VkLCAyNiBpbnNlcnRpb25zKCspLCAyMCBkZWxldGlvbnMoLSkN
-Cj4gDQo+IGRpZmYgLS1naXQgYS9hcmNoL3Bvd2VycGMvS2NvbmZpZyBiL2FyY2gvcG93ZXJwYy9L
-Y29uZmlnDQo+IGluZGV4IGMyY2UyZTYwYzhmMC4uMTAzNWQxNzJjN2RkIDEwMDY0NA0KPiAtLS0g
-YS9hcmNoL3Bvd2VycGMvS2NvbmZpZw0KPiArKysgYi9hcmNoL3Bvd2VycGMvS2NvbmZpZw0KPiBA
-QCAtMTQwLDcgKzE0MCw3IEBAIGNvbmZpZyBQUEMNCj4gICAJc2VsZWN0IEFSQ0hfSEFTX1RJQ0tf
-QlJPQURDQVNUCQlpZiBHRU5FUklDX0NMT0NLRVZFTlRTX0JST0FEQ0FTVA0KPiAgIAlzZWxlY3Qg
-QVJDSF9IQVNfVUFDQ0VTU19GTFVTSENBQ0hFDQo+ICAgCXNlbGVjdCBBUkNIX0hBU19VQlNBTl9T
-QU5JVElaRV9BTEwNCj4gLQlzZWxlY3QgQVJDSF9IQVNfVk1fR0VUX1BBR0VfUFJPVAlpZiBQUENf
-Qk9PSzNTXzY0DQo+ICsJc2VsZWN0IEFSQ0hfSEFTX1ZNX0dFVF9QQUdFX1BST1QNCj4gICAJc2Vs
-ZWN0IEFSQ0hfSEFWRV9OTUlfU0FGRV9DTVBYQ0hHDQo+ICAgCXNlbGVjdCBBUkNIX0tFRVBfTUVN
-QkxPQ0sNCj4gICAJc2VsZWN0IEFSQ0hfTUlHSFRfSEFWRV9QQ19QQVJQT1JUDQo+IGRpZmYgLS1n
-aXQgYS9hcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vcGd0YWJsZS5oIGIvYXJjaC9wb3dlcnBjL2lu
-Y2x1ZGUvYXNtL3BndGFibGUuaA0KPiBpbmRleCBkNTY0ZDBlY2Q0Y2QuLmJmOThkYjg0NDU3OSAx
-MDA2NDQNCj4gLS0tIGEvYXJjaC9wb3dlcnBjL2luY2x1ZGUvYXNtL3BndGFibGUuaA0KPiArKysg
-Yi9hcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vcGd0YWJsZS5oDQo+IEBAIC0yMCwyNSArMjAsNiBA
-QCBzdHJ1Y3QgbW1fc3RydWN0Ow0KPiAgICNpbmNsdWRlIDxhc20vbm9oYXNoL3BndGFibGUuaD4N
-Cj4gICAjZW5kaWYgLyogIUNPTkZJR19QUENfQk9PSzNTICovDQo+ICAgDQo+IC0vKiBOb3RlIGR1
-ZSB0byB0aGUgd2F5IHZtIGZsYWdzIGFyZSBsYWlkIG91dCwgdGhlIGJpdHMgYXJlIFhXUiAqLw0K
-PiAtI2RlZmluZSBfX1AwMDAJUEFHRV9OT05FDQo+IC0jZGVmaW5lIF9fUDAwMQlQQUdFX1JFQURP
-TkxZDQo+IC0jZGVmaW5lIF9fUDAxMAlQQUdFX0NPUFkNCj4gLSNkZWZpbmUgX19QMDExCVBBR0Vf
-Q09QWQ0KPiAtI2RlZmluZSBfX1AxMDAJUEFHRV9SRUFET05MWV9YDQo+IC0jZGVmaW5lIF9fUDEw
-MQlQQUdFX1JFQURPTkxZX1gNCj4gLSNkZWZpbmUgX19QMTEwCVBBR0VfQ09QWV9YDQo+IC0jZGVm
-aW5lIF9fUDExMQlQQUdFX0NPUFlfWA0KPiAtDQo+IC0jZGVmaW5lIF9fUzAwMAlQQUdFX05PTkUN
-Cj4gLSNkZWZpbmUgX19TMDAxCVBBR0VfUkVBRE9OTFkNCj4gLSNkZWZpbmUgX19TMDEwCVBBR0Vf
-U0hBUkVEDQo+IC0jZGVmaW5lIF9fUzAxMQlQQUdFX1NIQVJFRA0KPiAtI2RlZmluZSBfX1MxMDAJ
-UEFHRV9SRUFET05MWV9YDQo+IC0jZGVmaW5lIF9fUzEwMQlQQUdFX1JFQURPTkxZX1gNCj4gLSNk
-ZWZpbmUgX19TMTEwCVBBR0VfU0hBUkVEX1gNCj4gLSNkZWZpbmUgX19TMTExCVBBR0VfU0hBUkVE
-X1gNCj4gLQ0KPiAgICNpZm5kZWYgX19BU1NFTUJMWV9fDQo+ICAgDQo+ICAgI2lmbmRlZiBNQVhf
-UFRSU19QRVJfUEdEDQo+IEBAIC03OSw2ICs2MCw3IEBAIGV4dGVybiB2b2lkIHBhZ2luZ19pbml0
-KHZvaWQpOw0KPiAgIHZvaWQgcG9raW5nX2luaXQodm9pZCk7DQo+ICAgDQo+ICAgZXh0ZXJuIHVu
-c2lnbmVkIGxvbmcgaW9yZW1hcF9ib3Q7DQo+ICtleHRlcm4gcGdwcm90X3QgcHJvdGVjdGlvbl9t
-YXBbMTZdIF9fcm9fYWZ0ZXJfaW5pdDsNCj4gICANCj4gICAvKg0KPiAgICAqIGtlcm5fYWRkcl92
-YWxpZCBpcyBpbnRlbmRlZCB0byBpbmRpY2F0ZSB3aGV0aGVyIGFuIGFkZHJlc3MgaXMgYSB2YWxp
-ZA0KPiBkaWZmIC0tZ2l0IGEvYXJjaC9wb3dlcnBjL21tL3BndGFibGUuYyBiL2FyY2gvcG93ZXJw
-Yy9tbS9wZ3RhYmxlLmMNCj4gaW5kZXggZTYxNjZiNzFkMzZkLi42MThmMzBkMzViMTcgMTAwNjQ0
-DQo+IC0tLSBhL2FyY2gvcG93ZXJwYy9tbS9wZ3RhYmxlLmMNCj4gKysrIGIvYXJjaC9wb3dlcnBj
-L21tL3BndGFibGUuYw0KPiBAQCAtNDcyLDMgKzQ3MiwyNyBAQCBwdGVfdCAqX19maW5kX2xpbnV4
-X3B0ZShwZ2RfdCAqcGdkaXIsIHVuc2lnbmVkIGxvbmcgZWEsDQo+ICAgCXJldHVybiByZXRfcHRl
-Ow0KPiAgIH0NCj4gICBFWFBPUlRfU1lNQk9MX0dQTChfX2ZpbmRfbGludXhfcHRlKTsNCj4gKw0K
-PiArLyogTm90ZSBkdWUgdG8gdGhlIHdheSB2bSBmbGFncyBhcmUgbGFpZCBvdXQsIHRoZSBiaXRz
-IGFyZSBYV1IgKi8NCj4gK3BncHJvdF90IHByb3RlY3Rpb25fbWFwWzE2XSBfX3JvX2FmdGVyX2lu
-aXQgPSB7DQo+ICsJW1ZNX05PTkVdCQkJCQk9IFBBR0VfTk9ORSwNCj4gKwlbVk1fUkVBRF0JCQkJ
-CT0gUEFHRV9SRUFET05MWSwNCj4gKwlbVk1fV1JJVEVdCQkJCQk9IFBBR0VfQ09QWSwNCj4gKwlb
-Vk1fV1JJVEUgfCBWTV9SRUFEXQkJCQk9IFBBR0VfQ09QWSwNCj4gKwlbVk1fRVhFQ10JCQkJCT0g
-UEFHRV9SRUFET05MWV9YLA0KPiArCVtWTV9FWEVDIHwgVk1fUkVBRF0JCQkJPSBQQUdFX1JFQURP
-TkxZX1gsDQo+ICsJW1ZNX0VYRUMgfCBWTV9XUklURV0JCQkJPSBQQUdFX0NPUFlfWCwNCj4gKwlb
-Vk1fRVhFQyB8IFZNX1dSSVRFIHwgVk1fUkVBRF0JCQk9IFBBR0VfQ09QWV9YLA0KPiArCVtWTV9T
-SEFSRURdCQkJCQk9IFBBR0VfTk9ORSwNCj4gKwlbVk1fU0hBUkVEIHwgVk1fUkVBRF0JCQkJPSBQ
-QUdFX1JFQURPTkxZLA0KPiArCVtWTV9TSEFSRUQgfCBWTV9XUklURV0JCQkJPSBQQUdFX1NIQVJF
-RCwNCj4gKwlbVk1fU0hBUkVEIHwgVk1fV1JJVEUgfCBWTV9SRUFEXQkJPSBQQUdFX1NIQVJFRCwN
-Cj4gKwlbVk1fU0hBUkVEIHwgVk1fRVhFQ10JCQkJPSBQQUdFX1JFQURPTkxZX1gsDQo+ICsJW1ZN
-X1NIQVJFRCB8IFZNX0VYRUMgfCBWTV9SRUFEXQkJCT0gUEFHRV9SRUFET05MWV9YLA0KPiArCVtW
-TV9TSEFSRUQgfCBWTV9FWEVDIHwgVk1fV1JJVEVdCQk9IFBBR0VfU0hBUkVEX1gsDQo+ICsJW1ZN
-X1NIQVJFRCB8IFZNX0VYRUMgfCBWTV9XUklURSB8IFZNX1JFQURdCT0gUEFHRV9TSEFSRURfWA0K
-PiArfTsNCj4gKw0KPiArI2lmbmRlZiBDT05GSUdfUFBDX0JPT0szU182NA0KPiArREVDTEFSRV9W
-TV9HRVRfUEFHRV9QUk9UDQo+ICsjZW5kaWY
+Currently, many architecture-specific non-atomic bitop
+implementations use inline asm or other hacks which are faster or
+more robust when working with "real" variables (i.e. fields from
+the structures etc.), but the compilers have no clue how to optimize
+them out when called on compile-time constants. That said, the
+following code:
+
+	DECLARE_BITMAP(foo, BITS_PER_LONG) = { }; // -> unsigned long foo[1];
+	unsigned long bar = BIT(BAR_BIT);
+	unsigned long baz = 0;
+
+	__set_bit(FOO_BIT, foo);
+	baz |= BIT(BAZ_BIT);
+
+	BUILD_BUG_ON(!__builtin_constant_p(test_bit(FOO_BIT, foo));
+	BUILD_BUG_ON(!__builtin_constant_p(bar & BAR_BIT));
+	BUILD_BUG_ON(!__builtin_constant_p(baz & BAZ_BIT));
+
+triggers the first assertion on x86_64, which means that the
+compiler is unable to evaluate it to a compile-time initializer
+when the architecture-specific bitop is used even if it's obvious.
+In order to let the compiler optimize out such cases, expand the
+bitop() macro to use the "constant" C non-atomic bitop
+implementations when all of the arguments passed are compile-time
+constants, which means that the result will be a compile-time
+constant as well, so that it produces more efficient and simple
+code in 100% cases, comparing to the architecture-specific
+counterparts.
+
+The savings are architecture, compiler and compiler flags dependent,
+for example, on x86_64 -O2:
+
+GCC 12: add/remove: 78/29 grow/shrink: 332/525 up/down: 31325/-61560 (-30235)
+LLVM 13: add/remove: 79/76 grow/shrink: 184/537 up/down: 55076/-141892 (-86816)
+LLVM 14: add/remove: 10/3 grow/shrink: 93/138 up/down: 3705/-6992 (-3287)
+
+and ARM64 (courtesy of Mark):
+
+GCC 11: add/remove: 92/29 grow/shrink: 933/2766 up/down: 39340/-82580 (-43240)
+LLVM 14: add/remove: 21/11 grow/shrink: 620/651 up/down: 12060/-15824 (-3764)
+
+Cc: Mark Rutland <mark.rutland@arm.com>
+Signed-off-by: Alexander Lobakin <alexandr.lobakin@intel.com>
+Reviewed-by: Marco Elver <elver@google.com>
+---
+ include/linux/bitops.h | 18 +++++++++++++++++-
+ 1 file changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/bitops.h b/include/linux/bitops.h
+index 3c3afbae1533..cf9bf65039f2 100644
+--- a/include/linux/bitops.h
++++ b/include/linux/bitops.h
+@@ -33,8 +33,24 @@ extern unsigned long __sw_hweight64(__u64 w);
+ 
+ #include <asm-generic/bitops/generic-non-atomic.h>
+ 
++/*
++ * Many architecture-specific non-atomic bitops contain inline asm code and due
++ * to that the compiler can't optimize them to compile-time expressions or
++ * constants. In contrary, generic_*() helpers are defined in pure C and
++ * compilers optimize them just well.
++ * Therefore, to make `unsigned long foo = 0; __set_bit(BAR, &foo)` effectively
++ * equal to `unsigned long foo = BIT(BAR)`, pick the generic C alternative when
++ * the arguments can be resolved at compile time. That expression itself is a
++ * constant and doesn't bring any functional changes to the rest of cases.
++ * The casts to `uintptr_t` are needed to mitigate `-Waddress` warnings when
++ * passing a bitmap from .bss or .data (-> `!!addr` is always true).
++ */
+ #define bitop(op, nr, addr)						\
+-	op(nr, addr)
++	((__builtin_constant_p(nr) &&					\
++	  __builtin_constant_p((uintptr_t)(addr) != (uintptr_t)NULL) &&	\
++	  (uintptr_t)(addr) != (uintptr_t)NULL &&			\
++	  __builtin_constant_p(*(const unsigned long *)(addr))) ?	\
++	 const##op(nr, addr) : op(nr, addr))
+ 
+ #define __set_bit(nr, addr)		bitop(___set_bit, nr, addr)
+ #define __clear_bit(nr, addr)		bitop(___clear_bit, nr, addr)
+-- 
+2.36.1
