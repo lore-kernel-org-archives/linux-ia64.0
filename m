@@ -1,87 +1,113 @@
-From: Alexander Lobakin <alexandr.lobakin@intel.com>
-Date: Mon, 20 Jun 2022 13:12:23 +0000
-Subject: Re: [PATCH v3 6/7] bitops: let optimize out non-atomic bitops on compile-time constants
-Message-Id: <20220620131223.2627869-1-alexandr.lobakin@intel.com>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Fri, 24 Jun 2022 04:55:16 +0000
+Subject: [PATCH V4 03/26] powerpc/mm: Move protection_map[] inside the platform
+Message-Id: <20220624044339.1533882-4-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220617144031.2549432-1-alexandr.lobakin@intel.com> <20220617144031.2549432-7-alexandr.lobakin@intel.com> <YrBGUqfS7r9m0eAf@smile.fi.intel.com>
-In-Reply-To: <YrBGUqfS7r9m0eAf@smile.fi.intel.com>
+References: <20220624044339.1533882-1-anshuman.khandual@arm.com>
+In-Reply-To: <20220624044339.1533882-1-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Maciej Fijalkowski <maciej.fijalkowski@intel.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-mm@kvack.org
+Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, Paul Mackerras <paulus@samba.org>, Nicholas Piggin <npiggin@gmail.com>
 
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Date: Mon, 20 Jun 2022 13:05:06 +0300
+This moves protection_map[] inside the platform and while here, also enable
+ARCH_HAS_VM_GET_PAGE_PROT on 32 bit platforms via DECLARE_VM_GET_PAGE_PROT.
 
-> On Fri, Jun 17, 2022 at 04:40:30PM +0200, Alexander Lobakin wrote:
-> > Currently, many architecture-specific non-atomic bitop
-> > implementations use inline asm or other hacks which are faster or
-> > more robust when working with "real" variables (i.e. fields from
-> > the structures etc.), but the compilers have no clue how to optimize
-> > them out when called on compile-time constants. That said, the
-> > following code:
-> > 
-> > 	DECLARE_BITMAP(foo, BITS_PER_LONG) = { }; // -> unsigned long foo[1];
-> > 	unsigned long bar = BIT(BAR_BIT);
-> > 	unsigned long baz = 0;
-> > 
-> > 	__set_bit(FOO_BIT, foo);
-> > 	baz |= BIT(BAZ_BIT);
-> > 
-> > 	BUILD_BUG_ON(!__builtin_constant_p(test_bit(FOO_BIT, foo));
-> > 	BUILD_BUG_ON(!__builtin_constant_p(bar & BAR_BIT));
-> > 	BUILD_BUG_ON(!__builtin_constant_p(baz & BAZ_BIT));
-> > 
-> > triggers the first assertion on x86_64, which means that the
-> > compiler is unable to evaluate it to a compile-time initializer
-> > when the architecture-specific bitop is used even if it's obvious.
-> > In order to let the compiler optimize out such cases, expand the
-> > bitop() macro to use the "constant" C non-atomic bitop
-> > implementations when all of the arguments passed are compile-time
-> > constants, which means that the result will be a compile-time
-> > constant as well, so that it produces more efficient and simple
-> > code in 100% cases, comparing to the architecture-specific
-> > counterparts.
-> > 
-> > The savings are architecture, compiler and compiler flags dependent,
-> > for example, on x86_64 -O2:
-> > 
-> > GCC 12: add/remove: 78/29 grow/shrink: 332/525 up/down: 31325/-61560 (-30235)
-> > LLVM 13: add/remove: 79/76 grow/shrink: 184/537 up/down: 55076/-141892 (-86816)
-> > LLVM 14: add/remove: 10/3 grow/shrink: 93/138 up/down: 3705/-6992 (-3287)
-> > 
-> > and ARM64 (courtesy of Mark):
-> > 
-> > GCC 11: add/remove: 92/29 grow/shrink: 933/2766 up/down: 39340/-82580 (-43240)
-> > LLVM 14: add/remove: 21/11 grow/shrink: 620/651 up/down: 12060/-15824 (-3764)
-> 
-> ...
-> 
-> > +/*
-> > + * Many architecture-specific non-atomic bitops contain inline asm code and due
-> > + * to that the compiler can't optimize them to compile-time expressions or
-> > + * constants. In contrary, gen_*() helpers are defined in pure C and compilers
-> 
-> generic_*() ?
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Nicholas Piggin <npiggin@gmail.com>
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+---
+ arch/powerpc/Kconfig               |  2 +-
+ arch/powerpc/include/asm/pgtable.h | 20 +-------------------
+ arch/powerpc/mm/pgtable.c          | 24 ++++++++++++++++++++++++
+ 3 files changed, 26 insertions(+), 20 deletions(-)
 
-Ah right, bah, forgot to change that in v2. Will fix in v4, as
-__builtin_constant_p() test from v7 triggered build bugs on ARC,
-will look into that.
-
-> 
-> > + * optimize them just well.
-> > + * Therefore, to make `unsigned long foo = 0; __set_bit(BAR, &foo)` effectively
-> > + * equal to `unsigned long foo = BIT(BAR)`, pick the generic C alternative when
-> > + * the arguments can be resolved at compile time. That expression itself is a
-> > + * constant and doesn't bring any functional changes to the rest of cases.
-> > + * The casts to `uintptr_t` are needed to mitigate `-Waddress` warnings when
-> > + * passing a bitmap from .bss or .data (-> `!!addr` is always true).
-> > + */
-> 
-> -- 
-> With Best Regards,
-> Andy Shevchenko
-
-Thanks,
-Al
+diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
+index c2ce2e60c8f0..1035d172c7dd 100644
+--- a/arch/powerpc/Kconfig
++++ b/arch/powerpc/Kconfig
+@@ -140,7 +140,7 @@ config PPC
+ 	select ARCH_HAS_TICK_BROADCAST		if GENERIC_CLOCKEVENTS_BROADCAST
+ 	select ARCH_HAS_UACCESS_FLUSHCACHE
+ 	select ARCH_HAS_UBSAN_SANITIZE_ALL
+-	select ARCH_HAS_VM_GET_PAGE_PROT	if PPC_BOOK3S_64
++	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+ 	select ARCH_KEEP_MEMBLOCK
+ 	select ARCH_MIGHT_HAVE_PC_PARPORT
+diff --git a/arch/powerpc/include/asm/pgtable.h b/arch/powerpc/include/asm/pgtable.h
+index d564d0ecd4cd..bf98db844579 100644
+--- a/arch/powerpc/include/asm/pgtable.h
++++ b/arch/powerpc/include/asm/pgtable.h
+@@ -20,25 +20,6 @@ struct mm_struct;
+ #include <asm/nohash/pgtable.h>
+ #endif /* !CONFIG_PPC_BOOK3S */
+ 
+-/* Note due to the way vm flags are laid out, the bits are XWR */
+-#define __P000	PAGE_NONE
+-#define __P001	PAGE_READONLY
+-#define __P010	PAGE_COPY
+-#define __P011	PAGE_COPY
+-#define __P100	PAGE_READONLY_X
+-#define __P101	PAGE_READONLY_X
+-#define __P110	PAGE_COPY_X
+-#define __P111	PAGE_COPY_X
+-
+-#define __S000	PAGE_NONE
+-#define __S001	PAGE_READONLY
+-#define __S010	PAGE_SHARED
+-#define __S011	PAGE_SHARED
+-#define __S100	PAGE_READONLY_X
+-#define __S101	PAGE_READONLY_X
+-#define __S110	PAGE_SHARED_X
+-#define __S111	PAGE_SHARED_X
+-
+ #ifndef __ASSEMBLY__
+ 
+ #ifndef MAX_PTRS_PER_PGD
+@@ -79,6 +60,7 @@ extern void paging_init(void);
+ void poking_init(void);
+ 
+ extern unsigned long ioremap_bot;
++extern pgprot_t protection_map[16] __ro_after_init;
+ 
+ /*
+  * kern_addr_valid is intended to indicate whether an address is a valid
+diff --git a/arch/powerpc/mm/pgtable.c b/arch/powerpc/mm/pgtable.c
+index e6166b71d36d..618f30d35b17 100644
+--- a/arch/powerpc/mm/pgtable.c
++++ b/arch/powerpc/mm/pgtable.c
+@@ -472,3 +472,27 @@ pte_t *__find_linux_pte(pgd_t *pgdir, unsigned long ea,
+ 	return ret_pte;
+ }
+ EXPORT_SYMBOL_GPL(__find_linux_pte);
++
++/* Note due to the way vm flags are laid out, the bits are XWR */
++pgprot_t protection_map[16] __ro_after_init = {
++	[VM_NONE]					= PAGE_NONE,
++	[VM_READ]					= PAGE_READONLY,
++	[VM_WRITE]					= PAGE_COPY,
++	[VM_WRITE | VM_READ]				= PAGE_COPY,
++	[VM_EXEC]					= PAGE_READONLY_X,
++	[VM_EXEC | VM_READ]				= PAGE_READONLY_X,
++	[VM_EXEC | VM_WRITE]				= PAGE_COPY_X,
++	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_COPY_X,
++	[VM_SHARED]					= PAGE_NONE,
++	[VM_SHARED | VM_READ]				= PAGE_READONLY,
++	[VM_SHARED | VM_WRITE]				= PAGE_SHARED,
++	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_SHARED,
++	[VM_SHARED | VM_EXEC]				= PAGE_READONLY_X,
++	[VM_SHARED | VM_EXEC | VM_READ]			= PAGE_READONLY_X,
++	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_SHARED_X,
++	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= PAGE_SHARED_X
++};
++
++#ifndef CONFIG_PPC_BOOK3S_64
++DECLARE_VM_GET_PAGE_PROT
++#endif
+-- 
+2.25.1
