@@ -1,62 +1,66 @@
-From: Alexander Lobakin <alexandr.lobakin@intel.com>
-Date: Wed, 15 Jun 2022 14:17:32 +0000
-Subject: Re: [PATCH v2 0/6] bitops: let optimize out non-atomic bitops on compile-time constants
-Message-Id: <20220615141732.1265627-1-alexandr.lobakin@intel.com>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Fri, 24 Jun 2022 04:55:15 +0000
+Subject: [PATCH V4 02/26] mm/mmap: Define DECLARE_VM_GET_PAGE_PROT
+Message-Id: <20220624044339.1533882-3-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220610113427.908751-1-alexandr.lobakin@intel.com> <CAMuHMdUZCaPN2B6bvmja9rDm3qCc4mYYAOSEB2W0R0pws8peqw@mail.gmail.com> <20220613142645.1176423-1-alexandr.lobakin@intel.com> <CAMuHMdVayS6hV3CWW6FS-1cQKoGTCDxgVhZVPSyBMvJHBxVwJA@mail.gmail.com>
-In-Reply-To: <CAMuHMdVayS6hV3CWW6FS-1cQKoGTCDxgVhZVPSyBMvJHBxVwJA@mail.gmail.com>
+References: <20220624044339.1533882-1-anshuman.khandual@arm.com>
+In-Reply-To: <20220624044339.1533882-1-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, alpha <linux-alpha@vger.kernel.org>, "open list:QUALCOMM HEXAGON..." <linux-hexagon@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, Linux-sh list <linux-sh@vger.kernel.org>, sparclinux <sparclinux@vger.kernel.org>, Linux-Arch <linux-arch@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: linux-mm@kvack.org
+Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
 
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Mon, 13 Jun 2022 17:22:30 +0200
+This just converts the generic vm_get_page_prot() implementation into a new
+macro i.e DECLARE_VM_GET_PAGE_PROT which later can be used across platforms
+when enabling them with ARCH_HAS_VM_GET_PAGE_PROT. This does not create any
+functional change.
 
-> Hi Olek,
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-mm@kvack.org
+Cc: linux-kernel@vger.kernel.org
+Suggested-by: Christoph Hellwig <hch@infradead.org>
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+---
+ include/linux/mm.h | 8 ++++++++
+ mm/mmap.c          | 6 +-----
+ 2 files changed, 9 insertions(+), 5 deletions(-)
 
-Hi!
-
-> 
-> On Mon, Jun 13, 2022 at 4:28 PM Alexander Lobakin
-> <alexandr.lobakin@intel.com> wrote:
-> > From: Geert Uytterhoeven <geert@linux-m68k.org>
-> > > On Fri, Jun 10, 2022 at 1:35 PM Alexander Lobakin
-> > > <alexandr.lobakin@intel.com> wrote:
-> > > On m68k, using gcc version 9.4.0 (Ubuntu 9.4.0-1ubuntu1~20.04), this
-> > > blows up immediately with:
-> >
-> > Yeah I saw the kernel bot report already, sorry for that >_< Fixed
-> > in v3 already, will send in 1-2 days.
-> 
-> Is it simple to fix?
-> I might be able to give the fixed v2 a try before that.
-> Thanks!
-
-Oh, sorry for the late reply, was busy with stuff.
-It's linear, there are (after applying the series) some static
-inlines in arch/m68k/include/asm/bitops.h (those which were
-converted from macros in patch 3/6), 7 ops in total, you just need
-to create definitions with 'arch_' prefix for each of them, e.g.
-
-#define arch_test_bit	test_bit
-#define arch___set_bit	__set_bit // will be ___set_bit after 5/6
-
-etc.
-Hope I explained it clear-ish :)
-
-> 
-> Gr{oetje,eeting}s,
-> 
->                         Geert
-> 
-> --
-> Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-> 
-> In personal conversations with technical people, I call myself a hacker. But
-> when I'm talking to journalists I just say "programmer" or something like that.
->                                 -- Linus Torvalds
-
-Thanks,
-Olek
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index 47bfe038d46e..237828c2bae2 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -428,6 +428,14 @@ extern unsigned int kobjsize(const void *objp);
+ extern pgprot_t protection_map[16];
+ #endif
+ 
++#define DECLARE_VM_GET_PAGE_PROT					\
++pgprot_t vm_get_page_prot(unsigned long vm_flags)			\
++{									\
++		return protection_map[vm_flags &			\
++			(VM_READ | VM_WRITE | VM_EXEC | VM_SHARED)];	\
++}									\
++EXPORT_SYMBOL(vm_get_page_prot);
++
+ /*
+  * The default fault flags that should be used by most of the
+  * arch-specific page fault handlers.
+diff --git a/mm/mmap.c b/mm/mmap.c
+index b01f0280bda2..55c30aee3999 100644
+--- a/mm/mmap.c
++++ b/mm/mmap.c
+@@ -123,11 +123,7 @@ pgprot_t protection_map[16] __ro_after_init = {
+ #endif
+ 
+ #ifndef CONFIG_ARCH_HAS_VM_GET_PAGE_PROT
+-pgprot_t vm_get_page_prot(unsigned long vm_flags)
+-{
+-	return protection_map[vm_flags & (VM_READ|VM_WRITE|VM_EXEC|VM_SHARED)];
+-}
+-EXPORT_SYMBOL(vm_get_page_prot);
++DECLARE_VM_GET_PAGE_PROT
+ #endif	/* CONFIG_ARCH_HAS_VM_GET_PAGE_PROT */
+ 
+ static pgprot_t vm_pgprot_modify(pgprot_t oldprot, unsigned long vm_flags)
+-- 
+2.25.1
