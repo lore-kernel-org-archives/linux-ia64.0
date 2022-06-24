@@ -1,70 +1,97 @@
-From: Marco Elver <elver@google.com>
-Date: Wed, 15 Jun 2022 07:46:15 +0000
-Subject: Re: [PATCH v2 2/6] bitops: always define asm-generic non-atomic bitops
-Message-Id: <CANpmjNMd+r9Hq+vwWGoNhOg_W=x3Umo+i14TRvEMz6PhcHgXWQ@mail.gmail.com>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Fri, 24 Jun 2022 04:55:21 +0000
+Subject: [PATCH V4 08/26] microblaze/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <20220624044339.1533882-9-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220610113427.908751-1-alexandr.lobakin@intel.com>
- <20220610113427.908751-3-alexandr.lobakin@intel.com> <YqNMO0ioGzJ1IkoA@smile.fi.intel.com>
- <22042c14bc6a437d9c6b235fbfa32c8a@intel.com> <CANpmjNNZAeMQjzNyXLeKY4cp_m-xJBU1vs7PgT+7_sJwxtEEAg@mail.gmail.com>
- <20220613141947.1176100-1-alexandr.lobakin@intel.com> <CANpmjNM0noP8ieQztyEvijz+MG-cDxxmfwaX_QTpnyT5G33EGA@mail.gmail.com>
- <YqlITqttNYqT/xpN@yury-laptop>
-In-Reply-To: <YqlITqttNYqT/xpN@yury-laptop>
+References: <20220624044339.1533882-1-anshuman.khandual@arm.com>
+In-Reply-To: <20220624044339.1533882-1-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Yury Norov <yury.norov@gmail.com>
-Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Tony Luck <tony.luck@intel.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Arnd Bergmann <arnd@arndb.de>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Borislav Petkov <bp@suse.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux-hexagon@vger.kernel.org" <linux-hexagon@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: linux-mm@kvack.org
+Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Michal Simek <monstr@monstr.eu>
 
-On Wed, 15 Jun 2022 at 04:47, Yury Norov <yury.norov@gmail.com> wrote:
->
-> On Mon, Jun 13, 2022 at 04:33:17PM +0200, Marco Elver wrote:
-> > On Mon, 13 Jun 2022 at 16:21, Alexander Lobakin
-> > <alexandr.lobakin@intel.com> wrote:
-> > >
-> > > From: Marco Elver <elver@google.com>
-> > > Date: Fri, 10 Jun 2022 18:32:36 +0200
-> > >
-> > > > On Fri, 10 Jun 2022 at 18:02, Luck, Tony <tony.luck@intel.com> wrote:
-> > > > >
-> > > > > > > +/**
-> > > > > > > + * generic_test_bit - Determine whether a bit is set
-> > > > > > > + * @nr: bit number to test
-> > > > > > > + * @addr: Address to start counting from
-> > > > > > > + */
-> > > > > >
-> > > > > > Shouldn't we add in this or in separate patch a big NOTE to explain that this
-> > > > > > is actually atomic and must be kept as a such?
-> > > > >
-> > > > > "atomic" isn't really the right word. The volatile access makes sure that the
-> > > > > compiler does the test at the point that the source code asked, and doesn't
-> > > > > move it before/after other operations.
-> > > >
-> > > > It's listed in Documentation/atomic_bitops.txt.
-> > >
-> > > Oh, so my memory was actually correct that I saw it in the docs
-> > > somewhere.
-> > > WDYT, should I mention this here in the code (block comment) as well
-> > > that it's atomic and must not lose `volatile` as Andy suggested or
-> > > it's sufficient to have it in the docs (+ it's not underscored)?
-> >
-> > Perhaps a quick comment in the code (not kerneldoc above) will be
-> > sufficient, with reference to Documentation/atomic_bitops.txt.
->
-> If it may help, we can do:
->
-> /*
->  * Bit testing is a naturally atomic operation because bit is
->  * a minimal quantum of information.
->  */
-> #define __test_bit test_bit
+This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
+vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
+up a private and static protection_map[] array. Subsequently all __SXXX and
+__PXXX macros can be dropped which are no longer needed.
 
-That's redundant and we'll end up with a random mix of both.
+Cc: Michal Simek <monstr@monstr.eu>
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+---
+ arch/microblaze/Kconfig               |  1 +
+ arch/microblaze/include/asm/pgtable.h | 17 -----------------
+ arch/microblaze/mm/init.c             | 20 ++++++++++++++++++++
+ 3 files changed, 21 insertions(+), 17 deletions(-)
 
-What'd be more interesting is having a __test_bit without the volatile
-that allows compilers to optimize things more. But I think that also
-becomes mostly redundant with the optimizations that this series seeks
-out to do.
-
-The distinction is ever so subtle, and clever compilers *will* break
-concurrent code in ways that are rather hard to imagine:
-https://lwn.net/Articles/793253/
+diff --git a/arch/microblaze/Kconfig b/arch/microblaze/Kconfig
+index 8cf429ad1c84..15f91ba8a0c4 100644
+--- a/arch/microblaze/Kconfig
++++ b/arch/microblaze/Kconfig
+@@ -7,6 +7,7 @@ config MICROBLAZE
+ 	select ARCH_HAS_GCOV_PROFILE_ALL
+ 	select ARCH_HAS_SYNC_DMA_FOR_CPU
+ 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE
++	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_MIGHT_HAVE_PC_PARPORT
+ 	select ARCH_WANT_IPC_PARSE_VERSION
+ 	select BUILDTIME_TABLE_SORT
+diff --git a/arch/microblaze/include/asm/pgtable.h b/arch/microblaze/include/asm/pgtable.h
+index 0c72646370e1..ba348e997dbb 100644
+--- a/arch/microblaze/include/asm/pgtable.h
++++ b/arch/microblaze/include/asm/pgtable.h
+@@ -204,23 +204,6 @@ extern pte_t *va_to_pte(unsigned long address);
+  * We consider execute permission the same as read.
+  * Also, write permissions imply read permissions.
+  */
+-#define __P000	PAGE_NONE
+-#define __P001	PAGE_READONLY_X
+-#define __P010	PAGE_COPY
+-#define __P011	PAGE_COPY_X
+-#define __P100	PAGE_READONLY
+-#define __P101	PAGE_READONLY_X
+-#define __P110	PAGE_COPY
+-#define __P111	PAGE_COPY_X
+-
+-#define __S000	PAGE_NONE
+-#define __S001	PAGE_READONLY_X
+-#define __S010	PAGE_SHARED
+-#define __S011	PAGE_SHARED_X
+-#define __S100	PAGE_READONLY
+-#define __S101	PAGE_READONLY_X
+-#define __S110	PAGE_SHARED
+-#define __S111	PAGE_SHARED_X
+ 
+ #ifndef __ASSEMBLY__
+ /*
+diff --git a/arch/microblaze/mm/init.c b/arch/microblaze/mm/init.c
+index f4e503461d24..315fd5024f00 100644
+--- a/arch/microblaze/mm/init.c
++++ b/arch/microblaze/mm/init.c
+@@ -285,3 +285,23 @@ void * __ref zalloc_maybe_bootmem(size_t size, gfp_t mask)
+ 
+ 	return p;
+ }
++
++static pgprot_t protection_map[16] __ro_after_init = {
++	[VM_NONE]					= PAGE_NONE,
++	[VM_READ]					= PAGE_READONLY_X,
++	[VM_WRITE]					= PAGE_COPY,
++	[VM_WRITE | VM_READ]				= PAGE_COPY_X,
++	[VM_EXEC]					= PAGE_READONLY,
++	[VM_EXEC | VM_READ]				= PAGE_READONLY_X,
++	[VM_EXEC | VM_WRITE]				= PAGE_COPY,
++	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_COPY_X,
++	[VM_SHARED]					= PAGE_NONE,
++	[VM_SHARED | VM_READ]				= PAGE_READONLY_X,
++	[VM_SHARED | VM_WRITE]				= PAGE_SHARED,
++	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_SHARED_X,
++	[VM_SHARED | VM_EXEC]				= PAGE_READONLY,
++	[VM_SHARED | VM_EXEC | VM_READ]			= PAGE_READONLY_X,
++	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_SHARED,
++	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= PAGE_SHARED_X
++};
++DECLARE_VM_GET_PAGE_PROT
+-- 
+2.25.1
