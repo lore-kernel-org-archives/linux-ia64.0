@@ -1,48 +1,100 @@
-From: Alexander Lobakin <alexandr.lobakin@intel.com>
-Date: Mon, 06 Jun 2022 11:49:02 +0000
-Subject: [PATCH 1/6] ia64, processor: fix -Wincompatible-pointer-types in ia64_get_irr()
-Message-Id: <20220606114908.962562-2-alexandr.lobakin@intel.com>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Fri, 24 Jun 2022 04:55:27 +0000
+Subject: [PATCH V4 14/26] alpha/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <20220624044339.1533882-15-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220606114908.962562-1-alexandr.lobakin@intel.com>
-In-Reply-To: <20220606114908.962562-1-alexandr.lobakin@intel.com>
+References: <20220624044339.1533882-1-anshuman.khandual@arm.com>
+In-Reply-To: <20220624044339.1533882-1-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>
-Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Richard Henderson <rth@twiddle.net>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, stable@vger.kernel.org, kernel test robot <lkp@intel.com>
+To: linux-mm@kvack.org
+Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Richard Henderson <rth@twiddle.net>
 
-test_bit(), as any other bitmap op, takes `unsigned long *` as a
-second argument (pointer to the actual bitmap), as any bitmap
-itself is an array of unsigned longs. However, the ia64_get_irr()
-code passes a ref to `u64` as a second argument.
-This works with the ia64 bitops implementation due to that they
-have `void *` as the second argument and then cast it later on.
-This works with the bitmap API itself due to that `unsigned long`
-has the same size on ia64 as `u64` (`unsigned long long`), but
-from the compiler PoV those two are different.
-Define @irr as `unsigned long` to fix that. That implies no
-functional changes. Has been hidden for 16 years!
+This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
+vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
+up a private and static protection_map[] array. Subsequently all __SXXX and
+__PXXX macros can be dropped which are no longer needed.
 
-Fixes: a58786917ce2 ("[IA64] avoid broken SAL_CACHE_FLUSH implementations")
-Cc: stable@vger.kernel.org # 2.6.16+
-Reported-by: kernel test robot <lkp@intel.com>
-Signed-off-by: Alexander Lobakin <alexandr.lobakin@intel.com>
+Cc: Richard Henderson <rth@twiddle.net>
+Cc: linux-alpha@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
- arch/ia64/include/asm/processor.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/alpha/Kconfig               |  1 +
+ arch/alpha/include/asm/pgtable.h | 17 -----------------
+ arch/alpha/mm/init.c             | 22 ++++++++++++++++++++++
+ 3 files changed, 23 insertions(+), 17 deletions(-)
 
-diff --git a/arch/ia64/include/asm/processor.h b/arch/ia64/include/asm/processor.h
-index 7cbce290f4e5..757c2f6d8d4b 100644
---- a/arch/ia64/include/asm/processor.h
-+++ b/arch/ia64/include/asm/processor.h
-@@ -538,7 +538,7 @@ ia64_get_irr(unsigned int vector)
- {
- 	unsigned int reg = vector / 64;
- 	unsigned int bit = vector % 64;
--	u64 irr;
-+	unsigned long irr;
+diff --git a/arch/alpha/Kconfig b/arch/alpha/Kconfig
+index 7d0d26b5b3f5..db1c8b329461 100644
+--- a/arch/alpha/Kconfig
++++ b/arch/alpha/Kconfig
+@@ -2,6 +2,7 @@
+ config ALPHA
+ 	bool
+ 	default y
++	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_32BIT_USTAT_F_TINODE
+ 	select ARCH_MIGHT_HAVE_PC_PARPORT
+ 	select ARCH_MIGHT_HAVE_PC_SERIO
+diff --git a/arch/alpha/include/asm/pgtable.h b/arch/alpha/include/asm/pgtable.h
+index 170451fde043..3ea9661c09ff 100644
+--- a/arch/alpha/include/asm/pgtable.h
++++ b/arch/alpha/include/asm/pgtable.h
+@@ -116,23 +116,6 @@ struct vm_area_struct;
+  * arch/alpha/mm/fault.c)
+  */
+ 	/* xwr */
+-#define __P000	_PAGE_P(_PAGE_FOE | _PAGE_FOW | _PAGE_FOR)
+-#define __P001	_PAGE_P(_PAGE_FOE | _PAGE_FOW)
+-#define __P010	_PAGE_P(_PAGE_FOE)
+-#define __P011	_PAGE_P(_PAGE_FOE)
+-#define __P100	_PAGE_P(_PAGE_FOW | _PAGE_FOR)
+-#define __P101	_PAGE_P(_PAGE_FOW)
+-#define __P110	_PAGE_P(0)
+-#define __P111	_PAGE_P(0)
+-
+-#define __S000	_PAGE_S(_PAGE_FOE | _PAGE_FOW | _PAGE_FOR)
+-#define __S001	_PAGE_S(_PAGE_FOE | _PAGE_FOW)
+-#define __S010	_PAGE_S(_PAGE_FOE)
+-#define __S011	_PAGE_S(_PAGE_FOE)
+-#define __S100	_PAGE_S(_PAGE_FOW | _PAGE_FOR)
+-#define __S101	_PAGE_S(_PAGE_FOW)
+-#define __S110	_PAGE_S(0)
+-#define __S111	_PAGE_S(0)
  
- 	switch (reg) {
- 	case 0: irr = ia64_getreg(_IA64_REG_CR_IRR0); break;
+ /*
+  * pgprot_noncached() is only for infiniband pci support, and a real
+diff --git a/arch/alpha/mm/init.c b/arch/alpha/mm/init.c
+index 7511723b7669..a2350b2f44d0 100644
+--- a/arch/alpha/mm/init.c
++++ b/arch/alpha/mm/init.c
+@@ -280,3 +280,25 @@ mem_init(void)
+ 	high_memory = (void *) __va(max_low_pfn * PAGE_SIZE);
+ 	memblock_free_all();
+ }
++
++static pgprot_t protection_map[16] __ro_after_init = {
++	[VM_NONE]					= _PAGE_P(_PAGE_FOE | _PAGE_FOW |
++								  _PAGE_FOR),
++	[VM_READ]					= _PAGE_P(_PAGE_FOE | _PAGE_FOW),
++	[VM_WRITE]					= _PAGE_P(_PAGE_FOE),
++	[VM_WRITE | VM_READ]				= _PAGE_P(_PAGE_FOE),
++	[VM_EXEC]					= _PAGE_P(_PAGE_FOW | _PAGE_FOR),
++	[VM_EXEC | VM_READ]				= _PAGE_P(_PAGE_FOW),
++	[VM_EXEC | VM_WRITE]				= _PAGE_P(0),
++	[VM_EXEC | VM_WRITE | VM_READ]			= _PAGE_P(0),
++	[VM_SHARED]					= _PAGE_S(_PAGE_FOE | _PAGE_FOW |
++								  _PAGE_FOR),
++	[VM_SHARED | VM_READ]				= _PAGE_S(_PAGE_FOE | _PAGE_FOW),
++	[VM_SHARED | VM_WRITE]				= _PAGE_S(_PAGE_FOE),
++	[VM_SHARED | VM_WRITE | VM_READ]		= _PAGE_S(_PAGE_FOE),
++	[VM_SHARED | VM_EXEC]				= _PAGE_S(_PAGE_FOW | _PAGE_FOR),
++	[VM_SHARED | VM_EXEC | VM_READ]			= _PAGE_S(_PAGE_FOW),
++	[VM_SHARED | VM_EXEC | VM_WRITE]		= _PAGE_S(0),
++	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= _PAGE_S(0)
++};
++DECLARE_VM_GET_PAGE_PROT
 -- 
-2.36.1
+2.25.1
