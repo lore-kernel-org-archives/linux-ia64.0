@@ -1,113 +1,85 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Fri, 24 Jun 2022 04:55:16 +0000
-Subject: [PATCH V4 03/26] powerpc/mm: Move protection_map[] inside the platform
-Message-Id: <20220624044339.1533882-4-anshuman.khandual@arm.com>
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Fri, 24 Jun 2022 05:18:07 +0000
+Subject: Re: [PATCH V4 03/26] powerpc/mm: Move protection_map[] inside the platform
+Message-Id: <bce16cfe-45e1-6417-2a01-6a3ff6b67077@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220624044339.1533882-1-anshuman.khandual@arm.com>
-In-Reply-To: <20220624044339.1533882-1-anshuman.khandual@arm.com>
+ <20220624044339.1533882-4-anshuman.khandual@arm.com>
+In-Reply-To: <20220624044339.1533882-4-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org
-Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, Paul Mackerras <paulus@samba.org>, Nicholas Piggin <npiggin@gmail.com>
+To: Anshuman Khandual <anshuman.khandual@arm.com>, "linux-mm@kvack.org" <linux-mm@kvack.org>
+Cc: "hch@infradead.org" <hch@infradead.org>, Andrew Morton <akpm@linux-foundation.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>, "x86@kernel.org" <x86@kernel.org>, "openrisc@lists.librecores.org" <openrisc@lists.librecores.org>, "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>, "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>, "linux-hexagon@vger.kernel.org" <linux-hexagon@vger.kernel.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>, "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>, "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Michael Ellerman <mpe@ellerman.id.au>, Paul Mackerras <paulus@samba.org>, Nicholas Piggin <npiggin@gmail.com>
 
-This moves protection_map[] inside the platform and while here, also enable
-ARCH_HAS_VM_GET_PAGE_PROT on 32 bit platforms via DECLARE_VM_GET_PAGE_PROT.
-
-Cc: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: Nicholas Piggin <npiggin@gmail.com>
-Cc: linuxppc-dev@lists.ozlabs.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
----
- arch/powerpc/Kconfig               |  2 +-
- arch/powerpc/include/asm/pgtable.h | 20 +-------------------
- arch/powerpc/mm/pgtable.c          | 24 ++++++++++++++++++++++++
- 3 files changed, 26 insertions(+), 20 deletions(-)
-
-diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
-index c2ce2e60c8f0..1035d172c7dd 100644
---- a/arch/powerpc/Kconfig
-+++ b/arch/powerpc/Kconfig
-@@ -140,7 +140,7 @@ config PPC
- 	select ARCH_HAS_TICK_BROADCAST		if GENERIC_CLOCKEVENTS_BROADCAST
- 	select ARCH_HAS_UACCESS_FLUSHCACHE
- 	select ARCH_HAS_UBSAN_SANITIZE_ALL
--	select ARCH_HAS_VM_GET_PAGE_PROT	if PPC_BOOK3S_64
-+	select ARCH_HAS_VM_GET_PAGE_PROT
- 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
- 	select ARCH_KEEP_MEMBLOCK
- 	select ARCH_MIGHT_HAVE_PC_PARPORT
-diff --git a/arch/powerpc/include/asm/pgtable.h b/arch/powerpc/include/asm/pgtable.h
-index d564d0ecd4cd..bf98db844579 100644
---- a/arch/powerpc/include/asm/pgtable.h
-+++ b/arch/powerpc/include/asm/pgtable.h
-@@ -20,25 +20,6 @@ struct mm_struct;
- #include <asm/nohash/pgtable.h>
- #endif /* !CONFIG_PPC_BOOK3S */
- 
--/* Note due to the way vm flags are laid out, the bits are XWR */
--#define __P000	PAGE_NONE
--#define __P001	PAGE_READONLY
--#define __P010	PAGE_COPY
--#define __P011	PAGE_COPY
--#define __P100	PAGE_READONLY_X
--#define __P101	PAGE_READONLY_X
--#define __P110	PAGE_COPY_X
--#define __P111	PAGE_COPY_X
--
--#define __S000	PAGE_NONE
--#define __S001	PAGE_READONLY
--#define __S010	PAGE_SHARED
--#define __S011	PAGE_SHARED
--#define __S100	PAGE_READONLY_X
--#define __S101	PAGE_READONLY_X
--#define __S110	PAGE_SHARED_X
--#define __S111	PAGE_SHARED_X
--
- #ifndef __ASSEMBLY__
- 
- #ifndef MAX_PTRS_PER_PGD
-@@ -79,6 +60,7 @@ extern void paging_init(void);
- void poking_init(void);
- 
- extern unsigned long ioremap_bot;
-+extern pgprot_t protection_map[16] __ro_after_init;
- 
- /*
-  * kern_addr_valid is intended to indicate whether an address is a valid
-diff --git a/arch/powerpc/mm/pgtable.c b/arch/powerpc/mm/pgtable.c
-index e6166b71d36d..618f30d35b17 100644
---- a/arch/powerpc/mm/pgtable.c
-+++ b/arch/powerpc/mm/pgtable.c
-@@ -472,3 +472,27 @@ pte_t *__find_linux_pte(pgd_t *pgdir, unsigned long ea,
- 	return ret_pte;
- }
- EXPORT_SYMBOL_GPL(__find_linux_pte);
-+
-+/* Note due to the way vm flags are laid out, the bits are XWR */
-+pgprot_t protection_map[16] __ro_after_init = {
-+	[VM_NONE]					= PAGE_NONE,
-+	[VM_READ]					= PAGE_READONLY,
-+	[VM_WRITE]					= PAGE_COPY,
-+	[VM_WRITE | VM_READ]				= PAGE_COPY,
-+	[VM_EXEC]					= PAGE_READONLY_X,
-+	[VM_EXEC | VM_READ]				= PAGE_READONLY_X,
-+	[VM_EXEC | VM_WRITE]				= PAGE_COPY_X,
-+	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_COPY_X,
-+	[VM_SHARED]					= PAGE_NONE,
-+	[VM_SHARED | VM_READ]				= PAGE_READONLY,
-+	[VM_SHARED | VM_WRITE]				= PAGE_SHARED,
-+	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_SHARED,
-+	[VM_SHARED | VM_EXEC]				= PAGE_READONLY_X,
-+	[VM_SHARED | VM_EXEC | VM_READ]			= PAGE_READONLY_X,
-+	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_SHARED_X,
-+	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= PAGE_SHARED_X
-+};
-+
-+#ifndef CONFIG_PPC_BOOK3S_64
-+DECLARE_VM_GET_PAGE_PROT
-+#endif
--- 
-2.25.1
+DQoNCkxlIDI0LzA2LzIwMjIgw6AgMDY6NDMsIEFuc2h1bWFuIEtoYW5kdWFsIGEgw6ljcml0wqA6
+DQo+IFRoaXMgbW92ZXMgcHJvdGVjdGlvbl9tYXBbXSBpbnNpZGUgdGhlIHBsYXRmb3JtIGFuZCB3
+aGlsZSBoZXJlLCBhbHNvIGVuYWJsZQ0KPiBBUkNIX0hBU19WTV9HRVRfUEFHRV9QUk9UIG9uIDMy
+IGJpdCBwbGF0Zm9ybXMgdmlhIERFQ0xBUkVfVk1fR0VUX1BBR0VfUFJPVC4NCg0KTm90IG9ubHkg
+MzIgYml0IHBsYXRmb3JtcywgYWxzbyBub2hhc2ggNjQgKGFrYSBib29rM2UvNjQpDQoNCj4gDQo+
+IENjOiBNaWNoYWVsIEVsbGVybWFuIDxtcGVAZWxsZXJtYW4uaWQuYXU+DQo+IENjOiBQYXVsIE1h
+Y2tlcnJhcyA8cGF1bHVzQHNhbWJhLm9yZz4NCj4gQ2M6IE5pY2hvbGFzIFBpZ2dpbiA8bnBpZ2dp
+bkBnbWFpbC5jb20+DQo+IENjOiBsaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZw0KPiBDYzog
+bGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiBTaWduZWQtb2ZmLWJ5OiBBbnNodW1hbiBL
+aGFuZHVhbCA8YW5zaHVtYW4ua2hhbmR1YWxAYXJtLmNvbT4NCj4gLS0tDQo+ICAgYXJjaC9wb3dl
+cnBjL0tjb25maWcgICAgICAgICAgICAgICB8ICAyICstDQo+ICAgYXJjaC9wb3dlcnBjL2luY2x1
+ZGUvYXNtL3BndGFibGUuaCB8IDIwICstLS0tLS0tLS0tLS0tLS0tLS0tDQo+ICAgYXJjaC9wb3dl
+cnBjL21tL3BndGFibGUuYyAgICAgICAgICB8IDI0ICsrKysrKysrKysrKysrKysrKysrKysrKw0K
+PiAgIDMgZmlsZXMgY2hhbmdlZCwgMjYgaW5zZXJ0aW9ucygrKSwgMjAgZGVsZXRpb25zKC0pDQo+
+IA0KPiBkaWZmIC0tZ2l0IGEvYXJjaC9wb3dlcnBjL0tjb25maWcgYi9hcmNoL3Bvd2VycGMvS2Nv
+bmZpZw0KPiBpbmRleCBjMmNlMmU2MGM4ZjAuLjEwMzVkMTcyYzdkZCAxMDA2NDQNCj4gLS0tIGEv
+YXJjaC9wb3dlcnBjL0tjb25maWcNCj4gKysrIGIvYXJjaC9wb3dlcnBjL0tjb25maWcNCj4gQEAg
+LTE0MCw3ICsxNDAsNyBAQCBjb25maWcgUFBDDQo+ICAgCXNlbGVjdCBBUkNIX0hBU19USUNLX0JS
+T0FEQ0FTVAkJaWYgR0VORVJJQ19DTE9DS0VWRU5UU19CUk9BRENBU1QNCj4gICAJc2VsZWN0IEFS
+Q0hfSEFTX1VBQ0NFU1NfRkxVU0hDQUNIRQ0KPiAgIAlzZWxlY3QgQVJDSF9IQVNfVUJTQU5fU0FO
+SVRJWkVfQUxMDQo+IC0Jc2VsZWN0IEFSQ0hfSEFTX1ZNX0dFVF9QQUdFX1BST1QJaWYgUFBDX0JP
+T0szU182NA0KPiArCXNlbGVjdCBBUkNIX0hBU19WTV9HRVRfUEFHRV9QUk9UDQo+ICAgCXNlbGVj
+dCBBUkNIX0hBVkVfTk1JX1NBRkVfQ01QWENIRw0KPiAgIAlzZWxlY3QgQVJDSF9LRUVQX01FTUJM
+T0NLDQo+ICAgCXNlbGVjdCBBUkNIX01JR0hUX0hBVkVfUENfUEFSUE9SVA0KPiBkaWZmIC0tZ2l0
+IGEvYXJjaC9wb3dlcnBjL2luY2x1ZGUvYXNtL3BndGFibGUuaCBiL2FyY2gvcG93ZXJwYy9pbmNs
+dWRlL2FzbS9wZ3RhYmxlLmgNCj4gaW5kZXggZDU2NGQwZWNkNGNkLi5iZjk4ZGI4NDQ1NzkgMTAw
+NjQ0DQo+IC0tLSBhL2FyY2gvcG93ZXJwYy9pbmNsdWRlL2FzbS9wZ3RhYmxlLmgNCj4gKysrIGIv
+YXJjaC9wb3dlcnBjL2luY2x1ZGUvYXNtL3BndGFibGUuaA0KPiBAQCAtMjAsMjUgKzIwLDYgQEAg
+c3RydWN0IG1tX3N0cnVjdDsNCj4gICAjaW5jbHVkZSA8YXNtL25vaGFzaC9wZ3RhYmxlLmg+DQo+
+ICAgI2VuZGlmIC8qICFDT05GSUdfUFBDX0JPT0szUyAqLw0KPiAgIA0KPiAtLyogTm90ZSBkdWUg
+dG8gdGhlIHdheSB2bSBmbGFncyBhcmUgbGFpZCBvdXQsIHRoZSBiaXRzIGFyZSBYV1IgKi8NCj4g
+LSNkZWZpbmUgX19QMDAwCVBBR0VfTk9ORQ0KPiAtI2RlZmluZSBfX1AwMDEJUEFHRV9SRUFET05M
+WQ0KPiAtI2RlZmluZSBfX1AwMTAJUEFHRV9DT1BZDQo+IC0jZGVmaW5lIF9fUDAxMQlQQUdFX0NP
+UFkNCj4gLSNkZWZpbmUgX19QMTAwCVBBR0VfUkVBRE9OTFlfWA0KPiAtI2RlZmluZSBfX1AxMDEJ
+UEFHRV9SRUFET05MWV9YDQo+IC0jZGVmaW5lIF9fUDExMAlQQUdFX0NPUFlfWA0KPiAtI2RlZmlu
+ZSBfX1AxMTEJUEFHRV9DT1BZX1gNCj4gLQ0KPiAtI2RlZmluZSBfX1MwMDAJUEFHRV9OT05FDQo+
+IC0jZGVmaW5lIF9fUzAwMQlQQUdFX1JFQURPTkxZDQo+IC0jZGVmaW5lIF9fUzAxMAlQQUdFX1NI
+QVJFRA0KPiAtI2RlZmluZSBfX1MwMTEJUEFHRV9TSEFSRUQNCj4gLSNkZWZpbmUgX19TMTAwCVBB
+R0VfUkVBRE9OTFlfWA0KPiAtI2RlZmluZSBfX1MxMDEJUEFHRV9SRUFET05MWV9YDQo+IC0jZGVm
+aW5lIF9fUzExMAlQQUdFX1NIQVJFRF9YDQo+IC0jZGVmaW5lIF9fUzExMQlQQUdFX1NIQVJFRF9Y
+DQo+IC0NCj4gICAjaWZuZGVmIF9fQVNTRU1CTFlfXw0KPiAgIA0KPiAgICNpZm5kZWYgTUFYX1BU
+UlNfUEVSX1BHRA0KPiBAQCAtNzksNiArNjAsNyBAQCBleHRlcm4gdm9pZCBwYWdpbmdfaW5pdCh2
+b2lkKTsNCj4gICB2b2lkIHBva2luZ19pbml0KHZvaWQpOw0KPiAgIA0KPiAgIGV4dGVybiB1bnNp
+Z25lZCBsb25nIGlvcmVtYXBfYm90Ow0KPiArZXh0ZXJuIHBncHJvdF90IHByb3RlY3Rpb25fbWFw
+WzE2XSBfX3JvX2FmdGVyX2luaXQ7DQo+ICAgDQo+ICAgLyoNCj4gICAgKiBrZXJuX2FkZHJfdmFs
+aWQgaXMgaW50ZW5kZWQgdG8gaW5kaWNhdGUgd2hldGhlciBhbiBhZGRyZXNzIGlzIGEgdmFsaWQN
+Cj4gZGlmZiAtLWdpdCBhL2FyY2gvcG93ZXJwYy9tbS9wZ3RhYmxlLmMgYi9hcmNoL3Bvd2VycGMv
+bW0vcGd0YWJsZS5jDQo+IGluZGV4IGU2MTY2YjcxZDM2ZC4uNjE4ZjMwZDM1YjE3IDEwMDY0NA0K
+PiAtLS0gYS9hcmNoL3Bvd2VycGMvbW0vcGd0YWJsZS5jDQo+ICsrKyBiL2FyY2gvcG93ZXJwYy9t
+bS9wZ3RhYmxlLmMNCj4gQEAgLTQ3MiwzICs0NzIsMjcgQEAgcHRlX3QgKl9fZmluZF9saW51eF9w
+dGUocGdkX3QgKnBnZGlyLCB1bnNpZ25lZCBsb25nIGVhLA0KPiAgIAlyZXR1cm4gcmV0X3B0ZTsN
+Cj4gICB9DQo+ICAgRVhQT1JUX1NZTUJPTF9HUEwoX19maW5kX2xpbnV4X3B0ZSk7DQo+ICsNCj4g
+Ky8qIE5vdGUgZHVlIHRvIHRoZSB3YXkgdm0gZmxhZ3MgYXJlIGxhaWQgb3V0LCB0aGUgYml0cyBh
+cmUgWFdSICovDQo+ICtwZ3Byb3RfdCBwcm90ZWN0aW9uX21hcFsxNl0gX19yb19hZnRlcl9pbml0
+ID0gew0KDQpJIGNhbid0IHNlZSBhbnkgcGxhY2Ugd2hlcmUgcHJvdGVjdGlvbl9tYXBbXSBnZXRz
+IG1vZGlmaWVkLiBUaGlzIGNvdWxkIA0KYmUgbWFkZSBjb25zdC4NCg0KPiArCVtWTV9OT05FXQkJ
+CQkJPSBQQUdFX05PTkUsDQo+ICsJW1ZNX1JFQURdCQkJCQk9IFBBR0VfUkVBRE9OTFksDQo+ICsJ
+W1ZNX1dSSVRFXQkJCQkJPSBQQUdFX0NPUFksDQo+ICsJW1ZNX1dSSVRFIHwgVk1fUkVBRF0JCQkJ
+PSBQQUdFX0NPUFksDQo+ICsJW1ZNX0VYRUNdCQkJCQk9IFBBR0VfUkVBRE9OTFlfWCwNCj4gKwlb
+Vk1fRVhFQyB8IFZNX1JFQURdCQkJCT0gUEFHRV9SRUFET05MWV9YLA0KPiArCVtWTV9FWEVDIHwg
+Vk1fV1JJVEVdCQkJCT0gUEFHRV9DT1BZX1gsDQo+ICsJW1ZNX0VYRUMgfCBWTV9XUklURSB8IFZN
+X1JFQURdCQkJPSBQQUdFX0NPUFlfWCwNCj4gKwlbVk1fU0hBUkVEXQkJCQkJPSBQQUdFX05PTkUs
+DQo+ICsJW1ZNX1NIQVJFRCB8IFZNX1JFQURdCQkJCT0gUEFHRV9SRUFET05MWSwNCj4gKwlbVk1f
+U0hBUkVEIHwgVk1fV1JJVEVdCQkJCT0gUEFHRV9TSEFSRUQsDQo+ICsJW1ZNX1NIQVJFRCB8IFZN
+X1dSSVRFIHwgVk1fUkVBRF0JCT0gUEFHRV9TSEFSRUQsDQo+ICsJW1ZNX1NIQVJFRCB8IFZNX0VY
+RUNdCQkJCT0gUEFHRV9SRUFET05MWV9YLA0KPiArCVtWTV9TSEFSRUQgfCBWTV9FWEVDIHwgVk1f
+UkVBRF0JCQk9IFBBR0VfUkVBRE9OTFlfWCwNCj4gKwlbVk1fU0hBUkVEIHwgVk1fRVhFQyB8IFZN
+X1dSSVRFXQkJPSBQQUdFX1NIQVJFRF9YLA0KPiArCVtWTV9TSEFSRUQgfCBWTV9FWEVDIHwgVk1f
+V1JJVEUgfCBWTV9SRUFEXQk9IFBBR0VfU0hBUkVEX1gNCj4gK307DQo+ICsNCj4gKyNpZm5kZWYg
+Q09ORklHX1BQQ19CT09LM1NfNjQNCj4gK0RFQ0xBUkVfVk1fR0VUX1BBR0VfUFJPVA0KPiArI2Vu
+ZGlm
