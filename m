@@ -1,59 +1,99 @@
-From: Alexander Lobakin <alexandr.lobakin@intel.com>
-Date: Thu, 30 Jun 2022 16:56:11 +0000
-Subject: Re: [PATCH v5 0/9] bitops: let optimize out non-atomic bitops on compile-time constants
-Message-Id: <20220630165611.1551808-1-alexandr.lobakin@intel.com>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Fri, 24 Jun 2022 04:55:23 +0000
+Subject: [PATCH V4 10/26] openrisc/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <20220624044339.1533882-11-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220624121313.2382500-1-alexandr.lobakin@intel.com>
-In-Reply-To: <20220624121313.2382500-1-alexandr.lobakin@intel.com>
+References: <20220624044339.1533882-1-anshuman.khandual@arm.com>
+In-Reply-To: <20220624044339.1533882-1-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Yury Norov <yury.norov@gmail.com>
-Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Arnd Bergmann <arnd@arndb.de>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Maciej Fijalkowski <maciej.fijalkowski@intel.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Nathan Chancellor <nathan@kernel.org>, Nick Desaulniers <ndesaulniers@google.com>, Tom Rix <trix@redhat.com>, kernel test robot <lkp@intel.com>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, llvm@lists.linux.dev, linux-kernel@vger.kernel.org
+To: linux-mm@kvack.org
+Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Jonas Bonn <jonas@southpole.se>
 
-From: Alexander Lobakin <alexandr.lobakin@intel.com>
-Date: Fri, 24 Jun 2022 14:13:04 +0200
+This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
+vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
+up a private and static protection_map[] array. Subsequently all __SXXX and
+__PXXX macros can be dropped which are no longer needed.
 
-> While I was working on converting some structure fields from a fixed
-> type to a bitmap, I started observing code size increase not only in
-> places where the code works with the converted structure fields, but
-> also where the converted vars were on the stack. That said, the
-> following code:
+Cc: Jonas Bonn <jonas@southpole.se>
+Cc: openrisc@lists.librecores.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+---
+ arch/openrisc/Kconfig               |  1 +
+ arch/openrisc/include/asm/pgtable.h | 18 ------------------
+ arch/openrisc/mm/init.c             | 20 ++++++++++++++++++++
+ 3 files changed, 21 insertions(+), 18 deletions(-)
 
-Hey,
-
-Seems like everything is fine this time. I got some reports, but
-those aren't caused by any of the changes from the series.
-Maybe we can take it to -next and see how it goes?
-
-[...]
-
->  arch/alpha/include/asm/bitops.h               |  32 ++--
->  arch/hexagon/include/asm/bitops.h             |  24 ++-
->  arch/ia64/include/asm/bitops.h                |  42 ++---
->  arch/ia64/include/asm/processor.h             |   2 +-
->  arch/m68k/include/asm/bitops.h                |  49 ++++--
->  arch/s390/include/asm/bitops.h                |  61 +++----
->  arch/sh/include/asm/bitops-op32.h             |  34 ++--
->  arch/sparc/include/asm/bitops_32.h            |  18 +-
->  arch/sparc/lib/atomic32.c                     |  12 +-
->  arch/x86/include/asm/bitops.h                 |  22 +--
->  drivers/net/ethernet/intel/ice/ice_switch.c   |   2 +-
->  .../asm-generic/bitops/generic-non-atomic.h   | 161 ++++++++++++++++++
->  .../bitops/instrumented-non-atomic.h          |  35 ++--
->  include/asm-generic/bitops/non-atomic.h       | 121 +------------
->  .../bitops/non-instrumented-non-atomic.h      |  16 ++
->  include/linux/bitmap.h                        |  22 ++-
->  include/linux/bitops.h                        |  50 ++++++
->  lib/test_bitmap.c                             |  62 +++++++
->  tools/include/asm-generic/bitops/non-atomic.h |  34 ++--
->  tools/include/linux/bitops.h                  |  16 ++
->  20 files changed, 544 insertions(+), 271 deletions(-)
->  create mode 100644 include/asm-generic/bitops/generic-non-atomic.h
->  create mode 100644 include/asm-generic/bitops/non-instrumented-non-atomic.h
-> 
-> -- 
-> 2.36.1
-
-Thanks,
-Olek
+diff --git a/arch/openrisc/Kconfig b/arch/openrisc/Kconfig
+index e814df4c483c..fe0dfb50eb86 100644
+--- a/arch/openrisc/Kconfig
++++ b/arch/openrisc/Kconfig
+@@ -10,6 +10,7 @@ config OPENRISC
+ 	select ARCH_HAS_DMA_SET_UNCACHED
+ 	select ARCH_HAS_DMA_CLEAR_UNCACHED
+ 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE
++	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select COMMON_CLK
+ 	select OF
+ 	select OF_EARLY_FLATTREE
+diff --git a/arch/openrisc/include/asm/pgtable.h b/arch/openrisc/include/asm/pgtable.h
+index c3abbf71e09f..dcae8aea132f 100644
+--- a/arch/openrisc/include/asm/pgtable.h
++++ b/arch/openrisc/include/asm/pgtable.h
+@@ -176,24 +176,6 @@ extern void paging_init(void);
+ 	__pgprot(_PAGE_ALL | _PAGE_SRE | _PAGE_SWE \
+ 		 | _PAGE_SHARED | _PAGE_DIRTY | _PAGE_EXEC | _PAGE_CI)
+ 
+-#define __P000	PAGE_NONE
+-#define __P001	PAGE_READONLY_X
+-#define __P010	PAGE_COPY
+-#define __P011	PAGE_COPY_X
+-#define __P100	PAGE_READONLY
+-#define __P101	PAGE_READONLY_X
+-#define __P110	PAGE_COPY
+-#define __P111	PAGE_COPY_X
+-
+-#define __S000	PAGE_NONE
+-#define __S001	PAGE_READONLY_X
+-#define __S010	PAGE_SHARED
+-#define __S011	PAGE_SHARED_X
+-#define __S100	PAGE_READONLY
+-#define __S101	PAGE_READONLY_X
+-#define __S110	PAGE_SHARED
+-#define __S111	PAGE_SHARED_X
+-
+ /* zero page used for uninitialized stuff */
+ extern unsigned long empty_zero_page[2048];
+ #define ZERO_PAGE(vaddr) (virt_to_page(empty_zero_page))
+diff --git a/arch/openrisc/mm/init.c b/arch/openrisc/mm/init.c
+index 3a021ab6f1ae..a654b9dcba91 100644
+--- a/arch/openrisc/mm/init.c
++++ b/arch/openrisc/mm/init.c
+@@ -208,3 +208,23 @@ void __init mem_init(void)
+ 	mem_init_done = 1;
+ 	return;
+ }
++
++static pgprot_t protection_map[16] __ro_after_init = {
++	[VM_NONE]					= PAGE_NONE,
++	[VM_READ]					= PAGE_READONLY_X,
++	[VM_WRITE]					= PAGE_COPY,
++	[VM_WRITE | VM_READ]				= PAGE_COPY_X,
++	[VM_EXEC]					= PAGE_READONLY,
++	[VM_EXEC | VM_READ]				= PAGE_READONLY_X,
++	[VM_EXEC | VM_WRITE]				= PAGE_COPY,
++	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_COPY_X,
++	[VM_SHARED]					= PAGE_NONE,
++	[VM_SHARED | VM_READ]				= PAGE_READONLY_X,
++	[VM_SHARED | VM_WRITE]				= PAGE_SHARED,
++	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_SHARED_X,
++	[VM_SHARED | VM_EXEC]				= PAGE_READONLY,
++	[VM_SHARED | VM_EXEC | VM_READ]			= PAGE_READONLY_X,
++	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_SHARED,
++	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= PAGE_SHARED_X
++};
++DECLARE_VM_GET_PAGE_PROT
+-- 
+2.25.1
