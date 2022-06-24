@@ -1,98 +1,115 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Fri, 24 Jun 2022 04:55:28 +0000
-Subject: [PATCH V4 15/26] nios2/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <20220624044339.1533882-16-anshuman.khandual@arm.com>
+From: Alexander Lobakin <alexandr.lobakin@intel.com>
+Date: Fri, 24 Jun 2022 12:13:13 +0000
+Subject: [PATCH v5 9/9] lib: test_bitmap: add compile-time optimization/evaluations assertions
+Message-Id: <20220624121313.2382500-10-alexandr.lobakin@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220624044339.1533882-1-anshuman.khandual@arm.com>
-In-Reply-To: <20220624044339.1533882-1-anshuman.khandual@arm.com>
+References: <20220624121313.2382500-1-alexandr.lobakin@intel.com>
+In-Reply-To: <20220624121313.2382500-1-alexandr.lobakin@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org
-Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Dinh Nguyen <dinguyen@kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>
+Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Maciej Fijalkowski <maciej.fijalkowski@intel.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Nathan Chancellor <nathan@kernel.org>, Nick Desaulniers <ndesaulniers@google.com>, Tom Rix <trix@redhat.com>, kernel test robot <lkp@intel.com>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, llvm@lists.linux.dev, linux-kernel@vger.kernel.org
 
-This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
-vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
-up a private and static protection_map[] array. Subsequently all __SXXX and
-__PXXX macros can be dropped which are no longer needed.
+Add a function to the bitmap test suite, which will ensure that
+compilers are able to evaluate operations performed by the
+bitops/bitmap helpers to compile-time constants when all of the
+arguments are compile-time constants as well, or trigger a build
+bug otherwise. This should work on all architectures and all the
+optimization levels supported by Kbuild.
+The function doesn't perform any runtime tests and gets optimized
+out to nothing after passing the build assertions.
+Unfortunately, Clang for s390 is currently broken (up to the latest
+Git snapshots) -- see the comment in the code -- so for now there's
+a small workaround for it which doesn't alter the logics. Hope we'll
+be able to remove it one day (bugreport is on its way).
 
-Cc: Dinh Nguyen <dinguyen@kernel.org>
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+Suggested-by: Yury Norov <yury.norov@gmail.com>
+Signed-off-by: Alexander Lobakin <alexandr.lobakin@intel.com>
+Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 ---
- arch/nios2/Kconfig               |  1 +
- arch/nios2/include/asm/pgtable.h | 16 ----------------
- arch/nios2/mm/init.c             | 20 ++++++++++++++++++++
- 3 files changed, 21 insertions(+), 16 deletions(-)
+ lib/test_bitmap.c | 62 +++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 62 insertions(+)
 
-diff --git a/arch/nios2/Kconfig b/arch/nios2/Kconfig
-index 4167f1eb4cd8..e0459dffd218 100644
---- a/arch/nios2/Kconfig
-+++ b/arch/nios2/Kconfig
-@@ -6,6 +6,7 @@ config NIOS2
- 	select ARCH_HAS_SYNC_DMA_FOR_CPU
- 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE
- 	select ARCH_HAS_DMA_SET_UNCACHED
-+	select ARCH_HAS_VM_GET_PAGE_PROT
- 	select ARCH_NO_SWAP
- 	select COMMON_CLK
- 	select TIMER_OF
-diff --git a/arch/nios2/include/asm/pgtable.h b/arch/nios2/include/asm/pgtable.h
-index 262d0609268c..470516d4555e 100644
---- a/arch/nios2/include/asm/pgtable.h
-+++ b/arch/nios2/include/asm/pgtable.h
-@@ -40,24 +40,8 @@ struct mm_struct;
-  */
- 
- /* Remove W bit on private pages for COW support */
--#define __P000	MKP(0, 0, 0)
--#define __P001	MKP(0, 0, 1)
--#define __P010	MKP(0, 0, 0)	/* COW */
--#define __P011	MKP(0, 0, 1)	/* COW */
--#define __P100	MKP(1, 0, 0)
--#define __P101	MKP(1, 0, 1)
--#define __P110	MKP(1, 0, 0)	/* COW */
--#define __P111	MKP(1, 0, 1)	/* COW */
- 
- /* Shared pages can have exact HW mapping */
--#define __S000	MKP(0, 0, 0)
--#define __S001	MKP(0, 0, 1)
--#define __S010	MKP(0, 1, 0)
--#define __S011	MKP(0, 1, 1)
--#define __S100	MKP(1, 0, 0)
--#define __S101	MKP(1, 0, 1)
--#define __S110	MKP(1, 1, 0)
--#define __S111	MKP(1, 1, 1)
- 
- /* Used all over the kernel */
- #define PAGE_KERNEL __pgprot(_PAGE_PRESENT | _PAGE_CACHED | _PAGE_READ | \
-diff --git a/arch/nios2/mm/init.c b/arch/nios2/mm/init.c
-index 613fcaa5988a..9a3dd4c80d70 100644
---- a/arch/nios2/mm/init.c
-+++ b/arch/nios2/mm/init.c
-@@ -124,3 +124,23 @@ const char *arch_vma_name(struct vm_area_struct *vma)
- {
- 	return (vma->vm_start = KUSER_BASE) ? "[kuser]" : NULL;
+diff --git a/lib/test_bitmap.c b/lib/test_bitmap.c
+index d5923a640457..25967cfa4ab2 100644
+--- a/lib/test_bitmap.c
++++ b/lib/test_bitmap.c
+@@ -869,6 +869,67 @@ static void __init test_bitmap_print_buf(void)
+ 	}
  }
+ 
++static void __init test_bitmap_const_eval(void)
++{
++	DECLARE_BITMAP(bitmap, BITS_PER_LONG);
++	unsigned long initvar = BIT(2);
++	unsigned long bitopvar = 0;
++	unsigned long var = 0;
++	int res;
 +
-+static pgprot_t protection_map[16] __ro_after_init = {
-+	[VM_NONE]					= MKP(0, 0, 0),
-+	[VM_READ]					= MKP(0, 0, 1),
-+	[VM_WRITE]					= MKP(0, 0, 0),
-+	[VM_WRITE | VM_READ]				= MKP(0, 0, 1),
-+	[VM_EXEC]					= MKP(1, 0, 0),
-+	[VM_EXEC | VM_READ]				= MKP(1, 0, 1),
-+	[VM_EXEC | VM_WRITE]				= MKP(1, 0, 0),
-+	[VM_EXEC | VM_WRITE | VM_READ]			= MKP(1, 0, 1),
-+	[VM_SHARED]					= MKP(0, 0, 0),
-+	[VM_SHARED | VM_READ]				= MKP(0, 0, 1),
-+	[VM_SHARED | VM_WRITE]				= MKP(0, 1, 0),
-+	[VM_SHARED | VM_WRITE | VM_READ]		= MKP(0, 1, 1),
-+	[VM_SHARED | VM_EXEC]				= MKP(1, 0, 0),
-+	[VM_SHARED | VM_EXEC | VM_READ]			= MKP(1, 0, 1),
-+	[VM_SHARED | VM_EXEC | VM_WRITE]		= MKP(1, 1, 0),
-+	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= MKP(1, 1, 1)
-+};
-+DECLARE_VM_GET_PAGE_PROT
++	/*
++	 * Compilers must be able to optimize all of those to compile-time
++	 * constants on any supported optimization level (-O2, -Os) and any
++	 * architecture. Otherwise, trigger a build bug.
++	 * The whole function gets optimized out then, there's nothing to do
++	 * in runtime.
++	 */
++
++	/*
++	 * Equals to `unsigned long bitmap[1] = { GENMASK(6, 5), }`.
++	 * Clang on s390 optimizes bitops at compile-time as intended, but at
++	 * the same time stops treating @bitmap and @bitopvar as compile-time
++	 * constants after regular test_bit() is executed, thus triggering the
++	 * build bugs below. So, call const_test_bit() there directly until
++	 * the compiler is fixed.
++	 */
++	bitmap_clear(bitmap, 0, BITS_PER_LONG);
++#if defined(__s390__) && defined(__clang__)
++	if (!const_test_bit(7, bitmap))
++#else
++	if (!test_bit(7, bitmap))
++#endif
++		bitmap_set(bitmap, 5, 2);
++
++	/* Equals to `unsigned long bitopvar = BIT(20)` */
++	__change_bit(31, &bitopvar);
++	bitmap_shift_right(&bitopvar, &bitopvar, 11, BITS_PER_LONG);
++
++	/* Equals to `unsigned long var = BIT(25)` */
++	var |= BIT(25);
++	if (var & BIT(0))
++		var ^= GENMASK(9, 6);
++
++	/* __const_hweight<32|64>(GENMASK(6, 5)) = 2 */
++	res = bitmap_weight(bitmap, 20);
++	BUILD_BUG_ON(!__builtin_constant_p(res));
++	BUILD_BUG_ON(res != 2);
++
++	/* !(BIT(31) & BIT(18)) = 1 */
++	res = !test_bit(18, &bitopvar);
++	BUILD_BUG_ON(!__builtin_constant_p(res));
++	BUILD_BUG_ON(!res);
++
++	/* BIT(2) & GENMASK(14, 8) = 0 */
++	res = initvar & GENMASK(14, 8);
++	BUILD_BUG_ON(!__builtin_constant_p(res));
++	BUILD_BUG_ON(res);
++
++	/* ~BIT(25) */
++	BUILD_BUG_ON(!__builtin_constant_p(~var));
++	BUILD_BUG_ON(~var != ~BIT(25));
++}
++
+ static void __init selftest(void)
+ {
+ 	test_zero_clear();
+@@ -884,6 +945,7 @@ static void __init selftest(void)
+ 	test_for_each_set_clump8();
+ 	test_bitmap_cut();
+ 	test_bitmap_print_buf();
++	test_bitmap_const_eval();
+ }
+ 
+ KSTM_MODULE_LOADERS(test_bitmap);
 -- 
-2.25.1
+2.36.1
