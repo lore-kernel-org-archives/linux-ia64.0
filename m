@@ -1,64 +1,55 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Fri, 24 Jun 2022 04:55:20 +0000
-Subject: [PATCH V4 07/26] mm/mmap: Build protect protection_map[] with ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <20220624044339.1533882-8-anshuman.khandual@arm.com>
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Fri, 24 Jun 2022 05:22:39 +0000
+Subject: Re: [PATCH V4 07/26] mm/mmap: Build protect protection_map[] with ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <10aca763-2313-84bf-9200-6a6037fd748c@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220624044339.1533882-1-anshuman.khandual@arm.com>
-In-Reply-To: <20220624044339.1533882-1-anshuman.khandual@arm.com>
+ <20220624044339.1533882-8-anshuman.khandual@arm.com>
+In-Reply-To: <20220624044339.1533882-8-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org
-Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Anshuman Khandual <anshuman.khandual@arm.com>, "linux-mm@kvack.org" <linux-mm@kvack.org>
+Cc: "hch@infradead.org" <hch@infradead.org>, Andrew Morton <akpm@linux-foundation.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>, "x86@kernel.org" <x86@kernel.org>, "openrisc@lists.librecores.org" <openrisc@lists.librecores.org>, "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>, "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>, "linux-hexagon@vger.kernel.org" <linux-hexagon@vger.kernel.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>, "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>, "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 
-protection_map[] has already been moved inside those platforms which enable
-ARCH_HAS_VM_GET_PAGE_PROT. Hence generic protection_map[] array now can be
-protected with CONFIG_ARCH_HAS_VM_GET_PAGE_PROT intead of __P000.
-
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-mm@kvack.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
----
- include/linux/mm.h | 2 +-
- mm/mmap.c          | 5 +----
- 2 files changed, 2 insertions(+), 5 deletions(-)
-
-diff --git a/include/linux/mm.h b/include/linux/mm.h
-index 237828c2bae2..70d900f6df43 100644
---- a/include/linux/mm.h
-+++ b/include/linux/mm.h
-@@ -424,7 +424,7 @@ extern unsigned int kobjsize(const void *objp);
-  * mapping from the currently active vm_flags protection bits (the
-  * low four bits) to a page protection mask..
-  */
--#ifdef __P000
-+#ifndef CONFIG_ARCH_HAS_VM_GET_PAGE_PROT
- extern pgprot_t protection_map[16];
- #endif
- 
-diff --git a/mm/mmap.c b/mm/mmap.c
-index 55c30aee3999..43db3bd49071 100644
---- a/mm/mmap.c
-+++ b/mm/mmap.c
-@@ -101,7 +101,7 @@ static void unmap_region(struct mm_struct *mm,
-  *								w: (no) no
-  *								x: (yes) yes
-  */
--#ifdef __P000
-+#ifndef CONFIG_ARCH_HAS_VM_GET_PAGE_PROT
- pgprot_t protection_map[16] __ro_after_init = {
- 	[VM_NONE]					= __P000,
- 	[VM_READ]					= __P001,
-@@ -120,9 +120,6 @@ pgprot_t protection_map[16] __ro_after_init = {
- 	[VM_SHARED | VM_EXEC | VM_WRITE]		= __S110,
- 	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= __S111
- };
--#endif
--
--#ifndef CONFIG_ARCH_HAS_VM_GET_PAGE_PROT
- DECLARE_VM_GET_PAGE_PROT
- #endif	/* CONFIG_ARCH_HAS_VM_GET_PAGE_PROT */
- 
--- 
-2.25.1
+DQoNCkxlIDI0LzA2LzIwMjIgw6AgMDY6NDMsIEFuc2h1bWFuIEtoYW5kdWFsIGEgw6ljcml0wqA6
+DQo+IHByb3RlY3Rpb25fbWFwW10gaGFzIGFscmVhZHkgYmVlbiBtb3ZlZCBpbnNpZGUgdGhvc2Ug
+cGxhdGZvcm1zIHdoaWNoIGVuYWJsZQ0KDQpVc3VhbGx5ICJhbHJlYWR5IiBtZWFucyBiZWZvcmUg
+eW91ciBzZXJpZXMuDQoNCllvdXIgc2VyaWVzIGlzIHRoZSBvbmUgdGhhdCBtb3ZlcyBwcm90ZWN0
+aW9uX21hcFtdIHNvIEkgd291bGQgaGF2ZSBqdXN0IA0Kc2FpZCAiTm93IHRoYXQgcHJvdGVjdGlv
+bl9tYXBbXSBoYXMgYmVlbiBtb3ZlZCBpbnNpZGUgdGhvc2UgcGxhdGZvcm1zIA0Kd2hpY2ggZW5h
+YmxlIC4uLi4iDQoNCj4gQVJDSF9IQVNfVk1fR0VUX1BBR0VfUFJPVC4gSGVuY2UgZ2VuZXJpYyBw
+cm90ZWN0aW9uX21hcFtdIGFycmF5IG5vdyBjYW4gYmUNCj4gcHJvdGVjdGVkIHdpdGggQ09ORklH
+X0FSQ0hfSEFTX1ZNX0dFVF9QQUdFX1BST1QgaW50ZWFkIG9mIF9fUDAwMC4NCj4gDQo+IENjOiBB
+bmRyZXcgTW9ydG9uIDxha3BtQGxpbnV4LWZvdW5kYXRpb24ub3JnPg0KPiBDYzogbGludXgtbW1A
+a3ZhY2sub3JnDQo+IENjOiBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnDQo+IFNpZ25lZC1v
+ZmYtYnk6IEFuc2h1bWFuIEtoYW5kdWFsIDxhbnNodW1hbi5raGFuZHVhbEBhcm0uY29tPg0KPiAt
+LS0NCj4gICBpbmNsdWRlL2xpbnV4L21tLmggfCAyICstDQo+ICAgbW0vbW1hcC5jICAgICAgICAg
+IHwgNSArLS0tLQ0KPiAgIDIgZmlsZXMgY2hhbmdlZCwgMiBpbnNlcnRpb25zKCspLCA1IGRlbGV0
+aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvbW0uaCBiL2luY2x1ZGUv
+bGludXgvbW0uaA0KPiBpbmRleCAyMzc4MjhjMmJhZTIuLjcwZDkwMGY2ZGY0MyAxMDA2NDQNCj4g
+LS0tIGEvaW5jbHVkZS9saW51eC9tbS5oDQo+ICsrKyBiL2luY2x1ZGUvbGludXgvbW0uaA0KPiBA
+QCAtNDI0LDcgKzQyNCw3IEBAIGV4dGVybiB1bnNpZ25lZCBpbnQga29ianNpemUoY29uc3Qgdm9p
+ZCAqb2JqcCk7DQo+ICAgICogbWFwcGluZyBmcm9tIHRoZSBjdXJyZW50bHkgYWN0aXZlIHZtX2Zs
+YWdzIHByb3RlY3Rpb24gYml0cyAodGhlDQo+ICAgICogbG93IGZvdXIgYml0cykgdG8gYSBwYWdl
+IHByb3RlY3Rpb24gbWFzay4uDQo+ICAgICovDQo+IC0jaWZkZWYgX19QMDAwDQo+ICsjaWZuZGVm
+IENPTkZJR19BUkNIX0hBU19WTV9HRVRfUEFHRV9QUk9UDQo+ICAgZXh0ZXJuIHBncHJvdF90IHBy
+b3RlY3Rpb25fbWFwWzE2XTsNCg0KSXMgdGhpcyBkZWNsYXJhdGlvbiBzdGlsbCBuZWVkZWQgPyBJ
+IGhhdmUgdGhlIGZlZWxpbmcgdGhhdCANCnByb3RlY3Rpb25fbWFwW10gaXMgb25seSB1c2VkIGlu
+IG1tL21tYXAuYyBub3cuDQoNCj4gICAjZW5kaWYNCj4gICANCj4gZGlmZiAtLWdpdCBhL21tL21t
+YXAuYyBiL21tL21tYXAuYw0KPiBpbmRleCA1NWMzMGFlZTM5OTkuLjQzZGIzYmQ0OTA3MSAxMDA2
+NDQNCj4gLS0tIGEvbW0vbW1hcC5jDQo+ICsrKyBiL21tL21tYXAuYw0KPiBAQCAtMTAxLDcgKzEw
+MSw3IEBAIHN0YXRpYyB2b2lkIHVubWFwX3JlZ2lvbihzdHJ1Y3QgbW1fc3RydWN0ICptbSwNCj4g
+ICAgKgkJCQkJCQkJdzogKG5vKSBubw0KPiAgICAqCQkJCQkJCQl4OiAoeWVzKSB5ZXMNCj4gICAg
+Ki8NCj4gLSNpZmRlZiBfX1AwMDANCj4gKyNpZm5kZWYgQ09ORklHX0FSQ0hfSEFTX1ZNX0dFVF9Q
+QUdFX1BST1QNCj4gICBwZ3Byb3RfdCBwcm90ZWN0aW9uX21hcFsxNl0gX19yb19hZnRlcl9pbml0
+ID0gew0KDQpTaG91bGQgdGhpcyBiZSBzdGF0aWMsIGFzIGl0IHNlZW1zIHRvIG5vdyBiZSB1c2Vk
+IG9ubHkgaW4gdGhpcyBmaWxlID8NCkFuZCBpdCBjb3VsZCBhbHNvIGJlICdjb25zdCcgaW5zdGVh
+ZCBvZiBfX3JvX2FmdGVyX2luaXQuDQoNCj4gICAJW1ZNX05PTkVdCQkJCQk9IF9fUDAwMCwNCj4g
+ICAJW1ZNX1JFQURdCQkJCQk9IF9fUDAwMSwNCj4gQEAgLTEyMCw5ICsxMjAsNiBAQCBwZ3Byb3Rf
+dCBwcm90ZWN0aW9uX21hcFsxNl0gX19yb19hZnRlcl9pbml0ID0gew0KPiAgIAlbVk1fU0hBUkVE
+IHwgVk1fRVhFQyB8IFZNX1dSSVRFXQkJPSBfX1MxMTAsDQo+ICAgCVtWTV9TSEFSRUQgfCBWTV9F
+WEVDIHwgVk1fV1JJVEUgfCBWTV9SRUFEXQk9IF9fUzExMQ0KPiAgIH07DQo+IC0jZW5kaWYNCj4g
+LQ0KPiAtI2lmbmRlZiBDT05GSUdfQVJDSF9IQVNfVk1fR0VUX1BBR0VfUFJPVA0KPiAgIERFQ0xB
+UkVfVk1fR0VUX1BBR0VfUFJPVA0KPiAgICNlbmRpZgkvKiBDT05GSUdfQVJDSF9IQVNfVk1fR0VU
+X1BBR0VfUFJPVCAqLw0KPiAgIA=
