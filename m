@@ -1,115 +1,294 @@
-From: Alexander Lobakin <alexandr.lobakin@intel.com>
-Date: Fri, 24 Jun 2022 12:13:13 +0000
-Subject: [PATCH v5 9/9] lib: test_bitmap: add compile-time optimization/evaluations assertions
-Message-Id: <20220624121313.2382500-10-alexandr.lobakin@intel.com>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Fri, 24 Jun 2022 04:55:34 +0000
+Subject: [PATCH V4 21/26] m68k/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <20220624044339.1533882-22-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220624121313.2382500-1-alexandr.lobakin@intel.com>
-In-Reply-To: <20220624121313.2382500-1-alexandr.lobakin@intel.com>
+References: <20220624044339.1533882-1-anshuman.khandual@arm.com>
+In-Reply-To: <20220624044339.1533882-1-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>
-Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Maciej Fijalkowski <maciej.fijalkowski@intel.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Nathan Chancellor <nathan@kernel.org>, Nick Desaulniers <ndesaulniers@google.com>, Tom Rix <trix@redhat.com>, kernel test robot <lkp@intel.com>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, llvm@lists.linux.dev, linux-kernel@vger.kernel.org
+To: linux-mm@kvack.org
+Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 
-Add a function to the bitmap test suite, which will ensure that
-compilers are able to evaluate operations performed by the
-bitops/bitmap helpers to compile-time constants when all of the
-arguments are compile-time constants as well, or trigger a build
-bug otherwise. This should work on all architectures and all the
-optimization levels supported by Kbuild.
-The function doesn't perform any runtime tests and gets optimized
-out to nothing after passing the build assertions.
-Unfortunately, Clang for s390 is currently broken (up to the latest
-Git snapshots) -- see the comment in the code -- so for now there's
-a small workaround for it which doesn't alter the logics. Hope we'll
-be able to remove it one day (bugreport is on its way).
+This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
+vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
+up a private and static protection_map[] array. Subsequently all __SXXX and
+__PXXX macros can be dropped which are no longer needed.
 
-Suggested-by: Yury Norov <yury.norov@gmail.com>
-Signed-off-by: Alexander Lobakin <alexandr.lobakin@intel.com>
-Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+Cc: linux-m68k@lists.linux-m68k.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
- lib/test_bitmap.c | 62 +++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 62 insertions(+)
+ arch/m68k/Kconfig                        |  1 +
+ arch/m68k/include/asm/mcf_pgtable.h      | 54 -----------------------
+ arch/m68k/include/asm/motorola_pgtable.h | 22 ----------
+ arch/m68k/include/asm/sun3_pgtable.h     | 17 --------
+ arch/m68k/mm/mcfmmu.c                    | 55 ++++++++++++++++++++++++
+ arch/m68k/mm/motorola.c                  | 20 +++++++++
+ arch/m68k/mm/sun3mmu.c                   | 20 +++++++++
+ 7 files changed, 96 insertions(+), 93 deletions(-)
 
-diff --git a/lib/test_bitmap.c b/lib/test_bitmap.c
-index d5923a640457..25967cfa4ab2 100644
---- a/lib/test_bitmap.c
-+++ b/lib/test_bitmap.c
-@@ -869,6 +869,67 @@ static void __init test_bitmap_print_buf(void)
- 	}
+diff --git a/arch/m68k/Kconfig b/arch/m68k/Kconfig
+index 936cce42ae9a..49aa0cf13e96 100644
+--- a/arch/m68k/Kconfig
++++ b/arch/m68k/Kconfig
+@@ -7,6 +7,7 @@ config M68K
+ 	select ARCH_HAS_CURRENT_STACK_POINTER
+ 	select ARCH_HAS_DMA_PREP_COHERENT if HAS_DMA && MMU && !COLDFIRE
+ 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE if HAS_DMA
++	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG if RMW_INSNS
+ 	select ARCH_MIGHT_HAVE_PC_PARPORT if ISA
+ 	select ARCH_NO_PREEMPT if !COLDFIRE
+diff --git a/arch/m68k/include/asm/mcf_pgtable.h b/arch/m68k/include/asm/mcf_pgtable.h
+index 94f38d76e278..0e9c1b28dcab 100644
+--- a/arch/m68k/include/asm/mcf_pgtable.h
++++ b/arch/m68k/include/asm/mcf_pgtable.h
+@@ -91,60 +91,6 @@
+  * for use. In general, the bit positions are xwr, and P-items are
+  * private, the S-items are shared.
+  */
+-#define __P000		PAGE_NONE
+-#define __P001		__pgprot(CF_PAGE_VALID \
+-				 | CF_PAGE_ACCESSED \
+-				 | CF_PAGE_READABLE)
+-#define __P010		__pgprot(CF_PAGE_VALID \
+-				 | CF_PAGE_ACCESSED \
+-				 | CF_PAGE_WRITABLE)
+-#define __P011		__pgprot(CF_PAGE_VALID \
+-				 | CF_PAGE_ACCESSED \
+-				 | CF_PAGE_READABLE \
+-				 | CF_PAGE_WRITABLE)
+-#define __P100		__pgprot(CF_PAGE_VALID \
+-				 | CF_PAGE_ACCESSED \
+-				 | CF_PAGE_EXEC)
+-#define __P101		__pgprot(CF_PAGE_VALID \
+-				 | CF_PAGE_ACCESSED \
+-				 | CF_PAGE_READABLE \
+-				 | CF_PAGE_EXEC)
+-#define __P110		__pgprot(CF_PAGE_VALID \
+-				 | CF_PAGE_ACCESSED \
+-				 | CF_PAGE_WRITABLE \
+-				 | CF_PAGE_EXEC)
+-#define __P111		__pgprot(CF_PAGE_VALID \
+-				 | CF_PAGE_ACCESSED \
+-				 | CF_PAGE_READABLE \
+-				 | CF_PAGE_WRITABLE \
+-				 | CF_PAGE_EXEC)
+-
+-#define __S000		PAGE_NONE
+-#define __S001		__pgprot(CF_PAGE_VALID \
+-				 | CF_PAGE_ACCESSED \
+-				 | CF_PAGE_READABLE)
+-#define __S010		PAGE_SHARED
+-#define __S011		__pgprot(CF_PAGE_VALID \
+-				 | CF_PAGE_ACCESSED \
+-				 | CF_PAGE_SHARED \
+-				 | CF_PAGE_READABLE)
+-#define __S100		__pgprot(CF_PAGE_VALID \
+-				 | CF_PAGE_ACCESSED \
+-				 | CF_PAGE_EXEC)
+-#define __S101		__pgprot(CF_PAGE_VALID \
+-				 | CF_PAGE_ACCESSED \
+-				 | CF_PAGE_READABLE \
+-				 | CF_PAGE_EXEC)
+-#define __S110		__pgprot(CF_PAGE_VALID \
+-				 | CF_PAGE_ACCESSED \
+-				 | CF_PAGE_SHARED \
+-				 | CF_PAGE_EXEC)
+-#define __S111		__pgprot(CF_PAGE_VALID \
+-				 | CF_PAGE_ACCESSED \
+-				 | CF_PAGE_SHARED \
+-				 | CF_PAGE_READABLE \
+-				 | CF_PAGE_EXEC)
+-
+ #define PTE_MASK	PAGE_MASK
+ #define CF_PAGE_CHG_MASK (PTE_MASK | CF_PAGE_ACCESSED | CF_PAGE_DIRTY)
+ 
+diff --git a/arch/m68k/include/asm/motorola_pgtable.h b/arch/m68k/include/asm/motorola_pgtable.h
+index 7c9b56e2a750..63aaece0722f 100644
+--- a/arch/m68k/include/asm/motorola_pgtable.h
++++ b/arch/m68k/include/asm/motorola_pgtable.h
+@@ -83,28 +83,6 @@ extern unsigned long mm_cachebits;
+ #define PAGE_COPY_C	__pgprot(_PAGE_PRESENT | _PAGE_RONLY | _PAGE_ACCESSED)
+ #define PAGE_READONLY_C	__pgprot(_PAGE_PRESENT | _PAGE_RONLY | _PAGE_ACCESSED)
+ 
+-/*
+- * The m68k can't do page protection for execute, and considers that the same are read.
+- * Also, write permissions imply read permissions. This is the closest we can get..
+- */
+-#define __P000	PAGE_NONE_C
+-#define __P001	PAGE_READONLY_C
+-#define __P010	PAGE_COPY_C
+-#define __P011	PAGE_COPY_C
+-#define __P100	PAGE_READONLY_C
+-#define __P101	PAGE_READONLY_C
+-#define __P110	PAGE_COPY_C
+-#define __P111	PAGE_COPY_C
+-
+-#define __S000	PAGE_NONE_C
+-#define __S001	PAGE_READONLY_C
+-#define __S010	PAGE_SHARED_C
+-#define __S011	PAGE_SHARED_C
+-#define __S100	PAGE_READONLY_C
+-#define __S101	PAGE_READONLY_C
+-#define __S110	PAGE_SHARED_C
+-#define __S111	PAGE_SHARED_C
+-
+ #define pmd_pgtable(pmd) ((pgtable_t)pmd_page_vaddr(pmd))
+ 
+ /*
+diff --git a/arch/m68k/include/asm/sun3_pgtable.h b/arch/m68k/include/asm/sun3_pgtable.h
+index 5e4e753f0d24..9d919491765b 100644
+--- a/arch/m68k/include/asm/sun3_pgtable.h
++++ b/arch/m68k/include/asm/sun3_pgtable.h
+@@ -71,23 +71,6 @@
+  * protection settings, valid (implying read and execute) and writeable. These
+  * are as close as we can get...
+  */
+-#define __P000	PAGE_NONE
+-#define __P001	PAGE_READONLY
+-#define __P010	PAGE_COPY
+-#define __P011	PAGE_COPY
+-#define __P100	PAGE_READONLY
+-#define __P101	PAGE_READONLY
+-#define __P110	PAGE_COPY
+-#define __P111	PAGE_COPY
+-
+-#define __S000	PAGE_NONE
+-#define __S001	PAGE_READONLY
+-#define __S010	PAGE_SHARED
+-#define __S011	PAGE_SHARED
+-#define __S100	PAGE_READONLY
+-#define __S101	PAGE_READONLY
+-#define __S110	PAGE_SHARED
+-#define __S111	PAGE_SHARED
+ 
+ /* Use these fake page-protections on PMDs. */
+ #define SUN3_PMD_VALID	(0x00000001)
+diff --git a/arch/m68k/mm/mcfmmu.c b/arch/m68k/mm/mcfmmu.c
+index 6f1f25125294..45d1964301f4 100644
+--- a/arch/m68k/mm/mcfmmu.c
++++ b/arch/m68k/mm/mcfmmu.c
+@@ -234,3 +234,58 @@ void steal_context(void)
+ 	destroy_context(mm);
  }
  
-+static void __init test_bitmap_const_eval(void)
-+{
-+	DECLARE_BITMAP(bitmap, BITS_PER_LONG);
-+	unsigned long initvar = BIT(2);
-+	unsigned long bitopvar = 0;
-+	unsigned long var = 0;
-+	int res;
-+
-+	/*
-+	 * Compilers must be able to optimize all of those to compile-time
-+	 * constants on any supported optimization level (-O2, -Os) and any
-+	 * architecture. Otherwise, trigger a build bug.
-+	 * The whole function gets optimized out then, there's nothing to do
-+	 * in runtime.
-+	 */
-+
-+	/*
-+	 * Equals to `unsigned long bitmap[1] = { GENMASK(6, 5), }`.
-+	 * Clang on s390 optimizes bitops at compile-time as intended, but at
-+	 * the same time stops treating @bitmap and @bitopvar as compile-time
-+	 * constants after regular test_bit() is executed, thus triggering the
-+	 * build bugs below. So, call const_test_bit() there directly until
-+	 * the compiler is fixed.
-+	 */
-+	bitmap_clear(bitmap, 0, BITS_PER_LONG);
-+#if defined(__s390__) && defined(__clang__)
-+	if (!const_test_bit(7, bitmap))
-+#else
-+	if (!test_bit(7, bitmap))
-+#endif
-+		bitmap_set(bitmap, 5, 2);
-+
-+	/* Equals to `unsigned long bitopvar = BIT(20)` */
-+	__change_bit(31, &bitopvar);
-+	bitmap_shift_right(&bitopvar, &bitopvar, 11, BITS_PER_LONG);
-+
-+	/* Equals to `unsigned long var = BIT(25)` */
-+	var |= BIT(25);
-+	if (var & BIT(0))
-+		var ^= GENMASK(9, 6);
-+
-+	/* __const_hweight<32|64>(GENMASK(6, 5)) = 2 */
-+	res = bitmap_weight(bitmap, 20);
-+	BUILD_BUG_ON(!__builtin_constant_p(res));
-+	BUILD_BUG_ON(res != 2);
-+
-+	/* !(BIT(31) & BIT(18)) = 1 */
-+	res = !test_bit(18, &bitopvar);
-+	BUILD_BUG_ON(!__builtin_constant_p(res));
-+	BUILD_BUG_ON(!res);
-+
-+	/* BIT(2) & GENMASK(14, 8) = 0 */
-+	res = initvar & GENMASK(14, 8);
-+	BUILD_BUG_ON(!__builtin_constant_p(res));
-+	BUILD_BUG_ON(res);
-+
-+	/* ~BIT(25) */
-+	BUILD_BUG_ON(!__builtin_constant_p(~var));
-+	BUILD_BUG_ON(~var != ~BIT(25));
-+}
-+
- static void __init selftest(void)
- {
- 	test_zero_clear();
-@@ -884,6 +945,7 @@ static void __init selftest(void)
- 	test_for_each_set_clump8();
- 	test_bitmap_cut();
- 	test_bitmap_print_buf();
-+	test_bitmap_const_eval();
++static pgprot_t protection_map[16] __ro_after_init = {
++	[VM_NONE]					= PAGE_NONE,
++	[VM_READ]					= __pgprot(CF_PAGE_VALID |
++								   CF_PAGE_ACCESSED |
++								   CF_PAGE_READABLE),
++	[VM_WRITE]					= __pgprot(CF_PAGE_VALID |
++								   CF_PAGE_ACCESSED |
++								   CF_PAGE_WRITABLE),
++	[VM_WRITE | VM_READ]				= __pgprot(CF_PAGE_VALID |
++								   CF_PAGE_ACCESSED |
++								   CF_PAGE_READABLE |
++								   CF_PAGE_WRITABLE),
++	[VM_EXEC]					= __pgprot(CF_PAGE_VALID |
++								   CF_PAGE_ACCESSED |
++								   CF_PAGE_EXEC),
++	[VM_EXEC | VM_READ]				= __pgprot(CF_PAGE_VALID |
++								   CF_PAGE_ACCESSED |
++								   CF_PAGE_READABLE |
++								   CF_PAGE_EXEC),
++	[VM_EXEC | VM_WRITE]				= __pgprot(CF_PAGE_VALID |
++								   CF_PAGE_ACCESSED |
++								   CF_PAGE_WRITABLE |
++								   CF_PAGE_EXEC),
++	[VM_EXEC | VM_WRITE | VM_READ]			=  __pgprot(CF_PAGE_VALID |
++								    CF_PAGE_ACCESSED |
++								    CF_PAGE_READABLE |
++								    CF_PAGE_WRITABLE |
++								    CF_PAGE_EXEC),
++	[VM_SHARED]					= PAGE_NONE,
++	[VM_SHARED | VM_READ]				= __pgprot(CF_PAGE_VALID |
++								   CF_PAGE_ACCESSED |
++								   CF_PAGE_READABLE),
++	[VM_SHARED | VM_WRITE]				= PAGE_SHARED,
++	[VM_SHARED | VM_WRITE | VM_READ]		= __pgprot(CF_PAGE_VALID |
++								   CF_PAGE_ACCESSED |
++								   CF_PAGE_READABLE |
++								   CF_PAGE_SHARED),
++	[VM_SHARED | VM_EXEC]				= __pgprot(CF_PAGE_VALID |
++								   CF_PAGE_ACCESSED |
++								   CF_PAGE_EXEC),
++	[VM_SHARED | VM_EXEC | VM_READ]			= __pgprot(CF_PAGE_VALID |
++								   CF_PAGE_ACCESSED |
++								   CF_PAGE_READABLE |
++								   CF_PAGE_EXEC),
++	[VM_SHARED | VM_EXEC | VM_WRITE]		= __pgprot(CF_PAGE_VALID |
++								   CF_PAGE_ACCESSED |
++								   CF_PAGE_SHARED |
++								   CF_PAGE_EXEC),
++	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= __pgprot(CF_PAGE_VALID |
++								   CF_PAGE_ACCESSED |
++								   CF_PAGE_READABLE |
++								   CF_PAGE_SHARED |
++								   CF_PAGE_EXEC)
++};
++DECLARE_VM_GET_PAGE_PROT
+diff --git a/arch/m68k/mm/motorola.c b/arch/m68k/mm/motorola.c
+index df7f797c908a..31fba64bc530 100644
+--- a/arch/m68k/mm/motorola.c
++++ b/arch/m68k/mm/motorola.c
+@@ -382,6 +382,26 @@ static void __init map_node(int node)
+ #endif
  }
  
- KSTM_MODULE_LOADERS(test_bitmap);
++static pgprot_t protection_map[16] __ro_after_init = {
++	[VM_NONE]					= PAGE_NONE_C,
++	[VM_READ]					= PAGE_READONLY_C,
++	[VM_WRITE]					= PAGE_COPY_C,
++	[VM_WRITE | VM_READ]				= PAGE_COPY_C,
++	[VM_EXEC]					= PAGE_READONLY_C,
++	[VM_EXEC | VM_READ]				= PAGE_READONLY_C,
++	[VM_EXEC | VM_WRITE]				= PAGE_COPY_C,
++	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_COPY_C,
++	[VM_SHARED]					= PAGE_NONE_C,
++	[VM_SHARED | VM_READ]				= PAGE_READONLY_C,
++	[VM_SHARED | VM_WRITE]				= PAGE_SHARED_C,
++	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_SHARED_C,
++	[VM_SHARED | VM_EXEC]				= PAGE_READONLY_C,
++	[VM_SHARED | VM_EXEC | VM_READ]			= PAGE_READONLY_C,
++	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_SHARED_C,
++	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= PAGE_SHARED_C
++};
++DECLARE_VM_GET_PAGE_PROT
++
+ /*
+  * paging_init() continues the virtual memory environment setup which
+  * was begun by the code in arch/head.S.
+diff --git a/arch/m68k/mm/sun3mmu.c b/arch/m68k/mm/sun3mmu.c
+index dad494224497..ef0baea67ea2 100644
+--- a/arch/m68k/mm/sun3mmu.c
++++ b/arch/m68k/mm/sun3mmu.c
+@@ -95,3 +95,23 @@ void __init paging_init(void)
+ 
+ 
+ }
++
++static pgprot_t protection_map[16] __ro_after_init = {
++	[VM_NONE]					= PAGE_NONE,
++	[VM_READ]					= PAGE_READONLY,
++	[VM_WRITE]					= PAGE_COPY,
++	[VM_WRITE | VM_READ]				= PAGE_COPY,
++	[VM_EXEC]					= PAGE_READONLY,
++	[VM_EXEC | VM_READ]				= PAGE_READONLY,
++	[VM_EXEC | VM_WRITE]				= PAGE_COPY,
++	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_COPY,
++	[VM_SHARED]					= PAGE_NONE,
++	[VM_SHARED | VM_READ]				= PAGE_READONLY,
++	[VM_SHARED | VM_WRITE]				= PAGE_SHARED,
++	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_SHARED,
++	[VM_SHARED | VM_EXEC]				= PAGE_READONLY,
++	[VM_SHARED | VM_EXEC | VM_READ]			= PAGE_READONLY,
++	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_SHARED,
++	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= PAGE_SHARED
++};
++DECLARE_VM_GET_PAGE_PROT
 -- 
-2.36.1
+2.25.1
