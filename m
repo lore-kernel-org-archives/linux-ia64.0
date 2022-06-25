@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Tue, 21 Jun 2022 17:47:30 +0000
+Date: Sat, 25 Jun 2022 16:34:46 +0000
 Subject: Re: [PATCH v4 12/12] sched,signal,ptrace: Rework TASK_TRACED, TASK_STOPPED state
-Message-Id: <87bkulgb7x.fsf@email.froward.int.ebiederm.org>
+Message-Id: <87y1xk8zx5.fsf@email.froward.int.ebiederm.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <87a6bv6dl6.fsf_-_@email.froward.int.ebiederm.org>
         <20220505182645.497868-12-ebiederm@xmission.com>
@@ -99,26 +99,47 @@ Alexander Gordeev <agordeev@linux.ibm.com> writes:
 > crash> task d0b10100 __state
 > PID: 108261  TASK: d0b10100          CPU: 2   COMMAND: "kill_child"
 >   __state = 8,
-
-That is weird.
-
->> At least on s390 it looks like there is a race between SIGKILL and
->> ptrace_check_attach.  That isn't good.
->>
->> Reading the code below there is something missing because I don't see
->> anything making ptrace calls, and ptrace_check_attach (which contains
->> the warning) only happens in the ptrace syscall.
 >
-> That is what I believe strace does when calling that code:
->
->  	strace -f -qq -e signal=none -e trace=sched_yield,/kill	./kill_child
 
-Thank you.  That was my braino.
+I haven't gotten as far as reproducing this but I have started giving
+this issue some thought.
 
-I will have to see if it reproduces for me on x86 (I don't have an
-s390).  Perhaps if I can reproduce it I can guess what is going wrong.
+This entire thing smells like a memory barrier is missing somewhere.
+However by definition the lock implementations in linux provide all the
+needed memory barriers, and in the ptrace_stop and ptrace_check_attach
+path I don't see cases where these values are sampled outside of a lock
+except in wait_task_inactive.  Does doing that perhaps require a
+barrier? 
 
-So far it appears WARN_ON_ONCE has nothing to warn about yet it is
-warning.
+The two things I can think of that could shed light on what is going on
+is enabling lockdep, to enable the debug check in signal_wake_up_state
+and verifying bits of state that should be constant while the task
+is frozen for ptrace are indeed constant when task is frozen for ptrace.
+Something like my patch below.
 
+If you could test that when you have a chance that would help narrow
+down what is going on.
+
+Thank you,
 Eric
+
+diff --git a/kernel/ptrace.c b/kernel/ptrace.c
+index 156a99283b11..6467a2b1c3bc 100644
+--- a/kernel/ptrace.c
++++ b/kernel/ptrace.c
+@@ -268,9 +268,13 @@ static int ptrace_check_attach(struct task_struct *child, bool ignore_state)
+ 	}
+ 	read_unlock(&tasklist_lock);
+ 
+-	if (!ret && !ignore_state &&
+-	    WARN_ON_ONCE(!wait_task_inactive(child, __TASK_TRACED)))
++	if (!ret && !ignore_state) {
++		WARN_ON_ONCE(!(child->jobctl & JOBCTL_PTRACE_FROZEN));
++		WARN_ON_ONCE(!(child->joctctl & JOBCTL_TRACED));
++		WARN_ON_ONCE(READ_ONCE(child->__state) != __TASK_TRACED);
++		WARN_ON_ONCE(!wait_task_inactive(child, __TASK_TRACED));
+ 		ret = -ESRCH;
++	}
+ 
+ 	return ret;
+ }
