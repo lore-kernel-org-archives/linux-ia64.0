@@ -1,47 +1,113 @@
-From: Mike Kravetz <mike.kravetz@oracle.com>
-Date: Tue, 21 Jun 2022 23:56:16 +0000
-Subject: [PATCH v2 0/4] hugetlb: speed up linear address scanning
-Message-Id: <20220621235620.291305-1-mike.kravetz@oracle.com>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Mon, 27 Jun 2022 05:10:26 +0000
+Subject: [PATCH V5 19/26] ia64/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <20220627045833.1590055-20-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20220627045833.1590055-1-anshuman.khandual@arm.com>
+In-Reply-To: <20220627045833.1590055-1-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-arm-kernel@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-Cc: Muchun Song <songmuchun@bytedance.com>, Baolin Wang <baolin.wang@linux.alibaba.com>, Michal Hocko <mhocko@suse.com>, Peter Xu <peterx@redhat.com>, Naoya Horiguchi <naoya.horiguchi@linux.dev>, James Houghton <jthoughton@google.com>, Mina Almasry <almasrymina@google.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.vnet.ibm.com>, Anshuman Khandual <anshuman.khandual@arm.com>, Paul Walmsley <paul.walmsley@sifive.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, catalin.marinas@arm.com, will@kernel.org, Rolf Eike Beer <eike-kernel@sf-tec.de>, Andrew Morton <akpm@linux-foundation.org>, Mike Kravetz <mike.kravetz@oracle.com>
+To: linux-mm@kvack.org
+Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
 
-At unmap, fork and remap time hugetlb address ranges are linearly
-scanned.  We can optimize these scans if the ranges are sparsely
-populated.
+This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
+vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
+up a private and static protection_map[] array. Subsequently all __SXXX and
+__PXXX macros can be dropped which are no longer needed.
 
-Also, enable page table "Lazy copy" for hugetlb at fork.
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+---
+ arch/ia64/Kconfig               |  1 +
+ arch/ia64/include/asm/pgtable.h | 18 ------------------
+ arch/ia64/mm/init.c             | 28 +++++++++++++++++++++++++++-
+ 3 files changed, 28 insertions(+), 19 deletions(-)
 
-NOTE: Architectures not defining CONFIG_ARCH_WANT_GENERAL_HUGETLB
-need to add an arch specific version hugetlb_mask_last_page() to
-take advantage of sparse address scanning improvements.  Baolin Wang
-added the routine for arm64.  Other architectures which could be
-optimized are: ia64, mips, parisc, powerpc, s390, sh and sparc.
-
-v1->v2  Change hugetlb_mask_last_page default code to 0 instead of ~0.  Peter
-        Fix build issues on i386, including going back to if-else-if
-	instead of switch in hugetlb_mask_last_page. kernel test robot
-        Update commit message. Rolf Eike Beer
-        Changes were relatively minor, so I left the Reviewed-by and
-        ACKed-by tags.
-
-Baolin Wang (1):
-  arm64/hugetlb: Implement arm64 specific hugetlb_mask_last_page
-
-Mike Kravetz (3):
-  hugetlb: skip to end of PT page mapping when pte not present
-  hugetlb: do not update address in huge_pmd_unshare
-  hugetlb: Lazy page table copies in fork()
-
- arch/arm64/mm/hugetlbpage.c |  20 +++++++
- include/linux/hugetlb.h     |   5 +-
- mm/hugetlb.c                | 102 +++++++++++++++++++++++++-----------
- mm/memory.c                 |   2 +-
- mm/rmap.c                   |   4 +-
- 5 files changed, 96 insertions(+), 37 deletions(-)
-
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index cb93769a9f2a..0510a5737711 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -12,6 +12,7 @@ config IA64
+ 	select ARCH_HAS_DMA_MARK_CLEAN
+ 	select ARCH_HAS_STRNCPY_FROM_USER
+ 	select ARCH_HAS_STRNLEN_USER
++	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_MIGHT_HAVE_PC_PARPORT
+ 	select ARCH_MIGHT_HAVE_PC_SERIO
+ 	select ACPI
+diff --git a/arch/ia64/include/asm/pgtable.h b/arch/ia64/include/asm/pgtable.h
+index 7aa8f2330fb1..6925e28ae61d 100644
+--- a/arch/ia64/include/asm/pgtable.h
++++ b/arch/ia64/include/asm/pgtable.h
+@@ -161,24 +161,6 @@
+  * attempts to write to the page.
+  */
+ 	/* xwr */
+-#define __P000	PAGE_NONE
+-#define __P001	PAGE_READONLY
+-#define __P010	PAGE_READONLY	/* write to priv pg -> copy & make writable */
+-#define __P011	PAGE_READONLY	/* ditto */
+-#define __P100	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_X_RX)
+-#define __P101	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RX)
+-#define __P110	PAGE_COPY_EXEC
+-#define __P111	PAGE_COPY_EXEC
+-
+-#define __S000	PAGE_NONE
+-#define __S001	PAGE_READONLY
+-#define __S010	PAGE_SHARED	/* we don't have (and don't need) write-only */
+-#define __S011	PAGE_SHARED
+-#define __S100	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_X_RX)
+-#define __S101	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RX)
+-#define __S110	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RWX)
+-#define __S111	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RWX)
+-
+ #define pgd_ERROR(e)	printk("%s:%d: bad pgd %016lx.\n", __FILE__, __LINE__, pgd_val(e))
+ #if CONFIG_PGTABLE_LEVELS = 4
+ #define pud_ERROR(e)	printk("%s:%d: bad pud %016lx.\n", __FILE__, __LINE__, pud_val(e))
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index 855d949d81df..fc4e4217e87f 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -273,7 +273,7 @@ static int __init gate_vma_init(void)
+ 	gate_vma.vm_start = FIXADDR_USER_START;
+ 	gate_vma.vm_end = FIXADDR_USER_END;
+ 	gate_vma.vm_flags = VM_READ | VM_MAYREAD | VM_EXEC | VM_MAYEXEC;
+-	gate_vma.vm_page_prot = __P101;
++	gate_vma.vm_page_prot = __pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RX);
+ 
+ 	return 0;
+ }
+@@ -490,3 +490,29 @@ void arch_remove_memory(u64 start, u64 size, struct vmem_altmap *altmap)
+ 	__remove_pages(start_pfn, nr_pages, altmap);
+ }
+ #endif
++
++static const pgprot_t protection_map[16] = {
++	[VM_NONE]					= PAGE_NONE,
++	[VM_READ]					= PAGE_READONLY,
++	[VM_WRITE]					= PAGE_READONLY,
++	[VM_WRITE | VM_READ]				= PAGE_READONLY,
++	[VM_EXEC]					= __pgprot(__ACCESS_BITS | _PAGE_PL_3 |
++								   _PAGE_AR_X_RX),
++	[VM_EXEC | VM_READ]				= __pgprot(__ACCESS_BITS | _PAGE_PL_3 |
++								   _PAGE_AR_RX),
++	[VM_EXEC | VM_WRITE]				= PAGE_COPY_EXEC,
++	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_COPY_EXEC,
++	[VM_SHARED]					= PAGE_NONE,
++	[VM_SHARED | VM_READ]				= PAGE_READONLY,
++	[VM_SHARED | VM_WRITE]				= PAGE_SHARED,
++	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_SHARED,
++	[VM_SHARED | VM_EXEC]				= __pgprot(__ACCESS_BITS | _PAGE_PL_3 |
++								   _PAGE_AR_X_RX),
++	[VM_SHARED | VM_EXEC | VM_READ]			= __pgprot(__ACCESS_BITS | _PAGE_PL_3 |
++								   _PAGE_AR_RX),
++	[VM_SHARED | VM_EXEC | VM_WRITE]		= __pgprot(__ACCESS_BITS | _PAGE_PL_3 |
++								   _PAGE_AR_RWX),
++	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= __pgprot(__ACCESS_BITS | _PAGE_PL_3 |
++								   _PAGE_AR_RWX)
++};
++DECLARE_VM_GET_PAGE_PROT
 -- 
-2.35.3
+2.25.1
