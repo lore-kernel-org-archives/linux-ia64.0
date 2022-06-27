@@ -1,475 +1,99 @@
-From: Alexander Lobakin <alexandr.lobakin@intel.com>
-Date: Fri, 24 Jun 2022 12:13:09 +0000
-Subject: [PATCH v5 5/9] bitops: wrap non-atomic bitops with a transparent macro
-Message-Id: <20220624121313.2382500-6-alexandr.lobakin@intel.com>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Mon, 27 Jun 2022 04:59:37 +0000
+Subject: [PATCH V5 13/26] parisc/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <20220627045833.1590055-14-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220624121313.2382500-1-alexandr.lobakin@intel.com>
-In-Reply-To: <20220624121313.2382500-1-alexandr.lobakin@intel.com>
+References: <20220627045833.1590055-1-anshuman.khandual@arm.com>
+In-Reply-To: <20220627045833.1590055-1-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>
-Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Maciej Fijalkowski <maciej.fijalkowski@intel.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Nathan Chancellor <nathan@kernel.org>, Nick Desaulniers <ndesaulniers@google.com>, Tom Rix <trix@redhat.com>, kernel test robot <lkp@intel.com>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, llvm@lists.linux.dev, linux-kernel@vger.kernel.org
+To: linux-mm@kvack.org
+Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>
 
-In preparation for altering the non-atomic bitops with a macro, wrap
-them in a transparent definition. This requires prepending one more
-'_' to their names in order to be able to do that seamlessly. It is
-a simple change, given that all the non-prefixed definitions are now
-in asm-generic.
-sparc32 already has several triple-underscored functions, so I had
-to rename them ('___' -> 'sp32_').
+This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
+vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
+up a private and static protection_map[] array. Subsequently all __SXXX and
+__PXXX macros can be dropped which are no longer needed.
 
-Signed-off-by: Alexander Lobakin <alexandr.lobakin@intel.com>
-Reviewed-by: Marco Elver <elver@google.com>
-Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Cc: "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>
+Cc: linux-parisc@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
- arch/sparc/include/asm/bitops_32.h            | 18 ++++++------
- arch/sparc/lib/atomic32.c                     | 12 ++++----
- .../bitops/instrumented-non-atomic.h          | 28 +++++++++----------
- .../bitops/non-instrumented-non-atomic.h      | 14 +++++-----
- include/linux/bitops.h                        | 18 +++++++++++-
- tools/include/asm-generic/bitops/non-atomic.h | 24 ++++++++--------
- tools/include/linux/bitops.h                  | 16 +++++++++++
- 7 files changed, 81 insertions(+), 49 deletions(-)
+ arch/parisc/Kconfig               |  1 +
+ arch/parisc/include/asm/pgtable.h | 18 ------------------
+ arch/parisc/mm/init.c             | 20 ++++++++++++++++++++
+ 3 files changed, 21 insertions(+), 18 deletions(-)
 
-diff --git a/arch/sparc/include/asm/bitops_32.h b/arch/sparc/include/asm/bitops_32.h
-index 889afa9f990f..3448c191b484 100644
---- a/arch/sparc/include/asm/bitops_32.h
-+++ b/arch/sparc/include/asm/bitops_32.h
-@@ -19,9 +19,9 @@
- #error only <linux/bitops.h> can be included directly
+diff --git a/arch/parisc/Kconfig b/arch/parisc/Kconfig
+index 5f2448dc5a2b..90eabc846f81 100644
+--- a/arch/parisc/Kconfig
++++ b/arch/parisc/Kconfig
+@@ -11,6 +11,7 @@ config PARISC
+ 	select ARCH_HAS_ELF_RANDOMIZE
+ 	select ARCH_HAS_STRICT_KERNEL_RWX
+ 	select ARCH_HAS_UBSAN_SANITIZE_ALL
++	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_HAS_PTE_SPECIAL
+ 	select ARCH_NO_SG_CHAIN
+ 	select ARCH_SUPPORTS_HUGETLBFS if PA20
+diff --git a/arch/parisc/include/asm/pgtable.h b/arch/parisc/include/asm/pgtable.h
+index 69765a6dbe89..6a1899a9b420 100644
+--- a/arch/parisc/include/asm/pgtable.h
++++ b/arch/parisc/include/asm/pgtable.h
+@@ -271,24 +271,6 @@ extern void __update_cache(pte_t pte);
+  */
+ 
+ 	 /*xwr*/
+-#define __P000  PAGE_NONE
+-#define __P001  PAGE_READONLY
+-#define __P010  __P000 /* copy on write */
+-#define __P011  __P001 /* copy on write */
+-#define __P100  PAGE_EXECREAD
+-#define __P101  PAGE_EXECREAD
+-#define __P110  __P100 /* copy on write */
+-#define __P111  __P101 /* copy on write */
+-
+-#define __S000  PAGE_NONE
+-#define __S001  PAGE_READONLY
+-#define __S010  PAGE_WRITEONLY
+-#define __S011  PAGE_SHARED
+-#define __S100  PAGE_EXECREAD
+-#define __S101  PAGE_EXECREAD
+-#define __S110  PAGE_RWX
+-#define __S111  PAGE_RWX
+-
+ 
+ extern pgd_t swapper_pg_dir[]; /* declared in init_task.c */
+ 
+diff --git a/arch/parisc/mm/init.c b/arch/parisc/mm/init.c
+index 0a81499dd35e..f03e0961fa25 100644
+--- a/arch/parisc/mm/init.c
++++ b/arch/parisc/mm/init.c
+@@ -871,3 +871,23 @@ void flush_tlb_all(void)
+ 	spin_unlock(&sid_lock);
+ }
  #endif
- 
--unsigned long ___set_bit(unsigned long *addr, unsigned long mask);
--unsigned long ___clear_bit(unsigned long *addr, unsigned long mask);
--unsigned long ___change_bit(unsigned long *addr, unsigned long mask);
-+unsigned long sp32___set_bit(unsigned long *addr, unsigned long mask);
-+unsigned long sp32___clear_bit(unsigned long *addr, unsigned long mask);
-+unsigned long sp32___change_bit(unsigned long *addr, unsigned long mask);
- 
- /*
-  * Set bit 'nr' in 32-bit quantity at address 'addr' where bit '0'
-@@ -36,7 +36,7 @@ static inline int test_and_set_bit(unsigned long nr, volatile unsigned long *add
- 	ADDR = ((unsigned long *) addr) + (nr >> 5);
- 	mask = 1 << (nr & 31);
- 
--	return ___set_bit(ADDR, mask) != 0;
-+	return sp32___set_bit(ADDR, mask) != 0;
- }
- 
- static inline void set_bit(unsigned long nr, volatile unsigned long *addr)
-@@ -46,7 +46,7 @@ static inline void set_bit(unsigned long nr, volatile unsigned long *addr)
- 	ADDR = ((unsigned long *) addr) + (nr >> 5);
- 	mask = 1 << (nr & 31);
- 
--	(void) ___set_bit(ADDR, mask);
-+	(void) sp32___set_bit(ADDR, mask);
- }
- 
- static inline int test_and_clear_bit(unsigned long nr, volatile unsigned long *addr)
-@@ -56,7 +56,7 @@ static inline int test_and_clear_bit(unsigned long nr, volatile unsigned long *a
- 	ADDR = ((unsigned long *) addr) + (nr >> 5);
- 	mask = 1 << (nr & 31);
- 
--	return ___clear_bit(ADDR, mask) != 0;
-+	return sp32___clear_bit(ADDR, mask) != 0;
- }
- 
- static inline void clear_bit(unsigned long nr, volatile unsigned long *addr)
-@@ -66,7 +66,7 @@ static inline void clear_bit(unsigned long nr, volatile unsigned long *addr)
- 	ADDR = ((unsigned long *) addr) + (nr >> 5);
- 	mask = 1 << (nr & 31);
- 
--	(void) ___clear_bit(ADDR, mask);
-+	(void) sp32___clear_bit(ADDR, mask);
- }
- 
- static inline int test_and_change_bit(unsigned long nr, volatile unsigned long *addr)
-@@ -76,7 +76,7 @@ static inline int test_and_change_bit(unsigned long nr, volatile unsigned long *
- 	ADDR = ((unsigned long *) addr) + (nr >> 5);
- 	mask = 1 << (nr & 31);
- 
--	return ___change_bit(ADDR, mask) != 0;
-+	return sp32___change_bit(ADDR, mask) != 0;
- }
- 
- static inline void change_bit(unsigned long nr, volatile unsigned long *addr)
-@@ -86,7 +86,7 @@ static inline void change_bit(unsigned long nr, volatile unsigned long *addr)
- 	ADDR = ((unsigned long *) addr) + (nr >> 5);
- 	mask = 1 << (nr & 31);
- 
--	(void) ___change_bit(ADDR, mask);
-+	(void) sp32___change_bit(ADDR, mask);
- }
- 
- #include <asm-generic/bitops/non-atomic.h>
-diff --git a/arch/sparc/lib/atomic32.c b/arch/sparc/lib/atomic32.c
-index 8b81d0f00c97..cf80d1ae352b 100644
---- a/arch/sparc/lib/atomic32.c
-+++ b/arch/sparc/lib/atomic32.c
-@@ -120,7 +120,7 @@ void arch_atomic_set(atomic_t *v, int i)
- }
- EXPORT_SYMBOL(arch_atomic_set);
- 
--unsigned long ___set_bit(unsigned long *addr, unsigned long mask)
-+unsigned long sp32___set_bit(unsigned long *addr, unsigned long mask)
- {
- 	unsigned long old, flags;
- 
-@@ -131,9 +131,9 @@ unsigned long ___set_bit(unsigned long *addr, unsigned long mask)
- 
- 	return old & mask;
- }
--EXPORT_SYMBOL(___set_bit);
-+EXPORT_SYMBOL(sp32___set_bit);
- 
--unsigned long ___clear_bit(unsigned long *addr, unsigned long mask)
-+unsigned long sp32___clear_bit(unsigned long *addr, unsigned long mask)
- {
- 	unsigned long old, flags;
- 
-@@ -144,9 +144,9 @@ unsigned long ___clear_bit(unsigned long *addr, unsigned long mask)
- 
- 	return old & mask;
- }
--EXPORT_SYMBOL(___clear_bit);
-+EXPORT_SYMBOL(sp32___clear_bit);
- 
--unsigned long ___change_bit(unsigned long *addr, unsigned long mask)
-+unsigned long sp32___change_bit(unsigned long *addr, unsigned long mask)
- {
- 	unsigned long old, flags;
- 
-@@ -157,7 +157,7 @@ unsigned long ___change_bit(unsigned long *addr, unsigned long mask)
- 
- 	return old & mask;
- }
--EXPORT_SYMBOL(___change_bit);
-+EXPORT_SYMBOL(sp32___change_bit);
- 
- unsigned long __cmpxchg_u32(volatile u32 *ptr, u32 old, u32 new)
- {
-diff --git a/include/asm-generic/bitops/instrumented-non-atomic.h b/include/asm-generic/bitops/instrumented-non-atomic.h
-index b019f77ef21c..988a3bbfba34 100644
---- a/include/asm-generic/bitops/instrumented-non-atomic.h
-+++ b/include/asm-generic/bitops/instrumented-non-atomic.h
-@@ -14,7 +14,7 @@
- #include <linux/instrumented.h>
- 
- /**
-- * __set_bit - Set a bit in memory
-+ * ___set_bit - Set a bit in memory
-  * @nr: the bit to set
-  * @addr: the address to start counting from
-  *
-@@ -23,14 +23,14 @@
-  * succeeds.
-  */
- static __always_inline void
--__set_bit(unsigned long nr, volatile unsigned long *addr)
-+___set_bit(unsigned long nr, volatile unsigned long *addr)
- {
- 	instrument_write(addr + BIT_WORD(nr), sizeof(long));
- 	arch___set_bit(nr, addr);
- }
- 
- /**
-- * __clear_bit - Clears a bit in memory
-+ * ___clear_bit - Clears a bit in memory
-  * @nr: the bit to clear
-  * @addr: the address to start counting from
-  *
-@@ -39,14 +39,14 @@ __set_bit(unsigned long nr, volatile unsigned long *addr)
-  * succeeds.
-  */
- static __always_inline void
--__clear_bit(unsigned long nr, volatile unsigned long *addr)
-+___clear_bit(unsigned long nr, volatile unsigned long *addr)
- {
- 	instrument_write(addr + BIT_WORD(nr), sizeof(long));
- 	arch___clear_bit(nr, addr);
- }
- 
- /**
-- * __change_bit - Toggle a bit in memory
-+ * ___change_bit - Toggle a bit in memory
-  * @nr: the bit to change
-  * @addr: the address to start counting from
-  *
-@@ -55,7 +55,7 @@ __clear_bit(unsigned long nr, volatile unsigned long *addr)
-  * succeeds.
-  */
- static __always_inline void
--__change_bit(unsigned long nr, volatile unsigned long *addr)
-+___change_bit(unsigned long nr, volatile unsigned long *addr)
- {
- 	instrument_write(addr + BIT_WORD(nr), sizeof(long));
- 	arch___change_bit(nr, addr);
-@@ -86,7 +86,7 @@ static __always_inline void __instrument_read_write_bitop(long nr, volatile unsi
- }
- 
- /**
-- * __test_and_set_bit - Set a bit and return its old value
-+ * ___test_and_set_bit - Set a bit and return its old value
-  * @nr: Bit to set
-  * @addr: Address to count from
-  *
-@@ -94,14 +94,14 @@ static __always_inline void __instrument_read_write_bitop(long nr, volatile unsi
-  * can appear to succeed but actually fail.
-  */
- static __always_inline bool
--__test_and_set_bit(unsigned long nr, volatile unsigned long *addr)
-+___test_and_set_bit(unsigned long nr, volatile unsigned long *addr)
- {
- 	__instrument_read_write_bitop(nr, addr);
- 	return arch___test_and_set_bit(nr, addr);
- }
- 
- /**
-- * __test_and_clear_bit - Clear a bit and return its old value
-+ * ___test_and_clear_bit - Clear a bit and return its old value
-  * @nr: Bit to clear
-  * @addr: Address to count from
-  *
-@@ -109,14 +109,14 @@ __test_and_set_bit(unsigned long nr, volatile unsigned long *addr)
-  * can appear to succeed but actually fail.
-  */
- static __always_inline bool
--__test_and_clear_bit(unsigned long nr, volatile unsigned long *addr)
-+___test_and_clear_bit(unsigned long nr, volatile unsigned long *addr)
- {
- 	__instrument_read_write_bitop(nr, addr);
- 	return arch___test_and_clear_bit(nr, addr);
- }
- 
- /**
-- * __test_and_change_bit - Change a bit and return its old value
-+ * ___test_and_change_bit - Change a bit and return its old value
-  * @nr: Bit to change
-  * @addr: Address to count from
-  *
-@@ -124,19 +124,19 @@ __test_and_clear_bit(unsigned long nr, volatile unsigned long *addr)
-  * can appear to succeed but actually fail.
-  */
- static __always_inline bool
--__test_and_change_bit(unsigned long nr, volatile unsigned long *addr)
-+___test_and_change_bit(unsigned long nr, volatile unsigned long *addr)
- {
- 	__instrument_read_write_bitop(nr, addr);
- 	return arch___test_and_change_bit(nr, addr);
- }
- 
- /**
-- * test_bit - Determine whether a bit is set
-+ * _test_bit - Determine whether a bit is set
-  * @nr: bit number to test
-  * @addr: Address to start counting from
-  */
- static __always_inline bool
--test_bit(unsigned long nr, const volatile unsigned long *addr)
-+_test_bit(unsigned long nr, const volatile unsigned long *addr)
- {
- 	instrument_atomic_read(addr + BIT_WORD(nr), sizeof(long));
- 	return arch_test_bit(nr, addr);
-diff --git a/include/asm-generic/bitops/non-instrumented-non-atomic.h b/include/asm-generic/bitops/non-instrumented-non-atomic.h
-index e0fd7bf72a56..bdb9b1ffaee9 100644
---- a/include/asm-generic/bitops/non-instrumented-non-atomic.h
-+++ b/include/asm-generic/bitops/non-instrumented-non-atomic.h
-@@ -3,14 +3,14 @@
- #ifndef __ASM_GENERIC_BITOPS_NON_INSTRUMENTED_NON_ATOMIC_H
- #define __ASM_GENERIC_BITOPS_NON_INSTRUMENTED_NON_ATOMIC_H
- 
--#define __set_bit		arch___set_bit
--#define __clear_bit		arch___clear_bit
--#define __change_bit		arch___change_bit
-+#define ___set_bit		arch___set_bit
-+#define ___clear_bit		arch___clear_bit
-+#define ___change_bit		arch___change_bit
- 
--#define __test_and_set_bit	arch___test_and_set_bit
--#define __test_and_clear_bit	arch___test_and_clear_bit
--#define __test_and_change_bit	arch___test_and_change_bit
-+#define ___test_and_set_bit	arch___test_and_set_bit
-+#define ___test_and_clear_bit	arch___test_and_clear_bit
-+#define ___test_and_change_bit	arch___test_and_change_bit
- 
--#define test_bit		arch_test_bit
-+#define _test_bit		arch_test_bit
- 
- #endif /* __ASM_GENERIC_BITOPS_NON_INSTRUMENTED_NON_ATOMIC_H */
-diff --git a/include/linux/bitops.h b/include/linux/bitops.h
-index d393297287d5..3c3afbae1533 100644
---- a/include/linux/bitops.h
-+++ b/include/linux/bitops.h
-@@ -26,8 +26,24 @@ extern unsigned int __sw_hweight16(unsigned int w);
- extern unsigned int __sw_hweight32(unsigned int w);
- extern unsigned long __sw_hweight64(__u64 w);
- 
-+/*
-+ * Defined here because those may be needed by architecture-specific static
-+ * inlines.
-+ */
 +
- #include <asm-generic/bitops/generic-non-atomic.h>
- 
-+#define bitop(op, nr, addr)						\
-+	op(nr, addr)
-+
-+#define __set_bit(nr, addr)		bitop(___set_bit, nr, addr)
-+#define __clear_bit(nr, addr)		bitop(___clear_bit, nr, addr)
-+#define __change_bit(nr, addr)		bitop(___change_bit, nr, addr)
-+#define __test_and_set_bit(nr, addr)	bitop(___test_and_set_bit, nr, addr)
-+#define __test_and_clear_bit(nr, addr)	bitop(___test_and_clear_bit, nr, addr)
-+#define __test_and_change_bit(nr, addr)	bitop(___test_and_change_bit, nr, addr)
-+#define test_bit(nr, addr)		bitop(_test_bit, nr, addr)
-+
- /*
-  * Include this here because some architectures need generic_ffs/fls in
-  * scope
-@@ -38,7 +54,7 @@ extern unsigned long __sw_hweight64(__u64 w);
- #define __check_bitop_pr(name)						\
- 	static_assert(__same_type(arch_##name, generic_##name) &&	\
- 		      __same_type(const_##name, generic_##name) &&	\
--		      __same_type(name, generic_##name))
-+		      __same_type(_##name, generic_##name))
- 
- __check_bitop_pr(__set_bit);
- __check_bitop_pr(__clear_bit);
-diff --git a/tools/include/asm-generic/bitops/non-atomic.h b/tools/include/asm-generic/bitops/non-atomic.h
-index e5e78e42e57b..0c472a833408 100644
---- a/tools/include/asm-generic/bitops/non-atomic.h
-+++ b/tools/include/asm-generic/bitops/non-atomic.h
-@@ -5,7 +5,7 @@
- #include <linux/bits.h>
- 
- /**
-- * __set_bit - Set a bit in memory
-+ * ___set_bit - Set a bit in memory
-  * @nr: the bit to set
-  * @addr: the address to start counting from
-  *
-@@ -14,7 +14,7 @@
-  * may be that only one operation succeeds.
-  */
- static __always_inline void
--__set_bit(unsigned long nr, volatile unsigned long *addr)
-+___set_bit(unsigned long nr, volatile unsigned long *addr)
- {
- 	unsigned long mask = BIT_MASK(nr);
- 	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-@@ -23,7 +23,7 @@ __set_bit(unsigned long nr, volatile unsigned long *addr)
- }
- 
- static __always_inline void
--__clear_bit(unsigned long nr, volatile unsigned long *addr)
-+___clear_bit(unsigned long nr, volatile unsigned long *addr)
- {
- 	unsigned long mask = BIT_MASK(nr);
- 	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-@@ -32,7 +32,7 @@ __clear_bit(unsigned long nr, volatile unsigned long *addr)
- }
- 
- /**
-- * __change_bit - Toggle a bit in memory
-+ * ___change_bit - Toggle a bit in memory
-  * @nr: the bit to change
-  * @addr: the address to start counting from
-  *
-@@ -41,7 +41,7 @@ __clear_bit(unsigned long nr, volatile unsigned long *addr)
-  * may be that only one operation succeeds.
-  */
- static __always_inline void
--__change_bit(unsigned long nr, volatile unsigned long *addr)
-+___change_bit(unsigned long nr, volatile unsigned long *addr)
- {
- 	unsigned long mask = BIT_MASK(nr);
- 	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-@@ -50,7 +50,7 @@ __change_bit(unsigned long nr, volatile unsigned long *addr)
- }
- 
- /**
-- * __test_and_set_bit - Set a bit and return its old value
-+ * ___test_and_set_bit - Set a bit and return its old value
-  * @nr: Bit to set
-  * @addr: Address to count from
-  *
-@@ -59,7 +59,7 @@ __change_bit(unsigned long nr, volatile unsigned long *addr)
-  * but actually fail.  You must protect multiple accesses with a lock.
-  */
- static __always_inline bool
--__test_and_set_bit(unsigned long nr, volatile unsigned long *addr)
-+___test_and_set_bit(unsigned long nr, volatile unsigned long *addr)
- {
- 	unsigned long mask = BIT_MASK(nr);
- 	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-@@ -70,7 +70,7 @@ __test_and_set_bit(unsigned long nr, volatile unsigned long *addr)
- }
- 
- /**
-- * __test_and_clear_bit - Clear a bit and return its old value
-+ * ___test_and_clear_bit - Clear a bit and return its old value
-  * @nr: Bit to clear
-  * @addr: Address to count from
-  *
-@@ -79,7 +79,7 @@ __test_and_set_bit(unsigned long nr, volatile unsigned long *addr)
-  * but actually fail.  You must protect multiple accesses with a lock.
-  */
- static __always_inline bool
--__test_and_clear_bit(unsigned long nr, volatile unsigned long *addr)
-+___test_and_clear_bit(unsigned long nr, volatile unsigned long *addr)
- {
- 	unsigned long mask = BIT_MASK(nr);
- 	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-@@ -91,7 +91,7 @@ __test_and_clear_bit(unsigned long nr, volatile unsigned long *addr)
- 
- /* WARNING: non atomic and it can be reordered! */
- static __always_inline bool
--__test_and_change_bit(unsigned long nr, volatile unsigned long *addr)
-+___test_and_change_bit(unsigned long nr, volatile unsigned long *addr)
- {
- 	unsigned long mask = BIT_MASK(nr);
- 	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-@@ -102,12 +102,12 @@ __test_and_change_bit(unsigned long nr, volatile unsigned long *addr)
- }
- 
- /**
-- * test_bit - Determine whether a bit is set
-+ * _test_bit - Determine whether a bit is set
-  * @nr: bit number to test
-  * @addr: Address to start counting from
-  */
- static __always_inline bool
--test_bit(unsigned long nr, const volatile unsigned long *addr)
-+_test_bit(unsigned long nr, const volatile unsigned long *addr)
- {
- 	return 1UL & (addr[BIT_WORD(nr)] >> (nr & (BITS_PER_LONG-1)));
- }
-diff --git a/tools/include/linux/bitops.h b/tools/include/linux/bitops.h
-index 5fca38fe1ba8..f18683b95ea6 100644
---- a/tools/include/linux/bitops.h
-+++ b/tools/include/linux/bitops.h
-@@ -25,6 +25,22 @@ extern unsigned int __sw_hweight16(unsigned int w);
- extern unsigned int __sw_hweight32(unsigned int w);
- extern unsigned long __sw_hweight64(__u64 w);
- 
-+/*
-+ * Defined here because those may be needed by architecture-specific static
-+ * inlines.
-+ */
-+
-+#define bitop(op, nr, addr)						\
-+	op(nr, addr)
-+
-+#define __set_bit(nr, addr)		bitop(___set_bit, nr, addr)
-+#define __clear_bit(nr, addr)		bitop(___clear_bit, nr, addr)
-+#define __change_bit(nr, addr)		bitop(___change_bit, nr, addr)
-+#define __test_and_set_bit(nr, addr)	bitop(___test_and_set_bit, nr, addr)
-+#define __test_and_clear_bit(nr, addr)	bitop(___test_and_clear_bit, nr, addr)
-+#define __test_and_change_bit(nr, addr)	bitop(___test_and_change_bit, nr, addr)
-+#define test_bit(nr, addr)		bitop(_test_bit, nr, addr)
-+
- /*
-  * Include this here because some architectures need generic_ffs/fls in
-  * scope
++static const pgprot_t protection_map[16] = {
++	[VM_NONE]					= PAGE_NONE,
++	[VM_READ]					= PAGE_READONLY,
++	[VM_WRITE]					= PAGE_NONE,
++	[VM_WRITE | VM_READ]				= PAGE_READONLY,
++	[VM_EXEC]					= PAGE_EXECREAD,
++	[VM_EXEC | VM_READ]				= PAGE_EXECREAD,
++	[VM_EXEC | VM_WRITE]				= PAGE_EXECREAD,
++	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_EXECREAD,
++	[VM_SHARED]					= PAGE_NONE,
++	[VM_SHARED | VM_READ]				= PAGE_READONLY,
++	[VM_SHARED | VM_WRITE]				= PAGE_WRITEONLY,
++	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_SHARED,
++	[VM_SHARED | VM_EXEC]				= PAGE_EXECREAD,
++	[VM_SHARED | VM_EXEC | VM_READ]			= PAGE_EXECREAD,
++	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_RWX,
++	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= PAGE_RWX
++};
++DECLARE_VM_GET_PAGE_PROT
 -- 
-2.36.1
+2.25.1
