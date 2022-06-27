@@ -1,82 +1,111 @@
-From: kernel test robot <lkp@intel.com>
-Date: Fri, 10 Jun 2022 21:02:21 +0000
-Subject: Re: [PATCH 1/2] Add CABA tree to task_struct
-Message-Id: <202206110409.b8UJYnuq-lkp@intel.com>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Mon, 27 Jun 2022 04:57:36 +0000
+Subject: [PATCH V5 02/26] mm/mmap: Define DECLARE_VM_GET_PAGE_PROT
+Message-Id: <20220627045833.1590055-3-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220610163214.49974-2-ptikhomirov@virtuozzo.com>
-In-Reply-To: <20220610163214.49974-2-ptikhomirov@virtuozzo.com>
+References: <20220627045833.1590055-1-anshuman.khandual@arm.com>
+In-Reply-To: <20220627045833.1590055-1-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>, linux-kernel@vger.kernel.org
-Cc: kbuild-all@lists.01.org, Pavel Tikhomirov <ptikhomirov@virtuozzo.com>, Eric Biederman <ebiederm@xmission.com>, Kees Cook <keescook@chromium.org>, Alexander Viro <viro@zeniv.linux.org.uk>, Ingo Molnar <mingo@redhat.com>, Juri Lelli <juri.lelli@redhat.com>, Vincent Guittot <vincent.guittot@linaro.org>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Steven Rostedt <rostedt@goodmis.org>, Ben Segall <bsegall@google.com>, Mel Gorman <mgorman@suse.de>, Daniel Bristot de Oliveira <bristot@redhat.com>, Valentin Schneider <vschneid@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, Linux Memory Management List <linux-mm@kvack.org>, linux-ia64@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: linux-mm@kvack.org
+Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Hi Pavel,
+This just converts the generic vm_get_page_prot() implementation into a new
+macro i.e DECLARE_VM_GET_PAGE_PROT which later can be used across platforms
+when enabling them with ARCH_HAS_VM_GET_PAGE_PROT. This does not create any
+functional change.
 
-Thank you for the patch! Perhaps something to improve:
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-mm@kvack.org
+Cc: linux-kernel@vger.kernel.org
+Suggested-by: Christoph Hellwig <hch@infradead.org>
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+---
+ include/linux/pgtable.h | 28 ++++++++++++++++++++++++++++
+ mm/mmap.c               | 26 +-------------------------
+ 2 files changed, 29 insertions(+), 25 deletions(-)
 
-[auto build test WARNING on shuah-kselftest/next]
-[also build test WARNING on kees/for-next/execve tip/sched/core linus/master v5.19-rc1 next-20220610]
-[If your patch is applied to the wrong git tree, kindly drop us a note.
-And when submitting patch, we suggest to use '--base' as documented in
-https://git-scm.com/docs/git-format-patch]
-
-url:    https://github.com/intel-lab-lkp/linux/commits/Pavel-Tikhomirov/Introduce-CABA-helper-process-tree/20220611-003433
-base:   https://git.kernel.org/pub/scm/linux/kernel/git/shuah/linux-kselftest.git next
-config: i386-randconfig-a001 (https://download.01.org/0day-ci/archive/20220611/202206110409.b8UJYnuq-lkp@intel.com/config)
-compiler: gcc-11 (Debian 11.3.0-3) 11.3.0
-reproduce (this is a W=1 build):
-        # https://github.com/intel-lab-lkp/linux/commit/0875a2bed5ff95643c487dfcc28a550db06ea418
-        git remote add linux-review https://github.com/intel-lab-lkp/linux
-        git fetch --no-tags linux-review Pavel-Tikhomirov/Introduce-CABA-helper-process-tree/20220611-003433
-        git checkout 0875a2bed5ff95643c487dfcc28a550db06ea418
-        # save the config file
-        mkdir build_dir && cp config build_dir/.config
-        make W=1 O=build_dir ARCH=i386 SHELL=/bin/bash fs/proc/
-
-If you fix the issue, kindly add following tag where applicable
-Reported-by: kernel test robot <lkp@intel.com>
-
-All warnings (new ones prefixed by >>):
-
-   fs/proc/array.c: In function 'task_state':
->> fs/proc/array.c:157:15: warning: unused variable 'caba_pids' [-Wunused-variable]
-     157 |         pid_t caba_pids[MAX_PID_NS_LEVEL] = {};
-         |               ^~~~~~~~~
->> fs/proc/array.c:156:13: warning: unused variable 'caba_level' [-Wunused-variable]
-     156 |         int caba_level = 0;
-         |             ^~~~~~~~~~
->> fs/proc/array.c:155:21: warning: unused variable 'caba_pid' [-Wunused-variable]
-     155 |         struct pid *caba_pid;
-         |                     ^~~~~~~~
->> fs/proc/array.c:154:29: warning: unused variable 'caba' [-Wunused-variable]
-     154 |         struct task_struct *caba;
-         |                             ^~~~
-
-
-vim +/caba_pids +157 fs/proc/array.c
-
-   143	
-   144	static inline void task_state(struct seq_file *m, struct pid_namespace *ns,
-   145					struct pid *pid, struct task_struct *p)
-   146	{
-   147		struct user_namespace *user_ns = seq_user_ns(m);
-   148		struct group_info *group_info;
-   149		int g, umask = -1;
-   150		struct task_struct *tracer;
-   151		const struct cred *cred;
-   152		pid_t ppid, tpid = 0, tgid, ngid;
-   153		unsigned int max_fds = 0;
- > 154		struct task_struct *caba;
- > 155		struct pid *caba_pid;
- > 156		int caba_level = 0;
- > 157		pid_t caba_pids[MAX_PID_NS_LEVEL] = {};
-   158	
-   159		rcu_read_lock();
-   160		ppid = pid_alive(p) ?
-   161			task_tgid_nr_ns(rcu_dereference(p->real_parent), ns) : 0;
-   162	
-
+diff --git a/include/linux/pgtable.h b/include/linux/pgtable.h
+index 3cdc16cfd867..014ee8f0fbaa 100644
+--- a/include/linux/pgtable.h
++++ b/include/linux/pgtable.h
+@@ -1689,4 +1689,32 @@ typedef unsigned int pgtbl_mod_mask;
+ #define MAX_PTRS_PER_P4D PTRS_PER_P4D
+ #endif
+ 
++/* description of effects of mapping type and prot in current implementation.
++ * this is due to the limited x86 page protection hardware.  The expected
++ * behavior is in parens:
++ *
++ * map_type	prot
++ *		PROT_NONE	PROT_READ	PROT_WRITE	PROT_EXEC
++ * MAP_SHARED	r: (no) no	r: (yes) yes	r: (no) yes	r: (no) yes
++ *		w: (no) no	w: (no) no	w: (yes) yes	w: (no) no
++ *		x: (no) no	x: (no) yes	x: (no) yes	x: (yes) yes
++ *
++ * MAP_PRIVATE	r: (no) no	r: (yes) yes	r: (no) yes	r: (no) yes
++ *		w: (no) no	w: (no) no	w: (copy) copy	w: (no) no
++ *		x: (no) no	x: (no) yes	x: (no) yes	x: (yes) yes
++ *
++ * On arm64, PROT_EXEC has the following behaviour for both MAP_SHARED and
++ * MAP_PRIVATE (with Enhanced PAN supported):
++ *								r: (no) no
++ *								w: (no) no
++ *								x: (yes) yes
++ */
++#define DECLARE_VM_GET_PAGE_PROT					\
++pgprot_t vm_get_page_prot(unsigned long vm_flags)			\
++{									\
++		return protection_map[vm_flags &			\
++			(VM_READ | VM_WRITE | VM_EXEC | VM_SHARED)];	\
++}									\
++EXPORT_SYMBOL(vm_get_page_prot);
++
+ #endif /* _LINUX_PGTABLE_H */
+diff --git a/mm/mmap.c b/mm/mmap.c
+index b01f0280bda2..b46d5e931bb3 100644
+--- a/mm/mmap.c
++++ b/mm/mmap.c
+@@ -81,26 +81,6 @@ static void unmap_region(struct mm_struct *mm,
+ 		struct vm_area_struct *vma, struct vm_area_struct *prev,
+ 		unsigned long start, unsigned long end);
+ 
+-/* description of effects of mapping type and prot in current implementation.
+- * this is due to the limited x86 page protection hardware.  The expected
+- * behavior is in parens:
+- *
+- * map_type	prot
+- *		PROT_NONE	PROT_READ	PROT_WRITE	PROT_EXEC
+- * MAP_SHARED	r: (no) no	r: (yes) yes	r: (no) yes	r: (no) yes
+- *		w: (no) no	w: (no) no	w: (yes) yes	w: (no) no
+- *		x: (no) no	x: (no) yes	x: (no) yes	x: (yes) yes
+- *
+- * MAP_PRIVATE	r: (no) no	r: (yes) yes	r: (no) yes	r: (no) yes
+- *		w: (no) no	w: (no) no	w: (copy) copy	w: (no) no
+- *		x: (no) no	x: (no) yes	x: (no) yes	x: (yes) yes
+- *
+- * On arm64, PROT_EXEC has the following behaviour for both MAP_SHARED and
+- * MAP_PRIVATE (with Enhanced PAN supported):
+- *								r: (no) no
+- *								w: (no) no
+- *								x: (yes) yes
+- */
+ #ifdef __P000
+ pgprot_t protection_map[16] __ro_after_init = {
+ 	[VM_NONE]					= __P000,
+@@ -123,11 +103,7 @@ pgprot_t protection_map[16] __ro_after_init = {
+ #endif
+ 
+ #ifndef CONFIG_ARCH_HAS_VM_GET_PAGE_PROT
+-pgprot_t vm_get_page_prot(unsigned long vm_flags)
+-{
+-	return protection_map[vm_flags & (VM_READ|VM_WRITE|VM_EXEC|VM_SHARED)];
+-}
+-EXPORT_SYMBOL(vm_get_page_prot);
++DECLARE_VM_GET_PAGE_PROT
+ #endif	/* CONFIG_ARCH_HAS_VM_GET_PAGE_PROT */
+ 
+ static pgprot_t vm_pgprot_modify(pgprot_t oldprot, unsigned long vm_flags)
 -- 
-0-DAY CI Kernel Test Service
-https://01.org/lkp
+2.25.1
