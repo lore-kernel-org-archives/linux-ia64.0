@@ -1,125 +1,99 @@
 From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Thu, 30 Jun 2022 05:28:13 +0000
-Subject: [PATCH V6 09/26] loongarch/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <20220630051630.1718927-10-anshuman.khandual@arm.com>
+Date: Mon, 27 Jun 2022 05:10:24 +0000
+Subject: [PATCH V5 17/26] csky/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <20220627045833.1590055-18-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220630051630.1718927-1-anshuman.khandual@arm.com>
-In-Reply-To: <20220630051630.1718927-1-anshuman.khandual@arm.com>
+References: <20220627045833.1590055-1-anshuman.khandual@arm.com>
+In-Reply-To: <20220627045833.1590055-1-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, akpm@linux-foundation.org
-Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>
+To: linux-mm@kvack.org
+Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>, Guo Ren <guoren@kernel.org>
 
 This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
 vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
 up a private and static protection_map[] array. Subsequently all __SXXX and
 __PXXX macros can be dropped which are no longer needed.
 
-Cc: Huacai Chen <chenhuacai@kernel.org>
-Cc: WANG Xuerui <kernel@xen0n.name>
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>
+Cc: linux-csky@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
+Acked-by: Guo Ren <guoren@kernel.org>
 Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
- arch/loongarch/Kconfig                    |  1 +
- arch/loongarch/include/asm/pgtable-bits.h | 19 ----------
- arch/loongarch/mm/cache.c                 | 46 +++++++++++++++++++++++
- 3 files changed, 47 insertions(+), 19 deletions(-)
+ arch/csky/Kconfig               |  1 +
+ arch/csky/include/asm/pgtable.h | 18 ------------------
+ arch/csky/mm/init.c             | 20 ++++++++++++++++++++
+ 3 files changed, 21 insertions(+), 18 deletions(-)
 
-diff --git a/arch/loongarch/Kconfig b/arch/loongarch/Kconfig
-index 1920d52653b4..fd07b8e760ee 100644
---- a/arch/loongarch/Kconfig
-+++ b/arch/loongarch/Kconfig
-@@ -9,6 +9,7 @@ config LOONGARCH
- 	select ARCH_HAS_ACPI_TABLE_UPGRADE	if ACPI
- 	select ARCH_HAS_PHYS_TO_DMA
- 	select ARCH_HAS_PTE_SPECIAL
+diff --git a/arch/csky/Kconfig b/arch/csky/Kconfig
+index 21d72b078eef..588b8a9c68ed 100644
+--- a/arch/csky/Kconfig
++++ b/arch/csky/Kconfig
+@@ -6,6 +6,7 @@ config CSKY
+ 	select ARCH_HAS_GCOV_PROFILE_ALL
+ 	select ARCH_HAS_SYNC_DMA_FOR_CPU
+ 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE
 +	select ARCH_HAS_VM_GET_PAGE_PROT
- 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
- 	select ARCH_INLINE_READ_LOCK if !PREEMPTION
- 	select ARCH_INLINE_READ_LOCK_BH if !PREEMPTION
-diff --git a/arch/loongarch/include/asm/pgtable-bits.h b/arch/loongarch/include/asm/pgtable-bits.h
-index 3badd112d9ab..9ca147a29bab 100644
---- a/arch/loongarch/include/asm/pgtable-bits.h
-+++ b/arch/loongarch/include/asm/pgtable-bits.h
-@@ -83,25 +83,6 @@
- 				 _PAGE_GLOBAL | _PAGE_KERN |  _CACHE_SUC)
- #define PAGE_KERNEL_WUC __pgprot(_PAGE_PRESENT | __READABLE | __WRITEABLE | \
- 				 _PAGE_GLOBAL | _PAGE_KERN |  _CACHE_WUC)
--
--#define __P000 __pgprot(_CACHE_CC | _PAGE_USER | _PAGE_PROTNONE | _PAGE_NO_EXEC | _PAGE_NO_READ)
--#define __P001 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_NO_EXEC)
--#define __P010 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_NO_EXEC)
--#define __P011 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_NO_EXEC)
--#define __P100 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT)
--#define __P101 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT)
--#define __P110 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT)
--#define __P111 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT)
--
--#define __S000 __pgprot(_CACHE_CC | _PAGE_USER | _PAGE_PROTNONE | _PAGE_NO_EXEC | _PAGE_NO_READ)
--#define __S001 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_NO_EXEC)
--#define __S010 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_NO_EXEC | _PAGE_WRITE)
--#define __S011 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_NO_EXEC | _PAGE_WRITE)
--#define __S100 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT)
--#define __S101 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT)
--#define __S110 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_WRITE)
--#define __S111 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_WRITE)
--
- #ifndef __ASSEMBLY__
+ 	select ARCH_USE_BUILTIN_BSWAP
+ 	select ARCH_USE_QUEUED_RWLOCKS
+ 	select ARCH_WANT_FRAME_POINTERS if !CPU_CK610 && $(cc-option,-mbacktrace)
+diff --git a/arch/csky/include/asm/pgtable.h b/arch/csky/include/asm/pgtable.h
+index bbe245117777..229a5f4ad7fc 100644
+--- a/arch/csky/include/asm/pgtable.h
++++ b/arch/csky/include/asm/pgtable.h
+@@ -77,24 +77,6 @@
+ #define MAX_SWAPFILES_CHECK() \
+ 		BUILD_BUG_ON(MAX_SWAPFILES_SHIFT != 5)
  
- #define pgprot_noncached pgprot_noncached
-diff --git a/arch/loongarch/mm/cache.c b/arch/loongarch/mm/cache.c
-index 9e5ce5aa73f7..e8c68dcf6ab2 100644
---- a/arch/loongarch/mm/cache.c
-+++ b/arch/loongarch/mm/cache.c
-@@ -139,3 +139,49 @@ void cpu_cache_init(void)
+-#define __P000	PAGE_NONE
+-#define __P001	PAGE_READ
+-#define __P010	PAGE_READ
+-#define __P011	PAGE_READ
+-#define __P100	PAGE_READ
+-#define __P101	PAGE_READ
+-#define __P110	PAGE_READ
+-#define __P111	PAGE_READ
+-
+-#define __S000	PAGE_NONE
+-#define __S001	PAGE_READ
+-#define __S010	PAGE_WRITE
+-#define __S011	PAGE_WRITE
+-#define __S100	PAGE_READ
+-#define __S101	PAGE_READ
+-#define __S110	PAGE_WRITE
+-#define __S111	PAGE_WRITE
+-
+ extern unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)];
+ #define ZERO_PAGE(vaddr)	(virt_to_page(empty_zero_page))
  
- 	shm_align_mask = PAGE_SIZE - 1;
+diff --git a/arch/csky/mm/init.c b/arch/csky/mm/init.c
+index bf2004aa811a..bde7cabd23df 100644
+--- a/arch/csky/mm/init.c
++++ b/arch/csky/mm/init.c
+@@ -197,3 +197,23 @@ void __init fixaddr_init(void)
+ 	vaddr = __fix_to_virt(__end_of_fixed_addresses - 1) & PMD_MASK;
+ 	fixrange_init(vaddr, vaddr + PMD_SIZE, swapper_pg_dir);
  }
 +
 +static const pgprot_t protection_map[16] = {
-+	[VM_NONE]					= __pgprot(_CACHE_CC | _PAGE_USER |
-+								   _PAGE_PROTNONE | _PAGE_NO_EXEC |
-+								   _PAGE_NO_READ),
-+	[VM_READ]					= __pgprot(_CACHE_CC | _PAGE_VALID |
-+								   _PAGE_USER | _PAGE_PRESENT |
-+								   _PAGE_NO_EXEC),
-+	[VM_WRITE]					= __pgprot(_CACHE_CC | _PAGE_VALID |
-+								   _PAGE_USER | _PAGE_PRESENT |
-+								   _PAGE_NO_EXEC),
-+	[VM_WRITE | VM_READ]				= __pgprot(_CACHE_CC | _PAGE_VALID |
-+								   _PAGE_USER | _PAGE_PRESENT |
-+								   _PAGE_NO_EXEC),
-+	[VM_EXEC]					= __pgprot(_CACHE_CC | _PAGE_VALID |
-+								   _PAGE_USER | _PAGE_PRESENT),
-+	[VM_EXEC | VM_READ]				= __pgprot(_CACHE_CC | _PAGE_VALID |
-+								   _PAGE_USER | _PAGE_PRESENT),
-+	[VM_EXEC | VM_WRITE]				= __pgprot(_CACHE_CC | _PAGE_VALID |
-+								   _PAGE_USER | _PAGE_PRESENT),
-+	[VM_EXEC | VM_WRITE | VM_READ]			= __pgprot(_CACHE_CC | _PAGE_VALID |
-+								   _PAGE_USER | _PAGE_PRESENT),
-+	[VM_SHARED]					= __pgprot(_CACHE_CC | _PAGE_USER |
-+								   _PAGE_PROTNONE | _PAGE_NO_EXEC |
-+								   _PAGE_NO_READ),
-+	[VM_SHARED | VM_READ]				= __pgprot(_CACHE_CC | _PAGE_VALID |
-+								   _PAGE_USER | _PAGE_PRESENT |
-+								   _PAGE_NO_EXEC),
-+	[VM_SHARED | VM_WRITE]				= __pgprot(_CACHE_CC | _PAGE_VALID |
-+								   _PAGE_USER | _PAGE_PRESENT |
-+								   _PAGE_NO_EXEC | _PAGE_WRITE),
-+	[VM_SHARED | VM_WRITE | VM_READ]		= __pgprot(_CACHE_CC | _PAGE_VALID |
-+								   _PAGE_USER | _PAGE_PRESENT |
-+								   _PAGE_NO_EXEC | _PAGE_WRITE),
-+	[VM_SHARED | VM_EXEC]				= __pgprot(_CACHE_CC | _PAGE_VALID |
-+								   _PAGE_USER | _PAGE_PRESENT),
-+	[VM_SHARED | VM_EXEC | VM_READ]			= __pgprot(_CACHE_CC | _PAGE_VALID |
-+								   _PAGE_USER | _PAGE_PRESENT),
-+	[VM_SHARED | VM_EXEC | VM_WRITE]		= __pgprot(_CACHE_CC | _PAGE_VALID |
-+								   _PAGE_USER | _PAGE_PRESENT |
-+								   _PAGE_WRITE),
-+	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= __pgprot(_CACHE_CC | _PAGE_VALID |
-+								   _PAGE_USER | _PAGE_PRESENT |
-+								   _PAGE_WRITE)
++	[VM_NONE]					= PAGE_NONE,
++	[VM_READ]					= PAGE_READ,
++	[VM_WRITE]					= PAGE_READ,
++	[VM_WRITE | VM_READ]				= PAGE_READ,
++	[VM_EXEC]					= PAGE_READ,
++	[VM_EXEC | VM_READ]				= PAGE_READ,
++	[VM_EXEC | VM_WRITE]				= PAGE_READ,
++	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_READ,
++	[VM_SHARED]					= PAGE_NONE,
++	[VM_SHARED | VM_READ]				= PAGE_READ,
++	[VM_SHARED | VM_WRITE]				= PAGE_WRITE,
++	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_WRITE,
++	[VM_SHARED | VM_EXEC]				= PAGE_READ,
++	[VM_SHARED | VM_EXEC | VM_READ]			= PAGE_READ,
++	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_WRITE,
++	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= PAGE_WRITE
 +};
 +DECLARE_VM_GET_PAGE_PROT
 -- 
