@@ -1,53 +1,126 @@
-From: Mike Kravetz <mike.kravetz@oracle.com>
-Date: Thu, 16 Jun 2022 21:05:18 +0000
-Subject: [PATCH 4/4] hugetlb: Lazy page table copies in fork()
-Message-Id: <20220616210518.125287-5-mike.kravetz@oracle.com>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Mon, 27 Jun 2022 04:59:38 +0000
+Subject: [PATCH V5 09/26] loongarch/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <20220627045833.1590055-10-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220616210518.125287-1-mike.kravetz@oracle.com>
-In-Reply-To: <20220616210518.125287-1-mike.kravetz@oracle.com>
+References: <20220627045833.1590055-1-anshuman.khandual@arm.com>
+In-Reply-To: <20220627045833.1590055-1-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-arm-kernel@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-Cc: Muchun Song <songmuchun@bytedance.com>, Baolin Wang <baolin.wang@linux.alibaba.com>, Michal Hocko <mhocko@suse.com>, Peter Xu <peterx@redhat.com>, Naoya Horiguchi <naoya.horiguchi@linux.dev>, James Houghton <jthoughton@google.com>, Mina Almasry <almasrymina@google.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.vnet.ibm.com>, Anshuman Khandual <anshuman.khandual@arm.com>, Paul Walmsley <paul.walmsley@sifive.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, catalin.marinas@arm.com, will@kernel.org, Andrew Morton <akpm@linux-foundation.org>, Mike Kravetz <mike.kravetz@oracle.com>, David Hildenbrand <david@redhat.com>
+To: linux-mm@kvack.org
+Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>
 
-Lazy page table copying at fork time was introduced with commit
-commit d992895ba2b2 ("[PATCH] Lazy page table copies in fork()").
-At the time, hugetlb was very new and did not support page faulting.
-As a result, it was excluded.  When full page fault support was added
-for hugetlb, the exclusion was not removed.
+This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
+vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
+up a private and static protection_map[] array. Subsequently all __SXXX and
+__PXXX macros can be dropped which are no longer needed.
 
-Simply remove the check that prevents lazy copying of hugetlb page
-tables at fork.  Of course, like other mappings this only applies to
-shared mappings.
-
-Lazy page table copying at fork will be less advantageous for hugetlb
-mappings because:
-- There are fewer page table entries with hugetlb
-- hugetlb pmds can be shared instead of copied
-
-In any case, completely eliminating the copy at fork time should speed
-things up.
-
-Signed-off-by: Mike Kravetz <mike.kravetz@oracle.com>
-Acked-by: Muchun Song <songmuchun@bytedance.com>
-Acked-by: David Hildenbrand <david@redhat.com>
+Cc: Huacai Chen <chenhuacai@kernel.org>
+Cc: WANG Xuerui <kernel@xen0n.name>
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
- mm/memory.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/loongarch/Kconfig                    |  1 +
+ arch/loongarch/include/asm/pgtable-bits.h | 19 ----------
+ arch/loongarch/mm/cache.c                 | 46 +++++++++++++++++++++++
+ 3 files changed, 47 insertions(+), 19 deletions(-)
 
-diff --git a/mm/memory.c b/mm/memory.c
-index fee2884481f2..90d2a614b2de 100644
---- a/mm/memory.c
-+++ b/mm/memory.c
-@@ -1262,7 +1262,7 @@ vma_needs_copy(struct vm_area_struct *dst_vma, struct vm_area_struct *src_vma)
- 	if (userfaultfd_wp(dst_vma))
- 		return true;
+diff --git a/arch/loongarch/Kconfig b/arch/loongarch/Kconfig
+index 1920d52653b4..fd07b8e760ee 100644
+--- a/arch/loongarch/Kconfig
++++ b/arch/loongarch/Kconfig
+@@ -9,6 +9,7 @@ config LOONGARCH
+ 	select ARCH_HAS_ACPI_TABLE_UPGRADE	if ACPI
+ 	select ARCH_HAS_PHYS_TO_DMA
+ 	select ARCH_HAS_PTE_SPECIAL
++	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
+ 	select ARCH_INLINE_READ_LOCK if !PREEMPTION
+ 	select ARCH_INLINE_READ_LOCK_BH if !PREEMPTION
+diff --git a/arch/loongarch/include/asm/pgtable-bits.h b/arch/loongarch/include/asm/pgtable-bits.h
+index 3badd112d9ab..9ca147a29bab 100644
+--- a/arch/loongarch/include/asm/pgtable-bits.h
++++ b/arch/loongarch/include/asm/pgtable-bits.h
+@@ -83,25 +83,6 @@
+ 				 _PAGE_GLOBAL | _PAGE_KERN |  _CACHE_SUC)
+ #define PAGE_KERNEL_WUC __pgprot(_PAGE_PRESENT | __READABLE | __WRITEABLE | \
+ 				 _PAGE_GLOBAL | _PAGE_KERN |  _CACHE_WUC)
+-
+-#define __P000 __pgprot(_CACHE_CC | _PAGE_USER | _PAGE_PROTNONE | _PAGE_NO_EXEC | _PAGE_NO_READ)
+-#define __P001 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_NO_EXEC)
+-#define __P010 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_NO_EXEC)
+-#define __P011 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_NO_EXEC)
+-#define __P100 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT)
+-#define __P101 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT)
+-#define __P110 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT)
+-#define __P111 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT)
+-
+-#define __S000 __pgprot(_CACHE_CC | _PAGE_USER | _PAGE_PROTNONE | _PAGE_NO_EXEC | _PAGE_NO_READ)
+-#define __S001 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_NO_EXEC)
+-#define __S010 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_NO_EXEC | _PAGE_WRITE)
+-#define __S011 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_NO_EXEC | _PAGE_WRITE)
+-#define __S100 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT)
+-#define __S101 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT)
+-#define __S110 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_WRITE)
+-#define __S111 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_WRITE)
+-
+ #ifndef __ASSEMBLY__
  
--	if (src_vma->vm_flags & (VM_HUGETLB | VM_PFNMAP | VM_MIXEDMAP))
-+	if (src_vma->vm_flags & (VM_PFNMAP | VM_MIXEDMAP))
- 		return true;
+ #define pgprot_noncached pgprot_noncached
+diff --git a/arch/loongarch/mm/cache.c b/arch/loongarch/mm/cache.c
+index 9e5ce5aa73f7..e8c68dcf6ab2 100644
+--- a/arch/loongarch/mm/cache.c
++++ b/arch/loongarch/mm/cache.c
+@@ -139,3 +139,49 @@ void cpu_cache_init(void)
  
- 	if (src_vma->anon_vma)
+ 	shm_align_mask = PAGE_SIZE - 1;
+ }
++
++static const pgprot_t protection_map[16] = {
++	[VM_NONE]					= __pgprot(_CACHE_CC | _PAGE_USER |
++								   _PAGE_PROTNONE | _PAGE_NO_EXEC |
++								   _PAGE_NO_READ),
++	[VM_READ]					= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT |
++								   _PAGE_NO_EXEC),
++	[VM_WRITE]					= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT |
++								   _PAGE_NO_EXEC),
++	[VM_WRITE | VM_READ]				= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT |
++								   _PAGE_NO_EXEC),
++	[VM_EXEC]					= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT),
++	[VM_EXEC | VM_READ]				= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT),
++	[VM_EXEC | VM_WRITE]				= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT),
++	[VM_EXEC | VM_WRITE | VM_READ]			= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT),
++	[VM_SHARED]					= __pgprot(_CACHE_CC | _PAGE_USER |
++								   _PAGE_PROTNONE | _PAGE_NO_EXEC |
++								   _PAGE_NO_READ),
++	[VM_SHARED | VM_READ]				= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT |
++								   _PAGE_NO_EXEC),
++	[VM_SHARED | VM_WRITE]				= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT |
++								   _PAGE_NO_EXEC | _PAGE_WRITE),
++	[VM_SHARED | VM_WRITE | VM_READ]		= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT |
++								   _PAGE_NO_EXEC | _PAGE_WRITE),
++	[VM_SHARED | VM_EXEC]				= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT),
++	[VM_SHARED | VM_EXEC | VM_READ]			= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT),
++	[VM_SHARED | VM_EXEC | VM_WRITE]		= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT |
++								   _PAGE_WRITE),
++	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT |
++								   _PAGE_WRITE)
++};
++DECLARE_VM_GET_PAGE_PROT
 -- 
-2.35.3
+2.25.1
