@@ -1,69 +1,112 @@
-From: Alexander Lobakin <alexandr.lobakin@intel.com>
-Date: Fri, 24 Jun 2022 12:13:11 +0000
-Subject: [PATCH v5 7/9] net/ice: fix initializing the bitmap in the switch code
-Message-Id: <20220624121313.2382500-8-alexandr.lobakin@intel.com>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Thu, 30 Jun 2022 05:28:06 +0000
+Subject: [PATCH V6 02/26] mm/mmap: Define DECLARE_VM_GET_PAGE_PROT
+Message-Id: <20220630051630.1718927-3-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220624121313.2382500-1-alexandr.lobakin@intel.com>
-In-Reply-To: <20220624121313.2382500-1-alexandr.lobakin@intel.com>
+References: <20220630051630.1718927-1-anshuman.khandual@arm.com>
+In-Reply-To: <20220630051630.1718927-1-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>
-Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Maciej Fijalkowski <maciej.fijalkowski@intel.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Nathan Chancellor <nathan@kernel.org>, Nick Desaulniers <ndesaulniers@google.com>, Tom Rix <trix@redhat.com>, kernel test robot <lkp@intel.com>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, llvm@lists.linux.dev, linux-kernel@vger.kernel.org
+To: linux-mm@kvack.org, akpm@linux-foundation.org
+Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Kbuild spotted the following bug during the testing of one of
-the optimizations:
+This just converts the generic vm_get_page_prot() implementation into a new
+macro i.e DECLARE_VM_GET_PAGE_PROT which later can be used across platforms
+when enabling them with ARCH_HAS_VM_GET_PAGE_PROT. This does not create any
+functional change.
 
-In file included from include/linux/cpumask.h:12,
-[...]
-                from drivers/net/ethernet/intel/ice/ice_switch.c:4:
-drivers/net/ethernet/intel/ice/ice_switch.c: In function 'ice_find_free_recp_res_idx.constprop':
-include/linux/bitmap.h:447:22: warning: 'possible_idx[0]' is used uninitialized [-Wuninitialized]
-  447 |                 *map |= GENMASK(start + nbits - 1, start);
-      |                      ^~
-In file included from drivers/net/ethernet/intel/ice/ice.h:7,
-                 from drivers/net/ethernet/intel/ice/ice_lib.h:7,
-                 from drivers/net/ethernet/intel/ice/ice_switch.c:4:
-drivers/net/ethernet/intel/ice/ice_switch.c:4929:24: note: 'possible_idx[0]' was declared here
- 4929 |         DECLARE_BITMAP(possible_idx, ICE_MAX_FV_WORDS);
-      |                        ^~~~~~~~~~~~
-include/linux/types.h:11:23: note: in definition of macro 'DECLARE_BITMAP'
-   11 |         unsigned long name[BITS_TO_LONGS(bits)]
-      |                       ^~~~
-
-%ICE_MAX_FV_WORDS is 48, so bitmap_set() here was initializing only
-48 bits, leaving a junk in the rest 16.
-It was previously hidden due to that filling 48 bits makes
-bitmap_set() call external __bitmap_set(), but after making it use
-plain bit arithmetics on small bitmaps, compilers started seeing
-the issue. It was still working because those 16 weren't used
-anywhere anyhow.
-bitmap_{clear,set}() are not really intended to initialize bitmaps,
-rather to modify already initialized ones, as they don't do anything
-past the passed number of bits. The correct function to do this in
-that particular case is bitmap_fill(), so use it here. It will do
-`*possible_idx = ~0UL` instead of `*possible_idx |= GENMASK(47, 0)`,
-not leaving anything in an undefined state.
-
-Fixes: fd2a6b71e300 ("ice: create advanced switch recipe")
-Reported-by: kernel test robot <lkp@intel.com>
-Signed-off-by: Alexander Lobakin <alexandr.lobakin@intel.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-mm@kvack.org
+Cc: linux-kernel@vger.kernel.org
+Reviewed-by: Christophe Leroy <christophe.leroy@csgroup.eu>
+Suggested-by: Christoph Hellwig <hch@infradead.org>
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
- drivers/net/ethernet/intel/ice/ice_switch.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/linux/pgtable.h | 28 ++++++++++++++++++++++++++++
+ mm/mmap.c               | 26 +-------------------------
+ 2 files changed, 29 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ice/ice_switch.c b/drivers/net/ethernet/intel/ice/ice_switch.c
-index 8d8f3eec79ee..9b2872e89151 100644
---- a/drivers/net/ethernet/intel/ice/ice_switch.c
-+++ b/drivers/net/ethernet/intel/ice/ice_switch.c
-@@ -4934,7 +4934,7 @@ ice_find_free_recp_res_idx(struct ice_hw *hw, const unsigned long *profiles,
- 	bitmap_zero(recipes, ICE_MAX_NUM_RECIPES);
- 	bitmap_zero(used_idx, ICE_MAX_FV_WORDS);
+diff --git a/include/linux/pgtable.h b/include/linux/pgtable.h
+index 3cdc16cfd867..014ee8f0fbaa 100644
+--- a/include/linux/pgtable.h
++++ b/include/linux/pgtable.h
+@@ -1689,4 +1689,32 @@ typedef unsigned int pgtbl_mod_mask;
+ #define MAX_PTRS_PER_P4D PTRS_PER_P4D
+ #endif
  
--	bitmap_set(possible_idx, 0, ICE_MAX_FV_WORDS);
-+	bitmap_fill(possible_idx, ICE_MAX_FV_WORDS);
++/* description of effects of mapping type and prot in current implementation.
++ * this is due to the limited x86 page protection hardware.  The expected
++ * behavior is in parens:
++ *
++ * map_type	prot
++ *		PROT_NONE	PROT_READ	PROT_WRITE	PROT_EXEC
++ * MAP_SHARED	r: (no) no	r: (yes) yes	r: (no) yes	r: (no) yes
++ *		w: (no) no	w: (no) no	w: (yes) yes	w: (no) no
++ *		x: (no) no	x: (no) yes	x: (no) yes	x: (yes) yes
++ *
++ * MAP_PRIVATE	r: (no) no	r: (yes) yes	r: (no) yes	r: (no) yes
++ *		w: (no) no	w: (no) no	w: (copy) copy	w: (no) no
++ *		x: (no) no	x: (no) yes	x: (no) yes	x: (yes) yes
++ *
++ * On arm64, PROT_EXEC has the following behaviour for both MAP_SHARED and
++ * MAP_PRIVATE (with Enhanced PAN supported):
++ *								r: (no) no
++ *								w: (no) no
++ *								x: (yes) yes
++ */
++#define DECLARE_VM_GET_PAGE_PROT					\
++pgprot_t vm_get_page_prot(unsigned long vm_flags)			\
++{									\
++		return protection_map[vm_flags &			\
++			(VM_READ | VM_WRITE | VM_EXEC | VM_SHARED)];	\
++}									\
++EXPORT_SYMBOL(vm_get_page_prot);
++
+ #endif /* _LINUX_PGTABLE_H */
+diff --git a/mm/mmap.c b/mm/mmap.c
+index b01f0280bda2..b46d5e931bb3 100644
+--- a/mm/mmap.c
++++ b/mm/mmap.c
+@@ -81,26 +81,6 @@ static void unmap_region(struct mm_struct *mm,
+ 		struct vm_area_struct *vma, struct vm_area_struct *prev,
+ 		unsigned long start, unsigned long end);
  
- 	/* For each profile we are going to associate the recipe with, add the
- 	 * recipes that are associated with that profile. This will give us
+-/* description of effects of mapping type and prot in current implementation.
+- * this is due to the limited x86 page protection hardware.  The expected
+- * behavior is in parens:
+- *
+- * map_type	prot
+- *		PROT_NONE	PROT_READ	PROT_WRITE	PROT_EXEC
+- * MAP_SHARED	r: (no) no	r: (yes) yes	r: (no) yes	r: (no) yes
+- *		w: (no) no	w: (no) no	w: (yes) yes	w: (no) no
+- *		x: (no) no	x: (no) yes	x: (no) yes	x: (yes) yes
+- *
+- * MAP_PRIVATE	r: (no) no	r: (yes) yes	r: (no) yes	r: (no) yes
+- *		w: (no) no	w: (no) no	w: (copy) copy	w: (no) no
+- *		x: (no) no	x: (no) yes	x: (no) yes	x: (yes) yes
+- *
+- * On arm64, PROT_EXEC has the following behaviour for both MAP_SHARED and
+- * MAP_PRIVATE (with Enhanced PAN supported):
+- *								r: (no) no
+- *								w: (no) no
+- *								x: (yes) yes
+- */
+ #ifdef __P000
+ pgprot_t protection_map[16] __ro_after_init = {
+ 	[VM_NONE]					= __P000,
+@@ -123,11 +103,7 @@ pgprot_t protection_map[16] __ro_after_init = {
+ #endif
+ 
+ #ifndef CONFIG_ARCH_HAS_VM_GET_PAGE_PROT
+-pgprot_t vm_get_page_prot(unsigned long vm_flags)
+-{
+-	return protection_map[vm_flags & (VM_READ|VM_WRITE|VM_EXEC|VM_SHARED)];
+-}
+-EXPORT_SYMBOL(vm_get_page_prot);
++DECLARE_VM_GET_PAGE_PROT
+ #endif	/* CONFIG_ARCH_HAS_VM_GET_PAGE_PROT */
+ 
+ static pgprot_t vm_pgprot_modify(pgprot_t oldprot, unsigned long vm_flags)
 -- 
-2.36.1
+2.25.1
