@@ -1,304 +1,131 @@
-From: Alexander Lobakin <alexandr.lobakin@intel.com>
-Date: Tue, 21 Jun 2022 19:15:47 +0000
-Subject: [PATCH v4 2/8] bitops: always define asm-generic non-atomic bitops
-Message-Id: <20220621191553.69455-3-alexandr.lobakin@intel.com>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Thu, 30 Jun 2022 05:28:16 +0000
+Subject: [PATCH V6 12/26] hexagon/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <20220630051630.1718927-13-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220621191553.69455-1-alexandr.lobakin@intel.com>
-In-Reply-To: <20220621191553.69455-1-alexandr.lobakin@intel.com>
+References: <20220630051630.1718927-1-anshuman.khandual@arm.com>
+In-Reply-To: <20220630051630.1718927-1-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>
-Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Maciej Fijalkowski <maciej.fijalkowski@intel.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-mm@kvack.org, akpm@linux-foundation.org
+Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, Brian Cain <bcain@quicinc.com>
 
-Move generic non-atomic bitops from the asm-generic header which
-gets included only when there are no architecture-specific
-alternatives, to a separate independent file to make them always
-available.
-Almost no actual code changes, only one comment added to
-generic_test_bit() saying that it's an atomic operation itself
-and thus `volatile` must always stay there with no cast-aways.
+This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
+vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
+up a private and static protection_map[] array. Subsequently all __SXXX and
+__PXXX macros can be dropped which are no longer needed.
 
-Suggested-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com> # comment
-Suggested-by: Marco Elver <elver@google.com> # reference to kernel-doc
-Signed-off-by: Alexander Lobakin <alexandr.lobakin@intel.com>
-Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Reviewed-by: Marco Elver <elver@google.com>
+Cc: Brian Cain <bcain@codeaurora.org>
+Cc: linux-hexagon@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Acked-by: Brian Cain <bcain@quicinc.com>
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
- .../asm-generic/bitops/generic-non-atomic.h   | 130 ++++++++++++++++++
- include/asm-generic/bitops/non-atomic.h       | 110 ++-------------
- 2 files changed, 138 insertions(+), 102 deletions(-)
- create mode 100644 include/asm-generic/bitops/generic-non-atomic.h
+ arch/hexagon/Kconfig               |  1 +
+ arch/hexagon/include/asm/pgtable.h | 27 -------------------
+ arch/hexagon/mm/init.c             | 42 ++++++++++++++++++++++++++++++
+ 3 files changed, 43 insertions(+), 27 deletions(-)
 
-diff --git a/include/asm-generic/bitops/generic-non-atomic.h b/include/asm-generic/bitops/generic-non-atomic.h
-new file mode 100644
-index 000000000000..7226488810e5
---- /dev/null
-+++ b/include/asm-generic/bitops/generic-non-atomic.h
-@@ -0,0 +1,130 @@
-+/* SPDX-License-Identifier: GPL-2.0-only */
-+
-+#ifndef __ASM_GENERIC_BITOPS_GENERIC_NON_ATOMIC_H
-+#define __ASM_GENERIC_BITOPS_GENERIC_NON_ATOMIC_H
-+
-+#include <linux/bits.h>
-+
-+#ifndef _LINUX_BITOPS_H
-+#error only <linux/bitops.h> can be included directly
-+#endif
-+
-+/*
-+ * Generic definitions for bit operations, should not be used in regular code
-+ * directly.
-+ */
-+
-+/**
-+ * generic___set_bit - Set a bit in memory
-+ * @nr: the bit to set
-+ * @addr: the address to start counting from
-+ *
-+ * Unlike set_bit(), this function is non-atomic and may be reordered.
-+ * If it's called on the same region of memory simultaneously, the effect
-+ * may be that only one operation succeeds.
-+ */
-+static __always_inline void
-+generic___set_bit(unsigned int nr, volatile unsigned long *addr)
-+{
-+	unsigned long mask = BIT_MASK(nr);
-+	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-+
-+	*p  |= mask;
-+}
-+
-+static __always_inline void
-+generic___clear_bit(unsigned int nr, volatile unsigned long *addr)
-+{
-+	unsigned long mask = BIT_MASK(nr);
-+	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-+
-+	*p &= ~mask;
-+}
-+
-+/**
-+ * generic___change_bit - Toggle a bit in memory
-+ * @nr: the bit to change
-+ * @addr: the address to start counting from
-+ *
-+ * Unlike change_bit(), this function is non-atomic and may be reordered.
-+ * If it's called on the same region of memory simultaneously, the effect
-+ * may be that only one operation succeeds.
-+ */
-+static __always_inline
-+void generic___change_bit(unsigned int nr, volatile unsigned long *addr)
-+{
-+	unsigned long mask = BIT_MASK(nr);
-+	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-+
-+	*p ^= mask;
-+}
-+
-+/**
-+ * generic___test_and_set_bit - Set a bit and return its old value
-+ * @nr: Bit to set
-+ * @addr: Address to count from
-+ *
-+ * This operation is non-atomic and can be reordered.
-+ * If two examples of this operation race, one can appear to succeed
-+ * but actually fail.  You must protect multiple accesses with a lock.
-+ */
-+static __always_inline int
-+generic___test_and_set_bit(unsigned int nr, volatile unsigned long *addr)
-+{
-+	unsigned long mask = BIT_MASK(nr);
-+	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-+	unsigned long old = *p;
-+
-+	*p = old | mask;
-+	return (old & mask) != 0;
-+}
-+
-+/**
-+ * generic___test_and_clear_bit - Clear a bit and return its old value
-+ * @nr: Bit to clear
-+ * @addr: Address to count from
-+ *
-+ * This operation is non-atomic and can be reordered.
-+ * If two examples of this operation race, one can appear to succeed
-+ * but actually fail.  You must protect multiple accesses with a lock.
-+ */
-+static __always_inline int
-+generic___test_and_clear_bit(unsigned int nr, volatile unsigned long *addr)
-+{
-+	unsigned long mask = BIT_MASK(nr);
-+	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-+	unsigned long old = *p;
-+
-+	*p = old & ~mask;
-+	return (old & mask) != 0;
-+}
-+
-+/* WARNING: non atomic and it can be reordered! */
-+static __always_inline int
-+generic___test_and_change_bit(unsigned int nr, volatile unsigned long *addr)
-+{
-+	unsigned long mask = BIT_MASK(nr);
-+	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-+	unsigned long old = *p;
-+
-+	*p = old ^ mask;
-+	return (old & mask) != 0;
-+}
-+
-+/**
-+ * generic_test_bit - Determine whether a bit is set
-+ * @nr: bit number to test
-+ * @addr: Address to start counting from
-+ */
-+static __always_inline int
-+generic_test_bit(unsigned int nr, const volatile unsigned long *addr)
-+{
-+	/*
-+	 * Unlike the bitops with the '__' prefix above, this one *is* atomic,
-+	 * so `volatile` must always stay here with no cast-aways. See
-+	 * `Documentation/atomic_bitops.txt` for the details.
-+	 */
-+	return 1UL & (addr[BIT_WORD(nr)] >> (nr & (BITS_PER_LONG-1)));
-+}
-+
-+#endif /* __ASM_GENERIC_BITOPS_GENERIC_NON_ATOMIC_H */
-diff --git a/include/asm-generic/bitops/non-atomic.h b/include/asm-generic/bitops/non-atomic.h
-index 078cc68be2f1..23d3abc1e10d 100644
---- a/include/asm-generic/bitops/non-atomic.h
-+++ b/include/asm-generic/bitops/non-atomic.h
-@@ -2,121 +2,27 @@
- #ifndef _ASM_GENERIC_BITOPS_NON_ATOMIC_H_
- #define _ASM_GENERIC_BITOPS_NON_ATOMIC_H_
+diff --git a/arch/hexagon/Kconfig b/arch/hexagon/Kconfig
+index 54eadf265178..bc4ceecd0588 100644
+--- a/arch/hexagon/Kconfig
++++ b/arch/hexagon/Kconfig
+@@ -6,6 +6,7 @@ config HEXAGON
+ 	def_bool y
+ 	select ARCH_32BIT_OFF_T
+ 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE
++	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_NO_PREEMPT
+ 	select DMA_GLOBAL_POOL
+ 	# Other pending projects/to-do items.
+diff --git a/arch/hexagon/include/asm/pgtable.h b/arch/hexagon/include/asm/pgtable.h
+index 0610724d6a28..f7048c18b6f9 100644
+--- a/arch/hexagon/include/asm/pgtable.h
++++ b/arch/hexagon/include/asm/pgtable.h
+@@ -126,33 +126,6 @@ extern unsigned long _dflt_cache_att;
+  */
+ #define CACHEDEF	(CACHE_DEFAULT << 6)
  
--#include <asm/types.h>
-+#include <asm-generic/bitops/generic-non-atomic.h>
- 
--/**
-- * arch___set_bit - Set a bit in memory
-- * @nr: the bit to set
-- * @addr: the address to start counting from
-- *
-- * Unlike set_bit(), this function is non-atomic and may be reordered.
-- * If it's called on the same region of memory simultaneously, the effect
-- * may be that only one operation succeeds.
-- */
--static __always_inline void
--arch___set_bit(unsigned int nr, volatile unsigned long *addr)
--{
--	unsigned long mask = BIT_MASK(nr);
--	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
+-/* Private (copy-on-write) page protections. */
+-#define __P000 __pgprot(_PAGE_PRESENT | _PAGE_USER | CACHEDEF)
+-#define __P001 __pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_READ | CACHEDEF)
+-#define __P010 __P000	/* Write-only copy-on-write */
+-#define __P011 __P001	/* Read/Write copy-on-write */
+-#define __P100 __pgprot(_PAGE_PRESENT | _PAGE_USER | \
+-			_PAGE_EXECUTE | CACHEDEF)
+-#define __P101 __pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_EXECUTE | \
+-			_PAGE_READ | CACHEDEF)
+-#define __P110 __P100	/* Write/execute copy-on-write */
+-#define __P111 __P101	/* Read/Write/Execute, copy-on-write */
 -
--	*p  |= mask;
--}
-+#define arch___set_bit generic___set_bit
- #define __set_bit arch___set_bit
- 
--static __always_inline void
--arch___clear_bit(unsigned int nr, volatile unsigned long *addr)
--{
--	unsigned long mask = BIT_MASK(nr);
--	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
+-/* Shared page protections. */
+-#define __S000 __P000
+-#define __S001 __P001
+-#define __S010 __pgprot(_PAGE_PRESENT | _PAGE_USER | \
+-			_PAGE_WRITE | CACHEDEF)
+-#define __S011 __pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_READ | \
+-			_PAGE_WRITE | CACHEDEF)
+-#define __S100 __pgprot(_PAGE_PRESENT | _PAGE_USER | \
+-			_PAGE_EXECUTE | CACHEDEF)
+-#define __S101 __P101
+-#define __S110 __pgprot(_PAGE_PRESENT | _PAGE_USER | \
+-			_PAGE_EXECUTE | _PAGE_WRITE | CACHEDEF)
+-#define __S111 __pgprot(_PAGE_PRESENT | _PAGE_USER | _PAGE_READ | \
+-			_PAGE_EXECUTE | _PAGE_WRITE | CACHEDEF)
 -
--	*p &= ~mask;
--}
-+#define arch___clear_bit generic___clear_bit
- #define __clear_bit arch___clear_bit
+ extern pgd_t swapper_pg_dir[PTRS_PER_PGD];  /* located in head.S */
  
--/**
-- * arch___change_bit - Toggle a bit in memory
-- * @nr: the bit to change
-- * @addr: the address to start counting from
-- *
-- * Unlike change_bit(), this function is non-atomic and may be reordered.
-- * If it's called on the same region of memory simultaneously, the effect
-- * may be that only one operation succeeds.
-- */
--static __always_inline
--void arch___change_bit(unsigned int nr, volatile unsigned long *addr)
--{
--	unsigned long mask = BIT_MASK(nr);
--	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
--
--	*p ^= mask;
--}
-+#define arch___change_bit generic___change_bit
- #define __change_bit arch___change_bit
- 
--/**
-- * arch___test_and_set_bit - Set a bit and return its old value
-- * @nr: Bit to set
-- * @addr: Address to count from
-- *
-- * This operation is non-atomic and can be reordered.
-- * If two examples of this operation race, one can appear to succeed
-- * but actually fail.  You must protect multiple accesses with a lock.
-- */
--static __always_inline int
--arch___test_and_set_bit(unsigned int nr, volatile unsigned long *addr)
--{
--	unsigned long mask = BIT_MASK(nr);
--	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
--	unsigned long old = *p;
--
--	*p = old | mask;
--	return (old & mask) != 0;
--}
-+#define arch___test_and_set_bit generic___test_and_set_bit
- #define __test_and_set_bit arch___test_and_set_bit
- 
--/**
-- * arch___test_and_clear_bit - Clear a bit and return its old value
-- * @nr: Bit to clear
-- * @addr: Address to count from
-- *
-- * This operation is non-atomic and can be reordered.
-- * If two examples of this operation race, one can appear to succeed
-- * but actually fail.  You must protect multiple accesses with a lock.
-- */
--static __always_inline int
--arch___test_and_clear_bit(unsigned int nr, volatile unsigned long *addr)
--{
--	unsigned long mask = BIT_MASK(nr);
--	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
--	unsigned long old = *p;
--
--	*p = old & ~mask;
--	return (old & mask) != 0;
--}
-+#define arch___test_and_clear_bit generic___test_and_clear_bit
- #define __test_and_clear_bit arch___test_and_clear_bit
- 
--/* WARNING: non atomic and it can be reordered! */
--static __always_inline int
--arch___test_and_change_bit(unsigned int nr, volatile unsigned long *addr)
--{
--	unsigned long mask = BIT_MASK(nr);
--	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
--	unsigned long old = *p;
--
--	*p = old ^ mask;
--	return (old & mask) != 0;
--}
-+#define arch___test_and_change_bit generic___test_and_change_bit
- #define __test_and_change_bit arch___test_and_change_bit
- 
--/**
-- * arch_test_bit - Determine whether a bit is set
-- * @nr: bit number to test
-- * @addr: Address to start counting from
-- */
--static __always_inline int
--arch_test_bit(unsigned int nr, const volatile unsigned long *addr)
--{
--	return 1UL & (addr[BIT_WORD(nr)] >> (nr & (BITS_PER_LONG-1)));
--}
-+#define arch_test_bit generic_test_bit
- #define test_bit arch_test_bit
- 
- #endif /* _ASM_GENERIC_BITOPS_NON_ATOMIC_H_ */
+ /*  HUGETLB not working currently  */
+diff --git a/arch/hexagon/mm/init.c b/arch/hexagon/mm/init.c
+index 3167a3b5c97b..146115c9de61 100644
+--- a/arch/hexagon/mm/init.c
++++ b/arch/hexagon/mm/init.c
+@@ -234,3 +234,45 @@ void __init setup_arch_memory(void)
+ 	 *  which is called by start_kernel() later on in the process
+ 	 */
+ }
++
++static const pgprot_t protection_map[16] = {
++	[VM_NONE]					= __pgprot(_PAGE_PRESENT | _PAGE_USER |
++								   CACHEDEF),
++	[VM_READ]					= __pgprot(_PAGE_PRESENT | _PAGE_USER |
++								   _PAGE_READ | CACHEDEF),
++	[VM_WRITE]					= __pgprot(_PAGE_PRESENT | _PAGE_USER |
++								   CACHEDEF),
++	[VM_WRITE | VM_READ]				= __pgprot(_PAGE_PRESENT | _PAGE_USER |
++								   _PAGE_READ | CACHEDEF),
++	[VM_EXEC]					= __pgprot(_PAGE_PRESENT | _PAGE_USER |
++								   _PAGE_EXECUTE | CACHEDEF),
++	[VM_EXEC | VM_READ]				= __pgprot(_PAGE_PRESENT | _PAGE_USER |
++								   _PAGE_EXECUTE | _PAGE_READ |
++								   CACHEDEF),
++	[VM_EXEC | VM_WRITE]				= __pgprot(_PAGE_PRESENT | _PAGE_USER |
++								   _PAGE_EXECUTE | CACHEDEF),
++	[VM_EXEC | VM_WRITE | VM_READ]			= __pgprot(_PAGE_PRESENT | _PAGE_USER |
++								   _PAGE_EXECUTE | _PAGE_READ |
++								   CACHEDEF),
++	[VM_SHARED]                                     = __pgprot(_PAGE_PRESENT | _PAGE_USER |
++								   CACHEDEF),
++	[VM_SHARED | VM_READ]				= __pgprot(_PAGE_PRESENT | _PAGE_USER |
++								   _PAGE_READ | CACHEDEF),
++	[VM_SHARED | VM_WRITE]				= __pgprot(_PAGE_PRESENT | _PAGE_USER |
++								   _PAGE_WRITE | CACHEDEF),
++	[VM_SHARED | VM_WRITE | VM_READ]		= __pgprot(_PAGE_PRESENT | _PAGE_USER |
++								   _PAGE_READ | _PAGE_WRITE |
++								   CACHEDEF),
++	[VM_SHARED | VM_EXEC]				= __pgprot(_PAGE_PRESENT | _PAGE_USER |
++								   _PAGE_EXECUTE | CACHEDEF),
++	[VM_SHARED | VM_EXEC | VM_READ]			= __pgprot(_PAGE_PRESENT | _PAGE_USER |
++								   _PAGE_EXECUTE | _PAGE_READ |
++								   CACHEDEF),
++	[VM_SHARED | VM_EXEC | VM_WRITE]		= __pgprot(_PAGE_PRESENT | _PAGE_USER |
++								   _PAGE_EXECUTE | _PAGE_WRITE |
++								   CACHEDEF),
++	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= __pgprot(_PAGE_PRESENT | _PAGE_USER |
++								   _PAGE_READ | _PAGE_EXECUTE |
++								   _PAGE_WRITE | CACHEDEF)
++};
++DECLARE_VM_GET_PAGE_PROT
 -- 
-2.36.1
+2.25.1
