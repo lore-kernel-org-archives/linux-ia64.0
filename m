@@ -1,71 +1,185 @@
-From: Stafford Horne <shorne@gmail.com>
-Date: Tue, 19 Jul 2022 10:51:43 +0000
-Subject: Re: [PATCH v2 1/2] asm-generic: Remove pci.h copying remaining code to x86
-Message-Id: <YtaMv2kfdxFyDsis@antec>
+From: Samuel Holland <samuel@sholland.org>
+Date: Fri, 01 Jul 2022 20:00:49 +0000
+Subject: [PATCH v3 1/8] irqchip/mips-gic: Only register IPI domain when SMP is enabled
+Message-Id: <20220701200056.46555-2-samuel@sholland.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220717033453.2896843-1-shorne@gmail.com>
- <20220717033453.2896843-2-shorne@gmail.com>
- <YtTif+vNq+gkfqsc@infradead.org>
- <CAK8P3a02R651U9Md8DHT33FgSp56Baiw4sNCWCFBPcMi0bB1-g@mail.gmail.com>
-In-Reply-To: <CAK8P3a02R651U9Md8DHT33FgSp56Baiw4sNCWCFBPcMi0bB1-g@mail.gmail.com>
+References: <20220701200056.46555-1-samuel@sholland.org>
+In-Reply-To: <20220701200056.46555-1-samuel@sholland.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>
-Cc: Christoph Hellwig <hch@infradead.org>, LKML <linux-kernel@vger.kernel.org>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, the arch/x86 maintainers <x86@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, Bjorn Helgaas <bhelgaas@google.com>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Nick Child <nick.child@ibm.com>, Niklas Schnelle <schnelle@linux.ibm.com>, Matthew Rosato <mjrosato@linux.ibm.com>, Pierre Morel <pmorel@linux.ibm.com>, Kees Cook <keescook@chromium.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>, alpha <linux-alpha@vger.kernel.org>, "open list:IA64 (Itanium) PLATFORM" <linux-ia64@vger.kernel.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, linux-s390 <linux-s390@vger.kernel.org>, sparclinux <sparclinux@vger.kernel.org>, "open list:TENSILICA XTENSA PORT (xtensa)" <linux-xtensa@linux-xtensa.org>, linux-pci <linux-pci@vger.kernel.org>, linux-arch <linux-arch@vger.kernel.org>, linux-riscv <linux-riscv@lists.infradead.org>
+To: Marc Zyngier <maz@kernel.org>, Thomas Gleixner <tglx@linutronix.de>
+Cc: Samuel Holland <samuel@sholland.org>, Andy Shevchenko <andy.shevchenko@gmail.com>, Bartosz Golaszewski <brgl@bgdev.pl>, Bjorn Helgaas <bhelgaas@google.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Borislav Petkov <bp@alien8.de>, Broadcom internal kernel review list <bcm-kernel-feedback-list@broadcom.com>, Chris Zankel <chris@zankel.net>, Colin Ian King <colin.king@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Dexuan Cui <decui@microsoft.com>, Florian Fainelli <f.fainelli@gmail.com>, Guo Ren <guoren@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Haiyang Zhang <haiyangz@microsoft.com>, Helge Deller <deller@gmx.de>, Ingo Molnar <mingo@redhat.com>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Jan Beulich <jbeulich@suse.com>, Joerg Roedel <joro@8bytes.org>, Juergen Gross <jgross@suse.com>, Julia Lawall <Julia.Lawall@inria.fr>, "K. Y. Srinivasan" <kys@microsoft.com>, Kees Cook <keescook@chromium.org>, =?UTF-8?q?Krzysztof=20Wilczy=C5=84ski?= <kw@linux.com>, Linus Walleij <linus.walleij@linaro.org>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Max Filippov <jcmvbkbc@gmail.com>, Maximilian Heyne <mheyne@amazon.de>, Oleksandr Tyshchenko <oleksandr_tyshchenko@epam.com>, Rich Felker <dalias@libc.org>, Richard Henderson <rth@twiddle.net>, Rikard Falkeborn <rikard.falkeborn@gmail.com>, Rob Herring <robh@kernel.org>, Russell King <linux@armlinux.org.uk>, Serge Semin <fancer.lancer@gmail.com>, Stefano Stabellini <sstabellini@kernel.org>, Stephen Hemminger <sthemmin@microsoft.com>, Sven Schnelle <svens@stackframe.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Wei Liu <wei.liu@kernel.org>, Wei Xu <xuwei5@hisilicon.com>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, iommu@lists.linux-foundation.org, iommu@lists.linux.dev, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-hyperv@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-pci@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, xen-devel@lists.xenproject.org, kernel test robot <lkp@intel.com>
 
-On Mon, Jul 18, 2022 at 10:40:34AM +0200, Arnd Bergmann wrote:
-> On Mon, Jul 18, 2022 at 6:33 AM Christoph Hellwig <hch@infradead.org> wrote:
-> >
-> > On Sun, Jul 17, 2022 at 12:34:52PM +0900, Stafford Horne wrote:
-> > > The generic pci.h header now only provides a definition of
-> > > pci_get_legacy_ide_irq which is used by architectures that support PNP.
-> > > Of the architectures that use asm-generic/pci.h this is only x86.
-> >
-> > Please move this into a separate header, ike legacy-ide.h.  It doens't
-> > have anyting to do with actual PCI support.
-> 
-> It looks like asm/libata-portmap.h is meant to have this information already,
-> and this is what libata uses, while drivers/ide used the
-> pci_get_legacy_ide_irq()
-> function for the same purpose.
-> 
-> Only ia64 and powerpc have interesting definitions of both, and they
-> return the same thing, so I think this is sufficient to remove the last caller:
-> 
-> diff --git a/drivers/pnp/resource.c b/drivers/pnp/resource.c
-> index 2fa0f7d55259..d7a6250589d6 100644
-> --- a/drivers/pnp/resource.c
-> +++ b/drivers/pnp/resource.c
-> @@ -16,7 +16,7 @@
->  #include <asm/io.h>
->  #include <asm/dma.h>
->  #include <asm/irq.h>
-> -#include <linux/pci.h>
-> +#include <linux/libata.h>
->  #include <linux/ioport.h>
->  #include <linux/init.h>
-> 
-> @@ -322,8 +322,8 @@ static int pci_dev_uses_irq(struct pnp_dev *pnp,
-> struct pci_dev *pci,
->                  * treat the compatibility IRQs as busy.
->                  */
->                 if ((progif & 0x5) != 0x5)
-> -                       if (pci_get_legacy_ide_irq(pci, 0) = irq ||
-> -                           pci_get_legacy_ide_irq(pci, 1) = irq) {
-> +                       if (ATA_PRIMARY_IRQ(pci) = irq ||
-> +                           ATA_SECONDARY_IRQ(pci) = irq) {
->                                 pnp_dbg(&pnp->dev, "  legacy IDE device %s "
->                                         "using irq %d\n", pci_name(pci), irq);
->                                 return 1;
-> 
-> This is fine on the architectures that currently return an error from
-> pci_get_legacy_ide_irq() but will change to returning 15/14 instead,
-> because they do not support ISA devices, so pci_dev_uses_irq()
-> will never be called either.
+The MIPS GIC irqchip driver may be selected in a uniprocessor
+configuration, but it unconditionally registers an IPI domain.
 
-I like this, I didn't know about the ATA_PRIMARY_IRQ/ATA_SECONDARY_IRQ macro.
-Let me add this to the series before 1/2.  I will keep you as the author via
-Signed-off-by annotation.
+Limit the part of the driver dealing with IPIs to only be compiled when
+GENERIC_IRQ_IPI is enabled, which corresponds to an SMP configuration.
 
--Stafford
+Reported-by: kernel test robot <lkp@intel.com>
+Signed-off-by: Samuel Holland <samuel@sholland.org>
+---
+
+Changes in v3:
+ - New patch to fix build errors in uniprocessor MIPS configs
+
+ drivers/irqchip/Kconfig        |  3 +-
+ drivers/irqchip/irq-mips-gic.c | 80 +++++++++++++++++++++++-----------
+ 2 files changed, 56 insertions(+), 27 deletions(-)
+
+diff --git a/drivers/irqchip/Kconfig b/drivers/irqchip/Kconfig
+index 1f23a6be7d88..d26a4ff7c99f 100644
+--- a/drivers/irqchip/Kconfig
++++ b/drivers/irqchip/Kconfig
+@@ -322,7 +322,8 @@ config KEYSTONE_IRQ
+ 
+ config MIPS_GIC
+ 	bool
+-	select GENERIC_IRQ_IPI
++	select GENERIC_IRQ_IPI if SMP
++	select IRQ_DOMAIN_HIERARCHY
+ 	select MIPS_CM
+ 
+ config INGENIC_IRQ
+diff --git a/drivers/irqchip/irq-mips-gic.c b/drivers/irqchip/irq-mips-gic.c
+index ff89b36267dd..8a9efb6ae587 100644
+--- a/drivers/irqchip/irq-mips-gic.c
++++ b/drivers/irqchip/irq-mips-gic.c
+@@ -52,13 +52,15 @@ static DEFINE_PER_CPU_READ_MOSTLY(unsigned long[GIC_MAX_LONGS], pcpu_masks);
+ 
+ static DEFINE_SPINLOCK(gic_lock);
+ static struct irq_domain *gic_irq_domain;
+-static struct irq_domain *gic_ipi_domain;
+ static int gic_shared_intrs;
+ static unsigned int gic_cpu_pin;
+ static unsigned int timer_cpu_pin;
+ static struct irq_chip gic_level_irq_controller, gic_edge_irq_controller;
++
++#ifdef CONFIG_GENERIC_IRQ_IPI
+ static DECLARE_BITMAP(ipi_resrv, GIC_MAX_INTRS);
+ static DECLARE_BITMAP(ipi_available, GIC_MAX_INTRS);
++#endif /* CONFIG_GENERIC_IRQ_IPI */
+ 
+ static struct gic_all_vpes_chip_data {
+ 	u32	map;
+@@ -472,9 +474,11 @@ static int gic_irq_domain_map(struct irq_domain *d, unsigned int virq,
+ 	u32 map;
+ 
+ 	if (hwirq >= GIC_SHARED_HWIRQ_BASE) {
++#ifdef CONFIG_GENERIC_IRQ_IPI
+ 		/* verify that shared irqs don't conflict with an IPI irq */
+ 		if (test_bit(GIC_HWIRQ_TO_SHARED(hwirq), ipi_resrv))
+ 			return -EBUSY;
++#endif /* CONFIG_GENERIC_IRQ_IPI */
+ 
+ 		err = irq_domain_set_hwirq_and_chip(d, virq, hwirq,
+ 						    &gic_level_irq_controller,
+@@ -567,6 +571,8 @@ static const struct irq_domain_ops gic_irq_domain_ops = {
+ 	.map = gic_irq_domain_map,
+ };
+ 
++#ifdef CONFIG_GENERIC_IRQ_IPI
++
+ static int gic_ipi_domain_xlate(struct irq_domain *d, struct device_node *ctrlr,
+ 				const u32 *intspec, unsigned int intsize,
+ 				irq_hw_number_t *out_hwirq,
+@@ -670,6 +676,48 @@ static const struct irq_domain_ops gic_ipi_domain_ops = {
+ 	.match = gic_ipi_domain_match,
+ };
+ 
++static int gic_register_ipi_domain(struct device_node *node)
++{
++	struct irq_domain *gic_ipi_domain;
++	unsigned int v[2], num_ipis;
++
++	gic_ipi_domain = irq_domain_add_hierarchy(gic_irq_domain,
++						  IRQ_DOMAIN_FLAG_IPI_PER_CPU,
++						  GIC_NUM_LOCAL_INTRS + gic_shared_intrs,
++						  node, &gic_ipi_domain_ops, NULL);
++	if (!gic_ipi_domain) {
++		pr_err("Failed to add IPI domain");
++		return -ENXIO;
++	}
++
++	irq_domain_update_bus_token(gic_ipi_domain, DOMAIN_BUS_IPI);
++
++	if (node &&
++	    !of_property_read_u32_array(node, "mti,reserved-ipi-vectors", v, 2)) {
++		bitmap_set(ipi_resrv, v[0], v[1]);
++	} else {
++		/*
++		 * Reserve 2 interrupts per possible CPU/VP for use as IPIs,
++		 * meeting the requirements of arch/mips SMP.
++		 */
++		num_ipis = 2 * num_possible_cpus();
++		bitmap_set(ipi_resrv, gic_shared_intrs - num_ipis, num_ipis);
++	}
++
++	bitmap_copy(ipi_available, ipi_resrv, GIC_MAX_INTRS);
++
++	return 0;
++}
++
++#else /* !CONFIG_GENERIC_IRQ_IPI */
++
++static inline int gic_register_ipi_domain(struct device_node *node)
++{
++	return 0;
++}
++
++#endif /* !CONFIG_GENERIC_IRQ_IPI */
++
+ static int gic_cpu_startup(unsigned int cpu)
+ {
+ 	/* Enable or disable EIC */
+@@ -688,11 +736,12 @@ static int gic_cpu_startup(unsigned int cpu)
+ static int __init gic_of_init(struct device_node *node,
+ 			      struct device_node *parent)
+ {
+-	unsigned int cpu_vec, i, gicconfig, v[2], num_ipis;
++	unsigned int cpu_vec, i, gicconfig;
+ 	unsigned long reserved;
+ 	phys_addr_t gic_base;
+ 	struct resource res;
+ 	size_t gic_len;
++	int ret;
+ 
+ 	/* Find the first available CPU vector. */
+ 	i = 0;
+@@ -780,30 +829,9 @@ static int __init gic_of_init(struct device_node *node,
+ 		return -ENXIO;
+ 	}
+ 
+-	gic_ipi_domain = irq_domain_add_hierarchy(gic_irq_domain,
+-						  IRQ_DOMAIN_FLAG_IPI_PER_CPU,
+-						  GIC_NUM_LOCAL_INTRS + gic_shared_intrs,
+-						  node, &gic_ipi_domain_ops, NULL);
+-	if (!gic_ipi_domain) {
+-		pr_err("Failed to add IPI domain");
+-		return -ENXIO;
+-	}
+-
+-	irq_domain_update_bus_token(gic_ipi_domain, DOMAIN_BUS_IPI);
+-
+-	if (node &&
+-	    !of_property_read_u32_array(node, "mti,reserved-ipi-vectors", v, 2)) {
+-		bitmap_set(ipi_resrv, v[0], v[1]);
+-	} else {
+-		/*
+-		 * Reserve 2 interrupts per possible CPU/VP for use as IPIs,
+-		 * meeting the requirements of arch/mips SMP.
+-		 */
+-		num_ipis = 2 * num_possible_cpus();
+-		bitmap_set(ipi_resrv, gic_shared_intrs - num_ipis, num_ipis);
+-	}
+-
+-	bitmap_copy(ipi_available, ipi_resrv, GIC_MAX_INTRS);
++	ret = gic_register_ipi_domain(node);
++	if (ret)
++		return ret;
+ 
+ 	board_bind_eic_interrupt = &gic_bind_eic_interrupt;
+ 
+-- 
+2.35.1
