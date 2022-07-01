@@ -1,163 +1,338 @@
-From: Alexander Lobakin <alexandr.lobakin@intel.com>
-Date: Tue, 12 Jul 2022 14:31:23 +0000
-Subject: Re: [bitops] 0e862838f2: BUG:KASAN:wild-memory-access_in_dmar_parse_one_rhsa
-Message-Id: <20220712143123.38008-1-alexandr.lobakin@intel.com>
+From: Samuel Holland <samuel@sholland.org>
+Date: Fri, 01 Jul 2022 20:00:55 +0000
+Subject: [PATCH v3 7/8] genirq: Return a const cpumask from irq_data_get_affinity_mask
+Message-Id: <20220701200056.46555-8-samuel@sholland.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <YsbpTNmDaam8pl+f@xsang-OptiPlex-9020> <YsggZNUQcsKIU9xU@smile.fi.intel.com> <20220711161341.21605-1-alexandr.lobakin@intel.com> <CAAH8bW_fypvDtWEFX32iFSagyAS2Mi+yG+bafTeTynYynBdDWA@mail.gmail.com>
-In-Reply-To: <CAAH8bW_fypvDtWEFX32iFSagyAS2Mi+yG+bafTeTynYynBdDWA@mail.gmail.com>
+References: <20220701200056.46555-1-samuel@sholland.org>
+In-Reply-To: <20220701200056.46555-1-samuel@sholland.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Yury Norov <yury.norov@gmail.com>
-Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, kernel test robot <oliver.sang@intel.com>, Mark Rutland <mark.rutland@arm.com>, LKML <linux-kernel@vger.kernel.org>, Linux Memory Management List <linux-mm@kvack.org>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-arch@vger.kernel.org, lkp@lists.01.org, lkp@intel.com
+To: Marc Zyngier <maz@kernel.org>, Thomas Gleixner <tglx@linutronix.de>
+Cc: Samuel Holland <samuel@sholland.org>, Andy Shevchenko <andy.shevchenko@gmail.com>, Bartosz Golaszewski <brgl@bgdev.pl>, Bjorn Helgaas <bhelgaas@google.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Borislav Petkov <bp@alien8.de>, Broadcom internal kernel review list <bcm-kernel-feedback-list@broadcom.com>, Chris Zankel <chris@zankel.net>, Colin Ian King <colin.king@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Dexuan Cui <decui@microsoft.com>, Florian Fainelli <f.fainelli@gmail.com>, Guo Ren <guoren@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Haiyang Zhang <haiyangz@microsoft.com>, Helge Deller <deller@gmx.de>, Ingo Molnar <mingo@redhat.com>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Jan Beulich <jbeulich@suse.com>, Joerg Roedel <joro@8bytes.org>, Juergen Gross <jgross@suse.com>, Julia Lawall <Julia.Lawall@inria.fr>, "K. Y. Srinivasan" <kys@microsoft.com>, Kees Cook <keescook@chromium.org>, =?UTF-8?q?Krzysztof=20Wilczy=C5=84ski?= <kw@linux.com>, Linus Walleij <linus.walleij@linaro.org>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Max Filippov <jcmvbkbc@gmail.com>, Maximilian Heyne <mheyne@amazon.de>, Oleksandr Tyshchenko <oleksandr_tyshchenko@epam.com>, Rich Felker <dalias@libc.org>, Richard Henderson <rth@twiddle.net>, Rikard Falkeborn <rikard.falkeborn@gmail.com>, Rob Herring <robh@kernel.org>, Russell King <linux@armlinux.org.uk>, Serge Semin <fancer.lancer@gmail.com>, Stefano Stabellini <sstabellini@kernel.org>, Stephen Hemminger <sthemmin@microsoft.com>, Sven Schnelle <svens@stackframe.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Wei Liu <wei.liu@kernel.org>, Wei Xu <xuwei5@hisilicon.com>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, iommu@lists.linux-foundation.org, iommu@lists.linux.dev, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-hyperv@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-pci@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, xen-devel@lists.xenproject.org
 
-From: Yury Norov <yury.norov@gmail.com>
-Date: Mon, 11 Jul 2022 11:24:42 -0700
+Now that the irq_data_update_affinity helper exists, enforce its use
+by returning a a const cpumask from irq_data_get_affinity_mask.
 
-> On Mon, Jul 11, 2022 at 9:15 AM Alexander Lobakin
-> <alexandr.lobakin@intel.com> wrote:
-> >
-> > From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-> > Date: Fri, 8 Jul 2022 15:17:40 +0300
-> >
-> >> On Thu, Jul 07, 2022 at 10:10:20PM +0800, kernel test robot wrote:
-> >>>
-> >>> (please be noted we reported
-> >>> "[bitops]  001bea109d: BUG:KASAN:wild-memory-access_in_dmar_parse_one_rhsa"
-> >>> on
-> >>> https://lore.kernel.org/all/YrnGLtDXAveqXGok@xsang-OptiPlex-9020/
-> >>> now we noticed this commit has already been merged into linux-next/master,
-> >>> and the issue is still existing. report again FYI)
-> >>>
-> >>> Greeting,
-> >>>
-> >>> FYI, we noticed the following commit (built with gcc-11):
-> >>>
-> >>> commit: 0e862838f290147ea9c16db852d8d494b552d38d ("bitops: unify non-atomic bitops prototypes across architectures")
-> >>> https://git.kernel.org/cgit/linux/kernel/git/next/linux-next.git master
-> >>>
-> >>> in testcase: xfstests
-> >>> version: xfstests-x86_64-c1144bf-1_20220627
-> >>> with following parameters:
-> >>>
-> >>>     disk: 2pmem
-> >>>     fs: ext4
-> >>>     test: ext4-dax
-> >>>     ucode: 0x700001c
-> >>>
-> >>> test-description: xfstests is a regression test suite for xfs and other files ystems.
-> >>> test-url: git://git.kernel.org/pub/scm/fs/xfs/xfstests-dev.git
-> >>>
-> >>>
-> >>> on test machine: 16 threads 1 sockets Intel(R) Xeon(R) CPU D-1541 @ 2.10GHz with 48G memory
-> >>>
-> >>> caused below changes (please refer to attached dmesg/kmsg for entire log/backtrace):
-> >>>
-> >>>
-> >>>
-> >>> If you fix the issue, kindly add following tag
-> >>> Reported-by: kernel test robot <oliver.sang@intel.com>
-> >>>
-> >>>
-> >>> [ 4.668325][ T0] BUG: KASAN: wild-memory-access in dmar_parse_one_rhsa (arch/x86/include/asm/bitops.h:214 arch/x86/include/asm/bitops.h:226 include/asm-generic/bitops/instrumented-non-atomic.h:142 include/linux/nodemask.h:415 drivers/iommu/intel/dmar.c:497)
-> >>> [    4.676149][    T0] Read of size 8 at addr 1fffffff85115558 by task swapper/0/0
-> >>> [    4.683454][    T0]
-> >>> [    4.685638][    T0] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 5.19.0-rc3-00004-g0e862838f290 #1
-> >>> [    4.694331][    T0] Hardware name: Supermicro SYS-5018D-FN4T/X10SDV-8C-TLN4F, BIOS 1.1 03/02/2016
-> >>> [    4.703196][    T0] Call Trace:
-> >>> [    4.706334][    T0]  <TASK>
-> >>> [ 4.709133][ T0] ? dmar_parse_one_rhsa (arch/x86/include/asm/bitops.h:214 arch/x86/include/asm/bitops.h:226 include/asm-generic/bitops/instrumented-non-atomic.h:142 include/linux/nodemask.h:415 drivers/iommu/intel/dmar.c:497)
-> >>> [ 4.714272][ T0] dump_stack_lvl (lib/dump_stack.c:107 (discriminator 1))
-> >>> [ 4.718632][ T0] kasan_report (mm/kasan/report.c:162 mm/kasan/report.c:493)
-> >>> [ 4.722903][ T0] ? dmar_parse_one_rhsa (arch/x86/include/asm/bitops.h:214 arch/x86/include/asm/bitops.h:226 include/asm-generic/bitops/instrumented-non-atomic.h:142 include/linux/nodemask.h:415 drivers/iommu/intel/dmar.c:497)
-> >>> [ 4.728042][ T0] kasan_check_range (mm/kasan/generic.c:190)
-> >>> [ 4.732750][ T0] dmar_parse_one_rhsa (arch/x86/include/asm/bitops.h:214 arch/x86/include/asm/bitops.h:226 include/asm-generic/bitops/instrumented-non-atomic.h:142 include/linux/nodemask.h:415 drivers/iommu/intel/dmar.c:497)
-> >>> [ 4.737715][ T0] dmar_walk_remapping_entries (drivers/iommu/intel/dmar.c:609)
-> >>> [ 4.743375][ T0] parse_dmar_table (drivers/iommu/intel/dmar.c:671)
-> >>> [ 4.748079][ T0] ? dmar_table_detect (drivers/iommu/intel/dmar.c:633)
-> >>> [ 4.752872][ T0] ? dmar_free_dev_scope (drivers/iommu/intel/dmar.c:408)
-> >>> [ 4.758010][ T0] ? init_dmars (drivers/iommu/intel/iommu.c:3359)
-> >>> [ 4.762370][ T0] ? iommu_resume (drivers/iommu/intel/iommu.c:3419)
-> >>> [ 4.766903][ T0] ? dmar_walk_dsm_resource+0x300/0x300
-> >>> [ 4.772909][ T0] ? dmar_acpi_insert_dev_scope (drivers/iommu/intel/dmar.c:466)
-> >>> [ 4.778655][ T0] ? dmar_check_one_atsr (drivers/iommu/intel/iommu.c:3521)
-> >>> [ 4.783795][ T0] dmar_table_init (drivers/iommu/intel/dmar.c:846)
-> >>> [ 4.788239][ T0] intel_prepare_irq_remapping (drivers/iommu/intel/irq_remapping.c:742)
-> >>> [ 4.793811][ T0] irq_remapping_prepare (drivers/iommu/irq_remapping.c:102)
-> >>> [ 4.798778][ T0] enable_IR_x2apic (arch/x86/kernel/apic/apic.c:1928)
-> >>> [ 4.803395][ T0] default_setup_apic_routing (arch/x86/kernel/apic/probe_64.c:25 (discriminator 1))
-> >>> [ 4.808883][ T0] apic_intr_mode_init (arch/x86/kernel/apic/apic.c:1446)
-> >>> [ 4.813761][ T0] x86_late_time_init (arch/x86/kernel/time.c:101)
-> >>> [ 4.818467][ T0] start_kernel (init/main.c:1101)
-> >>> [ 4.822827][ T0] secondary_startup_64_no_verify (arch/x86/kernel/head_64.S:358)
-> >>
-> >> Seems like related to nodemask APIs.
-> >
-> > It points to arch_test_bit() (node_online() -> test_bit()),
-> > converted from a macro to a function, more precisely, to
-> > variable_test_bit(), which I didn't touch.
-> >
-> > ...oh ok I got it!
-> >
-> > pxm_to_node() can return %NUMA_NO_NODE which equals to -1. The
-> > mentioned commit converts the macro to the function which now takes
-> > `unsigned long` as @nr (bit number). So I guess it gets converted to
-> > %ULONG_MAX - 1.
-> >
-> > Now the question is: what should a bitop do if we have negative bit
-> > number? Because there are 2 solutions:
-> >
-> > 1. (I prefer it) A caller must check that bitop arguments are valid.
-> >    UB for negative (= too big) bit numbers.
-> >    dmar_parse_one_rhsa() must be fixed so that it will check return
-> >    value of pxm_to_node():
-> >
-> >                         int node = pxm_to_node(rhsa->proximity_domain);
-> >
-> > -                       if (!node_online(node))
-> > +                       if (node != NUMA_NO_NODE && !node_online(node))
-> 
-> Would it make sense to check it inside node_online()?
+Since the previous commit already updated places that needed to call
+irq_data_update_affinity, this commit updates the remaining code that
+either did not modify the cpumask or immediately passed the modified
+mask to irq_set_affinity.
 
-Probably as a more global improvement. I believe it's used very
-often on hotpath, where it's known it can't be < 0, so for now
-I'd pick the check inside this function.
+Signed-off-by: Samuel Holland <samuel@sholland.org>
+---
 
-> 
-> >                                 node = NUMA_NO_NODE;
-> >
-> > 2. My code is broken, I shouldn't change `long` to `unsigned long`
-> >    or should change it for {constant,variable}_test_bit() as well
-> >    or do something else and let it behave as it was previously
-> >    (it wasn't crashing probably due to a good luck or...).
-> 
-> This is definitely a NUMA problem. Bitmap has 2 kernel-wide users:
-> cpumasks and numa nodes. Both use negative indexes for their
-> reasons, which is dangerous, as we can see from here, because
-> bitmaps don't support them and don't handle it properly...
-> 
-> Can you please send a fix dmar_parse_one_rhsa() as you suggested,
-> so that I'll add the fix before the beginning of next merge window?
+Changes in v3:
+ - New patch to make the returned cpumasks const
 
-Sure, sending in a couple hours. I guess it would be nice to get
-Acked-by from a maintainer of that subsys (if it won't take too
-long).
+ arch/mips/cavium-octeon/octeon-irq.c |  4 ++--
+ arch/sh/kernel/irq.c                 |  7 ++++---
+ arch/x86/hyperv/irqdomain.c          |  2 +-
+ arch/xtensa/kernel/irq.c             |  7 ++++---
+ drivers/iommu/hyperv-iommu.c         |  2 +-
+ drivers/pci/controller/pci-hyperv.c  | 10 +++++-----
+ include/linux/irq.h                  | 12 +++++++-----
+ kernel/irq/chip.c                    |  8 +++++---
+ kernel/irq/debugfs.c                 |  2 +-
+ kernel/irq/ipi.c                     | 16 +++++++++-------
+ 10 files changed, 39 insertions(+), 31 deletions(-)
 
-> 
-> Regarding a general path, this is what I'm thinking on (for a while):
->  - #define NUMA_NO_NODE MAX_NUMNODES;
->  - stronger typechecking, like you did in your series;
->  - introduce CONFIG_DEBUG_BITMAP  to catch bad arguments
->    on-the-fly;
-> 
-> I'm working on DEBUG_BITMAP, hopefully submit it for next merge
-> cycle.
-
-I like the idea!
-
-> 
-> Thanks,
-> Yury
-
-Thanks,
-Olek
+diff --git a/arch/mips/cavium-octeon/octeon-irq.c b/arch/mips/cavium-octeon/octeon-irq.c
+index 6cdcbf4de763..9cb9ed44bcaf 100644
+--- a/arch/mips/cavium-octeon/octeon-irq.c
++++ b/arch/mips/cavium-octeon/octeon-irq.c
+@@ -263,7 +263,7 @@ static int next_cpu_for_irq(struct irq_data *data)
+ 
+ #ifdef CONFIG_SMP
+ 	int cpu;
+-	struct cpumask *mask = irq_data_get_affinity_mask(data);
++	const struct cpumask *mask = irq_data_get_affinity_mask(data);
+ 	int weight = cpumask_weight(mask);
+ 	struct octeon_ciu_chip_data *cd = irq_data_get_irq_chip_data(data);
+ 
+@@ -758,7 +758,7 @@ static void octeon_irq_cpu_offline_ciu(struct irq_data *data)
+ {
+ 	int cpu = smp_processor_id();
+ 	cpumask_t new_affinity;
+-	struct cpumask *mask = irq_data_get_affinity_mask(data);
++	const struct cpumask *mask = irq_data_get_affinity_mask(data);
+ 
+ 	if (!cpumask_test_cpu(cpu, mask))
+ 		return;
+diff --git a/arch/sh/kernel/irq.c b/arch/sh/kernel/irq.c
+index ef0f0827cf57..56269c2c3414 100644
+--- a/arch/sh/kernel/irq.c
++++ b/arch/sh/kernel/irq.c
+@@ -230,16 +230,17 @@ void migrate_irqs(void)
+ 		struct irq_data *data = irq_get_irq_data(irq);
+ 
+ 		if (irq_data_get_node(data) = cpu) {
+-			struct cpumask *mask = irq_data_get_affinity_mask(data);
++			const struct cpumask *mask = irq_data_get_affinity_mask(data);
+ 			unsigned int newcpu = cpumask_any_and(mask,
+ 							      cpu_online_mask);
+ 			if (newcpu >= nr_cpu_ids) {
+ 				pr_info_ratelimited("IRQ%u no longer affine to CPU%u\n",
+ 						    irq, cpu);
+ 
+-				cpumask_setall(mask);
++				irq_set_affinity(irq, cpu_all_mask);
++			} else {
++				irq_set_affinity(irq, mask);
+ 			}
+-			irq_set_affinity(irq, mask);
+ 		}
+ 	}
+ }
+diff --git a/arch/x86/hyperv/irqdomain.c b/arch/x86/hyperv/irqdomain.c
+index 7e0f6bedc248..42c70d28ef27 100644
+--- a/arch/x86/hyperv/irqdomain.c
++++ b/arch/x86/hyperv/irqdomain.c
+@@ -192,7 +192,7 @@ static void hv_irq_compose_msi_msg(struct irq_data *data, struct msi_msg *msg)
+ 	struct pci_dev *dev;
+ 	struct hv_interrupt_entry out_entry, *stored_entry;
+ 	struct irq_cfg *cfg = irqd_cfg(data);
+-	cpumask_t *affinity;
++	const cpumask_t *affinity;
+ 	int cpu;
+ 	u64 status;
+ 
+diff --git a/arch/xtensa/kernel/irq.c b/arch/xtensa/kernel/irq.c
+index 529fe9245821..42f106004400 100644
+--- a/arch/xtensa/kernel/irq.c
++++ b/arch/xtensa/kernel/irq.c
+@@ -169,7 +169,7 @@ void migrate_irqs(void)
+ 
+ 	for_each_active_irq(i) {
+ 		struct irq_data *data = irq_get_irq_data(i);
+-		struct cpumask *mask;
++		const struct cpumask *mask;
+ 		unsigned int newcpu;
+ 
+ 		if (irqd_is_per_cpu(data))
+@@ -185,9 +185,10 @@ void migrate_irqs(void)
+ 			pr_info_ratelimited("IRQ%u no longer affine to CPU%u\n",
+ 					    i, cpu);
+ 
+-			cpumask_setall(mask);
++			irq_set_affinity(i, cpu_all_mask);
++		} else {
++			irq_set_affinity(i, mask);
+ 		}
+-		irq_set_affinity(i, mask);
+ 	}
+ }
+ #endif /* CONFIG_HOTPLUG_CPU */
+diff --git a/drivers/iommu/hyperv-iommu.c b/drivers/iommu/hyperv-iommu.c
+index e285a220c913..51bd66a45a11 100644
+--- a/drivers/iommu/hyperv-iommu.c
++++ b/drivers/iommu/hyperv-iommu.c
+@@ -194,7 +194,7 @@ hyperv_root_ir_compose_msi_msg(struct irq_data *irq_data, struct msi_msg *msg)
+ 	u32 vector;
+ 	struct irq_cfg *cfg;
+ 	int ioapic_id;
+-	struct cpumask *affinity;
++	const struct cpumask *affinity;
+ 	int cpu;
+ 	struct hv_interrupt_entry entry;
+ 	struct hyperv_root_ir_data *data = irq_data->chip_data;
+diff --git a/drivers/pci/controller/pci-hyperv.c b/drivers/pci/controller/pci-hyperv.c
+index db814f7b93ba..aebada45569b 100644
+--- a/drivers/pci/controller/pci-hyperv.c
++++ b/drivers/pci/controller/pci-hyperv.c
+@@ -642,7 +642,7 @@ static void hv_arch_irq_unmask(struct irq_data *data)
+ 	struct hv_retarget_device_interrupt *params;
+ 	struct tran_int_desc *int_desc;
+ 	struct hv_pcibus_device *hbus;
+-	struct cpumask *dest;
++	const struct cpumask *dest;
+ 	cpumask_var_t tmp;
+ 	struct pci_bus *pbus;
+ 	struct pci_dev *pdev;
+@@ -1613,7 +1613,7 @@ static void hv_pci_compose_compl(void *context, struct pci_response *resp,
+ }
+ 
+ static u32 hv_compose_msi_req_v1(
+-	struct pci_create_interrupt *int_pkt, struct cpumask *affinity,
++	struct pci_create_interrupt *int_pkt, const struct cpumask *affinity,
+ 	u32 slot, u8 vector, u8 vector_count)
+ {
+ 	int_pkt->message_type.type = PCI_CREATE_INTERRUPT_MESSAGE;
+@@ -1641,7 +1641,7 @@ static int hv_compose_msi_req_get_cpu(struct cpumask *affinity)
+ }
+ 
+ static u32 hv_compose_msi_req_v2(
+-	struct pci_create_interrupt2 *int_pkt, struct cpumask *affinity,
++	struct pci_create_interrupt2 *int_pkt, const struct cpumask *affinity,
+ 	u32 slot, u8 vector, u8 vector_count)
+ {
+ 	int cpu;
+@@ -1660,7 +1660,7 @@ static u32 hv_compose_msi_req_v2(
+ }
+ 
+ static u32 hv_compose_msi_req_v3(
+-	struct pci_create_interrupt3 *int_pkt, struct cpumask *affinity,
++	struct pci_create_interrupt3 *int_pkt, const struct cpumask *affinity,
+ 	u32 slot, u32 vector, u8 vector_count)
+ {
+ 	int cpu;
+@@ -1697,7 +1697,7 @@ static void hv_compose_msi_msg(struct irq_data *data, struct msi_msg *msg)
+ 	struct hv_pci_dev *hpdev;
+ 	struct pci_bus *pbus;
+ 	struct pci_dev *pdev;
+-	struct cpumask *dest;
++	const struct cpumask *dest;
+ 	struct compose_comp_ctxt comp;
+ 	struct tran_int_desc *int_desc;
+ 	struct msi_desc *msi_desc;
+diff --git a/include/linux/irq.h b/include/linux/irq.h
+index adcfebceb777..02073f7a156e 100644
+--- a/include/linux/irq.h
++++ b/include/linux/irq.h
+@@ -879,7 +879,8 @@ static inline int irq_data_get_node(struct irq_data *d)
+ 	return irq_common_data_get_node(d->common);
+ }
+ 
+-static inline struct cpumask *irq_data_get_affinity_mask(struct irq_data *d)
++static inline
++const struct cpumask *irq_data_get_affinity_mask(struct irq_data *d)
+ {
+ 	return d->common->affinity;
+ }
+@@ -890,7 +891,7 @@ static inline void irq_data_update_affinity(struct irq_data *d,
+ 	cpumask_copy(d->common->affinity, m);
+ }
+ 
+-static inline struct cpumask *irq_get_affinity_mask(int irq)
++static inline const struct cpumask *irq_get_affinity_mask(int irq)
+ {
+ 	struct irq_data *d = irq_get_irq_data(irq);
+ 
+@@ -899,7 +900,7 @@ static inline struct cpumask *irq_get_affinity_mask(int irq)
+ 
+ #ifdef CONFIG_GENERIC_IRQ_EFFECTIVE_AFF_MASK
+ static inline
+-struct cpumask *irq_data_get_effective_affinity_mask(struct irq_data *d)
++const struct cpumask *irq_data_get_effective_affinity_mask(struct irq_data *d)
+ {
+ 	return d->common->effective_affinity;
+ }
+@@ -914,13 +915,14 @@ static inline void irq_data_update_effective_affinity(struct irq_data *d,
+ {
+ }
+ static inline
+-struct cpumask *irq_data_get_effective_affinity_mask(struct irq_data *d)
++const struct cpumask *irq_data_get_effective_affinity_mask(struct irq_data *d)
+ {
+ 	return irq_data_get_affinity_mask(d);
+ }
+ #endif
+ 
+-static inline struct cpumask *irq_get_effective_affinity_mask(unsigned int irq)
++static inline
++const struct cpumask *irq_get_effective_affinity_mask(unsigned int irq)
+ {
+ 	struct irq_data *d = irq_get_irq_data(irq);
+ 
+diff --git a/kernel/irq/chip.c b/kernel/irq/chip.c
+index 886789dcee43..9c7ad2266317 100644
+--- a/kernel/irq/chip.c
++++ b/kernel/irq/chip.c
+@@ -188,7 +188,8 @@ enum {
+ 
+ #ifdef CONFIG_SMP
+ static int
+-__irq_startup_managed(struct irq_desc *desc, struct cpumask *aff, bool force)
++__irq_startup_managed(struct irq_desc *desc, const struct cpumask *aff,
++		      bool force)
+ {
+ 	struct irq_data *d = irq_desc_get_irq_data(desc);
+ 
+@@ -224,7 +225,8 @@ __irq_startup_managed(struct irq_desc *desc, struct cpumask *aff, bool force)
+ }
+ #else
+ static __always_inline int
+-__irq_startup_managed(struct irq_desc *desc, struct cpumask *aff, bool force)
++__irq_startup_managed(struct irq_desc *desc, const struct cpumask *aff,
++		      bool force)
+ {
+ 	return IRQ_STARTUP_NORMAL;
+ }
+@@ -252,7 +254,7 @@ static int __irq_startup(struct irq_desc *desc)
+ int irq_startup(struct irq_desc *desc, bool resend, bool force)
+ {
+ 	struct irq_data *d = irq_desc_get_irq_data(desc);
+-	struct cpumask *aff = irq_data_get_affinity_mask(d);
++	const struct cpumask *aff = irq_data_get_affinity_mask(d);
+ 	int ret = 0;
+ 
+ 	desc->depth = 0;
+diff --git a/kernel/irq/debugfs.c b/kernel/irq/debugfs.c
+index bc8e40cf2b65..bbcaac64038e 100644
+--- a/kernel/irq/debugfs.c
++++ b/kernel/irq/debugfs.c
+@@ -30,7 +30,7 @@ static void irq_debug_show_bits(struct seq_file *m, int ind, unsigned int state,
+ static void irq_debug_show_masks(struct seq_file *m, struct irq_desc *desc)
+ {
+ 	struct irq_data *data = irq_desc_get_irq_data(desc);
+-	struct cpumask *msk;
++	const struct cpumask *msk;
+ 
+ 	msk = irq_data_get_affinity_mask(data);
+ 	seq_printf(m, "affinity: %*pbl\n", cpumask_pr_args(msk));
+diff --git a/kernel/irq/ipi.c b/kernel/irq/ipi.c
+index 08ce7da3b57c..bbd945bacef0 100644
+--- a/kernel/irq/ipi.c
++++ b/kernel/irq/ipi.c
+@@ -115,11 +115,11 @@ int irq_reserve_ipi(struct irq_domain *domain,
+ int irq_destroy_ipi(unsigned int irq, const struct cpumask *dest)
+ {
+ 	struct irq_data *data = irq_get_irq_data(irq);
+-	struct cpumask *ipimask = data ? irq_data_get_affinity_mask(data) : NULL;
++	const struct cpumask *ipimask;
+ 	struct irq_domain *domain;
+ 	unsigned int nr_irqs;
+ 
+-	if (!irq || !data || !ipimask)
++	if (!irq || !data)
+ 		return -EINVAL;
+ 
+ 	domain = data->domain;
+@@ -131,7 +131,8 @@ int irq_destroy_ipi(unsigned int irq, const struct cpumask *dest)
+ 		return -EINVAL;
+ 	}
+ 
+-	if (WARN_ON(!cpumask_subset(dest, ipimask)))
++	ipimask = irq_data_get_affinity_mask(data);
++	if (!ipimask || WARN_ON(!cpumask_subset(dest, ipimask)))
+ 		/*
+ 		 * Must be destroying a subset of CPUs to which this IPI
+ 		 * was set up to target
+@@ -162,12 +163,13 @@ int irq_destroy_ipi(unsigned int irq, const struct cpumask *dest)
+ irq_hw_number_t ipi_get_hwirq(unsigned int irq, unsigned int cpu)
+ {
+ 	struct irq_data *data = irq_get_irq_data(irq);
+-	struct cpumask *ipimask = data ? irq_data_get_affinity_mask(data) : NULL;
++	const struct cpumask *ipimask;
+ 
+-	if (!data || !ipimask || cpu >= nr_cpu_ids)
++	if (!data || cpu >= nr_cpu_ids)
+ 		return INVALID_HWIRQ;
+ 
+-	if (!cpumask_test_cpu(cpu, ipimask))
++	ipimask = irq_data_get_affinity_mask(data);
++	if (!ipimask || !cpumask_test_cpu(cpu, ipimask))
+ 		return INVALID_HWIRQ;
+ 
+ 	/*
+@@ -186,7 +188,7 @@ EXPORT_SYMBOL_GPL(ipi_get_hwirq);
+ static int ipi_send_verify(struct irq_chip *chip, struct irq_data *data,
+ 			   const struct cpumask *dest, unsigned int cpu)
+ {
+-	struct cpumask *ipimask = irq_data_get_affinity_mask(data);
++	const struct cpumask *ipimask = irq_data_get_affinity_mask(data);
+ 
+ 	if (!chip || !ipimask)
+ 		return -EINVAL;
+-- 
+2.35.1
