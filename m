@@ -1,67 +1,31 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Wed, 06 Jul 2022 06:33:54 +0000
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed, 06 Jul 2022 07:04:56 +0000
 Subject: Re: [PATCH V6 00/26] mm/mmap: Drop __SXXX/__PXXX macros from across platforms
-Message-Id: <85fff3f6-373f-3e6a-325e-0fa8ad46273a@csgroup.eu>
+Message-Id: <CAK8P3a1gb1Xrg4AGnncFpN=aDxVKfjkt1TmSvZXXADZTv7eE-g@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220630051630.1718927-1-anshuman.khandual@arm.com>
- <8a6ccbae-7d7c-6e08-cc28-eeb649f86112@arm.com>
-In-Reply-To: <8a6ccbae-7d7c-6e08-cc28-eeb649f86112@arm.com>
+ <8a6ccbae-7d7c-6e08-cc28-eeb649f86112@arm.com> <85fff3f6-373f-3e6a-325e-0fa8ad46273a@csgroup.eu>
+In-Reply-To: <85fff3f6-373f-3e6a-325e-0fa8ad46273a@csgroup.eu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Anshuman Khandual <anshuman.khandual@arm.com>, "linux-mm@kvack.org" <linux-mm@kvack.org>, "akpm@linux-foundation.org" <akpm@linux-foundation.org>
-Cc: "hch@infradead.org" <hch@infradead.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>, "x86@kernel.org" <x86@kernel.org>, "openrisc@lists.librecores.org" <openrisc@lists.librecores.org>, "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>, "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>, "linux-hexagon@vger.kernel.org" <linux-hexagon@vger.kernel.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>, "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>, "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Christophe Leroy <christophe.leroy@csgroup.eu>
+Cc: Anshuman Khandual <anshuman.khandual@arm.com>, "linux-mm@kvack.org" <linux-mm@kvack.org>, "akpm@linux-foundation.org" <akpm@linux-foundation.org>, "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "linux-hexagon@vger.kernel.org" <linux-hexagon@vger.kernel.org>, "x86@kernel.org" <x86@kernel.org>, "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "hch@infradead.org" <hch@infradead.org>, "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>, "openrisc@lists.librecores.org" <openrisc@lists.librecores.org>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>, "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>, "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
 
-DQoNCkxlIDA2LzA3LzIwMjIgw6AgMDc6NTcsIEFuc2h1bWFuIEtoYW5kdWFsIGEgw6ljcml0wqA6
-DQo+IA0KPiANCj4gT24gNi8zMC8yMiAxMDo0NiwgQW5zaHVtYW4gS2hhbmR1YWwgd3JvdGU6DQo+
-PiBfX1NYWFgvX19QWFhYIG1hY3JvcyBpcyBhbiB1bm5lY2Vzc2FyeSBhYnN0cmFjdGlvbiBsYXll
-ciBpbiBjcmVhdGluZyB0aGUNCj4+IGdlbmVyaWMgcHJvdGVjdGlvbl9tYXBbXSBhcnJheSB3aGlj
-aCBpcyB1c2VkIGZvciB2bV9nZXRfcGFnZV9wcm90KCkuIFRoaXMNCj4+IGFic3RyYWN0aW9uIGxh
-eWVyIGNhbiBiZSBhdm9pZGVkLCBpZiB0aGUgcGxhdGZvcm1zIGp1c3QgZGVmaW5lIHRoZSBhcnJh
-eQ0KPj4gcHJvdGVjdGlvbl9tYXBbXSBmb3IgYWxsIHBvc3NpYmxlIHZtX2ZsYWdzIGFjY2VzcyBw
-ZXJtaXNzaW9uIGNvbWJpbmF0aW9ucw0KPj4gYW5kIGFsc28gZXhwb3J0IHZtX2dldF9wYWdlX3By
-b3QoKSBpbXBsZW1lbnRhdGlvbi4NCj4+DQo+PiBUaGlzIHNlcmllcyBkcm9wcyBfX1NYWFgvX19Q
-WFhYIG1hY3JvcyBmcm9tIGFjcm9zcyBwbGF0Zm9ybXMgaW4gdGhlIHRyZWUuDQo+PiBGaXJzdCBp
-dCBidWlsZCBwcm90ZWN0cyBnZW5lcmljIHByb3RlY3Rpb25fbWFwW10gYXJyYXkgd2l0aCAnI2lm
-ZGVmIF9fUDAwMCcNCj4+IGFuZCBtb3ZlcyBpdCBpbnNpZGUgcGxhdGZvcm1zIHdoaWNoIGVuYWJs
-ZSBBUkNIX0hBU19WTV9HRVRfUEFHRV9QUk9ULiBMYXRlcg0KPj4gdGhpcyBidWlsZCBwcm90ZWN0
-cyBzYW1lIGFycmF5IHdpdGggJyNpZmRlZiBBUkNIX0hBU19WTV9HRVRfUEFHRV9QUk9UJyBhbmQN
-Cj4+IG1vdmVzIGluc2lkZSByZW1haW5pbmcgcGxhdGZvcm1zIHdoaWxlIGVuYWJsaW5nIEFSQ0hf
-SEFTX1ZNX0dFVF9QQUdFX1BST1QuDQo+PiBUaGlzIGFkZHMgYSBuZXcgbWFjcm8gREVDTEFSRV9W
-TV9HRVRfUEFHRV9QUk9UIGRlZmluaW5nIHRoZSBjdXJyZW50IGdlbmVyaWMNCj4+IHZtX2dldF9w
-YWdlX3Byb3QoKSwgaW4gb3JkZXIgZm9yIGl0IHRvIGJlIHJldXNlZCBvbiBwbGF0Zm9ybXMgdGhh
-dCBkbyBub3QNCj4+IHJlcXVpcmUgY3VzdG9tIGltcGxlbWVudGF0aW9uLiBGaW5hbGx5LCBBUkNI
-X0hBU19WTV9HRVRfUEFHRV9QUk9UIGNhbiBqdXN0DQo+PiBiZSBkcm9wcGVkLCBhcyBhbGwgcGxh
-dGZvcm1zIG5vdyBkZWZpbmUgYW5kIGV4cG9ydCB2bV9nZXRfcGFnZV9wcm90KCksIHZpYQ0KPj4g
-bG9va2luZyB1cCBhIHByaXZhdGUgYW5kIHN0YXRpYyBwcm90ZWN0aW9uX21hcFtdIGFycmF5LiBw
-cm90ZWN0aW9uX21hcFtdDQo+PiBkYXRhIHR5cGUgaGFzIGJlZW4gY2hhbmdlZCBhcyAnc3RhdGlj
-IGNvbnN0JyBvbiBhbGwgcGxhdGZvcm1zIHRoYXQgZG8gbm90DQo+PiBjaGFuZ2UgaXQgZHVyaW5n
-IGJvb3QuDQo+Pg0KPj4gVGhpcyBzZXJpZXMgYXBwbGllcyBvbiB2NS4xOS1yYzQgYW5kIGhhcyBi
-ZWVuIGJ1aWxkIHRlc3RlZCBmb3IgbXVsdGlwbGUNCj4+IHBsYXRmb3Jtcy4gV2hpbGUgaGVyZSBp
-dCBoYXMgZHJvcHBlZCBvZmYgYWxsIHByZXZpb3VzIHRhZ3MgZnJvbSBmb2xrcyBhZnRlcg0KPj4g
-dGhlIGN1cnJlbnQgcmVzdHJ1Y3R1cmluZy4gU2VyaWVzIGNvbW1vbiBDQyBsaXN0IGhhcyBiZWVu
-IGV4cGFuZGVkIHRvIGNvdmVyDQo+PiBhbGwgaW1wYWN0ZWQgcGxhdGZvcm1zIGZvciB3aWRlciBy
-ZWFjaC4NCj4+DQo+PiAtIEFuc2h1bWFuDQo+Pg0KPj4gQ2hhbmdlcyBpbiBWNjoNCj4+DQo+PiAt
-IENvbnZlcnRlZCBwcm90ZWN0aW9uX21hcFtdIGFycmF5IGFzICdzdGF0aWMgY29uc3QnIG9uIHNw
-YXJjMzIgcGxhdGZvcm0NCj4+IC0gUmViYXNlZCBvbiB2NS4xOS1yYzQNCj4+IC0gQ29sbGVjdGVk
-IHRhZ3MNCj4gDQo+IFRoZXJlIGFyZSB0d28gbGludXgtbmV4dCBiYXNlZCBidWlsZCBmaXhlcyBm
-b3IgdGhpcyBzZXJpZXMgKGxpc3RlZCBiZWxvdyksIHdoZW4NCj4gdm1fZ2V0X3BhZ2VfcHJvdCgp
-IGdldHMgcmVkZWZpbmVkIHdpdGggIUNPTkZJR19NTVUuIFBsYXRmb3JtIHZtX2dldF9wYWdlX3By
-b3QoKQ0KPiBpcyByZXF1aXJlZCBvbmx5IHdpdGggQ09ORklHX01NVSBlbmFibGVkLCBvdGhlcndp
-c2UgdGhlcmUgaXMgYSBnZW5lcmljIGZhbGxiYWNrDQo+IHN0dWIgaW4gaW5jbHVkZS9saW51eC9t
-bS5oDQo+IA0KPiBodHRwczovL2xvcmUua2VybmVsLm9yZy9hbGwvMjAyMjA3MDUyMjE0MTEuMzM4
-MTc5Ny0xLWpjbXZia2JjQGdtYWlsLmNvbS8JW3h0ZW5zYV0NCj4gaHR0cHM6Ly9sb3JlLmtlcm5l
-bC5vcmcvYWxsLzIwMjIwNzA2MDU0MDAyLjE5MzY4MjAtMS1hbnNodW1hbi5raGFuZHVhbEBhcm0u
-Y29tLyBbc2hdDQo+IA0KPiBJdCBkb2VzIG5vdCBzZWVtIENPTkZJR19NTVUgY2FuIGJlIGRpc2Fi
-bGVkIG9uIG90aGVyIHBsYXRmb3JtcyB0aHVzIGV4cG9zaW5nIGEgYnVpbGQNCj4gZmFpbHVyZS4g
-QnV0IGp1c3QgdG8gYmUgb24gdGhlIHNhZmVyIHNpZGUsIHNob3VsZCBhbGwgdm1fZ2V0X3BhZ2Vf
-cHJvdCgpIGJlIHdyYXBwZWQNCj4gYXJvdW5kIHdpdGggI2lmZGVmIENPTkZJR19NTVUgPyBJbiB0
-aGF0IGNhc2Ugd2lsbCByZXNlbmQgdGhlIHNlcmllcyB3aXRoIGFib3ZlIGJ1aWxkDQo+IGZpeGVz
-IGZvbGRlZCBiYWNrIGluIGFzIHdlbGwuIFBsZWFzZSBkbyBzdWdnZXN0LiBUaGFuayB5b3UuDQo+
-IA0KDQpBcyBmYXIgYXMgSSBjYW4gc2VlIGluIEtjb25maWcsIENPTkZJR19NTVUgaXMgdXNlciBz
-ZWxlY3RhYmxlIG9uIHRoZSANCmZvbGxvd2luZyBhcmNoaXRlY3R1cmVzOg0KLSBBUk0NCi0gTTY4
-Sw0KLSBSSVNDVg0KLSBTSA0KDQpBbmQgaXMgZGlzYWJsZWQgYnkgZGVmYXVsdCBvbiBYVEVOU0Eu
-DQoNClNvIEkgZ3Vlc3MgQVJNLCBNNjhLLCBSSVNDViwgU0ggYW5kIFhURU5TQSBzaG91bGQgaGF2
-ZSBpdCB3cmFwcGVkIGFyb3VuZCANCiNpZmRlZiBDT05GSUdfTU1VICwgb3IgaGF2ZSBpdCBpbiBh
-IGZpbGUgdGhhdCBpcyBub3QgYnVpbHQgd2hlbiANCkNPTkZJR19NTVUgaXMgbm90IHNldC4NCg0K
-Q2hyaXN0b3BoZQ=
+On Wed, Jul 6, 2022 at 8:33 AM Christophe Leroy
+<christophe.leroy@csgroup.eu> wrote:
+
+> As far as I can see in Kconfig, CONFIG_MMU is user selectable on the
+> following architectures:
+> - ARM
+> - M68K
+> - RISCV
+> - SH
+>
+> And is disabled by default on XTENSA.
+
+Right, the list is complete, though it's also default-enabled for
+every CPU core on xtensa, and you can only disable it for
+"custom" CPU cores.
+
+        Arnd
