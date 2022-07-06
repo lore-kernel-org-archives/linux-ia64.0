@@ -1,62 +1,67 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Wed, 06 Jul 2022 05:56:18 +0000
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Wed, 06 Jul 2022 06:33:54 +0000
 Subject: Re: [PATCH V6 00/26] mm/mmap: Drop __SXXX/__PXXX macros from across platforms
-Message-Id: <8a6ccbae-7d7c-6e08-cc28-eeb649f86112@arm.com>
+Message-Id: <85fff3f6-373f-3e6a-325e-0fa8ad46273a@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220630051630.1718927-1-anshuman.khandual@arm.com>
-In-Reply-To: <20220630051630.1718927-1-anshuman.khandual@arm.com>
+ <8a6ccbae-7d7c-6e08-cc28-eeb649f86112@arm.com>
+In-Reply-To: <8a6ccbae-7d7c-6e08-cc28-eeb649f86112@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, akpm@linux-foundation.org
-Cc: hch@infradead.org, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Anshuman Khandual <anshuman.khandual@arm.com>, "linux-mm@kvack.org" <linux-mm@kvack.org>, "akpm@linux-foundation.org" <akpm@linux-foundation.org>
+Cc: "hch@infradead.org" <hch@infradead.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>, "x86@kernel.org" <x86@kernel.org>, "openrisc@lists.librecores.org" <openrisc@lists.librecores.org>, "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>, "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>, "linux-hexagon@vger.kernel.org" <linux-hexagon@vger.kernel.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>, "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>, "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 
-
-
-On 6/30/22 10:46, Anshuman Khandual wrote:
-> __SXXX/__PXXX macros is an unnecessary abstraction layer in creating the
-> generic protection_map[] array which is used for vm_get_page_prot(). This
-> abstraction layer can be avoided, if the platforms just define the array
-> protection_map[] for all possible vm_flags access permission combinations
-> and also export vm_get_page_prot() implementation.
-> 
-> This series drops __SXXX/__PXXX macros from across platforms in the tree.
-> First it build protects generic protection_map[] array with '#ifdef __P000'
-> and moves it inside platforms which enable ARCH_HAS_VM_GET_PAGE_PROT. Later
-> this build protects same array with '#ifdef ARCH_HAS_VM_GET_PAGE_PROT' and
-> moves inside remaining platforms while enabling ARCH_HAS_VM_GET_PAGE_PROT.
-> This adds a new macro DECLARE_VM_GET_PAGE_PROT defining the current generic
-> vm_get_page_prot(), in order for it to be reused on platforms that do not
-> require custom implementation. Finally, ARCH_HAS_VM_GET_PAGE_PROT can just
-> be dropped, as all platforms now define and export vm_get_page_prot(), via
-> looking up a private and static protection_map[] array. protection_map[]
-> data type has been changed as 'static const' on all platforms that do not
-> change it during boot.
-> 
-> This series applies on v5.19-rc4 and has been build tested for multiple
-> platforms. While here it has dropped off all previous tags from folks after
-> the current restructuring. Series common CC list has been expanded to cover
-> all impacted platforms for wider reach.
-> 
-> - Anshuman
-> 
-> Changes in V6:
-> 
-> - Converted protection_map[] array as 'static const' on sparc32 platform
-> - Rebased on v5.19-rc4
-> - Collected tags
-
-There are two linux-next based build fixes for this series (listed below), when
-vm_get_page_prot() gets redefined with !CONFIG_MMU. Platform vm_get_page_prot()
-is required only with CONFIG_MMU enabled, otherwise there is a generic fallback
-stub in include/linux/mm.h
-
-https://lore.kernel.org/all/20220705221411.3381797-1-jcmvbkbc@gmail.com/	[xtensa]
-https://lore.kernel.org/all/20220706054002.1936820-1-anshuman.khandual@arm.com/ [sh]
-
-It does not seem CONFIG_MMU can be disabled on other platforms thus exposing a build
-failure. But just to be on the safer side, should all vm_get_page_prot() be wrapped
-around with #ifdef CONFIG_MMU ? In that case will resend the series with above build
-fixes folded back in as well. Please do suggest. Thank you.
-
-- Anshuman
+DQoNCkxlIDA2LzA3LzIwMjIgw6AgMDc6NTcsIEFuc2h1bWFuIEtoYW5kdWFsIGEgw6ljcml0wqA6
+DQo+IA0KPiANCj4gT24gNi8zMC8yMiAxMDo0NiwgQW5zaHVtYW4gS2hhbmR1YWwgd3JvdGU6DQo+
+PiBfX1NYWFgvX19QWFhYIG1hY3JvcyBpcyBhbiB1bm5lY2Vzc2FyeSBhYnN0cmFjdGlvbiBsYXll
+ciBpbiBjcmVhdGluZyB0aGUNCj4+IGdlbmVyaWMgcHJvdGVjdGlvbl9tYXBbXSBhcnJheSB3aGlj
+aCBpcyB1c2VkIGZvciB2bV9nZXRfcGFnZV9wcm90KCkuIFRoaXMNCj4+IGFic3RyYWN0aW9uIGxh
+eWVyIGNhbiBiZSBhdm9pZGVkLCBpZiB0aGUgcGxhdGZvcm1zIGp1c3QgZGVmaW5lIHRoZSBhcnJh
+eQ0KPj4gcHJvdGVjdGlvbl9tYXBbXSBmb3IgYWxsIHBvc3NpYmxlIHZtX2ZsYWdzIGFjY2VzcyBw
+ZXJtaXNzaW9uIGNvbWJpbmF0aW9ucw0KPj4gYW5kIGFsc28gZXhwb3J0IHZtX2dldF9wYWdlX3By
+b3QoKSBpbXBsZW1lbnRhdGlvbi4NCj4+DQo+PiBUaGlzIHNlcmllcyBkcm9wcyBfX1NYWFgvX19Q
+WFhYIG1hY3JvcyBmcm9tIGFjcm9zcyBwbGF0Zm9ybXMgaW4gdGhlIHRyZWUuDQo+PiBGaXJzdCBp
+dCBidWlsZCBwcm90ZWN0cyBnZW5lcmljIHByb3RlY3Rpb25fbWFwW10gYXJyYXkgd2l0aCAnI2lm
+ZGVmIF9fUDAwMCcNCj4+IGFuZCBtb3ZlcyBpdCBpbnNpZGUgcGxhdGZvcm1zIHdoaWNoIGVuYWJs
+ZSBBUkNIX0hBU19WTV9HRVRfUEFHRV9QUk9ULiBMYXRlcg0KPj4gdGhpcyBidWlsZCBwcm90ZWN0
+cyBzYW1lIGFycmF5IHdpdGggJyNpZmRlZiBBUkNIX0hBU19WTV9HRVRfUEFHRV9QUk9UJyBhbmQN
+Cj4+IG1vdmVzIGluc2lkZSByZW1haW5pbmcgcGxhdGZvcm1zIHdoaWxlIGVuYWJsaW5nIEFSQ0hf
+SEFTX1ZNX0dFVF9QQUdFX1BST1QuDQo+PiBUaGlzIGFkZHMgYSBuZXcgbWFjcm8gREVDTEFSRV9W
+TV9HRVRfUEFHRV9QUk9UIGRlZmluaW5nIHRoZSBjdXJyZW50IGdlbmVyaWMNCj4+IHZtX2dldF9w
+YWdlX3Byb3QoKSwgaW4gb3JkZXIgZm9yIGl0IHRvIGJlIHJldXNlZCBvbiBwbGF0Zm9ybXMgdGhh
+dCBkbyBub3QNCj4+IHJlcXVpcmUgY3VzdG9tIGltcGxlbWVudGF0aW9uLiBGaW5hbGx5LCBBUkNI
+X0hBU19WTV9HRVRfUEFHRV9QUk9UIGNhbiBqdXN0DQo+PiBiZSBkcm9wcGVkLCBhcyBhbGwgcGxh
+dGZvcm1zIG5vdyBkZWZpbmUgYW5kIGV4cG9ydCB2bV9nZXRfcGFnZV9wcm90KCksIHZpYQ0KPj4g
+bG9va2luZyB1cCBhIHByaXZhdGUgYW5kIHN0YXRpYyBwcm90ZWN0aW9uX21hcFtdIGFycmF5LiBw
+cm90ZWN0aW9uX21hcFtdDQo+PiBkYXRhIHR5cGUgaGFzIGJlZW4gY2hhbmdlZCBhcyAnc3RhdGlj
+IGNvbnN0JyBvbiBhbGwgcGxhdGZvcm1zIHRoYXQgZG8gbm90DQo+PiBjaGFuZ2UgaXQgZHVyaW5n
+IGJvb3QuDQo+Pg0KPj4gVGhpcyBzZXJpZXMgYXBwbGllcyBvbiB2NS4xOS1yYzQgYW5kIGhhcyBi
+ZWVuIGJ1aWxkIHRlc3RlZCBmb3IgbXVsdGlwbGUNCj4+IHBsYXRmb3Jtcy4gV2hpbGUgaGVyZSBp
+dCBoYXMgZHJvcHBlZCBvZmYgYWxsIHByZXZpb3VzIHRhZ3MgZnJvbSBmb2xrcyBhZnRlcg0KPj4g
+dGhlIGN1cnJlbnQgcmVzdHJ1Y3R1cmluZy4gU2VyaWVzIGNvbW1vbiBDQyBsaXN0IGhhcyBiZWVu
+IGV4cGFuZGVkIHRvIGNvdmVyDQo+PiBhbGwgaW1wYWN0ZWQgcGxhdGZvcm1zIGZvciB3aWRlciBy
+ZWFjaC4NCj4+DQo+PiAtIEFuc2h1bWFuDQo+Pg0KPj4gQ2hhbmdlcyBpbiBWNjoNCj4+DQo+PiAt
+IENvbnZlcnRlZCBwcm90ZWN0aW9uX21hcFtdIGFycmF5IGFzICdzdGF0aWMgY29uc3QnIG9uIHNw
+YXJjMzIgcGxhdGZvcm0NCj4+IC0gUmViYXNlZCBvbiB2NS4xOS1yYzQNCj4+IC0gQ29sbGVjdGVk
+IHRhZ3MNCj4gDQo+IFRoZXJlIGFyZSB0d28gbGludXgtbmV4dCBiYXNlZCBidWlsZCBmaXhlcyBm
+b3IgdGhpcyBzZXJpZXMgKGxpc3RlZCBiZWxvdyksIHdoZW4NCj4gdm1fZ2V0X3BhZ2VfcHJvdCgp
+IGdldHMgcmVkZWZpbmVkIHdpdGggIUNPTkZJR19NTVUuIFBsYXRmb3JtIHZtX2dldF9wYWdlX3By
+b3QoKQ0KPiBpcyByZXF1aXJlZCBvbmx5IHdpdGggQ09ORklHX01NVSBlbmFibGVkLCBvdGhlcndp
+c2UgdGhlcmUgaXMgYSBnZW5lcmljIGZhbGxiYWNrDQo+IHN0dWIgaW4gaW5jbHVkZS9saW51eC9t
+bS5oDQo+IA0KPiBodHRwczovL2xvcmUua2VybmVsLm9yZy9hbGwvMjAyMjA3MDUyMjE0MTEuMzM4
+MTc5Ny0xLWpjbXZia2JjQGdtYWlsLmNvbS8JW3h0ZW5zYV0NCj4gaHR0cHM6Ly9sb3JlLmtlcm5l
+bC5vcmcvYWxsLzIwMjIwNzA2MDU0MDAyLjE5MzY4MjAtMS1hbnNodW1hbi5raGFuZHVhbEBhcm0u
+Y29tLyBbc2hdDQo+IA0KPiBJdCBkb2VzIG5vdCBzZWVtIENPTkZJR19NTVUgY2FuIGJlIGRpc2Fi
+bGVkIG9uIG90aGVyIHBsYXRmb3JtcyB0aHVzIGV4cG9zaW5nIGEgYnVpbGQNCj4gZmFpbHVyZS4g
+QnV0IGp1c3QgdG8gYmUgb24gdGhlIHNhZmVyIHNpZGUsIHNob3VsZCBhbGwgdm1fZ2V0X3BhZ2Vf
+cHJvdCgpIGJlIHdyYXBwZWQNCj4gYXJvdW5kIHdpdGggI2lmZGVmIENPTkZJR19NTVUgPyBJbiB0
+aGF0IGNhc2Ugd2lsbCByZXNlbmQgdGhlIHNlcmllcyB3aXRoIGFib3ZlIGJ1aWxkDQo+IGZpeGVz
+IGZvbGRlZCBiYWNrIGluIGFzIHdlbGwuIFBsZWFzZSBkbyBzdWdnZXN0LiBUaGFuayB5b3UuDQo+
+IA0KDQpBcyBmYXIgYXMgSSBjYW4gc2VlIGluIEtjb25maWcsIENPTkZJR19NTVUgaXMgdXNlciBz
+ZWxlY3RhYmxlIG9uIHRoZSANCmZvbGxvd2luZyBhcmNoaXRlY3R1cmVzOg0KLSBBUk0NCi0gTTY4
+Sw0KLSBSSVNDVg0KLSBTSA0KDQpBbmQgaXMgZGlzYWJsZWQgYnkgZGVmYXVsdCBvbiBYVEVOU0Eu
+DQoNClNvIEkgZ3Vlc3MgQVJNLCBNNjhLLCBSSVNDViwgU0ggYW5kIFhURU5TQSBzaG91bGQgaGF2
+ZSBpdCB3cmFwcGVkIGFyb3VuZCANCiNpZmRlZiBDT05GSUdfTU1VICwgb3IgaGF2ZSBpdCBpbiBh
+IGZpbGUgdGhhdCBpcyBub3QgYnVpbHQgd2hlbiANCkNPTkZJR19NTVUgaXMgbm90IHNldC4NCg0K
+Q2hyaXN0b3BoZQ=
