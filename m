@@ -1,126 +1,106 @@
-From: Serge Semin <fancer.lancer@gmail.com>
-Date: Thu, 07 Jul 2022 10:45:33 +0000
-Subject: Re: [PATCH v3 1/8] irqchip/mips-gic: Only register IPI domain when SMP is enabled
-Message-Id: <20220707104533.7iakliv2f5i2qi33@mobilestation>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Wed, 06 Jul 2022 10:03:37 +0000
+Subject: Re: [PATCH V6 21/26] m68k/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <CAMuHMdX_Ji7dCzzCc3xw5ic6J=0PaPkyzXKpOgUFjjEkR+yJOw@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220701200056.46555-1-samuel@sholland.org>
- <20220701200056.46555-2-samuel@sholland.org>
- <20220705135243.ydbwfo4kois64elr@mobilestation>
- <87czehmiwt.wl-maz@kernel.org>
-In-Reply-To: <87czehmiwt.wl-maz@kernel.org>
+References: <20220630051630.1718927-1-anshuman.khandual@arm.com> <20220630051630.1718927-22-anshuman.khandual@arm.com>
+In-Reply-To: <20220630051630.1718927-22-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Marc Zyngier <maz@kernel.org>
-Cc: Samuel Holland <samuel@sholland.org>, Thomas Gleixner <tglx@linutronix.de>, Andy Shevchenko <andy.shevchenko@gmail.com>, Bartosz Golaszewski <brgl@bgdev.pl>, Bjorn Helgaas <bhelgaas@google.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Borislav Petkov <bp@alien8.de>, Broadcom internal kernel review list <bcm-kernel-feedback-list@broadcom.com>, Chris Zankel <chris@zankel.net>, Colin Ian King <colin.king@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Dexuan Cui <decui@microsoft.com>, Florian Fainelli <f.fainelli@gmail.com>, Guo Ren <guoren@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Haiyang Zhang <haiyangz@microsoft.com>, Helge Deller <deller@gmx.de>, Ingo Molnar <mingo@redhat.com>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Jan Beulich <jbeulich@suse.com>, Joerg Roedel <joro@8bytes.org>, Juergen Gross <jgross@suse.com>, Julia Lawall <Julia.Lawall@inria.fr>, "K. Y. Srinivasan" <kys@microsoft.com>, Kees Cook <keescook@chromium.org>, Krzysztof =?utf-8?Q?Wilczy=C5=84ski?= <kw@linux.com>, Linus Walleij <linus.walleij@linaro.org>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Max Filippov <jcmvbkbc@gmail.com>, Maximilian Heyne <mheyne@amazon.de>, Oleksandr Tyshchenko <oleksandr_tyshchenko@epam.com>, Rich Felker <dalias@libc.org>, Richard Henderson <rth@twiddle.net>, Rikard Falkeborn <rikard.falkeborn@gmail.com>, Rob Herring <robh@kernel.org>, Russell King <linux@armlinux.org.uk>, Stefano Stabellini <sstabellini@kernel.org>, Stephen Hemminger <sthemmin@microsoft.com>, Sven Schnelle <svens@stackframe.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Wei Liu <wei.liu@kernel.org>, Wei Xu <xuwei5@hisilicon.com>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, iommu@lists.linux-foundation.org, iommu@lists.linux.dev, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-hyperv@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-pci@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, xen-devel@lists.xenproject.org, kernel test robot <lkp@intel.com>
+To: Anshuman Khandual <anshuman.khandual@arm.com>
+Cc: Linux MM <linux-mm@kvack.org>, Andrew Morton <akpm@linux-foundation.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Linux-sh list <linux-sh@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-csky@vger.kernel.org, sparclinux <sparclinux@vger.kernel.org>, linux-riscv <linux-riscv@lists.infradead.org>, linux-s390 <linux-s390@vger.kernel.org>, "open list:QUALCOMM HEXAGON..." <linux-hexagon@vger.kernel.org>, the arch/x86 maintainers <x86@kernel.org>, Christophe Leroy <christophe.leroy@csgroup.eu>, Christoph Hellwig <hch@infradead.org>, arcml <linux-snps-arc@lists.infradead.org>, "open list:TENSILICA XTENSA PORT (xtensa)" <linux-xtensa@linux-xtensa.org>, linux-um <linux-um@lists.infradead.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, Openrisc <openrisc@lists.librecores.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Parisc List <linux-parisc@vger.kernel.org>, "open list:BROADCOM NVRAM DRIVER" <linux-mips@vger.kernel.org>, alpha <linux-alpha@vger.kernel.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>
 
-On Thu, Jul 07, 2022 at 09:22:26AM +0100, Marc Zyngier wrote:
-> On Tue, 05 Jul 2022 14:52:43 +0100,
-> Serge Semin <fancer.lancer@gmail.com> wrote:
-> > 
-> > Hi Samuel
-> > 
-> > On Fri, Jul 01, 2022 at 03:00:49PM -0500, Samuel Holland wrote:
-> > > The MIPS GIC irqchip driver may be selected in a uniprocessor
-> > > configuration, but it unconditionally registers an IPI domain.
-> > > 
-> > > Limit the part of the driver dealing with IPIs to only be compiled when
-> > > GENERIC_IRQ_IPI is enabled, which corresponds to an SMP configuration.
-> > 
-> > Thanks for the patch. Some comment is below.
-> > 
-> > > 
-> > > Reported-by: kernel test robot <lkp@intel.com>
-> > > Signed-off-by: Samuel Holland <samuel@sholland.org>
-> > > ---
-> > > 
-> > > Changes in v3:
-> > >  - New patch to fix build errors in uniprocessor MIPS configs
-> > > 
-> > >  drivers/irqchip/Kconfig        |  3 +-
-> > >  drivers/irqchip/irq-mips-gic.c | 80 +++++++++++++++++++++++-----------
-> > >  2 files changed, 56 insertions(+), 27 deletions(-)
-> > > 
-> > > diff --git a/drivers/irqchip/Kconfig b/drivers/irqchip/Kconfig
-> > > index 1f23a6be7d88..d26a4ff7c99f 100644
-> > > --- a/drivers/irqchip/Kconfig
-> > > +++ b/drivers/irqchip/Kconfig
-> > > @@ -322,7 +322,8 @@ config KEYSTONE_IRQ
-> > >  
-> > >  config MIPS_GIC
-> > >  	bool
-> > > -	select GENERIC_IRQ_IPI
-> > > +	select GENERIC_IRQ_IPI if SMP
-> > 
-> > > +	select IRQ_DOMAIN_HIERARCHY
-> > 
-> > It seems to me that the IRQ domains hierarchy is supposed to be
-> > created only if IPI is required. At least that's what the MIPS GIC
-> > driver implies. Thus we can go further and CONFIG_IRQ_DOMAIN_HIERARCHY
-> > ifdef-out the gic_irq_domain_alloc() and gic_irq_domain_free()
-> > methods definition together with the initialization:
-> > 
-> >  static const struct irq_domain_ops gic_irq_domain_ops = {
-> >  	.xlate = gic_irq_domain_xlate,
-> > +#ifdef CONFIG_IRQ_DOMAIN_HIERARCHY
-> >  	.alloc = gic_irq_domain_alloc,
-> >  	.free = gic_irq_domain_free,
-> > +#endif
-> >  	.map = gic_irq_domain_map,
-> > };
-> > 
-> > If the GENERIC_IRQ_IPI config is enabled, CONFIG_IRQ_DOMAIN_HIERARCHY
-> > will be automatically selected (see the config definition in
-> > kernel/irq/Kconfig). If the IRQs hierarchy is needed for some another
-> > functionality like GENERIC_MSI_IRQ_DOMAIN or GPIOs then they will
-> > explicitly enable the IRQ_DOMAIN_HIERARCHY config thus activating the
-> > denoted .alloc and .free methods definitions.
-> > 
-> > To sum up you can get rid of the IRQ_DOMAIN_HIERARCHY config
-> > force-select from this patch and make the MIPS GIC driver code a bit
-> > more coherent.
-> > 
-> > @Marc, please correct me if were wrong.
-> 
+Hi Anshuman,
 
-> Either way probably works correctly, but Samuel's approach is more
-> readable IMO. It is far easier to reason about a high-level feature
-> (GENERIC_IRQ_IPI) than an implementation detail (IRQ_DOMAIN_HIERARCHY).
-> 
+On Thu, Jun 30, 2022 at 7:19 AM Anshuman Khandual
+<anshuman.khandual@arm.com> wrote:
+> This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
+> vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
+> up a private and static protection_map[] array. Subsequently all __SXXX and
+> __PXXX macros can be dropped which are no longer needed.
+>
+> Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+> Cc: linux-m68k@lists.linux-m68k.org
+> Cc: linux-kernel@vger.kernel.org
+> Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 
-The main idea of my comment was to get rid of the forcible
-IRQ_DOMAIN_HIERARCHY config selection, because the basic part of the
-driver doesn't depends on the hierarchical IRQ-domains functionality.
-It's needed only for IPIs and implicitly for the lower level IRQ
-device drivers like GPIO or PCIe-controllers, which explicitly enable
-the IRQ_DOMAIN_HIERARCHY config anyway. That's why instead of forcible
-IRQ_DOMAIN_HIERARCHY config selection (see Samuel patch) I suggested
-to make the corresponding functionality defined under the
-IRQ_DOMAIN_HIERARCHY config ifdefs, thus having the driver capable of
-creating the hierarchical IRQs domains only if it's required.
+Thanks for your patch!
 
-> If you really want to save a handful of bytes, you can make the
-> callbacks conditional on GENERIC_IRQ_IPI, and be done with it.
+> --- a/arch/m68k/include/asm/mcf_pgtable.h
+> +++ b/arch/m68k/include/asm/mcf_pgtable.h
+> @@ -91,60 +91,6 @@
+>   * for use. In general, the bit positions are xwr, and P-items are
+>   * private, the S-items are shared.
+>   */
 
-AFAIU I can't in this case. It must be either IRQ_DOMAIN_HIERARCHY
-ifdefs or explicit IRQ_DOMAIN_HIERARCHY select. There can be non-SMP
-(UP) systems with no need in IPIs but for instance having a GPIO or
-PCIe controller which require the hierarchical IRQ-domains support of
-the parental IRQ controller. So making the callbacks definition
-depended on the GENERIC_IRQ_IPI config state will break the driver for
-these systems. That's why I suggested to use
-CONFIG_IRQ_DOMAIN_HIERARCHY which activates the hierarchical IRQ
-domains support in the IRQ-chip system (see the irq_domain_ops
-structure conditional fields definition) and shall we have the
-suggested approach implemented in the MIPS GIC driver.
+The comment above should be removed, too.
 
--Sergey
+> -#define __P000         PAGE_NONE
+> -#define __P001         __pgprot(CF_PAGE_VALID \
+> -                                | CF_PAGE_ACCESSED \
+> -                                | CF_PAGE_READABLE)
 
-> But this can come as an additional patch.
-> 
-> Thanks,
-> 
-> 	M.
-> 
-> -- 
-> Without deviation from the norm, progress is not possible.
+> --- a/arch/m68k/include/asm/motorola_pgtable.h
+> +++ b/arch/m68k/include/asm/motorola_pgtable.h
+> @@ -83,28 +83,6 @@ extern unsigned long mm_cachebits;
+>  #define PAGE_COPY_C    __pgprot(_PAGE_PRESENT | _PAGE_RONLY | _PAGE_ACCESSED)
+>  #define PAGE_READONLY_C        __pgprot(_PAGE_PRESENT | _PAGE_RONLY | _PAGE_ACCESSED)
+
+You might move the *_C definitions above into arch/m68k/mm/motorola.c
+as well, as they are only used in the latter.
+
+>
+> -/*
+> - * The m68k can't do page protection for execute, and considers that the same are read.
+> - * Also, write permissions imply read permissions. This is the closest we can get..
+> - */
+> -#define __P000 PAGE_NONE_C
+> -#define __P001 PAGE_READONLY_C
+> -#define __P010 PAGE_COPY_C
+> -#define __P011 PAGE_COPY_C
+> -#define __P100 PAGE_READONLY_C
+> -#define __P101 PAGE_READONLY_C
+> -#define __P110 PAGE_COPY_C
+> -#define __P111 PAGE_COPY_C
+> -
+> -#define __S000 PAGE_NONE_C
+> -#define __S001 PAGE_READONLY_C
+> -#define __S010 PAGE_SHARED_C
+> -#define __S011 PAGE_SHARED_C
+> -#define __S100 PAGE_READONLY_C
+> -#define __S101 PAGE_READONLY_C
+> -#define __S110 PAGE_SHARED_C
+> -#define __S111 PAGE_SHARED_C
+> -
+>  #define pmd_pgtable(pmd) ((pgtable_t)pmd_page_vaddr(pmd))
+>
+>  /*
+> diff --git a/arch/m68k/include/asm/sun3_pgtable.h b/arch/m68k/include/asm/sun3_pgtable.h
+> index 5e4e753f0d24..9d919491765b 100644
+> --- a/arch/m68k/include/asm/sun3_pgtable.h
+> +++ b/arch/m68k/include/asm/sun3_pgtable.h
+> @@ -71,23 +71,6 @@
+>   * protection settings, valid (implying read and execute) and writeable. These
+>   * are as close as we can get...
+>   */
+
+The comment above should be removed, too.
+
+> -#define __P000 PAGE_NONE
+> -#define __P001 PAGE_READONLY
+
+With the above fixed:
+Reviewed-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
