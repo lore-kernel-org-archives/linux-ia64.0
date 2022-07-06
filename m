@@ -1,120 +1,64 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Wed, 06 Jul 2022 11:27:27 +0000
-Subject: Re: [PATCH V6 21/26] m68k/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <ea0f8db8-831b-dcb4-b8c7-ab651f1e1713@arm.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Wed, 06 Jul 2022 10:07:33 +0000
+Subject: Re: [PATCH v3 3/7] bitops: unify non-atomic bitops prototypes across architectures
+Message-Id: <CAMuHMdWqxqg7JubLK=KOX-V8JjoMbEKRPON+WhST=GKcjn8Y+w@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220630051630.1718927-1-anshuman.khandual@arm.com>
- <20220630051630.1718927-22-anshuman.khandual@arm.com>
- <CAMuHMdX_Ji7dCzzCc3xw5ic6J=0PaPkyzXKpOgUFjjEkR+yJOw@mail.gmail.com>
-In-Reply-To: <CAMuHMdX_Ji7dCzzCc3xw5ic6J=0PaPkyzXKpOgUFjjEkR+yJOw@mail.gmail.com>
+References: <20220617144031.2549432-1-alexandr.lobakin@intel.com> <20220617144031.2549432-4-alexandr.lobakin@intel.com>
+In-Reply-To: <20220617144031.2549432-4-alexandr.lobakin@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Cc: Linux MM <linux-mm@kvack.org>, Andrew Morton <akpm@linux-foundation.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Linux-sh list <linux-sh@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-csky@vger.kernel.org, sparclinux <sparclinux@vger.kernel.org>, linux-riscv <linux-riscv@lists.infradead.org>, linux-s390 <linux-s390@vger.kernel.org>, "open list:QUALCOMM HEXAGON..." <linux-hexagon@vger.kernel.org>, the arch/x86 maintainers <x86@kernel.org>, Christophe Leroy <christophe.leroy@csgroup.eu>, Christoph Hellwig <hch@infradead.org>, arcml <linux-snps-arc@lists.infradead.org>, "open list:TENSILICA XTENSA PORT (xtensa)" <linux-xtensa@linux-xtensa.org>, linux-um <linux-um@lists.infradead.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, Openrisc <openrisc@lists.librecores.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Parisc List <linux-parisc@vger.kernel.org>, "open list:BROADCOM NVRAM DRIVER" <linux-mips@vger.kernel.org>, alpha <linux-alpha@vger.kernel.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>
+To: Alexander Lobakin <alexandr.lobakin@intel.com>
+Cc: Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Maciej Fijalkowski <maciej.fijalkowski@intel.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, alpha <linux-alpha@vger.kernel.org>, "open list:QUALCOMM HEXAGON..." <linux-hexagon@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, Linux-sh list <linux-sh@vger.kernel.org>, sparclinux <sparclinux@vger.kernel.org>, Linux-Arch <linux-arch@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 
+On Fri, Jun 17, 2022 at 7:09 PM Alexander Lobakin
+<alexandr.lobakin@intel.com> wrote:
+> Currently, there is a mess with the prototypes of the non-atomic
+> bitops across the different architectures:
+>
+> ret     bool, int, unsigned long
+> nr      int, long, unsigned int, unsigned long
+> addr    volatile unsigned long *, volatile void *
+>
+> Thankfully, it doesn't provoke any bugs, but can sometimes make
+> the compiler angry when it's not handy at all.
+> Adjust all the prototypes to the following standard:
+>
+> ret     bool                            retval can be only 0 or 1
+> nr      unsigned long                   native; signed makes no sense
+> addr    volatile unsigned long *        bitmaps are arrays of ulongs
+>
+> Next, some architectures don't define 'arch_' versions as they don't
+> support instrumentation, others do. To make sure there is always the
+> same set of callables present and to ease any potential future
+> changes, make them all follow the rule:
+>  * architecture-specific files define only 'arch_' versions;
+>  * non-prefixed versions can be defined only in asm-generic files;
+> and place the non-prefixed definitions into a new file in
+> asm-generic to be included by non-instrumented architectures.
+>
+> Finally, add some static assertions in order to prevent people from
+> making a mess in this room again.
+> I also used the %__always_inline attribute consistently, so that
+> they always get resolved to the actual operations.
+>
+> Suggested-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+> Signed-off-by: Alexander Lobakin <alexandr.lobakin@intel.com>
+> Acked-by: Mark Rutland <mark.rutland@arm.com>
+> Reviewed-by: Yury Norov <yury.norov@gmail.com>
 
+>  arch/m68k/include/asm/bitops.h                | 49 +++++++++++++------
 
-On 7/6/22 15:33, Geert Uytterhoeven wrote:
-> Hi Anshuman,
-> 
-> On Thu, Jun 30, 2022 at 7:19 AM Anshuman Khandual
-> <anshuman.khandual@arm.com> wrote:
->> This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
->> vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
->> up a private and static protection_map[] array. Subsequently all __SXXX and
->> __PXXX macros can be dropped which are no longer needed.
->>
->> Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
->> Cc: linux-m68k@lists.linux-m68k.org
->> Cc: linux-kernel@vger.kernel.org
->> Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
-> 
-> Thanks for your patch!
-> 
->> --- a/arch/m68k/include/asm/mcf_pgtable.h
->> +++ b/arch/m68k/include/asm/mcf_pgtable.h
->> @@ -91,60 +91,6 @@
->>   * for use. In general, the bit positions are xwr, and P-items are
->>   * private, the S-items are shared.
->>   */
-> 
-> The comment above should be removed, too.
+Reviewed-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-Sure, will do.
+Gr{oetje,eeting}s,
 
-> 
->> -#define __P000         PAGE_NONE
->> -#define __P001         __pgprot(CF_PAGE_VALID \
->> -                                | CF_PAGE_ACCESSED \
->> -                                | CF_PAGE_READABLE)
-> 
->> --- a/arch/m68k/include/asm/motorola_pgtable.h
->> +++ b/arch/m68k/include/asm/motorola_pgtable.h
->> @@ -83,28 +83,6 @@ extern unsigned long mm_cachebits;
->>  #define PAGE_COPY_C    __pgprot(_PAGE_PRESENT | _PAGE_RONLY | _PAGE_ACCESSED)
->>  #define PAGE_READONLY_C        __pgprot(_PAGE_PRESENT | _PAGE_RONLY | _PAGE_ACCESSED)
-> 
-> You might move the *_C definitions above into arch/m68k/mm/motorola.c
-> as well, as they are only used in the latter.
+                        Geert
 
-Okay, will do.
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
 
-> 
->>
->> -/*
->> - * The m68k can't do page protection for execute, and considers that the same are read.
->> - * Also, write permissions imply read permissions. This is the closest we can get..
->> - */
->> -#define __P000 PAGE_NONE_C
->> -#define __P001 PAGE_READONLY_C
->> -#define __P010 PAGE_COPY_C
->> -#define __P011 PAGE_COPY_C
->> -#define __P100 PAGE_READONLY_C
->> -#define __P101 PAGE_READONLY_C
->> -#define __P110 PAGE_COPY_C
->> -#define __P111 PAGE_COPY_C
->> -
->> -#define __S000 PAGE_NONE_C
->> -#define __S001 PAGE_READONLY_C
->> -#define __S010 PAGE_SHARED_C
->> -#define __S011 PAGE_SHARED_C
->> -#define __S100 PAGE_READONLY_C
->> -#define __S101 PAGE_READONLY_C
->> -#define __S110 PAGE_SHARED_C
->> -#define __S111 PAGE_SHARED_C
->> -
->>  #define pmd_pgtable(pmd) ((pgtable_t)pmd_page_vaddr(pmd))
->>
->>  /*
->> diff --git a/arch/m68k/include/asm/sun3_pgtable.h b/arch/m68k/include/asm/sun3_pgtable.h
->> index 5e4e753f0d24..9d919491765b 100644
->> --- a/arch/m68k/include/asm/sun3_pgtable.h
->> +++ b/arch/m68k/include/asm/sun3_pgtable.h
->> @@ -71,23 +71,6 @@
->>   * protection settings, valid (implying read and execute) and writeable. These
->>   * are as close as we can get...
->>   */
-> 
-> The comment above should be removed, too.
-
-Sure, will do.
-
-> 
->> -#define __P000 PAGE_NONE
->> -#define __P001 PAGE_READONLY
-> 
-> With the above fixed:
-> Reviewed-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>> 
-> Gr{oetje,eeting}s,
-> 
->                         Geert
-> 
-> --
-> Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-> 
-> In personal conversations with technical people, I call myself a hacker. But
-> when I'm talking to journalists I just say "programmer" or something like that.
->                                 -- Linus Torvalds
-> 
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
