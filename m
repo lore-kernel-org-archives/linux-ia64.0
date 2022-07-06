@@ -1,78 +1,47 @@
-From: Samuel Holland <samuel@sholland.org>
-Date: Fri, 01 Jul 2022 20:00:48 +0000
-Subject: [PATCH v3 0/8] genirq: Provide real IRQ affinity masks in non-SMP configs
-Message-Id: <20220701200056.46555-1-samuel@sholland.org>
+From: "Rafael J. Wysocki" <rafael@kernel.org>
+Date: Wed, 06 Jul 2022 13:51:09 +0000
+Subject: Re: [PATCH 03/36] cpuidle/poll: Ensure IRQ state is invariant
+Message-Id: <CAJZ5v0jO9+jRSm3d58K15JaO3=kgM2Ueo7W+Smi3WCBPR_VM5Q@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20220608142723.103523089@infradead.org> <20220608144516.109792837@infradead.org>
+In-Reply-To: <20220608144516.109792837@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Marc Zyngier <maz@kernel.org>, Thomas Gleixner <tglx@linutronix.de>
-Cc: Samuel Holland <samuel@sholland.org>, Andy Shevchenko <andy.shevchenko@gmail.com>, Bartosz Golaszewski <brgl@bgdev.pl>, Bjorn Helgaas <bhelgaas@google.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Borislav Petkov <bp@alien8.de>, Broadcom internal kernel review list <bcm-kernel-feedback-list@broadcom.com>, Chris Zankel <chris@zankel.net>, Colin Ian King <colin.king@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Dexuan Cui <decui@microsoft.com>, Florian Fainelli <f.fainelli@gmail.com>, Guo Ren <guoren@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Haiyang Zhang <haiyangz@microsoft.com>, Helge Deller <deller@gmx.de>, Ingo Molnar <mingo@redhat.com>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Jan Beulich <jbeulich@suse.com>, Joerg Roedel <joro@8bytes.org>, Juergen Gross <jgross@suse.com>, Julia Lawall <Julia.Lawall@inria.fr>, "K. Y. Srinivasan" <kys@microsoft.com>, Kees Cook <keescook@chromium.org>, =?UTF-8?q?Krzysztof=20Wilczy=C5=84ski?= <kw@linux.com>, Linus Walleij <linus.walleij@linaro.org>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Max Filippov <jcmvbkbc@gmail.com>, Maximilian Heyne <mheyne@amazon.de>, Oleksandr Tyshchenko <oleksandr_tyshchenko@epam.com>, Rich Felker <dalias@libc.org>, Richard Henderson <rth@twiddle.net>, Rikard Falkeborn <rikard.falkeborn@gmail.com>, Rob Herring <robh@kernel.org>, Russell King <linux@armlinux.org.uk>, Serge Semin <fancer.lancer@gmail.com>, Stefano Stabellini <sstabellini@kernel.org>, Stephen Hemminger <sthemmin@microsoft.com>, Sven Schnelle <svens@stackframe.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Wei Liu <wei.liu@kernel.org>, Wei Xu <xuwei5@hisilicon.com>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, iommu@lists.linux-foundation.org, iommu@lists.linux.dev, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-hyperv@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-pci@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, xen-devel@lists.xenproject.org
+To: Peter Zijlstra <peterz@infradead.org>
+Cc: rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@kernel.org, Russell King - ARM Linux <linux@armlinux.org.uk>, ulli.kroll@googlemail.com, Linus Walleij <linus.walleij@linaro.org>, Shawn Guo <shawnguo@kernel.org>, Sascha Hauer <s.hauer@pengutronix.de>, Sascha Hauer <kernel@pengutronix.de>, Fabio Estevam <festevam@gmail.com>, dl-linux-imx <linux-imx@nxp.com>, Tony Lindgren <tony@atomide.com>, Kevin Hilman <khilman@kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, bcain@quicinc.com, Huacai Chen <chenhuacai@kernel.org>, kernel@xen0n.name, Geert Uytterhoeven <geert@linux-m68k.org>, sammy@sammy.net, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, dinguyen@kernel.org, jonas@southpole.se, stefan.kristiansson@saunalahti.fi, Stafford Horne <shorne@gmail.com>, James Bottomley <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, David Miller <davem@davemloft.net>, Richard Weinberger <richard@nod.at>, anton.ivanov@cambridgegreys.com, Johannes Berg <johannes@sipsolutions.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, the arch/x86 maintainers <x86@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, acme@kernel.org, Mark Rutland <mark.rutland@arm.com>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, jolsa@kernel.org, namhyung@kernel.org, Juergen Gross <jgross@suse.com>, srivatsa@csail.mit.edu, amakhalov@vmware.com, pv-drivers@vmware.com, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Chris Zankel <chris@zankel.net>, jcmvbkbc@gmail.com, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Pavel Machek <pavel@ucw.cz>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Michael Turquette <mturquette@baylibre.com>, Stephen Boyd <sboyd@kernel.org>, Daniel Lezcano <daniel.lezcano@linaro.org>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Sudeep Holla <sudeep.holla@arm.com>, Andy Gross <agross@kernel.org>, Bjorn Andersson <bjorn.andersson@linaro.org>, Anup Patel <anup@brainfault.org>, Thierry Reding <thierry.reding@gmail.com>, Jon Hunter <jonathanh@nvidia.com>, Jacob Pan <jacob.jun.pan@linux.intel.com>, Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Steven Rostedt <rostedt@goodmis.org>, Petr Mladek <pmladek@suse.com>, senozhatsky@chromium.org, John Ogness <john.ogness@linutronix.de>, "Paul E. McKenney" <paulmck@kernel.org>, Frederic Weisbecker <frederic@kernel.org>, quic_neeraju@quicinc.com, Josh Triplett <josh@joshtriplett.org>, Mathieu Desnoyers <mathieu.desnoyers@efficios.com>, Lai Jiangshan <jiangshanlai@gmail.com>, Joel Fernandes <joel@joelfernandes.org>, Juri Lelli <juri.lelli@redhat.com>, Vincent Guittot <vincent.guittot@linaro.org>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Benjamin Segall <bsegall@google.com>, Mel Gorman <mgorman@suse.de>, Daniel Bristot de Oliveira <bristot@redhat.com>, vschneid@redhat.com, jpoimboe@kernel.org, linux-alpha@vger.kernel.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-snps-arc@lists.infradead.org, Linux ARM <linux-arm-kernel@lists.infradead.org>, Linux OMAP Mailing List <linux-omap@vger.kernel.org>, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k <linux-m68k@lists.linux-m68k.org>, "open list:BROADCOM NVRAM DRIVER" <linux-mips@vger.kernel.org>, openrisc@lists.librecores.org, Parisc List <linux-parisc@vger.kernel.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, linux-riscv <linux-riscv@lists.infradead.org>, linux-s390@vger.kernel.org, Linux-sh list <linux-sh@vger.kernel.org>, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-perf-users@vger.kernel.org, virtualization@lists.linux-foundation.org, xen-devel@lists.xenproject.org, linux-xtensa@linux-xtensa.org, ACPI Devel Maling List <linux-acpi@vger.kernel.org>, Linux PM <linux-pm@vger.kernel.org>, linux-clk <linux-clk@vger.kernel.org>, linux-arm-msm <linux-arm-msm@vger.kernel.org>, linux-tegra <linux-tegra@vger.kernel.org>, linux-arch <linux-arch@vger.kernel.org>, rcu@vger.kernel.org
 
-This series solves some inconsistency with how IRQ affinity masks are
-handled between SMP and non-SMP configurations.
+On Wed, Jun 8, 2022 at 4:47 PM Peter Zijlstra <peterz@infradead.org> wrote:
+>
+> cpuidle_state::enter() methods should be IRQ invariant
+>
+> Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
 
-In non-SMP configs, an IRQ's true affinity is always cpumask_of(0), so
-irq_{,data_}get_affinity_mask now return that, instead of returning an
-uninitialized per-IRQ cpumask. This change makes iterating over the
-affinity mask do the right thing in both SMP and non-SMP configurations.
+Reviewed-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
 
-To accomplish that:
- - patches 1-3 disable some library code that was broken anyway on !SMP
- - patches 4-7 refactor the code so that irq_{,data_}get_affinity_mask
-   can return a const cpumask, since that is what cpumask_of provides
- - patch 8 drops the per-IRQ cpumask and replaces it with cpumask_of(0)
-
-This series was split from the v2 series here, which uses the new
-behavior in the RISC-V PLIC irqchip driver:
-
-https://lore.kernel.org/lkml/20220616064028.57933-1-samuel@sholland.org/
-
-Changes in v3:
- - New patch to fix build errors in uniprocessor MIPS configs
- - New patch to drop irq_init_effective_affinity
- - New patch to introduce irq_data_update_affinity
- - New patch to make the returned cpumasks const
- - Use cpumask_of(0) instead of cpu_possible_mask
-
-Changes in v2:
- - New patch to prevent GENERIC_IRQ_IPI from being selected on !SMP
-
-Samuel Holland (8):
-  irqchip/mips-gic: Only register IPI domain when SMP is enabled
-  genirq: GENERIC_IRQ_IPI depends on SMP
-  genirq: GENERIC_IRQ_EFFECTIVE_AFF_MASK depends on SMP
-  genirq: Drop redundant irq_init_effective_affinity
-  genirq: Refactor accessors to use irq_data_get_affinity_mask
-  genirq: Add and use an irq_data_update_affinity helper
-  genirq: Return a const cpumask from irq_data_get_affinity_mask
-  genirq: Provide an IRQ affinity mask in non-SMP configs
-
- arch/alpha/kernel/irq.c              |  2 +-
- arch/arm/mach-hisi/Kconfig           |  2 +-
- arch/ia64/kernel/iosapic.c           |  2 +-
- arch/ia64/kernel/irq.c               |  4 +-
- arch/ia64/kernel/msi_ia64.c          |  4 +-
- arch/mips/cavium-octeon/octeon-irq.c |  4 +-
- arch/parisc/kernel/irq.c             |  2 +-
- arch/sh/kernel/irq.c                 |  7 +--
- arch/x86/hyperv/irqdomain.c          |  2 +-
- arch/xtensa/kernel/irq.c             |  7 +--
- drivers/iommu/hyperv-iommu.c         |  2 +-
- drivers/irqchip/Kconfig              | 19 +++----
- drivers/irqchip/irq-bcm6345-l1.c     |  4 +-
- drivers/irqchip/irq-mips-gic.c       | 80 +++++++++++++++++++---------
- drivers/parisc/iosapic.c             |  2 +-
- drivers/pci/controller/pci-hyperv.c  | 10 ++--
- drivers/sh/intc/chip.c               |  2 +-
- drivers/xen/events/events_base.c     |  7 +--
- include/linux/irq.h                  | 34 ++++++++----
- kernel/irq/Kconfig                   |  2 +
- kernel/irq/chip.c                    |  8 +--
- kernel/irq/debugfs.c                 |  2 +-
- kernel/irq/ipi.c                     | 16 +++---
- kernel/irq/manage.c                  | 10 +---
- 24 files changed, 140 insertions(+), 94 deletions(-)
-
--- 
-2.35.1
+> ---
+>  drivers/cpuidle/poll_state.c |    4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+>
+> --- a/drivers/cpuidle/poll_state.c
+> +++ b/drivers/cpuidle/poll_state.c
+> @@ -17,7 +17,7 @@ static int __cpuidle poll_idle(struct cp
+>
+>         dev->poll_time_limit = false;
+>
+> -       local_irq_enable();
+> +       raw_local_irq_enable();
+>         if (!current_set_polling_and_test()) {
+>                 unsigned int loop_count = 0;
+>                 u64 limit;
+> @@ -36,6 +36,8 @@ static int __cpuidle poll_idle(struct cp
+>                         }
+>                 }
+>         }
+> +       raw_local_irq_disable();
+> +
+>         current_clr_polling();
+>
+>         return index;
+>
+>
