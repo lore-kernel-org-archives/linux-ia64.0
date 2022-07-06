@@ -1,88 +1,62 @@
-From: Alexander Lobakin <alexandr.lobakin@intel.com>
-Date: Fri, 15 Jul 2022 14:50:53 +0000
-Subject: Re: [PATCH v5 6/9] bitops: let optimize out non-atomic bitops on compile-time constants
-Message-Id: <20220715145053.64569-1-alexandr.lobakin@intel.com>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Wed, 06 Jul 2022 05:56:18 +0000
+Subject: Re: [PATCH V6 00/26] mm/mmap: Drop __SXXX/__PXXX macros from across platforms
+Message-Id: <8a6ccbae-7d7c-6e08-cc28-eeb649f86112@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220624121313.2382500-1-alexandr.lobakin@intel.com> <20220624121313.2382500-7-alexandr.lobakin@intel.com> <20220715000402.GA512558@roeck-us.net> <20220715132633.61480-1-alexandr.lobakin@intel.com> <8c949bd4-d25a-d5f5-49be-59d52e4b6c9d@roeck-us.net> <YtF3YIBA0Dd4KXZ+@yury-laptop>
-In-Reply-To: <YtF3YIBA0Dd4KXZ+@yury-laptop>
+References: <20220630051630.1718927-1-anshuman.khandual@arm.com>
+In-Reply-To: <20220630051630.1718927-1-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Yury Norov <yury.norov@gmail.com>
-Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Guenter Roeck <linux@roeck-us.net>, Arnd Bergmann <arnd@arndb.de>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Maciej Fijalkowski <maciej.fijalkowski@intel.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Nathan Chancellor <nathan@kernel.org>, Nick Desaulniers <ndesaulniers@google.com>, Tom Rix <trix@redhat.com>, kernel test robot <lkp@intel.com>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, llvm@lists.linux.dev, linux-kernel@vger.kernel.org
+To: linux-mm@kvack.org, akpm@linux-foundation.org
+Cc: hch@infradead.org, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
 
-From: Yury Norov <yury.norov@gmail.com>
-Date: Fri, 15 Jul 2022 07:19:12 -0700
 
-> On Fri, Jul 15, 2022 at 06:49:46AM -0700, Guenter Roeck wrote:
-> > On 7/15/22 06:26, Alexander Lobakin wrote:
-> > > From: Guenter Roeck <linux@roeck-us.net>
-> > > Date: Thu, 14 Jul 2022 17:04:02 -0700
-> > > 
-> > > > On Fri, Jun 24, 2022 at 02:13:10PM +0200, Alexander Lobakin wrote:
-> > > > > Currently, many architecture-specific non-atomic bitop
-> > > > > implementations use inline asm or other hacks which are faster or
-> > > 
-> > > [...]
-> > > 
-> > > > > Cc: Mark Rutland <mark.rutland@arm.com>
-> > > > > Signed-off-by: Alexander Lobakin <alexandr.lobakin@intel.com>
-> > > > > Reviewed-by: Marco Elver <elver@google.com>
-> > > > 
-> > > > Building i386:allyesconfig ... failed
-> > > > --------------
-> > > > Error log:
-> > > > arch/x86/platform/olpc/olpc-xo1-sci.c: In function 'send_ebook_state':
-> > > > arch/x86/platform/olpc/olpc-xo1-sci.c:83:63: error: logical not is only applied to the left hand side of comparison
-> > > 
-> > > Looks like a trigger, not a cause... Anyway, this construct:
-> > > 
-> > > 	unsigned char state;
-> > > 
-> > > 	[...]
-> > > 
-> > > 	if (!!test_bit(SW_TABLET_MODE, ebook_switch_idev->sw) = state)
-> > > 
-> > > doesn't look legit enough.
-> > > That redundant double-negation [of boolean value], together with
-> > > comparing boolean to char, provokes compilers to think the author
-> > > made logical mistakes here, although it works as expected.
-> > > Could you please try (if it's not automated build which you can't
-> > > modify) the following:
-> > > 
-> > 
-> > Agreed, the existing code seems wrong. The change below looks correct
-> > and fixes the problem. Feel free to add
-> > 
-> > Reviewed-and-tested-by: Guenter Roeck <linux@roeck-us.net>
-> > 
-> > to the real patch.
-> > 
-> > Thanks,
-> > Guenter
-> > 
-> > > --- a/arch/x86/platform/olpc/olpc-xo1-sci.c
-> > > +++ b/arch/x86/platform/olpc/olpc-xo1-sci.c
-> > > @@ -80,7 +80,7 @@ static void send_ebook_state(void)
-> > >   		return;
-> > >   	}
-> > > -	if (!!test_bit(SW_TABLET_MODE, ebook_switch_idev->sw) = state)
-> > > +	if (test_bit(SW_TABLET_MODE, ebook_switch_idev->sw) = !!state)
-> > >   		return; /* Nothing new to report. */
-> > >   	input_report_switch(ebook_switch_idev, SW_TABLET_MODE, state);
-> > > ---
-> > > 
-> > > We'd take it into the bitmap tree then. The series revealed
-> > > a fistful of existing code issues already :)
+
+On 6/30/22 10:46, Anshuman Khandual wrote:
+> __SXXX/__PXXX macros is an unnecessary abstraction layer in creating the
+> generic protection_map[] array which is used for vm_get_page_prot(). This
+> abstraction layer can be avoided, if the platforms just define the array
+> protection_map[] for all possible vm_flags access permission combinations
+> and also export vm_get_page_prot() implementation.
 > 
-> Would you like me to add your signed-off-by and apply, or you prefer
-> to send it out as a patch?
-
-I'm sending it in a couple minutes :)
-
+> This series drops __SXXX/__PXXX macros from across platforms in the tree.
+> First it build protects generic protection_map[] array with '#ifdef __P000'
+> and moves it inside platforms which enable ARCH_HAS_VM_GET_PAGE_PROT. Later
+> this build protects same array with '#ifdef ARCH_HAS_VM_GET_PAGE_PROT' and
+> moves inside remaining platforms while enabling ARCH_HAS_VM_GET_PAGE_PROT.
+> This adds a new macro DECLARE_VM_GET_PAGE_PROT defining the current generic
+> vm_get_page_prot(), in order for it to be reused on platforms that do not
+> require custom implementation. Finally, ARCH_HAS_VM_GET_PAGE_PROT can just
+> be dropped, as all platforms now define and export vm_get_page_prot(), via
+> looking up a private and static protection_map[] array. protection_map[]
+> data type has been changed as 'static const' on all platforms that do not
+> change it during boot.
 > 
-> Thanks,
-> Yury
+> This series applies on v5.19-rc4 and has been build tested for multiple
+> platforms. While here it has dropped off all previous tags from folks after
+> the current restructuring. Series common CC list has been expanded to cover
+> all impacted platforms for wider reach.
+> 
+> - Anshuman
+> 
+> Changes in V6:
+> 
+> - Converted protection_map[] array as 'static const' on sparc32 platform
+> - Rebased on v5.19-rc4
+> - Collected tags
 
-Thanks,
-Olek
+There are two linux-next based build fixes for this series (listed below), when
+vm_get_page_prot() gets redefined with !CONFIG_MMU. Platform vm_get_page_prot()
+is required only with CONFIG_MMU enabled, otherwise there is a generic fallback
+stub in include/linux/mm.h
+
+https://lore.kernel.org/all/20220705221411.3381797-1-jcmvbkbc@gmail.com/	[xtensa]
+https://lore.kernel.org/all/20220706054002.1936820-1-anshuman.khandual@arm.com/ [sh]
+
+It does not seem CONFIG_MMU can be disabled on other platforms thus exposing a build
+failure. But just to be on the safer side, should all vm_get_page_prot() be wrapped
+around with #ifdef CONFIG_MMU ? In that case will resend the series with above build
+fixes folded back in as well. Please do suggest. Thank you.
+
+- Anshuman
