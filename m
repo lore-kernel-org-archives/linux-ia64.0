@@ -1,201 +1,156 @@
-From: Marc Zyngier <maz@kernel.org>
-Date: Thu, 07 Jul 2022 08:39:58 +0000
+From: Oleksandr Tyshchenko <Oleksandr_Tyshchenko@epam.com>
+Date: Thu, 07 Jul 2022 09:37:37 +0000
 Subject: Re: [PATCH v3 6/8] genirq: Add and use an irq_data_update_affinity helper
-Message-Id: <87bku1mi3l.wl-maz@kernel.org>
+Message-Id: <4adea4b3-8e42-ef94-b29f-f375d167d55e@epam.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220701200056.46555-1-samuel@sholland.org>
-        <20220701200056.46555-7-samuel@sholland.org>
-        <c7171195-796a-e61e-f270-864985adc5c3@gmail.com>
-In-Reply-To: <c7171195-796a-e61e-f270-864985adc5c3@gmail.com>
+ <20220701200056.46555-7-samuel@sholland.org>
+ <c7171195-796a-e61e-f270-864985adc5c3@gmail.com>
+ <87bku1mi3l.wl-maz@kernel.org>
+In-Reply-To: <87bku1mi3l.wl-maz@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Oleksandr <olekstysh@gmail.com>
-Cc: Samuel Holland <samuel@sholland.org>, Thomas Gleixner <tglx@linutronix.de>, Andy Shevchenko <andy.shevchenko@gmail.com>, Bartosz Golaszewski <brgl@bgdev.pl>, Bjorn Helgaas <bhelgaas@google.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Borislav Petkov <bp@alien8.de>, Broadcom internal kernel review list <bcm-kernel-feedback-list@broadcom.com>, Chris Zankel <chris@zankel.net>, Colin Ian King <colin.king@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Dexuan Cui <decui@microsoft.com>, Florian Fainelli <f.fainelli@gmail.com>, Guo Ren <guoren@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Haiyang Zhang <haiyangz@microsoft.com>, Helge Deller <deller@gmx.de>, Ingo Molnar <mingo@redhat.com>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Jan Beulich <jbeulich@suse.com>, Joerg Roedel <joro@8bytes.org>, Juergen Gross <jgross@suse.com>, Julia Lawall <Julia.Lawall@inria.fr>, "K. Y. Srinivasan" <kys@microsoft.com>, Kees Cook <keescook@chromium.org>, Krzysztof =?UTF-8?B?V2lsY3p5xYRza2k=?= <kw@linux.com>, Linus Walleij <linus.walleij@linaro.org>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Max Filippov <jcmvbkbc@gmail.com>, Maximilian Heyne <mheyne@amazon.de>, Oleksandr Tyshchenko <oleksandr_tyshchenko@epam.com>, Rich Felker <dalias@libc.org>, Richard Henderson <rth@twiddle.net>, Rikard Falkeborn <rikard.falkeborn@gmail.com>, Rob Herring <robh@kernel.org>, Russell King <linux@armlinux.org.uk>, Serge Semin <fancer.lancer@gmail.com>, Stefano Stabellini <sstabellini@kernel.org>, Stephen Hemminger <sthemmin@microsoft.com>, Sven Schnelle <svens@stackframe.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Wei Liu <wei.liu@kernel.org>, Wei Xu <xuwei5@hisilicon.com>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, iommu@lists.linux-foundation.org, iommu@lists.linux.dev, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-hyperv@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-pci@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, xen-devel@lists.xenproject.org
+To: Marc Zyngier <maz@kernel.org>, Oleksandr <olekstysh@gmail.com>
+Cc: Samuel Holland <samuel@sholland.org>, Thomas Gleixner <tglx@linutronix.de>, Andy Shevchenko <andy.shevchenko@gmail.com>, Bartosz Golaszewski <brgl@bgdev.pl>, Bjorn Helgaas <bhelgaas@google.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Borislav Petkov <bp@alien8.de>, Broadcom internal kernel review list <bcm-kernel-feedback-list@broadcom.com>, Chris Zankel <chris@zankel.net>, Colin Ian King <colin.king@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Dexuan Cui <decui@microsoft.com>, Florian Fainelli <f.fainelli@gmail.com>, Guo Ren <guoren@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Haiyang Zhang <haiyangz@microsoft.com>, Helge Deller <deller@gmx.de>, Ingo Molnar <mingo@redhat.com>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Jan Beulich <jbeulich@suse.com>, Joerg Roedel <joro@8bytes.org>, Juergen Gross <jgross@suse.com>, Julia Lawall <Julia.Lawall@inria.fr>, "K. Y. Srinivasan" <kys@microsoft.com>, Kees Cook <keescook@chromium.org>, =?utf-8?B?S3J6eXN6dG9mIFdpbGN6ecWEc2tp?= <kw@linux.com>, Linus Walleij <linus.walleij@linaro.org>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Max Filippov <jcmvbkbc@gmail.com>, Maximilian Heyne <mheyne@amazon.de>, Rich Felker <dalias@libc.org>, Richard Henderson <rth@twiddle.net>, Rikard Falkeborn <rikard.falkeborn@gmail.com>, Rob Herring <robh@kernel.org>, Russell King <linux@armlinux.org.uk>, Serge Semin <fancer.lancer@gmail.com>, Stefano Stabellini <sstabellini@kernel.org>, Stephen Hemminger <sthemmin@microsoft.com>, Sven Schnelle <svens@stackframe.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Wei Liu <wei.liu@kernel.org>, Wei Xu <xuwei5@hisilicon.com>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, "iommu@lists.linux-foundation.org" <iommu@lists.linux-foundation.org>, "iommu@lists.linux.dev" <iommu@lists.linux.dev>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "linux-hyperv@vger.kernel.org" <linux-hyperv@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>, "x86@kernel.org" <x86@kernel.org>, "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>
 
-On Sun, 03 Jul 2022 16:22:03 +0100,
-Oleksandr <olekstysh@gmail.com> wrote:
-> 
-> 
-> On 01.07.22 23:00, Samuel Holland wrote:
-> 
-> 
-> Hello Samuel
-> 
-> > Some architectures and irqchip drivers modify the cpumask returned by
-> > irq_data_get_affinity_mask, usually by copying in to it. This is
-> > problematic for uniprocessor configurations, where the affinity mask
-> > should be constant, as it is known at compile time.
-> > 
-> > Add and use a setter for the affinity mask, following the pattern of
-> > irq_data_update_effective_affinity. This allows the getter function to
-> > return a const cpumask pointer.
-> > 
-> > Signed-off-by: Samuel Holland <samuel@sholland.org>
-> > ---
-> > 
-> > Changes in v3:
-> >   - New patch to introduce irq_data_update_affinity
-> > 
-> >   arch/alpha/kernel/irq.c          | 2 +-
-> >   arch/ia64/kernel/iosapic.c       | 2 +-
-> >   arch/ia64/kernel/irq.c           | 4 ++--
-> >   arch/ia64/kernel/msi_ia64.c      | 4 ++--
-> >   arch/parisc/kernel/irq.c         | 2 +-
-> >   drivers/irqchip/irq-bcm6345-l1.c | 4 ++--
-> >   drivers/parisc/iosapic.c         | 2 +-
-> >   drivers/sh/intc/chip.c           | 2 +-
-> >   drivers/xen/events/events_base.c | 7 ++++---
-> >   include/linux/irq.h              | 6 ++++++
-> >   10 files changed, 21 insertions(+), 14 deletions(-)
-> > 
-> > diff --git a/arch/alpha/kernel/irq.c b/arch/alpha/kernel/irq.c
-> > index f6d2946edbd2..15f2effd6baf 100644
-> > --- a/arch/alpha/kernel/irq.c
-> > +++ b/arch/alpha/kernel/irq.c
-> > @@ -60,7 +60,7 @@ int irq_select_affinity(unsigned int irq)
-> >   		cpu = (cpu < (NR_CPUS-1) ? cpu + 1 : 0);
-> >   	last_cpu = cpu;
-> >   -	cpumask_copy(irq_data_get_affinity_mask(data),
-> > cpumask_of(cpu));
-> > +	irq_data_update_affinity(data, cpumask_of(cpu));
-> >   	chip->irq_set_affinity(data, cpumask_of(cpu), false);
-> >   	return 0;
-> >   }
-> > diff --git a/arch/ia64/kernel/iosapic.c b/arch/ia64/kernel/iosapic.c
-> > index 35adcf89035a..99300850abc1 100644
-> > --- a/arch/ia64/kernel/iosapic.c
-> > +++ b/arch/ia64/kernel/iosapic.c
-> > @@ -834,7 +834,7 @@ iosapic_unregister_intr (unsigned int gsi)
-> >   	if (iosapic_intr_info[irq].count = 0) {
-> >   #ifdef CONFIG_SMP
-> >   		/* Clear affinity */
-> > -		cpumask_setall(irq_get_affinity_mask(irq));
-> > +		irq_data_update_affinity(irq_get_irq_data(irq), cpu_all_mask);
-> >   #endif
-> >   		/* Clear the interrupt information */
-> >   		iosapic_intr_info[irq].dest = 0;
-> > diff --git a/arch/ia64/kernel/irq.c b/arch/ia64/kernel/irq.c
-> > index ecef17c7c35b..275b9ea58c64 100644
-> > --- a/arch/ia64/kernel/irq.c
-> > +++ b/arch/ia64/kernel/irq.c
-> > @@ -57,8 +57,8 @@ static char irq_redir [NR_IRQS]; // = { [0 ... NR_IRQS-1] = 1 };
-> >   void set_irq_affinity_info (unsigned int irq, int hwid, int redir)
-> >   {
-> >   	if (irq < NR_IRQS) {
-> > -		cpumask_copy(irq_get_affinity_mask(irq),
-> > -			     cpumask_of(cpu_logical_id(hwid)));
-> > +		irq_data_update_affinity(irq_get_irq_data(irq),
-> > +					 cpumask_of(cpu_logical_id(hwid)));
-> >   		irq_redir[irq] = (char) (redir & 0xff);
-> >   	}
-> >   }
-> > diff --git a/arch/ia64/kernel/msi_ia64.c b/arch/ia64/kernel/msi_ia64.c
-> > index df5c28f252e3..025e5133c860 100644
-> > --- a/arch/ia64/kernel/msi_ia64.c
-> > +++ b/arch/ia64/kernel/msi_ia64.c
-> > @@ -37,7 +37,7 @@ static int ia64_set_msi_irq_affinity(struct irq_data *idata,
-> >   	msg.data = data;
-> >     	pci_write_msi_msg(irq, &msg);
-> > -	cpumask_copy(irq_data_get_affinity_mask(idata), cpumask_of(cpu));
-> > +	irq_data_update_affinity(idata, cpumask_of(cpu));
-> >     	return 0;
-> >   }
-> > @@ -132,7 +132,7 @@ static int dmar_msi_set_affinity(struct irq_data *data,
-> >   	msg.address_lo |= MSI_ADDR_DEST_ID_CPU(cpu_physical_id(cpu));
-> >     	dmar_msi_write(irq, &msg);
-> > -	cpumask_copy(irq_data_get_affinity_mask(data), mask);
-> > +	irq_data_update_affinity(data, mask);
-> >     	return 0;
-> >   }
-> > diff --git a/arch/parisc/kernel/irq.c b/arch/parisc/kernel/irq.c
-> > index 0fe2d79fb123..5ebb1771b4ab 100644
-> > --- a/arch/parisc/kernel/irq.c
-> > +++ b/arch/parisc/kernel/irq.c
-> > @@ -315,7 +315,7 @@ unsigned long txn_affinity_addr(unsigned int irq, int cpu)
-> >   {
-> >   #ifdef CONFIG_SMP
-> >   	struct irq_data *d = irq_get_irq_data(irq);
-> > -	cpumask_copy(irq_data_get_affinity_mask(d), cpumask_of(cpu));
-> > +	irq_data_update_affinity(d, cpumask_of(cpu));
-> >   #endif
-> >     	return per_cpu(cpu_data, cpu).txn_addr;
-> > diff --git a/drivers/irqchip/irq-bcm6345-l1.c b/drivers/irqchip/irq-bcm6345-l1.c
-> > index 142a7431745f..6899e37810a8 100644
-> > --- a/drivers/irqchip/irq-bcm6345-l1.c
-> > +++ b/drivers/irqchip/irq-bcm6345-l1.c
-> > @@ -216,11 +216,11 @@ static int bcm6345_l1_set_affinity(struct irq_data *d,
-> >   		enabled = intc->cpus[old_cpu]->enable_cache[word] & mask;
-> >   		if (enabled)
-> >   			__bcm6345_l1_mask(d);
-> > -		cpumask_copy(irq_data_get_affinity_mask(d), dest);
-> > +		irq_data_update_affinity(d, dest);
-> >   		if (enabled)
-> >   			__bcm6345_l1_unmask(d);
-> >   	} else {
-> > -		cpumask_copy(irq_data_get_affinity_mask(d), dest);
-> > +		irq_data_update_affinity(d, dest);
-> >   	}
-> >   	raw_spin_unlock_irqrestore(&intc->lock, flags);
-> >   diff --git a/drivers/parisc/iosapic.c b/drivers/parisc/iosapic.c
-> > index 8a3b0c3a1e92..3a8c98615634 100644
-> > --- a/drivers/parisc/iosapic.c
-> > +++ b/drivers/parisc/iosapic.c
-> > @@ -677,7 +677,7 @@ static int iosapic_set_affinity_irq(struct irq_data *d,
-> >   	if (dest_cpu < 0)
-> >   		return -1;
-> >   -	cpumask_copy(irq_data_get_affinity_mask(d),
-> > cpumask_of(dest_cpu));
-> > +	irq_data_update_affinity(d, cpumask_of(dest_cpu));
-> >   	vi->txn_addr = txn_affinity_addr(d->irq, dest_cpu);
-> >     	spin_lock_irqsave(&iosapic_lock, flags);
-> > diff --git a/drivers/sh/intc/chip.c b/drivers/sh/intc/chip.c
-> > index 358df7510186..828d81e02b37 100644
-> > --- a/drivers/sh/intc/chip.c
-> > +++ b/drivers/sh/intc/chip.c
-> > @@ -72,7 +72,7 @@ static int intc_set_affinity(struct irq_data *data,
-> >   	if (!cpumask_intersects(cpumask, cpu_online_mask))
-> >   		return -1;
-> >   -	cpumask_copy(irq_data_get_affinity_mask(data), cpumask);
-> > +	irq_data_update_affinity(data, cpumask);
-> >     	return IRQ_SET_MASK_OK_NOCOPY;
-> >   }
-> > diff --git a/drivers/xen/events/events_base.c b/drivers/xen/events/events_base.c
-> > index 46d9295d9a6e..5e8321f43cbd 100644
-> > --- a/drivers/xen/events/events_base.c
-> > +++ b/drivers/xen/events/events_base.c
-> > @@ -528,9 +528,10 @@ static void bind_evtchn_to_cpu(evtchn_port_t evtchn, unsigned int cpu,
-> >   	BUG_ON(irq = -1);
-> >     	if (IS_ENABLED(CONFIG_SMP) && force_affinity) {
-> > -		cpumask_copy(irq_get_affinity_mask(irq), cpumask_of(cpu));
-> > -		cpumask_copy(irq_get_effective_affinity_mask(irq),
-> > -			     cpumask_of(cpu));
-> > +		struct irq_data *data = irq_get_irq_data(irq);
-> > +
-> > +		irq_data_update_affinity(data, cpumask_of(cpu));
-> > +		irq_data_update_effective_affinity(data, cpumask_of(cpu));
-> >   	}
-> 
-> 
-> 
-> Nit: commit description says about reusing irq_data_update_affinity()
-> only, but here we also reuse irq_data_update_effective_affinity(), so
-> I would mention that in the description.
-> 
-> Reviewed-by: Oleksandr Tyshchenko <oleksandr_tyshchenko@epam.com> # Xen bits
-
-b4 shouts because of your email address:
-
-NOTE: some trailers ignored due to from/email mismatches:
-    ! Trailer: Reviewed-by: Oleksandr Tyshchenko <oleksandr_tyshchenko@epam.com> # Xen bits
-     Msg From: Oleksandr <olekstysh@gmail.com>
-
-I've used the tag anyway, but you may want to fix your setup in the
-future.
-
-Thanks,
-
-	M.
-
--- 
-Without deviation from the norm, progress is not possible.
+DQpPbiAwNy4wNy4yMiAxMTozOSwgTWFyYyBaeW5naWVyIHdyb3RlOg0KDQoNCkhlbGxvIE1hcmMN
+Cg0KPiBPbiBTdW4sIDAzIEp1bCAyMDIyIDE2OjIyOjAzICswMTAwLA0KPiBPbGVrc2FuZHIgPG9s
+ZWtzdHlzaEBnbWFpbC5jb20+IHdyb3RlOg0KPj4NCj4+IE9uIDAxLjA3LjIyIDIzOjAwLCBTYW11
+ZWwgSG9sbGFuZCB3cm90ZToNCj4+DQo+Pg0KPj4gSGVsbG8gU2FtdWVsDQo+Pg0KPj4+IFNvbWUg
+YXJjaGl0ZWN0dXJlcyBhbmQgaXJxY2hpcCBkcml2ZXJzIG1vZGlmeSB0aGUgY3B1bWFzayByZXR1
+cm5lZCBieQ0KPj4+IGlycV9kYXRhX2dldF9hZmZpbml0eV9tYXNrLCB1c3VhbGx5IGJ5IGNvcHlp
+bmcgaW4gdG8gaXQuIFRoaXMgaXMNCj4+PiBwcm9ibGVtYXRpYyBmb3IgdW5pcHJvY2Vzc29yIGNv
+bmZpZ3VyYXRpb25zLCB3aGVyZSB0aGUgYWZmaW5pdHkgbWFzaw0KPj4+IHNob3VsZCBiZSBjb25z
+dGFudCwgYXMgaXQgaXMga25vd24gYXQgY29tcGlsZSB0aW1lLg0KPj4+DQo+Pj4gQWRkIGFuZCB1
+c2UgYSBzZXR0ZXIgZm9yIHRoZSBhZmZpbml0eSBtYXNrLCBmb2xsb3dpbmcgdGhlIHBhdHRlcm4g
+b2YNCj4+PiBpcnFfZGF0YV91cGRhdGVfZWZmZWN0aXZlX2FmZmluaXR5LiBUaGlzIGFsbG93cyB0
+aGUgZ2V0dGVyIGZ1bmN0aW9uIHRvDQo+Pj4gcmV0dXJuIGEgY29uc3QgY3B1bWFzayBwb2ludGVy
+Lg0KPj4+DQo+Pj4gU2lnbmVkLW9mZi1ieTogU2FtdWVsIEhvbGxhbmQgPHNhbXVlbEBzaG9sbGFu
+ZC5vcmc+DQo+Pj4gLS0tDQo+Pj4NCj4+PiBDaGFuZ2VzIGluIHYzOg0KPj4+ICAgIC0gTmV3IHBh
+dGNoIHRvIGludHJvZHVjZSBpcnFfZGF0YV91cGRhdGVfYWZmaW5pdHkNCj4+Pg0KPj4+ICAgIGFy
+Y2gvYWxwaGEva2VybmVsL2lycS5jICAgICAgICAgIHwgMiArLQ0KPj4+ICAgIGFyY2gvaWE2NC9r
+ZXJuZWwvaW9zYXBpYy5jICAgICAgIHwgMiArLQ0KPj4+ICAgIGFyY2gvaWE2NC9rZXJuZWwvaXJx
+LmMgICAgICAgICAgIHwgNCArKy0tDQo+Pj4gICAgYXJjaC9pYTY0L2tlcm5lbC9tc2lfaWE2NC5j
+ICAgICAgfCA0ICsrLS0NCj4+PiAgICBhcmNoL3BhcmlzYy9rZXJuZWwvaXJxLmMgICAgICAgICB8
+IDIgKy0NCj4+PiAgICBkcml2ZXJzL2lycWNoaXAvaXJxLWJjbTYzNDUtbDEuYyB8IDQgKystLQ0K
+Pj4+ICAgIGRyaXZlcnMvcGFyaXNjL2lvc2FwaWMuYyAgICAgICAgIHwgMiArLQ0KPj4+ICAgIGRy
+aXZlcnMvc2gvaW50Yy9jaGlwLmMgICAgICAgICAgIHwgMiArLQ0KPj4+ICAgIGRyaXZlcnMveGVu
+L2V2ZW50cy9ldmVudHNfYmFzZS5jIHwgNyArKysrLS0tDQo+Pj4gICAgaW5jbHVkZS9saW51eC9p
+cnEuaCAgICAgICAgICAgICAgfCA2ICsrKysrKw0KPj4+ICAgIDEwIGZpbGVzIGNoYW5nZWQsIDIx
+IGluc2VydGlvbnMoKyksIDE0IGRlbGV0aW9ucygtKQ0KPj4+DQo+Pj4gZGlmZiAtLWdpdCBhL2Fy
+Y2gvYWxwaGEva2VybmVsL2lycS5jIGIvYXJjaC9hbHBoYS9rZXJuZWwvaXJxLmMNCj4+PiBpbmRl
+eCBmNmQyOTQ2ZWRiZDIuLjE1ZjJlZmZkNmJhZiAxMDA2NDQNCj4+PiAtLS0gYS9hcmNoL2FscGhh
+L2tlcm5lbC9pcnEuYw0KPj4+ICsrKyBiL2FyY2gvYWxwaGEva2VybmVsL2lycS5jDQo+Pj4gQEAg
+LTYwLDcgKzYwLDcgQEAgaW50IGlycV9zZWxlY3RfYWZmaW5pdHkodW5zaWduZWQgaW50IGlycSkN
+Cj4+PiAgICAJCWNwdSA9IChjcHUgPCAoTlJfQ1BVUy0xKSA/IGNwdSArIDEgOiAwKTsNCj4+PiAg
+ICAJbGFzdF9jcHUgPSBjcHU7DQo+Pj4gICAgLQljcHVtYXNrX2NvcHkoaXJxX2RhdGFfZ2V0X2Fm
+ZmluaXR5X21hc2soZGF0YSksDQo+Pj4gY3B1bWFza19vZihjcHUpKTsNCj4+PiArCWlycV9kYXRh
+X3VwZGF0ZV9hZmZpbml0eShkYXRhLCBjcHVtYXNrX29mKGNwdSkpOw0KPj4+ICAgIAljaGlwLT5p
+cnFfc2V0X2FmZmluaXR5KGRhdGEsIGNwdW1hc2tfb2YoY3B1KSwgZmFsc2UpOw0KPj4+ICAgIAly
+ZXR1cm4gMDsNCj4+PiAgICB9DQo+Pj4gZGlmZiAtLWdpdCBhL2FyY2gvaWE2NC9rZXJuZWwvaW9z
+YXBpYy5jIGIvYXJjaC9pYTY0L2tlcm5lbC9pb3NhcGljLmMNCj4+PiBpbmRleCAzNWFkY2Y4OTAz
+NWEuLjk5MzAwODUwYWJjMSAxMDA2NDQNCj4+PiAtLS0gYS9hcmNoL2lhNjQva2VybmVsL2lvc2Fw
+aWMuYw0KPj4+ICsrKyBiL2FyY2gvaWE2NC9rZXJuZWwvaW9zYXBpYy5jDQo+Pj4gQEAgLTgzNCw3
+ICs4MzQsNyBAQCBpb3NhcGljX3VucmVnaXN0ZXJfaW50ciAodW5zaWduZWQgaW50IGdzaSkNCj4+
+PiAgICAJaWYgKGlvc2FwaWNfaW50cl9pbmZvW2lycV0uY291bnQgPT0gMCkgew0KPj4+ICAgICNp
+ZmRlZiBDT05GSUdfU01QDQo+Pj4gICAgCQkvKiBDbGVhciBhZmZpbml0eSAqLw0KPj4+IC0JCWNw
+dW1hc2tfc2V0YWxsKGlycV9nZXRfYWZmaW5pdHlfbWFzayhpcnEpKTsNCj4+PiArCQlpcnFfZGF0
+YV91cGRhdGVfYWZmaW5pdHkoaXJxX2dldF9pcnFfZGF0YShpcnEpLCBjcHVfYWxsX21hc2spOw0K
+Pj4+ICAgICNlbmRpZg0KPj4+ICAgIAkJLyogQ2xlYXIgdGhlIGludGVycnVwdCBpbmZvcm1hdGlv
+biAqLw0KPj4+ICAgIAkJaW9zYXBpY19pbnRyX2luZm9baXJxXS5kZXN0ID0gMDsNCj4+PiBkaWZm
+IC0tZ2l0IGEvYXJjaC9pYTY0L2tlcm5lbC9pcnEuYyBiL2FyY2gvaWE2NC9rZXJuZWwvaXJxLmMN
+Cj4+PiBpbmRleCBlY2VmMTdjN2MzNWIuLjI3NWI5ZWE1OGM2NCAxMDA2NDQNCj4+PiAtLS0gYS9h
+cmNoL2lhNjQva2VybmVsL2lycS5jDQo+Pj4gKysrIGIvYXJjaC9pYTY0L2tlcm5lbC9pcnEuYw0K
+Pj4+IEBAIC01Nyw4ICs1Nyw4IEBAIHN0YXRpYyBjaGFyIGlycV9yZWRpciBbTlJfSVJRU107IC8v
+ID0geyBbMCAuLi4gTlJfSVJRUy0xXSA9IDEgfTsNCj4+PiAgICB2b2lkIHNldF9pcnFfYWZmaW5p
+dHlfaW5mbyAodW5zaWduZWQgaW50IGlycSwgaW50IGh3aWQsIGludCByZWRpcikNCj4+PiAgICB7
+DQo+Pj4gICAgCWlmIChpcnEgPCBOUl9JUlFTKSB7DQo+Pj4gLQkJY3B1bWFza19jb3B5KGlycV9n
+ZXRfYWZmaW5pdHlfbWFzayhpcnEpLA0KPj4+IC0JCQkgICAgIGNwdW1hc2tfb2YoY3B1X2xvZ2lj
+YWxfaWQoaHdpZCkpKTsNCj4+PiArCQlpcnFfZGF0YV91cGRhdGVfYWZmaW5pdHkoaXJxX2dldF9p
+cnFfZGF0YShpcnEpLA0KPj4+ICsJCQkJCSBjcHVtYXNrX29mKGNwdV9sb2dpY2FsX2lkKGh3aWQp
+KSk7DQo+Pj4gICAgCQlpcnFfcmVkaXJbaXJxXSA9IChjaGFyKSAocmVkaXIgJiAweGZmKTsNCj4+
+PiAgICAJfQ0KPj4+ICAgIH0NCj4+PiBkaWZmIC0tZ2l0IGEvYXJjaC9pYTY0L2tlcm5lbC9tc2lf
+aWE2NC5jIGIvYXJjaC9pYTY0L2tlcm5lbC9tc2lfaWE2NC5jDQo+Pj4gaW5kZXggZGY1YzI4ZjI1
+MmUzLi4wMjVlNTEzM2M4NjAgMTAwNjQ0DQo+Pj4gLS0tIGEvYXJjaC9pYTY0L2tlcm5lbC9tc2lf
+aWE2NC5jDQo+Pj4gKysrIGIvYXJjaC9pYTY0L2tlcm5lbC9tc2lfaWE2NC5jDQo+Pj4gQEAgLTM3
+LDcgKzM3LDcgQEAgc3RhdGljIGludCBpYTY0X3NldF9tc2lfaXJxX2FmZmluaXR5KHN0cnVjdCBp
+cnFfZGF0YSAqaWRhdGEsDQo+Pj4gICAgCW1zZy5kYXRhID0gZGF0YTsNCj4+PiAgICAgIAlwY2lf
+d3JpdGVfbXNpX21zZyhpcnEsICZtc2cpOw0KPj4+IC0JY3B1bWFza19jb3B5KGlycV9kYXRhX2dl
+dF9hZmZpbml0eV9tYXNrKGlkYXRhKSwgY3B1bWFza19vZihjcHUpKTsNCj4+PiArCWlycV9kYXRh
+X3VwZGF0ZV9hZmZpbml0eShpZGF0YSwgY3B1bWFza19vZihjcHUpKTsNCj4+PiAgICAgIAlyZXR1
+cm4gMDsNCj4+PiAgICB9DQo+Pj4gQEAgLTEzMiw3ICsxMzIsNyBAQCBzdGF0aWMgaW50IGRtYXJf
+bXNpX3NldF9hZmZpbml0eShzdHJ1Y3QgaXJxX2RhdGEgKmRhdGEsDQo+Pj4gICAgCW1zZy5hZGRy
+ZXNzX2xvIHw9IE1TSV9BRERSX0RFU1RfSURfQ1BVKGNwdV9waHlzaWNhbF9pZChjcHUpKTsNCj4+
+PiAgICAgIAlkbWFyX21zaV93cml0ZShpcnEsICZtc2cpOw0KPj4+IC0JY3B1bWFza19jb3B5KGly
+cV9kYXRhX2dldF9hZmZpbml0eV9tYXNrKGRhdGEpLCBtYXNrKTsNCj4+PiArCWlycV9kYXRhX3Vw
+ZGF0ZV9hZmZpbml0eShkYXRhLCBtYXNrKTsNCj4+PiAgICAgIAlyZXR1cm4gMDsNCj4+PiAgICB9
+DQo+Pj4gZGlmZiAtLWdpdCBhL2FyY2gvcGFyaXNjL2tlcm5lbC9pcnEuYyBiL2FyY2gvcGFyaXNj
+L2tlcm5lbC9pcnEuYw0KPj4+IGluZGV4IDBmZTJkNzlmYjEyMy4uNWViYjE3NzFiNGFiIDEwMDY0
+NA0KPj4+IC0tLSBhL2FyY2gvcGFyaXNjL2tlcm5lbC9pcnEuYw0KPj4+ICsrKyBiL2FyY2gvcGFy
+aXNjL2tlcm5lbC9pcnEuYw0KPj4+IEBAIC0zMTUsNyArMzE1LDcgQEAgdW5zaWduZWQgbG9uZyB0
+eG5fYWZmaW5pdHlfYWRkcih1bnNpZ25lZCBpbnQgaXJxLCBpbnQgY3B1KQ0KPj4+ICAgIHsNCj4+
+PiAgICAjaWZkZWYgQ09ORklHX1NNUA0KPj4+ICAgIAlzdHJ1Y3QgaXJxX2RhdGEgKmQgPSBpcnFf
+Z2V0X2lycV9kYXRhKGlycSk7DQo+Pj4gLQljcHVtYXNrX2NvcHkoaXJxX2RhdGFfZ2V0X2FmZmlu
+aXR5X21hc2soZCksIGNwdW1hc2tfb2YoY3B1KSk7DQo+Pj4gKwlpcnFfZGF0YV91cGRhdGVfYWZm
+aW5pdHkoZCwgY3B1bWFza19vZihjcHUpKTsNCj4+PiAgICAjZW5kaWYNCj4+PiAgICAgIAlyZXR1
+cm4gcGVyX2NwdShjcHVfZGF0YSwgY3B1KS50eG5fYWRkcjsNCj4+PiBkaWZmIC0tZ2l0IGEvZHJp
+dmVycy9pcnFjaGlwL2lycS1iY202MzQ1LWwxLmMgYi9kcml2ZXJzL2lycWNoaXAvaXJxLWJjbTYz
+NDUtbDEuYw0KPj4+IGluZGV4IDE0MmE3NDMxNzQ1Zi4uNjg5OWUzNzgxMGE4IDEwMDY0NA0KPj4+
+IC0tLSBhL2RyaXZlcnMvaXJxY2hpcC9pcnEtYmNtNjM0NS1sMS5jDQo+Pj4gKysrIGIvZHJpdmVy
+cy9pcnFjaGlwL2lycS1iY202MzQ1LWwxLmMNCj4+PiBAQCAtMjE2LDExICsyMTYsMTEgQEAgc3Rh
+dGljIGludCBiY202MzQ1X2wxX3NldF9hZmZpbml0eShzdHJ1Y3QgaXJxX2RhdGEgKmQsDQo+Pj4g
+ICAgCQllbmFibGVkID0gaW50Yy0+Y3B1c1tvbGRfY3B1XS0+ZW5hYmxlX2NhY2hlW3dvcmRdICYg
+bWFzazsNCj4+PiAgICAJCWlmIChlbmFibGVkKQ0KPj4+ICAgIAkJCV9fYmNtNjM0NV9sMV9tYXNr
+KGQpOw0KPj4+IC0JCWNwdW1hc2tfY29weShpcnFfZGF0YV9nZXRfYWZmaW5pdHlfbWFzayhkKSwg
+ZGVzdCk7DQo+Pj4gKwkJaXJxX2RhdGFfdXBkYXRlX2FmZmluaXR5KGQsIGRlc3QpOw0KPj4+ICAg
+IAkJaWYgKGVuYWJsZWQpDQo+Pj4gICAgCQkJX19iY202MzQ1X2wxX3VubWFzayhkKTsNCj4+PiAg
+ICAJfSBlbHNlIHsNCj4+PiAtCQljcHVtYXNrX2NvcHkoaXJxX2RhdGFfZ2V0X2FmZmluaXR5X21h
+c2soZCksIGRlc3QpOw0KPj4+ICsJCWlycV9kYXRhX3VwZGF0ZV9hZmZpbml0eShkLCBkZXN0KTsN
+Cj4+PiAgICAJfQ0KPj4+ICAgIAlyYXdfc3Bpbl91bmxvY2tfaXJxcmVzdG9yZSgmaW50Yy0+bG9j
+aywgZmxhZ3MpOw0KPj4+ICAgIGRpZmYgLS1naXQgYS9kcml2ZXJzL3BhcmlzYy9pb3NhcGljLmMg
+Yi9kcml2ZXJzL3BhcmlzYy9pb3NhcGljLmMNCj4+PiBpbmRleCA4YTNiMGMzYTFlOTIuLjNhOGM5
+ODYxNTYzNCAxMDA2NDQNCj4+PiAtLS0gYS9kcml2ZXJzL3BhcmlzYy9pb3NhcGljLmMNCj4+PiAr
+KysgYi9kcml2ZXJzL3BhcmlzYy9pb3NhcGljLmMNCj4+PiBAQCAtNjc3LDcgKzY3Nyw3IEBAIHN0
+YXRpYyBpbnQgaW9zYXBpY19zZXRfYWZmaW5pdHlfaXJxKHN0cnVjdCBpcnFfZGF0YSAqZCwNCj4+
+PiAgICAJaWYgKGRlc3RfY3B1IDwgMCkNCj4+PiAgICAJCXJldHVybiAtMTsNCj4+PiAgICAtCWNw
+dW1hc2tfY29weShpcnFfZGF0YV9nZXRfYWZmaW5pdHlfbWFzayhkKSwNCj4+PiBjcHVtYXNrX29m
+KGRlc3RfY3B1KSk7DQo+Pj4gKwlpcnFfZGF0YV91cGRhdGVfYWZmaW5pdHkoZCwgY3B1bWFza19v
+ZihkZXN0X2NwdSkpOw0KPj4+ICAgIAl2aS0+dHhuX2FkZHIgPSB0eG5fYWZmaW5pdHlfYWRkcihk
+LT5pcnEsIGRlc3RfY3B1KTsNCj4+PiAgICAgIAlzcGluX2xvY2tfaXJxc2F2ZSgmaW9zYXBpY19s
+b2NrLCBmbGFncyk7DQo+Pj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvc2gvaW50Yy9jaGlwLmMgYi9k
+cml2ZXJzL3NoL2ludGMvY2hpcC5jDQo+Pj4gaW5kZXggMzU4ZGY3NTEwMTg2Li44MjhkODFlMDJi
+MzcgMTAwNjQ0DQo+Pj4gLS0tIGEvZHJpdmVycy9zaC9pbnRjL2NoaXAuYw0KPj4+ICsrKyBiL2Ry
+aXZlcnMvc2gvaW50Yy9jaGlwLmMNCj4+PiBAQCAtNzIsNyArNzIsNyBAQCBzdGF0aWMgaW50IGlu
+dGNfc2V0X2FmZmluaXR5KHN0cnVjdCBpcnFfZGF0YSAqZGF0YSwNCj4+PiAgICAJaWYgKCFjcHVt
+YXNrX2ludGVyc2VjdHMoY3B1bWFzaywgY3B1X29ubGluZV9tYXNrKSkNCj4+PiAgICAJCXJldHVy
+biAtMTsNCj4+PiAgICAtCWNwdW1hc2tfY29weShpcnFfZGF0YV9nZXRfYWZmaW5pdHlfbWFzayhk
+YXRhKSwgY3B1bWFzayk7DQo+Pj4gKwlpcnFfZGF0YV91cGRhdGVfYWZmaW5pdHkoZGF0YSwgY3B1
+bWFzayk7DQo+Pj4gICAgICAJcmV0dXJuIElSUV9TRVRfTUFTS19PS19OT0NPUFk7DQo+Pj4gICAg
+fQ0KPj4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL3hlbi9ldmVudHMvZXZlbnRzX2Jhc2UuYyBiL2Ry
+aXZlcnMveGVuL2V2ZW50cy9ldmVudHNfYmFzZS5jDQo+Pj4gaW5kZXggNDZkOTI5NWQ5YTZlLi41
+ZTgzMjFmNDNjYmQgMTAwNjQ0DQo+Pj4gLS0tIGEvZHJpdmVycy94ZW4vZXZlbnRzL2V2ZW50c19i
+YXNlLmMNCj4+PiArKysgYi9kcml2ZXJzL3hlbi9ldmVudHMvZXZlbnRzX2Jhc2UuYw0KPj4+IEBA
+IC01MjgsOSArNTI4LDEwIEBAIHN0YXRpYyB2b2lkIGJpbmRfZXZ0Y2huX3RvX2NwdShldnRjaG5f
+cG9ydF90IGV2dGNobiwgdW5zaWduZWQgaW50IGNwdSwNCj4+PiAgICAJQlVHX09OKGlycSA9PSAt
+MSk7DQo+Pj4gICAgICAJaWYgKElTX0VOQUJMRUQoQ09ORklHX1NNUCkgJiYgZm9yY2VfYWZmaW5p
+dHkpIHsNCj4+PiAtCQljcHVtYXNrX2NvcHkoaXJxX2dldF9hZmZpbml0eV9tYXNrKGlycSksIGNw
+dW1hc2tfb2YoY3B1KSk7DQo+Pj4gLQkJY3B1bWFza19jb3B5KGlycV9nZXRfZWZmZWN0aXZlX2Fm
+ZmluaXR5X21hc2soaXJxKSwNCj4+PiAtCQkJICAgICBjcHVtYXNrX29mKGNwdSkpOw0KPj4+ICsJ
+CXN0cnVjdCBpcnFfZGF0YSAqZGF0YSA9IGlycV9nZXRfaXJxX2RhdGEoaXJxKTsNCj4+PiArDQo+
+Pj4gKwkJaXJxX2RhdGFfdXBkYXRlX2FmZmluaXR5KGRhdGEsIGNwdW1hc2tfb2YoY3B1KSk7DQo+
+Pj4gKwkJaXJxX2RhdGFfdXBkYXRlX2VmZmVjdGl2ZV9hZmZpbml0eShkYXRhLCBjcHVtYXNrX29m
+KGNwdSkpOw0KPj4+ICAgIAl9DQo+Pg0KPj4NCj4+IE5pdDogY29tbWl0IGRlc2NyaXB0aW9uIHNh
+eXMgYWJvdXQgcmV1c2luZyBpcnFfZGF0YV91cGRhdGVfYWZmaW5pdHkoKQ0KPj4gb25seSwgYnV0
+IGhlcmUgd2UgYWxzbyByZXVzZSBpcnFfZGF0YV91cGRhdGVfZWZmZWN0aXZlX2FmZmluaXR5KCks
+IHNvDQo+PiBJIHdvdWxkIG1lbnRpb24gdGhhdCBpbiB0aGUgZGVzY3JpcHRpb24uDQo+Pg0KPj4g
+UmV2aWV3ZWQtYnk6IE9sZWtzYW5kciBUeXNoY2hlbmtvIDxvbGVrc2FuZHJfdHlzaGNoZW5rb0Bl
+cGFtLmNvbT4gIyBYZW4gYml0cw0KPiBiNCBzaG91dHMgYmVjYXVzZSBvZiB5b3VyIGVtYWlsIGFk
+ZHJlc3M6DQo+DQo+IE5PVEU6IHNvbWUgdHJhaWxlcnMgaWdub3JlZCBkdWUgdG8gZnJvbS9lbWFp
+bCBtaXNtYXRjaGVzOg0KPiAgICAgICEgVHJhaWxlcjogUmV2aWV3ZWQtYnk6IE9sZWtzYW5kciBU
+eXNoY2hlbmtvIDxvbGVrc2FuZHJfdHlzaGNoZW5rb0BlcGFtLmNvbT4gIyBYZW4gYml0cw0KPiAg
+ICAgICBNc2cgRnJvbTogT2xla3NhbmRyIDxvbGVrc3R5c2hAZ21haWwuY29tPg0KDQpzb3JyeSBm
+b3IgdGhlIGluY29udmVuaWVuY2UNCg0KDQo+DQo+IEkndmUgdXNlZCB0aGUgdGFnIGFueXdheSwN
+Cg0KDQp0aGFuayB5b3UNCg0KDQo+ICAgYnV0IHlvdSBtYXkgd2FudCB0byBmaXggeW91ciBzZXR1
+cCBpbiB0aGUNCj4gZnV0dXJlLg0KDQp5ZXMsIHdpbGwgZG8NCg0KDQo+DQo+IFRoYW5rcywNCj4N
+Cj4gCU0uDQo+DQotLSANClJlZ2FyZHMsDQoNCk9sZWtzYW5kciBUeXNoY2hlbmtvDQo
