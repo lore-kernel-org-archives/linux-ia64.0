@@ -1,47 +1,145 @@
-From: "Rafael J. Wysocki" <rafael@kernel.org>
-Date: Wed, 06 Jul 2022 13:51:09 +0000
-Subject: Re: [PATCH 03/36] cpuidle/poll: Ensure IRQ state is invariant
-Message-Id: <CAJZ5v0jO9+jRSm3d58K15JaO3=kgM2Ueo7W+Smi3WCBPR_VM5Q@mail.gmail.com>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Mon, 11 Jul 2022 07:17:40 +0000
+Subject: [PATCH V7 06/26] x86/mm: Move protection_map[] inside the platform
+Message-Id: <20220711070600.2378316-7-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220608142723.103523089@infradead.org> <20220608144516.109792837@infradead.org>
-In-Reply-To: <20220608144516.109792837@infradead.org>
+References: <20220711070600.2378316-1-anshuman.khandual@arm.com>
+In-Reply-To: <20220711070600.2378316-1-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>
-Cc: rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@kernel.org, Russell King - ARM Linux <linux@armlinux.org.uk>, ulli.kroll@googlemail.com, Linus Walleij <linus.walleij@linaro.org>, Shawn Guo <shawnguo@kernel.org>, Sascha Hauer <s.hauer@pengutronix.de>, Sascha Hauer <kernel@pengutronix.de>, Fabio Estevam <festevam@gmail.com>, dl-linux-imx <linux-imx@nxp.com>, Tony Lindgren <tony@atomide.com>, Kevin Hilman <khilman@kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, bcain@quicinc.com, Huacai Chen <chenhuacai@kernel.org>, kernel@xen0n.name, Geert Uytterhoeven <geert@linux-m68k.org>, sammy@sammy.net, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, dinguyen@kernel.org, jonas@southpole.se, stefan.kristiansson@saunalahti.fi, Stafford Horne <shorne@gmail.com>, James Bottomley <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, David Miller <davem@davemloft.net>, Richard Weinberger <richard@nod.at>, anton.ivanov@cambridgegreys.com, Johannes Berg <johannes@sipsolutions.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, the arch/x86 maintainers <x86@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, acme@kernel.org, Mark Rutland <mark.rutland@arm.com>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, jolsa@kernel.org, namhyung@kernel.org, Juergen Gross <jgross@suse.com>, srivatsa@csail.mit.edu, amakhalov@vmware.com, pv-drivers@vmware.com, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Chris Zankel <chris@zankel.net>, jcmvbkbc@gmail.com, "Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, Pavel Machek <pavel@ucw.cz>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Michael Turquette <mturquette@baylibre.com>, Stephen Boyd <sboyd@kernel.org>, Daniel Lezcano <daniel.lezcano@linaro.org>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Sudeep Holla <sudeep.holla@arm.com>, Andy Gross <agross@kernel.org>, Bjorn Andersson <bjorn.andersson@linaro.org>, Anup Patel <anup@brainfault.org>, Thierry Reding <thierry.reding@gmail.com>, Jon Hunter <jonathanh@nvidia.com>, Jacob Pan <jacob.jun.pan@linux.intel.com>, Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Steven Rostedt <rostedt@goodmis.org>, Petr Mladek <pmladek@suse.com>, senozhatsky@chromium.org, John Ogness <john.ogness@linutronix.de>, "Paul E. McKenney" <paulmck@kernel.org>, Frederic Weisbecker <frederic@kernel.org>, quic_neeraju@quicinc.com, Josh Triplett <josh@joshtriplett.org>, Mathieu Desnoyers <mathieu.desnoyers@efficios.com>, Lai Jiangshan <jiangshanlai@gmail.com>, Joel Fernandes <joel@joelfernandes.org>, Juri Lelli <juri.lelli@redhat.com>, Vincent Guittot <vincent.guittot@linaro.org>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Benjamin Segall <bsegall@google.com>, Mel Gorman <mgorman@suse.de>, Daniel Bristot de Oliveira <bristot@redhat.com>, vschneid@redhat.com, jpoimboe@kernel.org, linux-alpha@vger.kernel.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-snps-arc@lists.infradead.org, Linux ARM <linux-arm-kernel@lists.infradead.org>, Linux OMAP Mailing List <linux-omap@vger.kernel.org>, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k <linux-m68k@lists.linux-m68k.org>, "open list:BROADCOM NVRAM DRIVER" <linux-mips@vger.kernel.org>, openrisc@lists.librecores.org, Parisc List <linux-parisc@vger.kernel.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, linux-riscv <linux-riscv@lists.infradead.org>, linux-s390@vger.kernel.org, Linux-sh list <linux-sh@vger.kernel.org>, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-perf-users@vger.kernel.org, virtualization@lists.linux-foundation.org, xen-devel@lists.xenproject.org, linux-xtensa@linux-xtensa.org, ACPI Devel Maling List <linux-acpi@vger.kernel.org>, Linux PM <linux-pm@vger.kernel.org>, linux-clk <linux-clk@vger.kernel.org>, linux-arm-msm <linux-arm-msm@vger.kernel.org>, linux-tegra <linux-tegra@vger.kernel.org>, linux-arch <linux-arch@vger.kernel.org>, rcu@vger.kernel.org
+To: linux-mm@kvack.org, akpm@linux-foundation.org
+Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Christoph Hellwig <hch@lst.de>
 
-On Wed, Jun 8, 2022 at 4:47 PM Peter Zijlstra <peterz@infradead.org> wrote:
->
-> cpuidle_state::enter() methods should be IRQ invariant
->
-> Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+This moves protection_map[] inside the platform and makes it a static. This
+also defines a helper function add_encrypt_protection_map() that can update
+the protection_map[] array with pgprot_encrypted().
 
-Reviewed-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: x86@kernel.org
+Cc: linux-kernel@vger.kernel.org
+Reviewed-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+---
+ arch/x86/include/asm/mem_encrypt.h   |  2 ++
+ arch/x86/include/asm/pgtable_types.h | 19 -------------------
+ arch/x86/mm/mem_encrypt_amd.c        |  6 ++----
+ arch/x86/mm/pgprot.c                 | 28 ++++++++++++++++++++++++++++
+ 4 files changed, 32 insertions(+), 23 deletions(-)
 
-> ---
->  drivers/cpuidle/poll_state.c |    4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
->
-> --- a/drivers/cpuidle/poll_state.c
-> +++ b/drivers/cpuidle/poll_state.c
-> @@ -17,7 +17,7 @@ static int __cpuidle poll_idle(struct cp
->
->         dev->poll_time_limit = false;
->
-> -       local_irq_enable();
-> +       raw_local_irq_enable();
->         if (!current_set_polling_and_test()) {
->                 unsigned int loop_count = 0;
->                 u64 limit;
-> @@ -36,6 +36,8 @@ static int __cpuidle poll_idle(struct cp
->                         }
->                 }
->         }
-> +       raw_local_irq_disable();
-> +
->         current_clr_polling();
->
->         return index;
->
->
+diff --git a/arch/x86/include/asm/mem_encrypt.h b/arch/x86/include/asm/mem_encrypt.h
+index 88ceaf3648b3..72ca90552b6a 100644
+--- a/arch/x86/include/asm/mem_encrypt.h
++++ b/arch/x86/include/asm/mem_encrypt.h
+@@ -89,6 +89,8 @@ static inline void mem_encrypt_free_decrypted_mem(void) { }
+ /* Architecture __weak replacement functions */
+ void __init mem_encrypt_init(void);
+ 
++void add_encrypt_protection_map(void);
++
+ /*
+  * The __sme_pa() and __sme_pa_nodebug() macros are meant for use when
+  * writing to or comparing values from the cr3 register.  Having the
+diff --git a/arch/x86/include/asm/pgtable_types.h b/arch/x86/include/asm/pgtable_types.h
+index bdaf8391e2e0..aa174fed3a71 100644
+--- a/arch/x86/include/asm/pgtable_types.h
++++ b/arch/x86/include/asm/pgtable_types.h
+@@ -230,25 +230,6 @@ enum page_cache_mode {
+ 
+ #endif	/* __ASSEMBLY__ */
+ 
+-/*         xwr */
+-#define __P000	PAGE_NONE
+-#define __P001	PAGE_READONLY
+-#define __P010	PAGE_COPY
+-#define __P011	PAGE_COPY
+-#define __P100	PAGE_READONLY_EXEC
+-#define __P101	PAGE_READONLY_EXEC
+-#define __P110	PAGE_COPY_EXEC
+-#define __P111	PAGE_COPY_EXEC
+-
+-#define __S000	PAGE_NONE
+-#define __S001	PAGE_READONLY
+-#define __S010	PAGE_SHARED
+-#define __S011	PAGE_SHARED
+-#define __S100	PAGE_READONLY_EXEC
+-#define __S101	PAGE_READONLY_EXEC
+-#define __S110	PAGE_SHARED_EXEC
+-#define __S111	PAGE_SHARED_EXEC
+-
+ /*
+  * early identity mapping  pte attrib macros.
+  */
+diff --git a/arch/x86/mm/mem_encrypt_amd.c b/arch/x86/mm/mem_encrypt_amd.c
+index f6d038e2cd8e..5c3c3ed46f5a 100644
+--- a/arch/x86/mm/mem_encrypt_amd.c
++++ b/arch/x86/mm/mem_encrypt_amd.c
+@@ -26,6 +26,7 @@
+ #include <asm/tlbflush.h>
+ #include <asm/fixmap.h>
+ #include <asm/setup.h>
++#include <asm/mem_encrypt.h>
+ #include <asm/bootparam.h>
+ #include <asm/set_memory.h>
+ #include <asm/cacheflush.h>
+@@ -486,8 +487,6 @@ void __init early_set_mem_enc_dec_hypercall(unsigned long vaddr, int npages, boo
+ 
+ void __init sme_early_init(void)
+ {
+-	unsigned int i;
+-
+ 	if (!sme_me_mask)
+ 		return;
+ 
+@@ -496,8 +495,7 @@ void __init sme_early_init(void)
+ 	__supported_pte_mask = __sme_set(__supported_pte_mask);
+ 
+ 	/* Update the protection map with memory encryption mask */
+-	for (i = 0; i < ARRAY_SIZE(protection_map); i++)
+-		protection_map[i] = pgprot_encrypted(protection_map[i]);
++	add_encrypt_protection_map();
+ 
+ 	x86_platform.guest.enc_status_change_prepare = amd_enc_status_change_prepare;
+ 	x86_platform.guest.enc_status_change_finish  = amd_enc_status_change_finish;
+diff --git a/arch/x86/mm/pgprot.c b/arch/x86/mm/pgprot.c
+index 763742782286..c84bd9540b16 100644
+--- a/arch/x86/mm/pgprot.c
++++ b/arch/x86/mm/pgprot.c
+@@ -3,6 +3,34 @@
+ #include <linux/export.h>
+ #include <linux/mm.h>
+ #include <asm/pgtable.h>
++#include <asm/mem_encrypt.h>
++
++static pgprot_t protection_map[16] __ro_after_init = {
++	[VM_NONE]					= PAGE_NONE,
++	[VM_READ]					= PAGE_READONLY,
++	[VM_WRITE]					= PAGE_COPY,
++	[VM_WRITE | VM_READ]				= PAGE_COPY,
++	[VM_EXEC]					= PAGE_READONLY_EXEC,
++	[VM_EXEC | VM_READ]				= PAGE_READONLY_EXEC,
++	[VM_EXEC | VM_WRITE]				= PAGE_COPY_EXEC,
++	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_COPY_EXEC,
++	[VM_SHARED]					= PAGE_NONE,
++	[VM_SHARED | VM_READ]				= PAGE_READONLY,
++	[VM_SHARED | VM_WRITE]				= PAGE_SHARED,
++	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_SHARED,
++	[VM_SHARED | VM_EXEC]				= PAGE_READONLY_EXEC,
++	[VM_SHARED | VM_EXEC | VM_READ]			= PAGE_READONLY_EXEC,
++	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_SHARED_EXEC,
++	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= PAGE_SHARED_EXEC
++};
++
++void add_encrypt_protection_map(void)
++{
++	unsigned int i;
++
++	for (i = 0; i < ARRAY_SIZE(protection_map); i++)
++		protection_map[i] = pgprot_encrypted(protection_map[i]);
++}
+ 
+ pgprot_t vm_get_page_prot(unsigned long vm_flags)
+ {
+-- 
+2.25.1
