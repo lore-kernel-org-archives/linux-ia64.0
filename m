@@ -1,63 +1,126 @@
-From: Samuel Holland <samuel@sholland.org>
-Date: Fri, 01 Jul 2022 20:00:53 +0000
-Subject: [PATCH v3 5/8] genirq: Refactor accessors to use irq_data_get_affinity_mask
-Message-Id: <20220701200056.46555-6-samuel@sholland.org>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Mon, 11 Jul 2022 07:17:43 +0000
+Subject: [PATCH V7 09/26] loongarch/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <20220711070600.2378316-10-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220701200056.46555-1-samuel@sholland.org>
-In-Reply-To: <20220701200056.46555-1-samuel@sholland.org>
+References: <20220711070600.2378316-1-anshuman.khandual@arm.com>
+In-Reply-To: <20220711070600.2378316-1-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Marc Zyngier <maz@kernel.org>, Thomas Gleixner <tglx@linutronix.de>
-Cc: Samuel Holland <samuel@sholland.org>, Andy Shevchenko <andy.shevchenko@gmail.com>, Bartosz Golaszewski <brgl@bgdev.pl>, Bjorn Helgaas <bhelgaas@google.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Borislav Petkov <bp@alien8.de>, Broadcom internal kernel review list <bcm-kernel-feedback-list@broadcom.com>, Chris Zankel <chris@zankel.net>, Colin Ian King <colin.king@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Dexuan Cui <decui@microsoft.com>, Florian Fainelli <f.fainelli@gmail.com>, Guo Ren <guoren@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Haiyang Zhang <haiyangz@microsoft.com>, Helge Deller <deller@gmx.de>, Ingo Molnar <mingo@redhat.com>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Jan Beulich <jbeulich@suse.com>, Joerg Roedel <joro@8bytes.org>, Juergen Gross <jgross@suse.com>, Julia Lawall <Julia.Lawall@inria.fr>, "K. Y. Srinivasan" <kys@microsoft.com>, Kees Cook <keescook@chromium.org>, =?UTF-8?q?Krzysztof=20Wilczy=C5=84ski?= <kw@linux.com>, Linus Walleij <linus.walleij@linaro.org>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Max Filippov <jcmvbkbc@gmail.com>, Maximilian Heyne <mheyne@amazon.de>, Oleksandr Tyshchenko <oleksandr_tyshchenko@epam.com>, Rich Felker <dalias@libc.org>, Richard Henderson <rth@twiddle.net>, Rikard Falkeborn <rikard.falkeborn@gmail.com>, Rob Herring <robh@kernel.org>, Russell King <linux@armlinux.org.uk>, Serge Semin <fancer.lancer@gmail.com>, Stefano Stabellini <sstabellini@kernel.org>, Stephen Hemminger <sthemmin@microsoft.com>, Sven Schnelle <svens@stackframe.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Wei Liu <wei.liu@kernel.org>, Wei Xu <xuwei5@hisilicon.com>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, iommu@lists.linux-foundation.org, iommu@lists.linux.dev, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-hyperv@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-pci@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, xen-devel@lists.xenproject.org
+To: linux-mm@kvack.org, akpm@linux-foundation.org
+Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>
 
-A couple of functions directly reference the affinity mask. Route them
-through irq_data_get_affinity_mask so they will pick up any refactoring
-done there.
+This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
+vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
+up a private and static protection_map[] array. Subsequently all __SXXX and
+__PXXX macros can be dropped which are no longer needed.
 
-Signed-off-by: Samuel Holland <samuel@sholland.org>
+Cc: Huacai Chen <chenhuacai@kernel.org>
+Cc: WANG Xuerui <kernel@xen0n.name>
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
+ arch/loongarch/Kconfig                    |  1 +
+ arch/loongarch/include/asm/pgtable-bits.h | 19 ----------
+ arch/loongarch/mm/cache.c                 | 46 +++++++++++++++++++++++
+ 3 files changed, 47 insertions(+), 19 deletions(-)
 
-(no changes since v1)
-
- include/linux/irq.h | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
-
-diff --git a/include/linux/irq.h b/include/linux/irq.h
-index 505308253d23..69ee4e2f36ce 100644
---- a/include/linux/irq.h
-+++ b/include/linux/irq.h
-@@ -879,16 +879,16 @@ static inline int irq_data_get_node(struct irq_data *d)
- 	return irq_common_data_get_node(d->common);
- }
- 
--static inline struct cpumask *irq_get_affinity_mask(int irq)
-+static inline struct cpumask *irq_data_get_affinity_mask(struct irq_data *d)
- {
--	struct irq_data *d = irq_get_irq_data(irq);
+diff --git a/arch/loongarch/Kconfig b/arch/loongarch/Kconfig
+index 53a912befb62..ed55abcc3dbd 100644
+--- a/arch/loongarch/Kconfig
++++ b/arch/loongarch/Kconfig
+@@ -9,6 +9,7 @@ config LOONGARCH
+ 	select ARCH_HAS_ACPI_TABLE_UPGRADE	if ACPI
+ 	select ARCH_HAS_PHYS_TO_DMA
+ 	select ARCH_HAS_PTE_SPECIAL
++	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
+ 	select ARCH_INLINE_READ_LOCK if !PREEMPTION
+ 	select ARCH_INLINE_READ_LOCK_BH if !PREEMPTION
+diff --git a/arch/loongarch/include/asm/pgtable-bits.h b/arch/loongarch/include/asm/pgtable-bits.h
+index 3badd112d9ab..9ca147a29bab 100644
+--- a/arch/loongarch/include/asm/pgtable-bits.h
++++ b/arch/loongarch/include/asm/pgtable-bits.h
+@@ -83,25 +83,6 @@
+ 				 _PAGE_GLOBAL | _PAGE_KERN |  _CACHE_SUC)
+ #define PAGE_KERNEL_WUC __pgprot(_PAGE_PRESENT | __READABLE | __WRITEABLE | \
+ 				 _PAGE_GLOBAL | _PAGE_KERN |  _CACHE_WUC)
 -
--	return d ? d->common->affinity : NULL;
-+	return d->common->affinity;
- }
+-#define __P000 __pgprot(_CACHE_CC | _PAGE_USER | _PAGE_PROTNONE | _PAGE_NO_EXEC | _PAGE_NO_READ)
+-#define __P001 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_NO_EXEC)
+-#define __P010 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_NO_EXEC)
+-#define __P011 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_NO_EXEC)
+-#define __P100 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT)
+-#define __P101 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT)
+-#define __P110 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT)
+-#define __P111 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT)
+-
+-#define __S000 __pgprot(_CACHE_CC | _PAGE_USER | _PAGE_PROTNONE | _PAGE_NO_EXEC | _PAGE_NO_READ)
+-#define __S001 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_NO_EXEC)
+-#define __S010 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_NO_EXEC | _PAGE_WRITE)
+-#define __S011 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_NO_EXEC | _PAGE_WRITE)
+-#define __S100 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT)
+-#define __S101 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT)
+-#define __S110 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_WRITE)
+-#define __S111 __pgprot(_CACHE_CC | _PAGE_VALID | _PAGE_USER | _PAGE_PRESENT | _PAGE_WRITE)
+-
+ #ifndef __ASSEMBLY__
  
--static inline struct cpumask *irq_data_get_affinity_mask(struct irq_data *d)
-+static inline struct cpumask *irq_get_affinity_mask(int irq)
- {
--	return d->common->affinity;
-+	struct irq_data *d = irq_get_irq_data(irq);
+ #define pgprot_noncached pgprot_noncached
+diff --git a/arch/loongarch/mm/cache.c b/arch/loongarch/mm/cache.c
+index 9e5ce5aa73f7..e8c68dcf6ab2 100644
+--- a/arch/loongarch/mm/cache.c
++++ b/arch/loongarch/mm/cache.c
+@@ -139,3 +139,49 @@ void cpu_cache_init(void)
+ 
+ 	shm_align_mask = PAGE_SIZE - 1;
+ }
 +
-+	return d ? irq_data_get_affinity_mask(d) : NULL;
- }
- 
- #ifdef CONFIG_GENERIC_IRQ_EFFECTIVE_AFF_MASK
-@@ -910,7 +910,7 @@ static inline void irq_data_update_effective_affinity(struct irq_data *d,
- static inline
- struct cpumask *irq_data_get_effective_affinity_mask(struct irq_data *d)
- {
--	return d->common->affinity;
-+	return irq_data_get_affinity_mask(d);
- }
- #endif
- 
++static const pgprot_t protection_map[16] = {
++	[VM_NONE]					= __pgprot(_CACHE_CC | _PAGE_USER |
++								   _PAGE_PROTNONE | _PAGE_NO_EXEC |
++								   _PAGE_NO_READ),
++	[VM_READ]					= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT |
++								   _PAGE_NO_EXEC),
++	[VM_WRITE]					= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT |
++								   _PAGE_NO_EXEC),
++	[VM_WRITE | VM_READ]				= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT |
++								   _PAGE_NO_EXEC),
++	[VM_EXEC]					= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT),
++	[VM_EXEC | VM_READ]				= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT),
++	[VM_EXEC | VM_WRITE]				= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT),
++	[VM_EXEC | VM_WRITE | VM_READ]			= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT),
++	[VM_SHARED]					= __pgprot(_CACHE_CC | _PAGE_USER |
++								   _PAGE_PROTNONE | _PAGE_NO_EXEC |
++								   _PAGE_NO_READ),
++	[VM_SHARED | VM_READ]				= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT |
++								   _PAGE_NO_EXEC),
++	[VM_SHARED | VM_WRITE]				= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT |
++								   _PAGE_NO_EXEC | _PAGE_WRITE),
++	[VM_SHARED | VM_WRITE | VM_READ]		= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT |
++								   _PAGE_NO_EXEC | _PAGE_WRITE),
++	[VM_SHARED | VM_EXEC]				= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT),
++	[VM_SHARED | VM_EXEC | VM_READ]			= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT),
++	[VM_SHARED | VM_EXEC | VM_WRITE]		= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT |
++								   _PAGE_WRITE),
++	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= __pgprot(_CACHE_CC | _PAGE_VALID |
++								   _PAGE_USER | _PAGE_PRESENT |
++								   _PAGE_WRITE)
++};
++DECLARE_VM_GET_PAGE_PROT
 -- 
-2.35.1
+2.25.1
