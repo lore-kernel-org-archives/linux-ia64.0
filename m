@@ -1,56 +1,99 @@
-From: Samuel Holland <samuel@sholland.org>
-Date: Fri, 01 Jul 2022 20:00:52 +0000
-Subject: [PATCH v3 4/8] genirq: Drop redundant irq_init_effective_affinity
-Message-Id: <20220701200056.46555-5-samuel@sholland.org>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Mon, 11 Jul 2022 07:17:56 +0000
+Subject: [PATCH V7 22/26] arc/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <20220711070600.2378316-23-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220701200056.46555-1-samuel@sholland.org>
-In-Reply-To: <20220701200056.46555-1-samuel@sholland.org>
+References: <20220711070600.2378316-1-anshuman.khandual@arm.com>
+In-Reply-To: <20220711070600.2378316-1-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Marc Zyngier <maz@kernel.org>, Thomas Gleixner <tglx@linutronix.de>
-Cc: Samuel Holland <samuel@sholland.org>, Andy Shevchenko <andy.shevchenko@gmail.com>, Bartosz Golaszewski <brgl@bgdev.pl>, Bjorn Helgaas <bhelgaas@google.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Borislav Petkov <bp@alien8.de>, Broadcom internal kernel review list <bcm-kernel-feedback-list@broadcom.com>, Chris Zankel <chris@zankel.net>, Colin Ian King <colin.king@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Dexuan Cui <decui@microsoft.com>, Florian Fainelli <f.fainelli@gmail.com>, Guo Ren <guoren@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Haiyang Zhang <haiyangz@microsoft.com>, Helge Deller <deller@gmx.de>, Ingo Molnar <mingo@redhat.com>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Jan Beulich <jbeulich@suse.com>, Joerg Roedel <joro@8bytes.org>, Juergen Gross <jgross@suse.com>, Julia Lawall <Julia.Lawall@inria.fr>, "K. Y. Srinivasan" <kys@microsoft.com>, Kees Cook <keescook@chromium.org>, =?UTF-8?q?Krzysztof=20Wilczy=C5=84ski?= <kw@linux.com>, Linus Walleij <linus.walleij@linaro.org>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Max Filippov <jcmvbkbc@gmail.com>, Maximilian Heyne <mheyne@amazon.de>, Oleksandr Tyshchenko <oleksandr_tyshchenko@epam.com>, Rich Felker <dalias@libc.org>, Richard Henderson <rth@twiddle.net>, Rikard Falkeborn <rikard.falkeborn@gmail.com>, Rob Herring <robh@kernel.org>, Russell King <linux@armlinux.org.uk>, Serge Semin <fancer.lancer@gmail.com>, Stefano Stabellini <sstabellini@kernel.org>, Stephen Hemminger <sthemmin@microsoft.com>, Sven Schnelle <svens@stackframe.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Wei Liu <wei.liu@kernel.org>, Wei Xu <xuwei5@hisilicon.com>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, iommu@lists.linux-foundation.org, iommu@lists.linux.dev, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-hyperv@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-pci@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, xen-devel@lists.xenproject.org
+To: linux-mm@kvack.org, akpm@linux-foundation.org
+Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Vineet Gupta <vgupta@kernel.org>
 
-It does exactly the same thing as irq_data_update_effective_affinity.
+This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
+vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
+up a private and static protection_map[] array. Subsequently all __SXXX and
+__PXXX macros can be dropped which are no longer needed.
 
-Signed-off-by: Samuel Holland <samuel@sholland.org>
+Cc: Vineet Gupta <vgupta@kernel.org>
+Cc: linux-snps-arc@lists.infradead.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
+ arch/arc/Kconfig                          |  1 +
+ arch/arc/include/asm/pgtable-bits-arcv2.h | 18 ------------------
+ arch/arc/mm/mmap.c                        | 20 ++++++++++++++++++++
+ 3 files changed, 21 insertions(+), 18 deletions(-)
 
-Changes in v3:
- - New patch to drop irq_init_effective_affinity
-
- kernel/irq/manage.c | 10 +---------
- 1 file changed, 1 insertion(+), 9 deletions(-)
-
-diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
-index 8c396319d5ac..40fe7806cc8c 100644
---- a/kernel/irq/manage.c
-+++ b/kernel/irq/manage.c
-@@ -205,16 +205,8 @@ static void irq_validate_effective_affinity(struct irq_data *data)
- 	pr_warn_once("irq_chip %s did not update eff. affinity mask of irq %u\n",
- 		     chip->name, data->irq);
- }
+diff --git a/arch/arc/Kconfig b/arch/arc/Kconfig
+index 9e3653253ef2..8be56a5d8a9b 100644
+--- a/arch/arc/Kconfig
++++ b/arch/arc/Kconfig
+@@ -13,6 +13,7 @@ config ARC
+ 	select ARCH_HAS_SETUP_DMA_OPS
+ 	select ARCH_HAS_SYNC_DMA_FOR_CPU
+ 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE
++	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_SUPPORTS_ATOMIC_RMW if ARC_HAS_LLSC
+ 	select ARCH_32BIT_OFF_T
+ 	select BUILDTIME_TABLE_SORT
+diff --git a/arch/arc/include/asm/pgtable-bits-arcv2.h b/arch/arc/include/asm/pgtable-bits-arcv2.h
+index 183d23bc1e00..b23be557403e 100644
+--- a/arch/arc/include/asm/pgtable-bits-arcv2.h
++++ b/arch/arc/include/asm/pgtable-bits-arcv2.h
+@@ -72,24 +72,6 @@
+  *     This is to enable COW mechanism
+  */
+ 	/* xwr */
+-#define __P000  PAGE_U_NONE
+-#define __P001  PAGE_U_R
+-#define __P010  PAGE_U_R	/* Pvt-W => !W */
+-#define __P011  PAGE_U_R	/* Pvt-W => !W */
+-#define __P100  PAGE_U_X_R	/* X => R */
+-#define __P101  PAGE_U_X_R
+-#define __P110  PAGE_U_X_R	/* Pvt-W => !W and X => R */
+-#define __P111  PAGE_U_X_R	/* Pvt-W => !W */
 -
--static inline void irq_init_effective_affinity(struct irq_data *data,
--					       const struct cpumask *mask)
--{
--	cpumask_copy(irq_data_get_effective_affinity_mask(data), mask);
--}
- #else
- static inline void irq_validate_effective_affinity(struct irq_data *data) { }
--static inline void irq_init_effective_affinity(struct irq_data *data,
--					       const struct cpumask *mask) { }
- #endif
+-#define __S000  PAGE_U_NONE
+-#define __S001  PAGE_U_R
+-#define __S010  PAGE_U_W_R	/* W => R */
+-#define __S011  PAGE_U_W_R
+-#define __S100  PAGE_U_X_R	/* X => R */
+-#define __S101  PAGE_U_X_R
+-#define __S110  PAGE_U_X_W_R	/* X => R */
+-#define __S111  PAGE_U_X_W_R
+-
+ #ifndef __ASSEMBLY__
  
- int irq_do_set_affinity(struct irq_data *data, const struct cpumask *mask,
-@@ -347,7 +339,7 @@ static bool irq_set_affinity_deactivated(struct irq_data *data,
- 		return false;
- 
- 	cpumask_copy(desc->irq_common_data.affinity, mask);
--	irq_init_effective_affinity(data, mask);
-+	irq_data_update_effective_affinity(data, mask);
- 	irqd_set(data, IRQD_AFFINITY_SET);
- 	return true;
+ #define pte_write(pte)		(pte_val(pte) & _PAGE_WRITE)
+diff --git a/arch/arc/mm/mmap.c b/arch/arc/mm/mmap.c
+index 722d26b94307..fce5fa2b4f52 100644
+--- a/arch/arc/mm/mmap.c
++++ b/arch/arc/mm/mmap.c
+@@ -74,3 +74,23 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
+ 	info.align_offset = pgoff << PAGE_SHIFT;
+ 	return vm_unmapped_area(&info);
  }
++
++static const pgprot_t protection_map[16] = {
++	[VM_NONE]					= PAGE_U_NONE,
++	[VM_READ]					= PAGE_U_R,
++	[VM_WRITE]					= PAGE_U_R,
++	[VM_WRITE | VM_READ]				= PAGE_U_R,
++	[VM_EXEC]					= PAGE_U_X_R,
++	[VM_EXEC | VM_READ]				= PAGE_U_X_R,
++	[VM_EXEC | VM_WRITE]				= PAGE_U_X_R,
++	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_U_X_R,
++	[VM_SHARED]					= PAGE_U_NONE,
++	[VM_SHARED | VM_READ]				= PAGE_U_R,
++	[VM_SHARED | VM_WRITE]				= PAGE_U_W_R,
++	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_U_W_R,
++	[VM_SHARED | VM_EXEC]				= PAGE_U_X_R,
++	[VM_SHARED | VM_EXEC | VM_READ]			= PAGE_U_X_R,
++	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_U_X_W_R,
++	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= PAGE_U_X_W_R
++};
++DECLARE_VM_GET_PAGE_PROT
 -- 
-2.35.1
+2.25.1
