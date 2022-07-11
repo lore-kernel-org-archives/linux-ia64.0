@@ -1,7 +1,7 @@
 From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Mon, 11 Jul 2022 07:17:37 +0000
-Subject: [PATCH V7 03/26] powerpc/mm: Move protection_map[] inside the platform
-Message-Id: <20220711070600.2378316-4-anshuman.khandual@arm.com>
+Date: Mon, 11 Jul 2022 07:17:42 +0000
+Subject: [PATCH V7 08/26] microblaze/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <20220711070600.2378316-9-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220711070600.2378316-1-anshuman.khandual@arm.com>
 In-Reply-To: <20220711070600.2378316-1-anshuman.khandual@arm.com>
@@ -9,107 +9,89 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-mm@kvack.org, akpm@linux-foundation.org
-Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, Paul Mackerras <paulus@samba.org>, Nicholas Piggin <npiggin@gmail.com>
+Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Michal Simek <monstr@monstr.eu>
 
-This moves protection_map[] inside the platform and while here, also enable
-ARCH_HAS_VM_GET_PAGE_PROT on 32 bit and nohash 64 (aka book3e/64) platforms
-via DECLARE_VM_GET_PAGE_PROT.
+This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
+vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
+up a private and static protection_map[] array. Subsequently all __SXXX and
+__PXXX macros can be dropped which are no longer needed.
 
-Cc: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: Nicholas Piggin <npiggin@gmail.com>
-Cc: linuxppc-dev@lists.ozlabs.org
+Cc: Michal Simek <monstr@monstr.eu>
 Cc: linux-kernel@vger.kernel.org
-Reviewed-by: Christophe Leroy <christophe.leroy@csgroup.eu>
 Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
- arch/powerpc/Kconfig               |  2 +-
- arch/powerpc/include/asm/pgtable.h | 20 +-------------------
- arch/powerpc/mm/pgtable.c          | 24 ++++++++++++++++++++++++
- 3 files changed, 26 insertions(+), 20 deletions(-)
+ arch/microblaze/Kconfig               |  1 +
+ arch/microblaze/include/asm/pgtable.h | 17 -----------------
+ arch/microblaze/mm/init.c             | 20 ++++++++++++++++++++
+ 3 files changed, 21 insertions(+), 17 deletions(-)
 
-diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
-index 7aa12e88c580..40cdd1f2dbaf 100644
---- a/arch/powerpc/Kconfig
-+++ b/arch/powerpc/Kconfig
-@@ -140,7 +140,7 @@ config PPC
- 	select ARCH_HAS_TICK_BROADCAST		if GENERIC_CLOCKEVENTS_BROADCAST
- 	select ARCH_HAS_UACCESS_FLUSHCACHE
- 	select ARCH_HAS_UBSAN_SANITIZE_ALL
--	select ARCH_HAS_VM_GET_PAGE_PROT	if PPC_BOOK3S_64
+diff --git a/arch/microblaze/Kconfig b/arch/microblaze/Kconfig
+index 8cf429ad1c84..15f91ba8a0c4 100644
+--- a/arch/microblaze/Kconfig
++++ b/arch/microblaze/Kconfig
+@@ -7,6 +7,7 @@ config MICROBLAZE
+ 	select ARCH_HAS_GCOV_PROFILE_ALL
+ 	select ARCH_HAS_SYNC_DMA_FOR_CPU
+ 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE
 +	select ARCH_HAS_VM_GET_PAGE_PROT
- 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
- 	select ARCH_KEEP_MEMBLOCK
  	select ARCH_MIGHT_HAVE_PC_PARPORT
-diff --git a/arch/powerpc/include/asm/pgtable.h b/arch/powerpc/include/asm/pgtable.h
-index d564d0ecd4cd..33f4bf8d22b0 100644
---- a/arch/powerpc/include/asm/pgtable.h
-+++ b/arch/powerpc/include/asm/pgtable.h
-@@ -20,25 +20,6 @@ struct mm_struct;
- #include <asm/nohash/pgtable.h>
- #endif /* !CONFIG_PPC_BOOK3S */
- 
--/* Note due to the way vm flags are laid out, the bits are XWR */
+ 	select ARCH_WANT_IPC_PARSE_VERSION
+ 	select BUILDTIME_TABLE_SORT
+diff --git a/arch/microblaze/include/asm/pgtable.h b/arch/microblaze/include/asm/pgtable.h
+index 0c72646370e1..ba348e997dbb 100644
+--- a/arch/microblaze/include/asm/pgtable.h
++++ b/arch/microblaze/include/asm/pgtable.h
+@@ -204,23 +204,6 @@ extern pte_t *va_to_pte(unsigned long address);
+  * We consider execute permission the same as read.
+  * Also, write permissions imply read permissions.
+  */
 -#define __P000	PAGE_NONE
--#define __P001	PAGE_READONLY
+-#define __P001	PAGE_READONLY_X
 -#define __P010	PAGE_COPY
--#define __P011	PAGE_COPY
--#define __P100	PAGE_READONLY_X
+-#define __P011	PAGE_COPY_X
+-#define __P100	PAGE_READONLY
 -#define __P101	PAGE_READONLY_X
--#define __P110	PAGE_COPY_X
+-#define __P110	PAGE_COPY
 -#define __P111	PAGE_COPY_X
 -
 -#define __S000	PAGE_NONE
--#define __S001	PAGE_READONLY
+-#define __S001	PAGE_READONLY_X
 -#define __S010	PAGE_SHARED
--#define __S011	PAGE_SHARED
--#define __S100	PAGE_READONLY_X
+-#define __S011	PAGE_SHARED_X
+-#define __S100	PAGE_READONLY
 -#define __S101	PAGE_READONLY_X
--#define __S110	PAGE_SHARED_X
+-#define __S110	PAGE_SHARED
 -#define __S111	PAGE_SHARED_X
--
+ 
  #ifndef __ASSEMBLY__
- 
- #ifndef MAX_PTRS_PER_PGD
-@@ -79,6 +60,7 @@ extern void paging_init(void);
- void poking_init(void);
- 
- extern unsigned long ioremap_bot;
-+extern const pgprot_t protection_map[16];
- 
  /*
-  * kern_addr_valid is intended to indicate whether an address is a valid
-diff --git a/arch/powerpc/mm/pgtable.c b/arch/powerpc/mm/pgtable.c
-index e6166b71d36d..cb2dcdb18f8e 100644
---- a/arch/powerpc/mm/pgtable.c
-+++ b/arch/powerpc/mm/pgtable.c
-@@ -472,3 +472,27 @@ pte_t *__find_linux_pte(pgd_t *pgdir, unsigned long ea,
- 	return ret_pte;
+diff --git a/arch/microblaze/mm/init.c b/arch/microblaze/mm/init.c
+index f4e503461d24..353fabdfcbc5 100644
+--- a/arch/microblaze/mm/init.c
++++ b/arch/microblaze/mm/init.c
+@@ -285,3 +285,23 @@ void * __ref zalloc_maybe_bootmem(size_t size, gfp_t mask)
+ 
+ 	return p;
  }
- EXPORT_SYMBOL_GPL(__find_linux_pte);
 +
-+/* Note due to the way vm flags are laid out, the bits are XWR */
-+const pgprot_t protection_map[16] = {
++static const pgprot_t protection_map[16] = {
 +	[VM_NONE]					= PAGE_NONE,
-+	[VM_READ]					= PAGE_READONLY,
++	[VM_READ]					= PAGE_READONLY_X,
 +	[VM_WRITE]					= PAGE_COPY,
-+	[VM_WRITE | VM_READ]				= PAGE_COPY,
-+	[VM_EXEC]					= PAGE_READONLY_X,
++	[VM_WRITE | VM_READ]				= PAGE_COPY_X,
++	[VM_EXEC]					= PAGE_READONLY,
 +	[VM_EXEC | VM_READ]				= PAGE_READONLY_X,
-+	[VM_EXEC | VM_WRITE]				= PAGE_COPY_X,
++	[VM_EXEC | VM_WRITE]				= PAGE_COPY,
 +	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_COPY_X,
 +	[VM_SHARED]					= PAGE_NONE,
-+	[VM_SHARED | VM_READ]				= PAGE_READONLY,
++	[VM_SHARED | VM_READ]				= PAGE_READONLY_X,
 +	[VM_SHARED | VM_WRITE]				= PAGE_SHARED,
-+	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_SHARED,
-+	[VM_SHARED | VM_EXEC]				= PAGE_READONLY_X,
++	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_SHARED_X,
++	[VM_SHARED | VM_EXEC]				= PAGE_READONLY,
 +	[VM_SHARED | VM_EXEC | VM_READ]			= PAGE_READONLY_X,
-+	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_SHARED_X,
++	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_SHARED,
 +	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= PAGE_SHARED_X
 +};
-+
-+#ifndef CONFIG_PPC_BOOK3S_64
 +DECLARE_VM_GET_PAGE_PROT
-+#endif
 -- 
 2.25.1
