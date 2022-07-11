@@ -1,7 +1,7 @@
 From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Mon, 11 Jul 2022 07:17:41 +0000
-Subject: [PATCH V7 07/26] mm/mmap: Build protect protection_map[] with ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <20220711070600.2378316-8-anshuman.khandual@arm.com>
+Date: Mon, 11 Jul 2022 07:17:45 +0000
+Subject: [PATCH V7 11/26] xtensa/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
+Message-Id: <20220711070600.2378316-12-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220711070600.2378316-1-anshuman.khandual@arm.com>
 In-Reply-To: <20220711070600.2378316-1-anshuman.khandual@arm.com>
@@ -9,57 +9,95 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-mm@kvack.org, akpm@linux-foundation.org
-Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Chris Zankel <chris@zankel.net>, Guo Ren <guoren@kernel.org>
 
-Now that protection_map[] has been moved inside those platforms that enable
-ARCH_HAS_VM_GET_PAGE_PROT. Hence generic protection_map[] array now can be
-protected with CONFIG_ARCH_HAS_VM_GET_PAGE_PROT intead of __P000.
+This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
+vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
+up a private and static protection_map[] array. Subsequently all __SXXX and
+__PXXX macros can be dropped which are no longer needed.
 
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-mm@kvack.org
+Cc: Chris Zankel <chris@zankel.net>
+Cc: Guo Ren <guoren@kernel.org>
+Cc: linux-xtensa@linux-xtensa.org
+Cc: linux-csky@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
-Reviewed-by: Christophe Leroy <christophe.leroy@csgroup.eu>
 Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
- include/linux/mm.h | 2 +-
- mm/mmap.c          | 5 +----
- 2 files changed, 2 insertions(+), 5 deletions(-)
+ arch/xtensa/Kconfig               |  1 +
+ arch/xtensa/include/asm/pgtable.h | 18 ------------------
+ arch/xtensa/mm/init.c             | 22 ++++++++++++++++++++++
+ 3 files changed, 23 insertions(+), 18 deletions(-)
 
-diff --git a/include/linux/mm.h b/include/linux/mm.h
-index 0ff0a1bad091..07b56995e0fe 100644
---- a/include/linux/mm.h
-+++ b/include/linux/mm.h
-@@ -424,7 +424,7 @@ extern unsigned int kobjsize(const void *objp);
-  * mapping from the currently active vm_flags protection bits (the
-  * low four bits) to a page protection mask..
+diff --git a/arch/xtensa/Kconfig b/arch/xtensa/Kconfig
+index 0b0f0172cced..4c0d83520ff1 100644
+--- a/arch/xtensa/Kconfig
++++ b/arch/xtensa/Kconfig
+@@ -11,6 +11,7 @@ config XTENSA
+ 	select ARCH_HAS_DMA_SET_UNCACHED if MMU
+ 	select ARCH_HAS_STRNCPY_FROM_USER if !KASAN
+ 	select ARCH_HAS_STRNLEN_USER
++	select ARCH_HAS_VM_GET_PAGE_PROT
+ 	select ARCH_USE_MEMTEST
+ 	select ARCH_USE_QUEUED_RWLOCKS
+ 	select ARCH_USE_QUEUED_SPINLOCKS
+diff --git a/arch/xtensa/include/asm/pgtable.h b/arch/xtensa/include/asm/pgtable.h
+index 0a91376131c5..e0d5531ae00d 100644
+--- a/arch/xtensa/include/asm/pgtable.h
++++ b/arch/xtensa/include/asm/pgtable.h
+@@ -200,24 +200,6 @@
+  * What follows is the closest we can get by reasonable means..
+  * See linux/mm/mmap.c for protection_map[] array that uses these definitions.
   */
--#ifdef __P000
-+#ifndef CONFIG_ARCH_HAS_VM_GET_PAGE_PROT
- extern pgprot_t protection_map[16];
- #endif
- 
-diff --git a/mm/mmap.c b/mm/mmap.c
-index b46d5e931bb3..2cc722e162fa 100644
---- a/mm/mmap.c
-+++ b/mm/mmap.c
-@@ -81,7 +81,7 @@ static void unmap_region(struct mm_struct *mm,
- 		struct vm_area_struct *vma, struct vm_area_struct *prev,
- 		unsigned long start, unsigned long end);
- 
--#ifdef __P000
-+#ifndef CONFIG_ARCH_HAS_VM_GET_PAGE_PROT
- pgprot_t protection_map[16] __ro_after_init = {
- 	[VM_NONE]					= __P000,
- 	[VM_READ]					= __P001,
-@@ -100,9 +100,6 @@ pgprot_t protection_map[16] __ro_after_init = {
- 	[VM_SHARED | VM_EXEC | VM_WRITE]		= __S110,
- 	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= __S111
- };
--#endif
+-#define __P000	PAGE_NONE		/* private --- */
+-#define __P001	PAGE_READONLY		/* private --r */
+-#define __P010	PAGE_COPY		/* private -w- */
+-#define __P011	PAGE_COPY		/* private -wr */
+-#define __P100	PAGE_READONLY_EXEC	/* private x-- */
+-#define __P101	PAGE_READONLY_EXEC	/* private x-r */
+-#define __P110	PAGE_COPY_EXEC		/* private xw- */
+-#define __P111	PAGE_COPY_EXEC		/* private xwr */
 -
--#ifndef CONFIG_ARCH_HAS_VM_GET_PAGE_PROT
- DECLARE_VM_GET_PAGE_PROT
- #endif	/* CONFIG_ARCH_HAS_VM_GET_PAGE_PROT */
+-#define __S000	PAGE_NONE		/* shared  --- */
+-#define __S001	PAGE_READONLY		/* shared  --r */
+-#define __S010	PAGE_SHARED		/* shared  -w- */
+-#define __S011	PAGE_SHARED		/* shared  -wr */
+-#define __S100	PAGE_READONLY_EXEC	/* shared  x-- */
+-#define __S101	PAGE_READONLY_EXEC	/* shared  x-r */
+-#define __S110	PAGE_SHARED_EXEC	/* shared  xw- */
+-#define __S111	PAGE_SHARED_EXEC	/* shared  xwr */
+-
+ #ifndef __ASSEMBLY__
  
+ #define pte_ERROR(e) \
+diff --git a/arch/xtensa/mm/init.c b/arch/xtensa/mm/init.c
+index 6a32b2cf2718..b2587a1a7c46 100644
+--- a/arch/xtensa/mm/init.c
++++ b/arch/xtensa/mm/init.c
+@@ -216,3 +216,25 @@ static int __init parse_memmap_opt(char *str)
+ 	return 0;
+ }
+ early_param("memmap", parse_memmap_opt);
++
++#ifdef CONFIG_MMU
++static const pgprot_t protection_map[16] = {
++	[VM_NONE]					= PAGE_NONE,
++	[VM_READ]					= PAGE_READONLY,
++	[VM_WRITE]					= PAGE_COPY,
++	[VM_WRITE | VM_READ]				= PAGE_COPY,
++	[VM_EXEC]					= PAGE_READONLY_EXEC,
++	[VM_EXEC | VM_READ]				= PAGE_READONLY_EXEC,
++	[VM_EXEC | VM_WRITE]				= PAGE_COPY_EXEC,
++	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_COPY_EXEC,
++	[VM_SHARED]					= PAGE_NONE,
++	[VM_SHARED | VM_READ]				= PAGE_READONLY,
++	[VM_SHARED | VM_WRITE]				= PAGE_SHARED,
++	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_SHARED,
++	[VM_SHARED | VM_EXEC]				= PAGE_READONLY_EXEC,
++	[VM_SHARED | VM_EXEC | VM_READ]			= PAGE_READONLY_EXEC,
++	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_SHARED_EXEC,
++	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= PAGE_SHARED_EXEC
++};
++DECLARE_VM_GET_PAGE_PROT
++#endif
 -- 
 2.25.1
