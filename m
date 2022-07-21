@@ -1,99 +1,349 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Mon, 11 Jul 2022 07:17:47 +0000
-Subject: [PATCH V7 13/26] parisc/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <20220711070600.2378316-14-anshuman.khandual@arm.com>
+From: Stafford Horne <shorne@gmail.com>
+Date: Thu, 21 Jul 2022 13:49:21 +0000
+Subject: [PATCH v5 1/4] PCI: Remove pci_get_legacy_ide_irq and asm-generic/pci.h
+Message-Id: <20220721134924.596152-2-shorne@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220711070600.2378316-1-anshuman.khandual@arm.com>
-In-Reply-To: <20220711070600.2378316-1-anshuman.khandual@arm.com>
+References: <20220721134924.596152-1-shorne@gmail.com>
+In-Reply-To: <20220721134924.596152-1-shorne@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, akpm@linux-foundation.org
-Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Arnd Bergmann <arnd@arndb.de>, Stafford Horne <shorne@gmail.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Pierre Morel <pmorel@linux.ibm.com>, "Rafael J . Wysocki" <rafael.j.wysocki@intel.com>, Christoph Hellwig <hch@lst.de>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, Bjorn Helgaas <bhelgaas@google.com>, Sergio Paracuellos <sergio.paracuellos@gmail.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Tiezhu Yang <yangtiezhu@loongson.cn>, Nick Child <nick.child@ibm.com>, Niklas Schnelle <schnelle@linux.ibm.com>, Matthew Rosato <mjrosato@linux.ibm.com>, Kees Cook <keescook@chromium.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, linux-acpi@vger.kernel.org, linux-pci@vger.kernel.org, linux-arch@vger.kernel.org
 
-This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
-vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
-up a private and static protection_map[] array. Subsequently all __SXXX and
-__PXXX macros can be dropped which are no longer needed.
+The definition of the pci header function pci_get_legacy_ide_irq is only
+used in platforms that support PNP.  So many of the architecutres where
+it is defined do not use it.  This also means we can remove
+asm-generic/pci.h as all it provides is a definition of
+pci_get_legacy_ide_irq.
 
-Cc: "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>
-Cc: linux-parisc@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+Where referenced, replace the usage of pci_get_legacy_ide_irq with the
+libata.h macros ATA_PRIMARY_IRQ and ATA_SECONDARY_IRQ which provide the
+same functionality.  This allows removing pci_get_legacy_ide_irq from
+headers where it is no longer used.
+
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Acked-by: Pierre Morel <pmorel@linux.ibm.com>
+Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
+Reviewed-by: Christoph Hellwig <hch@lst.de>
+Co-developed-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Stafford Horne <shorne@gmail.com>
 ---
- arch/parisc/Kconfig               |  1 +
- arch/parisc/include/asm/pgtable.h | 18 ------------------
- arch/parisc/mm/init.c             | 20 ++++++++++++++++++++
- 3 files changed, 21 insertions(+), 18 deletions(-)
+Since v4:
+ - Also remove pci_get_legacy_ide_irq from arm64, csky, riscv at this point.
 
-diff --git a/arch/parisc/Kconfig b/arch/parisc/Kconfig
-index fa400055b2d5..891d82393957 100644
---- a/arch/parisc/Kconfig
-+++ b/arch/parisc/Kconfig
-@@ -12,6 +12,7 @@ config PARISC
- 	select ARCH_HAS_STRICT_KERNEL_RWX
- 	select ARCH_HAS_STRICT_MODULE_RWX
- 	select ARCH_HAS_UBSAN_SANITIZE_ALL
-+	select ARCH_HAS_VM_GET_PAGE_PROT
- 	select ARCH_HAS_PTE_SPECIAL
- 	select ARCH_NO_SG_CHAIN
- 	select ARCH_SUPPORTS_HUGETLBFS if PA20
-diff --git a/arch/parisc/include/asm/pgtable.h b/arch/parisc/include/asm/pgtable.h
-index 69765a6dbe89..6a1899a9b420 100644
---- a/arch/parisc/include/asm/pgtable.h
-+++ b/arch/parisc/include/asm/pgtable.h
-@@ -271,24 +271,6 @@ extern void __update_cache(pte_t pte);
-  */
+ arch/alpha/include/asm/pci.h   |  6 ------
+ arch/arm/include/asm/pci.h     |  5 -----
+ arch/arm64/include/asm/pci.h   |  6 ------
+ arch/csky/include/asm/pci.h    |  6 ------
+ arch/ia64/include/asm/pci.h    |  6 ------
+ arch/m68k/include/asm/pci.h    |  2 --
+ arch/mips/include/asm/pci.h    |  6 ------
+ arch/parisc/include/asm/pci.h  |  5 -----
+ arch/powerpc/include/asm/pci.h |  1 -
+ arch/riscv/include/asm/pci.h   |  6 ------
+ arch/s390/include/asm/pci.h    |  1 -
+ arch/sh/include/asm/pci.h      |  6 ------
+ arch/sparc/include/asm/pci.h   |  9 ---------
+ arch/um/include/asm/pci.h      |  8 --------
+ arch/x86/include/asm/pci.h     |  3 ---
+ arch/xtensa/include/asm/pci.h  |  3 ---
+ drivers/pnp/resource.c         |  5 +++--
+ include/asm-generic/pci.h      | 17 -----------------
+ 18 files changed, 3 insertions(+), 98 deletions(-)
+ delete mode 100644 include/asm-generic/pci.h
+
+diff --git a/arch/alpha/include/asm/pci.h b/arch/alpha/include/asm/pci.h
+index cf6bc1e64d66..6312656279d7 100644
+--- a/arch/alpha/include/asm/pci.h
++++ b/arch/alpha/include/asm/pci.h
+@@ -56,12 +56,6 @@ struct pci_controller {
  
- 	 /*xwr*/
--#define __P000  PAGE_NONE
--#define __P001  PAGE_READONLY
--#define __P010  __P000 /* copy on write */
--#define __P011  __P001 /* copy on write */
--#define __P100  PAGE_EXECREAD
--#define __P101  PAGE_EXECREAD
--#define __P110  __P100 /* copy on write */
--#define __P111  __P101 /* copy on write */
+ /* IOMMU controls.  */
+ 
+-/* TODO: integrate with include/asm-generic/pci.h ? */
+-static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
+-{
+-	return channel ? 15 : 14;
+-}
 -
--#define __S000  PAGE_NONE
--#define __S001  PAGE_READONLY
--#define __S010  PAGE_WRITEONLY
--#define __S011  PAGE_SHARED
--#define __S100  PAGE_EXECREAD
--#define __S101  PAGE_EXECREAD
--#define __S110  PAGE_RWX
--#define __S111  PAGE_RWX
+ #define pci_domain_nr(bus) ((struct pci_controller *)(bus)->sysdata)->index
+ 
+ static inline int pci_proc_domain(struct pci_bus *bus)
+diff --git a/arch/arm/include/asm/pci.h b/arch/arm/include/asm/pci.h
+index 68e6f25784a4..5916b88d4c94 100644
+--- a/arch/arm/include/asm/pci.h
++++ b/arch/arm/include/asm/pci.h
+@@ -22,11 +22,6 @@ static inline int pci_proc_domain(struct pci_bus *bus)
+ #define HAVE_PCI_MMAP
+ #define ARCH_GENERIC_PCI_MMAP_RESOURCE
+ 
+-static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
+-{
+-	return channel ? 15 : 14;
+-}
 -
+ extern void pcibios_report_status(unsigned int status_mask, int warn);
  
- extern pgd_t swapper_pg_dir[]; /* declared in init_task.c */
+ #endif /* __KERNEL__ */
+diff --git a/arch/arm64/include/asm/pci.h b/arch/arm64/include/asm/pci.h
+index b33ca260e3c9..0aebc3488c32 100644
+--- a/arch/arm64/include/asm/pci.h
++++ b/arch/arm64/include/asm/pci.h
+@@ -23,12 +23,6 @@
+ extern int isa_dma_bridge_buggy;
  
-diff --git a/arch/parisc/mm/init.c b/arch/parisc/mm/init.c
-index 0a81499dd35e..f03e0961fa25 100644
---- a/arch/parisc/mm/init.c
-+++ b/arch/parisc/mm/init.c
-@@ -871,3 +871,23 @@ void flush_tlb_all(void)
- 	spin_unlock(&sid_lock);
+ #ifdef CONFIG_PCI
+-static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
+-{
+-	/* no legacy IRQ on arm64 */
+-	return -ENODEV;
+-}
+-
+ static inline int pci_proc_domain(struct pci_bus *bus)
+ {
+ 	return 1;
+diff --git a/arch/csky/include/asm/pci.h b/arch/csky/include/asm/pci.h
+index ebc765b1f78b..0535f1aaae38 100644
+--- a/arch/csky/include/asm/pci.h
++++ b/arch/csky/include/asm/pci.h
+@@ -18,12 +18,6 @@
+ extern int isa_dma_bridge_buggy;
+ 
+ #ifdef CONFIG_PCI
+-static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
+-{
+-	/* no legacy IRQ on csky */
+-	return -ENODEV;
+-}
+-
+ static inline int pci_proc_domain(struct pci_bus *bus)
+ {
+ 	/* always show the domain in /proc */
+diff --git a/arch/ia64/include/asm/pci.h b/arch/ia64/include/asm/pci.h
+index 8c163d1d0189..fa8f545c24c9 100644
+--- a/arch/ia64/include/asm/pci.h
++++ b/arch/ia64/include/asm/pci.h
+@@ -63,10 +63,4 @@ static inline int pci_proc_domain(struct pci_bus *bus)
+ 	return (pci_domain_nr(bus) != 0);
  }
- #endif
-+
-+static const pgprot_t protection_map[16] = {
-+	[VM_NONE]					= PAGE_NONE,
-+	[VM_READ]					= PAGE_READONLY,
-+	[VM_WRITE]					= PAGE_NONE,
-+	[VM_WRITE | VM_READ]				= PAGE_READONLY,
-+	[VM_EXEC]					= PAGE_EXECREAD,
-+	[VM_EXEC | VM_READ]				= PAGE_EXECREAD,
-+	[VM_EXEC | VM_WRITE]				= PAGE_EXECREAD,
-+	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_EXECREAD,
-+	[VM_SHARED]					= PAGE_NONE,
-+	[VM_SHARED | VM_READ]				= PAGE_READONLY,
-+	[VM_SHARED | VM_WRITE]				= PAGE_WRITEONLY,
-+	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_SHARED,
-+	[VM_SHARED | VM_EXEC]				= PAGE_EXECREAD,
-+	[VM_SHARED | VM_EXEC | VM_READ]			= PAGE_EXECREAD,
-+	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_RWX,
-+	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= PAGE_RWX
-+};
-+DECLARE_VM_GET_PAGE_PROT
+ 
+-#define HAVE_ARCH_PCI_GET_LEGACY_IDE_IRQ
+-static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
+-{
+-	return channel ? isa_irq_to_vector(15) : isa_irq_to_vector(14);
+-}
+-
+ #endif /* _ASM_IA64_PCI_H */
+diff --git a/arch/m68k/include/asm/pci.h b/arch/m68k/include/asm/pci.h
+index 5a4bc223743b..ccdfa0dc8413 100644
+--- a/arch/m68k/include/asm/pci.h
++++ b/arch/m68k/include/asm/pci.h
+@@ -2,8 +2,6 @@
+ #ifndef _ASM_M68K_PCI_H
+ #define _ASM_M68K_PCI_H
+ 
+-#include <asm-generic/pci.h>
+-
+ #define	pcibios_assign_all_busses()	1
+ 
+ #define	PCIBIOS_MIN_IO		0x00000100
+diff --git a/arch/mips/include/asm/pci.h b/arch/mips/include/asm/pci.h
+index 9ffc8192adae..3fd6e22c108b 100644
+--- a/arch/mips/include/asm/pci.h
++++ b/arch/mips/include/asm/pci.h
+@@ -139,10 +139,4 @@ static inline int pci_proc_domain(struct pci_bus *bus)
+ /* Do platform specific device initialization at pci_enable_device() time */
+ extern int pcibios_plat_dev_init(struct pci_dev *dev);
+ 
+-/* Chances are this interrupt is wired PC-style ...  */
+-static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
+-{
+-	return channel ? 15 : 14;
+-}
+-
+ #endif /* _ASM_PCI_H */
+diff --git a/arch/parisc/include/asm/pci.h b/arch/parisc/include/asm/pci.h
+index f14465b84de4..127ed5021ae3 100644
+--- a/arch/parisc/include/asm/pci.h
++++ b/arch/parisc/include/asm/pci.h
+@@ -162,11 +162,6 @@ extern void pcibios_init_bridge(struct pci_dev *);
+ #define PCIBIOS_MIN_IO          0x10
+ #define PCIBIOS_MIN_MEM         0x1000 /* NBPG - but pci/setup-res.c dies */
+ 
+-static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
+-{
+-	return channel ? 15 : 14;
+-}
+-
+ #define HAVE_PCI_MMAP
+ #define ARCH_GENERIC_PCI_MMAP_RESOURCE
+ 
+diff --git a/arch/powerpc/include/asm/pci.h b/arch/powerpc/include/asm/pci.h
+index 915d6ee4b40a..f9da506751bb 100644
+--- a/arch/powerpc/include/asm/pci.h
++++ b/arch/powerpc/include/asm/pci.h
+@@ -39,7 +39,6 @@
+ #define pcibios_assign_all_busses() \
+ 	(pci_has_flag(PCI_REASSIGN_ALL_BUS))
+ 
+-#define HAVE_ARCH_PCI_GET_LEGACY_IDE_IRQ
+ static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
+ {
+ 	if (ppc_md.pci_get_legacy_ide_irq)
+diff --git a/arch/riscv/include/asm/pci.h b/arch/riscv/include/asm/pci.h
+index 7fd52a30e605..a7b8f0d0df7f 100644
+--- a/arch/riscv/include/asm/pci.h
++++ b/arch/riscv/include/asm/pci.h
+@@ -23,12 +23,6 @@
+ extern int isa_dma_bridge_buggy;
+ 
+ #ifdef CONFIG_PCI
+-static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
+-{
+-	/* no legacy IRQ on risc-v */
+-	return -ENODEV;
+-}
+-
+ static inline int pci_proc_domain(struct pci_bus *bus)
+ {
+ 	/* always show the domain in /proc */
+diff --git a/arch/s390/include/asm/pci.h b/arch/s390/include/asm/pci.h
+index fdb9745ee998..5889ddcbc374 100644
+--- a/arch/s390/include/asm/pci.h
++++ b/arch/s390/include/asm/pci.h
+@@ -6,7 +6,6 @@
+ #include <linux/mutex.h>
+ #include <linux/iommu.h>
+ #include <linux/pci_hotplug.h>
+-#include <asm-generic/pci.h>
+ #include <asm/pci_clp.h>
+ #include <asm/pci_debug.h>
+ #include <asm/sclp.h>
+diff --git a/arch/sh/include/asm/pci.h b/arch/sh/include/asm/pci.h
+index ad22e88c6657..54c30126ea17 100644
+--- a/arch/sh/include/asm/pci.h
++++ b/arch/sh/include/asm/pci.h
+@@ -88,10 +88,4 @@ static inline int pci_proc_domain(struct pci_bus *bus)
+ 	return hose->need_domain_info;
+ }
+ 
+-/* Chances are this interrupt is wired PC-style ...  */
+-static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
+-{
+-	return channel ? 15 : 14;
+-}
+-
+ #endif /* __ASM_SH_PCI_H */
+diff --git a/arch/sparc/include/asm/pci.h b/arch/sparc/include/asm/pci.h
+index 4deddf430e5d..0c58f65bd172 100644
+--- a/arch/sparc/include/asm/pci.h
++++ b/arch/sparc/include/asm/pci.h
+@@ -40,13 +40,4 @@ static inline int pci_proc_domain(struct pci_bus *bus)
+ #define get_pci_unmapped_area get_fb_unmapped_area
+ #endif /* CONFIG_SPARC64 */
+ 
+-#if defined(CONFIG_SPARC64) || defined(CONFIG_LEON_PCI)
+-static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
+-{
+-	return PCI_IRQ_NONE;
+-}
+-#else
+-#include <asm-generic/pci.h>
+-#endif
+-
+ #endif /* ___ASM_SPARC_PCI_H */
+diff --git a/arch/um/include/asm/pci.h b/arch/um/include/asm/pci.h
+index da13fd5519ef..26b96c02ef61 100644
+--- a/arch/um/include/asm/pci.h
++++ b/arch/um/include/asm/pci.h
+@@ -11,14 +11,6 @@
+ 
+ extern int isa_dma_bridge_buggy;
+ 
+-#ifdef CONFIG_PCI
+-static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
+-{
+-	/* no legacy IRQs */
+-	return -ENODEV;
+-}
+-#endif
+-
+ #ifdef CONFIG_PCI_DOMAINS
+ static inline int pci_proc_domain(struct pci_bus *bus)
+ {
+diff --git a/arch/x86/include/asm/pci.h b/arch/x86/include/asm/pci.h
+index f3fd5928bcbb..736793d65bcb 100644
+--- a/arch/x86/include/asm/pci.h
++++ b/arch/x86/include/asm/pci.h
+@@ -105,9 +105,6 @@ static inline void early_quirks(void) { }
+ 
+ extern void pci_iommu_alloc(void);
+ 
+-/* generic pci stuff */
+-#include <asm-generic/pci.h>
+-
+ #ifdef CONFIG_NUMA
+ /* Returns the node based on pci bus */
+ static inline int __pcibus_to_node(const struct pci_bus *bus)
+diff --git a/arch/xtensa/include/asm/pci.h b/arch/xtensa/include/asm/pci.h
+index 8e2b48a268db..b56de9635b6c 100644
+--- a/arch/xtensa/include/asm/pci.h
++++ b/arch/xtensa/include/asm/pci.h
+@@ -43,7 +43,4 @@
+ #define ARCH_GENERIC_PCI_MMAP_RESOURCE	1
+ #define arch_can_pci_mmap_io()		1
+ 
+-/* Generic PCI */
+-#include <asm-generic/pci.h>
+-
+ #endif	/* _XTENSA_PCI_H */
+diff --git a/drivers/pnp/resource.c b/drivers/pnp/resource.c
+index 2fa0f7d55259..8f7695624c8c 100644
+--- a/drivers/pnp/resource.c
++++ b/drivers/pnp/resource.c
+@@ -17,6 +17,7 @@
+ #include <asm/dma.h>
+ #include <asm/irq.h>
+ #include <linux/pci.h>
++#include <linux/libata.h>
+ #include <linux/ioport.h>
+ #include <linux/init.h>
+ 
+@@ -322,8 +323,8 @@ static int pci_dev_uses_irq(struct pnp_dev *pnp, struct pci_dev *pci,
+ 		 * treat the compatibility IRQs as busy.
+ 		 */
+ 		if ((progif & 0x5) != 0x5)
+-			if (pci_get_legacy_ide_irq(pci, 0) = irq ||
+-			    pci_get_legacy_ide_irq(pci, 1) = irq) {
++			if (ATA_PRIMARY_IRQ(pci) = irq ||
++			    ATA_SECONDARY_IRQ(pci) = irq) {
+ 				pnp_dbg(&pnp->dev, "  legacy IDE device %s "
+ 					"using irq %d\n", pci_name(pci), irq);
+ 				return 1;
+diff --git a/include/asm-generic/pci.h b/include/asm-generic/pci.h
+deleted file mode 100644
+index 6bb3cd3d695a..000000000000
+--- a/include/asm-generic/pci.h
++++ /dev/null
+@@ -1,17 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-/*
+- * linux/include/asm-generic/pci.h
+- *
+- *  Copyright (C) 2003 Russell King
+- */
+-#ifndef _ASM_GENERIC_PCI_H
+-#define _ASM_GENERIC_PCI_H
+-
+-#ifndef HAVE_ARCH_PCI_GET_LEGACY_IDE_IRQ
+-static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
+-{
+-	return channel ? 15 : 14;
+-}
+-#endif /* HAVE_ARCH_PCI_GET_LEGACY_IDE_IRQ */
+-
+-#endif /* _ASM_GENERIC_PCI_H */
 -- 
-2.25.1
+2.36.1
