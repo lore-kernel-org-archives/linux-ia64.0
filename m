@@ -1,349 +1,478 @@
-From: Stafford Horne <shorne@gmail.com>
-Date: Thu, 21 Jul 2022 13:49:21 +0000
-Subject: [PATCH v5 1/4] PCI: Remove pci_get_legacy_ide_irq and asm-generic/pci.h
-Message-Id: <20220721134924.596152-2-shorne@gmail.com>
+From: "Gautham R. Shenoy" <gautham.shenoy@amd.com>
+Date: Tue, 26 Jul 2022 09:55:30 +0000
+Subject: Re: [PATCH 14/36] cpuidle: Fix rcu_idle_*() usage
+Message-Id: <Yt+6Q759LWHOIxfF@BLR-5CG11610CF.amd.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220721134924.596152-1-shorne@gmail.com>
-In-Reply-To: <20220721134924.596152-1-shorne@gmail.com>
+References: <20220608142723.103523089@infradead.org>
+ <20220608144516.808451191@infradead.org>
+In-Reply-To: <20220608144516.808451191@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: Arnd Bergmann <arnd@arndb.de>, Stafford Horne <shorne@gmail.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Pierre Morel <pmorel@linux.ibm.com>, "Rafael J . Wysocki" <rafael.j.wysocki@intel.com>, Christoph Hellwig <hch@lst.de>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, Bjorn Helgaas <bhelgaas@google.com>, Sergio Paracuellos <sergio.paracuellos@gmail.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Tiezhu Yang <yangtiezhu@loongson.cn>, Nick Child <nick.child@ibm.com>, Niklas Schnelle <schnelle@linux.ibm.com>, Matthew Rosato <mjrosato@linux.ibm.com>, Kees Cook <keescook@chromium.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, linux-acpi@vger.kernel.org, linux-pci@vger.kernel.org, linux-arch@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>
+Cc: rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@kernel.org, linux@armlinux.org.uk, ulli.kroll@googlemail.com, linus.walleij@linaro.org, shawnguo@kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, kernel@pengutronix.de, festevam@gmail.com, linux-imx@nxp.com, tony@atomide.com, khilman@kernel.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, bcain@quicinc.com, chenhuacai@kernel.org, kernel@xen0n.name, geert@linux-m68k.org, sammy@sammy.net, monstr@monstr.eu, tsbogend@alpha.franken.de, dinguyen@kernel.org, jonas@southpole.se, stefan.kristiansson@saunalahti.fi, shorne@gmail.com, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, paul.walmsley@sifive.com, palmer@dabbelt.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, richard@nod.at, anton.ivanov@cambridgegreys.com, johannes@sipsolutions.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, acme@kernel.org, mark.rutland@arm.com, alexander.shishkin@linux.intel.com, jolsa@kernel.org, namhyung@kernel.org, jgross@suse.com, srivatsa@csail.mit.edu, amakhalov@vmware.com, pv-drivers@vmware.com, boris.ostrovsky@oracle.com, chris@zankel.net, jcmvbkbc@gmail.com, rafael@kernel.org, lenb@kernel.org, pavel@ucw.cz, gregkh@linuxfoundation.org, mturquette@baylibre.com, sboyd@kernel.org, daniel.lezcano@linaro.org, lpieralisi@kernel.org, sudeep.holla@arm.com, agross@kernel.org, bjorn.andersson@linaro.org, anup@brainfault.org, thierry.reding@gmail.com, jonathanh@nvidia.com, jacob.jun.pan@linux.intel.com, Arnd Bergmann <arnd@arndb.de>, yury.norov@gmail.com, andriy.shevchenko@linux.intel.com, linux@rasmusvillemoes.dk, rostedt@goodmis.org, pmladek@suse.com, senozhatsky@chromium.org, john.ogness@linutronix.de, paulmck@kernel.org, frederic@kernel.org, quic_neeraju@quicinc.com, josh@joshtriplett.org, mathieu.desnoyers@efficios.com, jiangshanlai@gmail.com, joel@joelfernandes.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, jpoimboe@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-perf-users@vger.kernel.org, virtualization@lists.linux-foundation.org, xen-devel@lists.xenproject.org, linux-xtensa@linux-xtensa.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-clk@vger.kernel.org, linux-arm-msm@vger.kernel.org, linux-tegra@vger.kernel.org, linux-arch@vger.kernel.org, rcu@vger.kernel.org
 
-The definition of the pci header function pci_get_legacy_ide_irq is only
-used in platforms that support PNP.  So many of the architecutres where
-it is defined do not use it.  This also means we can remove
-asm-generic/pci.h as all it provides is a definition of
-pci_get_legacy_ide_irq.
+On Wed, Jun 08, 2022 at 04:27:37PM +0200, Peter Zijlstra wrote:
+> The whole disable-RCU, enable-IRQS dance is very intricate since
+> changing IRQ state is traced, which depends on RCU.
+> 
+> Add two helpers for the cpuidle case that mirror the entry code.
+> 
+> Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
 
-Where referenced, replace the usage of pci_get_legacy_ide_irq with the
-libata.h macros ATA_PRIMARY_IRQ and ATA_SECONDARY_IRQ which provide the
-same functionality.  This allows removing pci_get_legacy_ide_irq from
-headers where it is no longer used.
+Reviewed-by: Gautham R. Shenoy <gautham.shenoy@amd.com>
 
-Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Acked-by: Pierre Morel <pmorel@linux.ibm.com>
-Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
-Reviewed-by: Christoph Hellwig <hch@lst.de>
-Co-developed-by: Arnd Bergmann <arnd@arndb.de>
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Signed-off-by: Stafford Horne <shorne@gmail.com>
----
-Since v4:
- - Also remove pci_get_legacy_ide_irq from arm64, csky, riscv at this point.
-
- arch/alpha/include/asm/pci.h   |  6 ------
- arch/arm/include/asm/pci.h     |  5 -----
- arch/arm64/include/asm/pci.h   |  6 ------
- arch/csky/include/asm/pci.h    |  6 ------
- arch/ia64/include/asm/pci.h    |  6 ------
- arch/m68k/include/asm/pci.h    |  2 --
- arch/mips/include/asm/pci.h    |  6 ------
- arch/parisc/include/asm/pci.h  |  5 -----
- arch/powerpc/include/asm/pci.h |  1 -
- arch/riscv/include/asm/pci.h   |  6 ------
- arch/s390/include/asm/pci.h    |  1 -
- arch/sh/include/asm/pci.h      |  6 ------
- arch/sparc/include/asm/pci.h   |  9 ---------
- arch/um/include/asm/pci.h      |  8 --------
- arch/x86/include/asm/pci.h     |  3 ---
- arch/xtensa/include/asm/pci.h  |  3 ---
- drivers/pnp/resource.c         |  5 +++--
- include/asm-generic/pci.h      | 17 -----------------
- 18 files changed, 3 insertions(+), 98 deletions(-)
- delete mode 100644 include/asm-generic/pci.h
-
-diff --git a/arch/alpha/include/asm/pci.h b/arch/alpha/include/asm/pci.h
-index cf6bc1e64d66..6312656279d7 100644
---- a/arch/alpha/include/asm/pci.h
-+++ b/arch/alpha/include/asm/pci.h
-@@ -56,12 +56,6 @@ struct pci_controller {
- 
- /* IOMMU controls.  */
- 
--/* TODO: integrate with include/asm-generic/pci.h ? */
--static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
--{
--	return channel ? 15 : 14;
--}
--
- #define pci_domain_nr(bus) ((struct pci_controller *)(bus)->sysdata)->index
- 
- static inline int pci_proc_domain(struct pci_bus *bus)
-diff --git a/arch/arm/include/asm/pci.h b/arch/arm/include/asm/pci.h
-index 68e6f25784a4..5916b88d4c94 100644
---- a/arch/arm/include/asm/pci.h
-+++ b/arch/arm/include/asm/pci.h
-@@ -22,11 +22,6 @@ static inline int pci_proc_domain(struct pci_bus *bus)
- #define HAVE_PCI_MMAP
- #define ARCH_GENERIC_PCI_MMAP_RESOURCE
- 
--static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
--{
--	return channel ? 15 : 14;
--}
--
- extern void pcibios_report_status(unsigned int status_mask, int warn);
- 
- #endif /* __KERNEL__ */
-diff --git a/arch/arm64/include/asm/pci.h b/arch/arm64/include/asm/pci.h
-index b33ca260e3c9..0aebc3488c32 100644
---- a/arch/arm64/include/asm/pci.h
-+++ b/arch/arm64/include/asm/pci.h
-@@ -23,12 +23,6 @@
- extern int isa_dma_bridge_buggy;
- 
- #ifdef CONFIG_PCI
--static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
--{
--	/* no legacy IRQ on arm64 */
--	return -ENODEV;
--}
--
- static inline int pci_proc_domain(struct pci_bus *bus)
- {
- 	return 1;
-diff --git a/arch/csky/include/asm/pci.h b/arch/csky/include/asm/pci.h
-index ebc765b1f78b..0535f1aaae38 100644
---- a/arch/csky/include/asm/pci.h
-+++ b/arch/csky/include/asm/pci.h
-@@ -18,12 +18,6 @@
- extern int isa_dma_bridge_buggy;
- 
- #ifdef CONFIG_PCI
--static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
--{
--	/* no legacy IRQ on csky */
--	return -ENODEV;
--}
--
- static inline int pci_proc_domain(struct pci_bus *bus)
- {
- 	/* always show the domain in /proc */
-diff --git a/arch/ia64/include/asm/pci.h b/arch/ia64/include/asm/pci.h
-index 8c163d1d0189..fa8f545c24c9 100644
---- a/arch/ia64/include/asm/pci.h
-+++ b/arch/ia64/include/asm/pci.h
-@@ -63,10 +63,4 @@ static inline int pci_proc_domain(struct pci_bus *bus)
- 	return (pci_domain_nr(bus) != 0);
- }
- 
--#define HAVE_ARCH_PCI_GET_LEGACY_IDE_IRQ
--static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
--{
--	return channel ? isa_irq_to_vector(15) : isa_irq_to_vector(14);
--}
--
- #endif /* _ASM_IA64_PCI_H */
-diff --git a/arch/m68k/include/asm/pci.h b/arch/m68k/include/asm/pci.h
-index 5a4bc223743b..ccdfa0dc8413 100644
---- a/arch/m68k/include/asm/pci.h
-+++ b/arch/m68k/include/asm/pci.h
-@@ -2,8 +2,6 @@
- #ifndef _ASM_M68K_PCI_H
- #define _ASM_M68K_PCI_H
- 
--#include <asm-generic/pci.h>
--
- #define	pcibios_assign_all_busses()	1
- 
- #define	PCIBIOS_MIN_IO		0x00000100
-diff --git a/arch/mips/include/asm/pci.h b/arch/mips/include/asm/pci.h
-index 9ffc8192adae..3fd6e22c108b 100644
---- a/arch/mips/include/asm/pci.h
-+++ b/arch/mips/include/asm/pci.h
-@@ -139,10 +139,4 @@ static inline int pci_proc_domain(struct pci_bus *bus)
- /* Do platform specific device initialization at pci_enable_device() time */
- extern int pcibios_plat_dev_init(struct pci_dev *dev);
- 
--/* Chances are this interrupt is wired PC-style ...  */
--static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
--{
--	return channel ? 15 : 14;
--}
--
- #endif /* _ASM_PCI_H */
-diff --git a/arch/parisc/include/asm/pci.h b/arch/parisc/include/asm/pci.h
-index f14465b84de4..127ed5021ae3 100644
---- a/arch/parisc/include/asm/pci.h
-+++ b/arch/parisc/include/asm/pci.h
-@@ -162,11 +162,6 @@ extern void pcibios_init_bridge(struct pci_dev *);
- #define PCIBIOS_MIN_IO          0x10
- #define PCIBIOS_MIN_MEM         0x1000 /* NBPG - but pci/setup-res.c dies */
- 
--static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
--{
--	return channel ? 15 : 14;
--}
--
- #define HAVE_PCI_MMAP
- #define ARCH_GENERIC_PCI_MMAP_RESOURCE
- 
-diff --git a/arch/powerpc/include/asm/pci.h b/arch/powerpc/include/asm/pci.h
-index 915d6ee4b40a..f9da506751bb 100644
---- a/arch/powerpc/include/asm/pci.h
-+++ b/arch/powerpc/include/asm/pci.h
-@@ -39,7 +39,6 @@
- #define pcibios_assign_all_busses() \
- 	(pci_has_flag(PCI_REASSIGN_ALL_BUS))
- 
--#define HAVE_ARCH_PCI_GET_LEGACY_IDE_IRQ
- static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
- {
- 	if (ppc_md.pci_get_legacy_ide_irq)
-diff --git a/arch/riscv/include/asm/pci.h b/arch/riscv/include/asm/pci.h
-index 7fd52a30e605..a7b8f0d0df7f 100644
---- a/arch/riscv/include/asm/pci.h
-+++ b/arch/riscv/include/asm/pci.h
-@@ -23,12 +23,6 @@
- extern int isa_dma_bridge_buggy;
- 
- #ifdef CONFIG_PCI
--static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
--{
--	/* no legacy IRQ on risc-v */
--	return -ENODEV;
--}
--
- static inline int pci_proc_domain(struct pci_bus *bus)
- {
- 	/* always show the domain in /proc */
-diff --git a/arch/s390/include/asm/pci.h b/arch/s390/include/asm/pci.h
-index fdb9745ee998..5889ddcbc374 100644
---- a/arch/s390/include/asm/pci.h
-+++ b/arch/s390/include/asm/pci.h
-@@ -6,7 +6,6 @@
- #include <linux/mutex.h>
- #include <linux/iommu.h>
- #include <linux/pci_hotplug.h>
--#include <asm-generic/pci.h>
- #include <asm/pci_clp.h>
- #include <asm/pci_debug.h>
- #include <asm/sclp.h>
-diff --git a/arch/sh/include/asm/pci.h b/arch/sh/include/asm/pci.h
-index ad22e88c6657..54c30126ea17 100644
---- a/arch/sh/include/asm/pci.h
-+++ b/arch/sh/include/asm/pci.h
-@@ -88,10 +88,4 @@ static inline int pci_proc_domain(struct pci_bus *bus)
- 	return hose->need_domain_info;
- }
- 
--/* Chances are this interrupt is wired PC-style ...  */
--static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
--{
--	return channel ? 15 : 14;
--}
--
- #endif /* __ASM_SH_PCI_H */
-diff --git a/arch/sparc/include/asm/pci.h b/arch/sparc/include/asm/pci.h
-index 4deddf430e5d..0c58f65bd172 100644
---- a/arch/sparc/include/asm/pci.h
-+++ b/arch/sparc/include/asm/pci.h
-@@ -40,13 +40,4 @@ static inline int pci_proc_domain(struct pci_bus *bus)
- #define get_pci_unmapped_area get_fb_unmapped_area
- #endif /* CONFIG_SPARC64 */
- 
--#if defined(CONFIG_SPARC64) || defined(CONFIG_LEON_PCI)
--static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
--{
--	return PCI_IRQ_NONE;
--}
--#else
--#include <asm-generic/pci.h>
--#endif
--
- #endif /* ___ASM_SPARC_PCI_H */
-diff --git a/arch/um/include/asm/pci.h b/arch/um/include/asm/pci.h
-index da13fd5519ef..26b96c02ef61 100644
---- a/arch/um/include/asm/pci.h
-+++ b/arch/um/include/asm/pci.h
-@@ -11,14 +11,6 @@
- 
- extern int isa_dma_bridge_buggy;
- 
--#ifdef CONFIG_PCI
--static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
--{
--	/* no legacy IRQs */
--	return -ENODEV;
--}
--#endif
--
- #ifdef CONFIG_PCI_DOMAINS
- static inline int pci_proc_domain(struct pci_bus *bus)
- {
-diff --git a/arch/x86/include/asm/pci.h b/arch/x86/include/asm/pci.h
-index f3fd5928bcbb..736793d65bcb 100644
---- a/arch/x86/include/asm/pci.h
-+++ b/arch/x86/include/asm/pci.h
-@@ -105,9 +105,6 @@ static inline void early_quirks(void) { }
- 
- extern void pci_iommu_alloc(void);
- 
--/* generic pci stuff */
--#include <asm-generic/pci.h>
--
- #ifdef CONFIG_NUMA
- /* Returns the node based on pci bus */
- static inline int __pcibus_to_node(const struct pci_bus *bus)
-diff --git a/arch/xtensa/include/asm/pci.h b/arch/xtensa/include/asm/pci.h
-index 8e2b48a268db..b56de9635b6c 100644
---- a/arch/xtensa/include/asm/pci.h
-+++ b/arch/xtensa/include/asm/pci.h
-@@ -43,7 +43,4 @@
- #define ARCH_GENERIC_PCI_MMAP_RESOURCE	1
- #define arch_can_pci_mmap_io()		1
- 
--/* Generic PCI */
--#include <asm-generic/pci.h>
--
- #endif	/* _XTENSA_PCI_H */
-diff --git a/drivers/pnp/resource.c b/drivers/pnp/resource.c
-index 2fa0f7d55259..8f7695624c8c 100644
---- a/drivers/pnp/resource.c
-+++ b/drivers/pnp/resource.c
-@@ -17,6 +17,7 @@
- #include <asm/dma.h>
- #include <asm/irq.h>
- #include <linux/pci.h>
-+#include <linux/libata.h>
- #include <linux/ioport.h>
- #include <linux/init.h>
- 
-@@ -322,8 +323,8 @@ static int pci_dev_uses_irq(struct pnp_dev *pnp, struct pci_dev *pci,
- 		 * treat the compatibility IRQs as busy.
- 		 */
- 		if ((progif & 0x5) != 0x5)
--			if (pci_get_legacy_ide_irq(pci, 0) = irq ||
--			    pci_get_legacy_ide_irq(pci, 1) = irq) {
-+			if (ATA_PRIMARY_IRQ(pci) = irq ||
-+			    ATA_SECONDARY_IRQ(pci) = irq) {
- 				pnp_dbg(&pnp->dev, "  legacy IDE device %s "
- 					"using irq %d\n", pci_name(pci), irq);
- 				return 1;
-diff --git a/include/asm-generic/pci.h b/include/asm-generic/pci.h
-deleted file mode 100644
-index 6bb3cd3d695a..000000000000
---- a/include/asm-generic/pci.h
-+++ /dev/null
-@@ -1,17 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0 */
--/*
-- * linux/include/asm-generic/pci.h
-- *
-- *  Copyright (C) 2003 Russell King
-- */
--#ifndef _ASM_GENERIC_PCI_H
--#define _ASM_GENERIC_PCI_H
--
--#ifndef HAVE_ARCH_PCI_GET_LEGACY_IDE_IRQ
--static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
--{
--	return channel ? 15 : 14;
--}
--#endif /* HAVE_ARCH_PCI_GET_LEGACY_IDE_IRQ */
--
--#endif /* _ASM_GENERIC_PCI_H */
--- 
-2.36.1
+> ---
+>  arch/arm/mach-imx/cpuidle-imx6q.c    |    4 +--
+>  arch/arm/mach-imx/cpuidle-imx6sx.c   |    4 +--
+>  arch/arm/mach-omap2/cpuidle34xx.c    |    4 +--
+>  arch/arm/mach-omap2/cpuidle44xx.c    |    8 +++---
+>  drivers/acpi/processor_idle.c        |   18 ++++++++------
+>  drivers/cpuidle/cpuidle-big_little.c |    4 +--
+>  drivers/cpuidle/cpuidle-mvebu-v7.c   |    4 +--
+>  drivers/cpuidle/cpuidle-psci.c       |    4 +--
+>  drivers/cpuidle/cpuidle-riscv-sbi.c  |    4 +--
+>  drivers/cpuidle/cpuidle-tegra.c      |    8 +++---
+>  drivers/cpuidle/cpuidle.c            |   11 ++++----
+>  include/linux/cpuidle.h              |   37 +++++++++++++++++++++++++---
+>  kernel/sched/idle.c                  |   45 ++++++++++-------------------------
+>  kernel/time/tick-broadcast.c         |    6 +++-
+>  14 files changed, 90 insertions(+), 71 deletions(-)
+> 
+> --- a/arch/arm/mach-imx/cpuidle-imx6q.c
+> +++ b/arch/arm/mach-imx/cpuidle-imx6q.c
+> @@ -24,9 +24,9 @@ static int imx6q_enter_wait(struct cpuid
+>  		imx6_set_lpm(WAIT_UNCLOCKED);
+>  	raw_spin_unlock(&cpuidle_lock);
+>  
+> -	rcu_idle_enter();
+> +	cpuidle_rcu_enter();
+>  	cpu_do_idle();
+> -	rcu_idle_exit();
+> +	cpuidle_rcu_exit();
+>  
+>  	raw_spin_lock(&cpuidle_lock);
+>  	if (num_idle_cpus-- = num_online_cpus())
+> --- a/arch/arm/mach-imx/cpuidle-imx6sx.c
+> +++ b/arch/arm/mach-imx/cpuidle-imx6sx.c
+> @@ -47,9 +47,9 @@ static int imx6sx_enter_wait(struct cpui
+>  		cpu_pm_enter();
+>  		cpu_cluster_pm_enter();
+>  
+> -		rcu_idle_enter();
+> +		cpuidle_rcu_enter();
+>  		cpu_suspend(0, imx6sx_idle_finish);
+> -		rcu_idle_exit();
+> +		cpuidle_rcu_exit();
+>  
+>  		cpu_cluster_pm_exit();
+>  		cpu_pm_exit();
+> --- a/arch/arm/mach-omap2/cpuidle34xx.c
+> +++ b/arch/arm/mach-omap2/cpuidle34xx.c
+> @@ -133,9 +133,9 @@ static int omap3_enter_idle(struct cpuid
+>  	}
+>  
+>  	/* Execute ARM wfi */
+> -	rcu_idle_enter();
+> +	cpuidle_rcu_enter();
+>  	omap_sram_idle();
+> -	rcu_idle_exit();
+> +	cpuidle_rcu_exit();
+>  
+>  	/*
+>  	 * Call idle CPU PM enter notifier chain to restore
+> --- a/arch/arm/mach-omap2/cpuidle44xx.c
+> +++ b/arch/arm/mach-omap2/cpuidle44xx.c
+> @@ -105,9 +105,9 @@ static int omap_enter_idle_smp(struct cp
+>  	}
+>  	raw_spin_unlock_irqrestore(&mpu_lock, flag);
+>  
+> -	rcu_idle_enter();
+> +	cpuidle_rcu_enter();
+>  	omap4_enter_lowpower(dev->cpu, cx->cpu_state);
+> -	rcu_idle_exit();
+> +	cpuidle_rcu_exit();
+>  
+>  	raw_spin_lock_irqsave(&mpu_lock, flag);
+>  	if (cx->mpu_state_vote = num_online_cpus())
+> @@ -186,10 +186,10 @@ static int omap_enter_idle_coupled(struc
+>  		}
+>  	}
+>  
+> -	rcu_idle_enter();
+> +	cpuidle_rcu_enter();
+>  	omap4_enter_lowpower(dev->cpu, cx->cpu_state);
+>  	cpu_done[dev->cpu] = true;
+> -	rcu_idle_exit();
+> +	cpuidle_rcu_exit();
+>  
+>  	/* Wakeup CPU1 only if it is not offlined */
+>  	if (dev->cpu = 0 && cpumask_test_cpu(1, cpu_online_mask)) {
+> --- a/drivers/acpi/processor_idle.c
+> +++ b/drivers/acpi/processor_idle.c
+> @@ -607,7 +607,7 @@ static DEFINE_RAW_SPINLOCK(c3_lock);
+>   * @cx: Target state context
+>   * @index: index of target state
+>   */
+> -static int acpi_idle_enter_bm(struct cpuidle_driver *drv,
+> +static noinstr int acpi_idle_enter_bm(struct cpuidle_driver *drv,
+>  			       struct acpi_processor *pr,
+>  			       struct acpi_processor_cx *cx,
+>  			       int index)
+> @@ -626,6 +626,8 @@ static int acpi_idle_enter_bm(struct cpu
+>  	 */
+>  	bool dis_bm = pr->flags.bm_control;
+>  
+> +	instrumentation_begin();
+> +
+>  	/* If we can skip BM, demote to a safe state. */
+>  	if (!cx->bm_sts_skip && acpi_idle_bm_check()) {
+>  		dis_bm = false;
+> @@ -647,11 +649,11 @@ static int acpi_idle_enter_bm(struct cpu
+>  		raw_spin_unlock(&c3_lock);
+>  	}
+>  
+> -	rcu_idle_enter();
+> +	cpuidle_rcu_enter();
+>  
+>  	acpi_idle_do_entry(cx);
+>  
+> -	rcu_idle_exit();
+> +	cpuidle_rcu_exit();
+>  
+>  	/* Re-enable bus master arbitration */
+>  	if (dis_bm) {
+> @@ -661,11 +663,13 @@ static int acpi_idle_enter_bm(struct cpu
+>  		raw_spin_unlock(&c3_lock);
+>  	}
+>  
+> +	instrumentation_end();
+> +
+>  	return index;
+>  }
+>  
+> -static int acpi_idle_enter(struct cpuidle_device *dev,
+> -			   struct cpuidle_driver *drv, int index)
+> +static noinstr int acpi_idle_enter(struct cpuidle_device *dev,
+> +				   struct cpuidle_driver *drv, int index)
+>  {
+>  	struct acpi_processor_cx *cx = per_cpu(acpi_cstate[index], dev->cpu);
+>  	struct acpi_processor *pr;
+> @@ -693,8 +697,8 @@ static int acpi_idle_enter(struct cpuidl
+>  	return index;
+>  }
+>  
+> -static int acpi_idle_enter_s2idle(struct cpuidle_device *dev,
+> -				  struct cpuidle_driver *drv, int index)
+> +static noinstr int acpi_idle_enter_s2idle(struct cpuidle_device *dev,
+> +					  struct cpuidle_driver *drv, int index)
+>  {
+>  	struct acpi_processor_cx *cx = per_cpu(acpi_cstate[index], dev->cpu);
+>  
+> --- a/drivers/cpuidle/cpuidle-big_little.c
+> +++ b/drivers/cpuidle/cpuidle-big_little.c
+> @@ -126,13 +126,13 @@ static int bl_enter_powerdown(struct cpu
+>  				struct cpuidle_driver *drv, int idx)
+>  {
+>  	cpu_pm_enter();
+> -	rcu_idle_enter();
+> +	cpuidle_rcu_enter();
+>  
+>  	cpu_suspend(0, bl_powerdown_finisher);
+>  
+>  	/* signals the MCPM core that CPU is out of low power state */
+>  	mcpm_cpu_powered_up();
+> -	rcu_idle_exit();
+> +	cpuidle_rcu_exit();
+>  
+>  	cpu_pm_exit();
+>  
+> --- a/drivers/cpuidle/cpuidle-mvebu-v7.c
+> +++ b/drivers/cpuidle/cpuidle-mvebu-v7.c
+> @@ -36,9 +36,9 @@ static int mvebu_v7_enter_idle(struct cp
+>  	if (drv->states[index].flags & MVEBU_V7_FLAG_DEEP_IDLE)
+>  		deepidle = true;
+>  
+> -	rcu_idle_enter();
+> +	cpuidle_rcu_enter();
+>  	ret = mvebu_v7_cpu_suspend(deepidle);
+> -	rcu_idle_exit();
+> +	cpuidle_rcu_exit();
+>  
+>  	cpu_pm_exit();
+>  
+> --- a/drivers/cpuidle/cpuidle-psci.c
+> +++ b/drivers/cpuidle/cpuidle-psci.c
+> @@ -74,7 +74,7 @@ static int __psci_enter_domain_idle_stat
+>  	else
+>  		pm_runtime_put_sync_suspend(pd_dev);
+>  
+> -	rcu_idle_enter();
+> +	cpuidle_rcu_enter();
+>  
+>  	state = psci_get_domain_state();
+>  	if (!state)
+> @@ -82,7 +82,7 @@ static int __psci_enter_domain_idle_stat
+>  
+>  	ret = psci_cpu_suspend_enter(state) ? -1 : idx;
+>  
+> -	rcu_idle_exit();
+> +	cpuidle_rcu_exit();
+>  
+>  	if (s2idle)
+>  		dev_pm_genpd_resume(pd_dev);
+> --- a/drivers/cpuidle/cpuidle-riscv-sbi.c
+> +++ b/drivers/cpuidle/cpuidle-riscv-sbi.c
+> @@ -121,7 +121,7 @@ static int __sbi_enter_domain_idle_state
+>  	else
+>  		pm_runtime_put_sync_suspend(pd_dev);
+>  
+> -	rcu_idle_enter();
+> +	cpuidle_rcu_enter();
+>  
+>  	if (sbi_is_domain_state_available())
+>  		state = sbi_get_domain_state();
+> @@ -130,7 +130,7 @@ static int __sbi_enter_domain_idle_state
+>  
+>  	ret = sbi_suspend(state) ? -1 : idx;
+>  
+> -	rcu_idle_exit();
+> +	cpuidle_rcu_exit();
+>  
+>  	if (s2idle)
+>  		dev_pm_genpd_resume(pd_dev);
+> --- a/drivers/cpuidle/cpuidle-tegra.c
+> +++ b/drivers/cpuidle/cpuidle-tegra.c
+> @@ -183,7 +183,7 @@ static int tegra_cpuidle_state_enter(str
+>  	tegra_pm_set_cpu_in_lp2();
+>  	cpu_pm_enter();
+>  
+> -	rcu_idle_enter();
+> +	cpuidle_rcu_enter();
+>  
+>  	switch (index) {
+>  	case TEGRA_C7:
+> @@ -199,7 +199,7 @@ static int tegra_cpuidle_state_enter(str
+>  		break;
+>  	}
+>  
+> -	rcu_idle_exit();
+> +	cpuidle_rcu_exit();
+>  
+>  	cpu_pm_exit();
+>  	tegra_pm_clear_cpu_in_lp2();
+> @@ -240,10 +240,10 @@ static int tegra_cpuidle_enter(struct cp
+>  
+>  	if (index = TEGRA_C1) {
+>  		if (do_rcu)
+> -			rcu_idle_enter();
+> +			cpuidle_rcu_enter();
+>  		ret = arm_cpuidle_simple_enter(dev, drv, index);
+>  		if (do_rcu)
+> -			rcu_idle_exit();
+> +			cpuidle_rcu_exit();
+>  	} else
+>  		ret = tegra_cpuidle_state_enter(dev, index, cpu);
+>  
+> --- a/drivers/cpuidle/cpuidle.c
+> +++ b/drivers/cpuidle/cpuidle.c
+> @@ -13,6 +13,7 @@
+>  #include <linux/mutex.h>
+>  #include <linux/sched.h>
+>  #include <linux/sched/clock.h>
+> +#include <linux/sched/idle.h>
+>  #include <linux/notifier.h>
+>  #include <linux/pm_qos.h>
+>  #include <linux/cpu.h>
+> @@ -150,12 +151,12 @@ static void enter_s2idle_proper(struct c
+>  	 */
+>  	stop_critical_timings();
+>  	if (!(target_state->flags & CPUIDLE_FLAG_RCU_IDLE))
+> -		rcu_idle_enter();
+> +		cpuidle_rcu_enter();
+>  	target_state->enter_s2idle(dev, drv, index);
+>  	if (WARN_ON_ONCE(!irqs_disabled()))
+> -		local_irq_disable();
+> +		raw_local_irq_disable();
+>  	if (!(target_state->flags & CPUIDLE_FLAG_RCU_IDLE))
+> -		rcu_idle_exit();
+> +		cpuidle_rcu_exit();
+>  	tick_unfreeze();
+>  	start_critical_timings();
+>  
+> @@ -233,14 +234,14 @@ int cpuidle_enter_state(struct cpuidle_d
+>  
+>  	stop_critical_timings();
+>  	if (!(target_state->flags & CPUIDLE_FLAG_RCU_IDLE))
+> -		rcu_idle_enter();
+> +		cpuidle_rcu_enter();
+>  
+>  	entered_state = target_state->enter(dev, drv, index);
+>  	if (WARN_ONCE(!irqs_disabled(), "%ps leaked IRQ state", target_state->enter))
+>  		raw_local_irq_disable();
+>  
+>  	if (!(target_state->flags & CPUIDLE_FLAG_RCU_IDLE))
+> -		rcu_idle_exit();
+> +		cpuidle_rcu_exit();
+>  	start_critical_timings();
+>  
+>  	sched_clock_idle_wakeup_event();
+> --- a/include/linux/cpuidle.h
+> +++ b/include/linux/cpuidle.h
+> @@ -115,6 +115,35 @@ struct cpuidle_device {
+>  DECLARE_PER_CPU(struct cpuidle_device *, cpuidle_devices);
+>  DECLARE_PER_CPU(struct cpuidle_device, cpuidle_dev);
+>  
+> +static __always_inline void cpuidle_rcu_enter(void)
+> +{
+> +	lockdep_assert_irqs_disabled();
+> +	/*
+> +	 * Idle is allowed to (temporary) enable IRQs. It
+> +	 * will return with IRQs disabled.
+> +	 *
+> +	 * Trace IRQs enable here, then switch off RCU, and have
+> +	 * arch_cpu_idle() use raw_local_irq_enable(). Note that
+> +	 * rcu_idle_enter() relies on lockdep IRQ state, so switch that
+> +	 * last -- this is very similar to the entry code.
+> +	 */
+> +	trace_hardirqs_on_prepare();
+> +	lockdep_hardirqs_on_prepare();
+> +	instrumentation_end();
+> +	rcu_idle_enter();
+> +	lockdep_hardirqs_on(_THIS_IP_);
+> +}
+> +
+> +static __always_inline void cpuidle_rcu_exit(void)
+> +{
+> +	/*
+> +	 * Carefully undo the above.
+> +	 */
+> +	lockdep_hardirqs_off(_THIS_IP_);
+> +	rcu_idle_exit();
+> +	instrumentation_begin();
+> +}
+> +
+>  /****************************
+>   * CPUIDLE DRIVER INTERFACE *
+>   ****************************/
+> @@ -282,18 +311,18 @@ extern s64 cpuidle_governor_latency_req(
+>  	int __ret = 0;							\
+>  									\
+>  	if (!idx) {							\
+> -		rcu_idle_enter();					\
+> +		cpuidle_rcu_enter();					\
+>  		cpu_do_idle();						\
+> -		rcu_idle_exit();					\
+> +		cpuidle_rcu_exit();					\
+>  		return idx;						\
+>  	}								\
+>  									\
+>  	if (!is_retention)						\
+>  		__ret =  cpu_pm_enter();				\
+>  	if (!__ret) {							\
+> -		rcu_idle_enter();					\
+> +		cpuidle_rcu_enter();					\
+>  		__ret = low_level_idle_enter(state);			\
+> -		rcu_idle_exit();					\
+> +		cpuidle_rcu_exit();					\
+>  		if (!is_retention)					\
+>  			cpu_pm_exit();					\
+>  	}								\
+> --- a/kernel/sched/idle.c
+> +++ b/kernel/sched/idle.c
+> @@ -51,18 +51,22 @@ __setup("hlt", cpu_idle_nopoll_setup);
+>  
+>  static noinline int __cpuidle cpu_idle_poll(void)
+>  {
+> +	instrumentation_begin();
+>  	trace_cpu_idle(0, smp_processor_id());
+>  	stop_critical_timings();
+> -	rcu_idle_enter();
+> -	local_irq_enable();
+> +	cpuidle_rcu_enter();
+>  
+> +	raw_local_irq_enable();
+>  	while (!tif_need_resched() &&
+>  	       (cpu_idle_force_poll || tick_check_broadcast_expired()))
+>  		cpu_relax();
+> +	raw_local_irq_disable();
+>  
+> -	rcu_idle_exit();
+> +	cpuidle_rcu_exit();
+>  	start_critical_timings();
+>  	trace_cpu_idle(PWR_EVENT_EXIT, smp_processor_id());
+> +	local_irq_enable();
+> +	instrumentation_end();
+>  
+>  	return 1;
+>  }
+> @@ -85,44 +89,21 @@ void __weak arch_cpu_idle(void)
+>   */
+>  void __cpuidle default_idle_call(void)
+>  {
+> -	if (current_clr_polling_and_test()) {
+> -		local_irq_enable();
+> -	} else {
+> -
+> +	instrumentation_begin();
+> +	if (!current_clr_polling_and_test()) {
+>  		trace_cpu_idle(1, smp_processor_id());
+>  		stop_critical_timings();
+>  
+> -		/*
+> -		 * arch_cpu_idle() is supposed to enable IRQs, however
+> -		 * we can't do that because of RCU and tracing.
+> -		 *
+> -		 * Trace IRQs enable here, then switch off RCU, and have
+> -		 * arch_cpu_idle() use raw_local_irq_enable(). Note that
+> -		 * rcu_idle_enter() relies on lockdep IRQ state, so switch that
+> -		 * last -- this is very similar to the entry code.
+> -		 */
+> -		trace_hardirqs_on_prepare();
+> -		lockdep_hardirqs_on_prepare();
+> -		rcu_idle_enter();
+> -		lockdep_hardirqs_on(_THIS_IP_);
+> -
+> +		cpuidle_rcu_enter();
+>  		arch_cpu_idle();
+> -
+> -		/*
+> -		 * OK, so IRQs are enabled here, but RCU needs them disabled to
+> -		 * turn itself back on.. funny thing is that disabling IRQs
+> -		 * will cause tracing, which needs RCU. Jump through hoops to
+> -		 * make it 'work'.
+> -		 */
+>  		raw_local_irq_disable();
+> -		lockdep_hardirqs_off(_THIS_IP_);
+> -		rcu_idle_exit();
+> -		lockdep_hardirqs_on(_THIS_IP_);
+> -		raw_local_irq_enable();
+> +		cpuidle_rcu_exit();
+>  
+>  		start_critical_timings();
+>  		trace_cpu_idle(PWR_EVENT_EXIT, smp_processor_id());
+>  	}
+> +	local_irq_enable();
+> +	instrumentation_end();
+>  }
+>  
+>  static int call_cpuidle_s2idle(struct cpuidle_driver *drv,
+> --- a/kernel/time/tick-broadcast.c
+> +++ b/kernel/time/tick-broadcast.c
+> @@ -622,9 +622,13 @@ struct cpumask *tick_get_broadcast_onesh
+>   * to avoid a deep idle transition as we are about to get the
+>   * broadcast IPI right away.
+>   */
+> -int tick_check_broadcast_expired(void)
+> +noinstr int tick_check_broadcast_expired(void)
+>  {
+> +#ifdef _ASM_GENERIC_BITOPS_INSTRUMENTED_NON_ATOMIC_H
+> +	return arch_test_bit(smp_processor_id(), cpumask_bits(tick_broadcast_force_mask));
+> +#else
+>  	return cpumask_test_cpu(smp_processor_id(), tick_broadcast_force_mask);
+> +#endif
+>  }
+>  
+>  /*
+> 
+> 
