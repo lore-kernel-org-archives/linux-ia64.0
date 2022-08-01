@@ -1,98 +1,158 @@
-From: Sergei Trofimovich <slyich@gmail.com>
-Date: Sat, 20 Aug 2022 18:18:13 +0000
-Subject: [PATCH v2] ia64: fix clock_getres(CLOCK_MONOTONIC) to report ITC frequency
-Message-Id: <20220820181813.2275195-1-slyich@gmail.com>
+From: Baoquan He <bhe@redhat.com>
+Date: Mon, 01 Aug 2022 14:40:24 +0000
+Subject: [PATCH 06/11] ia64: mm: Convert to GENERIC_IOREMAP
+Message-Id: <20220801144029.57829-7-bhe@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220820191751.26b125af@nz>
-In-Reply-To: <20220820191751.26b125af@nz>
+References: <20220801144029.57829-1-bhe@redhat.com>
+In-Reply-To: <20220801144029.57829-1-bhe@redhat.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-kernel@vger.kernel.org, Sergei Trofimovich <slyich@gmail.com>, =?UTF-8?q?=C3=89meric=20Maschino?= <emeric.maschino@gmail.com>, linux-ia64@vger.kernel.org, matoro <matoro_mailinglist_kernel@matoro.tk>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org
+Cc: linux-mm@kvack.org, akpm@linux-foundation.org, hch@infradead.org, wangkefeng.wang@huawei.com, linux-arm-kernel@lists.infradead.org, Baoquan He <bhe@redhat.com>, linux-ia64@vger.kernel.org
 
-clock_gettime(CLOCK_MONOTONIC, &tp) is very precise on ia64 as it uses
-ITC (similar to rdtsc on x86). It's not quite a hrtimer as it is a few
-times slower than 1ns. Usually 2-3ns.
+Add hooks ioremap_allowed() and iounmap_allowed() for ia64's special
+operation when ioremap() and iounmap(), then ioremap_cache() is
+converted to use ioremap_prot() from GENERIC_IOREMAP.
 
-clock_getres(CLOCK_MONOTONIC, &res) never reflected that fact and
-reported 0.04s precision (1/HZ value).
+The old ioremap_uc() is kept and add its macro definittion.
 
-In https://bugs.gentoo.org/596382 gstreamer's test suite failed loudly
-when it noticed precision discrepancy.
-
-Before the change:
-
-    clock_getres(CLOCK_MONOTONIC, &res) reported 250Hz precision.
-
-After the change:
-
-    clock_getres(CLOCK_MONOTONIC, &res) reports ITC (400Mhz) precision.
-
-The patch is based on matoro's fix. I added a bit of explanation why we
-need to special-case arch-specific clock_getres().
-
-CC: Émeric Maschino <emeric.maschino@gmail.com>
-CC: linux-ia64@vger.kernel.org
-CC: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: matoro <matoro_mailinglist_kernel@matoro.tk>
-Signed-off-by: Sergei Trofimovich <slyich@gmail.com>
+Signed-off-by: Baoquan He <bhe@redhat.com>
+Cc: linux-ia64@vger.kernel.org
 ---
-Change since v1:
-- No code or in-code comment change
-- CCed Émeric
-- Added matoro's S-O-B the way matoro comfortable with
-- Fixed Subject typo s/clock_getre/clock_getres/
- arch/ia64/kernel/sys_ia64.c           | 26 ++++++++++++++++++++++++++
- arch/ia64/kernel/syscalls/syscall.tbl |  2 +-
- 2 files changed, 27 insertions(+), 1 deletion(-)
+ arch/ia64/Kconfig          |  1 +
+ arch/ia64/include/asm/io.h | 26 ++++++++++++--------
+ arch/ia64/mm/ioremap.c     | 50 +++++++++-----------------------------
+ 3 files changed, 28 insertions(+), 49 deletions(-)
 
-diff --git a/arch/ia64/kernel/sys_ia64.c b/arch/ia64/kernel/sys_ia64.c
-index e14db25146c2..d5d47eb4608e 100644
---- a/arch/ia64/kernel/sys_ia64.c
-+++ b/arch/ia64/kernel/sys_ia64.c
-@@ -166,3 +166,29 @@ ia64_mremap (unsigned long addr, unsigned long old_len, unsigned long new_len, u
- 		force_successful_syscall_return();
- 	return addr;
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index cb93769a9f2a..075ffe27dee5 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -46,6 +46,7 @@ config IA64
+ 	select GENERIC_IRQ_LEGACY
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+ 	select GENERIC_IOMAP
++	select GENERIC_IOREMAP
+ 	select GENERIC_SMP_IDLE_THREAD
+ 	select ARCH_TASK_STRUCT_ON_STACK
+ 	select ARCH_TASK_STRUCT_ALLOCATOR
+diff --git a/arch/ia64/include/asm/io.h b/arch/ia64/include/asm/io.h
+index 6d93b923b379..a972dc284bbb 100644
+--- a/arch/ia64/include/asm/io.h
++++ b/arch/ia64/include/asm/io.h
+@@ -255,17 +255,23 @@ static inline void outsl(unsigned long port, const void *src,
+ 
+ # ifdef __KERNEL__
+ 
+-extern void __iomem * ioremap(unsigned long offset, unsigned long size);
+-extern void __iomem * ioremap_uc(unsigned long offset, unsigned long size);
+-extern void iounmap (volatile void __iomem *addr);
+-static inline void __iomem * ioremap_cache (unsigned long phys_addr, unsigned long size)
+-{
+-	return ioremap(phys_addr, size);
+-}
+-#define ioremap ioremap
+-#define ioremap_cache ioremap_cache
++/*
++ * I/O memory mapping functions.
++ */
++void __iomem *
++ioremap_allowed(phys_addr_t *paddr, size_t size, unsigned long *prot_val);
++#define ioremap_allowed ioremap_allowed
++
++int iounmap_allowed(void *addr);
++#define iounmap_allowed iounmap_allowed
++
++#define _PAGE_IOREMAP pgprot_val(PAGE_KERNEL)
++
++#define ioremap_cache(addr, size)  \
++	ioremap_prot((addr), (size), pgprot_val(PAGE_KERNEL))
++
++void __iomem *ioremap_uc(unsigned long offset, unsigned long size);
+ #define ioremap_uc ioremap_uc
+-#define iounmap iounmap
+ 
+ /*
+  * String version of IO memory access ops:
+diff --git a/arch/ia64/mm/ioremap.c b/arch/ia64/mm/ioremap.c
+index 55fd3eb753ff..75c995e9442f 100644
+--- a/arch/ia64/mm/ioremap.c
++++ b/arch/ia64/mm/ioremap.c
+@@ -30,15 +30,12 @@ early_ioremap (unsigned long phys_addr, unsigned long size)
  }
+ 
+ void __iomem *
+-ioremap (unsigned long phys_addr, unsigned long size)
++ioremap_allowed(phys_addr_t *paddr, size_t size, unsigned long *prot_val)
+ {
+-	void __iomem *addr;
+-	struct vm_struct *area;
+-	unsigned long offset;
+-	pgprot_t prot;
+-	u64 attr;
++	phys_addr_t phys_addr = *paddr;
+ 	unsigned long gran_base, gran_size;
+ 	unsigned long page_base;
++	u64 attr;
+ 
+ 	/*
+ 	 * For things in kern_memmap, we must use the same attribute
+@@ -69,35 +66,18 @@ ioremap (unsigned long phys_addr, unsigned long size)
+ 	page_base = phys_addr & PAGE_MASK;
+ 	size = PAGE_ALIGN(phys_addr + size) - page_base;
+ 	if (efi_mem_attribute(page_base, size) & EFI_MEMORY_WB) {
+-		prot = PAGE_KERNEL;
+-
+-		/*
+-		 * Mappings have to be page-aligned
+-		 */
+-		offset = phys_addr & ~PAGE_MASK;
+-		phys_addr &= PAGE_MASK;
+-
+-		/*
+-		 * Ok, go for it..
+-		 */
+-		area = get_vm_area(size, VM_IOREMAP);
+-		if (!area)
+-			return NULL;
+-
+-		area->phys_addr = phys_addr;
+-		addr = (void __iomem *) area->addr;
+-		if (ioremap_page_range((unsigned long) addr,
+-				(unsigned long) addr + size, phys_addr, prot)) {
+-			vunmap((void __force *) addr);
+-			return NULL;
+-		}
+-
+-		return (void __iomem *) (offset + (char __iomem *)addr);
++		return NULL;
+ 	}
+ 
+ 	return __ioremap_uc(phys_addr);
+ }
+-EXPORT_SYMBOL(ioremap);
 +
-+asmlinkage long
-+ia64_clock_getres(const clockid_t which_clock, struct __kernel_timespec __user *tp)
++int iounmap_allowed(void __iomem *addr)
 +{
-+	/*
-+	 * ia64's clock_gettime() syscall is implemented as a vdso call
-+	 * fsys_clock_gettime(). Currently it handles only
-+	 * CLOCK_REALTIME and CLOCK_MONOTONIC. Both are based on
-+	 * 'ar.itc' counter which gets incremented at a constant
-+	 * frequency. It's usually 400MHz, ~2.5x times slower than CPU
-+	 * clock frequency. Which is almost a 1ns hrtimer, but not quite.
-+	 *
-+	 * Let's special-case these timers to report correct precision
-+	 * based on ITC frequency and not HZ frequency for supported
-+	 * clocks.
-+	 */
-+	switch (which_clock) {
-+		case CLOCK_REALTIME:
-+		case CLOCK_MONOTONIC:
-+			s64 tick_ns = DIV_ROUND_UP(NSEC_PER_SEC, local_cpu_data->itc_freq);
-+			struct timespec64 rtn_tp = ns_to_timespec64(tick_ns);
-+			return put_timespec64(&rtn_tp, tp);
-+	}
-+
-+	return sys_clock_getres(which_clock, tp);
++	if (REGION_NUMBER(addr) != RGN_GATE)
++		return -EINVAL;
++	return 0;
 +}
-diff --git a/arch/ia64/kernel/syscalls/syscall.tbl b/arch/ia64/kernel/syscalls/syscall.tbl
-index 78b1d03e86e1..72c929d9902b 100644
---- a/arch/ia64/kernel/syscalls/syscall.tbl
-+++ b/arch/ia64/kernel/syscalls/syscall.tbl
-@@ -240,7 +240,7 @@
- 228	common	timer_delete			sys_timer_delete
- 229	common	clock_settime			sys_clock_settime
- 230	common	clock_gettime			sys_clock_gettime
--231	common	clock_getres			sys_clock_getres
-+231	common	clock_getres			ia64_clock_getres
- 232	common	clock_nanosleep			sys_clock_nanosleep
- 233	common	fstatfs64			sys_fstatfs64
- 234	common	statfs64			sys_statfs64
+ 
+ void __iomem *
+ ioremap_uc(unsigned long phys_addr, unsigned long size)
+@@ -113,11 +93,3 @@ void
+ early_iounmap (volatile void __iomem *addr, unsigned long size)
+ {
+ }
+-
+-void
+-iounmap (volatile void __iomem *addr)
+-{
+-	if (REGION_NUMBER(addr) = RGN_GATE)
+-		vunmap((void *) ((unsigned long) addr & PAGE_MASK));
+-}
+-EXPORT_SYMBOL(iounmap);
 -- 
-2.37.1
+2.34.1
