@@ -1,323 +1,401 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Mon, 11 Jul 2022 07:17:55 +0000
-Subject: [PATCH V7 21/26] m68k/mm: Enable ARCH_HAS_VM_GET_PAGE_PROT
-Message-Id: <20220711070600.2378316-22-anshuman.khandual@arm.com>
+From: Zi Yan <zi.yan@sent.com>
+Date: Mon, 15 Aug 2022 14:39:59 +0000
+Subject: [PATCH] arch: mm: rename FORCE_MAX_ZONEORDER to ARCH_FORCE_MAX_ORDER
+Message-Id: <20220815143959.1511278-1-zi.yan@sent.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220711070600.2378316-1-anshuman.khandual@arm.com>
-In-Reply-To: <20220711070600.2378316-1-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, akpm@linux-foundation.org
-Cc: hch@infradead.org, christophe.leroy@csgroup.eu, Anshuman Khandual <anshuman.khandual@arm.com>, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org, openrisc@lists.librecores.org, linux-xtensa@linux-xtensa.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-um@lists.infradead.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Geert Uytterhoeven <geert@linux-m68k.org>
+To: linux-mm@kvack.org
+Cc: Zi Yan <ziy@nvidia.com>, David Hildenbrand <david@redhat.com>, Matthew Wilcox <willy@infradead.org>, Vlastimil Babka <vbabka@suse.cz>, "Kirill A . Shutemov" <kirill.shutemov@linux.intel.com>, Mike Kravetz <mike.kravetz@oracle.com>, John Hubbard <jhubbard@nvidia.com>, Yang Shi <shy828301@gmail.com>, David Rientjes <rientjes@google.com>, James Houghton <jthoughton@google.com>, Mike Rapoport <rppt@kernel.org>, linux-kernel@vger.kernel.org, Mike Rapoport <rppt@linux.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Shawn Guo <shawnguo@kernel.org>, Taichi Sugaya <sugaya.taichi@socionext.com>, Neil Armstrong <narmstrong@baylibre.com>, Qin Jian <qinjian@cqplus1.com>, Catalin Marinas <catalin.marinas@arm.com>, Guo Ren <guoren@kernel.org>, Huacai Chen <chenhuacai@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Dinh Nguyen <dinguyen@kernel.org>, Christophe Leroy <christophe.leroy@csgroup.eu>, Yoshinori Sato <ysato@users.sourceforge.jp>, "David S. Miller" <davem@davemloft.net>, Chris Zankel <chris@zankel.net>, Arnd Bergmann <arnd@arndb.de>, Ley Foon Tan <ley.foon.tan@intel.com>, Andrew Morton <akpm@linux-foundation.org>, NXP Linux Team <linux-imx@nxp.com>, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-oxnas@groups.io, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org
 
-This enables ARCH_HAS_VM_GET_PAGE_PROT on the platform and exports standard
-vm_get_page_prot() implementation via DECLARE_VM_GET_PAGE_PROT, which looks
-up a private and static protection_map[] array. Subsequently all __SXXX and
-__PXXX macros can be dropped which are no longer needed.
+From: Zi Yan <ziy@nvidia.com>
 
+This Kconfig option is used by individual arch to set its desired
+MAX_ORDER. Rename it to reflect its actual use.
+
+Acked-by: Mike Rapoport <rppt@linux.ibm.com>
+Signed-off-by: Zi Yan <ziy@nvidia.com>
+Cc: Vineet Gupta <vgupta@synopsys.com>
+Cc: Shawn Guo <shawnguo@kernel.org>
+Cc: Taichi Sugaya <sugaya.taichi@socionext.com>
+Cc: Neil Armstrong <narmstrong@baylibre.com>
+Cc: Qin Jian <qinjian@cqplus1.com>
+Cc: Catalin Marinas <catalin.marinas@arm.com>
+Cc: Guo Ren <guoren@kernel.org>
+Cc: Huacai Chen <chenhuacai@kernel.org>
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>
 Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+Cc: Dinh Nguyen <dinguyen@kernel.org>
+Cc: Christophe Leroy <christophe.leroy@csgroup.eu>
+Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Chris Zankel <chris@zankel.net>
+Cc: Arnd Bergmann <arnd@arndb.de>
+Cc: Ley Foon Tan <ley.foon.tan@intel.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: NXP Linux Team <linux-imx@nxp.com>
+Cc: linux-snps-arc@lists.infradead.org
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linux-oxnas@groups.io
+Cc: linux-csky@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org
+Cc: loongarch@lists.linux.dev
 Cc: linux-m68k@lists.linux-m68k.org
+Cc: linux-mips@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-sh@vger.kernel.org
+Cc: sparclinux@vger.kernel.org
+Cc: linux-xtensa@linux-xtensa.org
+Cc: linux-mm@kvack.org
 Cc: linux-kernel@vger.kernel.org
-Reviewed-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
- arch/m68k/Kconfig                        |  1 +
- arch/m68k/include/asm/mcf_pgtable.h      | 59 ------------------------
- arch/m68k/include/asm/motorola_pgtable.h | 29 ------------
- arch/m68k/include/asm/sun3_pgtable.h     | 23 ---------
- arch/m68k/mm/mcfmmu.c                    | 55 ++++++++++++++++++++++
- arch/m68k/mm/motorola.c                  | 29 ++++++++++++
- arch/m68k/mm/sun3mmu.c                   | 20 ++++++++
- 7 files changed, 105 insertions(+), 111 deletions(-)
+ arch/arc/Kconfig                             | 2 +-
+ arch/arm/Kconfig                             | 2 +-
+ arch/arm/configs/imx_v6_v7_defconfig         | 2 +-
+ arch/arm/configs/milbeaut_m10v_defconfig     | 2 +-
+ arch/arm/configs/oxnas_v6_defconfig          | 2 +-
+ arch/arm/configs/pxa_defconfig               | 2 +-
+ arch/arm/configs/sama7_defconfig             | 2 +-
+ arch/arm/configs/sp7021_defconfig            | 2 +-
+ arch/arm64/Kconfig                           | 2 +-
+ arch/csky/Kconfig                            | 2 +-
+ arch/ia64/Kconfig                            | 2 +-
+ arch/ia64/include/asm/sparsemem.h            | 6 +++---
+ arch/loongarch/Kconfig                       | 2 +-
+ arch/m68k/Kconfig.cpu                        | 2 +-
+ arch/mips/Kconfig                            | 2 +-
+ arch/nios2/Kconfig                           | 2 +-
+ arch/powerpc/Kconfig                         | 2 +-
+ arch/powerpc/configs/85xx/ge_imp3a_defconfig | 2 +-
+ arch/powerpc/configs/fsl-emb-nonhw.config    | 2 +-
+ arch/sh/configs/ecovec24_defconfig           | 2 +-
+ arch/sh/mm/Kconfig                           | 2 +-
+ arch/sparc/Kconfig                           | 2 +-
+ arch/xtensa/Kconfig                          | 2 +-
+ include/linux/mmzone.h                       | 4 ++--
+ 24 files changed, 27 insertions(+), 27 deletions(-)
 
-diff --git a/arch/m68k/Kconfig b/arch/m68k/Kconfig
-index 936cce42ae9a..49aa0cf13e96 100644
---- a/arch/m68k/Kconfig
-+++ b/arch/m68k/Kconfig
-@@ -7,6 +7,7 @@ config M68K
- 	select ARCH_HAS_CURRENT_STACK_POINTER
- 	select ARCH_HAS_DMA_PREP_COHERENT if HAS_DMA && MMU && !COLDFIRE
- 	select ARCH_HAS_SYNC_DMA_FOR_DEVICE if HAS_DMA
-+	select ARCH_HAS_VM_GET_PAGE_PROT
- 	select ARCH_HAVE_NMI_SAFE_CMPXCHG if RMW_INSNS
- 	select ARCH_MIGHT_HAVE_PC_PARPORT if ISA
- 	select ARCH_NO_PREEMPT if !COLDFIRE
-diff --git a/arch/m68k/include/asm/mcf_pgtable.h b/arch/m68k/include/asm/mcf_pgtable.h
-index 94f38d76e278..b619b22823f8 100644
---- a/arch/m68k/include/asm/mcf_pgtable.h
-+++ b/arch/m68k/include/asm/mcf_pgtable.h
-@@ -86,65 +86,6 @@
- 				 | CF_PAGE_READABLE \
- 				 | CF_PAGE_DIRTY)
+diff --git a/arch/arc/Kconfig b/arch/arc/Kconfig
+index 9e3653253ef2..d9a13ccf89a3 100644
+--- a/arch/arc/Kconfig
++++ b/arch/arc/Kconfig
+@@ -554,7 +554,7 @@ config ARC_BUILTIN_DTB_NAME
  
--/*
-- * Page protections for initialising protection_map. See mm/mmap.c
-- * for use. In general, the bit positions are xwr, and P-items are
-- * private, the S-items are shared.
-- */
--#define __P000		PAGE_NONE
--#define __P001		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_READABLE)
--#define __P010		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_WRITABLE)
--#define __P011		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_READABLE \
--				 | CF_PAGE_WRITABLE)
--#define __P100		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_EXEC)
--#define __P101		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_READABLE \
--				 | CF_PAGE_EXEC)
--#define __P110		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_WRITABLE \
--				 | CF_PAGE_EXEC)
--#define __P111		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_READABLE \
--				 | CF_PAGE_WRITABLE \
--				 | CF_PAGE_EXEC)
--
--#define __S000		PAGE_NONE
--#define __S001		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_READABLE)
--#define __S010		PAGE_SHARED
--#define __S011		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_SHARED \
--				 | CF_PAGE_READABLE)
--#define __S100		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_EXEC)
--#define __S101		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_READABLE \
--				 | CF_PAGE_EXEC)
--#define __S110		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_SHARED \
--				 | CF_PAGE_EXEC)
--#define __S111		__pgprot(CF_PAGE_VALID \
--				 | CF_PAGE_ACCESSED \
--				 | CF_PAGE_SHARED \
--				 | CF_PAGE_READABLE \
--				 | CF_PAGE_EXEC)
--
- #define PTE_MASK	PAGE_MASK
- #define CF_PAGE_CHG_MASK (PTE_MASK | CF_PAGE_ACCESSED | CF_PAGE_DIRTY)
+ endmenu	 # "ARC Architecture Configuration"
  
-diff --git a/arch/m68k/include/asm/motorola_pgtable.h b/arch/m68k/include/asm/motorola_pgtable.h
-index 7c9b56e2a750..7ac3d64c6b33 100644
---- a/arch/m68k/include/asm/motorola_pgtable.h
-+++ b/arch/m68k/include/asm/motorola_pgtable.h
-@@ -76,35 +76,6 @@ extern unsigned long mm_cachebits;
- #define PAGE_READONLY	__pgprot(_PAGE_PRESENT | _PAGE_RONLY | _PAGE_ACCESSED | mm_cachebits)
- #define PAGE_KERNEL	__pgprot(_PAGE_PRESENT | _PAGE_DIRTY | _PAGE_ACCESSED | mm_cachebits)
+-config FORCE_MAX_ZONEORDER
++config ARCH_FORCE_MAX_ORDER
+ 	int "Maximum zone order"
+ 	default "12" if ARC_HUGEPAGE_16M
+ 	default "11"
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index 87badeae3181..e6c8ee56ac52 100644
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -1434,7 +1434,7 @@ config ARM_MODULE_PLTS
+ 	  Disabling this is usually safe for small single-platform
+ 	  configurations. If unsure, say y.
  
--/* Alternate definitions that are compile time constants, for
--   initializing protection_map.  The cachebits are fixed later.  */
--#define PAGE_NONE_C	__pgprot(_PAGE_PROTNONE | _PAGE_ACCESSED)
--#define PAGE_SHARED_C	__pgprot(_PAGE_PRESENT | _PAGE_ACCESSED)
--#define PAGE_COPY_C	__pgprot(_PAGE_PRESENT | _PAGE_RONLY | _PAGE_ACCESSED)
--#define PAGE_READONLY_C	__pgprot(_PAGE_PRESENT | _PAGE_RONLY | _PAGE_ACCESSED)
--
--/*
-- * The m68k can't do page protection for execute, and considers that the same are read.
-- * Also, write permissions imply read permissions. This is the closest we can get..
-- */
--#define __P000	PAGE_NONE_C
--#define __P001	PAGE_READONLY_C
--#define __P010	PAGE_COPY_C
--#define __P011	PAGE_COPY_C
--#define __P100	PAGE_READONLY_C
--#define __P101	PAGE_READONLY_C
--#define __P110	PAGE_COPY_C
--#define __P111	PAGE_COPY_C
--
--#define __S000	PAGE_NONE_C
--#define __S001	PAGE_READONLY_C
--#define __S010	PAGE_SHARED_C
--#define __S011	PAGE_SHARED_C
--#define __S100	PAGE_READONLY_C
--#define __S101	PAGE_READONLY_C
--#define __S110	PAGE_SHARED_C
--#define __S111	PAGE_SHARED_C
--
- #define pmd_pgtable(pmd) ((pgtable_t)pmd_page_vaddr(pmd))
+-config FORCE_MAX_ZONEORDER
++config ARCH_FORCE_MAX_ORDER
+ 	int "Maximum zone order"
+ 	default "12" if SOC_AM33XX
+ 	default "9" if SA1111
+diff --git a/arch/arm/configs/imx_v6_v7_defconfig b/arch/arm/configs/imx_v6_v7_defconfig
+index 01012537a9b9..fb283059daa0 100644
+--- a/arch/arm/configs/imx_v6_v7_defconfig
++++ b/arch/arm/configs/imx_v6_v7_defconfig
+@@ -31,7 +31,7 @@ CONFIG_SOC_VF610=y
+ CONFIG_SMP=y
+ CONFIG_ARM_PSCI=y
+ CONFIG_HIGHMEM=y
+-CONFIG_FORCE_MAX_ZONEORDER=14
++CONFIG_ARCH_FORCE_MAX_ORDER=14
+ CONFIG_CMDLINE="noinitrd console=ttymxc0,115200"
+ CONFIG_KEXEC=y
+ CONFIG_CPU_FREQ=y
+diff --git a/arch/arm/configs/milbeaut_m10v_defconfig b/arch/arm/configs/milbeaut_m10v_defconfig
+index 58810e98de3d..8620061e19a8 100644
+--- a/arch/arm/configs/milbeaut_m10v_defconfig
++++ b/arch/arm/configs/milbeaut_m10v_defconfig
+@@ -26,7 +26,7 @@ CONFIG_THUMB2_KERNEL=y
+ # CONFIG_THUMB2_AVOID_R_ARM_THM_JUMP11 is not set
+ # CONFIG_ARM_PATCH_IDIV is not set
+ CONFIG_HIGHMEM=y
+-CONFIG_FORCE_MAX_ZONEORDER=12
++CONFIG_ARCH_FORCE_MAX_ORDER=12
+ CONFIG_SECCOMP=y
+ CONFIG_KEXEC=y
+ CONFIG_EFI=y
+diff --git a/arch/arm/configs/oxnas_v6_defconfig b/arch/arm/configs/oxnas_v6_defconfig
+index 600f78b363dd..5c163a9d1429 100644
+--- a/arch/arm/configs/oxnas_v6_defconfig
++++ b/arch/arm/configs/oxnas_v6_defconfig
+@@ -12,7 +12,7 @@ CONFIG_ARCH_OXNAS=y
+ CONFIG_MACH_OX820=y
+ CONFIG_SMP=y
+ CONFIG_NR_CPUS=16
+-CONFIG_FORCE_MAX_ZONEORDER=12
++CONFIG_ARCH_FORCE_MAX_ORDER=12
+ CONFIG_SECCOMP=y
+ CONFIG_ARM_APPENDED_DTB=y
+ CONFIG_ARM_ATAG_DTB_COMPAT=y
+diff --git a/arch/arm/configs/pxa_defconfig b/arch/arm/configs/pxa_defconfig
+index 104a45722799..ce3f4ed50498 100644
+--- a/arch/arm/configs/pxa_defconfig
++++ b/arch/arm/configs/pxa_defconfig
+@@ -21,7 +21,7 @@ CONFIG_MACH_AKITA=y
+ CONFIG_MACH_BORZOI=y
+ CONFIG_PXA_SYSTEMS_CPLDS=y
+ CONFIG_AEABI=y
+-CONFIG_FORCE_MAX_ZONEORDER=9
++CONFIG_ARCH_FORCE_MAX_ORDER=9
+ CONFIG_CMDLINE="root=/dev/ram0 ro"
+ CONFIG_KEXEC=y
+ CONFIG_CPU_FREQ=y
+diff --git a/arch/arm/configs/sama7_defconfig b/arch/arm/configs/sama7_defconfig
+index 0384030d8b25..8b2cf6ddd568 100644
+--- a/arch/arm/configs/sama7_defconfig
++++ b/arch/arm/configs/sama7_defconfig
+@@ -19,7 +19,7 @@ CONFIG_ATMEL_CLOCKSOURCE_TCB=y
+ # CONFIG_CACHE_L2X0 is not set
+ # CONFIG_ARM_PATCH_IDIV is not set
+ # CONFIG_CPU_SW_DOMAIN_PAN is not set
+-CONFIG_FORCE_MAX_ZONEORDER=15
++CONFIG_ARCH_FORCE_MAX_ORDER=15
+ CONFIG_UACCESS_WITH_MEMCPY=y
+ # CONFIG_ATAGS is not set
+ CONFIG_CMDLINE="console=ttyS0,115200 earlyprintk ignore_loglevel"
+diff --git a/arch/arm/configs/sp7021_defconfig b/arch/arm/configs/sp7021_defconfig
+index 703b9aaa40f0..151ca8c47373 100644
+--- a/arch/arm/configs/sp7021_defconfig
++++ b/arch/arm/configs/sp7021_defconfig
+@@ -18,7 +18,7 @@ CONFIG_ARCH_SUNPLUS=y
+ # CONFIG_VDSO is not set
+ CONFIG_SMP=y
+ CONFIG_THUMB2_KERNEL=y
+-CONFIG_FORCE_MAX_ZONEORDER=12
++CONFIG_ARCH_FORCE_MAX_ORDER=12
+ CONFIG_VFP=y
+ CONFIG_NEON=y
+ CONFIG_MODULES=y
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index 571cc234d0b3..c6fcd8746f60 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -1401,7 +1401,7 @@ config XEN
+ 	help
+ 	  Say Y if you want to run Linux in a Virtual Machine on Xen on ARM64.
  
- /*
-diff --git a/arch/m68k/include/asm/sun3_pgtable.h b/arch/m68k/include/asm/sun3_pgtable.h
-index 5e4e753f0d24..90d57e537eb1 100644
---- a/arch/m68k/include/asm/sun3_pgtable.h
-+++ b/arch/m68k/include/asm/sun3_pgtable.h
-@@ -66,29 +66,6 @@
- 				 | SUN3_PAGE_SYSTEM \
- 				 | SUN3_PAGE_NOCACHE)
+-config FORCE_MAX_ZONEORDER
++config ARCH_FORCE_MAX_ORDER
+ 	int
+ 	default "14" if ARM64_64K_PAGES
+ 	default "12" if ARM64_16K_PAGES
+diff --git a/arch/csky/Kconfig b/arch/csky/Kconfig
+index 3cbc2dc62baf..adee6ab36862 100644
+--- a/arch/csky/Kconfig
++++ b/arch/csky/Kconfig
+@@ -332,7 +332,7 @@ config HIGHMEM
+ 	select KMAP_LOCAL
+ 	default y
  
--/*
-- * Page protections for initialising protection_map. The sun3 has only two
-- * protection settings, valid (implying read and execute) and writeable. These
-- * are as close as we can get...
-- */
--#define __P000	PAGE_NONE
--#define __P001	PAGE_READONLY
--#define __P010	PAGE_COPY
--#define __P011	PAGE_COPY
--#define __P100	PAGE_READONLY
--#define __P101	PAGE_READONLY
--#define __P110	PAGE_COPY
--#define __P111	PAGE_COPY
--
--#define __S000	PAGE_NONE
--#define __S001	PAGE_READONLY
--#define __S010	PAGE_SHARED
--#define __S011	PAGE_SHARED
--#define __S100	PAGE_READONLY
--#define __S101	PAGE_READONLY
--#define __S110	PAGE_SHARED
--#define __S111	PAGE_SHARED
--
- /* Use these fake page-protections on PMDs. */
- #define SUN3_PMD_VALID	(0x00000001)
- #define SUN3_PMD_MASK	(0x0000003F)
-diff --git a/arch/m68k/mm/mcfmmu.c b/arch/m68k/mm/mcfmmu.c
-index 6f1f25125294..70aa0979e027 100644
---- a/arch/m68k/mm/mcfmmu.c
-+++ b/arch/m68k/mm/mcfmmu.c
-@@ -234,3 +234,58 @@ void steal_context(void)
- 	destroy_context(mm);
- }
+-config FORCE_MAX_ZONEORDER
++config ARCH_FORCE_MAX_ORDER
+ 	int "Maximum zone order"
+ 	default "11"
  
-+static const pgprot_t protection_map[16] = {
-+	[VM_NONE]					= PAGE_NONE,
-+	[VM_READ]					= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_READABLE),
-+	[VM_WRITE]					= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_WRITABLE),
-+	[VM_WRITE | VM_READ]				= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_READABLE |
-+								   CF_PAGE_WRITABLE),
-+	[VM_EXEC]					= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_EXEC),
-+	[VM_EXEC | VM_READ]				= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_READABLE |
-+								   CF_PAGE_EXEC),
-+	[VM_EXEC | VM_WRITE]				= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_WRITABLE |
-+								   CF_PAGE_EXEC),
-+	[VM_EXEC | VM_WRITE | VM_READ]			=  __pgprot(CF_PAGE_VALID |
-+								    CF_PAGE_ACCESSED |
-+								    CF_PAGE_READABLE |
-+								    CF_PAGE_WRITABLE |
-+								    CF_PAGE_EXEC),
-+	[VM_SHARED]					= PAGE_NONE,
-+	[VM_SHARED | VM_READ]				= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_READABLE),
-+	[VM_SHARED | VM_WRITE]				= PAGE_SHARED,
-+	[VM_SHARED | VM_WRITE | VM_READ]		= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_READABLE |
-+								   CF_PAGE_SHARED),
-+	[VM_SHARED | VM_EXEC]				= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_EXEC),
-+	[VM_SHARED | VM_EXEC | VM_READ]			= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_READABLE |
-+								   CF_PAGE_EXEC),
-+	[VM_SHARED | VM_EXEC | VM_WRITE]		= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_SHARED |
-+								   CF_PAGE_EXEC),
-+	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= __pgprot(CF_PAGE_VALID |
-+								   CF_PAGE_ACCESSED |
-+								   CF_PAGE_READABLE |
-+								   CF_PAGE_SHARED |
-+								   CF_PAGE_EXEC)
-+};
-+DECLARE_VM_GET_PAGE_PROT
-diff --git a/arch/m68k/mm/motorola.c b/arch/m68k/mm/motorola.c
-index df7f797c908a..2a375637e007 100644
---- a/arch/m68k/mm/motorola.c
-+++ b/arch/m68k/mm/motorola.c
-@@ -382,6 +382,35 @@ static void __init map_node(int node)
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 26ac8ea15a9e..c6e06cdc738f 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -200,7 +200,7 @@ config IA64_CYCLONE
+ 	  Say Y here to enable support for IBM EXA Cyclone time source.
+ 	  If you're unsure, answer N.
+ 
+-config FORCE_MAX_ZONEORDER
++config ARCH_FORCE_MAX_ORDER
+ 	int "MAX_ORDER (11 - 17)"  if !HUGETLB_PAGE
+ 	range 11 17  if !HUGETLB_PAGE
+ 	default "17" if HUGETLB_PAGE
+diff --git a/arch/ia64/include/asm/sparsemem.h b/arch/ia64/include/asm/sparsemem.h
+index 42ed5248fae9..84e8ce387b69 100644
+--- a/arch/ia64/include/asm/sparsemem.h
++++ b/arch/ia64/include/asm/sparsemem.h
+@@ -11,10 +11,10 @@
+ 
+ #define SECTION_SIZE_BITS	(30)
+ #define MAX_PHYSMEM_BITS	(50)
+-#ifdef CONFIG_FORCE_MAX_ZONEORDER
+-#if ((CONFIG_FORCE_MAX_ZONEORDER - 1 + PAGE_SHIFT) > SECTION_SIZE_BITS)
++#ifdef CONFIG_ARCH_FORCE_MAX_ORDER
++#if ((CONFIG_ARCH_FORCE_MAX_ORDER - 1 + PAGE_SHIFT) > SECTION_SIZE_BITS)
+ #undef SECTION_SIZE_BITS
+-#define SECTION_SIZE_BITS (CONFIG_FORCE_MAX_ZONEORDER - 1 + PAGE_SHIFT)
++#define SECTION_SIZE_BITS (CONFIG_ARCH_FORCE_MAX_ORDER - 1 + PAGE_SHIFT)
  #endif
- }
+ #endif
  
-+/*
-+ * Alternate definitions that are compile time constants, for
-+ * initializing protection_map.  The cachebits are fixed later.
-+ */
-+#define PAGE_NONE_C	__pgprot(_PAGE_PROTNONE | _PAGE_ACCESSED)
-+#define PAGE_SHARED_C	__pgprot(_PAGE_PRESENT | _PAGE_ACCESSED)
-+#define PAGE_COPY_C	__pgprot(_PAGE_PRESENT | _PAGE_RONLY | _PAGE_ACCESSED)
-+#define PAGE_READONLY_C	__pgprot(_PAGE_PRESENT | _PAGE_RONLY | _PAGE_ACCESSED)
-+
-+static pgprot_t protection_map[16] __ro_after_init = {
-+	[VM_NONE]					= PAGE_NONE_C,
-+	[VM_READ]					= PAGE_READONLY_C,
-+	[VM_WRITE]					= PAGE_COPY_C,
-+	[VM_WRITE | VM_READ]				= PAGE_COPY_C,
-+	[VM_EXEC]					= PAGE_READONLY_C,
-+	[VM_EXEC | VM_READ]				= PAGE_READONLY_C,
-+	[VM_EXEC | VM_WRITE]				= PAGE_COPY_C,
-+	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_COPY_C,
-+	[VM_SHARED]					= PAGE_NONE_C,
-+	[VM_SHARED | VM_READ]				= PAGE_READONLY_C,
-+	[VM_SHARED | VM_WRITE]				= PAGE_SHARED_C,
-+	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_SHARED_C,
-+	[VM_SHARED | VM_EXEC]				= PAGE_READONLY_C,
-+	[VM_SHARED | VM_EXEC | VM_READ]			= PAGE_READONLY_C,
-+	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_SHARED_C,
-+	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= PAGE_SHARED_C
-+};
-+DECLARE_VM_GET_PAGE_PROT
-+
- /*
-  * paging_init() continues the virtual memory environment setup which
-  * was begun by the code in arch/head.S.
-diff --git a/arch/m68k/mm/sun3mmu.c b/arch/m68k/mm/sun3mmu.c
-index dad494224497..b619d0d4319c 100644
---- a/arch/m68k/mm/sun3mmu.c
-+++ b/arch/m68k/mm/sun3mmu.c
-@@ -95,3 +95,23 @@ void __init paging_init(void)
+diff --git a/arch/loongarch/Kconfig b/arch/loongarch/Kconfig
+index 4abc9a28aba4..b5b19eea0e3e 100644
+--- a/arch/loongarch/Kconfig
++++ b/arch/loongarch/Kconfig
+@@ -369,7 +369,7 @@ config NODES_SHIFT
+ 	default "6"
+ 	depends on NUMA
  
+-config FORCE_MAX_ZONEORDER
++config ARCH_FORCE_MAX_ORDER
+ 	int "Maximum zone order"
+ 	range 14 64 if PAGE_SIZE_64KB
+ 	default "14" if PAGE_SIZE_64KB
+diff --git a/arch/m68k/Kconfig.cpu b/arch/m68k/Kconfig.cpu
+index e0e9e31339c1..3b2f39508524 100644
+--- a/arch/m68k/Kconfig.cpu
++++ b/arch/m68k/Kconfig.cpu
+@@ -399,7 +399,7 @@ config SINGLE_MEMORY_CHUNK
+ 	  order" to save memory that could be wasted for unused memory map.
+ 	  Say N if not sure.
  
- }
-+
-+static const pgprot_t protection_map[16] = {
-+	[VM_NONE]					= PAGE_NONE,
-+	[VM_READ]					= PAGE_READONLY,
-+	[VM_WRITE]					= PAGE_COPY,
-+	[VM_WRITE | VM_READ]				= PAGE_COPY,
-+	[VM_EXEC]					= PAGE_READONLY,
-+	[VM_EXEC | VM_READ]				= PAGE_READONLY,
-+	[VM_EXEC | VM_WRITE]				= PAGE_COPY,
-+	[VM_EXEC | VM_WRITE | VM_READ]			= PAGE_COPY,
-+	[VM_SHARED]					= PAGE_NONE,
-+	[VM_SHARED | VM_READ]				= PAGE_READONLY,
-+	[VM_SHARED | VM_WRITE]				= PAGE_SHARED,
-+	[VM_SHARED | VM_WRITE | VM_READ]		= PAGE_SHARED,
-+	[VM_SHARED | VM_EXEC]				= PAGE_READONLY,
-+	[VM_SHARED | VM_EXEC | VM_READ]			= PAGE_READONLY,
-+	[VM_SHARED | VM_EXEC | VM_WRITE]		= PAGE_SHARED,
-+	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= PAGE_SHARED
-+};
-+DECLARE_VM_GET_PAGE_PROT
+-config FORCE_MAX_ZONEORDER
++config ARCH_FORCE_MAX_ORDER
+ 	int "Maximum zone order" if ADVANCED
+ 	depends on !SINGLE_MEMORY_CHUNK
+ 	default "11"
+diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
+index ec21f8999249..70d28976a40d 100644
+--- a/arch/mips/Kconfig
++++ b/arch/mips/Kconfig
+@@ -2140,7 +2140,7 @@ config PAGE_SIZE_64KB
+ 
+ endchoice
+ 
+-config FORCE_MAX_ZONEORDER
++config ARCH_FORCE_MAX_ORDER
+ 	int "Maximum zone order"
+ 	range 14 64 if MIPS_HUGE_TLB_SUPPORT && PAGE_SIZE_64KB
+ 	default "14" if MIPS_HUGE_TLB_SUPPORT && PAGE_SIZE_64KB
+diff --git a/arch/nios2/Kconfig b/arch/nios2/Kconfig
+index 4167f1eb4cd8..a582f72104f3 100644
+--- a/arch/nios2/Kconfig
++++ b/arch/nios2/Kconfig
+@@ -44,7 +44,7 @@ menu "Kernel features"
+ 
+ source "kernel/Kconfig.hz"
+ 
+-config FORCE_MAX_ZONEORDER
++config ARCH_FORCE_MAX_ORDER
+ 	int "Maximum zone order"
+ 	range 9 20
+ 	default "11"
+diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
+index 4c466acdc70d..39d71d7701bd 100644
+--- a/arch/powerpc/Kconfig
++++ b/arch/powerpc/Kconfig
+@@ -845,7 +845,7 @@ config DATA_SHIFT
+ 	  in that case. If PIN_TLB is selected, it must be aligned to 8M as
+ 	  8M pages will be pinned.
+ 
+-config FORCE_MAX_ZONEORDER
++config ARCH_FORCE_MAX_ORDER
+ 	int "Maximum zone order"
+ 	range 8 9 if PPC64 && PPC_64K_PAGES
+ 	default "9" if PPC64 && PPC_64K_PAGES
+diff --git a/arch/powerpc/configs/85xx/ge_imp3a_defconfig b/arch/powerpc/configs/85xx/ge_imp3a_defconfig
+index f29c166998af..e7672c186325 100644
+--- a/arch/powerpc/configs/85xx/ge_imp3a_defconfig
++++ b/arch/powerpc/configs/85xx/ge_imp3a_defconfig
+@@ -30,7 +30,7 @@ CONFIG_PREEMPT=y
+ # CONFIG_CORE_DUMP_DEFAULT_ELF_HEADERS is not set
+ CONFIG_BINFMT_MISC=m
+ CONFIG_MATH_EMULATION=y
+-CONFIG_FORCE_MAX_ZONEORDER=17
++CONFIG_ARCH_FORCE_MAX_ORDER=17
+ CONFIG_PCI=y
+ CONFIG_PCIEPORTBUS=y
+ CONFIG_PCI_MSI=y
+diff --git a/arch/powerpc/configs/fsl-emb-nonhw.config b/arch/powerpc/configs/fsl-emb-nonhw.config
+index f14c6dbd7346..ab8a8c4530d9 100644
+--- a/arch/powerpc/configs/fsl-emb-nonhw.config
++++ b/arch/powerpc/configs/fsl-emb-nonhw.config
+@@ -41,7 +41,7 @@ CONFIG_FIXED_PHY=y
+ CONFIG_FONT_8x16=y
+ CONFIG_FONT_8x8=y
+ CONFIG_FONTS=y
+-CONFIG_FORCE_MAX_ZONEORDER=13
++CONFIG_ARCH_FORCE_MAX_ORDER=13
+ CONFIG_FRAMEBUFFER_CONSOLE=y
+ CONFIG_FRAME_WARN=1024
+ CONFIG_FTL=y
+diff --git a/arch/sh/configs/ecovec24_defconfig b/arch/sh/configs/ecovec24_defconfig
+index e699e2e04128..b52e14ccb450 100644
+--- a/arch/sh/configs/ecovec24_defconfig
++++ b/arch/sh/configs/ecovec24_defconfig
+@@ -8,7 +8,7 @@ CONFIG_MODULES=y
+ CONFIG_MODULE_UNLOAD=y
+ # CONFIG_BLK_DEV_BSG is not set
+ CONFIG_CPU_SUBTYPE_SH7724=y
+-CONFIG_FORCE_MAX_ZONEORDER=12
++CONFIG_ARCH_FORCE_MAX_ORDER=12
+ CONFIG_MEMORY_SIZE=0x10000000
+ CONFIG_FLATMEM_MANUAL=y
+ CONFIG_SH_ECOVEC=y
+diff --git a/arch/sh/mm/Kconfig b/arch/sh/mm/Kconfig
+index ba569cfb4368..411fdc0901f7 100644
+--- a/arch/sh/mm/Kconfig
++++ b/arch/sh/mm/Kconfig
+@@ -18,7 +18,7 @@ config PAGE_OFFSET
+ 	default "0x80000000" if MMU
+ 	default "0x00000000"
+ 
+-config FORCE_MAX_ZONEORDER
++config ARCH_FORCE_MAX_ORDER
+ 	int "Maximum zone order"
+ 	range 9 64 if PAGE_SIZE_16KB
+ 	default "9" if PAGE_SIZE_16KB
+diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
+index 1c852bb530ec..4d3d1af90d52 100644
+--- a/arch/sparc/Kconfig
++++ b/arch/sparc/Kconfig
+@@ -269,7 +269,7 @@ config ARCH_SPARSEMEM_ENABLE
+ config ARCH_SPARSEMEM_DEFAULT
+ 	def_bool y if SPARC64
+ 
+-config FORCE_MAX_ZONEORDER
++config ARCH_FORCE_MAX_ORDER
+ 	int "Maximum zone order"
+ 	default "13"
+ 	help
+diff --git a/arch/xtensa/Kconfig b/arch/xtensa/Kconfig
+index 12ac277282ba..bcb0c5d2abc2 100644
+--- a/arch/xtensa/Kconfig
++++ b/arch/xtensa/Kconfig
+@@ -771,7 +771,7 @@ config HIGHMEM
+ 
+ 	  If unsure, say Y.
+ 
+-config FORCE_MAX_ZONEORDER
++config ARCH_FORCE_MAX_ORDER
+ 	int "Maximum zone order"
+ 	default "11"
+ 	help
+diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
+index 025754b0bc09..fd61347b4b1f 100644
+--- a/include/linux/mmzone.h
++++ b/include/linux/mmzone.h
+@@ -24,10 +24,10 @@
+ #include <asm/page.h>
+ 
+ /* Free memory management - zoned buddy allocator.  */
+-#ifndef CONFIG_FORCE_MAX_ZONEORDER
++#ifndef CONFIG_ARCH_FORCE_MAX_ORDER
+ #define MAX_ORDER 11
+ #else
+-#define MAX_ORDER CONFIG_FORCE_MAX_ZONEORDER
++#define MAX_ORDER CONFIG_ARCH_FORCE_MAX_ORDER
+ #endif
+ #define MAX_ORDER_NR_PAGES (1 << (MAX_ORDER - 1))
+ 
 -- 
-2.25.1
+2.35.1
