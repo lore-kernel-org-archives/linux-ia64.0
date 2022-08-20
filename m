@@ -1,276 +1,98 @@
-From: Pingfan Liu <kernelfans@gmail.com>
-Date: Mon, 22 Aug 2022 02:15:13 +0000
-Subject: [RFC 03/10] cpu/hotplug: Introduce fast kexec reboot
-Message-Id: <20220822021520.6996-4-kernelfans@gmail.com>
+From: Sergei Trofimovich <slyich@gmail.com>
+Date: Sat, 20 Aug 2022 18:18:13 +0000
+Subject: [PATCH v2] ia64: fix clock_getres(CLOCK_MONOTONIC) to report ITC frequency
+Message-Id: <20220820181813.2275195-1-slyich@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220822021520.6996-1-kernelfans@gmail.com>
-In-Reply-To: <20220822021520.6996-1-kernelfans@gmail.com>
+References: <20220820191751.26b125af@nz>
+In-Reply-To: <20220820191751.26b125af@nz>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-riscv@lists.infradead.org, linux-kernel@vger.kernel.org
-Cc: Pingfan Liu <kernelfans@gmail.com>, Thomas Gleixner <tglx@linutronix.de>, Steven Price <steven.price@arm.com>, Kuppuswamy Sathyanarayanan <sathyanarayanan.kuppuswamy@linux.intel.com>, "Jason A. Donenfeld" <Jason@zx2c4.com>, Frederic Weisbecker <frederic@kernel.org>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Peter Zijlstra <peterz@infradead.org>, "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-kernel@vger.kernel.org, Sergei Trofimovich <slyich@gmail.com>, =?UTF-8?q?=C3=89meric=20Maschino?= <emeric.maschino@gmail.com>, linux-ia64@vger.kernel.org, matoro <matoro_mailinglist_kernel@matoro.tk>
 
-*** Current situation 'slow kexec reboot' ***
+clock_gettime(CLOCK_MONOTONIC, &tp) is very precise on ia64 as it uses
+ITC (similar to rdtsc on x86). It's not quite a hrtimer as it is a few
+times slower than 1ns. Usually 2-3ns.
 
-At present, some architectures rely on smp_shutdown_nonboot_cpus() to
-implement "kexec -e". Since smp_shutdown_nonboot_cpus() tears down the
-cpus serially, it is very slow.
+clock_getres(CLOCK_MONOTONIC, &res) never reflected that fact and
+reported 0.04s precision (1/HZ value).
 
-Take a close look, a cpu_down() processing on a single cpu can approximately be
-divided into two stages:
--1. from CPUHP_ONLINE to CPUHP_TEARDOWN_CPU
--2. from CPUHP_TEARDOWN_CPU to CPUHP_AP_IDLE_DEAD
-    which is by stop_machine_cpuslocked(take_cpu_down, NULL, cpumask_of(cpu));
-    and runs on the teardown cpu.
+In https://bugs.gentoo.org/596382 gstreamer's test suite failed loudly
+when it noticed precision discrepancy.
 
-If these processes can run in parallel, then, the reboot can be speeded
-up. That is the aim of this patch.
+Before the change:
 
-*** Contrast to other implements ***
+    clock_getres(CLOCK_MONOTONIC, &res) reported 250Hz precision.
 
-X86 and PowerPC have their own machine_shutdown(), which does not reply
-on the cpu hot-removing mechanism. They just discriminate some critical
-component and tears them down in per cpu NMI handler during the kexec
-reboot. But for some architectures, let's say arm64, it is not easy to define
-these critical component due to various chipmakers' implements.
+After the change:
 
-As a result, sticking to the cpu hot-removing mechanism is the simplest
-way to re-implement the parallel. It also renders an opportunity to
-implement the cpu_down() in parallel in future (not done by this series).
+    clock_getres(CLOCK_MONOTONIC, &res) reports ITC (400Mhz) precision.
 
-*** Things worthy of consideration ***
+The patch is based on matoro's fix. I added a bit of explanation why we
+need to special-case arch-specific clock_getres().
 
-1. The definition of a clean boundary between the first kernel and the new kernel
--1.1 firmware
-     The firmware's internal state should enter into a proper state.
-And this is achieved by the firmware's cpuhp_step's teardown interface
-if any.
-
--1.2 CPU internal
-     Whether the cache or PMU needs a clean shutdown before rebooting.
-
-2. The dependency of each cpuhp_step
-   The boundary of a clean cut involves only few cpuhp_step, but they
-may propagate to other cpuhp_step by the way of the dependency. This
-series does not bother to judge the dependency, instead, just iterate
-downside each cpuhp_step. And this stragegy demands that each cpuhp_step's
-teardown interface supports parallel.
-
-*** Solution ***
-
-Ideally, if the interface _cpu_down() can be enhanced to enable
-parallel, then the fast reboot can be achieved.
-
-But revisiting the two parts of the current cpu_down() process, the
-second part 'stop_machine_cpuslocked()' is a blockade. Packed inside the
-_cpu_down(), stop_machine_cpuslocked() only allow one cpu to execute the
-teardown.
-
-So this patch breaks down the process of _cpu_down(), and divides the
-teardown into three steps.  And the exposed stop_machine_cpuslocked()
-can be used to support parallel.
-1. Bring each AP from CPUHP_ONLINE to CPUHP_TEARDOWN_CPU
-   in parallel.
-2. Sync on BP to wait all APs to enter CPUHP_TEARDOWN_CPU state
-3. Bring each AP from CPUHP_TEARDOWN_CPU to CPUHP_AP_IDLE_DEAD by the
-   interface of stop_machine_cpuslocked() in parallel.
-
-Apparently, the step 2 is introduced in order to satisfy the condition
-on which stop_machine_cpuslocked() can start on each cpu.
-
-Then the rest issue is about how to support parallel in step 1&3.
-Furtunately, each subsystem has its own carefully designed lock
-mechanism. In each cpuhp_step teardown interface, adopting to the
-subsystem's lock rule will make things work.
-
-*** No rollback if failure ***
-
-During kexec reboot, the devices have already been shutdown, there is no
-way for system to roll back to a workable state. So this series also
-does not consider the rollback issue.
-
-Signed-off-by: Pingfan Liu <kernelfans@gmail.com>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Steven Price <steven.price@arm.com>
-Cc: Kuppuswamy Sathyanarayanan <sathyanarayanan.kuppuswamy@linux.intel.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Cc: Frederic Weisbecker <frederic@kernel.org>
-Cc: Russell King <linux@armlinux.org.uk>
-Cc: Catalin Marinas <catalin.marinas@arm.com>
-Cc: Will Deacon <will@kernel.org>
-Cc: Paul Walmsley <paul.walmsley@sifive.com>
-Cc: Palmer Dabbelt <palmer@dabbelt.com>
-Cc: Albert Ou <aou@eecs.berkeley.edu>
-Cc: Peter Zijlstra <peterz@infradead.org>
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-To: linux-arm-kernel@lists.infradead.org
-To: linux-ia64@vger.kernel.org
-To: linux-riscv@lists.infradead.org
-To: linux-kernel@vger.kernel.org
+CC: Émeric Maschino <emeric.maschino@gmail.com>
+CC: linux-ia64@vger.kernel.org
+CC: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: matoro <matoro_mailinglist_kernel@matoro.tk>
+Signed-off-by: Sergei Trofimovich <slyich@gmail.com>
 ---
- kernel/cpu.c | 139 +++++++++++++++++++++++++++++++++++++++++++++++----
- 1 file changed, 129 insertions(+), 10 deletions(-)
+Change since v1:
+- No code or in-code comment change
+- CCed Émeric
+- Added matoro's S-O-B the way matoro comfortable with
+- Fixed Subject typo s/clock_getre/clock_getres/
+ arch/ia64/kernel/sys_ia64.c           | 26 ++++++++++++++++++++++++++
+ arch/ia64/kernel/syscalls/syscall.tbl |  2 +-
+ 2 files changed, 27 insertions(+), 1 deletion(-)
 
-diff --git a/kernel/cpu.c b/kernel/cpu.c
-index 2be6ba811a01..94ab2727d6bb 100644
---- a/kernel/cpu.c
-+++ b/kernel/cpu.c
-@@ -1260,10 +1260,125 @@ EXPORT_SYMBOL_GPL(remove_cpu);
- 
- #ifdef CONFIG_SHUTDOWN_NONBOOT_CPUS
- 
--void smp_shutdown_nonboot_cpus(unsigned int primary_cpu)
-+/*
-+ * Push all of cpus to the state CPUHP_AP_ONLINE_IDLE.
-+ * Since kexec-reboot has already shut down all devices, there is no way to
-+ * roll back, the cpus' teardown also requires no rollback, instead, just throw
-+ * warning.
-+ */
-+static void cpus_down_no_rollback(struct cpumask *cpus)
- {
-+	struct cpuhp_cpu_state *st;
- 	unsigned int cpu;
+diff --git a/arch/ia64/kernel/sys_ia64.c b/arch/ia64/kernel/sys_ia64.c
+index e14db25146c2..d5d47eb4608e 100644
+--- a/arch/ia64/kernel/sys_ia64.c
++++ b/arch/ia64/kernel/sys_ia64.c
+@@ -166,3 +166,29 @@ ia64_mremap (unsigned long addr, unsigned long old_len, unsigned long new_len, u
+ 		force_successful_syscall_return();
+ 	return addr;
+ }
 +
-+	/* launch ap work one by one, but not wait for completion */
-+	for_each_cpu(cpu, cpus) {
-+		st = per_cpu_ptr(&cpuhp_state, cpu);
-+		/*
-+		 * If the current CPU state is in the range of the AP hotplug thread,
-+		 * then we need to kick the thread.
-+		 */
-+		if (st->state > CPUHP_TEARDOWN_CPU) {
-+			cpuhp_set_state(cpu, st, CPUHP_TEARDOWN_CPU);
-+			/* In order to parallel, async. And there is no way to rollback */
-+			cpuhp_kick_ap_work_async(cpu);
-+		}
-+	}
-+
-+	/* wait for all ap work completion */
-+	for_each_cpu(cpu, cpus) {
-+		st = per_cpu_ptr(&cpuhp_state, cpu);
-+		wait_for_ap_thread(st, st->bringup);
-+		if (st->result)
-+			pr_warn("cpu %u refuses to offline due to %d\n", cpu, st->result);
-+		else if (st->state > CPUHP_TEARDOWN_CPU)
-+			pr_warn("cpu %u refuses to offline, state: %d\n", cpu, st->state);
-+	}
-+}
-+
-+static int __takedown_cpu_cleanup(unsigned int cpu)
++asmlinkage long
++ia64_clock_getres(const clockid_t which_clock, struct __kernel_timespec __user *tp)
 +{
-+	struct cpuhp_cpu_state *st = per_cpu_ptr(&cpuhp_state, cpu);
-+
 +	/*
-+	 * The teardown callback for CPUHP_AP_SCHED_STARTING will have removed
-+	 * all runnable tasks from the CPU, there's only the idle task left now
-+	 * that the migration thread is done doing the stop_machine thing.
++	 * ia64's clock_gettime() syscall is implemented as a vdso call
++	 * fsys_clock_gettime(). Currently it handles only
++	 * CLOCK_REALTIME and CLOCK_MONOTONIC. Both are based on
++	 * 'ar.itc' counter which gets incremented at a constant
++	 * frequency. It's usually 400MHz, ~2.5x times slower than CPU
++	 * clock frequency. Which is almost a 1ns hrtimer, but not quite.
 +	 *
-+	 * Wait for the stop thread to go away.
++	 * Let's special-case these timers to report correct precision
++	 * based on ITC frequency and not HZ frequency for supported
++	 * clocks.
 +	 */
-+	wait_for_ap_thread(st, false);
-+	BUG_ON(st->state != CPUHP_AP_IDLE_DEAD);
-+
-+	hotplug_cpu__broadcast_tick_pull(cpu);
-+	/* This actually kills the CPU. */
-+	__cpu_die(cpu);
-+
-+	tick_cleanup_dead_cpu(cpu);
-+	rcutree_migrate_callbacks(cpu);
-+	return 0;
-+}
-+
-+/*
-+ * There is a sync that all ap threads are done before calling this func.
-+ */
-+static void takedown_cpus_no_rollback(struct cpumask *cpus)
-+{
-+	struct cpuhp_cpu_state *st;
-+	unsigned int cpu;
-+
-+	for_each_cpu(cpu, cpus) {
-+		st = per_cpu_ptr(&cpuhp_state, cpu);
-+		WARN_ON(st->state != CPUHP_TEARDOWN_CPU);
-+		/* No invoke to takedown_cpu(), so set the state by manual */
-+		st->state = CPUHP_AP_ONLINE;
-+		cpuhp_set_state(cpu, st, CPUHP_AP_OFFLINE);
++	switch (which_clock) {
++		case CLOCK_REALTIME:
++		case CLOCK_MONOTONIC:
++			s64 tick_ns = DIV_ROUND_UP(NSEC_PER_SEC, local_cpu_data->itc_freq);
++			struct timespec64 rtn_tp = ns_to_timespec64(tick_ns);
++			return put_timespec64(&rtn_tp, tp);
 +	}
 +
-+	irq_lock_sparse();
-+	/* ask stopper kthreads to execute take_cpu_down() in parallel */
-+	stop_machine_cpuslocked(take_cpu_down, NULL, cpus);
-+
-+	/* Finally wait for completion and clean up */
-+	for_each_cpu(cpu, cpus)
-+		__takedown_cpu_cleanup(cpu);
-+	irq_unlock_sparse();
++	return sys_clock_getres(which_clock, tp);
 +}
-+
-+static bool check_quick_reboot(void)
-+{
-+	return false;
-+}
-+
-+static struct cpumask kexec_ap_map;
-+
-+void smp_shutdown_nonboot_cpus_quick_path(unsigned int primary_cpu)
-+{
-+	struct cpumask *cpus = &kexec_ap_map;
-+	/*
-+	 * To prevent other subsystem from access to __cpu_online_mask, but internally,
-+	 * __cpu_disable() accesses the bitmap in parral and needs its own local lock.
-+	 */
-+	cpus_write_lock();
-+
-+	cpumask_copy(cpus, cpu_online_mask);
-+	cpumask_clear_cpu(primary_cpu, cpus);
-+	cpus_down_no_rollback(cpus);
-+	takedown_cpus_no_rollback(cpus);
-+	/*
-+	 * For some subsystems, there are still remains for offline cpus from
-+	 * CPUHP_BRINGUP_CPU to CPUHP_OFFLINE. But since none of them interact
-+	 * with hardwares or firmware, they have no effect on the new kernel.
-+	 * So skipping the cpuhp callbacks in that range
-+	 */
-+
-+	cpus_write_unlock();
-+}
-+
-+void smp_shutdown_nonboot_cpus(unsigned int primary_cpu)
-+{
- 	int error;
-+	unsigned int cpu;
- 
- 	cpu_maps_update_begin();
- 
-@@ -1275,15 +1390,19 @@ void smp_shutdown_nonboot_cpus(unsigned int primary_cpu)
- 	if (!cpu_online(primary_cpu))
- 		primary_cpu = cpumask_first(cpu_online_mask);
- 
--	for_each_online_cpu(cpu) {
--		if (cpu = primary_cpu)
--			continue;
--
--		error = cpu_down_maps_locked(cpu, CPUHP_OFFLINE);
--		if (error) {
--			pr_err("Failed to offline CPU%d - error=%d",
--				cpu, error);
--			break;
-+	if (check_quick_reboot()) {
-+		smp_shutdown_nonboot_cpus_quick_path(primary_cpu);
-+	} else {
-+		for_each_online_cpu(cpu) {
-+			if (cpu = primary_cpu)
-+				continue;
-+
-+			error = cpu_down_maps_locked(cpu, CPUHP_OFFLINE);
-+			if (error) {
-+				pr_err("Failed to offline CPU%d - error=%d",
-+					cpu, error);
-+				break;
-+			}
- 		}
- 	}
- 
+diff --git a/arch/ia64/kernel/syscalls/syscall.tbl b/arch/ia64/kernel/syscalls/syscall.tbl
+index 78b1d03e86e1..72c929d9902b 100644
+--- a/arch/ia64/kernel/syscalls/syscall.tbl
++++ b/arch/ia64/kernel/syscalls/syscall.tbl
+@@ -240,7 +240,7 @@
+ 228	common	timer_delete			sys_timer_delete
+ 229	common	clock_settime			sys_clock_settime
+ 230	common	clock_gettime			sys_clock_gettime
+-231	common	clock_getres			sys_clock_getres
++231	common	clock_getres			ia64_clock_getres
+ 232	common	clock_nanosleep			sys_clock_nanosleep
+ 233	common	fstatfs64			sys_fstatfs64
+ 234	common	statfs64			sys_statfs64
 -- 
-2.31.1
+2.37.1
