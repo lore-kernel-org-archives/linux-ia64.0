@@ -1,25 +1,26 @@
 From: Mike Kravetz <mike.kravetz@oracle.com>
-Date: Tue, 30 Aug 2022 18:39:08 +0000
+Date: Tue, 30 Aug 2022 21:31:18 +0000
 Subject: Re: [PATCH] hugetlb: simplify hugetlb handling in follow_page_mask
-Message-Id: <Yw5ZTEqxZCAgEbK9@monkey>
+Message-Id: <Yw6Bpsow+gUMlHCU@monkey>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220829234053.159158-1-mike.kravetz@oracle.com>
- <57c8f032-e48a-bacb-7922-3e2cc10dc0d2@linux.alibaba.com>
- <Yw4+YvdS9kJUnx1s@monkey>
-In-Reply-To: <Yw4+YvdS9kJUnx1s@monkey>
+ <608934d4-466d-975e-6458-34a91ccb4669@redhat.com>
+ <Yw5AOZ/Kc5f3UP+s@monkey>
+In-Reply-To: <Yw5AOZ/Kc5f3UP+s@monkey>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Baolin Wang <baolin.wang@linux.alibaba.com>
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, inuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, David Hildenbrand <david@redhat.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Naoya Horiguchi <naoya.horiguchi@linux.dev>, Michael Ellerman <mpe@ellerman.id.au>, Muchun Song <songmuchun@bytedance.com>, Andrew Morton <akpm@linux-foundation.org>
+To: David Hildenbrand <david@redhat.com>
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, inuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, Baolin Wang <baolin.wang@linux.alibaba.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Naoya Horiguchi <naoya.horiguchi@linux.dev>, Michael Ellerman <mpe@ellerman.id.au>, Muchun Song <songmuchun@bytedance.com>, Andrew Morton <akpm@linux-foundation.org>, Christophe Leroy <christophe.leroy@csgroup.eu>
 
-On 08/30/22 09:44, Mike Kravetz wrote:
-> On 08/30/22 09:06, Baolin Wang wrote:
-> > Hi Mike,
-> > 
-> > On 8/30/2022 7:40 AM, Mike Kravetz wrote:
+On 08/30/22 09:52, Mike Kravetz wrote:
+> On 08/30/22 10:11, David Hildenbrand wrote:
+> > On 30.08.22 01:40, Mike Kravetz wrote:
 > > > During discussions of this series [1], it was suggested that hugetlb
 > > > handling code in follow_page_mask could be simplified.  At the beginning
+> > 
+> > Feel free to use a Suggested-by if you consider it appropriate.
+> > 
 > > > of follow_page_mask, there currently is a call to follow_huge_addr which
 > > > 'may' handle hugetlb pages.  ia64 is the only architecture which provides
 > > > a follow_huge_addr routine that does not return error.  Instead, at each
@@ -33,26 +34,48 @@ On 08/30/22 09:44, Mike Kravetz wrote:
 > > > the second check is of the form:
 > > > 	if (is_hugepd())
 > > > 		page = follow_huge_pd().
-> > > 
-> > > We can replace these checks, as well as the special handling routines
-> > > such as follow_huge_p?d() and follow_huge_pd() with a single routine to
-> > > handle hugetlb vmas.
-> > > 
-> > > A new routine hugetlb_follow_page_mask is called for hugetlb vmas at the
-> > > beginning of follow_page_mask.  hugetlb_follow_page_mask will use the
-> > > existing routine huge_pte_offset to walk page tables looking for hugetlb
-> > > entries.  huge_pte_offset can be overwritten by architectures, and already
-> > > handles special cases such as hugepd entries.
 > > 
-> > Could you also mention that this patch will fix the lock issue for
-> > CONT-PTE/PMD hugetlb by changing to use huge_pte_lock()? which will help
-> > people to understand the issue.
+> > BTW, what about all this hugepd stuff in mm/pagewalk.c?
+> > 
+> > Isn't this all dead code as we're essentially routing all hugetlb VMAs
+> > via walk_hugetlb_range? [yes, all that hugepd stuff in generic code that
+> > overcomplicates stuff has been annoying me for a long time]
 > 
-> Will update message in v2.  Thanks for taking a look!
+> I am 'happy' to look at cleaning up that code next.  Perhaps I will just
+> create a cleanup series.
 > 
 
-One additional thought, we 'may' need a separate patch to fix the locking
-issues that can be easily backported.  Not sure this 'simplification' is
-a good backport candidate.
+Technically, that code is not dead IIUC.  The call to walk_hugetlb_range in
+__walk_page_range is as follows:
+
+	if (vma && is_vm_hugetlb_page(vma)) {
+		if (ops->hugetlb_entry)
+			err = walk_hugetlb_range(start, end, walk);
+	} else
+		err = walk_pgd_range(start, end, walk);
+
+We also have the interface walk_page_range_novma() that will call
+__walk_page_range without a value for vma.  So, in that case we would
+end up calling walk_pgd_range, etc.  walk_pgd_range and related routines
+do have those checks such as:
+
+		if (is_hugepd(__hugepd(pmd_val(*pmd))))
+			err = walk_hugepd_range((hugepd_t *)pmd, addr, next, walk, PMD_SHIFT);
+
+So, it looks like in this case we would process 'hugepd' entries but not
+'normal' hugetlb entries.  That does not seem right.
+
+Christophe Leroy added this code with commit e17eae2b8399 "mm: pagewalk: fix
+walk for hugepage tables".  This was part of the series "Convert powerpc to
+GENERIC_PTDUMP".  And, the ptdump code uses the walk_page_range_novma
+interface.  So, this code is certainly not dead.
+
+Adding Christophe on Cc:
+
+Christophe do you know if is_hugepd is true for all hugetlb entries, not
+just hugepd?
+
+On systems without hugepd entries, I guess ptdump skips all hugetlb entries.
+Sigh!
 -- 
 Mike Kravetz
