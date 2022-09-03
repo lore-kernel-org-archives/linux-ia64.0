@@ -1,52 +1,51 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Fri, 02 Sep 2022 18:52:44 +0000
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Sat, 03 Sep 2022 06:59:36 +0000
 Subject: Re: [PATCH] hugetlb: simplify hugetlb handling in follow_page_mask
-Message-Id: <323fdb0f-c5a5-e0e5-1ff4-ab971bc295cc@redhat.com>
+Message-Id: <dca632c6-80f4-b80e-a81f-e2f91a3b2e48@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220829234053.159158-1-mike.kravetz@oracle.com>
  <608934d4-466d-975e-6458-34a91ccb4669@redhat.com> <Yw5AOZ/Kc5f3UP+s@monkey>
  <Yw6Bpsow+gUMlHCU@monkey> <739dc825-ece3-a59f-adc5-65861676e0ae@redhat.com>
- <YxJQfGSsbXd3W4m/@monkey>
-In-Reply-To: <YxJQfGSsbXd3W4m/@monkey>
+ <YxJQfGSsbXd3W4m/@monkey> <323fdb0f-c5a5-e0e5-1ff4-ab971bc295cc@redhat.com>
+In-Reply-To: <323fdb0f-c5a5-e0e5-1ff4-ab971bc295cc@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mike Kravetz <mike.kravetz@oracle.com>
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, inuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, Baolin Wang <baolin.wang@linux.alibaba.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Naoya Horiguchi <naoya.horiguchi@linux.dev>, Michael Ellerman <mpe@ellerman.id.au>, Muchun Song <songmuchun@bytedance.com>, Andrew Morton <akpm@linux-foundation.org>, Christophe Leroy <christophe.leroy@csgroup.eu>
+To: David Hildenbrand <david@redhat.com>, Mike Kravetz <mike.kravetz@oracle.com>
+Cc: "linux-mm@kvack.org" <linux-mm@kvack.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "inuxppc-dev@lists.ozlabs.org" <inuxppc-dev@lists.ozlabs.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Baolin Wang <baolin.wang@linux.alibaba.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Naoya Horiguchi <naoya.horiguchi@linux.dev>, Michael Ellerman <mpe@ellerman.id.au>, Muchun Song <songmuchun@bytedance.com>, Andrew Morton <akpm@linux-foundation.org>
 
->>> Adding Christophe on Cc:
->>>
->>> Christophe do you know if is_hugepd is true for all hugetlb entries, not
->>> just hugepd?
->>>
->>> On systems without hugepd entries, I guess ptdump skips all hugetlb entries.
->>> Sigh!
->>
->> IIUC, the idea of ptdump_walk_pgd() is to dump page tables even outside
->> VMAs (for debugging purposes?).
->>
->> I cannot convince myself that that's a good idea when only holding the
->> mmap lock in read mode, because we can just see page tables getting
->> freed concurrently e.g., during concurrent munmap() ... while holding
->> the mmap lock in read we may only walk inside VMA boundaries.
->>
->> That then raises the questions if we're only calling this on special MMs
->> (e.g., init_mm) whereby we cannot really see concurrent munmap() and
->> where we shouldn't have hugetlb mappings or hugepd entries.
->>
-> 
-> This is going to require a little more thought.
-> 
-> Since Baolin's patch for stable releases is moving forward, I want to
-> get the cleanup provided by this patch in ASAP.  So, I am going to rebase
-> this patch on Baolin's with the other fixups.
-> 
-> Will come back to this cleanup later.
-
-Sure, no need to do it all at once (I was just bringing it up while
-thinking about it).
-
--- 
-Thanks,
-
-David / dhildenb
+DQoNCkxlIDAyLzA5LzIwMjIgw6AgMjA6NTIsIERhdmlkIEhpbGRlbmJyYW5kIGEgw6ljcml0wqA6
+DQo+Pj4+IEFkZGluZyBDaHJpc3RvcGhlIG9uIENjOg0KPj4+Pg0KPj4+PiBDaHJpc3RvcGhlIGRv
+IHlvdSBrbm93IGlmIGlzX2h1Z2VwZCBpcyB0cnVlIGZvciBhbGwgaHVnZXRsYiBlbnRyaWVzLCBu
+b3QNCj4+Pj4ganVzdCBodWdlcGQ/DQoNCmlzX2h1Z2VwZCgpIGlzIHRydWUgaWYgYW5kIG9ubHkg
+aWYgdGhlIGRpcmVjdG9yeSBlbnRyeSBwb2ludHMgdG8gYSBodWdlIA0KcGFnZSBkaXJlY3Rvcnkg
+YW5kIG5vdCB0byB0aGUgbm9ybWFsIGxvd2VyIGxldmVsIGRpcmVjdG9yeS4NCg0KQXMgZmFyIGFz
+IEkgdW5kZXJzdGFuZCBpZiB0aGUgZGlyZWN0b3J5IGVudHJ5IGlzIG5vdCBwb2ludGluZyB0byBh
+bnkgDQpsb3dlciBkaXJlY3RvcnkgYnV0IGlzIGEgaHVnZSBwYWdlIGVudHJ5LCBwWGRfbGVhZigp
+IGlzIHRydWUuDQoNCg0KPj4+Pg0KPj4+PiBPbiBzeXN0ZW1zIHdpdGhvdXQgaHVnZXBkIGVudHJp
+ZXMsIEkgZ3Vlc3MgcHRkdW1wIHNraXBzIGFsbCBodWdldGxiIGVudHJpZXMuDQo+Pj4+IFNpZ2gh
+DQoNCkFzIGZhciBhcyBJIGNhbiBzZWUsIHB0ZHVtcF9wWGRfZW50cnkoKSBoYW5kbGVzIHRoZSBw
+WGRfbGVhZigpIGNhc2UuDQoNCj4+Pg0KPj4+IElJVUMsIHRoZSBpZGVhIG9mIHB0ZHVtcF93YWxr
+X3BnZCgpIGlzIHRvIGR1bXAgcGFnZSB0YWJsZXMgZXZlbiBvdXRzaWRlDQo+Pj4gVk1BcyAoZm9y
+IGRlYnVnZ2luZyBwdXJwb3Nlcz8pLg0KPj4+DQo+Pj4gSSBjYW5ub3QgY29udmluY2UgbXlzZWxm
+IHRoYXQgdGhhdCdzIGEgZ29vZCBpZGVhIHdoZW4gb25seSBob2xkaW5nIHRoZQ0KPj4+IG1tYXAg
+bG9jayBpbiByZWFkIG1vZGUsIGJlY2F1c2Ugd2UgY2FuIGp1c3Qgc2VlIHBhZ2UgdGFibGVzIGdl
+dHRpbmcNCj4+PiBmcmVlZCBjb25jdXJyZW50bHkgZS5nLiwgZHVyaW5nIGNvbmN1cnJlbnQgbXVu
+bWFwKCkgLi4uIHdoaWxlIGhvbGRpbmcNCj4+PiB0aGUgbW1hcCBsb2NrIGluIHJlYWQgd2UgbWF5
+IG9ubHkgd2FsayBpbnNpZGUgVk1BIGJvdW5kYXJpZXMuDQo+Pj4NCj4+PiBUaGF0IHRoZW4gcmFp
+c2VzIHRoZSBxdWVzdGlvbnMgaWYgd2UncmUgb25seSBjYWxsaW5nIHRoaXMgb24gc3BlY2lhbCBN
+TXMNCj4+PiAoZS5nLiwgaW5pdF9tbSkgd2hlcmVieSB3ZSBjYW5ub3QgcmVhbGx5IHNlZSBjb25j
+dXJyZW50IG11bm1hcCgpIGFuZA0KPj4+IHdoZXJlIHdlIHNob3VsZG4ndCBoYXZlIGh1Z2V0bGIg
+bWFwcGluZ3Mgb3IgaHVnZXBkIGVudHJpZXMuDQoNCkF0IGxlYXN0IG9uIHBvd2VycGMsIFBURFVN
+UCBoYW5kbGVzIG9ubHkgaW5pdF9tbS4NCg0KSHVnZXBhZ2UgYXJlIHVzZWQgYXQgbGVhc3Qgb24g
+cG93ZXJwYyA4eHggZm9yIGxpbmVhciBtZW1vcnkgbWFwcGluZywgc2VlDQoNCmNvbW1pdCAzNDUz
+NmQ3ODA2ODMgKCJwb3dlcnBjLzh4eDogQWRkIGEgZnVuY3Rpb24gdG8gZWFybHkgbWFwIGtlcm5l
+bCANCnZpYSBodWdlIHBhZ2VzIikNCmNvbW1pdCBjZjIwOTk1MWZhN2YgKCJwb3dlcnBjLzh4eDog
+TWFwIGxpbmVhciBtZW1vcnkgd2l0aCBodWdlIHBhZ2VzIikNCg0KaHVnZXBkcyBtYXkgYWxzbyBi
+ZSB1c2VkIGluIHRoZSBmdXR1cmUgdG8gdXNlIGh1Z2UgcGFnZXMgZm9yIHZtYXAgYW5kIA0Kdm1h
+bGxvYywgc2VlIGNvbW1pdCBhNmE4ZjdjNGFhN2UgKCJwb3dlcnBjLzh4eDogYWRkIHN1cHBvcnQg
+Zm9yIGh1Z2UgDQpwYWdlcyBvbiBWTUFQIGFuZCBWTUFMTE9DIikNCg0KQXMgZmFyIGFzIEkga25v
+dywgcHBjNjQgYWxzbyB1c2UgaHVnZSBwYWdlcyBmb3IgVk1BUCBhbmQgVk1BTExPQywgc2VlDQoN
+CmNvbW1pdCBkOTA5ZjkxMDljMzAgKCJwb3dlcnBjLzY0cy9yYWRpeDogRW5hYmxlIEhBVkVfQVJD
+SF9IVUdFX1ZNQVAiKQ0KY29tbWl0IDhhYmRkZDk2OGEzMCAoInBvd2VycGMvNjRzL3JhZGl4OiBF
+bmFibGUgaHVnZSB2bWFsbG9jIG1hcHBpbmdzIikNCg0KQ2hyaXN0b3BoZQ=
