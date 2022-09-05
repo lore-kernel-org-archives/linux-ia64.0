@@ -1,7 +1,7 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Mon, 05 Sep 2022 09:46:10 +0000
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Mon, 05 Sep 2022 16:05:59 +0000
 Subject: Re: [PATCH] hugetlb: simplify hugetlb handling in follow_page_mask
-Message-Id: <e54a4004-3de9-7ddf-9368-e98e0dc45425@redhat.com>
+Message-Id: <bb05ac8a-6847-0dcc-1f71-dc7c3f141f11@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220829234053.159158-1-mike.kravetz@oracle.com>
  <608934d4-466d-975e-6458-34a91ccb4669@redhat.com> <Yw5AOZ/Kc5f3UP+s@monkey>
@@ -10,140 +10,118 @@ References: <20220829234053.159158-1-mike.kravetz@oracle.com>
  <c6f3d408-e050-c1dc-9864-c1b2c92369ed@csgroup.eu>
  <5f6a7c6b-5073-f050-8dae-6ee279a8bb0b@redhat.com>
  <ac9ef726-c465-ccec-363e-9cfb60c170e7@csgroup.eu>
-In-Reply-To: <ac9ef726-c465-ccec-363e-9cfb60c170e7@csgroup.eu>
+ <e54a4004-3de9-7ddf-9368-e98e0dc45425@redhat.com>
+In-Reply-To: <e54a4004-3de9-7ddf-9368-e98e0dc45425@redhat.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Christophe Leroy <christophe.leroy@csgroup.eu>, Mike Kravetz <mike.kravetz@oracle.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: David Hildenbrand <david@redhat.com>, Mike Kravetz <mike.kravetz@oracle.com>
 Cc: "linux-mm@kvack.org" <linux-mm@kvack.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Baolin Wang <baolin.wang@linux.alibaba.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Naoya Horiguchi <naoya.horiguchi@linux.dev>, Michael Ellerman <mpe@ellerman.id.au>, Muchun Song <songmuchun@bytedance.com>, Andrew Morton <akpm@linux-foundation.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
 
-On 05.09.22 11:33, Christophe Leroy wrote:
-> 
-> 
-> Le 05/09/2022 à 10:37, David Hildenbrand a écrit :
->> On 03.09.22 09:07, Christophe Leroy wrote:
->>> +Resending with valid powerpc list address
->>>
->>> Le 02/09/2022 à 20:52, David Hildenbrand a écrit :
->>>>>>> Adding Christophe on Cc:
->>>>>>>
->>>>>>> Christophe do you know if is_hugepd is true for all hugetlb
->>>>>>> entries, not
->>>>>>> just hugepd?
->>>
->>> is_hugepd() is true if and only if the directory entry points to a huge
->>> page directory and not to the normal lower level directory.
->>>
->>> As far as I understand if the directory entry is not pointing to any
->>> lower directory but is a huge page entry, pXd_leaf() is true.
->>>
->>>
->>>>>>>
->>>>>>> On systems without hugepd entries, I guess ptdump skips all
->>>>>>> hugetlb entries.
->>>>>>> Sigh!
->>>
->>> As far as I can see, ptdump_pXd_entry() handles the pXd_leaf() case.
->>>
->>>>>>
->>>>>> IIUC, the idea of ptdump_walk_pgd() is to dump page tables even
->>>>>> outside
->>>>>> VMAs (for debugging purposes?).
->>>>>>
->>>>>> I cannot convince myself that that's a good idea when only holding the
->>>>>> mmap lock in read mode, because we can just see page tables getting
->>>>>> freed concurrently e.g., during concurrent munmap() ... while holding
->>>>>> the mmap lock in read we may only walk inside VMA boundaries.
->>>>>>
->>>>>> That then raises the questions if we're only calling this on
->>>>>> special MMs
->>>>>> (e.g., init_mm) whereby we cannot really see concurrent munmap() and
->>>>>> where we shouldn't have hugetlb mappings or hugepd entries.
->>>
->>> At least on powerpc, PTDUMP handles only init_mm.
->>>
->>> Hugepage are used at least on powerpc 8xx for linear memory mapping, see
->>>
->>> commit 34536d780683 ("powerpc/8xx: Add a function to early map kernel
->>> via huge pages")
->>> commit cf209951fa7f ("powerpc/8xx: Map linear memory with huge pages")
->>>
->>> hugepds may also be used in the future to use huge pages for vmap and
->>> vmalloc, see commit a6a8f7c4aa7e ("powerpc/8xx: add support for huge
->>> pages on VMAP and VMALLOC")
->>>
->>> As far as I know, ppc64 also use huge pages for VMAP and VMALLOC, see
->>>
->>> commit d909f9109c30 ("powerpc/64s/radix: Enable HAVE_ARCH_HUGE_VMAP")
->>> commit 8abddd968a30 ("powerpc/64s/radix: Enable huge vmalloc mappings")
->>
->> There is a difference between an ordinary huge mapping (e.g., as used
->> for THP) and a a hugetlb mapping.
->>
->> Our current understanding is that hugepd only applies to hugetlb.
->> Wouldn't vmap/vmalloc user ordinary huge pmd entries instead of hugepd?
->>
-> 
-> 'hugepd' stands for huge page directory. It is independant of whether a
-> huge page is used for hugetlb or for anything else, it represents the
-> way pages are described in the page tables.
-
-This patch here makes the assumption that hugepd only applies to 
-hugetlb, because it removes any such handling from the !hugetlb path in 
-GUP. Is that incorrect or are there valid cases where that could happen? 
-(init_mm is special in that regard, i don't think it interacts with GUP 
-at all).
-
-> 
-> I don't know what you mean by _ordinary_ huge pmd entry.
-> 
-
-Essentially, what we use for THP. Let me try to understand how hugepd 
-interact with the rest of the system.
-
-Do systems that support hugepd currently implement THP? Reading above 
-32bit systems below, I assume not?
-
-> Let's take the exemple of powerpc 8xx which is the one I know best. This
-> is a powerpc32, so it has two levels : PGD and PTE. PGD has 1024 entries
-> and each entry covers a 4Mbytes area. Normal PTE has 1024 entries and
-> each entry is a 4k page. When you use 8Mbytes pages, you don't use PTEs
-> as it would be a waste of memory. You use a huge page directory that has
-> a single entry, and you have two PGD entries pointing to the huge page
-> directory.
-
-Thanks, I assume there are no 8MB THP, correct?
-
-The 8MB example with 4MB PGD entries makes it sound a bit like the 
-cont-PTE/cont-PMD handling on aarch64: they don't use a hugepd but 
-would simply let two consecutive PGD entries point at the the relevant 
-(sub) parts of the hugetlb page. No hugepd involved.
-
-> 
-> Some time ago, hupgepd was also used for 512kbytes pages and 16kbytes
-> pages:
-> - there was huge page directories with 8x 512kbytes pages,
-> - there was huge page directories with 256x 16kbytes pages,
-> 
-> And the PGD/PMD entry points to a huge page directory (HUGEPD) instead
-> of pointing to a page table directory (PTE).
-
-Thanks for the example.
-
-> 
-> Since commit b250c8c08c79 ("powerpc/8xx: Manage 512k huge pages as
-> standard pages."), the 8xx doesn't use anymore hugepd for 512k huge
-> page, but other platforms like powerpc book3e extensively use huge page
-> directories.
-> 
-> I hope this clarifies the subject, otherwise I'm happy to provide
-> further details.
-
-Thanks, it would be valuable to know if the assumption in this patch is 
-correct: hugepd will only be found in hugetlb areas in ordinary MMs (not 
-init_mm).
-
--- 
-Thanks,
-
-David / dhildenb
+DQoNCkxlIDA1LzA5LzIwMjIgw6AgMTE6NDYsIERhdmlkIEhpbGRlbmJyYW5kIGEgw6ljcml0wqA6
+DQo+IE9uIDA1LjA5LjIyIDExOjMzLCBDaHJpc3RvcGhlIExlcm95IHdyb3RlOg0KPj4NCj4+DQo+
+PiBMZSAwNS8wOS8yMDIyIMOgIDEwOjM3LCBEYXZpZCBIaWxkZW5icmFuZCBhIMOpY3JpdMKgOg0K
+Pj4+IE9uIDAzLjA5LjIyIDA5OjA3LCBDaHJpc3RvcGhlIExlcm95IHdyb3RlOg0KPj4+PiArUmVz
+ZW5kaW5nIHdpdGggdmFsaWQgcG93ZXJwYyBsaXN0IGFkZHJlc3MNCj4+Pj4NCj4+Pj4gTGUgMDIv
+MDkvMjAyMiDDoCAyMDo1MiwgRGF2aWQgSGlsZGVuYnJhbmQgYSDDqWNyaXTCoDoNCj4+Pj4+Pj4+
+IEFkZGluZyBDaHJpc3RvcGhlIG9uIENjOg0KPj4+Pj4+Pj4NCj4+Pj4+Pj4+IENocmlzdG9waGUg
+ZG8geW91IGtub3cgaWYgaXNfaHVnZXBkIGlzIHRydWUgZm9yIGFsbCBodWdldGxiDQo+Pj4+Pj4+
+PiBlbnRyaWVzLCBub3QNCj4+Pj4+Pj4+IGp1c3QgaHVnZXBkPw0KPj4+Pg0KPj4+PiBpc19odWdl
+cGQoKSBpcyB0cnVlIGlmIGFuZCBvbmx5IGlmIHRoZSBkaXJlY3RvcnkgZW50cnkgcG9pbnRzIHRv
+IGEgaHVnZQ0KPj4+PiBwYWdlIGRpcmVjdG9yeSBhbmQgbm90IHRvIHRoZSBub3JtYWwgbG93ZXIg
+bGV2ZWwgZGlyZWN0b3J5Lg0KPj4+Pg0KPj4+PiBBcyBmYXIgYXMgSSB1bmRlcnN0YW5kIGlmIHRo
+ZSBkaXJlY3RvcnkgZW50cnkgaXMgbm90IHBvaW50aW5nIHRvIGFueQ0KPj4+PiBsb3dlciBkaXJl
+Y3RvcnkgYnV0IGlzIGEgaHVnZSBwYWdlIGVudHJ5LCBwWGRfbGVhZigpIGlzIHRydWUuDQo+Pj4+
+DQo+Pj4+DQo+Pj4+Pj4+Pg0KPj4+Pj4+Pj4gT24gc3lzdGVtcyB3aXRob3V0IGh1Z2VwZCBlbnRy
+aWVzLCBJIGd1ZXNzIHB0ZHVtcCBza2lwcyBhbGwNCj4+Pj4+Pj4+IGh1Z2V0bGIgZW50cmllcy4N
+Cj4+Pj4+Pj4+IFNpZ2ghDQo+Pj4+DQo+Pj4+IEFzIGZhciBhcyBJIGNhbiBzZWUsIHB0ZHVtcF9w
+WGRfZW50cnkoKSBoYW5kbGVzIHRoZSBwWGRfbGVhZigpIGNhc2UuDQo+Pj4+DQo+Pj4+Pj4+DQo+
+Pj4+Pj4+IElJVUMsIHRoZSBpZGVhIG9mIHB0ZHVtcF93YWxrX3BnZCgpIGlzIHRvIGR1bXAgcGFn
+ZSB0YWJsZXMgZXZlbg0KPj4+Pj4+PiBvdXRzaWRlDQo+Pj4+Pj4+IFZNQXMgKGZvciBkZWJ1Z2dp
+bmcgcHVycG9zZXM/KS4NCj4+Pj4+Pj4NCj4+Pj4+Pj4gSSBjYW5ub3QgY29udmluY2UgbXlzZWxm
+IHRoYXQgdGhhdCdzIGEgZ29vZCBpZGVhIHdoZW4gb25seSANCj4+Pj4+Pj4gaG9sZGluZyB0aGUN
+Cj4+Pj4+Pj4gbW1hcCBsb2NrIGluIHJlYWQgbW9kZSwgYmVjYXVzZSB3ZSBjYW4ganVzdCBzZWUg
+cGFnZSB0YWJsZXMgZ2V0dGluZw0KPj4+Pj4+PiBmcmVlZCBjb25jdXJyZW50bHkgZS5nLiwgZHVy
+aW5nIGNvbmN1cnJlbnQgbXVubWFwKCkgLi4uIHdoaWxlIA0KPj4+Pj4+PiBob2xkaW5nDQo+Pj4+
+Pj4+IHRoZSBtbWFwIGxvY2sgaW4gcmVhZCB3ZSBtYXkgb25seSB3YWxrIGluc2lkZSBWTUEgYm91
+bmRhcmllcy4NCj4+Pj4+Pj4NCj4+Pj4+Pj4gVGhhdCB0aGVuIHJhaXNlcyB0aGUgcXVlc3Rpb25z
+IGlmIHdlJ3JlIG9ubHkgY2FsbGluZyB0aGlzIG9uDQo+Pj4+Pj4+IHNwZWNpYWwgTU1zDQo+Pj4+
+Pj4+IChlLmcuLCBpbml0X21tKSB3aGVyZWJ5IHdlIGNhbm5vdCByZWFsbHkgc2VlIGNvbmN1cnJl
+bnQgbXVubWFwKCkgYW5kDQo+Pj4+Pj4+IHdoZXJlIHdlIHNob3VsZG4ndCBoYXZlIGh1Z2V0bGIg
+bWFwcGluZ3Mgb3IgaHVnZXBkIGVudHJpZXMuDQo+Pj4+DQo+Pj4+IEF0IGxlYXN0IG9uIHBvd2Vy
+cGMsIFBURFVNUCBoYW5kbGVzIG9ubHkgaW5pdF9tbS4NCj4+Pj4NCj4+Pj4gSHVnZXBhZ2UgYXJl
+IHVzZWQgYXQgbGVhc3Qgb24gcG93ZXJwYyA4eHggZm9yIGxpbmVhciBtZW1vcnkgbWFwcGluZywg
+DQo+Pj4+IHNlZQ0KPj4+Pg0KPj4+PiBjb21taXQgMzQ1MzZkNzgwNjgzICgicG93ZXJwYy84eHg6
+IEFkZCBhIGZ1bmN0aW9uIHRvIGVhcmx5IG1hcCBrZXJuZWwNCj4+Pj4gdmlhIGh1Z2UgcGFnZXMi
+KQ0KPj4+PiBjb21taXQgY2YyMDk5NTFmYTdmICgicG93ZXJwYy84eHg6IE1hcCBsaW5lYXIgbWVt
+b3J5IHdpdGggaHVnZSBwYWdlcyIpDQo+Pj4+DQo+Pj4+IGh1Z2VwZHMgbWF5IGFsc28gYmUgdXNl
+ZCBpbiB0aGUgZnV0dXJlIHRvIHVzZSBodWdlIHBhZ2VzIGZvciB2bWFwIGFuZA0KPj4+PiB2bWFs
+bG9jLCBzZWUgY29tbWl0IGE2YThmN2M0YWE3ZSAoInBvd2VycGMvOHh4OiBhZGQgc3VwcG9ydCBm
+b3IgaHVnZQ0KPj4+PiBwYWdlcyBvbiBWTUFQIGFuZCBWTUFMTE9DIikNCj4+Pj4NCj4+Pj4gQXMg
+ZmFyIGFzIEkga25vdywgcHBjNjQgYWxzbyB1c2UgaHVnZSBwYWdlcyBmb3IgVk1BUCBhbmQgVk1B
+TExPQywgc2VlDQo+Pj4+DQo+Pj4+IGNvbW1pdCBkOTA5ZjkxMDljMzAgKCJwb3dlcnBjLzY0cy9y
+YWRpeDogRW5hYmxlIEhBVkVfQVJDSF9IVUdFX1ZNQVAiKQ0KPj4+PiBjb21taXQgOGFiZGRkOTY4
+YTMwICgicG93ZXJwYy82NHMvcmFkaXg6IEVuYWJsZSBodWdlIHZtYWxsb2MgbWFwcGluZ3MiKQ0K
+Pj4+DQo+Pj4gVGhlcmUgaXMgYSBkaWZmZXJlbmNlIGJldHdlZW4gYW4gb3JkaW5hcnkgaHVnZSBt
+YXBwaW5nIChlLmcuLCBhcyB1c2VkDQo+Pj4gZm9yIFRIUCkgYW5kIGEgYSBodWdldGxiIG1hcHBp
+bmcuDQo+Pj4NCj4+PiBPdXIgY3VycmVudCB1bmRlcnN0YW5kaW5nIGlzIHRoYXQgaHVnZXBkIG9u
+bHkgYXBwbGllcyB0byBodWdldGxiLg0KPj4+IFdvdWxkbid0IHZtYXAvdm1hbGxvYyB1c2VyIG9y
+ZGluYXJ5IGh1Z2UgcG1kIGVudHJpZXMgaW5zdGVhZCBvZiBodWdlcGQ/DQo+Pj4NCj4+DQo+PiAn
+aHVnZXBkJyBzdGFuZHMgZm9yIGh1Z2UgcGFnZSBkaXJlY3RvcnkuIEl0IGlzIGluZGVwZW5kYW50
+IG9mIHdoZXRoZXIgYQ0KPj4gaHVnZSBwYWdlIGlzIHVzZWQgZm9yIGh1Z2V0bGIgb3IgZm9yIGFu
+eXRoaW5nIGVsc2UsIGl0IHJlcHJlc2VudHMgdGhlDQo+PiB3YXkgcGFnZXMgYXJlIGRlc2NyaWJl
+ZCBpbiB0aGUgcGFnZSB0YWJsZXMuDQo+IA0KPiBUaGlzIHBhdGNoIGhlcmUgbWFrZXMgdGhlIGFz
+c3VtcHRpb24gdGhhdCBodWdlcGQgb25seSBhcHBsaWVzIHRvIA0KPiBodWdldGxiLCBiZWNhdXNl
+IGl0IHJlbW92ZXMgYW55IHN1Y2ggaGFuZGxpbmcgZnJvbSB0aGUgIWh1Z2V0bGIgcGF0aCBpbiAN
+Cj4gR1VQLiBJcyB0aGF0IGluY29ycmVjdCBvciBhcmUgdGhlcmUgdmFsaWQgY2FzZXMgd2hlcmUg
+dGhhdCBjb3VsZCBoYXBwZW4/IA0KPiAoaW5pdF9tbSBpcyBzcGVjaWFsIGluIHRoYXQgcmVnYXJk
+LCBpIGRvbid0IHRoaW5rIGl0IGludGVyYWN0cyB3aXRoIEdVUCANCj4gYXQgYWxsKS4NCg0KWW91
+IGFyZSBjb3JyZWN0IEkgdGhpbmssIGZvciB1c2VyIHBhZ2VzIGh1Z2VwZCBvbmx5IGFwcGxpZXMg
+dG8gaHVnZXRsYi4NCg0KPiANCj4+DQo+PiBJIGRvbid0IGtub3cgd2hhdCB5b3UgbWVhbiBieSBf
+b3JkaW5hcnlfIGh1Z2UgcG1kIGVudHJ5Lg0KPj4NCj4gDQo+IEVzc2VudGlhbGx5LCB3aGF0IHdl
+IHVzZSBmb3IgVEhQLiBMZXQgbWUgdHJ5IHRvIHVuZGVyc3RhbmQgaG93IGh1Z2VwZCANCj4gaW50
+ZXJhY3Qgd2l0aCB0aGUgcmVzdCBvZiB0aGUgc3lzdGVtLg0KPiANCj4gRG8gc3lzdGVtcyB0aGF0
+IHN1cHBvcnQgaHVnZXBkIGN1cnJlbnRseSBpbXBsZW1lbnQgVEhQPyBSZWFkaW5nIGFib3ZlIA0K
+PiAzMmJpdCBzeXN0ZW1zIGJlbG93LCBJIGFzc3VtZSBub3Q/DQoNClJpZ2h0LCBhcyBmYXIgYXMg
+SSB1bmRlcnN0YW5kIG9ubHkgbGVhZiBodWdlIHBhZ2VzIGFyZSBoYW5kbGVkIGJ5IFRIUCBhcyAN
+CmZhciBhcyBJIHVuZGVyc3RhbmQuDQoNCj4gDQo+PiBMZXQncyB0YWtlIHRoZSBleGVtcGxlIG9m
+IHBvd2VycGMgOHh4IHdoaWNoIGlzIHRoZSBvbmUgSSBrbm93IGJlc3QuIFRoaXMNCj4+IGlzIGEg
+cG93ZXJwYzMyLCBzbyBpdCBoYXMgdHdvIGxldmVscyA6IFBHRCBhbmQgUFRFLiBQR0QgaGFzIDEw
+MjQgZW50cmllcw0KPj4gYW5kIGVhY2ggZW50cnkgY292ZXJzIGEgNE1ieXRlcyBhcmVhLiBOb3Jt
+YWwgUFRFIGhhcyAxMDI0IGVudHJpZXMgYW5kDQo+PiBlYWNoIGVudHJ5IGlzIGEgNGsgcGFnZS4g
+V2hlbiB5b3UgdXNlIDhNYnl0ZXMgcGFnZXMsIHlvdSBkb24ndCB1c2UgUFRFcw0KPj4gYXMgaXQg
+d291bGQgYmUgYSB3YXN0ZSBvZiBtZW1vcnkuIFlvdSB1c2UgYSBodWdlIHBhZ2UgZGlyZWN0b3J5
+IHRoYXQgaGFzDQo+PiBhIHNpbmdsZSBlbnRyeSwgYW5kIHlvdSBoYXZlIHR3byBQR0QgZW50cmll
+cyBwb2ludGluZyB0byB0aGUgaHVnZSBwYWdlDQo+PiBkaXJlY3RvcnkuDQo+IA0KPiBUaGFua3Ms
+IEkgYXNzdW1lIHRoZXJlIGFyZSBubyA4TUIgVEhQLCBjb3JyZWN0Pw0KDQpDb3JyZWN0Lg0KDQo+
+IA0KPiBUaGUgOE1CIGV4YW1wbGUgd2l0aCA0TUIgUEdEIGVudHJpZXMgbWFrZXMgaXQgc291bmQg
+YSBiaXQgbGlrZSB0aGUgDQo+IGNvbnQtUFRFL2NvbnQtUE1EIGhhbmRsaW5nIG9uIGFhcmNoNjQ6
+IHRoZXkgZG9uJ3QgdXNlIGEgaHVnZXBkIGJ1dCB3b3VsZCANCj4gc2ltcGx5IGxldCB0d28gY29u
+c2VjdXRpdmUgUEdEIGVudHJpZXMgcG9pbnQgYXQgdGhlIHRoZSByZWxldmFudCAoc3ViKSANCj4g
+cGFydHMgb2YgdGhlIGh1Z2V0bGIgcGFnZS4gTm8gaHVnZXBkIGludm9sdmVkLg0KDQpZZXMgaXQg
+aXMgbXkgZmVlbGluZyBhcyB3ZWxsLg0KDQpBbGx0aG91Z2ggaW4gdGhlIGNhc2Ugb2YgdGhlIHBv
+d2VycGMgOHh4IHdlIHJlYWxseSBuZWVkIGEgUEdEIGVudHJ5ICsgYSANCnBhZ2UgZW50cnkgaW4g
+b3JkZXIgdG8gdXNlIHRoZSBoYXJkd2FyZSBhc3Npc3RlZCBwYWdlIHRhYmxlIHdhbGsgYW5kIA0K
+YWxzbyB0byBwb3B1bGF0ZSBMMSBhbmQgTDIgVExCIGVudHJpZXMgd2l0aG91dCB0byBtYW55IHBy
+b2Nlc3NpbmcgaW4gdGhlIA0KVExCLW1pc3MgaW50ZXJydXB0IGhhbmRsZXIuDQoNCj4gDQo+Pg0K
+Pj4gU29tZSB0aW1lIGFnbywgaHVwZ2VwZCB3YXMgYWxzbyB1c2VkIGZvciA1MTJrYnl0ZXMgcGFn
+ZXMgYW5kIDE2a2J5dGVzDQo+PiBwYWdlczoNCj4+IC0gdGhlcmUgd2FzIGh1Z2UgcGFnZSBkaXJl
+Y3RvcmllcyB3aXRoIDh4IDUxMmtieXRlcyBwYWdlcywNCj4+IC0gdGhlcmUgd2FzIGh1Z2UgcGFn
+ZSBkaXJlY3RvcmllcyB3aXRoIDI1NnggMTZrYnl0ZXMgcGFnZXMsDQo+Pg0KPj4gQW5kIHRoZSBQ
+R0QvUE1EIGVudHJ5IHBvaW50cyB0byBhIGh1Z2UgcGFnZSBkaXJlY3RvcnkgKEhVR0VQRCkgaW5z
+dGVhZA0KPj4gb2YgcG9pbnRpbmcgdG8gYSBwYWdlIHRhYmxlIGRpcmVjdG9yeSAoUFRFKS4NCj4g
+DQo+IFRoYW5rcyBmb3IgdGhlIGV4YW1wbGUuDQo+IA0KPj4NCj4+IFNpbmNlIGNvbW1pdCBiMjUw
+YzhjMDhjNzkgKCJwb3dlcnBjLzh4eDogTWFuYWdlIDUxMmsgaHVnZSBwYWdlcyBhcw0KPj4gc3Rh
+bmRhcmQgcGFnZXMuIiksIHRoZSA4eHggZG9lc24ndCB1c2UgYW55bW9yZSBodWdlcGQgZm9yIDUx
+MmsgaHVnZQ0KPj4gcGFnZSwgYnV0IG90aGVyIHBsYXRmb3JtcyBsaWtlIHBvd2VycGMgYm9vazNl
+IGV4dGVuc2l2ZWx5IHVzZSBodWdlIHBhZ2UNCj4+IGRpcmVjdG9yaWVzLg0KPj4NCj4+IEkgaG9w
+ZSB0aGlzIGNsYXJpZmllcyB0aGUgc3ViamVjdCwgb3RoZXJ3aXNlIEknbSBoYXBweSB0byBwcm92
+aWRlDQo+PiBmdXJ0aGVyIGRldGFpbHMuDQo+IA0KPiBUaGFua3MsIGl0IHdvdWxkIGJlIHZhbHVh
+YmxlIHRvIGtub3cgaWYgdGhlIGFzc3VtcHRpb24gaW4gdGhpcyBwYXRjaCBpcyANCj4gY29ycmVj
+dDogaHVnZXBkIHdpbGwgb25seSBiZSBmb3VuZCBpbiBodWdldGxiIGFyZWFzIGluIG9yZGluYXJ5
+IE1NcyAobm90IA0KPiBpbml0X21tKS4NCj4gDQoNClllcyBJIHRoaW5rIHRoZSBhc3N1bXB0aW9u
+IGlzIGNvcnJlY3QgZm9yIHVzZXIgcGFnZXMgaGVuY2UgZm9yIEdVUC4NCg0KQnkgdGhlIHdheSB0
+aGUgZGlzY3Vzc2lvbiBzdGFydGVkIHdpdGggUFREVU1QLiBGb3IgUFREVU1QIHdlIG5lZWQgaHVn
+ZSANCnBhZ2UgZGlyZWN0b3JpZXMgdG8gYmUgdGFrZW4gaW50byBhY2NvdW50LiBBbmQgZm9yIGFu
+eXRoaW5nIHRoYXQgDQppbnZvbHZlcyBrZXJuZWwgcGFnZXMgbGlrZSBWTUFQIG9yIFZNQUxMT0Mu
+DQoNCkNocmlzdG9waGU
