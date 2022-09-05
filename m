@@ -1,553 +1,82 @@
-From: Mike Kravetz <mike.kravetz@oracle.com>
-Date: Fri, 02 Sep 2022 19:03:57 +0000
-Subject: [PATCH v2] hugetlb: simplify hugetlb handling in follow_page_mask
-Message-Id: <20220902190357.469512-1-mike.kravetz@oracle.com>
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Mon, 05 Sep 2022 06:34:57 +0000
+Subject: Re: [PATCH v2] hugetlb: simplify hugetlb handling in follow_page_mask
+Message-Id: <3a65e455-ce68-30e2-6e1b-fb8a1917b40d@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20220902190357.469512-1-mike.kravetz@oracle.com>
+In-Reply-To: <20220902190357.469512-1-mike.kravetz@oracle.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org
-Cc: Baolin Wang <baolin.wang@linux.alibaba.com>, David Hildenbrand <david@redhat.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Naoya Horiguchi <naoya.horiguchi@linux.dev>, Michael Ellerman <mpe@ellerman.id.au>, Muchun Song <songmuchun@bytedance.com>, Andrew Morton <akpm@linux-foundation.org>, Mike Kravetz <mike.kravetz@oracle.com>
+To: Mike Kravetz <mike.kravetz@oracle.com>, "linux-mm@kvack.org" <linux-mm@kvack.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
+Cc: Baolin Wang <baolin.wang@linux.alibaba.com>, David Hildenbrand <david@redhat.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Naoya Horiguchi <naoya.horiguchi@linux.dev>, Michael Ellerman <mpe@ellerman.id.au>, Muchun Song <songmuchun@bytedance.com>, Andrew Morton <akpm@linux-foundation.org>
 
-During discussions of this series [1], it was suggested that hugetlb
-handling code in follow_page_mask could be simplified.  At the beginning
-of follow_page_mask, there currently is a call to follow_huge_addr which
-'may' handle hugetlb pages.  ia64 is the only architecture which provides
-a follow_huge_addr routine that does not return error.  Instead, at each
-level of the page table a check is made for a hugetlb entry.  If a hugetlb
-entry is found, a call to a routine associated with that entry is made.
-
-Currently, there are two checks for hugetlb entries at each page table
-level.  The first check is of the form:
-        if (p?d_huge())
-                page = follow_huge_p?d();
-the second check is of the form:
-        if (is_hugepd())
-                page = follow_huge_pd().
-
-We can replace these checks, as well as the special handling routines
-such as follow_huge_p?d() and follow_huge_pd() with a single routine to
-handle hugetlb vmas.
-
-A new routine hugetlb_follow_page_mask is called for hugetlb vmas at the
-beginning of follow_page_mask.  hugetlb_follow_page_mask will use the
-existing routine huge_pte_offset to walk page tables looking for hugetlb
-entries.  huge_pte_offset can be overwritten by architectures, and already
-handles special cases such as hugepd entries.
-
-[1] https://lore.kernel.org/linux-mm/cover.1661240170.git.baolin.wang@linux.alibaba.com/
-
-Suggested-by: David Hildenbrand <david@redhat.com>
-Signed-off-by: Mike Kravetz <mike.kravetz@oracle.com>
----
-v2 -	Added WARN_ON_ONCE() and updated comment as suggested by David
-	Fixed build issue found by kernel test robot
-	Added vma (pmd sharing) locking to hugetlb_follow_page_mask
-	ReBased on Baolin's patch to fix issues with CONT_* entries
-
- arch/ia64/mm/hugetlbpage.c    |  15 ---
- arch/powerpc/mm/hugetlbpage.c |  37 -------
- include/linux/hugetlb.h       |  51 ++--------
- mm/gup.c                      |  80 +++------------
- mm/hugetlb.c                  | 182 ++++++++++++----------------------
- 5 files changed, 87 insertions(+), 278 deletions(-)
-
-diff --git a/arch/ia64/mm/hugetlbpage.c b/arch/ia64/mm/hugetlbpage.c
-index f993cb36c062..380d2f3966c9 100644
---- a/arch/ia64/mm/hugetlbpage.c
-+++ b/arch/ia64/mm/hugetlbpage.c
-@@ -91,21 +91,6 @@ int prepare_hugepage_range(struct file *file,
- 	return 0;
- }
- 
--struct page *follow_huge_addr(struct mm_struct *mm, unsigned long addr, int write)
--{
--	struct page *page;
--	pte_t *ptep;
--
--	if (REGION_NUMBER(addr) != RGN_HPAGE)
--		return ERR_PTR(-EINVAL);
--
--	ptep = huge_pte_offset(mm, addr, HPAGE_SIZE);
--	if (!ptep || pte_none(*ptep))
--		return NULL;
--	page = pte_page(*ptep);
--	page += ((addr & ~HPAGE_MASK) >> PAGE_SHIFT);
--	return page;
--}
- int pmd_huge(pmd_t pmd)
- {
- 	return 0;
-diff --git a/arch/powerpc/mm/hugetlbpage.c b/arch/powerpc/mm/hugetlbpage.c
-index bc84a594ca62..b0e037c75c12 100644
---- a/arch/powerpc/mm/hugetlbpage.c
-+++ b/arch/powerpc/mm/hugetlbpage.c
-@@ -506,43 +506,6 @@ void hugetlb_free_pgd_range(struct mmu_gather *tlb,
- 	} while (addr = next, addr != end);
- }
- 
--struct page *follow_huge_pd(struct vm_area_struct *vma,
--			    unsigned long address, hugepd_t hpd,
--			    int flags, int pdshift)
--{
--	pte_t *ptep;
--	spinlock_t *ptl;
--	struct page *page = NULL;
--	unsigned long mask;
--	int shift = hugepd_shift(hpd);
--	struct mm_struct *mm = vma->vm_mm;
--
--retry:
--	/*
--	 * hugepage directory entries are protected by mm->page_table_lock
--	 * Use this instead of huge_pte_lockptr
--	 */
--	ptl = &mm->page_table_lock;
--	spin_lock(ptl);
--
--	ptep = hugepte_offset(hpd, address, pdshift);
--	if (pte_present(*ptep)) {
--		mask = (1UL << shift) - 1;
--		page = pte_page(*ptep);
--		page += ((address & mask) >> PAGE_SHIFT);
--		if (flags & FOLL_GET)
--			get_page(page);
--	} else {
--		if (is_hugetlb_entry_migration(*ptep)) {
--			spin_unlock(ptl);
--			__migration_entry_wait(mm, ptep, ptl);
--			goto retry;
--		}
--	}
--	spin_unlock(ptl);
--	return page;
--}
--
- bool __init arch_hugetlb_valid_size(unsigned long size)
- {
- 	int shift = __ffs(size);
-diff --git a/include/linux/hugetlb.h b/include/linux/hugetlb.h
-index fe4944f89d34..275e554dd365 100644
---- a/include/linux/hugetlb.h
-+++ b/include/linux/hugetlb.h
-@@ -142,6 +142,8 @@ int move_hugetlb_page_tables(struct vm_area_struct *vma,
- 			     unsigned long len);
- int copy_hugetlb_page_range(struct mm_struct *, struct mm_struct *,
- 			    struct vm_area_struct *, struct vm_area_struct *);
-+struct page *hugetlb_follow_page_mask(struct vm_area_struct *vma,
-+				unsigned long address, unsigned int flags);
- long follow_hugetlb_page(struct mm_struct *, struct vm_area_struct *,
- 			 struct page **, struct vm_area_struct **,
- 			 unsigned long *, unsigned long *, long, unsigned int,
-@@ -202,17 +204,6 @@ int huge_pmd_unshare(struct mm_struct *mm, struct vm_area_struct *vma,
- 				unsigned long addr, pte_t *ptep);
- void adjust_range_if_pmd_sharing_possible(struct vm_area_struct *vma,
- 				unsigned long *start, unsigned long *end);
--struct page *follow_huge_addr(struct mm_struct *mm, unsigned long address,
--			      int write);
--struct page *follow_huge_pd(struct vm_area_struct *vma,
--			    unsigned long address, hugepd_t hpd,
--			    int flags, int pdshift);
--struct page *follow_huge_pmd_pte(struct vm_area_struct *vma, unsigned long address,
--				 int flags);
--struct page *follow_huge_pud(struct mm_struct *mm, unsigned long address,
--				pud_t *pud, int flags);
--struct page *follow_huge_pgd(struct mm_struct *mm, unsigned long address,
--			     pgd_t *pgd, int flags);
- 
- void hugetlb_vma_lock_read(struct vm_area_struct *vma);
- void hugetlb_vma_unlock_read(struct vm_area_struct *vma);
-@@ -264,6 +255,13 @@ static inline void adjust_range_if_pmd_sharing_possible(
- {
- }
- 
-+static inline struct page *hugetlb_follow_page_mask(struct vm_area_struct *vma,
-+				unsigned long address, unsigned int flags)
-+{
-+	WARN_ON_ONCE(1); /* should never be called if !CONFIG_HUGETLB_PAGE*/
-+	return ERR_PTR(-EINVAL);
-+}
-+
- static inline long follow_hugetlb_page(struct mm_struct *mm,
- 			struct vm_area_struct *vma, struct page **pages,
- 			struct vm_area_struct **vmas, unsigned long *position,
-@@ -274,12 +272,6 @@ static inline long follow_hugetlb_page(struct mm_struct *mm,
- 	return 0;
- }
- 
--static inline struct page *follow_huge_addr(struct mm_struct *mm,
--					unsigned long address, int write)
--{
--	return ERR_PTR(-EINVAL);
--}
--
- static inline int copy_hugetlb_page_range(struct mm_struct *dst,
- 					  struct mm_struct *src,
- 					  struct vm_area_struct *dst_vma,
-@@ -312,31 +304,6 @@ static inline void hugetlb_show_meminfo_node(int nid)
- {
- }
- 
--static inline struct page *follow_huge_pd(struct vm_area_struct *vma,
--				unsigned long address, hugepd_t hpd, int flags,
--				int pdshift)
--{
--	return NULL;
--}
--
--static inline struct page *follow_huge_pmd_pte(struct vm_area_struct *vma,
--				unsigned long address, int flags)
--{
--	return NULL;
--}
--
--static inline struct page *follow_huge_pud(struct mm_struct *mm,
--				unsigned long address, pud_t *pud, int flags)
--{
--	return NULL;
--}
--
--static inline struct page *follow_huge_pgd(struct mm_struct *mm,
--				unsigned long address, pgd_t *pgd, int flags)
--{
--	return NULL;
--}
--
- static inline int prepare_hugepage_range(struct file *file,
- 				unsigned long addr, unsigned long len)
- {
-diff --git a/mm/gup.c b/mm/gup.c
-index 7691c65233c3..1515892a9d98 100644
---- a/mm/gup.c
-+++ b/mm/gup.c
-@@ -530,18 +530,6 @@ static struct page *follow_page_pte(struct vm_area_struct *vma,
- 	if (WARN_ON_ONCE((flags & (FOLL_PIN | FOLL_GET)) =
- 			 (FOLL_PIN | FOLL_GET)))
- 		return ERR_PTR(-EINVAL);
--
--	/*
--	 * Considering PTE level hugetlb, like continuous-PTE hugetlb on
--	 * ARM64 architecture.
--	 */
--	if (is_vm_hugetlb_page(vma)) {
--		page = follow_huge_pmd_pte(vma, address, flags);
--		if (page)
--			return page;
--		return no_page_table(vma, flags);
--	}
--
- retry:
- 	if (unlikely(pmd_bad(*pmd)))
- 		return no_page_table(vma, flags);
-@@ -673,20 +661,6 @@ static struct page *follow_pmd_mask(struct vm_area_struct *vma,
- 	pmdval = READ_ONCE(*pmd);
- 	if (pmd_none(pmdval))
- 		return no_page_table(vma, flags);
--	if (pmd_huge(pmdval) && is_vm_hugetlb_page(vma)) {
--		page = follow_huge_pmd_pte(vma, address, flags);
--		if (page)
--			return page;
--		return no_page_table(vma, flags);
--	}
--	if (is_hugepd(__hugepd(pmd_val(pmdval)))) {
--		page = follow_huge_pd(vma, address,
--				      __hugepd(pmd_val(pmdval)), flags,
--				      PMD_SHIFT);
--		if (page)
--			return page;
--		return no_page_table(vma, flags);
--	}
- retry:
- 	if (!pmd_present(pmdval)) {
- 		/*
-@@ -776,20 +750,6 @@ static struct page *follow_pud_mask(struct vm_area_struct *vma,
- 	pud = pud_offset(p4dp, address);
- 	if (pud_none(*pud))
- 		return no_page_table(vma, flags);
--	if (pud_huge(*pud) && is_vm_hugetlb_page(vma)) {
--		page = follow_huge_pud(mm, address, pud, flags);
--		if (page)
--			return page;
--		return no_page_table(vma, flags);
--	}
--	if (is_hugepd(__hugepd(pud_val(*pud)))) {
--		page = follow_huge_pd(vma, address,
--				      __hugepd(pud_val(*pud)), flags,
--				      PUD_SHIFT);
--		if (page)
--			return page;
--		return no_page_table(vma, flags);
--	}
- 	if (pud_devmap(*pud)) {
- 		ptl = pud_lock(mm, pud);
- 		page = follow_devmap_pud(vma, address, pud, flags, &ctx->pgmap);
-@@ -809,7 +769,6 @@ static struct page *follow_p4d_mask(struct vm_area_struct *vma,
- 				    struct follow_page_context *ctx)
- {
- 	p4d_t *p4d;
--	struct page *page;
- 
- 	p4d = p4d_offset(pgdp, address);
- 	if (p4d_none(*p4d))
-@@ -818,14 +777,6 @@ static struct page *follow_p4d_mask(struct vm_area_struct *vma,
- 	if (unlikely(p4d_bad(*p4d)))
- 		return no_page_table(vma, flags);
- 
--	if (is_hugepd(__hugepd(p4d_val(*p4d)))) {
--		page = follow_huge_pd(vma, address,
--				      __hugepd(p4d_val(*p4d)), flags,
--				      P4D_SHIFT);
--		if (page)
--			return page;
--		return no_page_table(vma, flags);
--	}
- 	return follow_pud_mask(vma, address, p4d, flags, ctx);
- }
- 
-@@ -863,10 +814,18 @@ static struct page *follow_page_mask(struct vm_area_struct *vma,
- 
- 	ctx->page_mask = 0;
- 
--	/* make this handle hugepd */
--	page = follow_huge_addr(mm, address, flags & FOLL_WRITE);
--	if (!IS_ERR(page)) {
--		WARN_ON_ONCE(flags & (FOLL_GET | FOLL_PIN));
-+	/*
-+	 * Call hugetlb_follow_page_mask for hugetlb vmas as it will use
-+	 * special hugetlb page table walking code.  This eliminates the
-+	 * need to check for hugetlb entries in the general walking code.
-+	 *
-+	 * hugetlb_follow_page_mask is only for follow_page() handling here.
-+	 * Ordinary GUP uses follow_hugetlb_page for hugetlb processing.
-+	 */
-+	if (is_vm_hugetlb_page(vma)) {
-+		page = hugetlb_follow_page_mask(vma, address, flags);
-+		if (!page)
-+			page = no_page_table(vma, flags);
- 		return page;
- 	}
- 
-@@ -875,21 +834,6 @@ static struct page *follow_page_mask(struct vm_area_struct *vma,
- 	if (pgd_none(*pgd) || unlikely(pgd_bad(*pgd)))
- 		return no_page_table(vma, flags);
- 
--	if (pgd_huge(*pgd)) {
--		page = follow_huge_pgd(mm, address, pgd, flags);
--		if (page)
--			return page;
--		return no_page_table(vma, flags);
--	}
--	if (is_hugepd(__hugepd(pgd_val(*pgd)))) {
--		page = follow_huge_pd(vma, address,
--				      __hugepd(pgd_val(*pgd)), flags,
--				      PGDIR_SHIFT);
--		if (page)
--			return page;
--		return no_page_table(vma, flags);
--	}
--
- 	return follow_p4d_mask(vma, address, pgd, flags, ctx);
- }
- 
-diff --git a/mm/hugetlb.c b/mm/hugetlb.c
-index c613d3c0c06a..5b4123b0be83 100644
---- a/mm/hugetlb.c
-+++ b/mm/hugetlb.c
-@@ -6190,6 +6190,72 @@ static inline bool __follow_hugetlb_must_fault(unsigned int flags, pte_t *pte,
- 	return false;
- }
- 
-+struct page *hugetlb_follow_page_mask(struct vm_area_struct *vma,
-+				unsigned long address, unsigned int flags)
-+{
-+	struct hstate *h = hstate_vma(vma);
-+	struct mm_struct *mm = vma->vm_mm;
-+	unsigned long haddr = address & huge_page_mask(h);
-+	struct page *page = NULL;
-+	spinlock_t *ptl;
-+	pte_t *pte, entry;
-+
-+	/*
-+	 * FOLL_PIN is not supported for follow_page(). Ordinary GUP goes via
-+	 * follow_hugetlb_page().
-+	 */
-+	if (WARN_ON_ONCE(flags & FOLL_PIN))
-+		return NULL;
-+
-+retry:
-+	/*
-+	 * vma lock prevents racing with another thread doing a pmd unshare.
-+	 * This keeps pte as returned by huge_pte_offset valid.
-+	 */
-+	hugetlb_vma_lock_read(vma);
-+
-+	pte = huge_pte_offset(mm, haddr, huge_page_size(h));
-+	if (!pte) {
-+		hugetlb_vma_unlock_read(vma);
-+		return NULL;
-+	}
-+
-+	ptl = huge_pte_lock(h, mm, pte);
-+	entry = huge_ptep_get(pte);
-+	if (pte_present(entry)) {
-+		page = pte_page(entry) +
-+				((address & ~huge_page_mask(h)) >> PAGE_SHIFT);
-+		/*
-+		 * Note that page may be a sub-page, and with vmemmap
-+		 * optimizations the page struct may be read only.
-+		 * try_grab_page() will increase the ref count on the
-+		 * head page, so this will be OK.
-+		 *
-+		 * try_grab_page() should always succeed here, because we hold
-+		 * the ptl lock and have verified pte_present().
-+		 */
-+		if (WARN_ON_ONCE(!try_grab_page(page, flags))) {
-+			page = NULL;
-+			goto out;
-+		}
-+	} else {
-+		if (is_hugetlb_entry_migration(entry)) {
-+			spin_unlock(ptl);
-+			hugetlb_vma_unlock_read(vma);
-+			__migration_entry_wait_huge(pte, ptl);
-+			goto retry;
-+		}
-+		/*
-+		 * hwpoisoned entry is treated as no_page_table in
-+		 * follow_page_mask().
-+		 */
-+	}
-+out:
-+	spin_unlock(ptl);
-+	hugetlb_vma_unlock_read(vma);
-+	return page;
-+}
-+
- long follow_hugetlb_page(struct mm_struct *mm, struct vm_area_struct *vma,
- 			 struct page **pages, struct vm_area_struct **vmas,
- 			 unsigned long *position, unsigned long *nr_pages,
-@@ -7140,122 +7206,6 @@ __weak unsigned long hugetlb_mask_last_page(struct hstate *h)
-  * These functions are overwritable if your architecture needs its own
-  * behavior.
-  */
--struct page * __weak
--follow_huge_addr(struct mm_struct *mm, unsigned long address,
--			      int write)
--{
--	return ERR_PTR(-EINVAL);
--}
--
--struct page * __weak
--follow_huge_pd(struct vm_area_struct *vma,
--	       unsigned long address, hugepd_t hpd, int flags, int pdshift)
--{
--	WARN(1, "hugepd follow called with no support for hugepage directory format\n");
--	return NULL;
--}
--
--struct page * __weak
--follow_huge_pmd_pte(struct vm_area_struct *vma, unsigned long address, int flags)
--{
--	struct hstate *h = hstate_vma(vma);
--	struct mm_struct *mm = vma->vm_mm;
--	struct page *page = NULL;
--	spinlock_t *ptl;
--	pte_t *ptep, pte;
--
--	/*
--	 * FOLL_PIN is not supported for follow_page(). Ordinary GUP goes via
--	 * follow_hugetlb_page().
--	 */
--	if (WARN_ON_ONCE(flags & FOLL_PIN))
--		return NULL;
--
--retry:
--	ptep = huge_pte_offset(mm, address, huge_page_size(h));
--	if (!ptep)
--		return NULL;
--
--	ptl = huge_pte_lock(h, mm, ptep);
--	pte = huge_ptep_get(ptep);
--	if (pte_present(pte)) {
--		page = pte_page(pte) +
--			((address & ~huge_page_mask(h)) >> PAGE_SHIFT);
--		/*
--		 * try_grab_page() should always succeed here, because: a) we
--		 * hold the pmd (ptl) lock, and b) we've just checked that the
--		 * huge pmd (head) page is present in the page tables. The ptl
--		 * prevents the head page and tail pages from being rearranged
--		 * in any way. So this page must be available at this point,
--		 * unless the page refcount overflowed:
--		 */
--		if (WARN_ON_ONCE(!try_grab_page(page, flags))) {
--			page = NULL;
--			goto out;
--		}
--	} else {
--		if (is_hugetlb_entry_migration(pte)) {
--			spin_unlock(ptl);
--			__migration_entry_wait_huge(ptep, ptl);
--			goto retry;
--		}
--		/*
--		 * hwpoisoned entry is treated as no_page_table in
--		 * follow_page_mask().
--		 */
--	}
--out:
--	spin_unlock(ptl);
--	return page;
--}
--
--struct page * __weak
--follow_huge_pud(struct mm_struct *mm, unsigned long address,
--		pud_t *pud, int flags)
--{
--	struct page *page = NULL;
--	spinlock_t *ptl;
--	pte_t pte;
--
--	if (WARN_ON_ONCE(flags & FOLL_PIN))
--		return NULL;
--
--retry:
--	ptl = huge_pte_lock(hstate_sizelog(PUD_SHIFT), mm, (pte_t *)pud);
--	if (!pud_huge(*pud))
--		goto out;
--	pte = huge_ptep_get((pte_t *)pud);
--	if (pte_present(pte)) {
--		page = pud_page(*pud) + ((address & ~PUD_MASK) >> PAGE_SHIFT);
--		if (WARN_ON_ONCE(!try_grab_page(page, flags))) {
--			page = NULL;
--			goto out;
--		}
--	} else {
--		if (is_hugetlb_entry_migration(pte)) {
--			spin_unlock(ptl);
--			__migration_entry_wait(mm, (pte_t *)pud, ptl);
--			goto retry;
--		}
--		/*
--		 * hwpoisoned entry is treated as no_page_table in
--		 * follow_page_mask().
--		 */
--	}
--out:
--	spin_unlock(ptl);
--	return page;
--}
--
--struct page * __weak
--follow_huge_pgd(struct mm_struct *mm, unsigned long address, pgd_t *pgd, int flags)
--{
--	if (flags & (FOLL_GET | FOLL_PIN))
--		return NULL;
--
--	return pte_page(*(pte_t *)pgd) + ((address & ~PGDIR_MASK) >> PAGE_SHIFT);
--}
--
- int isolate_hugetlb(struct page *page, struct list_head *list)
- {
- 	int ret = 0;
--- 
-2.37.1
+DQoNCkxlIDAyLzA5LzIwMjIgw6AgMjE6MDMsIE1pa2UgS3JhdmV0eiBhIMOpY3JpdMKgOg0KPiBE
+dXJpbmcgZGlzY3Vzc2lvbnMgb2YgdGhpcyBzZXJpZXMgWzFdLCBpdCB3YXMgc3VnZ2VzdGVkIHRo
+YXQgaHVnZXRsYg0KPiBoYW5kbGluZyBjb2RlIGluIGZvbGxvd19wYWdlX21hc2sgY291bGQgYmUg
+c2ltcGxpZmllZC4gIEF0IHRoZSBiZWdpbm5pbmcNCj4gb2YgZm9sbG93X3BhZ2VfbWFzaywgdGhl
+cmUgY3VycmVudGx5IGlzIGEgY2FsbCB0byBmb2xsb3dfaHVnZV9hZGRyIHdoaWNoDQo+ICdtYXkn
+IGhhbmRsZSBodWdldGxiIHBhZ2VzLiAgaWE2NCBpcyB0aGUgb25seSBhcmNoaXRlY3R1cmUgd2hp
+Y2ggcHJvdmlkZXMNCj4gYSBmb2xsb3dfaHVnZV9hZGRyIHJvdXRpbmUgdGhhdCBkb2VzIG5vdCBy
+ZXR1cm4gZXJyb3IuICBJbnN0ZWFkLCBhdCBlYWNoDQo+IGxldmVsIG9mIHRoZSBwYWdlIHRhYmxl
+IGEgY2hlY2sgaXMgbWFkZSBmb3IgYSBodWdldGxiIGVudHJ5LiAgSWYgYSBodWdldGxiDQo+IGVu
+dHJ5IGlzIGZvdW5kLCBhIGNhbGwgdG8gYSByb3V0aW5lIGFzc29jaWF0ZWQgd2l0aCB0aGF0IGVu
+dHJ5IGlzIG1hZGUuDQo+IA0KPiBDdXJyZW50bHksIHRoZXJlIGFyZSB0d28gY2hlY2tzIGZvciBo
+dWdldGxiIGVudHJpZXMgYXQgZWFjaCBwYWdlIHRhYmxlDQo+IGxldmVsLiAgVGhlIGZpcnN0IGNo
+ZWNrIGlzIG9mIHRoZSBmb3JtOg0KPiAgICAgICAgICBpZiAocD9kX2h1Z2UoKSkNCj4gICAgICAg
+ICAgICAgICAgICBwYWdlID0gZm9sbG93X2h1Z2VfcD9kKCk7DQo+IHRoZSBzZWNvbmQgY2hlY2sg
+aXMgb2YgdGhlIGZvcm06DQo+ICAgICAgICAgIGlmIChpc19odWdlcGQoKSkNCj4gICAgICAgICAg
+ICAgICAgICBwYWdlID0gZm9sbG93X2h1Z2VfcGQoKS4NCj4gDQo+IFdlIGNhbiByZXBsYWNlIHRo
+ZXNlIGNoZWNrcywgYXMgd2VsbCBhcyB0aGUgc3BlY2lhbCBoYW5kbGluZyByb3V0aW5lcw0KPiBz
+dWNoIGFzIGZvbGxvd19odWdlX3A/ZCgpIGFuZCBmb2xsb3dfaHVnZV9wZCgpIHdpdGggYSBzaW5n
+bGUgcm91dGluZSB0bw0KPiBoYW5kbGUgaHVnZXRsYiB2bWFzLg0KPiANCj4gQSBuZXcgcm91dGlu
+ZSBodWdldGxiX2ZvbGxvd19wYWdlX21hc2sgaXMgY2FsbGVkIGZvciBodWdldGxiIHZtYXMgYXQg
+dGhlDQo+IGJlZ2lubmluZyBvZiBmb2xsb3dfcGFnZV9tYXNrLiAgaHVnZXRsYl9mb2xsb3dfcGFn
+ZV9tYXNrIHdpbGwgdXNlIHRoZQ0KPiBleGlzdGluZyByb3V0aW5lIGh1Z2VfcHRlX29mZnNldCB0
+byB3YWxrIHBhZ2UgdGFibGVzIGxvb2tpbmcgZm9yIGh1Z2V0bGINCj4gZW50cmllcy4gIGh1Z2Vf
+cHRlX29mZnNldCBjYW4gYmUgb3ZlcndyaXR0ZW4gYnkgYXJjaGl0ZWN0dXJlcywgYW5kIGFscmVh
+ZHkNCj4gaGFuZGxlcyBzcGVjaWFsIGNhc2VzIHN1Y2ggYXMgaHVnZXBkIGVudHJpZXMuDQo+IA0K
+PiBbMV0gaHR0cHM6Ly9sb3JlLmtlcm5lbC5vcmcvbGludXgtbW0vY292ZXIuMTY2MTI0MDE3MC5n
+aXQuYmFvbGluLndhbmdAbGludXguYWxpYmFiYS5jb20vDQo+IA0KPiBTdWdnZXN0ZWQtYnk6IERh
+dmlkIEhpbGRlbmJyYW5kIDxkYXZpZEByZWRoYXQuY29tPg0KPiBTaWduZWQtb2ZmLWJ5OiBNaWtl
+IEtyYXZldHogPG1pa2Uua3JhdmV0ekBvcmFjbGUuY29tPg0KPiAtLS0NCj4gdjIgLQlBZGRlZCBX
+QVJOX09OX09OQ0UoKSBhbmQgdXBkYXRlZCBjb21tZW50IGFzIHN1Z2dlc3RlZCBieSBEYXZpZA0K
+PiAJRml4ZWQgYnVpbGQgaXNzdWUgZm91bmQgYnkga2VybmVsIHRlc3Qgcm9ib3QNCj4gCUFkZGVk
+IHZtYSAocG1kIHNoYXJpbmcpIGxvY2tpbmcgdG8gaHVnZXRsYl9mb2xsb3dfcGFnZV9tYXNrDQo+
+IAlSZUJhc2VkIG9uIEJhb2xpbidzIHBhdGNoIHRvIGZpeCBpc3N1ZXMgd2l0aCBDT05UXyogZW50
+cmllcw0KPiANCj4gICBhcmNoL2lhNjQvbW0vaHVnZXRsYnBhZ2UuYyAgICB8ICAxNSAtLS0NCj4g
+ICBhcmNoL3Bvd2VycGMvbW0vaHVnZXRsYnBhZ2UuYyB8ICAzNyAtLS0tLS0tDQo+ICAgaW5jbHVk
+ZS9saW51eC9odWdldGxiLmggICAgICAgfCAgNTEgKystLS0tLS0tLQ0KPiAgIG1tL2d1cC5jICAg
+ICAgICAgICAgICAgICAgICAgIHwgIDgwICsrKy0tLS0tLS0tLS0tLQ0KPiAgIG1tL2h1Z2V0bGIu
+YyAgICAgICAgICAgICAgICAgIHwgMTgyICsrKysrKysrKysrKy0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0NCj4gICA1IGZpbGVzIGNoYW5nZWQsIDg3IGluc2VydGlvbnMoKyksIDI3OCBkZWxldGlvbnMo
+LSkNCj4gDQoNCj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvaHVnZXRsYi5oIGIvaW5jbHVk
+ZS9saW51eC9odWdldGxiLmgNCj4gaW5kZXggZmU0OTQ0Zjg5ZDM0Li4yNzVlNTU0ZGQzNjUgMTAw
+NjQ0DQo+IC0tLSBhL2luY2x1ZGUvbGludXgvaHVnZXRsYi5oDQo+ICsrKyBiL2luY2x1ZGUvbGlu
+dXgvaHVnZXRsYi5oDQo+IEBAIC0yNjQsNiArMjU1LDEzIEBAIHN0YXRpYyBpbmxpbmUgdm9pZCBh
+ZGp1c3RfcmFuZ2VfaWZfcG1kX3NoYXJpbmdfcG9zc2libGUoDQo+ICAgew0KPiAgIH0NCj4gICAN
+Cj4gK3N0YXRpYyBpbmxpbmUgc3RydWN0IHBhZ2UgKmh1Z2V0bGJfZm9sbG93X3BhZ2VfbWFzayhz
+dHJ1Y3Qgdm1fYXJlYV9zdHJ1Y3QgKnZtYSwNCj4gKwkJCQl1bnNpZ25lZCBsb25nIGFkZHJlc3Ms
+IHVuc2lnbmVkIGludCBmbGFncykNCj4gK3sNCj4gKwlXQVJOX09OX09OQ0UoMSk7IC8qIHNob3Vs
+ZCBuZXZlciBiZSBjYWxsZWQgaWYgIUNPTkZJR19IVUdFVExCX1BBR0UqLw0KPiArCXJldHVybiBF
+UlJfUFRSKC1FSU5WQUwpOw0KDQpUaGlzIGZ1bmN0aW9uIGlzIGNhbGxlZCBvbmx5IHdoZW4gaXNf
+dm1faHVnZXRsYl9wYWdlKCkgaXMgdHJ1ZS4NCg0KV2hlbiAhQ09ORklHX0hVR0VUTEJfUEFHRSBp
+c192bV9odWdldGxiX3BhZ2UoKSBhbHdheXMgcmV0dXJucyBmYWxzZSwgc28gDQp0aGUgY2FsbCB0
+byBodWdldGxiX2ZvbGxvd19wYWdlX21hc2soKSBzaG91bGQgbmV2ZXIgYmUgY29tcGlsZWQgaW4u
+DQoNClVzZSBCVUlMRF9CVUcoKSB0byBjYXRjaCBpdCBhdCBidWlsZHRpbWUuDQoNCj4gK30NCj4g
+Kw0KPiAgIHN0YXRpYyBpbmxpbmUgbG9uZyBmb2xsb3dfaHVnZXRsYl9wYWdlKHN0cnVjdCBtbV9z
+dHJ1Y3QgKm1tLA0KPiAgIAkJCXN0cnVjdCB2bV9hcmVhX3N0cnVjdCAqdm1hLCBzdHJ1Y3QgcGFn
+ZSAqKnBhZ2VzLA0KPiAgIAkJCXN0cnVjdCB2bV9hcmVhX3N0cnVjdCAqKnZtYXMsIHVuc2lnbmVk
+IGxvbmcgKnBvc2l0aW9uLA0KDQo+IGRpZmYgLS1naXQgYS9tbS9ndXAuYyBiL21tL2d1cC5jDQo+
+IGluZGV4IDc2OTFjNjUyMzNjMy4uMTUxNTg5MmE5ZDk4IDEwMDY0NA0KPiAtLS0gYS9tbS9ndXAu
+Yw0KPiArKysgYi9tbS9ndXAuYw0KPiBAQCAtNTMwLDE4ICs1MzAsNiBAQCBzdGF0aWMgc3RydWN0
+IHBhZ2UgKmZvbGxvd19wYWdlX3B0ZShzdHJ1Y3Qgdm1fYXJlYV9zdHJ1Y3QgKnZtYSwNCj4gICAJ
+aWYgKFdBUk5fT05fT05DRSgoZmxhZ3MgJiAoRk9MTF9QSU4gfCBGT0xMX0dFVCkpID09DQo+ICAg
+CQkJIChGT0xMX1BJTiB8IEZPTExfR0VUKSkpDQo+ICAgCQlyZXR1cm4gRVJSX1BUUigtRUlOVkFM
+KTsNCj4gLQ0KPiAtCS8qDQo+IC0JICogQ29uc2lkZXJpbmcgUFRFIGxldmVsIGh1Z2V0bGIsIGxp
+a2UgY29udGludW91cy1QVEUgaHVnZXRsYiBvbg0KPiAtCSAqIEFSTTY0IGFyY2hpdGVjdHVyZS4N
+Cj4gLQkgKi8NCj4gLQlpZiAoaXNfdm1faHVnZXRsYl9wYWdlKHZtYSkpIHsNCj4gLQkJcGFnZSA9
+IGZvbGxvd19odWdlX3BtZF9wdGUodm1hLCBhZGRyZXNzLCBmbGFncyk7DQo+IC0JCWlmIChwYWdl
+KQ0KPiAtCQkJcmV0dXJuIHBhZ2U7DQo+IC0JCXJldHVybiBub19wYWdlX3RhYmxlKHZtYSwgZmxh
+Z3MpOw0KPiAtCX0NCj4gLQ0KPiAgIHJldHJ5Og0KPiAgIAlpZiAodW5saWtlbHkocG1kX2JhZCgq
+cG1kKSkpDQo+ICAgCQlyZXR1cm4gbm9fcGFnZV90YWJsZSh2bWEsIGZsYWdzKTs
