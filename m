@@ -1,7 +1,7 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Mon, 05 Sep 2022 09:33:29 +0000
+From: David Hildenbrand <david@redhat.com>
+Date: Mon, 05 Sep 2022 09:46:10 +0000
 Subject: Re: [PATCH] hugetlb: simplify hugetlb handling in follow_page_mask
-Message-Id: <ac9ef726-c465-ccec-363e-9cfb60c170e7@csgroup.eu>
+Message-Id: <e54a4004-3de9-7ddf-9368-e98e0dc45425@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220829234053.159158-1-mike.kravetz@oracle.com>
  <608934d4-466d-975e-6458-34a91ccb4669@redhat.com> <Yw5AOZ/Kc5f3UP+s@monkey>
@@ -9,79 +9,141 @@ References: <20220829234053.159158-1-mike.kravetz@oracle.com>
  <YxJQfGSsbXd3W4m/@monkey> <323fdb0f-c5a5-e0e5-1ff4-ab971bc295cc@redhat.com>
  <c6f3d408-e050-c1dc-9864-c1b2c92369ed@csgroup.eu>
  <5f6a7c6b-5073-f050-8dae-6ee279a8bb0b@redhat.com>
-In-Reply-To: <5f6a7c6b-5073-f050-8dae-6ee279a8bb0b@redhat.com>
+ <ac9ef726-c465-ccec-363e-9cfb60c170e7@csgroup.eu>
+In-Reply-To: <ac9ef726-c465-ccec-363e-9cfb60c170e7@csgroup.eu>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>, Mike Kravetz <mike.kravetz@oracle.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Christophe Leroy <christophe.leroy@csgroup.eu>, Mike Kravetz <mike.kravetz@oracle.com>
 Cc: "linux-mm@kvack.org" <linux-mm@kvack.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Baolin Wang <baolin.wang@linux.alibaba.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Naoya Horiguchi <naoya.horiguchi@linux.dev>, Michael Ellerman <mpe@ellerman.id.au>, Muchun Song <songmuchun@bytedance.com>, Andrew Morton <akpm@linux-foundation.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
 
-DQoNCkxlIDA1LzA5LzIwMjIgw6AgMTA6MzcsIERhdmlkIEhpbGRlbmJyYW5kIGEgw6ljcml0wqA6
-DQo+IE9uIDAzLjA5LjIyIDA5OjA3LCBDaHJpc3RvcGhlIExlcm95IHdyb3RlOg0KPj4gK1Jlc2Vu
-ZGluZyB3aXRoIHZhbGlkIHBvd2VycGMgbGlzdCBhZGRyZXNzDQo+Pg0KPj4gTGUgMDIvMDkvMjAy
-MiDDoCAyMDo1MiwgRGF2aWQgSGlsZGVuYnJhbmQgYSDDqWNyaXTCoDoNCj4+Pj4+PiBBZGRpbmcg
-Q2hyaXN0b3BoZSBvbiBDYzoNCj4+Pj4+Pg0KPj4+Pj4+IENocmlzdG9waGUgZG8geW91IGtub3cg
-aWYgaXNfaHVnZXBkIGlzIHRydWUgZm9yIGFsbCBodWdldGxiIA0KPj4+Pj4+IGVudHJpZXMsIG5v
-dA0KPj4+Pj4+IGp1c3QgaHVnZXBkPw0KPj4NCj4+IGlzX2h1Z2VwZCgpIGlzIHRydWUgaWYgYW5k
-IG9ubHkgaWYgdGhlIGRpcmVjdG9yeSBlbnRyeSBwb2ludHMgdG8gYSBodWdlDQo+PiBwYWdlIGRp
-cmVjdG9yeSBhbmQgbm90IHRvIHRoZSBub3JtYWwgbG93ZXIgbGV2ZWwgZGlyZWN0b3J5Lg0KPj4N
-Cj4+IEFzIGZhciBhcyBJIHVuZGVyc3RhbmQgaWYgdGhlIGRpcmVjdG9yeSBlbnRyeSBpcyBub3Qg
-cG9pbnRpbmcgdG8gYW55DQo+PiBsb3dlciBkaXJlY3RvcnkgYnV0IGlzIGEgaHVnZSBwYWdlIGVu
-dHJ5LCBwWGRfbGVhZigpIGlzIHRydWUuDQo+Pg0KPj4NCj4+Pj4+Pg0KPj4+Pj4+IE9uIHN5c3Rl
-bXMgd2l0aG91dCBodWdlcGQgZW50cmllcywgSSBndWVzcyBwdGR1bXAgc2tpcHMgYWxsIA0KPj4+
-Pj4+IGh1Z2V0bGIgZW50cmllcy4NCj4+Pj4+PiBTaWdoIQ0KPj4NCj4+IEFzIGZhciBhcyBJIGNh
-biBzZWUsIHB0ZHVtcF9wWGRfZW50cnkoKSBoYW5kbGVzIHRoZSBwWGRfbGVhZigpIGNhc2UuDQo+
-Pg0KPj4+Pj4NCj4+Pj4+IElJVUMsIHRoZSBpZGVhIG9mIHB0ZHVtcF93YWxrX3BnZCgpIGlzIHRv
-IGR1bXAgcGFnZSB0YWJsZXMgZXZlbiANCj4+Pj4+IG91dHNpZGUNCj4+Pj4+IFZNQXMgKGZvciBk
-ZWJ1Z2dpbmcgcHVycG9zZXM/KS4NCj4+Pj4+DQo+Pj4+PiBJIGNhbm5vdCBjb252aW5jZSBteXNl
-bGYgdGhhdCB0aGF0J3MgYSBnb29kIGlkZWEgd2hlbiBvbmx5IGhvbGRpbmcgdGhlDQo+Pj4+PiBt
-bWFwIGxvY2sgaW4gcmVhZCBtb2RlLCBiZWNhdXNlIHdlIGNhbiBqdXN0IHNlZSBwYWdlIHRhYmxl
-cyBnZXR0aW5nDQo+Pj4+PiBmcmVlZCBjb25jdXJyZW50bHkgZS5nLiwgZHVyaW5nIGNvbmN1cnJl
-bnQgbXVubWFwKCkgLi4uIHdoaWxlIGhvbGRpbmcNCj4+Pj4+IHRoZSBtbWFwIGxvY2sgaW4gcmVh
-ZCB3ZSBtYXkgb25seSB3YWxrIGluc2lkZSBWTUEgYm91bmRhcmllcy4NCj4+Pj4+DQo+Pj4+PiBU
-aGF0IHRoZW4gcmFpc2VzIHRoZSBxdWVzdGlvbnMgaWYgd2UncmUgb25seSBjYWxsaW5nIHRoaXMg
-b24gDQo+Pj4+PiBzcGVjaWFsIE1Ncw0KPj4+Pj4gKGUuZy4sIGluaXRfbW0pIHdoZXJlYnkgd2Ug
-Y2Fubm90IHJlYWxseSBzZWUgY29uY3VycmVudCBtdW5tYXAoKSBhbmQNCj4+Pj4+IHdoZXJlIHdl
-IHNob3VsZG4ndCBoYXZlIGh1Z2V0bGIgbWFwcGluZ3Mgb3IgaHVnZXBkIGVudHJpZXMuDQo+Pg0K
-Pj4gQXQgbGVhc3Qgb24gcG93ZXJwYywgUFREVU1QIGhhbmRsZXMgb25seSBpbml0X21tLg0KPj4N
-Cj4+IEh1Z2VwYWdlIGFyZSB1c2VkIGF0IGxlYXN0IG9uIHBvd2VycGMgOHh4IGZvciBsaW5lYXIg
-bWVtb3J5IG1hcHBpbmcsIHNlZQ0KPj4NCj4+IGNvbW1pdCAzNDUzNmQ3ODA2ODMgKCJwb3dlcnBj
-Lzh4eDogQWRkIGEgZnVuY3Rpb24gdG8gZWFybHkgbWFwIGtlcm5lbA0KPj4gdmlhIGh1Z2UgcGFn
-ZXMiKQ0KPj4gY29tbWl0IGNmMjA5OTUxZmE3ZiAoInBvd2VycGMvOHh4OiBNYXAgbGluZWFyIG1l
-bW9yeSB3aXRoIGh1Z2UgcGFnZXMiKQ0KPj4NCj4+IGh1Z2VwZHMgbWF5IGFsc28gYmUgdXNlZCBp
-biB0aGUgZnV0dXJlIHRvIHVzZSBodWdlIHBhZ2VzIGZvciB2bWFwIGFuZA0KPj4gdm1hbGxvYywg
-c2VlIGNvbW1pdCBhNmE4ZjdjNGFhN2UgKCJwb3dlcnBjLzh4eDogYWRkIHN1cHBvcnQgZm9yIGh1
-Z2UNCj4+IHBhZ2VzIG9uIFZNQVAgYW5kIFZNQUxMT0MiKQ0KPj4NCj4+IEFzIGZhciBhcyBJIGtu
-b3csIHBwYzY0IGFsc28gdXNlIGh1Z2UgcGFnZXMgZm9yIFZNQVAgYW5kIFZNQUxMT0MsIHNlZQ0K
-Pj4NCj4+IGNvbW1pdCBkOTA5ZjkxMDljMzAgKCJwb3dlcnBjLzY0cy9yYWRpeDogRW5hYmxlIEhB
-VkVfQVJDSF9IVUdFX1ZNQVAiKQ0KPj4gY29tbWl0IDhhYmRkZDk2OGEzMCAoInBvd2VycGMvNjRz
-L3JhZGl4OiBFbmFibGUgaHVnZSB2bWFsbG9jIG1hcHBpbmdzIikNCj4gDQo+IFRoZXJlIGlzIGEg
-ZGlmZmVyZW5jZSBiZXR3ZWVuIGFuIG9yZGluYXJ5IGh1Z2UgbWFwcGluZyAoZS5nLiwgYXMgdXNl
-ZCANCj4gZm9yIFRIUCkgYW5kIGEgYSBodWdldGxiIG1hcHBpbmcuDQo+IA0KPiBPdXIgY3VycmVu
-dCB1bmRlcnN0YW5kaW5nIGlzIHRoYXQgaHVnZXBkIG9ubHkgYXBwbGllcyB0byBodWdldGxiLiAN
-Cj4gV291bGRuJ3Qgdm1hcC92bWFsbG9jIHVzZXIgb3JkaW5hcnkgaHVnZSBwbWQgZW50cmllcyBp
-bnN0ZWFkIG9mIGh1Z2VwZD8NCj4gDQoNCidodWdlcGQnIHN0YW5kcyBmb3IgaHVnZSBwYWdlIGRp
-cmVjdG9yeS4gSXQgaXMgaW5kZXBlbmRhbnQgb2Ygd2hldGhlciBhIA0KaHVnZSBwYWdlIGlzIHVz
-ZWQgZm9yIGh1Z2V0bGIgb3IgZm9yIGFueXRoaW5nIGVsc2UsIGl0IHJlcHJlc2VudHMgdGhlIA0K
-d2F5IHBhZ2VzIGFyZSBkZXNjcmliZWQgaW4gdGhlIHBhZ2UgdGFibGVzLg0KDQpJIGRvbid0IGtu
-b3cgd2hhdCB5b3UgbWVhbiBieSBfb3JkaW5hcnlfIGh1Z2UgcG1kIGVudHJ5Lg0KDQpMZXQncyB0
-YWtlIHRoZSBleGVtcGxlIG9mIHBvd2VycGMgOHh4IHdoaWNoIGlzIHRoZSBvbmUgSSBrbm93IGJl
-c3QuIFRoaXMgDQppcyBhIHBvd2VycGMzMiwgc28gaXQgaGFzIHR3byBsZXZlbHMgOiBQR0QgYW5k
-IFBURS4gUEdEIGhhcyAxMDI0IGVudHJpZXMgDQphbmQgZWFjaCBlbnRyeSBjb3ZlcnMgYSA0TWJ5
-dGVzIGFyZWEuIE5vcm1hbCBQVEUgaGFzIDEwMjQgZW50cmllcyBhbmQgDQplYWNoIGVudHJ5IGlz
-IGEgNGsgcGFnZS4gV2hlbiB5b3UgdXNlIDhNYnl0ZXMgcGFnZXMsIHlvdSBkb24ndCB1c2UgUFRF
-cyANCmFzIGl0IHdvdWxkIGJlIGEgd2FzdGUgb2YgbWVtb3J5LiBZb3UgdXNlIGEgaHVnZSBwYWdl
-IGRpcmVjdG9yeSB0aGF0IGhhcyANCmEgc2luZ2xlIGVudHJ5LCBhbmQgeW91IGhhdmUgdHdvIFBH
-RCBlbnRyaWVzIHBvaW50aW5nIHRvIHRoZSBodWdlIHBhZ2UgDQpkaXJlY3RvcnkuDQoNClNvbWUg
-dGltZSBhZ28sIGh1cGdlcGQgd2FzIGFsc28gdXNlZCBmb3IgNTEya2J5dGVzIHBhZ2VzIGFuZCAx
-NmtieXRlcyANCnBhZ2VzOg0KLSB0aGVyZSB3YXMgaHVnZSBwYWdlIGRpcmVjdG9yaWVzIHdpdGgg
-OHggNTEya2J5dGVzIHBhZ2VzLA0KLSB0aGVyZSB3YXMgaHVnZSBwYWdlIGRpcmVjdG9yaWVzIHdp
-dGggMjU2eCAxNmtieXRlcyBwYWdlcywNCg0KQW5kIHRoZSBQR0QvUE1EIGVudHJ5IHBvaW50cyB0
-byBhIGh1Z2UgcGFnZSBkaXJlY3RvcnkgKEhVR0VQRCkgaW5zdGVhZCANCm9mIHBvaW50aW5nIHRv
-IGEgcGFnZSB0YWJsZSBkaXJlY3RvcnkgKFBURSkuDQoNClNpbmNlIGNvbW1pdCBiMjUwYzhjMDhj
-NzkgKCJwb3dlcnBjLzh4eDogTWFuYWdlIDUxMmsgaHVnZSBwYWdlcyBhcyANCnN0YW5kYXJkIHBh
-Z2VzLiIpLCB0aGUgOHh4IGRvZXNuJ3QgdXNlIGFueW1vcmUgaHVnZXBkIGZvciA1MTJrIGh1Z2Ug
-DQpwYWdlLCBidXQgb3RoZXIgcGxhdGZvcm1zIGxpa2UgcG93ZXJwYyBib29rM2UgZXh0ZW5zaXZl
-bHkgdXNlIGh1Z2UgcGFnZSANCmRpcmVjdG9yaWVzLg0KDQpJIGhvcGUgdGhpcyBjbGFyaWZpZXMg
-dGhlIHN1YmplY3QsIG90aGVyd2lzZSBJJ20gaGFwcHkgdG8gcHJvdmlkZSANCmZ1cnRoZXIgZGV0
-YWlscy4NCg0KQ2hyaXN0b3BoZQ=
+On 05.09.22 11:33, Christophe Leroy wrote:
+> 
+> 
+> Le 05/09/2022 à 10:37, David Hildenbrand a écrit :
+>> On 03.09.22 09:07, Christophe Leroy wrote:
+>>> +Resending with valid powerpc list address
+>>>
+>>> Le 02/09/2022 à 20:52, David Hildenbrand a écrit :
+>>>>>>> Adding Christophe on Cc:
+>>>>>>>
+>>>>>>> Christophe do you know if is_hugepd is true for all hugetlb
+>>>>>>> entries, not
+>>>>>>> just hugepd?
+>>>
+>>> is_hugepd() is true if and only if the directory entry points to a huge
+>>> page directory and not to the normal lower level directory.
+>>>
+>>> As far as I understand if the directory entry is not pointing to any
+>>> lower directory but is a huge page entry, pXd_leaf() is true.
+>>>
+>>>
+>>>>>>>
+>>>>>>> On systems without hugepd entries, I guess ptdump skips all
+>>>>>>> hugetlb entries.
+>>>>>>> Sigh!
+>>>
+>>> As far as I can see, ptdump_pXd_entry() handles the pXd_leaf() case.
+>>>
+>>>>>>
+>>>>>> IIUC, the idea of ptdump_walk_pgd() is to dump page tables even
+>>>>>> outside
+>>>>>> VMAs (for debugging purposes?).
+>>>>>>
+>>>>>> I cannot convince myself that that's a good idea when only holding the
+>>>>>> mmap lock in read mode, because we can just see page tables getting
+>>>>>> freed concurrently e.g., during concurrent munmap() ... while holding
+>>>>>> the mmap lock in read we may only walk inside VMA boundaries.
+>>>>>>
+>>>>>> That then raises the questions if we're only calling this on
+>>>>>> special MMs
+>>>>>> (e.g., init_mm) whereby we cannot really see concurrent munmap() and
+>>>>>> where we shouldn't have hugetlb mappings or hugepd entries.
+>>>
+>>> At least on powerpc, PTDUMP handles only init_mm.
+>>>
+>>> Hugepage are used at least on powerpc 8xx for linear memory mapping, see
+>>>
+>>> commit 34536d780683 ("powerpc/8xx: Add a function to early map kernel
+>>> via huge pages")
+>>> commit cf209951fa7f ("powerpc/8xx: Map linear memory with huge pages")
+>>>
+>>> hugepds may also be used in the future to use huge pages for vmap and
+>>> vmalloc, see commit a6a8f7c4aa7e ("powerpc/8xx: add support for huge
+>>> pages on VMAP and VMALLOC")
+>>>
+>>> As far as I know, ppc64 also use huge pages for VMAP and VMALLOC, see
+>>>
+>>> commit d909f9109c30 ("powerpc/64s/radix: Enable HAVE_ARCH_HUGE_VMAP")
+>>> commit 8abddd968a30 ("powerpc/64s/radix: Enable huge vmalloc mappings")
+>>
+>> There is a difference between an ordinary huge mapping (e.g., as used
+>> for THP) and a a hugetlb mapping.
+>>
+>> Our current understanding is that hugepd only applies to hugetlb.
+>> Wouldn't vmap/vmalloc user ordinary huge pmd entries instead of hugepd?
+>>
+> 
+> 'hugepd' stands for huge page directory. It is independant of whether a
+> huge page is used for hugetlb or for anything else, it represents the
+> way pages are described in the page tables.
+
+This patch here makes the assumption that hugepd only applies to 
+hugetlb, because it removes any such handling from the !hugetlb path in 
+GUP. Is that incorrect or are there valid cases where that could happen? 
+(init_mm is special in that regard, i don't think it interacts with GUP 
+at all).
+
+> 
+> I don't know what you mean by _ordinary_ huge pmd entry.
+> 
+
+Essentially, what we use for THP. Let me try to understand how hugepd 
+interact with the rest of the system.
+
+Do systems that support hugepd currently implement THP? Reading above 
+32bit systems below, I assume not?
+
+> Let's take the exemple of powerpc 8xx which is the one I know best. This
+> is a powerpc32, so it has two levels : PGD and PTE. PGD has 1024 entries
+> and each entry covers a 4Mbytes area. Normal PTE has 1024 entries and
+> each entry is a 4k page. When you use 8Mbytes pages, you don't use PTEs
+> as it would be a waste of memory. You use a huge page directory that has
+> a single entry, and you have two PGD entries pointing to the huge page
+> directory.
+
+Thanks, I assume there are no 8MB THP, correct?
+
+The 8MB example with 4MB PGD entries makes it sound a bit like the 
+cont-PTE/cont-PMD handling on aarch64: they don't use a hugepd but 
+would simply let two consecutive PGD entries point at the the relevant 
+(sub) parts of the hugetlb page. No hugepd involved.
+
+> 
+> Some time ago, hupgepd was also used for 512kbytes pages and 16kbytes
+> pages:
+> - there was huge page directories with 8x 512kbytes pages,
+> - there was huge page directories with 256x 16kbytes pages,
+> 
+> And the PGD/PMD entry points to a huge page directory (HUGEPD) instead
+> of pointing to a page table directory (PTE).
+
+Thanks for the example.
+
+> 
+> Since commit b250c8c08c79 ("powerpc/8xx: Manage 512k huge pages as
+> standard pages."), the 8xx doesn't use anymore hugepd for 512k huge
+> page, but other platforms like powerpc book3e extensively use huge page
+> directories.
+> 
+> I hope this clarifies the subject, otherwise I'm happy to provide
+> further details.
+
+Thanks, it would be valuable to know if the assumption in this patch is 
+correct: hugepd will only be found in hugetlb areas in ordinary MMs (not 
+init_mm).
+
+-- 
+Thanks,
+
+David / dhildenb
