@@ -1,82 +1,54 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Mon, 05 Sep 2022 06:34:57 +0000
+From: Mike Kravetz <mike.kravetz@oracle.com>
+Date: Tue, 06 Sep 2022 17:13:24 +0000
 Subject: Re: [PATCH v2] hugetlb: simplify hugetlb handling in follow_page_mask
-Message-Id: <3a65e455-ce68-30e2-6e1b-fb8a1917b40d@csgroup.eu>
+Message-Id: <Yxd/tE4EnIqhfd9s@monkey>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220902190357.469512-1-mike.kravetz@oracle.com>
-In-Reply-To: <20220902190357.469512-1-mike.kravetz@oracle.com>
+ <3a65e455-ce68-30e2-6e1b-fb8a1917b40d@csgroup.eu>
+In-Reply-To: <3a65e455-ce68-30e2-6e1b-fb8a1917b40d@csgroup.eu>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Mike Kravetz <mike.kravetz@oracle.com>, "linux-mm@kvack.org" <linux-mm@kvack.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
-Cc: Baolin Wang <baolin.wang@linux.alibaba.com>, David Hildenbrand <david@redhat.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Naoya Horiguchi <naoya.horiguchi@linux.dev>, Michael Ellerman <mpe@ellerman.id.au>, Muchun Song <songmuchun@bytedance.com>, Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Christophe Leroy <christophe.leroy@csgroup.eu>
+Cc: "linux-mm@kvack.org" <linux-mm@kvack.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Baolin Wang <baolin.wang@linux.alibaba.com>, David Hildenbrand <david@redhat.com>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Naoya Horiguchi <naoya.horiguchi@linux.dev>, Michael Ellerman <mpe@ellerman.id.au>, Muchun Song <songmuchun@bytedance.com>, Andrew Morton <akpm@linux-foundation.org>
 
-DQoNCkxlIDAyLzA5LzIwMjIgw6AgMjE6MDMsIE1pa2UgS3JhdmV0eiBhIMOpY3JpdMKgOg0KPiBE
-dXJpbmcgZGlzY3Vzc2lvbnMgb2YgdGhpcyBzZXJpZXMgWzFdLCBpdCB3YXMgc3VnZ2VzdGVkIHRo
-YXQgaHVnZXRsYg0KPiBoYW5kbGluZyBjb2RlIGluIGZvbGxvd19wYWdlX21hc2sgY291bGQgYmUg
-c2ltcGxpZmllZC4gIEF0IHRoZSBiZWdpbm5pbmcNCj4gb2YgZm9sbG93X3BhZ2VfbWFzaywgdGhl
-cmUgY3VycmVudGx5IGlzIGEgY2FsbCB0byBmb2xsb3dfaHVnZV9hZGRyIHdoaWNoDQo+ICdtYXkn
-IGhhbmRsZSBodWdldGxiIHBhZ2VzLiAgaWE2NCBpcyB0aGUgb25seSBhcmNoaXRlY3R1cmUgd2hp
-Y2ggcHJvdmlkZXMNCj4gYSBmb2xsb3dfaHVnZV9hZGRyIHJvdXRpbmUgdGhhdCBkb2VzIG5vdCBy
-ZXR1cm4gZXJyb3IuICBJbnN0ZWFkLCBhdCBlYWNoDQo+IGxldmVsIG9mIHRoZSBwYWdlIHRhYmxl
-IGEgY2hlY2sgaXMgbWFkZSBmb3IgYSBodWdldGxiIGVudHJ5LiAgSWYgYSBodWdldGxiDQo+IGVu
-dHJ5IGlzIGZvdW5kLCBhIGNhbGwgdG8gYSByb3V0aW5lIGFzc29jaWF0ZWQgd2l0aCB0aGF0IGVu
-dHJ5IGlzIG1hZGUuDQo+IA0KPiBDdXJyZW50bHksIHRoZXJlIGFyZSB0d28gY2hlY2tzIGZvciBo
-dWdldGxiIGVudHJpZXMgYXQgZWFjaCBwYWdlIHRhYmxlDQo+IGxldmVsLiAgVGhlIGZpcnN0IGNo
-ZWNrIGlzIG9mIHRoZSBmb3JtOg0KPiAgICAgICAgICBpZiAocD9kX2h1Z2UoKSkNCj4gICAgICAg
-ICAgICAgICAgICBwYWdlID0gZm9sbG93X2h1Z2VfcD9kKCk7DQo+IHRoZSBzZWNvbmQgY2hlY2sg
-aXMgb2YgdGhlIGZvcm06DQo+ICAgICAgICAgIGlmIChpc19odWdlcGQoKSkNCj4gICAgICAgICAg
-ICAgICAgICBwYWdlID0gZm9sbG93X2h1Z2VfcGQoKS4NCj4gDQo+IFdlIGNhbiByZXBsYWNlIHRo
-ZXNlIGNoZWNrcywgYXMgd2VsbCBhcyB0aGUgc3BlY2lhbCBoYW5kbGluZyByb3V0aW5lcw0KPiBz
-dWNoIGFzIGZvbGxvd19odWdlX3A/ZCgpIGFuZCBmb2xsb3dfaHVnZV9wZCgpIHdpdGggYSBzaW5n
-bGUgcm91dGluZSB0bw0KPiBoYW5kbGUgaHVnZXRsYiB2bWFzLg0KPiANCj4gQSBuZXcgcm91dGlu
-ZSBodWdldGxiX2ZvbGxvd19wYWdlX21hc2sgaXMgY2FsbGVkIGZvciBodWdldGxiIHZtYXMgYXQg
-dGhlDQo+IGJlZ2lubmluZyBvZiBmb2xsb3dfcGFnZV9tYXNrLiAgaHVnZXRsYl9mb2xsb3dfcGFn
-ZV9tYXNrIHdpbGwgdXNlIHRoZQ0KPiBleGlzdGluZyByb3V0aW5lIGh1Z2VfcHRlX29mZnNldCB0
-byB3YWxrIHBhZ2UgdGFibGVzIGxvb2tpbmcgZm9yIGh1Z2V0bGINCj4gZW50cmllcy4gIGh1Z2Vf
-cHRlX29mZnNldCBjYW4gYmUgb3ZlcndyaXR0ZW4gYnkgYXJjaGl0ZWN0dXJlcywgYW5kIGFscmVh
-ZHkNCj4gaGFuZGxlcyBzcGVjaWFsIGNhc2VzIHN1Y2ggYXMgaHVnZXBkIGVudHJpZXMuDQo+IA0K
-PiBbMV0gaHR0cHM6Ly9sb3JlLmtlcm5lbC5vcmcvbGludXgtbW0vY292ZXIuMTY2MTI0MDE3MC5n
-aXQuYmFvbGluLndhbmdAbGludXguYWxpYmFiYS5jb20vDQo+IA0KPiBTdWdnZXN0ZWQtYnk6IERh
-dmlkIEhpbGRlbmJyYW5kIDxkYXZpZEByZWRoYXQuY29tPg0KPiBTaWduZWQtb2ZmLWJ5OiBNaWtl
-IEtyYXZldHogPG1pa2Uua3JhdmV0ekBvcmFjbGUuY29tPg0KPiAtLS0NCj4gdjIgLQlBZGRlZCBX
-QVJOX09OX09OQ0UoKSBhbmQgdXBkYXRlZCBjb21tZW50IGFzIHN1Z2dlc3RlZCBieSBEYXZpZA0K
-PiAJRml4ZWQgYnVpbGQgaXNzdWUgZm91bmQgYnkga2VybmVsIHRlc3Qgcm9ib3QNCj4gCUFkZGVk
-IHZtYSAocG1kIHNoYXJpbmcpIGxvY2tpbmcgdG8gaHVnZXRsYl9mb2xsb3dfcGFnZV9tYXNrDQo+
-IAlSZUJhc2VkIG9uIEJhb2xpbidzIHBhdGNoIHRvIGZpeCBpc3N1ZXMgd2l0aCBDT05UXyogZW50
-cmllcw0KPiANCj4gICBhcmNoL2lhNjQvbW0vaHVnZXRsYnBhZ2UuYyAgICB8ICAxNSAtLS0NCj4g
-ICBhcmNoL3Bvd2VycGMvbW0vaHVnZXRsYnBhZ2UuYyB8ICAzNyAtLS0tLS0tDQo+ICAgaW5jbHVk
-ZS9saW51eC9odWdldGxiLmggICAgICAgfCAgNTEgKystLS0tLS0tLQ0KPiAgIG1tL2d1cC5jICAg
-ICAgICAgICAgICAgICAgICAgIHwgIDgwICsrKy0tLS0tLS0tLS0tLQ0KPiAgIG1tL2h1Z2V0bGIu
-YyAgICAgICAgICAgICAgICAgIHwgMTgyICsrKysrKysrKysrKy0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0NCj4gICA1IGZpbGVzIGNoYW5nZWQsIDg3IGluc2VydGlvbnMoKyksIDI3OCBkZWxldGlvbnMo
-LSkNCj4gDQoNCj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvaHVnZXRsYi5oIGIvaW5jbHVk
-ZS9saW51eC9odWdldGxiLmgNCj4gaW5kZXggZmU0OTQ0Zjg5ZDM0Li4yNzVlNTU0ZGQzNjUgMTAw
-NjQ0DQo+IC0tLSBhL2luY2x1ZGUvbGludXgvaHVnZXRsYi5oDQo+ICsrKyBiL2luY2x1ZGUvbGlu
-dXgvaHVnZXRsYi5oDQo+IEBAIC0yNjQsNiArMjU1LDEzIEBAIHN0YXRpYyBpbmxpbmUgdm9pZCBh
-ZGp1c3RfcmFuZ2VfaWZfcG1kX3NoYXJpbmdfcG9zc2libGUoDQo+ICAgew0KPiAgIH0NCj4gICAN
-Cj4gK3N0YXRpYyBpbmxpbmUgc3RydWN0IHBhZ2UgKmh1Z2V0bGJfZm9sbG93X3BhZ2VfbWFzayhz
-dHJ1Y3Qgdm1fYXJlYV9zdHJ1Y3QgKnZtYSwNCj4gKwkJCQl1bnNpZ25lZCBsb25nIGFkZHJlc3Ms
-IHVuc2lnbmVkIGludCBmbGFncykNCj4gK3sNCj4gKwlXQVJOX09OX09OQ0UoMSk7IC8qIHNob3Vs
-ZCBuZXZlciBiZSBjYWxsZWQgaWYgIUNPTkZJR19IVUdFVExCX1BBR0UqLw0KPiArCXJldHVybiBF
-UlJfUFRSKC1FSU5WQUwpOw0KDQpUaGlzIGZ1bmN0aW9uIGlzIGNhbGxlZCBvbmx5IHdoZW4gaXNf
-dm1faHVnZXRsYl9wYWdlKCkgaXMgdHJ1ZS4NCg0KV2hlbiAhQ09ORklHX0hVR0VUTEJfUEFHRSBp
-c192bV9odWdldGxiX3BhZ2UoKSBhbHdheXMgcmV0dXJucyBmYWxzZSwgc28gDQp0aGUgY2FsbCB0
-byBodWdldGxiX2ZvbGxvd19wYWdlX21hc2soKSBzaG91bGQgbmV2ZXIgYmUgY29tcGlsZWQgaW4u
-DQoNClVzZSBCVUlMRF9CVUcoKSB0byBjYXRjaCBpdCBhdCBidWlsZHRpbWUuDQoNCj4gK30NCj4g
-Kw0KPiAgIHN0YXRpYyBpbmxpbmUgbG9uZyBmb2xsb3dfaHVnZXRsYl9wYWdlKHN0cnVjdCBtbV9z
-dHJ1Y3QgKm1tLA0KPiAgIAkJCXN0cnVjdCB2bV9hcmVhX3N0cnVjdCAqdm1hLCBzdHJ1Y3QgcGFn
-ZSAqKnBhZ2VzLA0KPiAgIAkJCXN0cnVjdCB2bV9hcmVhX3N0cnVjdCAqKnZtYXMsIHVuc2lnbmVk
-IGxvbmcgKnBvc2l0aW9uLA0KDQo+IGRpZmYgLS1naXQgYS9tbS9ndXAuYyBiL21tL2d1cC5jDQo+
-IGluZGV4IDc2OTFjNjUyMzNjMy4uMTUxNTg5MmE5ZDk4IDEwMDY0NA0KPiAtLS0gYS9tbS9ndXAu
-Yw0KPiArKysgYi9tbS9ndXAuYw0KPiBAQCAtNTMwLDE4ICs1MzAsNiBAQCBzdGF0aWMgc3RydWN0
-IHBhZ2UgKmZvbGxvd19wYWdlX3B0ZShzdHJ1Y3Qgdm1fYXJlYV9zdHJ1Y3QgKnZtYSwNCj4gICAJ
-aWYgKFdBUk5fT05fT05DRSgoZmxhZ3MgJiAoRk9MTF9QSU4gfCBGT0xMX0dFVCkpID09DQo+ICAg
-CQkJIChGT0xMX1BJTiB8IEZPTExfR0VUKSkpDQo+ICAgCQlyZXR1cm4gRVJSX1BUUigtRUlOVkFM
-KTsNCj4gLQ0KPiAtCS8qDQo+IC0JICogQ29uc2lkZXJpbmcgUFRFIGxldmVsIGh1Z2V0bGIsIGxp
-a2UgY29udGludW91cy1QVEUgaHVnZXRsYiBvbg0KPiAtCSAqIEFSTTY0IGFyY2hpdGVjdHVyZS4N
-Cj4gLQkgKi8NCj4gLQlpZiAoaXNfdm1faHVnZXRsYl9wYWdlKHZtYSkpIHsNCj4gLQkJcGFnZSA9
-IGZvbGxvd19odWdlX3BtZF9wdGUodm1hLCBhZGRyZXNzLCBmbGFncyk7DQo+IC0JCWlmIChwYWdl
-KQ0KPiAtCQkJcmV0dXJuIHBhZ2U7DQo+IC0JCXJldHVybiBub19wYWdlX3RhYmxlKHZtYSwgZmxh
-Z3MpOw0KPiAtCX0NCj4gLQ0KPiAgIHJldHJ5Og0KPiAgIAlpZiAodW5saWtlbHkocG1kX2JhZCgq
-cG1kKSkpDQo+ICAgCQlyZXR1cm4gbm9fcGFnZV90YWJsZSh2bWEsIGZsYWdzKTs
+On 09/05/22 06:34, Christophe Leroy wrote:
+>=20
+>=20
+> Le 02/09/2022 =E0 21:03, Mike Kravetz a =E9crit=A0:
+> > diff --git a/include/linux/hugetlb.h b/include/linux/hugetlb.h
+> > index fe4944f89d34..275e554dd365 100644
+> > --- a/include/linux/hugetlb.h
+> > +++ b/include/linux/hugetlb.h
+> > @@ -264,6 +255,13 @@ static inline void adjust_range_if_pmd_sharing_pos=
+sible(
+> >   {
+> >   }
+> >  =20
+> > +static inline struct page *hugetlb_follow_page_mask(struct vm_area_str=
+uct *vma,
+> > +				unsigned long address, unsigned int flags)
+> > +{
+> > +	WARN_ON_ONCE(1); /* should never be called if !CONFIG_HUGETLB_PAGE*/
+> > +	return ERR_PTR(-EINVAL);
+>=20
+> This function is called only when is_vm_hugetlb_page() is true.
+>=20
+> When !CONFIG_HUGETLB_PAGE is_vm_hugetlb_page() always returns false, so=20
+> the call to hugetlb_follow_page_mask() should never be compiled in.
+>=20
+> Use BUILD_BUG() to catch it at buildtime.
+>=20
+
+Yes.  My bad as David suggested this previously.
+How about we just leave out the function in the !CONFIG_HUGETLB_PAGE case?
+We will get build errors without the need for a BUILD_BUG().
+
+> > +}
+> > +
+> >   static inline long follow_hugetlb_page(struct mm_struct *mm,
+> >   			struct vm_area_struct *vma, struct page **pages,
+> >   			struct vm_area_struct **vmas, unsigned long *position,
+
+--=20
+Mike Kravetz
