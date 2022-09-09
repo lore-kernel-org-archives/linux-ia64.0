@@ -1,7 +1,7 @@
 From: kernel test robot <lkp@intel.com>
-Date: Thu, 08 Sep 2022 23:51:20 +0000
+Date: Fri, 09 Sep 2022 00:57:54 +0000
 Subject: Re: [PATCH v3 1/2] Add CABA tree to task_struct
-Message-Id: <202209090715.tbbHbdhr-lkp@intel.com>
+Message-Id: <202209090830.H0tKErRt-lkp@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220908140313.313020-2-ptikhomirov@virtuozzo.com>
 In-Reply-To: <20220908140313.313020-2-ptikhomirov@virtuozzo.com>
@@ -23,8 +23,8 @@ https://git-scm.com/docs/git-format-patch#_base_tree_information]
 
 url:    https://github.com/intel-lab-lkp/linux/commits/Pavel-Tikhomirov/Introduce-CABA-helper-process-tree/20220908-220639
 base:   https://git.kernel.org/pub/scm/linux/kernel/git/shuah/linux-kselftest.git next
-config: loongarch-randconfig-s031-20220907 (https://download.01.org/0day-ci/archive/20220909/202209090715.tbbHbdhr-lkp@intel.com/config)
-compiler: loongarch64-linux-gcc (GCC) 12.1.0
+config: microblaze-randconfig-s053-20220907 (https://download.01.org/0day-ci/archive/20220909/202209090830.H0tKErRt-lkp@intel.com/config)
+compiler: microblaze-linux-gcc (GCC) 12.1.0
 reproduce:
         wget https://raw.githubusercontent.com/intel/lkp-tests/master/sbin/make.cross -O ~/bin/make.cross
         chmod +x ~/bin/make.cross
@@ -36,18 +36,15 @@ reproduce:
         git checkout 17a897a33137d4f49f99c8be8d619f6f711fccdb
         # save the config file
         mkdir build_dir && cp config build_dir/.config
-        COMPILER_INSTALL_PATH=$HOME/0day COMPILER=gcc-12.1.0 make.cross C=1 CF='-fdiagnostic-prefix -D__CHECK_ENDIAN__' O=build_dir ARCH=loongarch SHELL=/bin/bash
+        COMPILER_INSTALL_PATH=$HOME/0day COMPILER=gcc-12.1.0 make.cross C=1 CF='-fdiagnostic-prefix -D__CHECK_ENDIAN__' O=build_dir ARCH=microblaze SHELL=/bin/bash
 
 If you fix the issue, kindly add following tag where applicable
 Reported-by: kernel test robot <lkp@intel.com>
 
 sparse warnings: (new ones prefixed by >>)
-   kernel/fork.c:1098:19: sparse: sparse: incorrect type in assignment (different address spaces) @@     expected struct task_struct [noderef] __rcu *owner @@     got struct task_struct *p @@
-   kernel/fork.c:1098:19: sparse:     expected struct task_struct [noderef] __rcu *owner
-   kernel/fork.c:1098:19: sparse:     got struct task_struct *p
-   kernel/fork.c:1307:22: sparse: sparse: incorrect type in assignment (different address spaces) @@     expected struct file *[assigned] old_exe_file @@     got struct file [noderef] __rcu *[assigned] __res @@
+   kernel/fork.c:1307:22: sparse: sparse: incorrect type in assignment (different address spaces) @@     expected struct file *[assigned] old_exe_file @@     got struct file [noderef] __rcu * @@
    kernel/fork.c:1307:22: sparse:     expected struct file *[assigned] old_exe_file
-   kernel/fork.c:1307:22: sparse:     got struct file [noderef] __rcu *[assigned] __res
+   kernel/fork.c:1307:22: sparse:     got struct file [noderef] __rcu *
    kernel/fork.c:1638:38: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct refcount_struct [usertype] *r @@     got struct refcount_struct [noderef] __rcu * @@
    kernel/fork.c:1638:38: sparse:     expected struct refcount_struct [usertype] *r
    kernel/fork.c:1638:38: sparse:     got struct refcount_struct [noderef] __rcu *
@@ -66,12 +63,12 @@ sparse warnings: (new ones prefixed by >>)
    kernel/fork.c:2081:33: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
    kernel/fork.c:2081:33: sparse:     expected struct spinlock [usertype] *lock
    kernel/fork.c:2081:33: sparse:     got struct spinlock [noderef] __rcu *
-   kernel/fork.c:2403:32: sparse: sparse: incorrect type in assignment (different address spaces) @@     expected struct task_struct [noderef] __rcu *real_parent @@     got struct task_struct *task @@
+   kernel/fork.c:2403:32: sparse: sparse: incorrect type in assignment (different address spaces) @@     expected struct task_struct [noderef] __rcu *real_parent @@     got struct task_struct *register [addressable] [toplevel] current @@
    kernel/fork.c:2403:32: sparse:     expected struct task_struct [noderef] __rcu *real_parent
-   kernel/fork.c:2403:32: sparse:     got struct task_struct *task
->> kernel/fork.c:2407:17: sparse: sparse: incorrect type in assignment (different address spaces) @@     expected struct task_struct [noderef] __rcu *caba @@     got struct task_struct *task @@
+   kernel/fork.c:2403:32: sparse:     got struct task_struct *register [addressable] [toplevel] current
+>> kernel/fork.c:2407:17: sparse: sparse: incorrect type in assignment (different address spaces) @@     expected struct task_struct [noderef] __rcu *caba @@     got struct task_struct *register [addressable] [toplevel] current @@
    kernel/fork.c:2407:17: sparse:     expected struct task_struct [noderef] __rcu *caba
-   kernel/fork.c:2407:17: sparse:     got struct task_struct *task
+   kernel/fork.c:2407:17: sparse:     got struct task_struct *register [addressable] [toplevel] current
    kernel/fork.c:2413:27: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct spinlock [usertype] *lock @@     got struct spinlock [noderef] __rcu * @@
    kernel/fork.c:2413:27: sparse:     expected struct spinlock [usertype] *lock
    kernel/fork.c:2413:27: sparse:     got struct spinlock [noderef] __rcu *
@@ -102,8 +99,9 @@ sparse warnings: (new ones prefixed by >>)
    kernel/fork.c:3078:43: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected struct refcount_struct const [usertype] *r @@     got struct refcount_struct [noderef] __rcu * @@
    kernel/fork.c:3078:43: sparse:     expected struct refcount_struct const [usertype] *r
    kernel/fork.c:3078:43: sparse:     got struct refcount_struct [noderef] __rcu *
+   kernel/fork.c:1742:9: sparse: sparse: dereference of noderef expression
    kernel/fork.c:2122:22: sparse: sparse: dereference of noderef expression
-   kernel/fork.c: note: in included file (through include/uapi/asm-generic/bpf_perf_event.h, arch/loongarch/include/generated/uapi/asm/bpf_perf_event.h, ...):
+   kernel/fork.c: note: in included file (through include/uapi/asm-generic/bpf_perf_event.h, arch/microblaze/include/generated/uapi/asm/bpf_perf_event.h, ...):
    include/linux/ptrace.h:210:45: sparse: sparse: incorrect type in argument 2 (different address spaces) @@     expected struct task_struct *new_parent @@     got struct task_struct [noderef] __rcu *parent @@
    include/linux/ptrace.h:210:45: sparse:     expected struct task_struct *new_parent
    include/linux/ptrace.h:210:45: sparse:     got struct task_struct [noderef] __rcu *parent
@@ -112,9 +110,6 @@ sparse warnings: (new ones prefixed by >>)
    include/linux/ptrace.h:210:62: sparse:     got struct cred const [noderef] __rcu *ptracer_cred
    kernel/fork.c:2458:59: sparse: sparse: dereference of noderef expression
    kernel/fork.c:2459:59: sparse: sparse: dereference of noderef expression
-   kernel/fork.c:1090:23: sparse: sparse: incompatible types in comparison expression (different address spaces):
-   kernel/fork.c:1090:23: sparse:    struct task_struct [noderef] __rcu *
-   kernel/fork.c:1090:23: sparse:    struct task_struct *
 
 vim +2407 kernel/fork.c
 
