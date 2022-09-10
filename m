@@ -1,103 +1,100 @@
-From: Masahiro Yamada <masahiroy@kernel.org>
-Date: Wed, 28 Sep 2022 06:39:44 +0000
-Subject: [PATCH v3 5/8] modpost: squash sym_update_namespace() into sym_add_exported()
-Message-Id: <20220928063947.299333-6-masahiroy@kernel.org>
+From: Sergei Trofimovich <slyich@gmail.com>
+Date: Sat, 10 Sep 2022 17:50:19 +0000
+Subject: [PATCH v3] ia64: fix clock_getres(CLOCK_MONOTONIC) to report ITC frequency
+Message-Id: <20220910175019.3871273-1-slyich@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220928063947.299333-1-masahiroy@kernel.org>
-In-Reply-To: <20220928063947.299333-1-masahiroy@kernel.org>
+References: <20220820151438.d55718d341df99d5747caebb@linux-foundation.org>
+In-Reply-To: <20220820151438.d55718d341df99d5747caebb@linux-foundation.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-kbuild@vger.kernel.org
-Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>, Ard Biesheuvel <ardb@kernel.org>, Nicolas Pitre <npitre@baylibre.com>, Masahiro Yamada <masahiroy@kernel.org>, Nick Desaulniers <ndesaulniers@google.com>, Michal Marek <michal.lkml@markovi.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-kernel@vger.kernel.org, Sergei Trofimovich <slyich@gmail.com>, =?UTF-8?q?=C3=89meric=20Maschino?= <emeric.maschino@gmail.com>, linux-ia64@vger.kernel.org, matoro <matoro_mailinglist_kernel@matoro.tk>
 
-Pass a set of the name, license, and namespace to sym_add_exported().
+clock_gettime(CLOCK_MONOTONIC, &tp) is very precise on ia64 as it uses
+ITC (similar to rdtsc on x86). It's not quite a hrtimer as it is a few
+times slower than 1ns. Usually 2-3ns.
 
-sym_update_namespace() is unneeded.
+clock_getres(CLOCK_MONOTONIC, &res) never reflected that fact and
+reported 0.04s precision (1/HZ value).
 
-Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
-Reviewed-by: Nick Desaulniers <ndesaulniers@google.com>
+In https://bugs.gentoo.org/596382 gstreamer's test suite failed loudly
+when it noticed precision discrepancy.
+
+Before the change:
+
+    clock_getres(CLOCK_MONOTONIC, &res) reported 250Hz precision.
+
+After the change:
+
+    clock_getres(CLOCK_MONOTONIC, &res) reports ITC (400Mhz) precision.
+
+The patch is based on matoro's fix. I added a bit of explanation why we
+need to special-case arch-specific clock_getres().
+
+CC: Émeric Maschino <emeric.maschino@gmail.com>
+CC: linux-ia64@vger.kernel.org
+CC: Andrew Morton <akpm@linux-foundation.org>
+CC: matoro <matoro_mailinglist_kernel@matoro.tk>
+Signed-off-by: Sergei Trofimovich <slyich@gmail.com>
 ---
+Change since v2:
+- Moved matoro to CC
+Change since v1:
+- No code or in-code comment change
+- CCed Émeric
+- Added matoro's S-O-B the way matoro comfortable with
+- Fixed Subject typo s/clock_getre/clock_getres/
+ arch/ia64/kernel/sys_ia64.c           | 26 ++++++++++++++++++++++++++
+ arch/ia64/kernel/syscalls/syscall.tbl |  2 +-
+ 2 files changed, 27 insertions(+), 1 deletion(-)
 
-(no changes since v1)
-
- scripts/mod/modpost.c | 41 +++++++++--------------------------------
- 1 file changed, 9 insertions(+), 32 deletions(-)
-
-diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
-index 13fff6e92aef..0bb5bbd176b4 100644
---- a/scripts/mod/modpost.c
-+++ b/scripts/mod/modpost.c
-@@ -352,26 +352,8 @@ static const char *sec_name(const struct elf_info *info, unsigned int secindex)
- 
- #define strstarts(str, prefix) (strncmp(str, prefix, strlen(prefix)) = 0)
- 
--static void sym_update_namespace(const char *symname, const char *namespace)
--{
--	struct symbol *s = find_symbol(symname);
--
--	/*
--	 * That symbol should have been created earlier and thus this is
--	 * actually an assertion.
--	 */
--	if (!s) {
--		error("Could not update namespace(%s) for symbol %s\n",
--		      namespace, symname);
--		return;
--	}
--
--	free(s->namespace);
--	s->namespace = namespace[0] ? NOFAIL(strdup(namespace)) : NULL;
--}
--
- static struct symbol *sym_add_exported(const char *name, struct module *mod,
--				       bool gpl_only)
-+				       bool gpl_only, const char *namespace)
- {
- 	struct symbol *s = find_symbol(name);
- 
-@@ -384,6 +366,7 @@ static struct symbol *sym_add_exported(const char *name, struct module *mod,
- 	s = alloc_symbol(name);
- 	s->module = mod;
- 	s->is_gpl_only = gpl_only;
-+	s->namespace = namespace[0] ? NOFAIL(strdup(namespace)) : NULL;
- 	list_add_tail(&s->list, &mod->exported_symbols);
- 	hash_add_symbol(s);
- 
-@@ -657,17 +640,12 @@ static void handle_symbol(struct module *mod, struct elf_info *info,
- 		break;
- 	default:
- 		if (sym->st_shndx = info->export_symbol_sec) {
--			const char *name;
--
--			if (strstarts(symname, "__export_symbol_gpl.")) {
--				name = symname + strlen("__export_symbol_gpl.");
--				sym_add_exported(name, mod, true);
--				sym_update_namespace(name, sym_get_data(info, sym));
--			} else if (strstarts(symname, "__export_symbol.")) {
--				name = symname + strlen("__export_symbol.");
--				sym_add_exported(name, mod, false);
--				sym_update_namespace(name, sym_get_data(info, sym));
--			}
-+			if (strstarts(symname, "__export_symbol_gpl."))
-+				sym_add_exported(symname + strlen("__export_symbol_gpl."),
-+						 mod, true, sym_get_data(info, sym));
-+			else if (strstarts(symname, "__export_symbol."))
-+				sym_add_exported(symname + strlen("__export_symbol."),
-+						 mod, false, sym_get_data(info, sym));
- 
- 			break;
- 		}
-@@ -2283,9 +2261,8 @@ static void read_dump(const char *fname)
- 			mod = new_module(modname, strlen(modname));
- 			mod->from_dump = true;
- 		}
--		s = sym_add_exported(symname, mod, gpl_only);
-+		s = sym_add_exported(symname, mod, gpl_only, namespace);
- 		sym_set_crc(s, crc);
--		sym_update_namespace(symname, namespace);
- 	}
- 	free(buf);
- 	return;
+diff --git a/arch/ia64/kernel/sys_ia64.c b/arch/ia64/kernel/sys_ia64.c
+index e14db25146c2..d5d47eb4608e 100644
+--- a/arch/ia64/kernel/sys_ia64.c
++++ b/arch/ia64/kernel/sys_ia64.c
+@@ -166,3 +166,29 @@ ia64_mremap (unsigned long addr, unsigned long old_len, unsigned long new_len, u
+ 		force_successful_syscall_return();
+ 	return addr;
+ }
++
++asmlinkage long
++ia64_clock_getres(const clockid_t which_clock, struct __kernel_timespec __user *tp)
++{
++	/*
++	 * ia64's clock_gettime() syscall is implemented as a vdso call
++	 * fsys_clock_gettime(). Currently it handles only
++	 * CLOCK_REALTIME and CLOCK_MONOTONIC. Both are based on
++	 * 'ar.itc' counter which gets incremented at a constant
++	 * frequency. It's usually 400MHz, ~2.5x times slower than CPU
++	 * clock frequency. Which is almost a 1ns hrtimer, but not quite.
++	 *
++	 * Let's special-case these timers to report correct precision
++	 * based on ITC frequency and not HZ frequency for supported
++	 * clocks.
++	 */
++	switch (which_clock) {
++		case CLOCK_REALTIME:
++		case CLOCK_MONOTONIC:
++			s64 tick_ns = DIV_ROUND_UP(NSEC_PER_SEC, local_cpu_data->itc_freq);
++			struct timespec64 rtn_tp = ns_to_timespec64(tick_ns);
++			return put_timespec64(&rtn_tp, tp);
++	}
++
++	return sys_clock_getres(which_clock, tp);
++}
+diff --git a/arch/ia64/kernel/syscalls/syscall.tbl b/arch/ia64/kernel/syscalls/syscall.tbl
+index 78b1d03e86e1..72c929d9902b 100644
+--- a/arch/ia64/kernel/syscalls/syscall.tbl
++++ b/arch/ia64/kernel/syscalls/syscall.tbl
+@@ -240,7 +240,7 @@
+ 228	common	timer_delete			sys_timer_delete
+ 229	common	clock_settime			sys_clock_settime
+ 230	common	clock_gettime			sys_clock_gettime
+-231	common	clock_getres			sys_clock_getres
++231	common	clock_getres			ia64_clock_getres
+ 232	common	clock_nanosleep			sys_clock_nanosleep
+ 233	common	fstatfs64			sys_fstatfs64
+ 234	common	statfs64			sys_statfs64
 -- 
-2.34.1
+2.37.2
