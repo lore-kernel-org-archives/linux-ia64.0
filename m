@@ -1,103 +1,49 @@
-From: Masahiro Yamada <masahiroy@kernel.org>
-Date: Mon, 26 Sep 2022 20:36:21 +0000
-Subject: [PATCH v2 3/7] modpost: merge sym_update_namespace() into sym_add_exported()
-Message-Id: <20220926203625.1117261-4-masahiroy@kernel.org>
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Mon, 19 Sep 2022 09:59:43 +0000
+Subject: [PATCH v2 04/44] cpuidle: Move IRQ state validation
+Message-Id: <20220919101520.602636221@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220926203625.1117261-1-masahiroy@kernel.org>
-In-Reply-To: <20220926203625.1117261-1-masahiroy@kernel.org>
+References: <20220919095939.761690562@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kbuild@vger.kernel.org
-Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>, Ard Biesheuvel <ardb@kernel.org>, Nicolas Pitre <npitre@baylibre.com>, Masahiro Yamada <masahiroy@kernel.org>, Nick Desaulniers <ndesaulniers@google.com>, Michal Marek <michal.lkml@markovi.net>
+To: peterz@infradead.org
+Cc: richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@kernel.org, linux@armlinux.org.uk, ulli.kroll@googlemail.com, linus.walleij@linaro.org, shawnguo@kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, kernel@pengutronix.de, festevam@gmail.com, linux-imx@nxp.com, tony@atomide.com, khilman@kernel.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, bcain@quicinc.com, chenhuacai@kernel.org, kernel@xen0n.name, geert@linux-m68k.org, sammy@sammy.net, monstr@monstr.eu, tsbogend@alpha.franken.de, dinguyen@kernel.org, jonas@southpole.se, stefan.kristiansson@saunalahti.fi, shorne@gmail.com, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, paul.walmsley@sifive.com, palmer@dabbelt.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, richard@nod.at, anton.ivanov@cambridgegreys.com, johannes@sipsolutions.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, acme@kernel.org, mark.rutland@arm.com, alexander.shishkin@linux.intel.com, jolsa@kernel.org, namhyung@kernel.org, jgross@suse.com, srivatsa@csail.mit.edu, amakhalov@vmware.com, pv-drivers@vmware.com, boris.ostrovsky@oracle.com, chris@zankel.net, jcmvbkbc@gmail.com, rafael@kernel.org, lenb@kernel.org, pavel@ucw.cz, gregkh@linuxfoundation.org, mturquette@baylibre.com, sboyd@kernel.org, daniel.lezcano@linaro.org, lpieralisi@kernel.org, sudeep.holla@arm.com, agross@kernel.org, bjorn.andersson@linaro.org, konrad.dybcio@somainline.org, anup@brainfault.org, thierry.reding@gmail.com, jonathanh@nvidia.com, jacob.jun.pan@linux.intel.com, atishp@atishpatra.org, Arnd Bergmann <arnd@arndb.de>, yury.norov@gmail.com, andriy.shevchenko@linux.intel.com, linux@rasmusvillemoes.dk, dennis@kernel.org, tj@kernel.org, cl@linux.com, rostedt@goodmis.org, pmladek@suse.com, senozhatsky@chromium.org, john.ogness@linutronix.de, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, fweisbec@gmail.com, ryabinin.a.a@gmail.com, glider@google.com, andreyknvl@gmail.com, dvyukov@google.com, vincenzo.frascino@arm.com, Andrew Morton <akpm@linux-foundation.org>, jpoimboe@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-omap@vger.kernel.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-perf-users@vger.kernel.org, virtualization@lists.linux-foundation.org, linux-xtensa@linux-xtensa.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-clk@vger.kernel.org, linux-arm-msm@vger.kernel.org, linux-tegra@vger.kernel.org, linux-arch@vger.kernel.org, kasan-dev@googlegroups.com
 
-Pass a set of the name, license, and namespace to sym_add_exported().
+Make cpuidle_enter_state() consistent with the s2idle variant and
+verify ->enter() always returns with interrupts disabled.
 
-sym_update_namespace() is unneeded.
-
-Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
-Reviewed-by: Nick Desaulniers <ndesaulniers@google.com>
+Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
 ---
+ drivers/cpuidle/cpuidle.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-(no changes since v1)
-
- scripts/mod/modpost.c | 41 +++++++++--------------------------------
- 1 file changed, 9 insertions(+), 32 deletions(-)
-
-diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
-index 13fff6e92aef..0bb5bbd176b4 100644
---- a/scripts/mod/modpost.c
-+++ b/scripts/mod/modpost.c
-@@ -352,26 +352,8 @@ static const char *sec_name(const struct elf_info *info, unsigned int secindex)
+--- a/drivers/cpuidle/cpuidle.c
++++ b/drivers/cpuidle/cpuidle.c
+@@ -236,7 +236,11 @@ int cpuidle_enter_state(struct cpuidle_d
+ 	stop_critical_timings();
+ 	if (!(target_state->flags & CPUIDLE_FLAG_RCU_IDLE))
+ 		ct_idle_enter();
++
+ 	entered_state = target_state->enter(dev, drv, index);
++	if (WARN_ONCE(!irqs_disabled(), "%ps leaked IRQ state", target_state->enter))
++		raw_local_irq_disable();
++
+ 	if (!(target_state->flags & CPUIDLE_FLAG_RCU_IDLE))
+ 		ct_idle_exit();
+ 	start_critical_timings();
+@@ -248,12 +252,8 @@ int cpuidle_enter_state(struct cpuidle_d
+ 	/* The cpu is no longer idle or about to enter idle. */
+ 	sched_idle_set_state(NULL);
  
- #define strstarts(str, prefix) (strncmp(str, prefix, strlen(prefix)) = 0)
- 
--static void sym_update_namespace(const char *symname, const char *namespace)
--{
--	struct symbol *s = find_symbol(symname);
+-	if (broadcast) {
+-		if (WARN_ON_ONCE(!irqs_disabled()))
+-			local_irq_disable();
 -
--	/*
--	 * That symbol should have been created earlier and thus this is
--	 * actually an assertion.
--	 */
--	if (!s) {
--		error("Could not update namespace(%s) for symbol %s\n",
--		      namespace, symname);
--		return;
++	if (broadcast)
+ 		tick_broadcast_exit();
 -	}
--
--	free(s->namespace);
--	s->namespace = namespace[0] ? NOFAIL(strdup(namespace)) : NULL;
--}
--
- static struct symbol *sym_add_exported(const char *name, struct module *mod,
--				       bool gpl_only)
-+				       bool gpl_only, const char *namespace)
- {
- 	struct symbol *s = find_symbol(name);
  
-@@ -384,6 +366,7 @@ static struct symbol *sym_add_exported(const char *name, struct module *mod,
- 	s = alloc_symbol(name);
- 	s->module = mod;
- 	s->is_gpl_only = gpl_only;
-+	s->namespace = namespace[0] ? NOFAIL(strdup(namespace)) : NULL;
- 	list_add_tail(&s->list, &mod->exported_symbols);
- 	hash_add_symbol(s);
- 
-@@ -657,17 +640,12 @@ static void handle_symbol(struct module *mod, struct elf_info *info,
- 		break;
- 	default:
- 		if (sym->st_shndx = info->export_symbol_sec) {
--			const char *name;
--
--			if (strstarts(symname, "__export_symbol_gpl.")) {
--				name = symname + strlen("__export_symbol_gpl.");
--				sym_add_exported(name, mod, true);
--				sym_update_namespace(name, sym_get_data(info, sym));
--			} else if (strstarts(symname, "__export_symbol.")) {
--				name = symname + strlen("__export_symbol.");
--				sym_add_exported(name, mod, false);
--				sym_update_namespace(name, sym_get_data(info, sym));
--			}
-+			if (strstarts(symname, "__export_symbol_gpl."))
-+				sym_add_exported(symname + strlen("__export_symbol_gpl."),
-+						 mod, true, sym_get_data(info, sym));
-+			else if (strstarts(symname, "__export_symbol."))
-+				sym_add_exported(symname + strlen("__export_symbol."),
-+						 mod, false, sym_get_data(info, sym));
- 
- 			break;
- 		}
-@@ -2283,9 +2261,8 @@ static void read_dump(const char *fname)
- 			mod = new_module(modname, strlen(modname));
- 			mod->from_dump = true;
- 		}
--		s = sym_add_exported(symname, mod, gpl_only);
-+		s = sym_add_exported(symname, mod, gpl_only, namespace);
- 		sym_set_crc(s, crc);
--		sym_update_namespace(symname, namespace);
- 	}
- 	free(buf);
- 	return;
--- 
-2.34.1
+ 	if (!cpuidle_state_is_coupled(drv, index))
+ 		local_irq_enable();
+
