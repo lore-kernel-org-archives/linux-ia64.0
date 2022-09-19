@@ -1,145 +1,147 @@
-From: Masahiro Yamada <masahiroy@kernel.org>
-Date: Wed, 28 Sep 2022 19:29:41 +0000
-Subject: Re: [PATCH v3 3/8] kbuild: generate KSYMTAB entries by modpost
-Message-Id: <CAK7LNASLf0Jbyfu7HB1qLRbc6-3QeZiw3okb6O+c5YhHA-a_bA@mail.gmail.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Mon, 19 Sep 2022 09:59:48 +0000
+Subject: [PATCH v2 09/44] cpuidle,omap3: Push RCU-idle into driver
+Message-Id: <20220919101520.936337959@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220928063947.299333-1-masahiroy@kernel.org> <20220928063947.299333-4-masahiroy@kernel.org>
-In-Reply-To: <20220928063947.299333-4-masahiroy@kernel.org>
+References: <20220919095939.761690562@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kbuild@vger.kernel.org
-Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>, Ard Biesheuvel <ardb@kernel.org>, Nicolas Pitre <npitre@baylibre.com>, Arnd Bergmann <arnd@arndb.de>, Luis Chamberlain <mcgrof@kernel.org>, Michal Marek <michal.lkml@markovi.net>, Nick Desaulniers <ndesaulniers@google.com>, linux-modules@vger.kernel.org
+To: peterz@infradead.org
+Cc: richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@kernel.org, linux@armlinux.org.uk, ulli.kroll@googlemail.com, linus.walleij@linaro.org, shawnguo@kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, kernel@pengutronix.de, festevam@gmail.com, linux-imx@nxp.com, tony@atomide.com, khilman@kernel.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, bcain@quicinc.com, chenhuacai@kernel.org, kernel@xen0n.name, geert@linux-m68k.org, sammy@sammy.net, monstr@monstr.eu, tsbogend@alpha.franken.de, dinguyen@kernel.org, jonas@southpole.se, stefan.kristiansson@saunalahti.fi, shorne@gmail.com, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, paul.walmsley@sifive.com, palmer@dabbelt.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, richard@nod.at, anton.ivanov@cambridgegreys.com, johannes@sipsolutions.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, acme@kernel.org, mark.rutland@arm.com, alexander.shishkin@linux.intel.com, jolsa@kernel.org, namhyung@kernel.org, jgross@suse.com, srivatsa@csail.mit.edu, amakhalov@vmware.com, pv-drivers@vmware.com, boris.ostrovsky@oracle.com, chris@zankel.net, jcmvbkbc@gmail.com, rafael@kernel.org, lenb@kernel.org, pavel@ucw.cz, gregkh@linuxfoundation.org, mturquette@baylibre.com, sboyd@kernel.org, daniel.lezcano@linaro.org, lpieralisi@kernel.org, sudeep.holla@arm.com, agross@kernel.org, bjorn.andersson@linaro.org, konrad.dybcio@somainline.org, anup@brainfault.org, thierry.reding@gmail.com, jonathanh@nvidia.com, jacob.jun.pan@linux.intel.com, atishp@atishpatra.org, Arnd Bergmann <arnd@arndb.de>, yury.norov@gmail.com, andriy.shevchenko@linux.intel.com, linux@rasmusvillemoes.dk, dennis@kernel.org, tj@kernel.org, cl@linux.com, rostedt@goodmis.org, pmladek@suse.com, senozhatsky@chromium.org, john.ogness@linutronix.de, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, fweisbec@gmail.com, ryabinin.a.a@gmail.com, glider@google.com, andreyknvl@gmail.com, dvyukov@google.com, vincenzo.frascino@arm.com, Andrew Morton <akpm@linux-foundation.org>, jpoimboe@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-omap@vger.kernel.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-perf-users@vger.kernel.org, virtualization@lists.linux-foundation.org, linux-xtensa@linux-xtensa.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-clk@vger.kernel.org, linux-arm-msm@vger.kernel.org, linux-tegra@vger.kernel.org, linux-arch@vger.kernel.org, kasan-dev@googlegroups.com
 
-On Wed, Sep 28, 2022 at 3:41 PM Masahiro Yamada <masahiroy@kernel.org> wrote:
->
-> Commit 7b4537199a4a ("kbuild: link symbol CRCs at final link, removing
-> CONFIG_MODULE_REL_CRCS") made modpost output CRCs in the same way
-> whether the EXPORT_SYMBOL() is placed in *.c or *.S.
->
-> This commit applies a similar approach to the entire data structure of
-> EXPORT_SYMBOL() for further cleanups. The EXPORT_SYMBOL() compilation
-> is split into two stages.
->
-> When a source file is compiled, EXPORT_SYMBOL() is converted into a
-> dummy symbol in the .discard.export_symbol section.
->
-> For example,
->
->     EXPORT_SYMBOL(foo);
->     EXPORT_SYMBOL_NS_GPL(bar, BAR_NAMESPACE);
->
-> will be encoded into the following assembly code:
->
->     .section .discard.export_symbol
->     __export_symbol.foo:
->             .asciz ""
->     .previous
->
->     .section .discard.export_symbol
->     __export_symbol_gpl.bar:
->             .asciz "BAR_NAMESPACE"
->     .previous
->
-> They are just markers to tell modpost the name, license, and namespace
-> of the symbols. They will be dropped from the final vmlinux and modules
-> because the section name starts with ".discard.".
->
-> Then, modpost extracts all the information about EXPORT_SYMBOL() from the
-> .discard.export_symbol section, and generates C code:
->
->     KSYMTAB_FUNC(foo, "", "");
->     KSYMTAB_FUNC(bar, "_gpl", "BAR_NAMESPACE");
->
-> KSYMTAB_FUNC() (or KSYMTAB_DATA() if it is data) is expanded to struct
-> kernel_symbol that will be linked to the vmlinux or a module.
->
-> With this change, EXPORT_SYMBOL() works in the same way for *.c and *.S
-> files, providing the following benefits.
->
-> [1] Deprecate EXPORT_DATA_SYMBOL()
->
-> In the old days, EXPORT_SYMBOL() was only available in C files. To export
-> a symbol in *.S, EXPORT_SYMBOL() was placed in a separate *.c file.
-> arch/arm/kernel/armksyms.c is one example written in the classic manner.
->
-> Commit 22823ab419d8 ("EXPORT_SYMBOL() for asm") removed this limitation.
-> Since then, EXPORT_SYMBOL() can be placed close to the symbol definition
-> in *.S files. It was a nice improvement.
->
-> However, as that commit mentioned, you need to use EXPORT_DATA_SYMBOL()
-> for data objects on some architectures.
->
-> In the new approach, modpost checks symbol's type (STT_FUNC or not),
-> and outputs KSYMTAB_FUNC() or KSYMTAB_DATA() accordingly.
->
-> There are only two users of EXPORT_DATA_SYMBOL:
->
->   EXPORT_DATA_SYMBOL_GPL(empty_zero_page)    (arch/ia64/kernel/head.S)
->   EXPORT_DATA_SYMBOL(ia64_ivt)               (arch/ia64/kernel/ivt.S)
->
-> They are transformed as follows and output into .vmlinux.export.c
->
->   KSYMTAB_DATA(empty_zero_page, "_gpl", "");
->   KSYMTAB_DATA(ia64_ivt, "", "");
->
-> The other EXPORT_SYMBOL users in ia64 assembly are output as
-> KSYMTAB_FUNC().
->
-> EXPORT_DATA_SYMBOL() is now deprecated.
->
-> [2] merge <linux/export.h> and <asm-generic/export.h>
->
-> There are two similar header implementations:
->
->   include/linux/export.h        for .c files
->   include/asm-generic/export.h  for .S files
->
-> Ideally, the functionality should be consistent between them, but they
-> tend to diverge.
->
-> Commit 8651ec01daed ("module: add support for symbol namespaces.") did
-> not support the namespace for *.S files.
->
-> This commit shifts the essential implementation part to C, which supports
-> EXPORT_SYMBOL_NS() for *.S files.
->
-> <asm/export.h> and <asm-generic/export.h> will remain as a wrapper of
-> <linux/export.h> for a while.
->
-> They will be removed after #include <asm/export.h> directives are all
-> replaced with #include <linux/export.h>.
->
-> [3] Implement CONFIG_TRIM_UNUSED_KSYMS in one-pass algorithm (by a later commit)
->
-> When CONFIG_TRIM_UNUSED_KSYMS is enabled, Kbuild recursively traverses
-> the directory tree to determine which EXPORT_SYMBOL to trim. If an
-> EXPORT_SYMBOL turns out to be unused by anyone, Kbuild begins the
-> second traverse, where some source files are recompiled with their
-> EXPORT_SYMBOL() tuned into a no-op.
->
-> We can do this better now; modpost can selectively emit KSYMTAB entries
-> that are really used by modules.
->
-> Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
+Doing RCU-idle outside the driver, only to then teporarily enable it
+again before going idle is daft.
 
+Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+Reviewed-by: Tony Lindgren <tony@atomide.com>
+Tested-by: Tony Lindgren <tony@atomide.com>
+---
+ arch/arm/mach-omap2/cpuidle34xx.c |   16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
+--- a/arch/arm/mach-omap2/cpuidle34xx.c
++++ b/arch/arm/mach-omap2/cpuidle34xx.c
+@@ -133,7 +133,9 @@ static int omap3_enter_idle(struct cpuid
+ 	}
+ 
+ 	/* Execute ARM wfi */
++	ct_idle_enter();
+ 	omap_sram_idle();
++	ct_idle_exit();
+ 
+ 	/*
+ 	 * Call idle CPU PM enter notifier chain to restore
+@@ -265,6 +267,7 @@ static struct cpuidle_driver omap3_idle_
+ 	.owner            = THIS_MODULE,
+ 	.states = {
+ 		{
++			.flags		  = CPUIDLE_FLAG_RCU_IDLE,
+ 			.enter		  = omap3_enter_idle_bm,
+ 			.exit_latency	  = 2 + 2,
+ 			.target_residency = 5,
+@@ -272,6 +275,7 @@ static struct cpuidle_driver omap3_idle_
+ 			.desc		  = "MPU ON + CORE ON",
+ 		},
+ 		{
++			.flags		  = CPUIDLE_FLAG_RCU_IDLE,
+ 			.enter		  = omap3_enter_idle_bm,
+ 			.exit_latency	  = 10 + 10,
+ 			.target_residency = 30,
+@@ -279,6 +283,7 @@ static struct cpuidle_driver omap3_idle_
+ 			.desc		  = "MPU ON + CORE ON",
+ 		},
+ 		{
++			.flags		  = CPUIDLE_FLAG_RCU_IDLE,
+ 			.enter		  = omap3_enter_idle_bm,
+ 			.exit_latency	  = 50 + 50,
+ 			.target_residency = 300,
+@@ -286,6 +291,7 @@ static struct cpuidle_driver omap3_idle_
+ 			.desc		  = "MPU RET + CORE ON",
+ 		},
+ 		{
++			.flags		  = CPUIDLE_FLAG_RCU_IDLE,
+ 			.enter		  = omap3_enter_idle_bm,
+ 			.exit_latency	  = 1500 + 1800,
+ 			.target_residency = 4000,
+@@ -293,6 +299,7 @@ static struct cpuidle_driver omap3_idle_
+ 			.desc		  = "MPU OFF + CORE ON",
+ 		},
+ 		{
++			.flags		  = CPUIDLE_FLAG_RCU_IDLE,
+ 			.enter		  = omap3_enter_idle_bm,
+ 			.exit_latency	  = 2500 + 7500,
+ 			.target_residency = 12000,
+@@ -300,6 +307,7 @@ static struct cpuidle_driver omap3_idle_
+ 			.desc		  = "MPU RET + CORE RET",
+ 		},
+ 		{
++			.flags		  = CPUIDLE_FLAG_RCU_IDLE,
+ 			.enter		  = omap3_enter_idle_bm,
+ 			.exit_latency	  = 3000 + 8500,
+ 			.target_residency = 15000,
+@@ -307,6 +315,7 @@ static struct cpuidle_driver omap3_idle_
+ 			.desc		  = "MPU OFF + CORE RET",
+ 		},
+ 		{
++			.flags		  = CPUIDLE_FLAG_RCU_IDLE,
+ 			.enter		  = omap3_enter_idle_bm,
+ 			.exit_latency	  = 10000 + 30000,
+ 			.target_residency = 30000,
+@@ -328,6 +337,7 @@ static struct cpuidle_driver omap3430_id
+ 	.owner            = THIS_MODULE,
+ 	.states = {
+ 		{
++			.flags		  = CPUIDLE_FLAG_RCU_IDLE,
+ 			.enter		  = omap3_enter_idle_bm,
+ 			.exit_latency	  = 110 + 162,
+ 			.target_residency = 5,
+@@ -335,6 +345,7 @@ static struct cpuidle_driver omap3430_id
+ 			.desc		  = "MPU ON + CORE ON",
+ 		},
+ 		{
++			.flags		  = CPUIDLE_FLAG_RCU_IDLE,
+ 			.enter		  = omap3_enter_idle_bm,
+ 			.exit_latency	  = 106 + 180,
+ 			.target_residency = 309,
+@@ -342,6 +353,7 @@ static struct cpuidle_driver omap3430_id
+ 			.desc		  = "MPU ON + CORE ON",
+ 		},
+ 		{
++			.flags		  = CPUIDLE_FLAG_RCU_IDLE,
+ 			.enter		  = omap3_enter_idle_bm,
+ 			.exit_latency	  = 107 + 410,
+ 			.target_residency = 46057,
+@@ -349,6 +361,7 @@ static struct cpuidle_driver omap3430_id
+ 			.desc		  = "MPU RET + CORE ON",
+ 		},
+ 		{
++			.flags		  = CPUIDLE_FLAG_RCU_IDLE,
+ 			.enter		  = omap3_enter_idle_bm,
+ 			.exit_latency	  = 121 + 3374,
+ 			.target_residency = 46057,
+@@ -356,6 +369,7 @@ static struct cpuidle_driver omap3430_id
+ 			.desc		  = "MPU OFF + CORE ON",
+ 		},
+ 		{
++			.flags		  = CPUIDLE_FLAG_RCU_IDLE,
+ 			.enter		  = omap3_enter_idle_bm,
+ 			.exit_latency	  = 855 + 1146,
+ 			.target_residency = 46057,
+@@ -363,6 +377,7 @@ static struct cpuidle_driver omap3430_id
+ 			.desc		  = "MPU RET + CORE RET",
+ 		},
+ 		{
++			.flags		  = CPUIDLE_FLAG_RCU_IDLE,
+ 			.enter		  = omap3_enter_idle_bm,
+ 			.exit_latency	  = 7580 + 4134,
+ 			.target_residency = 484329,
+@@ -370,6 +385,7 @@ static struct cpuidle_driver omap3430_id
+ 			.desc		  = "MPU OFF + CORE RET",
+ 		},
+ 		{
++			.flags		  = CPUIDLE_FLAG_RCU_IDLE,
+ 			.enter		  = omap3_enter_idle_bm,
+ 			.exit_latency	  = 7505 + 15274,
+ 			.target_residency = 484329,
 
-After some more tests, I noticed this introduced
-false positive warnings:
-
-  ERROR: modpost: phy_init .init.text vmlinux: EXPORT_SYMBOL used for
-init symbol. Remove __init or EXPORT_SYMBOL.
-  ERROR: modpost: phy_exit .exit.text vmlinux: EXPORT_SYMBOL used for
-exit symbol. Remove __exit or EXPORT_SYMBOL.
-
-
-If I find how to fix it, I will send v4.
-
-
-
-
-
--- 
-Best Regards
-Masahiro Yamada
