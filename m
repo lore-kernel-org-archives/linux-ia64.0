@@ -1,134 +1,52 @@
-From: Masahiro Yamada <masahiroy@kernel.org>
-Date: Wed, 28 Sep 2022 06:39:41 +0000
-Subject: [PATCH v3 2/8] kbuild: rebuild .vmlinux.export.o when its prerequisite is updated
-Message-Id: <20220928063947.299333-3-masahiroy@kernel.org>
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Mon, 19 Sep 2022 10:00:18 +0000
+Subject: [PATCH v2 39/44] cpuidle,clk: Remove trace_.*_rcuidle()
+Message-Id: <20220919101522.975285117@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220928063947.299333-1-masahiroy@kernel.org>
-In-Reply-To: <20220928063947.299333-1-masahiroy@kernel.org>
+References: <20220919095939.761690562@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kbuild@vger.kernel.org
-Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>, Ard Biesheuvel <ardb@kernel.org>, Nicolas Pitre <npitre@baylibre.com>, Masahiro Yamada <masahiroy@kernel.org>, Michal Marek <michal.lkml@markovi.net>, Nick Desaulniers <ndesaulniers@google.com>
+To: peterz@infradead.org
+Cc: juri.lelli@redhat.com, rafael@kernel.org, catalin.marinas@arm.com, linus.walleij@linaro.org, bsegall@google.com, guoren@kernel.org, pavel@ucw.cz, agordeev@linux.ibm.com, linux-arch@vger.kernel.org, vincent.guittot@linaro.org, mpe@ellerman.id.au, chenhuacai@kernel.org, christophe.leroy@csgroup.eu, linux-acpi@vger.kernel.org, agross@kernel.org, geert@linux-m68k.org, linux-imx@nxp.com, vgupta@kernel.org, mattst88@gmail.com, mturquette@baylibre.com, sammy@sammy.net, pmladek@suse.com, linux-pm@vger.kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, linux-um@lists.infradead.org, npiggin@gmail.com, tglx@linutronix.de, linux-omap@vger.kernel.org, dietmar.eggemann@arm.com, andreyknvl@gmail.com, gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org, linux-perf-users@vger.kernel.org, senozhatsky@chromium.org, svens@linux.ibm.com, jolsa@kernel.org, tj@kernel.org, Andrew Morton <akpm@linux-foundation.org>, mark.rutland@arm.com, linux-ia64@vger.kernel.org, dave.hansen@linux.intel.com, virtualization@lists.linux-foundation.org, James.Bottomley@HansenPartnership.com, jcmvbkbc@gmail.com, thierry.reding@gmail.com, kernel@xen0n.name, cl@linux.com, linux-s390@vger.kernel.org, vschneid@redhat.com, john.ogness@linutronix.de, ysato@users.sourceforge.jp, linux-sh@vger.kernel.org, festevam@gmail.com, deller@gmx.de, daniel.lezcano@linaro.org, jonathanh@nvidia.com, dennis@kernel.org, lenb@kernel.org, linux-xtensa@linux-xtensa.org, kernel@pengutronix.de, gor@linux.ibm.com, linux-arm-msm@vger.kernel.org, linux-alpha@vger.kernel.org, linux-m68k@lists.linux-m68k.org, loongarch@lists.linux.dev, shorne@gmail.com, chris@zankel.net, sboyd@kernel.org, dinguyen@kernel.org, bristot@redhat.com, alexander.shishkin@linux.intel.com, fweisbec@gmail.com, lpieralisi@kernel.org, atishp@atishpatra.org, linux@rasmusvillemoes.dk, kasan-dev@googlegroups.com, will@kernel.org, boris.ostrovsky@oracle.com, khilman@kernel.org, linux-csky@vger.kernel.org, pv-drivers@vmware.com, linux-snps-arc@lists.infradead.org, mgorman@suse.de, jacob.jun.pan@linux.intel.com, Arnd Bergmann <arnd@arndb.de>, ulli.kroll@googlemail.com, linux-clk@vger.kernel.org, rostedt@goodmis.org, ink@jurassic.park.msu.ru, bcain@quicinc.com, tsbogend@alpha.franken.de, linux-parisc@vger.kernel.org, ryabinin.a.a@gmail.com, sudeep.holla@arm.com, shawnguo@kernel.org, davem@davemloft.net, dalias@libc.org, tony@atomide.com, amakhalov@vmware.com, konrad.dybcio@somainline.org, bjorn.andersson@linaro.org, glider@google.com, hpa@zytor.com, sparclinux@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-riscv@lists.infradead.org, vincenzo.frascino@arm.com, anton.ivanov@cambridgegreys.com, jonas@southpole.se, yury.norov@gmail.com, richard@nod.at, x86@kernel.org, linux@armlinux.org.uk, mingo@redhat.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, richard.henderson@linaro.org, stefan.kristiansson@saunalahti.fi, openrisc@lists.librecores.org, acme@kernel.org, paul.walmsley@sifive.com, linux-tegra@vger.kernel.org, namhyung@kernel.org, andriy.shevchenko@linux.intel.com, jpoimboe@kernel.org, dvyukov@google.com, jgross@suse.com, monstr@monstr.eu, linux-mips@vger.kernel.org, palmer@dabbelt.com, anup@brainfault.org, bp@alien8.de, johannes@sipsolutions.net, linuxppc-dev@lists.ozlabs.org
 
-When include/linux/export-internal.h is updated, .vmlinux.export.o
-must be rebuilt, but it does not happen because its rule is hidden
-behind scripts/link-vmlinux.sh.
+OMAP was the one and only user.
 
-Move it out of the shell script, so that Make can see the dependency
-between vmlinux and .vmlinux.export.o.
-
-Move the vmlinux rule to scripts/Makefile.vmlinux.
-
-Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
+Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
 ---
+ drivers/clk/clk.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-Changes in v3:
-  - New patch
-
- Makefile                 | 16 ++++------------
- scripts/Makefile.vmlinux | 21 ++++++++++++++++++++-
- scripts/link-vmlinux.sh  |  5 -----
- 3 files changed, 24 insertions(+), 18 deletions(-)
-
-diff --git a/Makefile b/Makefile
-index 83d8ff1d521a..79488f155fae 100644
---- a/Makefile
-+++ b/Makefile
-@@ -1160,17 +1160,9 @@ vmlinux_o: autoksyms_recursive vmlinux.a $(KBUILD_VMLINUX_LIBS)
- vmlinux.o modules.builtin.modinfo modules.builtin: vmlinux_o
- 	@:
+--- a/drivers/clk/clk.c
++++ b/drivers/clk/clk.c
+@@ -978,12 +978,12 @@ static void clk_core_disable(struct clk_
+ 	if (--core->enable_count > 0)
+ 		return;
  
--ARCH_POSTLINK := $(wildcard $(srctree)/arch/$(SRCARCH)/Makefile.postlink)
--
--# Final link of vmlinux with optional arch pass after final link
--cmd_link-vmlinux =                                                 \
--	$(CONFIG_SHELL) $< "$(LD)" "$(KBUILD_LDFLAGS)" "$(LDFLAGS_vmlinux)";    \
--	$(if $(ARCH_POSTLINK), $(MAKE) -f $(ARCH_POSTLINK) $@, true)
--
--vmlinux: scripts/link-vmlinux.sh vmlinux.o $(KBUILD_LDS) modpost FORCE
--	+$(call if_changed_dep,link-vmlinux)
--
--targets += vmlinux
-+PHONY += vmlinux
-+vmlinux: vmlinux.o $(KBUILD_LDS) modpost
-+	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.vmlinux
+-	trace_clk_disable_rcuidle(core);
++	trace_clk_disable(core);
  
- # The actual objects are generated when descending,
- # make sure no implicit rule kicks in
-@@ -1501,7 +1493,7 @@ endif # CONFIG_MODULES
- # Directories & files removed with 'make clean'
- CLEAN_FILES += include/ksym vmlinux.symvers modules-only.symvers \
- 	       modules.builtin modules.builtin.modinfo modules.nsdeps \
--	       compile_commands.json .thinlto-cache .vmlinux.objs
-+	       compile_commands.json .thinlto-cache .vmlinux.objs .vmlinux.export.c
+ 	if (core->ops->disable)
+ 		core->ops->disable(core->hw);
  
- # Directories & files removed with 'make mrproper'
- MRPROPER_FILES += include/config include/generated          \
-diff --git a/scripts/Makefile.vmlinux b/scripts/Makefile.vmlinux
-index 7a63abf22399..49946cb96844 100644
---- a/scripts/Makefile.vmlinux
-+++ b/scripts/Makefile.vmlinux
-@@ -1,18 +1,37 @@
- # SPDX-License-Identifier: GPL-2.0-only
+-	trace_clk_disable_complete_rcuidle(core);
++	trace_clk_disable_complete(core);
  
-+PHONY := __default
-+__default: vmlinux
-+
- include include/config/auto.conf
- include $(srctree)/scripts/Kbuild.include
- 
- # for c_flags
- include $(srctree)/scripts/Makefile.lib
- 
-+targets :+
- quiet_cmd_cc_o_c = CC      $@
-       cmd_cc_o_c = $(CC) $(c_flags) -c -o $@ $<
- 
- %.o: %.c FORCE
- 	$(call if_changed_dep,cc_o_c)
- 
--targets := $(MAKECMDGOALS)
-+ifdef CONFIG_MODULES
-+targets += .vmlinux.export.o
-+vmlinux: .vmlinux.export.o
-+endif
-+
-+ARCH_POSTLINK := $(wildcard $(srctree)/arch/$(SRCARCH)/Makefile.postlink)
-+
-+# Final link of vmlinux with optional arch pass after final link
-+cmd_link_vmlinux =							\
-+	$< "$(LD)" "$(KBUILD_LDFLAGS)" "$(LDFLAGS_vmlinux)";		\
-+	$(if $(ARCH_POSTLINK), $(MAKE) -f $(ARCH_POSTLINK) $@, true)
-+
-+targets += vmlinux
-+vmlinux: scripts/link-vmlinux.sh vmlinux.o $(KBUILD_LDS) FORCE
-+	+$(call if_changed_dep,link_vmlinux)
- 
- # Add FORCE to the prequisites of a target to force it to be always rebuilt.
- # ---------------------------------------------------------------------------
-diff --git a/scripts/link-vmlinux.sh b/scripts/link-vmlinux.sh
-index e3d42202e54c..918470d768e9 100755
---- a/scripts/link-vmlinux.sh
-+++ b/scripts/link-vmlinux.sh
-@@ -199,7 +199,6 @@ cleanup()
- 	rm -f System.map
- 	rm -f vmlinux
- 	rm -f vmlinux.map
--	rm -f .vmlinux.export.c
+ 	clk_core_disable(core->parent);
  }
+@@ -1037,12 +1037,12 @@ static int clk_core_enable(struct clk_co
+ 		if (ret)
+ 			return ret;
  
- # Use "make V=1" to debug this script
-@@ -214,10 +213,6 @@ if [ "$1" = "clean" ]; then
- 	exit 0
- fi
+-		trace_clk_enable_rcuidle(core);
++		trace_clk_enable(core);
  
--if is_enabled CONFIG_MODULES; then
--	${MAKE} -f "${srctree}/scripts/Makefile.vmlinux" .vmlinux.export.o
--fi
--
- ${MAKE} -f "${srctree}/scripts/Makefile.build" obj=init init/version-timestamp.o
+ 		if (core->ops->enable)
+ 			ret = core->ops->enable(core->hw);
  
- btf_vmlinux_bin_o=""
--- 
-2.34.1
+-		trace_clk_enable_complete_rcuidle(core);
++		trace_clk_enable_complete(core);
+ 
+ 		if (ret) {
+ 			clk_core_disable(core->parent);
+
