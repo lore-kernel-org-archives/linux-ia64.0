@@ -1,7 +1,7 @@
 From: Frederic Weisbecker <frederic@kernel.org>
-Date: Mon, 19 Sep 2022 14:21:23 +0000
+Date: Mon, 19 Sep 2022 14:49:41 +0000
 Subject: Re: [PATCH v2 08/44] cpuidle,imx6: Push RCU-idle into driver
-Message-Id: <20220919142123.GE58444@lothringen>
+Message-Id: <20220919144941.GA62211@lothringen>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220919095939.761690562@infradead.org>
  <20220919101520.869531945@infradead.org>
@@ -15,12 +15,6 @@ Cc: richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, 
 On Mon, Sep 19, 2022 at 11:59:47AM +0200, Peter Zijlstra wrote:
 > Doing RCU-idle outside the driver, only to then temporarily enable it
 > again, at least twice, before going idle is daft.
-
-Hmm, what ends up calling RCU_IDLE() here? Also what about
-cpu_do_idle()?
-
-Thanks.
-
 > 
 > Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
 > ---
@@ -47,6 +41,11 @@ Thanks.
 > +			.flags = CPUIDLE_FLAG_TIMER_STOP |
 > +				 CPUIDLE_FLAG_RCU_IDLE,
 >  			.enter = imx6sx_enter_wait,
+
+There is a second one below that also uses imx6sx_enter_wait.
+
+Thanks.
+
 >  			.name = "LOW-POWER-IDLE",
 >  			.desc = "ARM power off",
 > 
