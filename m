@@ -1,66 +1,50 @@
-From: Masahiro Yamada <masahiroy@kernel.org>
-Date: Mon, 26 Sep 2022 20:36:18 +0000
-Subject: [PATCH v2 0/7] Unify <linux/export.h> and <asm/export.h>, remove EXPORT_DATA_SYMBOL(), faster TRIM_U
-Message-Id: <20220926203625.1117261-1-masahiroy@kernel.org>
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Mon, 19 Sep 2022 09:59:59 +0000
+Subject: [PATCH v2 20/44] cpuidle,intel_idle: Fix CPUIDLE_FLAG_IBRS
+Message-Id: <20220919101521.676713943@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20220919095939.761690562@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kbuild@vger.kernel.org
-Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>, Ard Biesheuvel <ardb@kernel.org>, Nicolas Pitre <npitre@baylibre.com>, Masahiro Yamada <masahiroy@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Luis Chamberlain <mcgrof@kernel.org>, Michal Marek <michal.lkml@markovi.net>, Nathan Chancellor <nathan@kernel.org>, Nick Desaulniers <ndesaulniers@google.com>, Tom Rix <trix@redhat.com>, linux-modules@vger.kernel.org, llvm@lists.linux.dev
+To: peterz@infradead.org
+Cc: juri.lelli@redhat.com, rafael@kernel.org, catalin.marinas@arm.com, linus.walleij@linaro.org, bsegall@google.com, guoren@kernel.org, pavel@ucw.cz, agordeev@linux.ibm.com, linux-arch@vger.kernel.org, vincent.guittot@linaro.org, mpe@ellerman.id.au, chenhuacai@kernel.org, christophe.leroy@csgroup.eu, linux-acpi@vger.kernel.org, agross@kernel.org, geert@linux-m68k.org, linux-imx@nxp.com, vgupta@kernel.org, mattst88@gmail.com, mturquette@baylibre.com, sammy@sammy.net, pmladek@suse.com, linux-pm@vger.kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, linux-um@lists.infradead.org, npiggin@gmail.com, tglx@linutronix.de, linux-omap@vger.kernel.org, dietmar.eggemann@arm.com, andreyknvl@gmail.com, gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org, linux-perf-users@vger.kernel.org, senozhatsky@chromium.org, svens@linux.ibm.com, jolsa@kernel.org, tj@kernel.org, Andrew Morton <akpm@linux-foundation.org>, mark.rutland@arm.com, linux-ia64@vger.kernel.org, dave.hansen@linux.intel.com, virtualization@lists.linux-foundation.org, James.Bottomley@HansenPartnership.com, jcmvbkbc@gmail.com, thierry.reding@gmail.com, kernel@xen0n.name, cl@linux.com, linux-s390@vger.kernel.org, vschneid@redhat.com, john.ogness@linutronix.de, ysato@users.sourceforge.jp, linux-sh@vger.kernel.org, festevam@gmail.com, deller@gmx.de, daniel.lezcano@linaro.org, jonathanh@nvidia.com, dennis@kernel.org, lenb@kernel.org, linux-xtensa@linux-xtensa.org, kernel@pengutronix.de, gor@linux.ibm.com, linux-arm-msm@vger.kernel.org, linux-alpha@vger.kernel.org, linux-m68k@lists.linux-m68k.org, loongarch@lists.linux.dev, shorne@gmail.com, chris@zankel.net, sboyd@kernel.org, dinguyen@kernel.org, bristot@redhat.com, alexander.shishkin@linux.intel.com, fweisbec@gmail.com, lpieralisi@kernel.org, atishp@atishpatra.org, linux@rasmusvillemoes.dk, kasan-dev@googlegroups.com, will@kernel.org, boris.ostrovsky@oracle.com, khilman@kernel.org, linux-csky@vger.kernel.org, pv-drivers@vmware.com, linux-snps-arc@lists.infradead.org, mgorman@suse.de, jacob.jun.pan@linux.intel.com, Arnd Bergmann <arnd@arndb.de>, ulli.kroll@googlemail.com, linux-clk@vger.kernel.org, rostedt@goodmis.org, ink@jurassic.park.msu.ru, bcain@quicinc.com, tsbogend@alpha.franken.de, linux-parisc@vger.kernel.org, ryabinin.a.a@gmail.com, sudeep.holla@arm.com, shawnguo@kernel.org, davem@davemloft.net, dalias@libc.org, tony@atomide.com, amakhalov@vmware.com, konrad.dybcio@somainline.org, bjorn.andersson@linaro.org, glider@google.com, hpa@zytor.com, sparclinux@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-riscv@lists.infradead.org, vincenzo.frascino@arm.com, anton.ivanov@cambridgegreys.com, jonas@southpole.se, yury.norov@gmail.com, richard@nod.at, x86@kernel.org, linux@armlinux.org.uk, mingo@redhat.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, richard.henderson@linaro.org, stefan.kristiansson@saunalahti.fi, openrisc@lists.librecores.org, acme@kernel.org, paul.walmsley@sifive.com, linux-tegra@vger.kernel.org, namhyung@kernel.org, andriy.shevchenko@linux.intel.com, jpoimboe@kernel.org, dvyukov@google.com, jgross@suse.com, monstr@monstr.eu, linux-mips@vger.kernel.org, palmer@dabbelt.com, anup@brainfault.org, bp@alien8.de, johannes@sipsolutions.net, linuxppc-dev@lists.ozlabs.org
 
-This patch set refactors EXPORT_SYMBOL, <linux/export.h> and <asm/export.h>.
-Also, re-implement TRIM_UNUSED_KSYMS in one-pass.
+vmlinux.o: warning: objtool: intel_idle_ibrs+0x17: call to spec_ctrl_current() leaves .noinstr.text section
+vmlinux.o: warning: objtool: intel_idle_ibrs+0x27: call to wrmsrl.constprop.0() leaves .noinstr.text section
 
-You can still put EXPORT_SYMBOL() in *.S file, very close to the definition,
-but you do not need to care about whether it is a function or a data.
-Remove EXPORT_DATA_SYMBOL().
+Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+---
+ arch/x86/kernel/cpu/bugs.c |    2 +-
+ drivers/idle/intel_idle.c  |    4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-In v1, I broke ia64 because of missing distinction between functions and data.
+--- a/arch/x86/kernel/cpu/bugs.c
++++ b/arch/x86/kernel/cpu/bugs.c
+@@ -79,7 +79,7 @@ void write_spec_ctrl_current(u64 val, bo
+ 		wrmsrl(MSR_IA32_SPEC_CTRL, val);
+ }
+ 
+-u64 spec_ctrl_current(void)
++noinstr u64 spec_ctrl_current(void)
+ {
+ 	return this_cpu_read(x86_spec_ctrl_current);
+ }
+--- a/drivers/idle/intel_idle.c
++++ b/drivers/idle/intel_idle.c
+@@ -181,12 +181,12 @@ static __cpuidle int intel_idle_ibrs(str
+ 	int ret;
+ 
+ 	if (smt_active)
+-		wrmsrl(MSR_IA32_SPEC_CTRL, 0);
++		native_wrmsrl(MSR_IA32_SPEC_CTRL, 0);
+ 
+ 	ret = __intel_idle(dev, drv, index);
+ 
+ 	if (smt_active)
+-		wrmsrl(MSR_IA32_SPEC_CTRL, spec_ctrl);
++		native_wrmsrl(MSR_IA32_SPEC_CTRL, spec_ctrl);
+ 
+ 	return ret;
+ }
 
-V2 handles it correctly.
-If the exported symbols is a function, KSYMTAB_FUNC is output.
-Otherwise, KSYMTAB_DATA is output.
-
-
-
-Masahiro Yamada (7):
-  kbuild: generate KSYMTAB entries by modpost
-  ia64,export.h: replace EXPORT_DATA_SYMBOL* with EXPORT_SYMBOL*
-  modpost: merge sym_update_namespace() into sym_add_exported()
-  modpost: use null string instead of NULL pointer for default namespace
-  modpost: squash report_sec_mismatch() and remove enum mismatch
-  kbuild: implement CONFIG_TRIM_UNUSED_KSYMS without recursion
-  kbuild: move modules.builtin(.modinfo) rules to Makefile.vmlinux_o
-
- .gitignore                      |   1 -
- Makefile                        |  24 +---
- arch/ia64/include/asm/Kbuild    |   1 +
- arch/ia64/include/asm/export.h  |   3 -
- arch/ia64/kernel/head.S         |   2 +-
- arch/ia64/kernel/ivt.S          |   2 +-
- include/asm-generic/export.h    |  83 +-----------
- include/linux/export-internal.h |  67 +++++++++-
- include/linux/export.h          | 114 +++-------------
- kernel/module/internal.h        |   1 +
- kernel/module/main.c            |   1 -
- scripts/Makefile.build          |  15 +--
- scripts/Makefile.modpost        |   8 +-
- scripts/Makefile.vmlinux_o      |  26 +++-
- scripts/adjust_autoksyms.sh     |  73 ----------
- scripts/basic/fixdep.c          |   3 +-
- scripts/check-local-export      |   4 +-
- scripts/gen_autoksyms.sh        |  62 ---------
- scripts/gen_ksymdeps.sh         |  30 -----
- scripts/link-vmlinux.sh         |  12 +-
- scripts/mod/modpost.c           | 228 ++++++++++++++++----------------
- scripts/mod/modpost.h           |   1 +
- scripts/remove-stale-files      |   2 +
- 23 files changed, 258 insertions(+), 505 deletions(-)
- delete mode 100644 arch/ia64/include/asm/export.h
- delete mode 100755 scripts/adjust_autoksyms.sh
- delete mode 100755 scripts/gen_autoksyms.sh
- delete mode 100755 scripts/gen_ksymdeps.sh
-
--- 
-2.34.1
