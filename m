@@ -1,7 +1,7 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Mon, 19 Sep 2022 07:50:12 +0000
+From: Baolin Wang <baolin.wang@linux.alibaba.com>
+Date: Wed, 21 Sep 2022 09:30:03 +0000
 Subject: Re: [PATCH v3] hugetlb: simplify hugetlb handling in follow_page_mask
-Message-Id: <3d2fc74b-7496-6691-aec0-8d4ed30df139@redhat.com>
+Message-Id: <41579b3d-00a4-d3ba-ea7a-21d6d147e018@linux.alibaba.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220919021348.22151-1-mike.kravetz@oracle.com>
 In-Reply-To: <20220919021348.22151-1-mike.kravetz@oracle.com>
@@ -9,9 +9,11 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Mike Kravetz <mike.kravetz@oracle.com>, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org
-Cc: Baolin Wang <baolin.wang@linux.alibaba.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Naoya Horiguchi <naoya.horiguchi@linux.dev>, Michael Ellerman <mpe@ellerman.id.au>, Muchun Song <songmuchun@bytedance.com>, Andrew Morton <akpm@linux-foundation.org>
+Cc: David Hildenbrand <david@redhat.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Naoya Horiguchi <naoya.horiguchi@linux.dev>, Michael Ellerman <mpe@ellerman.id.au>, Muchun Song <songmuchun@bytedance.com>, Andrew Morton <akpm@linux-foundation.org>
 
-On 19.09.22 04:13, Mike Kravetz wrote:
+
+
+On 9/19/2022 10:13 AM, Mike Kravetz wrote:
 > During discussions of this series [1], it was suggested that hugetlb
 > handling code in follow_page_mask could be simplified.  At the beginning
 > of follow_page_mask, there currently is a call to follow_huge_addr which
@@ -42,11 +44,7 @@ On 19.09.22 04:13, Mike Kravetz wrote:
 > 
 > Suggested-by: David Hildenbrand <david@redhat.com>
 > Signed-off-by: Mike Kravetz <mike.kravetz@oracle.com>
-> ---
 
-Reviewed-by: David Hildenbrand <david@redhat.com>
-
--- 
-Thanks,
-
-David / dhildenb
+LGTM, and works well on my machine. So feel free to add:
+Reviewed-by: Baolin Wang <baolin.wang@linux.alibaba.com>
+Tested-by: Baolin Wang <baolin.wang@linux.alibaba.com>
