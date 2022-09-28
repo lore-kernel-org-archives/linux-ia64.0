@@ -1,7 +1,7 @@
 From: Masahiro Yamada <masahiroy@kernel.org>
-Date: Wed, 28 Sep 2022 06:39:46 +0000
-Subject: [PATCH v3 7/8] modpost: squash report_sec_mismatch() and remove enum mismatch
-Message-Id: <20220928063947.299333-8-masahiroy@kernel.org>
+Date: Wed, 28 Sep 2022 06:39:44 +0000
+Subject: [PATCH v3 5/8] modpost: squash sym_update_namespace() into sym_add_exported()
+Message-Id: <20220928063947.299333-6-masahiroy@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20220928063947.299333-1-masahiroy@kernel.org>
 In-Reply-To: <20220928063947.299333-1-masahiroy@kernel.org>
@@ -9,171 +9,95 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kbuild@vger.kernel.org
-Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>, Ard Biesheuvel <ardb@kernel.org>, Nicolas Pitre <npitre@baylibre.com>, Masahiro Yamada <masahiroy@kernel.org>, Michal Marek <michal.lkml@markovi.net>, Nick Desaulniers <ndesaulniers@google.com>
+Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>, Ard Biesheuvel <ardb@kernel.org>, Nicolas Pitre <npitre@baylibre.com>, Masahiro Yamada <masahiroy@kernel.org>, Nick Desaulniers <ndesaulniers@google.com>, Michal Marek <michal.lkml@markovi.net>
 
-Now report_sec_mismatch() prints the same warning message for all
-possible cases. (fatal() is just a sanity check for unreachable code.)
+Pass a set of the name, license, and namespace to sym_add_exported().
 
-Squash it into default_mismatch_handler().
-
-enum mismatch is no longer used. Remove it as well.
+sym_update_namespace() is unneeded.
 
 Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
+Reviewed-by: Nick Desaulniers <ndesaulniers@google.com>
 ---
 
-(no changes since v2)
+(no changes since v1)
 
-Changes in v2:
-  - New patch
-
- scripts/mod/modpost.c | 61 +++----------------------------------------
- 1 file changed, 4 insertions(+), 57 deletions(-)
+ scripts/mod/modpost.c | 41 +++++++++--------------------------------
+ 1 file changed, 9 insertions(+), 32 deletions(-)
 
 diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
-index 29f30558a398..90733664a602 100644
+index 13fff6e92aef..0bb5bbd176b4 100644
 --- a/scripts/mod/modpost.c
 +++ b/scripts/mod/modpost.c
-@@ -847,18 +847,6 @@ static const char *const linker_symbols[]  	{ "__init_begin", "_sinittext", "_einittext", NULL };
- static const char *const optim_symbols[] = { "*.constprop.*", NULL };
+@@ -352,26 +352,8 @@ static const char *sec_name(const struct elf_info *info, unsigned int secindex)
  
--enum mismatch {
--	TEXT_TO_ANY_INIT,
--	DATA_TO_ANY_INIT,
--	TEXT_TO_ANY_EXIT,
--	DATA_TO_ANY_EXIT,
--	XXXINIT_TO_SOME_INIT,
--	XXXEXIT_TO_SOME_EXIT,
--	ANY_INIT_TO_ANY_EXIT,
--	ANY_EXIT_TO_ANY_INIT,
--	EXTABLE_TO_NON_TEXT,
--};
--
- /**
-  * Describe how to match sections on different criteria:
-  *
-@@ -880,7 +868,6 @@ struct sectioncheck {
- 	const char *fromsec[20];
- 	const char *bad_tosec[20];
- 	const char *good_tosec[20];
--	enum mismatch mismatch;
- 	void (*handler)(const char *modname, struct elf_info *elf,
- 			const struct sectioncheck* const mismatch,
- 			Elf_Rela *r, Elf_Sym *sym, const char *fromsec);
-@@ -899,56 +886,46 @@ static const struct sectioncheck sectioncheck[] = {
- {
- 	.fromsec = { TEXT_SECTIONS, NULL },
- 	.bad_tosec = { ALL_INIT_SECTIONS, NULL },
--	.mismatch = TEXT_TO_ANY_INIT,
- },
- {
- 	.fromsec = { DATA_SECTIONS, NULL },
- 	.bad_tosec = { ALL_XXXINIT_SECTIONS, NULL },
--	.mismatch = DATA_TO_ANY_INIT,
- },
- {
- 	.fromsec = { DATA_SECTIONS, NULL },
- 	.bad_tosec = { INIT_SECTIONS, NULL },
--	.mismatch = DATA_TO_ANY_INIT,
- },
- {
- 	.fromsec = { TEXT_SECTIONS, NULL },
- 	.bad_tosec = { ALL_EXIT_SECTIONS, NULL },
--	.mismatch = TEXT_TO_ANY_EXIT,
- },
- {
- 	.fromsec = { DATA_SECTIONS, NULL },
- 	.bad_tosec = { ALL_EXIT_SECTIONS, NULL },
--	.mismatch = DATA_TO_ANY_EXIT,
- },
- /* Do not reference init code/data from meminit code/data */
- {
- 	.fromsec = { ALL_XXXINIT_SECTIONS, NULL },
- 	.bad_tosec = { INIT_SECTIONS, NULL },
--	.mismatch = XXXINIT_TO_SOME_INIT,
- },
- /* Do not reference exit code/data from memexit code/data */
- {
- 	.fromsec = { ALL_XXXEXIT_SECTIONS, NULL },
- 	.bad_tosec = { EXIT_SECTIONS, NULL },
--	.mismatch = XXXEXIT_TO_SOME_EXIT,
- },
- /* Do not use exit code/data from init code */
- {
- 	.fromsec = { ALL_INIT_SECTIONS, NULL },
- 	.bad_tosec = { ALL_EXIT_SECTIONS, NULL },
--	.mismatch = ANY_INIT_TO_ANY_EXIT,
- },
- /* Do not use init code/data from exit code */
- {
- 	.fromsec = { ALL_EXIT_SECTIONS, NULL },
- 	.bad_tosec = { ALL_INIT_SECTIONS, NULL },
--	.mismatch = ANY_EXIT_TO_ANY_INIT,
- },
- {
- 	.fromsec = { ALL_PCI_INIT_SECTIONS, NULL },
- 	.bad_tosec = { INIT_SECTIONS, NULL },
--	.mismatch = ANY_INIT_TO_ANY_EXIT,
- },
- {
- 	.fromsec = { "__ex_table", NULL },
-@@ -957,7 +934,6 @@ static const struct sectioncheck sectioncheck[] = {
- 	 */
- 	.bad_tosec = { ".altinstr_replacement", NULL },
- 	.good_tosec = {ALL_TEXT_SECTIONS , NULL},
--	.mismatch = EXTABLE_TO_NON_TEXT,
- 	.handler = extable_mismatch_handler,
- }
- };
-@@ -1215,37 +1191,6 @@ static inline void get_pretty_name(int is_func, const char** name, const char**
- 	}
- }
+ #define strstarts(str, prefix) (strncmp(str, prefix, strlen(prefix)) = 0)
  
--/*
-- * Print a warning about a section mismatch.
-- * Try to find symbols near it so user can find it.
-- * Check whitelist before warning - it may be a false positive.
-- */
--static void report_sec_mismatch(const char *modname,
--				const struct sectioncheck *mismatch,
--				const char *fromsec,
--				const char *fromsym,
--				const char *tosec, const char *tosym)
+-static void sym_update_namespace(const char *symname, const char *namespace)
 -{
--	sec_mismatch_count++;
+-	struct symbol *s = find_symbol(symname);
 -
--	switch (mismatch->mismatch) {
--	case TEXT_TO_ANY_INIT:
--	case DATA_TO_ANY_INIT:
--	case TEXT_TO_ANY_EXIT:
--	case DATA_TO_ANY_EXIT:
--	case XXXINIT_TO_SOME_INIT:
--	case XXXEXIT_TO_SOME_EXIT:
--	case ANY_INIT_TO_ANY_EXIT:
--	case ANY_EXIT_TO_ANY_INIT:
--		warn("%s: section mismatch in reference: %s (section: %s) -> %s (section: %s)\n",
--		     modname, fromsym, fromsec, tosym, tosec);
--		break;
--	case EXTABLE_TO_NON_TEXT:
--		fatal("There's a special handler for this mismatch type, we should never get here.\n");
--		break;
+-	/*
+-	 * That symbol should have been created earlier and thus this is
+-	 * actually an assertion.
+-	 */
+-	if (!s) {
+-		error("Could not update namespace(%s) for symbol %s\n",
+-		      namespace, symname);
+-		return;
 -	}
+-
+-	free(s->namespace);
+-	s->namespace = namespace[0] ? NOFAIL(strdup(namespace)) : NULL;
 -}
 -
- static void default_mismatch_handler(const char *modname, struct elf_info *elf,
- 				     const struct sectioncheck* const mismatch,
- 				     Elf_Rela *r, Elf_Sym *sym, const char *fromsec)
-@@ -1266,8 +1211,10 @@ static void default_mismatch_handler(const char *modname, struct elf_info *elf,
- 	/* check whitelist - we may ignore it */
- 	if (secref_whitelist(mismatch,
- 			     fromsec, fromsym, tosec, tosym)) {
--		report_sec_mismatch(modname, mismatch,
--				    fromsec, fromsym, tosec, tosym);
-+		sec_mismatch_count++;
-+
-+		warn("%s: section mismatch in reference: %s (section: %s) -> %s (section: %s)\n",
-+		     modname, fromsym, fromsec, tosym, tosec);
- 	}
- }
+ static struct symbol *sym_add_exported(const char *name, struct module *mod,
+-				       bool gpl_only)
++				       bool gpl_only, const char *namespace)
+ {
+ 	struct symbol *s = find_symbol(name);
  
+@@ -384,6 +366,7 @@ static struct symbol *sym_add_exported(const char *name, struct module *mod,
+ 	s = alloc_symbol(name);
+ 	s->module = mod;
+ 	s->is_gpl_only = gpl_only;
++	s->namespace = namespace[0] ? NOFAIL(strdup(namespace)) : NULL;
+ 	list_add_tail(&s->list, &mod->exported_symbols);
+ 	hash_add_symbol(s);
+ 
+@@ -657,17 +640,12 @@ static void handle_symbol(struct module *mod, struct elf_info *info,
+ 		break;
+ 	default:
+ 		if (sym->st_shndx = info->export_symbol_sec) {
+-			const char *name;
+-
+-			if (strstarts(symname, "__export_symbol_gpl.")) {
+-				name = symname + strlen("__export_symbol_gpl.");
+-				sym_add_exported(name, mod, true);
+-				sym_update_namespace(name, sym_get_data(info, sym));
+-			} else if (strstarts(symname, "__export_symbol.")) {
+-				name = symname + strlen("__export_symbol.");
+-				sym_add_exported(name, mod, false);
+-				sym_update_namespace(name, sym_get_data(info, sym));
+-			}
++			if (strstarts(symname, "__export_symbol_gpl."))
++				sym_add_exported(symname + strlen("__export_symbol_gpl."),
++						 mod, true, sym_get_data(info, sym));
++			else if (strstarts(symname, "__export_symbol."))
++				sym_add_exported(symname + strlen("__export_symbol."),
++						 mod, false, sym_get_data(info, sym));
+ 
+ 			break;
+ 		}
+@@ -2283,9 +2261,8 @@ static void read_dump(const char *fname)
+ 			mod = new_module(modname, strlen(modname));
+ 			mod->from_dump = true;
+ 		}
+-		s = sym_add_exported(symname, mod, gpl_only);
++		s = sym_add_exported(symname, mod, gpl_only, namespace);
+ 		sym_set_crc(s, crc);
+-		sym_update_namespace(symname, namespace);
+ 	}
+ 	free(buf);
+ 	return;
 -- 
 2.34.1
