@@ -1,43 +1,179 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Mon, 19 Sep 2022 10:00:03 +0000
-Subject: [PATCH v2 24/44] arm64,smp: Remove trace_.*_rcuidle() usage
-Message-Id: <20220919101521.953707131@infradead.org>
+From: Masahiro Yamada <masahiroy@kernel.org>
+Date: Wed, 28 Sep 2022 06:39:46 +0000
+Subject: [PATCH v3 7/8] modpost: squash report_sec_mismatch() and remove enum mismatch
+Message-Id: <20220928063947.299333-8-masahiroy@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220919095939.761690562@infradead.org>
+References: <20220928063947.299333-1-masahiroy@kernel.org>
+In-Reply-To: <20220928063947.299333-1-masahiroy@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: peterz@infradead.org
-Cc: richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@kernel.org, linux@armlinux.org.uk, ulli.kroll@googlemail.com, linus.walleij@linaro.org, shawnguo@kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, kernel@pengutronix.de, festevam@gmail.com, linux-imx@nxp.com, tony@atomide.com, khilman@kernel.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, bcain@quicinc.com, chenhuacai@kernel.org, kernel@xen0n.name, geert@linux-m68k.org, sammy@sammy.net, monstr@monstr.eu, tsbogend@alpha.franken.de, dinguyen@kernel.org, jonas@southpole.se, stefan.kristiansson@saunalahti.fi, shorne@gmail.com, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, paul.walmsley@sifive.com, palmer@dabbelt.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, richard@nod.at, anton.ivanov@cambridgegreys.com, johannes@sipsolutions.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, acme@kernel.org, mark.rutland@arm.com, alexander.shishkin@linux.intel.com, jolsa@kernel.org, namhyung@kernel.org, jgross@suse.com, srivatsa@csail.mit.edu, amakhalov@vmware.com, pv-drivers@vmware.com, boris.ostrovsky@oracle.com, chris@zankel.net, jcmvbkbc@gmail.com, rafael@kernel.org, lenb@kernel.org, pavel@ucw.cz, gregkh@linuxfoundation.org, mturquette@baylibre.com, sboyd@kernel.org, daniel.lezcano@linaro.org, lpieralisi@kernel.org, sudeep.holla@arm.com, agross@kernel.org, bjorn.andersson@linaro.org, konrad.dybcio@somainline.org, anup@brainfault.org, thierry.reding@gmail.com, jonathanh@nvidia.com, jacob.jun.pan@linux.intel.com, atishp@atishpatra.org, Arnd Bergmann <arnd@arndb.de>, yury.norov@gmail.com, andriy.shevchenko@linux.intel.com, linux@rasmusvillemoes.dk, dennis@kernel.org, tj@kernel.org, cl@linux.com, rostedt@goodmis.org, pmladek@suse.com, senozhatsky@chromium.org, john.ogness@linutronix.de, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, fweisbec@gmail.com, ryabinin.a.a@gmail.com, glider@google.com, andreyknvl@gmail.com, dvyukov@google.com, vincenzo.frascino@arm.com, Andrew Morton <akpm@linux-foundation.org>, jpoimboe@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-omap@vger.kernel.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-perf-users@vger.kernel.org, virtualization@lists.linux-foundation.org, linux-xtensa@linux-xtensa.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-clk@vger.kernel.org, linux-arm-msm@vger.kernel.org, linux-tegra@vger.kernel.org, linux-arch@vger.kernel.org, kasan-dev@googlegroups.com, Marc Zyngier <maz@kernel.org>
+To: linux-kbuild@vger.kernel.org
+Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>, Ard Biesheuvel <ardb@kernel.org>, Nicolas Pitre <npitre@baylibre.com>, Masahiro Yamada <masahiroy@kernel.org>, Michal Marek <michal.lkml@markovi.net>, Nick Desaulniers <ndesaulniers@google.com>
 
-Ever since commit d3afc7f12987 ("arm64: Allow IPIs to be handled as
-normal interrupts") this function is called in regular IRQ context.
+Now report_sec_mismatch() prints the same warning message for all
+possible cases. (fatal() is just a sanity check for unreachable code.)
 
-Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
-Acked-by: Mark Rutland <mark.rutland@arm.com>
-Acked-by: Marc Zyngier <maz@kernel.org>
+Squash it into default_mismatch_handler().
+
+enum mismatch is no longer used. Remove it as well.
+
+Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
 ---
- arch/arm64/kernel/smp.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
 
---- a/arch/arm64/kernel/smp.c
-+++ b/arch/arm64/kernel/smp.c
-@@ -865,7 +865,7 @@ static void do_handle_IPI(int ipinr)
- 	unsigned int cpu = smp_processor_id();
+(no changes since v2)
+
+Changes in v2:
+  - New patch
+
+ scripts/mod/modpost.c | 61 +++----------------------------------------
+ 1 file changed, 4 insertions(+), 57 deletions(-)
+
+diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
+index 29f30558a398..90733664a602 100644
+--- a/scripts/mod/modpost.c
++++ b/scripts/mod/modpost.c
+@@ -847,18 +847,6 @@ static const char *const linker_symbols[]  	{ "__init_begin", "_sinittext", "_einittext", NULL };
+ static const char *const optim_symbols[] = { "*.constprop.*", NULL };
  
- 	if ((unsigned)ipinr < NR_IPI)
--		trace_ipi_entry_rcuidle(ipi_types[ipinr]);
-+		trace_ipi_entry(ipi_types[ipinr]);
- 
- 	switch (ipinr) {
- 	case IPI_RESCHEDULE:
-@@ -914,7 +914,7 @@ static void do_handle_IPI(int ipinr)
+-enum mismatch {
+-	TEXT_TO_ANY_INIT,
+-	DATA_TO_ANY_INIT,
+-	TEXT_TO_ANY_EXIT,
+-	DATA_TO_ANY_EXIT,
+-	XXXINIT_TO_SOME_INIT,
+-	XXXEXIT_TO_SOME_EXIT,
+-	ANY_INIT_TO_ANY_EXIT,
+-	ANY_EXIT_TO_ANY_INIT,
+-	EXTABLE_TO_NON_TEXT,
+-};
+-
+ /**
+  * Describe how to match sections on different criteria:
+  *
+@@ -880,7 +868,6 @@ struct sectioncheck {
+ 	const char *fromsec[20];
+ 	const char *bad_tosec[20];
+ 	const char *good_tosec[20];
+-	enum mismatch mismatch;
+ 	void (*handler)(const char *modname, struct elf_info *elf,
+ 			const struct sectioncheck* const mismatch,
+ 			Elf_Rela *r, Elf_Sym *sym, const char *fromsec);
+@@ -899,56 +886,46 @@ static const struct sectioncheck sectioncheck[] = {
+ {
+ 	.fromsec = { TEXT_SECTIONS, NULL },
+ 	.bad_tosec = { ALL_INIT_SECTIONS, NULL },
+-	.mismatch = TEXT_TO_ANY_INIT,
+ },
+ {
+ 	.fromsec = { DATA_SECTIONS, NULL },
+ 	.bad_tosec = { ALL_XXXINIT_SECTIONS, NULL },
+-	.mismatch = DATA_TO_ANY_INIT,
+ },
+ {
+ 	.fromsec = { DATA_SECTIONS, NULL },
+ 	.bad_tosec = { INIT_SECTIONS, NULL },
+-	.mismatch = DATA_TO_ANY_INIT,
+ },
+ {
+ 	.fromsec = { TEXT_SECTIONS, NULL },
+ 	.bad_tosec = { ALL_EXIT_SECTIONS, NULL },
+-	.mismatch = TEXT_TO_ANY_EXIT,
+ },
+ {
+ 	.fromsec = { DATA_SECTIONS, NULL },
+ 	.bad_tosec = { ALL_EXIT_SECTIONS, NULL },
+-	.mismatch = DATA_TO_ANY_EXIT,
+ },
+ /* Do not reference init code/data from meminit code/data */
+ {
+ 	.fromsec = { ALL_XXXINIT_SECTIONS, NULL },
+ 	.bad_tosec = { INIT_SECTIONS, NULL },
+-	.mismatch = XXXINIT_TO_SOME_INIT,
+ },
+ /* Do not reference exit code/data from memexit code/data */
+ {
+ 	.fromsec = { ALL_XXXEXIT_SECTIONS, NULL },
+ 	.bad_tosec = { EXIT_SECTIONS, NULL },
+-	.mismatch = XXXEXIT_TO_SOME_EXIT,
+ },
+ /* Do not use exit code/data from init code */
+ {
+ 	.fromsec = { ALL_INIT_SECTIONS, NULL },
+ 	.bad_tosec = { ALL_EXIT_SECTIONS, NULL },
+-	.mismatch = ANY_INIT_TO_ANY_EXIT,
+ },
+ /* Do not use init code/data from exit code */
+ {
+ 	.fromsec = { ALL_EXIT_SECTIONS, NULL },
+ 	.bad_tosec = { ALL_INIT_SECTIONS, NULL },
+-	.mismatch = ANY_EXIT_TO_ANY_INIT,
+ },
+ {
+ 	.fromsec = { ALL_PCI_INIT_SECTIONS, NULL },
+ 	.bad_tosec = { INIT_SECTIONS, NULL },
+-	.mismatch = ANY_INIT_TO_ANY_EXIT,
+ },
+ {
+ 	.fromsec = { "__ex_table", NULL },
+@@ -957,7 +934,6 @@ static const struct sectioncheck sectioncheck[] = {
+ 	 */
+ 	.bad_tosec = { ".altinstr_replacement", NULL },
+ 	.good_tosec = {ALL_TEXT_SECTIONS , NULL},
+-	.mismatch = EXTABLE_TO_NON_TEXT,
+ 	.handler = extable_mismatch_handler,
+ }
+ };
+@@ -1215,37 +1191,6 @@ static inline void get_pretty_name(int is_func, const char** name, const char**
  	}
- 
- 	if ((unsigned)ipinr < NR_IPI)
--		trace_ipi_exit_rcuidle(ipi_types[ipinr]);
-+		trace_ipi_exit(ipi_types[ipinr]);
  }
  
- static irqreturn_t ipi_handler(int irq, void *data)
-
+-/*
+- * Print a warning about a section mismatch.
+- * Try to find symbols near it so user can find it.
+- * Check whitelist before warning - it may be a false positive.
+- */
+-static void report_sec_mismatch(const char *modname,
+-				const struct sectioncheck *mismatch,
+-				const char *fromsec,
+-				const char *fromsym,
+-				const char *tosec, const char *tosym)
+-{
+-	sec_mismatch_count++;
+-
+-	switch (mismatch->mismatch) {
+-	case TEXT_TO_ANY_INIT:
+-	case DATA_TO_ANY_INIT:
+-	case TEXT_TO_ANY_EXIT:
+-	case DATA_TO_ANY_EXIT:
+-	case XXXINIT_TO_SOME_INIT:
+-	case XXXEXIT_TO_SOME_EXIT:
+-	case ANY_INIT_TO_ANY_EXIT:
+-	case ANY_EXIT_TO_ANY_INIT:
+-		warn("%s: section mismatch in reference: %s (section: %s) -> %s (section: %s)\n",
+-		     modname, fromsym, fromsec, tosym, tosec);
+-		break;
+-	case EXTABLE_TO_NON_TEXT:
+-		fatal("There's a special handler for this mismatch type, we should never get here.\n");
+-		break;
+-	}
+-}
+-
+ static void default_mismatch_handler(const char *modname, struct elf_info *elf,
+ 				     const struct sectioncheck* const mismatch,
+ 				     Elf_Rela *r, Elf_Sym *sym, const char *fromsec)
+@@ -1266,8 +1211,10 @@ static void default_mismatch_handler(const char *modname, struct elf_info *elf,
+ 	/* check whitelist - we may ignore it */
+ 	if (secref_whitelist(mismatch,
+ 			     fromsec, fromsym, tosec, tosym)) {
+-		report_sec_mismatch(modname, mismatch,
+-				    fromsec, fromsym, tosec, tosym);
++		sec_mismatch_count++;
++
++		warn("%s: section mismatch in reference: %s (section: %s) -> %s (section: %s)\n",
++		     modname, fromsym, fromsec, tosym, tosec);
+ 	}
+ }
+ 
+-- 
+2.34.1
