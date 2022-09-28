@@ -1,178 +1,585 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Mon, 19 Sep 2022 10:00:21 +0000
-Subject: [PATCH v2 42/44] entry,kasan,x86: Disallow overriding mem*() functions
-Message-Id: <20220919101523.177759249@infradead.org>
+From: Masahiro Yamada <masahiroy@kernel.org>
+Date: Wed, 28 Sep 2022 06:39:47 +0000
+Subject: [PATCH v3 8/8] kbuild: implement CONFIG_TRIM_UNUSED_KSYMS without recursion
+Message-Id: <20220928063947.299333-9-masahiroy@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220919095939.761690562@infradead.org>
+References: <20220928063947.299333-1-masahiroy@kernel.org>
+In-Reply-To: <20220928063947.299333-1-masahiroy@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: peterz@infradead.org
-Cc: juri.lelli@redhat.com, rafael@kernel.org, catalin.marinas@arm.com, linus.walleij@linaro.org, bsegall@google.com, guoren@kernel.org, pavel@ucw.cz, agordeev@linux.ibm.com, linux-arch@vger.kernel.org, vincent.guittot@linaro.org, mpe@ellerman.id.au, chenhuacai@kernel.org, christophe.leroy@csgroup.eu, linux-acpi@vger.kernel.org, agross@kernel.org, geert@linux-m68k.org, linux-imx@nxp.com, vgupta@kernel.org, mattst88@gmail.com, mturquette@baylibre.com, sammy@sammy.net, pmladek@suse.com, linux-pm@vger.kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, linux-um@lists.infradead.org, npiggin@gmail.com, tglx@linutronix.de, linux-omap@vger.kernel.org, dietmar.eggemann@arm.com, andreyknvl@gmail.com, gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org, linux-perf-users@vger.kernel.org, senozhatsky@chromium.org, svens@linux.ibm.com, jolsa@kernel.org, tj@kernel.org, Andrew Morton <akpm@linux-foundation.org>, mark.rutland@arm.com, linux-ia64@vger.kernel.org, dave.hansen@linux.intel.com, virtualization@lists.linux-foundation.org, James.Bottomley@HansenPartnership.com, jcmvbkbc@gmail.com, thierry.reding@gmail.com, kernel@xen0n.name, cl@linux.com, linux-s390@vger.kernel.org, vschneid@redhat.com, john.ogness@linutronix.de, ysato@users.sourceforge.jp, linux-sh@vger.kernel.org, festevam@gmail.com, deller@gmx.de, daniel.lezcano@linaro.org, jonathanh@nvidia.com, dennis@kernel.org, lenb@kernel.org, linux-xtensa@linux-xtensa.org, kernel@pengutronix.de, gor@linux.ibm.com, linux-arm-msm@vger.kernel.org, linux-alpha@vger.kernel.org, linux-m68k@lists.linux-m68k.org, loongarch@lists.linux.dev, shorne@gmail.com, chris@zankel.net, sboyd@kernel.org, dinguyen@kernel.org, bristot@redhat.com, alexander.shishkin@linux.intel.com, fweisbec@gmail.com, lpieralisi@kernel.org, atishp@atishpatra.org, linux@rasmusvillemoes.dk, kasan-dev@googlegroups.com, will@kernel.org, boris.ostrovsky@oracle.com, khilman@kernel.org, linux-csky@vger.kernel.org, pv-drivers@vmware.com, linux-snps-arc@lists.infradead.org, mgorman@suse.de, jacob.jun.pan@linux.intel.com, Arnd Bergmann <arnd@arndb.de>, ulli.kroll@googlemail.com, linux-clk@vger.kernel.org, rostedt@goodmis.org, ink@jurassic.park.msu.ru, bcain@quicinc.com, tsbogend@alpha.franken.de, linux-parisc@vger.kernel.org, ryabinin.a.a@gmail.com, sudeep.holla@arm.com, shawnguo@kernel.org, davem@davemloft.net, dalias@libc.org, tony@atomide.com, amakhalov@vmware.com, konrad.dybcio@somainline.org, bjorn.andersson@linaro.org, glider@google.com, hpa@zytor.com, sparclinux@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-riscv@lists.infradead.org, vincenzo.frascino@arm.com, anton.ivanov@cambridgegreys.com, jonas@southpole.se, yury.norov@gmail.com, richard@nod.at, x86@kernel.org, linux@armlinux.org.uk, mingo@redhat.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, richard.henderson@linaro.org, stefan.kristiansson@saunalahti.fi, openrisc@lists.librecores.org, acme@kernel.org, paul.walmsley@sifive.com, linux-tegra@vger.kernel.org, namhyung@kernel.org, andriy.shevchenko@linux.intel.com, jpoimboe@kernel.org, dvyukov@google.com, jgross@suse.com, monstr@monstr.eu, linux-mips@vger.kernel.org, palmer@dabbelt.com, anup@brainfault.org, bp@alien8.de, johannes@sipsolutions.net, linuxppc-dev@lists.ozlabs.org
+To: linux-kbuild@vger.kernel.org
+Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>, Ard Biesheuvel <ardb@kernel.org>, Nicolas Pitre <npitre@baylibre.com>, Masahiro Yamada <masahiroy@kernel.org>, Michal Marek <michal.lkml@markovi.net>, Nathan Chancellor <nathan@kernel.org>, Nick Desaulniers <ndesaulniers@google.com>, Tom Rix <trix@redhat.com>, llvm@lists.linux.dev
 
-KASAN cannot just hijack the mem*() functions, it needs to emit
-__asan_mem*() variants if it wants instrumentation (other sanitizers
-already do this).
+When CONFIG_TRIM_UNUSED_KSYMS is enabled, Kbuild recursively traverses
+the directory tree to determine which EXPORT_SYMBOL to trim. If an
+EXPORT_SYMBOL turns out to be unused by anyone, Kbuild begins the
+second traverse, where some source files are recompiled with their
+EXPORT_SYMBOL() tuned into a no-op.
 
-vmlinux.o: warning: objtool: sync_regs+0x24: call to memcpy() leaves .noinstr.text section
-vmlinux.o: warning: objtool: vc_switch_off_ist+0xbe: call to memcpy() leaves .noinstr.text section
-vmlinux.o: warning: objtool: fixup_bad_iret+0x36: call to memset() leaves .noinstr.text section
-vmlinux.o: warning: objtool: __sev_get_ghcb+0xa0: call to memcpy() leaves .noinstr.text section
-vmlinux.o: warning: objtool: __sev_put_ghcb+0x35: call to memcpy() leaves .noinstr.text section
+Linus stated a negative opinion about this slowness in commits:
 
-Remove the weak aliases to ensure nobody hijacks these functions and
-add them to the noinstr section.
+ - 5cf0fd591f2e ("Kbuild: disable TRIM_UNUSED_KSYMS option")
+ - a555bdd0c58c ("Kbuild: enable TRIM_UNUSED_KSYMS again, with some guarding")
 
-Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+We can do this better now. The final data structures of EXPORT_SYMBOL
+are generated by the modpost stage, so modpost can selectively emit
+KSYMTAB entries that are really used by modules.
+
+Commit 2cce989f8461 ("kbuild: unify two modpost invocations") is another
+ground-work to do this in a one-pass algorithm. With the list of modules,
+modpost sets sym->used if it is used by a module. modpost emits KSYMTAB
+only for symbols with sym->used=true.
+
+BTW, Nicolas explained why the trimming was implemented with recursion:
+
+  https://lore.kernel.org/all/2o2rpn97-79nq-p7s2-nq5-8p83391473r@syhkavp.arg/
+
+Actually, we never achieved that level of optimization where the chain
+reaction of trimming comes into play because:
+
+ - CONFIG_LTO_CLANG cannot remove any unused symbols
+ - CONFIG_LD_DEAD_CODE_DATA_ELIMINATION is enabled only for vmlinux,
+   but not modules
+
+If deeper trimming is required, we need to revisit this, but I guess
+that is unlikely to happen.
+
+Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
 ---
- arch/x86/lib/memcpy_64.S  |    5 ++---
- arch/x86/lib/memmove_64.S |    4 +++-
- arch/x86/lib/memset_64.S  |    4 +++-
- mm/kasan/kasan.h          |    4 ++++
- mm/kasan/shadow.c         |   38 ++++++++++++++++++++++++++++++++++++++
- tools/objtool/check.c     |    3 +++
- 6 files changed, 53 insertions(+), 5 deletions(-)
 
---- a/arch/x86/lib/memcpy_64.S
-+++ b/arch/x86/lib/memcpy_64.S
-@@ -7,7 +7,7 @@
- #include <asm/alternative.h>
- #include <asm/export.h>
- 
--.pushsection .noinstr.text, "ax"
-+.section .noinstr.text, "ax"
- 
- /*
-  * We build a jump to memcpy_orig by default which gets NOPped out on
-@@ -42,7 +42,7 @@ SYM_FUNC_START(__memcpy)
- SYM_FUNC_END(__memcpy)
- EXPORT_SYMBOL(__memcpy)
- 
--SYM_FUNC_ALIAS_WEAK(memcpy, __memcpy)
-+SYM_FUNC_ALIAS(memcpy, __memcpy)
- EXPORT_SYMBOL(memcpy)
- 
- /*
-@@ -183,4 +183,3 @@ SYM_FUNC_START_LOCAL(memcpy_orig)
- 	RET
- SYM_FUNC_END(memcpy_orig)
- 
--.popsection
---- a/arch/x86/lib/memmove_64.S
-+++ b/arch/x86/lib/memmove_64.S
-@@ -13,6 +13,8 @@
- 
- #undef memmove
- 
-+.section .noinstr.text, "ax"
-+
- /*
-  * Implement memmove(). This can handle overlap between src and dst.
-  *
-@@ -213,5 +215,5 @@ SYM_FUNC_START(__memmove)
- SYM_FUNC_END(__memmove)
- EXPORT_SYMBOL(__memmove)
- 
--SYM_FUNC_ALIAS_WEAK(memmove, __memmove)
-+SYM_FUNC_ALIAS(memmove, __memmove)
- EXPORT_SYMBOL(memmove)
---- a/arch/x86/lib/memset_64.S
-+++ b/arch/x86/lib/memset_64.S
-@@ -6,6 +6,8 @@
- #include <asm/alternative.h>
- #include <asm/export.h>
- 
-+.section .noinstr.text, "ax"
-+
- /*
-  * ISO C memset - set a memory block to a byte value. This function uses fast
-  * string to get better performance than the original function. The code is
-@@ -43,7 +45,7 @@ SYM_FUNC_START(__memset)
- SYM_FUNC_END(__memset)
- EXPORT_SYMBOL(__memset)
- 
--SYM_FUNC_ALIAS_WEAK(memset, __memset)
-+SYM_FUNC_ALIAS(memset, __memset)
- EXPORT_SYMBOL(memset)
- 
- /*
---- a/mm/kasan/kasan.h
-+++ b/mm/kasan/kasan.h
-@@ -551,6 +551,10 @@ void __asan_set_shadow_f3(const void *ad
- void __asan_set_shadow_f5(const void *addr, size_t size);
- void __asan_set_shadow_f8(const void *addr, size_t size);
- 
-+void *__asan_memset(void *addr, int c, size_t len);
-+void *__asan_memmove(void *dest, const void *src, size_t len);
-+void *__asan_memcpy(void *dest, const void *src, size_t len);
-+
- void __hwasan_load1_noabort(unsigned long addr);
- void __hwasan_store1_noabort(unsigned long addr);
- void __hwasan_load2_noabort(unsigned long addr);
---- a/mm/kasan/shadow.c
-+++ b/mm/kasan/shadow.c
-@@ -38,6 +38,12 @@ bool __kasan_check_write(const volatile
- }
- EXPORT_SYMBOL(__kasan_check_write);
- 
-+#ifndef CONFIG_GENERIC_ENTRY
-+/*
-+ * CONFIG_GENERIC_ENTRY relies on compiler emitted mem*() calls to not be
-+ * instrumented. KASAN enabled toolchains should emit __asan_mem*() functions
-+ * for the sites they want to instrument.
-+ */
- #undef memset
- void *memset(void *addr, int c, size_t len)
- {
-@@ -68,6 +74,38 @@ void *memcpy(void *dest, const void *src
- 
- 	return __memcpy(dest, src, len);
- }
-+#endif
-+
-+void *__asan_memset(void *addr, int c, size_t len)
-+{
-+	if (!kasan_check_range((unsigned long)addr, len, true, _RET_IP_))
-+		return NULL;
-+
-+	return __memset(addr, c, len);
-+}
-+EXPORT_SYMBOL(__asan_memset);
-+
-+#ifdef __HAVE_ARCH_MEMMOVE
-+void *__asan_memmove(void *dest, const void *src, size_t len)
-+{
-+	if (!kasan_check_range((unsigned long)src, len, false, _RET_IP_) ||
-+	    !kasan_check_range((unsigned long)dest, len, true, _RET_IP_))
-+		return NULL;
-+
-+	return __memmove(dest, src, len);
-+}
-+EXPORT_SYMBOL(__asan_memmove);
-+#endif
-+
-+void *__asan_memcpy(void *dest, const void *src, size_t len)
-+{
-+	if (!kasan_check_range((unsigned long)src, len, false, _RET_IP_) ||
-+	    !kasan_check_range((unsigned long)dest, len, true, _RET_IP_))
-+		return NULL;
-+
-+	return __memcpy(dest, src, len);
-+}
-+EXPORT_SYMBOL(__asan_memcpy);
- 
- void kasan_poison(const void *addr, size_t size, u8 value, bool init)
- {
---- a/tools/objtool/check.c
-+++ b/tools/objtool/check.c
-@@ -956,6 +956,9 @@ static const char *uaccess_safe_builtin[
- 	"__asan_store16_noabort",
- 	"__kasan_check_read",
- 	"__kasan_check_write",
-+	"__asan_memset",
-+	"__asan_memmove",
-+	"__asan_memcpy",
- 	/* KASAN in-line */
- 	"__asan_report_load_n_noabort",
- 	"__asan_report_load1_noabort",
+Changes in v3:
+  - Some cleanups
 
+Changes in v2:
+  - New patch
+
+ .gitignore                  |  1 -
+ Makefile                    | 19 +---------
+ include/linux/export.h      | 41 ---------------------
+ scripts/Makefile.build      |  7 ----
+ scripts/Makefile.modpost    |  8 +++-
+ scripts/adjust_autoksyms.sh | 73 -------------------------------------
+ scripts/basic/fixdep.c      |  3 +-
+ scripts/gen_autoksyms.sh    | 62 -------------------------------
+ scripts/gen_ksymdeps.sh     | 30 ---------------
+ scripts/mod/modpost.c       | 54 ++++++++++++++++++++++++---
+ scripts/remove-stale-files  |  2 +
+ 11 files changed, 61 insertions(+), 239 deletions(-)
+ delete mode 100755 scripts/adjust_autoksyms.sh
+ delete mode 100755 scripts/gen_autoksyms.sh
+ delete mode 100755 scripts/gen_ksymdeps.sh
+
+diff --git a/.gitignore b/.gitignore
+index 265959544978..a9b44cd36066 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -103,7 +103,6 @@ modules.order
+ #
+ /include/config/
+ /include/generated/
+-/include/ksym/
+ /arch/*/include/generated/
+ 
+ # stgit generated dirs
+diff --git a/Makefile b/Makefile
+index 79488f155fae..31dcde4c7fc5 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1120,28 +1120,13 @@ endif
+ export KBUILD_VMLINUX_LIBS
+ export KBUILD_LDS          := arch/$(SRCARCH)/kernel/vmlinux.lds
+ 
+-# Recurse until adjust_autoksyms.sh is satisfied
+-PHONY += autoksyms_recursive
+ ifdef CONFIG_TRIM_UNUSED_KSYMS
+ # For the kernel to actually contain only the needed exported symbols,
+ # we have to build modules as well to determine what those symbols are.
+ # (this can be evaluated only once include/config/auto.conf has been included)
+ KBUILD_MODULES := 1
+-
+-autoksyms_recursive: $(build-dir) modules.order
+-	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/adjust_autoksyms.sh \
+-	  "$(MAKE) -f $(srctree)/Makefile autoksyms_recursive"
+ endif
+ 
+-autoksyms_h := $(if $(CONFIG_TRIM_UNUSED_KSYMS), include/generated/autoksyms.h)
+-
+-quiet_cmd_autoksyms_h = GEN     $@
+-      cmd_autoksyms_h = mkdir -p $(dir $@); \
+-			$(CONFIG_SHELL) $(srctree)/scripts/gen_autoksyms.sh $@
+-
+-$(autoksyms_h):
+-	$(call cmd,autoksyms_h)
+-
+ # '$(AR) mPi' needs 'T' to workaround the bug of llvm-ar <= 14
+ quiet_cmd_ar_vmlinux.a = AR      $@
+       cmd_ar_vmlinux.a = \
+@@ -1154,7 +1139,7 @@ vmlinux.a: $(KBUILD_VMLINUX_OBJS) scripts/head-object-list.txt FORCE
+ 	$(call if_changed,ar_vmlinux.a)
+ 
+ PHONY += vmlinux_o
+-vmlinux_o: autoksyms_recursive vmlinux.a $(KBUILD_VMLINUX_LIBS)
++vmlinux_o: vmlinux.a $(KBUILD_VMLINUX_LIBS)
+ 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.vmlinux_o
+ 
+ vmlinux.o modules.builtin.modinfo modules.builtin: vmlinux_o
+@@ -1191,7 +1176,7 @@ scripts: scripts_basic scripts_dtc
+ PHONY += prepare archprepare
+ 
+ archprepare: outputmakefile archheaders archscripts scripts include/config/kernel.release \
+-	asm-generic $(version_h) $(autoksyms_h) include/generated/utsrelease.h \
++	asm-generic $(version_h) include/generated/utsrelease.h \
+ 	include/generated/compile.h include/generated/autoconf.h remove-stale-files
+ 
+ prepare0: archprepare
+diff --git a/include/linux/export.h b/include/linux/export.h
+index 0c71577cf8bb..d9fb1ebb535c 100644
+--- a/include/linux/export.h
++++ b/include/linux/export.h
+@@ -63,47 +63,6 @@ extern struct module __this_module;
+  */
+ #define __EXPORT_SYMBOL(sym, sec, ns)
+ 
+-#elif defined(CONFIG_TRIM_UNUSED_KSYMS)
+-
+-#include <generated/autoksyms.h>
+-
+-/*
+- * For fine grained build dependencies, we want to tell the build system
+- * about each possible exported symbol even if they're not actually exported.
+- * We use a symbol pattern __ksym_marker_<symbol> that the build system filters
+- * from the $(NM) output (see scripts/gen_ksymdeps.sh). These symbols are
+- * discarded in the final link stage.
+- */
+-
+-#ifdef __ASSEMBLY__
+-
+-#define __ksym_marker(sym)					\
+-	.section ".discard.ksym","a" ;				\
+-__ksym_marker_##sym: ;						\
+-	.previous
+-
+-#else
+-
+-#define __ksym_marker(sym)	\
+-	static int __ksym_marker_##sym[0] __section(".discard.ksym") __used
+-
+-#endif
+-
+-#define __EXPORT_SYMBOL(sym, sec, ns)					\
+-	__ksym_marker(sym);						\
+-	__cond_export_sym(sym, sec, ns, __is_defined(__KSYM_##sym))
+-#define __cond_export_sym(sym, sec, ns, conf)				\
+-	___cond_export_sym(sym, sec, ns, conf)
+-#define ___cond_export_sym(sym, sec, ns, enabled)			\
+-	__cond_export_sym_##enabled(sym, sec, ns)
+-#define __cond_export_sym_1(sym, sec, ns) ___EXPORT_SYMBOL(sym, sec, ns)
+-
+-#ifdef __GENKSYMS__
+-#define __cond_export_sym_0(sym, sec, ns) __GENKSYMS_EXPORT_SYMBOL(sym)
+-#else
+-#define __cond_export_sym_0(sym, sec, ns) /* nothing */
+-#endif
+-
+ #else
+ 
+ #define __EXPORT_SYMBOL(sym, sec, ns)	___EXPORT_SYMBOL(sym, sec, ns)
+diff --git a/scripts/Makefile.build b/scripts/Makefile.build
+index 4c1d0bd1bc03..64f652b03d29 100644
+--- a/scripts/Makefile.build
++++ b/scripts/Makefile.build
+@@ -218,16 +218,10 @@ is-standard-object = $(if $(filter-out y%, $(OBJECT_FILES_NON_STANDARD_$(basetar
+ 
+ $(obj)/%.o: objtool-enabled = $(if $(is-standard-object),$(if $(delay-objtool),$(is-single-obj-m),y))
+ 
+-ifdef CONFIG_TRIM_UNUSED_KSYMS
+-cmd_gen_ksymdeps = \
+-	$(CONFIG_SHELL) $(srctree)/scripts/gen_ksymdeps.sh $@ >> $(dot-target).cmd
+-endif
+-
+ cmd_check_local_export = $(srctree)/scripts/check-local-export $@
+ 
+ define rule_cc_o_c
+ 	$(call cmd_and_fixdep,cc_o_c)
+-	$(call cmd,gen_ksymdeps)
+ 	$(call cmd,check_local_export)
+ 	$(call cmd,checksrc)
+ 	$(call cmd,checkdoc)
+@@ -238,7 +232,6 @@ endef
+ 
+ define rule_as_o_S
+ 	$(call cmd_and_fixdep,as_o_S)
+-	$(call cmd,gen_ksymdeps)
+ 	$(call cmd,check_local_export)
+ 	$(call cmd,gen_objtooldep)
+ 	$(call cmd,gen_symversions_S)
+diff --git a/scripts/Makefile.modpost b/scripts/Makefile.modpost
+index 7740ce3b29e8..555b9e741a01 100644
+--- a/scripts/Makefile.modpost
++++ b/scripts/Makefile.modpost
+@@ -86,6 +86,12 @@ output-symdump := $(if $(vmlinux.o-if-present), Module.symvers, modules-only.sym
+ missing-input := $(filter-out $(vmlinux.o-if-present),vmlinux.o)
+ endif
+ 
++ifdef CONFIG_TRIM_UNUSED_KSYMS
++ksym-wl := $(CONFIG_UNUSED_KSYMS_WHITELIST)
++ksym-wl := $(if $(filter-out /%, $(ksym-wl)),$(srctree)/)$(ksym-wl)
++modpost-args += -t $(addprefix -W, $(ksym-wl))
++endif
++
+ else
+ 
+ # set src + obj - they may be used in the modules's Makefile
+@@ -122,7 +128,7 @@ quiet_cmd_modpost = MODPOST $@
+ 	sed 's/ko$$/o/' $(or $(modorder-if-needed), /dev/null) | $(MODPOST) $(modpost-args) $(vmlinux.o-if-present) -T -
+ 
+ targets += $(output-symdump)
+-$(output-symdump): $(modorder-if-needed) $(vmlinux.o-if-present) $(moudle.symvers-if-present) $(MODPOST) FORCE
++$(output-symdump): $(modorder-if-needed) $(vmlinux.o-if-present) $(moudle.symvers-if-present) $(MODPOST) $(ksym-wl) FORCE
+ 	$(call if_changed,modpost)
+ 
+ __modpost: $(output-symdump)
+diff --git a/scripts/adjust_autoksyms.sh b/scripts/adjust_autoksyms.sh
+deleted file mode 100755
+index f1b5ac818411..000000000000
+--- a/scripts/adjust_autoksyms.sh
++++ /dev/null
+@@ -1,73 +0,0 @@
+-#!/bin/sh
+-# SPDX-License-Identifier: GPL-2.0-only
+-
+-# Script to update include/generated/autoksyms.h and dependency files
+-#
+-# Copyright:	(C) 2016  Linaro Limited
+-# Created by:	Nicolas Pitre, January 2016
+-#
+-
+-# Update the include/generated/autoksyms.h file.
+-#
+-# For each symbol being added or removed, the corresponding dependency
+-# file's timestamp is updated to force a rebuild of the affected source
+-# file. All arguments passed to this script are assumed to be a command
+-# to be exec'd to trigger a rebuild of those files.
+-
+-set -e
+-
+-cur_ksyms_file="include/generated/autoksyms.h"
+-new_ksyms_file="include/generated/autoksyms.h.tmpnew"
+-
+-info() {
+-	if [ "$quiet" != "silent_" ]; then
+-		printf "  %-7s %s\n" "$1" "$2"
+-	fi
+-}
+-
+-info "CHK" "$cur_ksyms_file"
+-
+-# Use "make V=1" to debug this script.
+-case "$KBUILD_VERBOSE" in
+-*1*)
+-	set -x
+-	;;
+-esac
+-
+-# Generate a new symbol list file
+-$CONFIG_SHELL $srctree/scripts/gen_autoksyms.sh --modorder "$new_ksyms_file"
+-
+-# Extract changes between old and new list and touch corresponding
+-# dependency files.
+-changed=$(
+-count=0
+-sort "$cur_ksyms_file" "$new_ksyms_file" | uniq -u |
+-sed -n 's/^#define __KSYM_\(.*\) 1/\1/p' |
+-while read sympath; do
+-	if [ -z "$sympath" ]; then continue; fi
+-	depfile="include/ksym/${sympath}"
+-	mkdir -p "$(dirname "$depfile")"
+-	touch "$depfile"
+-	# Filesystems with coarse time precision may create timestamps
+-	# equal to the one from a file that was very recently built and that
+-	# needs to be rebuild. Let's guard against that by making sure our
+-	# dep files are always newer than the first file we created here.
+-	while [ ! "$depfile" -nt "$new_ksyms_file" ]; do
+-		touch "$depfile"
+-	done
+-	echo $((count += 1))
+-done | tail -1 )
+-changed=${changed:-0}
+-
+-if [ $changed -gt 0 ]; then
+-	# Replace the old list with tne new one
+-	old=$(grep -c "^#define __KSYM_" "$cur_ksyms_file" || true)
+-	new=$(grep -c "^#define __KSYM_" "$new_ksyms_file" || true)
+-	info "KSYMS" "symbols: before=$old, after=$new, changed=$changed"
+-	info "UPD" "$cur_ksyms_file"
+-	mv -f "$new_ksyms_file" "$cur_ksyms_file"
+-	# Then trigger a rebuild of affected source files
+-	exec $@
+-else
+-	rm -f "$new_ksyms_file"
+-fi
+diff --git a/scripts/basic/fixdep.c b/scripts/basic/fixdep.c
+index 2328f9a641da..e7db12140d87 100644
+--- a/scripts/basic/fixdep.c
++++ b/scripts/basic/fixdep.c
+@@ -243,8 +243,7 @@ static void *read_file(const char *filename)
+ /* Ignore certain dependencies */
+ static int is_ignored_file(const char *s, int len)
+ {
+-	return str_ends_with(s, len, "include/generated/autoconf.h") ||
+-	       str_ends_with(s, len, "include/generated/autoksyms.h");
++	return str_ends_with(s, len, "include/generated/autoconf.h");
+ }
+ 
+ /*
+diff --git a/scripts/gen_autoksyms.sh b/scripts/gen_autoksyms.sh
+deleted file mode 100755
+index 653fadbad302..000000000000
+--- a/scripts/gen_autoksyms.sh
++++ /dev/null
+@@ -1,62 +0,0 @@
+-#!/bin/sh
+-# SPDX-License-Identifier: GPL-2.0-only
+-
+-# Create an autoksyms.h header file from the list of all module's needed symbols
+-# as recorded in *.usyms files and the user-provided symbol whitelist.
+-
+-set -e
+-
+-# Use "make V=1" to debug this script.
+-case "$KBUILD_VERBOSE" in
+-*1*)
+-	set -x
+-	;;
+-esac
+-
+-read_modorder-
+-if [ "$1" = --modorder ]; then
+-	shift
+-	read_modorder=1
+-fi
+-
+-output_file="$1"
+-
+-needed_symbols-
+-# Special case for modversions (see modpost.c)
+-if grep -q "^CONFIG_MODVERSIONS=y$" include/config/auto.conf; then
+-	needed_symbols="$needed_symbols module_layout"
+-fi
+-
+-ksym_wl=$(sed -n 's/^CONFIG_UNUSED_KSYMS_WHITELIST=\(.*\)$/\1/p' include/config/auto.conf)
+-if [ -n "$ksym_wl" ]; then
+-	[ "${ksym_wl}" != "${ksym_wl#/}" ] || ksym_wl="$abs_srctree/$ksym_wl"
+-	if [ ! -f "$ksym_wl" ] || [ ! -r "$ksym_wl" ]; then
+-		echo "ERROR: '$ksym_wl' whitelist file not found" >&2
+-		exit 1
+-	fi
+-fi
+-
+-# Generate a new ksym list file with symbols needed by the current
+-# set of modules.
+-cat > "$output_file" << EOT
+-/*
+- * Automatically generated file; DO NOT EDIT.
+- */
+-
+-EOT
+-
+-{
+-	[ -n "${read_modorder}" ] && sed 's/ko$/usyms/' modules.order | xargs cat
+-	echo "$needed_symbols"
+-	[ -n "$ksym_wl" ] && cat "$ksym_wl"
+-} | sed -e 's/ /\n/g' | sed -n -e '/^$/!p' |
+-# Remove the dot prefix for ppc64; symbol names with a dot (.) hold entry
+-# point addresses.
+-sed -e 's/^\.//' |
+-sort -u |
+-# Ignore __this_module. It's not an exported symbol, and will be resolved
+-# when the final .ko's are linked.
+-grep -v '^__this_module$' |
+-sed -e 's/\(.*\)/#define __KSYM_\1 1/' >> "$output_file"
+diff --git a/scripts/gen_ksymdeps.sh b/scripts/gen_ksymdeps.sh
+deleted file mode 100755
+index 8ee533f33659..000000000000
+--- a/scripts/gen_ksymdeps.sh
++++ /dev/null
+@@ -1,30 +0,0 @@
+-#!/bin/sh
+-# SPDX-License-Identifier: GPL-2.0
+-
+-set -e
+-
+-# List of exported symbols
+-#
+-# If the object has no symbol, $NM warns 'no symbols'.
+-# Suppress the stderr.
+-# TODO:
+-#   Use -q instead of 2>/dev/null when we upgrade the minimum version of
+-#   binutils to 2.37, llvm to 13.0.0.
+-ksyms=$($NM $1 2>/dev/null | sed -n 's/.*__ksym_marker_\(.*\)/\1/p')
+-
+-if [ -z "$ksyms" ]; then
+-	exit 0
+-fi
+-
+-echo
+-echo "ksymdeps_$1 := \\"
+-
+-for s in $ksyms
+-do
+-	printf '    $(wildcard include/ksym/%s) \\\n' "$s"
+-done
+-
+-echo
+-echo "$1: \$(ksymdeps_$1)"
+-echo
+-echo "\$(ksymdeps_$1):"
+diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
+index 90733664a602..1e9eba0a6cec 100644
+--- a/scripts/mod/modpost.c
++++ b/scripts/mod/modpost.c
+@@ -34,6 +34,9 @@ static bool warn_unresolved;
+ 
+ static int sec_mismatch_count;
+ static bool sec_mismatch_warn_only = true;
++/* Trim EXPORT_SYMBOLs that are unused by in-tree modules */
++static bool trim_unused_exports;
++
+ /* ignore missing files */
+ static bool ignore_missing_files;
+ /* If set to 1, only warn (instead of error) about missing ns imports */
+@@ -216,6 +219,7 @@ struct symbol {
+ 	bool weak;
+ 	bool is_func;
+ 	bool is_gpl_only;	/* exported by EXPORT_SYMBOL_GPL */
++	bool used;		/* there exists a user of this symbol */
+ 	char name[];
+ };
+ 
+@@ -1872,6 +1876,7 @@ static void check_exports(struct module *mod)
+ 			continue;
+ 		}
+ 
++		exp->used = true;
+ 		s->module = exp->module;
+ 		s->crc_valid = exp->crc_valid;
+ 		s->crc = exp->crc;
+@@ -1895,6 +1900,23 @@ static void check_exports(struct module *mod)
+ 	}
+ }
+ 
++static void handle_white_list_exports(const char *white_list)
++{
++	char *buf, *p, *name;
++
++	buf = read_text_file(white_list);
++	p = buf;
++
++	while ((name = strsep(&p, "\n"))) {
++		struct symbol *sym = find_symbol(name);
++
++		if (sym)
++			sym->used = true;
++	}
++
++	free(buf);
++}
++
+ static void check_modname_len(struct module *mod)
+ {
+ 	const char *mod_name;
+@@ -1965,10 +1987,14 @@ static void add_exported_symbols(struct buffer *buf, struct module *mod)
+ 
+ 	/* generate struct for exported symbols */
+ 	buf_printf(buf, "\n");
+-	list_for_each_entry(sym, &mod->exported_symbols, list)
++	list_for_each_entry(sym, &mod->exported_symbols, list) {
++		if (trim_unused_exports && !sym->used)
++			continue;
++
+ 		buf_printf(buf, "KSYMTAB_%s(%s, \"%s\", \"%s\");\n",
+ 			   sym->is_func ? "FUNC" : "DATA", sym->name,
+ 			   sym->is_gpl_only ? "_gpl" : "", sym->namespace);
++	}
+ 
+ 	if (!modversions)
+ 		return;
+@@ -1976,6 +2002,9 @@ static void add_exported_symbols(struct buffer *buf, struct module *mod)
+ 	/* record CRCs for exported symbols */
+ 	buf_printf(buf, "\n");
+ 	list_for_each_entry(sym, &mod->exported_symbols, list) {
++		if (trim_unused_exports && !sym->used)
++			continue;
++
+ 		if (!sym->crc_valid)
+ 			warn("EXPORT symbol \"%s\" [%s%s] version generation failed, symbol will not be versioned.\n"
+ 			     "Is \"%s\" prototyped in <asm/asm-prototypes.h>?\n",
+@@ -2139,9 +2168,6 @@ static void write_mod_c_file(struct module *mod)
+ 	char fname[PATH_MAX];
+ 	int ret;
+ 
+-	check_modname_len(mod);
+-	check_exports(mod);
+-
+ 	add_header(&buf, mod);
+ 	add_exported_symbols(&buf, mod);
+ 	add_versions(&buf, mod);
+@@ -2275,12 +2301,13 @@ int main(int argc, char **argv)
+ {
+ 	struct module *mod;
+ 	char *missing_namespace_deps = NULL;
++	char *unused_exports_white_list = NULL;
+ 	char *dump_write = NULL, *files_source = NULL;
+ 	int opt;
+ 	LIST_HEAD(dump_lists);
+ 	struct dump_list *dl, *dl2;
+ 
+-	while ((opt = getopt(argc, argv, "ei:mnT:o:awENd:")) != -1) {
++	while ((opt = getopt(argc, argv, "ei:mntT:tW:o:awENd:")) != -1) {
+ 		switch (opt) {
+ 		case 'e':
+ 			external_module = true;
+@@ -2305,6 +2332,12 @@ int main(int argc, char **argv)
+ 		case 'T':
+ 			files_source = optarg;
+ 			break;
++		case 't':
++			trim_unused_exports = true;
++			break;
++		case 'W':
++			unused_exports_white_list = optarg;
++			break;
+ 		case 'w':
+ 			warn_unresolved = true;
+ 			break;
+@@ -2334,6 +2367,17 @@ int main(int argc, char **argv)
+ 	if (files_source)
+ 		read_symbols_from_files(files_source);
+ 
++	list_for_each_entry(mod, &modules, list) {
++		if (mod->from_dump || mod->is_vmlinux)
++			continue;
++
++		check_modname_len(mod);
++		check_exports(mod);
++	}
++
++	if (unused_exports_white_list)
++		handle_white_list_exports(unused_exports_white_list);
++
+ 	list_for_each_entry(mod, &modules, list) {
+ 		if (mod->from_dump)
+ 			continue;
+diff --git a/scripts/remove-stale-files b/scripts/remove-stale-files
+index ccadfa3afb2b..d2009eda270a 100755
+--- a/scripts/remove-stale-files
++++ b/scripts/remove-stale-files
+@@ -47,3 +47,5 @@ rm -f arch/riscv/purgatory/kexec-purgatory.c
+ rm -f scripts/extract-cert
+ 
+ rm -f arch/x86/purgatory/kexec-purgatory.c
++
++rm -rf include/ksym
+-- 
+2.34.1
