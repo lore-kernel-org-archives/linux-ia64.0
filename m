@@ -1,166 +1,74 @@
-From: Baoquan He <bhe@redhat.com>
-Date: Sun, 09 Oct 2022 10:31:09 +0000
-Subject: [PATCH v3 06/11] ia64: mm: Convert to GENERIC_IOREMAP
-Message-Id: <20221009103114.149036-7-bhe@redhat.com>
+From: Ulf Hansson <ulf.hansson@linaro.org>
+Date: Tue, 04 Oct 2022 11:08:00 +0000
+Subject: Re: [PATCH v2 23/44] arm,smp: Remove trace_.*_rcuidle() usage
+Message-Id: <CAPDyKFoMidikoTPe0Xd+wZQdBBJSoy+CZ2ZmJShfLkbGZZRYDQ@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20221009103114.149036-1-bhe@redhat.com>
-In-Reply-To: <20221009103114.149036-1-bhe@redhat.com>
+References: <20220919095939.761690562@infradead.org> <20220919101521.886766952@infradead.org>
+In-Reply-To: <20220919101521.886766952@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-mm@kvack.org, akpm@linux-foundation.org, hch@infradead.org, agordeev@linux.ibm.com, wangkefeng.wang@huawei.com, christophe.leroy@csgroup.eu, schnelle@linux.ibm.com, David.Laight@ACULAB.COM, shorne@gmail.com, bhe@redhat.com, linux-ia64@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>
+Cc: juri.lelli@redhat.com, rafael@kernel.org, catalin.marinas@arm.com, linus.walleij@linaro.org, bsegall@google.com, guoren@kernel.org, pavel@ucw.cz, agordeev@linux.ibm.com, linux-arch@vger.kernel.org, vincent.guittot@linaro.org, mpe@ellerman.id.au, chenhuacai@kernel.org, christophe.leroy@csgroup.eu, linux-acpi@vger.kernel.org, agross@kernel.org, geert@linux-m68k.org, linux-imx@nxp.com, vgupta@kernel.org, mattst88@gmail.com, mturquette@baylibre.com, sammy@sammy.net, pmladek@suse.com, linux-pm@vger.kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, linux-um@lists.infradead.org, npiggin@gmail.com, tglx@linutronix.de, linux-omap@vger.kernel.org, dietmar.eggemann@arm.com, andreyknvl@gmail.com, gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org, linux-perf-users@vger.kernel.org, senozhatsky@chromium.org, svens@linux.ibm.com, jolsa@kernel.org, tj@kernel.org, Andrew Morton <akpm@linux-foundation.org>, mark.rutland@arm.com, linux-ia64@vger.kernel.org, dave.hansen@linux.intel.com, virtualization@lists.linux-foundation.org, James.Bottomley@hansenpartnership.com, jcmvbkbc@gmail.com, thierry.reding@gmail.com, kernel@xen0n.name, cl@linux.com, linux-s390@vger.kernel.org, vschneid@redhat.com, john.ogness@linutronix.de, ysato@users.sourceforge.jp, linux-sh@vger.kernel.org, festevam@gmail.com, deller@gmx.de, daniel.lezcano@linaro.org, jonathanh@nvidia.com, dennis@kernel.org, lenb@kernel.org, linux-xtensa@linux-xtensa.org, kernel@pengutronix.de, gor@linux.ibm.com, linux-arm-msm@vger.kernel.org, linux-alpha@vger.kernel.org, linux-m68k@lists.linux-m68k.org, loongarch@lists.linux.dev, shorne@gmail.com, chris@zankel.net, sboyd@kernel.org, dinguyen@kernel.org, bristot@redhat.com, alexander.shishkin@linux.intel.com, fweisbec@gmail.com, lpieralisi@kernel.org, atishp@atishpatra.org, linux@rasmusvillemoes.dk, kasan-dev@googlegroups.com, will@kernel.org, boris.ostrovsky@oracle.com, khilman@kernel.org, linux-csky@vger.kernel.org, pv-drivers@vmware.com, linux-snps-arc@lists.infradead.org, mgorman@suse.de, jacob.jun.pan@linux.intel.com, Arnd Bergmann <arnd@arndb.de>, ulli.kroll@googlemail.com, linux-clk@vger.kernel.org, rostedt@goodmis.org, ink@jurassic.park.msu.ru, bcain@quicinc.com, tsbogend@alpha.franken.de, linux-parisc@vger.kernel.org, ryabinin.a.a@gmail.com, sudeep.holla@arm.com, shawnguo@kernel.org, davem@davemloft.net, dalias@libc.org, tony@atomide.com, amakhalov@vmware.com, konrad.dybcio@somainline.org, bjorn.andersson@linaro.org, glider@google.com, hpa@zytor.com, sparclinux@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-riscv@lists.infradead.org, vincenzo.frascino@arm.com, anton.ivanov@cambridgegreys.com, jonas@southpole.se, yury.norov@gmail.com, richard@nod.at, x86@kernel.org, linux@armlinux.org.uk, mingo@redhat.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, richard.henderson@linaro.org, stefan.kristiansson@saunalahti.fi, openrisc@lists.librecores.org, acme@kernel.org, paul.walmsley@sifive.com, linux-tegra@vger.kernel.org, namhyung@kernel.org, andriy.shevchenko@linux.intel.com, jpoimboe@kernel.org, dvyukov@google.com, jgross@suse.com, monstr@monstr.eu, linux-mips@vger.kernel.org, palmer@dabbelt.com, anup@brainfault.org, bp@alien8.de, johannes@sipsolutions.net, linuxppc-dev@lists.ozlabs.org
 
-By taking GENERIC_IOREMAP method, the generic ioremap_prot() and
-iounmap() are visible and available to arch. Arch only needs to
-provide implementation of arch_ioremap() or arch_iounmap() if there's
-arch specific handling needed in its ioremap() or iounmap(). This
-change will simplify implementation by removing duplicated codes with
-generic ioremap() and iounmap(), and has the equivalent functioality
-as before.
+On Mon, 19 Sept 2022 at 12:18, Peter Zijlstra <peterz@infradead.org> wrote:
+>
+> None of these functions should ever be ran with RCU disabled anymore.
+>
+> Specifically, do_handle_IPI() is only called from handle_IPI() which
+> explicitly does irq_enter()/irq_exit() which ensures RCU is watching.
+>
+> The problem with smp_cross_call() was, per commit 7c64cc0531fa ("arm: Use
+> _rcuidle for smp_cross_call() tracepoints"), that
+> cpuidle_enter_state_coupled() already had RCU disabled, but that's
+> long been fixed by commit 1098582a0f6c ("sched,idle,rcu: Push rcu_idle
+> deeper into the idle path").
+>
+> Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
 
-Here add hooks arch_ioremap() and arch_iounmap() for ia64's special
-operation when ioremap() and iounmap(), then ioremap_cache() is
-converted to use ioremap_prot() from GENERIC_IOREMAP.
+FWIW:
 
-The old ioremap_uc() is kept and add its macro definittion.
+Reviewed-by: Ulf Hansson <ulf.hansson@linaro.org>
 
-Signed-off-by: Baoquan He <bhe@redhat.com>
-Cc: linux-ia64@vger.kernel.org
----
- arch/ia64/Kconfig          |  1 +
- arch/ia64/include/asm/io.h | 26 ++++++++++++--------
- arch/ia64/mm/ioremap.c     | 50 +++++++++-----------------------------
- 3 files changed, 28 insertions(+), 49 deletions(-)
+Kind regards
+Uffe
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 26ac8ea15a9e..1ca18be5dc30 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -45,6 +45,7 @@ config IA64
- 	select GENERIC_IRQ_LEGACY
- 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
- 	select GENERIC_IOMAP
-+	select GENERIC_IOREMAP
- 	select GENERIC_SMP_IDLE_THREAD
- 	select ARCH_TASK_STRUCT_ON_STACK
- 	select ARCH_TASK_STRUCT_ALLOCATOR
-diff --git a/arch/ia64/include/asm/io.h b/arch/ia64/include/asm/io.h
-index ce66dfc0e719..54378cea4b36 100644
---- a/arch/ia64/include/asm/io.h
-+++ b/arch/ia64/include/asm/io.h
-@@ -247,17 +247,23 @@ static inline void outsl(unsigned long port, const void *src,
- 
- # ifdef __KERNEL__
- 
--extern void __iomem * ioremap(unsigned long offset, unsigned long size);
--extern void __iomem * ioremap_uc(unsigned long offset, unsigned long size);
--extern void iounmap (volatile void __iomem *addr);
--static inline void __iomem * ioremap_cache (unsigned long phys_addr, unsigned long size)
--{
--	return ioremap(phys_addr, size);
--}
--#define ioremap ioremap
--#define ioremap_cache ioremap_cache
-+/*
-+ * I/O memory mapping functions.
-+ */
-+void __iomem *
-+arch_ioremap(phys_addr_t *paddr, size_t size, unsigned long *prot_val);
-+#define arch_ioremap arch_ioremap
-+
-+bool arch_iounmap(void __iomem *addr);
-+#define arch_iounmap arch_iounmap
-+
-+#define _PAGE_IOREMAP pgprot_val(PAGE_KERNEL)
-+
-+#define ioremap_cache(addr, size)  \
-+	ioremap_prot((addr), (size), pgprot_val(PAGE_KERNEL))
-+
-+void __iomem *ioremap_uc(unsigned long offset, unsigned long size);
- #define ioremap_uc ioremap_uc
--#define iounmap iounmap
- 
- /*
-  * String version of IO memory access ops:
-diff --git a/arch/ia64/mm/ioremap.c b/arch/ia64/mm/ioremap.c
-index 55fd3eb753ff..a290c7dc7f1e 100644
---- a/arch/ia64/mm/ioremap.c
-+++ b/arch/ia64/mm/ioremap.c
-@@ -30,15 +30,12 @@ early_ioremap (unsigned long phys_addr, unsigned long size)
- }
- 
- void __iomem *
--ioremap (unsigned long phys_addr, unsigned long size)
-+arch_ioremap(phys_addr_t *paddr, size_t size, unsigned long *prot_val)
- {
--	void __iomem *addr;
--	struct vm_struct *area;
--	unsigned long offset;
--	pgprot_t prot;
--	u64 attr;
-+	phys_addr_t phys_addr = *paddr;
- 	unsigned long gran_base, gran_size;
- 	unsigned long page_base;
-+	u64 attr;
- 
- 	/*
- 	 * For things in kern_memmap, we must use the same attribute
-@@ -69,35 +66,18 @@ ioremap (unsigned long phys_addr, unsigned long size)
- 	page_base = phys_addr & PAGE_MASK;
- 	size = PAGE_ALIGN(phys_addr + size) - page_base;
- 	if (efi_mem_attribute(page_base, size) & EFI_MEMORY_WB) {
--		prot = PAGE_KERNEL;
--
--		/*
--		 * Mappings have to be page-aligned
--		 */
--		offset = phys_addr & ~PAGE_MASK;
--		phys_addr &= PAGE_MASK;
--
--		/*
--		 * Ok, go for it..
--		 */
--		area = get_vm_area(size, VM_IOREMAP);
--		if (!area)
--			return NULL;
--
--		area->phys_addr = phys_addr;
--		addr = (void __iomem *) area->addr;
--		if (ioremap_page_range((unsigned long) addr,
--				(unsigned long) addr + size, phys_addr, prot)) {
--			vunmap((void __force *) addr);
--			return NULL;
--		}
--
--		return (void __iomem *) (offset + (char __iomem *)addr);
-+		return NULL;
- 	}
- 
- 	return __ioremap_uc(phys_addr);
- }
--EXPORT_SYMBOL(ioremap);
-+
-+bool arch_iounmap(void __iomem *addr)
-+{
-+	if (REGION_NUMBER(addr) != RGN_GATE)
-+		return false;
-+	return true;
-+}
- 
- void __iomem *
- ioremap_uc(unsigned long phys_addr, unsigned long size)
-@@ -113,11 +93,3 @@ void
- early_iounmap (volatile void __iomem *addr, unsigned long size)
- {
- }
--
--void
--iounmap (volatile void __iomem *addr)
--{
--	if (REGION_NUMBER(addr) = RGN_GATE)
--		vunmap((void *) ((unsigned long) addr & PAGE_MASK));
--}
--EXPORT_SYMBOL(iounmap);
--- 
-2.34.1
+> ---
+>  arch/arm/kernel/smp.c |    6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+>
+> --- a/arch/arm/kernel/smp.c
+> +++ b/arch/arm/kernel/smp.c
+> @@ -639,7 +639,7 @@ static void do_handle_IPI(int ipinr)
+>         unsigned int cpu = smp_processor_id();
+>
+>         if ((unsigned)ipinr < NR_IPI)
+> -               trace_ipi_entry_rcuidle(ipi_types[ipinr]);
+> +               trace_ipi_entry(ipi_types[ipinr]);
+>
+>         switch (ipinr) {
+>         case IPI_WAKEUP:
+> @@ -686,7 +686,7 @@ static void do_handle_IPI(int ipinr)
+>         }
+>
+>         if ((unsigned)ipinr < NR_IPI)
+> -               trace_ipi_exit_rcuidle(ipi_types[ipinr]);
+> +               trace_ipi_exit(ipi_types[ipinr]);
+>  }
+>
+>  /* Legacy version, should go away once all irqchips have been converted */
+> @@ -709,7 +709,7 @@ static irqreturn_t ipi_handler(int irq,
+>
+>  static void smp_cross_call(const struct cpumask *target, unsigned int ipinr)
+>  {
+> -       trace_ipi_raise_rcuidle(target, ipi_types[ipinr]);
+> +       trace_ipi_raise(target, ipi_types[ipinr]);
+>         __ipi_send_mask(ipi_desc[ipinr], target);
+>  }
+>
+>
+>
+> _______________________________________________
+> Virtualization mailing list
+> Virtualization@lists.linux-foundation.org
+> https://lists.linuxfoundation.org/mailman/listinfo/virtualization
