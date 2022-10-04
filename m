@@ -1,164 +1,185 @@
-From: Peter Xu <peterx@redhat.com>
-Date: Fri, 28 Oct 2022 15:57:59 +0000
-Subject: Re: [PATCH v3] hugetlb: simplify hugetlb handling in follow_page_mask
-Message-Id: <Y1v8B/6QYwt5hUgU@x1n>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="oZ7pR8BiPAaKWB7x"
+From: Ulf Hansson <ulf.hansson@linaro.org>
+Date: Tue, 04 Oct 2022 10:59:21 +0000
+Subject: Re: [PATCH v2 12/44] cpuidle,dt: Push RCU-idle into driver
+Message-Id: <CAPDyKFqTWd4W5Ofk76CtC4X43dxBTNHtmY9YzN355-vpviLsPw@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220919021348.22151-1-mike.kravetz@oracle.com>
- <Y1mtz7dFAlhGRsAd@x1n>
- <Y1nR/KToV44GKZ5G@monkey>
- <Y1rdVLMDD4PMt3s3@x1n>
- <Y1v0/Y4Xiut2FWx4@monkey>
-In-Reply-To: <Y1v0/Y4Xiut2FWx4@monkey>
-To: Mike Kravetz <mike.kravetz@oracle.com>
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, Baolin Wang <baolin.wang@linux.alibaba.com>, David Hildenbrand <david@redhat.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, Naoya Horiguchi <naoya.horiguchi@linux.dev>, Michael Ellerman <mpe@ellerman.id.au>, Muchun Song <songmuchun@bytedance.com>, Andrew Morton <akpm@linux-foundation.org>
+References: <20220919095939.761690562@infradead.org> <20220919101521.139727471@infradead.org>
+In-Reply-To: <20220919101521.139727471@infradead.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Peter Zijlstra <peterz@infradead.org>
+Cc: juri.lelli@redhat.com, rafael@kernel.org, catalin.marinas@arm.com, linus.walleij@linaro.org, bsegall@google.com, guoren@kernel.org, pavel@ucw.cz, agordeev@linux.ibm.com, linux-arch@vger.kernel.org, vincent.guittot@linaro.org, mpe@ellerman.id.au, chenhuacai@kernel.org, christophe.leroy@csgroup.eu, linux-acpi@vger.kernel.org, agross@kernel.org, geert@linux-m68k.org, linux-imx@nxp.com, vgupta@kernel.org, mattst88@gmail.com, mturquette@baylibre.com, sammy@sammy.net, pmladek@suse.com, linux-pm@vger.kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, linux-um@lists.infradead.org, npiggin@gmail.com, tglx@linutronix.de, linux-omap@vger.kernel.org, dietmar.eggemann@arm.com, andreyknvl@gmail.com, gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org, linux-perf-users@vger.kernel.org, senozhatsky@chromium.org, svens@linux.ibm.com, jolsa@kernel.org, tj@kernel.org, Andrew Morton <akpm@linux-foundation.org>, mark.rutland@arm.com, linux-ia64@vger.kernel.org, dave.hansen@linux.intel.com, virtualization@lists.linux-foundation.org, James.Bottomley@hansenpartnership.com, jcmvbkbc@gmail.com, thierry.reding@gmail.com, kernel@xen0n.name, cl@linux.com, linux-s390@vger.kernel.org, vschneid@redhat.com, john.ogness@linutronix.de, ysato@users.sourceforge.jp, linux-sh@vger.kernel.org, festevam@gmail.com, deller@gmx.de, daniel.lezcano@linaro.org, jonathanh@nvidia.com, dennis@kernel.org, lenb@kernel.org, linux-xtensa@linux-xtensa.org, kernel@pengutronix.de, gor@linux.ibm.com, linux-arm-msm@vger.kernel.org, linux-alpha@vger.kernel.org, linux-m68k@lists.linux-m68k.org, loongarch@lists.linux.dev, shorne@gmail.com, chris@zankel.net, sboyd@kernel.org, dinguyen@kernel.org, bristot@redhat.com, alexander.shishkin@linux.intel.com, fweisbec@gmail.com, lpieralisi@kernel.org, atishp@atishpatra.org, linux@rasmusvillemoes.dk, kasan-dev@googlegroups.com, will@kernel.org, boris.ostrovsky@oracle.com, khilman@kernel.org, linux-csky@vger.kernel.org, pv-drivers@vmware.com, linux-snps-arc@lists.infradead.org, mgorman@suse.de, jacob.jun.pan@linux.intel.com, Arnd Bergmann <arnd@arndb.de>, ulli.kroll@googlemail.com, linux-clk@vger.kernel.org, rostedt@goodmis.org, ink@jurassic.park.msu.ru, bcain@quicinc.com, tsbogend@alpha.franken.de, linux-parisc@vger.kernel.org, ryabinin.a.a@gmail.com, sudeep.holla@arm.com, shawnguo@kernel.org, davem@davemloft.net, dalias@libc.org, tony@atomide.com, amakhalov@vmware.com, konrad.dybcio@somainline.org, bjorn.andersson@linaro.org, glider@google.com, hpa@zytor.com, sparclinux@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-riscv@lists.infradead.org, vincenzo.frascino@arm.com, anton.ivanov@cambridgegreys.com, jonas@southpole.se, yury.norov@gmail.com, richard@nod.at, x86@kernel.org, linux@armlinux.org.uk, mingo@redhat.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, richard.henderson@linaro.org, stefan.kristiansson@saunalahti.fi, openrisc@lists.librecores.org, acme@kernel.org, paul.walmsley@sifive.com, linux-tegra@vger.kernel.org, namhyung@kernel.org, andriy.shevchenko@linux.intel.com, jpoimboe@kernel.org, dvyukov@google.com, jgross@suse.com, monstr@monstr.eu, linux-mips@vger.kernel.org, palmer@dabbelt.com, anup@brainfault.org, bp@alien8.de, johannes@sipsolutions.net, linuxppc-dev@lists.ozlabs.org
 
+On Mon, 19 Sept 2022 at 12:18, Peter Zijlstra <peterz@infradead.org> wrote:
+>
+> Doing RCU-idle outside the driver, only to then temporarily enable it
+> again before going idle is daft.
+>
+> Notably: this converts all dt_init_idle_driver() and
+> __CPU_PM_CPU_IDLE_ENTER() users for they are inextrably intertwined.
+>
+> Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
 
---oZ7pR8BiPAaKWB7x
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
+Reviewed-by: Ulf Hansson <ulf.hansson@linaro.org>
 
-On Fri, Oct 28, 2022 at 08:27:57AM -0700, Mike Kravetz wrote:
-> On 10/27/22 15:34, Peter Xu wrote:
-> > On Wed, Oct 26, 2022 at 05:34:04PM -0700, Mike Kravetz wrote:
-> > > On 10/26/22 17:59, Peter Xu wrote:
-> > 
-> > If we want to use the vma read lock to protect here as the slow gup path,
-> > then please check again with below [1] - I think we'll also need to protect
-> > it with fast-gup (probably with trylock only, because fast-gup cannot
-> > sleep) or it'll encounter the same race, iiuc.
-> > 
-> > Actually, instead of using vma lock, I really think this is another problem
-> > and needs standalone fixing.  The problem is we allows huge_pte_offset() to
-> > walk the process pgtable without any protection, while pmd unsharing can
-> > drop a page anytime.  huge_pte_offset() is always facing use-after-free
-> > when walking the PUD page.
-> > 
-> > We may want RCU lock to protect the pgtable pages from getting away when
-> > huge_pte_offset() is walking it, it'll be safe then because pgtable pages
-> > are released in RCU fashion only (e.g. in above example, process [2] will
-> > munmap() and release the last ref to the "used to be shared" pmd and the
-> > PUD that maps the shared pmds will be released only after a RCU grace
-> > period), and afaict that's also what's protecting fast-gup from accessing
-> > freed pgtable pages.
-> > 
-> > If with all huge_pte_offset() callers becoming RCU-safe, then IIUC we can
-> > drop the vma lock in all GUP code, aka, in hugetlb_follow_page_mask() here,
-> > because both slow and fast gup should be safe too in the same manner.
-> > 
-> > Thanks,
-> > 
-> > > > IIUC it's also the same as fast-gup - afaiu we don't take the read vma lock
-> > > > in fast-gup too but I also think it's safe.  But I hope I didn't miss
-> > > > something.
-> > 
-> > [1]
-> 
-> Thanks Peter!  I think the best thing would be to eliminate the vma_lock
-> calls in this patch.  The code it is replacing/simplifying does not do any
-> locking, so no real regression.
+Kind regards
+Uffe
 
-Agreed.
+> ---
+>  arch/arm/mach-omap2/cpuidle34xx.c    |    4 ++--
+>  drivers/acpi/processor_idle.c        |    2 ++
+>  drivers/cpuidle/cpuidle-arm.c        |    1 +
+>  drivers/cpuidle/cpuidle-big_little.c |    8 ++++++--
+>  drivers/cpuidle/cpuidle-psci.c       |    1 +
+>  drivers/cpuidle/cpuidle-qcom-spm.c   |    1 +
+>  drivers/cpuidle/cpuidle-riscv-sbi.c  |    1 +
+>  drivers/cpuidle/dt_idle_states.c     |    2 +-
+>  include/linux/cpuidle.h              |    4 ++++
+>  9 files changed, 19 insertions(+), 5 deletions(-)
+>
+> --- a/drivers/acpi/processor_idle.c
+> +++ b/drivers/acpi/processor_idle.c
+> @@ -1200,6 +1200,8 @@ static int acpi_processor_setup_lpi_stat
+>                 state->target_residency = lpi->min_residency;
+>                 if (lpi->arch_flags)
+>                         state->flags |= CPUIDLE_FLAG_TIMER_STOP;
+> +               if (lpi->entry_method = ACPI_CSTATE_FFH)
+> +                       state->flags |= CPUIDLE_FLAG_RCU_IDLE;
 
-> 
-> I think a scheme like you describe above is going to require some more
-> thought/work.  It might be better as a follow on patch.
+I assume the state index here will never be 0?
 
-So above is only a thought, but if you think it's so far not very wrong and
-worth trying, I can see what I can get from it by some upcoming patches.
+If not, it may lead to that acpi_processor_ffh_lpi_enter() may trigger
+CPU_PM_CPU_IDLE_ENTER_PARAM() to call ct_cpuidle_enter|exit() for an
+idle-state that doesn't have the CPUIDLE_FLAG_RCU_IDLE bit set.
 
-It shouldn't need a lot of change, but basically looking after all
-huge_pte_offset() to make sure they're safe regarding walking the PUD.  I'm
-attaching an initial patch to just start to comment on the usage of
-huge_pte_offset() first because that'll be the gust of the upcoming
-patchset (if there'll be), further comments welcomed too.  Thanks.
+>                 state->enter = acpi_idle_lpi_enter;
+>                 drv->safe_state_index = i;
+>         }
+> --- a/drivers/cpuidle/cpuidle-arm.c
+> +++ b/drivers/cpuidle/cpuidle-arm.c
+> @@ -53,6 +53,7 @@ static struct cpuidle_driver arm_idle_dr
+>          * handler for idle state index 0.
+>          */
+>         .states[0] = {
+> +               .flags                  = CPUIDLE_FLAG_RCU_IDLE,
 
--- 
-Peter Xu
+Comparing arm64 and arm32 idle-states/idle-drivers, the $subject
+series ends up setting the CPUIDLE_FLAG_RCU_IDLE for the ARM WFI idle
+state (state zero), but only for the arm64 and psci cases (mostly
+arm64). For arm32 we would need to update the ARM_CPUIDLE_WFI_STATE
+too, as that is what most arm32 idle-drivers are using. My point is,
+the code becomes a bit inconsistent.
 
---oZ7pR8BiPAaKWB7x
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: attachment;
-	filename="0001-mm-hugetlb-Comment-huge_pte_offset-for-its-locking-r.patch"
+Perhaps it's easier to avoid setting the CPUIDLE_FLAG_RCU_IDLE bit for
+all of the ARM WFI idle states, for both arm64 and arm32?
 
-From 186c56026ce8ccc555d3c7ebc0e7e8fd76e9e5c9 Mon Sep 17 00:00:00 2001
-From: Peter Xu <peterx@redhat.com>
-Date: Thu, 27 Oct 2022 17:41:11 -0400
-Subject: [PATCH] mm/hugetlb: Comment huge_pte_offset() for its locking
- requirements
-Content-type: text/plain
+>                 .enter                  = arm_enter_idle_state,
+>                 .exit_latency           = 1,
+>                 .target_residency       = 1,
+> --- a/drivers/cpuidle/cpuidle-big_little.c
+> +++ b/drivers/cpuidle/cpuidle-big_little.c
+> @@ -64,7 +64,8 @@ static struct cpuidle_driver bl_idle_lit
+>                 .enter                  = bl_enter_powerdown,
+>                 .exit_latency           = 700,
+>                 .target_residency       = 2500,
+> -               .flags                  = CPUIDLE_FLAG_TIMER_STOP,
+> +               .flags                  = CPUIDLE_FLAG_TIMER_STOP |
+> +                                         CPUIDLE_FLAG_RCU_IDLE,
+>                 .name                   = "C1",
+>                 .desc                   = "ARM little-cluster power down",
+>         },
+> @@ -85,7 +86,8 @@ static struct cpuidle_driver bl_idle_big
+>                 .enter                  = bl_enter_powerdown,
+>                 .exit_latency           = 500,
+>                 .target_residency       = 2000,
+> -               .flags                  = CPUIDLE_FLAG_TIMER_STOP,
+> +               .flags                  = CPUIDLE_FLAG_TIMER_STOP |
+> +                                         CPUIDLE_FLAG_RCU_IDLE,
+>                 .name                   = "C1",
+>                 .desc                   = "ARM big-cluster power down",
+>         },
+> @@ -124,11 +126,13 @@ static int bl_enter_powerdown(struct cpu
+>                                 struct cpuidle_driver *drv, int idx)
+>  {
+>         cpu_pm_enter();
+> +       ct_idle_enter();
+>
+>         cpu_suspend(0, bl_powerdown_finisher);
+>
+>         /* signals the MCPM core that CPU is out of low power state */
+>         mcpm_cpu_powered_up();
+> +       ct_idle_exit();
+>
+>         cpu_pm_exit();
+>
+> --- a/drivers/cpuidle/cpuidle-psci.c
+> +++ b/drivers/cpuidle/cpuidle-psci.c
+> @@ -357,6 +357,7 @@ static int psci_idle_init_cpu(struct dev
+>          * PSCI idle states relies on architectural WFI to be represented as
+>          * state index 0.
+>          */
+> +       drv->states[0].flags = CPUIDLE_FLAG_RCU_IDLE;
+>         drv->states[0].enter = psci_enter_idle_state;
+>         drv->states[0].exit_latency = 1;
+>         drv->states[0].target_residency = 1;
+> --- a/drivers/cpuidle/cpuidle-qcom-spm.c
+> +++ b/drivers/cpuidle/cpuidle-qcom-spm.c
+> @@ -72,6 +72,7 @@ static struct cpuidle_driver qcom_spm_id
+>         .owner = THIS_MODULE,
+>         .states[0] = {
+>                 .enter                  = spm_enter_idle_state,
+> +               .flags                  = CPUIDLE_FLAG_RCU_IDLE,
+>                 .exit_latency           = 1,
+>                 .target_residency       = 1,
+>                 .power_usage            = UINT_MAX,
+> --- a/drivers/cpuidle/cpuidle-riscv-sbi.c
+> +++ b/drivers/cpuidle/cpuidle-riscv-sbi.c
+> @@ -332,6 +332,7 @@ static int sbi_cpuidle_init_cpu(struct d
+>         drv->cpumask = (struct cpumask *)cpumask_of(cpu);
+>
+>         /* RISC-V architectural WFI to be represented as state index 0. */
+> +       drv->states[0].flags = CPUIDLE_FLAG_RCU_IDLE;
+>         drv->states[0].enter = sbi_cpuidle_enter_state;
+>         drv->states[0].exit_latency = 1;
+>         drv->states[0].target_residency = 1;
+> --- a/drivers/cpuidle/dt_idle_states.c
+> +++ b/drivers/cpuidle/dt_idle_states.c
+> @@ -77,7 +77,7 @@ static int init_state_node(struct cpuidl
+>         if (err)
+>                 desc = state_node->name;
+>
+> -       idle_state->flags = 0;
+> +       idle_state->flags = CPUIDLE_FLAG_RCU_IDLE;
+>         if (of_property_read_bool(state_node, "local-timer-stop"))
+>                 idle_state->flags |= CPUIDLE_FLAG_TIMER_STOP;
+>         /*
+> --- a/include/linux/cpuidle.h
+> +++ b/include/linux/cpuidle.h
+> @@ -282,14 +282,18 @@ extern s64 cpuidle_governor_latency_req(
+>         int __ret = 0;                                                  \
+>                                                                         \
+>         if (!idx) {                                                     \
+> +               ct_idle_enter();                                        \
 
-huge_pte_offset() is potentially a pgtable walker, looking up pte_t* for a
-hugetlb address.
+According to my comment above, we should then drop these calls to
+ct_idle_enter and ct_idle_exit() here. Right?
 
-Normally, it's always safe to walk the pgtable as long as we're with the
-mmap lock held for either read or write, because that guarantees the
-pgtable pages will always be valid during the process.
+>                 cpu_do_idle();                                          \
+> +               ct_idle_exit();                                         \
+>                 return idx;                                             \
+>         }                                                               \
+>                                                                         \
+>         if (!is_retention)                                              \
+>                 __ret =  cpu_pm_enter();                                \
+>         if (!__ret) {                                                   \
+> +               ct_idle_enter();                                        \
+>                 __ret = low_level_idle_enter(state);                    \
+> +               ct_idle_exit();                                         \
+>                 if (!is_retention)                                      \
+>                         cpu_pm_exit();                                  \
+>         }                                                               \
+>
 
-But it's not true for hugetlbfs: hugetlbfs has the pmd sharing feature, it
-means that even with mmap lock held, the PUD pgtable page can still go away
-from under us if pmd unsharing is possible during the walk.
-
-It's not always the case, e.g.:
-
-  (1) If the mapping is private we're not prone to pmd sharing or
-      unsharing, so it's okay.
-
-  (2) If we're with the hugetlb vma lock held for either read/write, it's
-      okay too because pmd unshare cannot happen at all.
-
-Document all these explicitly for huge_pte_offset(), because it's really
-not that obvious.  This also tells all the callers on what it needs to
-guarantee huge_pte_offset() thread-safety.
-
-Signed-off-by: Peter Xu <peterx@redhat.com>
----
- arch/arm64/mm/hugetlbpage.c | 29 +++++++++++++++++++++++++++++
- 1 file changed, 29 insertions(+)
-
-diff --git a/arch/arm64/mm/hugetlbpage.c b/arch/arm64/mm/hugetlbpage.c
-index 35e9a468d13e..90f084643718 100644
---- a/arch/arm64/mm/hugetlbpage.c
-+++ b/arch/arm64/mm/hugetlbpage.c
-@@ -329,6 +329,35 @@ pte_t *huge_pte_alloc(struct mm_struct *mm, struct vm_area_struct *vma,
- 	return ptep;
- }
- 
-+/*
-+ * huge_pte_offset(): Walk the hugetlb pgtable until the last level PTE.
-+ * Returns the pte_t* if found, or NULL if the address is not mapped.
-+ *
-+ * NOTE: since this function will walk all the pgtable pages (including not
-+ * only normal pgtable page, but also PUD that can be unshared concurrently
-+ * for VM_SHARED), the caller of this function should be responsible of its
-+ * thread safety.  One can follow this rule:
-+ *
-+ *  (1) For private mappings: pmd unsharing is not possible, so it'll
-+ *      always be safe if we're with the mmap sem for either read or write.
-+ *      This is normally always the case, so IOW we don't need to do
-+ *      anything special.
-+ *
-+ *  (2) For shared mappings: pmd unsharing is possible (so PUD page can go
-+ *      away from under us!  It can be done by a pmd unshare with a follow
-+ *      up munmap() on the other process), then we need either:
-+ *
-+ *     (2.1) hugetlb vma lock read or write held, to make sure pmd unshare
-+ *           won't happen upon the range, or,
-+ *
-+ *     (2.2) RCU read lock, to make sure even pmd unsharing happened, the
-+ *           old shared PUD page won't get freed from under us, so even of
-+ *           the pte_t* can be obsolete, at least it's still always safe to
-+ *           access the PUD page.
-+ *
-+ * PS: from the regard of (2.2), it's the same logic of fast-gup being safe
-+ * for generic mm, as long as RCU is used to free any pgtable page.
-+ */
- pte_t *huge_pte_offset(struct mm_struct *mm,
- 		       unsigned long addr, unsigned long sz)
- {
--- 
-2.37.3
-
-
---oZ7pR8BiPAaKWB7x--
+Kind regards
+Uffe
