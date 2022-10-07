@@ -1,139 +1,61 @@
-From: Nick Terrell <terrelln@meta.com>
-Date: Mon, 17 Oct 2022 19:56:34 +0000
-Subject: Re: [PATCH v2] Remove Intel compiler support
-Message-Id: <3F993490-0E9A-43C8-B272-FACF718E674D@fb.com>
+From: Valentin Schneider <vschneid@redhat.com>
+Date: Fri, 07 Oct 2022 15:45:32 +0000
+Subject: [RFC PATCH 4/5] irq_work: Trace calls to arch_irq_work_raise()
+Message-Id: <20221007154533.1878285-4-vschneid@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20221011171427.58891-1-masahiroy@kernel.org>
- <CANiq72kvaPGr=2S6J7q7gfEg_CauHUfhuLmABpktfUPfK+_Hvg@mail.gmail.com>
- <CAK7LNAQkSbH-Gw3sgMzxHyA9pSf3gLVvbCLg3yvbO43_vi5=YA@mail.gmail.com>
-In-Reply-To: 
- <CAK7LNAQkSbH-Gw3sgMzxHyA9pSf3gLVvbCLg3yvbO43_vi5=YA@mail.gmail.com>
+References: <20221007154145.1877054-1-vschneid@redhat.com>
+In-Reply-To: <20221007154145.1877054-1-vschneid@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Masahiro Yamada <masahiroy@kernel.org>
-Cc: Miguel Ojeda <miguel.ojeda.sandonis@gmail.com>, Linus Torvalds <torvalds@linux-foundation.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, X86 ML <x86@kernel.org>, "H . Peter Anvin" <hpa@zytor.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Nick Desaulniers <ndesaulniers@google.com>, Miguel Ojeda <ojeda@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Len Brown <lenb@kernel.org>, Nathan Chancellor <nathan@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Robert Moore <robert.moore@intel.com>, Tom Rix <trix@redhat.com>, "devel@acpica.org" <devel@acpica.org>, "linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, "llvm@lists.linux.dev" <llvm@lists.linux.dev>
+To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org
+Cc: "Paul E. McKenney" <paulmck@kernel.org>, Steven Rostedt <rostedt@goodmis.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Juri Lelli <juri.lelli@redhat.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Marcelo Tosatti <mtosatti@redhat.com>, Frederic Weisbecker <frederic@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "H. Peter Anvin" <hpa@zytor.com>, Marc Zyngier <maz@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Russell King <linux@armlinux.org.uk>, Nicholas Piggin <npiggin@gmail.com>, Guo Ren <guoren@kernel.org>, "David S. Miller" <davem@davemloft.net>
 
+Adding a tracepoint to send_call_function_single_ipi() covers
+irq_work_queue_on() when the CPU isn't the local one - add a tracepoint to
+irq_work_raise() to cover the other cases.
 
+Signed-off-by: Valentin Schneider <vschneid@redhat.com>
+---
+ kernel/irq_work.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
 
-> On Oct 16, 2022, at 11:22 AM, Masahiro Yamada <masahiroy@kernel.org> wrote:
-> 
-> !-------------------------------------------------------------------|
->  This Message Is From an External Sender
-> 
-> |-------------------------------------------------------------------!
-> 
-> On Fri, Oct 14, 2022 at 11:40 PM Miguel Ojeda
-> <miguel.ojeda.sandonis@gmail.com> wrote:
->> 
->> On Tue, Oct 11, 2022 at 7:16 PM Masahiro Yamada <masahiroy@kernel.org> wrote:
->>> 
->>> diff --git a/include/linux/compiler_attributes.h b/include/linux/compiler_attributes.h
->>> index 898b3458b24a..9221302f6ae8 100644
->>> --- a/include/linux/compiler_attributes.h
->>> +++ b/include/linux/compiler_attributes.h
->>> @@ -64,16 +64,10 @@
->>>  * compiler should see some alignment anyway, when the return value is
->>>  * massaged by 'flags = ptr & 3; ptr &= ~3;').
->>>  *
->>> - * Optional: not supported by icc
->>> - *
->>>  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-assume_005faligned-function-attribute
->>>  * clang: https://clang.llvm.org/docs/AttributeReference.html#assume-aligned  
->>>  */
->>> -#if __has_attribute(__assume_aligned__)
->>> -# define __assume_aligned(a, ...)       __attribute__((__assume_aligned__(a, ## __VA_ARGS__)))
->>> -#else
->>> -# define __assume_aligned(a, ...)
->>> -#endif
->>> +#define __assume_aligned(a, ...)        __attribute__((__assume_aligned__(a, ## __VA_ARGS__)))
->> 
->> Thanks for cleaning the conditional inclusion here. I double-checked
->> it is indeed available for both GCC and Clang current minimum versions
->> just in case: https://godbolt.org/z/PxaqeEdcE.
->> 
->>> diff --git a/lib/zstd/common/compiler.h b/lib/zstd/common/compiler.h
->>> index f5a9c70a228a..c281a6430cd4 100644
->>> --- a/lib/zstd/common/compiler.h
->>> +++ b/lib/zstd/common/compiler.h
->>> @@ -116,7 +116,7 @@
->>> 
->>> /* vectorization
->>>  * older GCC (pre gcc-4.3 picked as the cutoff) uses a different syntax */
->>> -#if !defined(__INTEL_COMPILER) && !defined(__clang__) && defined(__GNUC__)
->>> +#if !defined(__clang__) && defined(__GNUC__)
->>> #  if (__GNUC__ = 4 && __GNUC_MINOR__ > 3) || (__GNUC__ >= 5)
->>> #    define DONT_VECTORIZE __attribute__((optimize("no-tree-vectorize")))
->>> #  else
->> 
->> These files come from upstream Zstandard -- should we keep those lines
->> to minimize divergence?
->> https://github.com/facebook/zstd/blob/v1.4.10/lib/common/compiler.h#L154.
->> 
->> Commit e0c1b49f5b67 ("lib: zstd: Upgrade to latest upstream zstd
->> version 1.4.10") is the latest upgrade, and says:
->> 
->>    This patch is 100% generated from upstream zstd commit 20821a46f412 [0].
->> 
->>    This patch is very large because it is transitioning from the custom
->>    kernel zstd to using upstream directly. The new zstd follows upstreams
->>    file structure which is different. Future update patches will be much
->>    smaller because they will only contain the changes from one upstream
->>    zstd release.
->> 
->> So I think Nick would prefer to keep the changes as minimal as
->> possible with respect to upstream.
->> 
->> Further reading seems to suggest this is the case, e.g. see this
->> commit upstream that introduces a space to match the kernel:
->> https://github.com/facebook/zstd/commit/b53da1f6f499f0d44c5f40795b080d967b24e5fa.
->> 
->>> diff --git a/lib/zstd/compress/zstd_fast.c b/lib/zstd/compress/zstd_fast.c
->>> index 96b7d48e2868..800f3865119f 100644
->>> --- a/lib/zstd/compress/zstd_fast.c
->>> +++ b/lib/zstd/compress/zstd_fast.c
->>> @@ -80,13 +80,6 @@ ZSTD_compressBlock_fast_generic(
->>>     }
->>> 
->>>     /* Main Search Loop */
->>> -#ifdef __INTEL_COMPILER
->>> -    /* From intel 'The vector pragma indicates that the loop should be
->>> -     * vectorized if it is legal to do so'. Can be used together with
->>> -     * #pragma ivdep (but have opted to exclude that because intel
->>> -     * warns against using it).*/
->>> -    #pragma vector always
->>> -#endif
->>>     while (ip1 < ilimit) {   /* < instead of <=, because check at ip0+2 */
->>>         size_t mLength;
->>>         BYTE const* ip2 = ip0 + 2;
->> 
->> Ditto: https://github.com/facebook/zstd/blob/v1.4.10/lib/compress/zstd_fast.c#L83.
->> 
->> Apart from the zstd divergence which I am not sure about, everything
->> looks good to me!
->> 
->> Reviewed-by: Miguel Ojeda <ojeda@kernel.org>
->> 
->> Cheers,
->> Miguel
-> 
-> 
-> Thanks for your close review.
-> 
-> I will drop zstd changes and send v3.
-
-Thanks!
-
-As Miguel pointed out, we sync zstd in from upstream, so any changes here would
-get overwritten next sync. If the idea is to just remove icc specific code for code
-hygiene, I'd leave zstd as-is to keep it more in line with upstream. However, if there
-is a very strong reason to delete it, we could remove it as part of our import process.
-
-And if anything is broken, please open an issue on zstd's GitHub or email me.
-
-Best,
-Nick Terrell
-
-> -- 
-> Best Regards
-> Masahiro Yamada
+diff --git a/kernel/irq_work.c b/kernel/irq_work.c
+index 7afa40fe5cc4..5a550b681878 100644
+--- a/kernel/irq_work.c
++++ b/kernel/irq_work.c
+@@ -22,6 +22,8 @@
+ #include <asm/processor.h>
+ #include <linux/kasan.h>
+ 
++#include <trace/events/ipi.h>
++
+ static DEFINE_PER_CPU(struct llist_head, raised_list);
+ static DEFINE_PER_CPU(struct llist_head, lazy_list);
+ static DEFINE_PER_CPU(struct task_struct *, irq_workd);
+@@ -74,6 +76,14 @@ void __weak arch_irq_work_raise(void)
+ 	 */
+ }
+ 
++static inline void irq_work_raise(void)
++{
++	if (arch_irq_work_has_interrupt())
++		trace_ipi_send_cpu(_RET_IP_, smp_processor_id());
++
++	arch_irq_work_raise();
++}
++
+ /* Enqueue on current CPU, work must already be claimed and preempt disabled */
+ static void __irq_work_queue_local(struct irq_work *work)
+ {
+@@ -99,7 +109,7 @@ static void __irq_work_queue_local(struct irq_work *work)
+ 
+ 	/* If the work is "lazy", handle it from next tick if any */
+ 	if (!lazy_work || tick_nohz_tick_stopped())
+-		arch_irq_work_raise();
++		irq_work_raise();
+ }
+ 
+ /* Enqueue the irq work @work on the current CPU */
+-- 
+2.31.1
