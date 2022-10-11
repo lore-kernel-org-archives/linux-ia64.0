@@ -1,13 +1,13 @@
 From: Masahiro Yamada <masahiroy@kernel.org>
-Date: Sun, 16 Oct 2022 18:23:49 +0000
-Subject: [PATCH v3] Remove Intel compiler support
-Message-Id: <20221016182349.49308-1-masahiroy@kernel.org>
+Date: Tue, 11 Oct 2022 03:18:43 +0000
+Subject: [RFC PATCH] Remove Intel compiler support
+Message-Id: <20221011031843.960217-1-masahiroy@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@linux-foundation.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org
-Cc: Masahiro Yamada <masahiroy@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Nick Desaulniers <ndesaulniers@google.com>, Nathan Chancellor <nathan@kernel.org>, Miguel Ojeda <ojeda@kernel.org>, Len Brown <lenb@kernel.org>, Nick Terrell <terrelln@fb.com>, "Rafael J. Wysocki" <rafael@kernel.org>, Robert Moore <robert.moore@intel.com>, Tom Rix <trix@redhat.com>, devel@acpica.org, linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, llvm@lists.linux.dev
+To: Linus Torvalds <torvalds@linux-foundation.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H . Peter Anvin" <hpa@zytor.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org, Nick Desaulniers <ndesaulniers@google.com>, Miguel Ojeda <ojeda@kernel.org>, Masahiro Yamada <masahiroy@kernel.org>, Len Brown <lenb@kernel.org>, Nathan Chancellor <nathan@kernel.org>, Nick Terrell <terrelln@fb.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Robert Moore <robert.moore@intel.com>, Tom Rix <trix@redhat.com>, devel@acpica.org, linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org, llvm@lists.linux.dev
 
 include/linux/compiler-intel.h had no update in the past 3 years.
 
@@ -22,38 +22,13 @@ and nobody has reported any issue.
 I guess the Intel Compiler support is broken, and nobody is caring
 about it.
 
-Harald Arnesen pointed out ICC (classic Intel C/C++ compiler) is
-deprecated:
-
-    $ icc -v
-    icc: remark #10441: The Intel(R) C++ Compiler Classic (ICC) is
-    deprecated and will be removed from product release in the second half
-    of 2023. The Intel(R) oneAPI DPC++/C++ Compiler (ICX) is the recommended
-    compiler moving forward. Please transition to use this compiler. Use
-    '-diag-disable441' to disable this message.
-    icc version 2021.7.0 (gcc version 12.1.0 compatibility)
-
-Arnd Bergmann provided a link to the article, "Intel C/C++ compilers
-complete adoption of LLVM".
-
-lib/zstd/common/compiler.h and lib/zstd/compress/zstd_fast.c were kept
-untouched for better sync with https://github.com/facebook/zstd
-
-Link: https://www.intel.com/content/www/us/en/developer/articles/technical/adoption-of-llvm-complete-icx.html
 Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
-Acked-by: Arnd Bergmann <arnd@arndb.de>
-Reviewed-by: Nick Desaulniers <ndesaulniers@google.com>
-Reviewed-by: Nathan Chancellor <nathan@kernel.org>
-Reviewed-by: Miguel Ojeda <ojeda@kernel.org>
 ---
 
-Changes in v3:
-  - Do not change lib/zstd/
+I am sending this to Linus and the x86 maintainers with RFC.
+If somebody is still using ICC, please speak up!
 
-Changes in v2:
-  - Remove "not supported by icc." comments from compiler_attributes.h
-  - Clean up __assume_aligned() macro
-  - Add more info from Harald Arnesen and Arnd Bergmann
+
 
  arch/ia64/include/uapi/asm/cmpxchg.h      |   6 +-
  arch/ia64/include/uapi/asm/intel_intrin.h | 162 ----------------------
@@ -62,11 +37,12 @@ Changes in v2:
  include/acpi/platform/acenvex.h           |   2 +-
  include/acpi/platform/acintel.h           |  55 --------
  include/linux/compiler-intel.h            |  34 -----
- include/linux/compiler_attributes.h       |  14 +-
  include/linux/compiler_types.h            |   2 -
+ lib/zstd/common/compiler.h                |   2 +-
+ lib/zstd/compress/zstd_fast.c             |   7 -
  scripts/cc-version.sh                     |   2 -
  scripts/min-tool-version.sh               |   4 -
- 11 files changed, 5 insertions(+), 287 deletions(-)
+ 12 files changed, 5 insertions(+), 282 deletions(-)
  delete mode 100644 arch/ia64/include/uapi/asm/intel_intrin.h
  delete mode 100644 include/acpi/platform/acintel.h
  delete mode 100644 include/linux/compiler-intel.h
@@ -408,76 +384,6 @@ index b17f3cd18334..000000000000
 -/* icc has this, but it's called _bswap16 */
 -#define __HAVE_BUILTIN_BSWAP16__
 -#define __builtin_bswap16 _bswap16
-diff --git a/include/linux/compiler_attributes.h b/include/linux/compiler_attributes.h
-index 898b3458b24a..9221302f6ae8 100644
---- a/include/linux/compiler_attributes.h
-+++ b/include/linux/compiler_attributes.h
-@@ -64,16 +64,10 @@
-  * compiler should see some alignment anyway, when the return value is
-  * massaged by 'flags = ptr & 3; ptr &= ~3;').
-  *
-- * Optional: not supported by icc
-- *
-  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-assume_005faligned-function-attribute
-  * clang: https://clang.llvm.org/docs/AttributeReference.html#assume-aligned
-  */
--#if __has_attribute(__assume_aligned__)
--# define __assume_aligned(a, ...)       __attribute__((__assume_aligned__(a, ## __VA_ARGS__)))
--#else
--# define __assume_aligned(a, ...)
--#endif
-+#define __assume_aligned(a, ...)        __attribute__((__assume_aligned__(a, ## __VA_ARGS__)))
- 
- /*
-  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-cold-function-attribute
-@@ -91,7 +85,6 @@
- /*
-  * Optional: only supported since gcc >= 9
-  * Optional: not supported by clang
-- * Optional: not supported by icc
-  *
-  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-copy-function-attribute
-  */
-@@ -104,7 +97,6 @@
- /*
-  * Optional: not supported by gcc
-  * Optional: only supported since clang >= 14.0
-- * Optional: not supported by icc
-  *
-  * clang: https://clang.llvm.org/docs/AttributeReference.html#diagnose_as_builtin
-  */
-@@ -128,7 +120,6 @@
- 
- /*
-  * Optional: not supported by clang
-- * Optional: not supported by icc
-  *
-  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Type-Attributes.html#index-designated_005finit-type-attribute
-  */
-@@ -242,7 +233,6 @@
- /*
-  * Optional: only supported since gcc >= 8
-  * Optional: not supported by clang
-- * Optional: not supported by icc
-  *
-  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html#index-nonstring-variable-attribute
-  */
-@@ -273,7 +263,6 @@
- 
- /*
-  * Optional: not supported by gcc.
-- * Optional: not supported by icc.
-  *
-  * clang: https://clang.llvm.org/docs/AttributeReference.html#overloadable
-  */
-@@ -293,7 +282,6 @@
-  * Note: the "type" argument should match any __builtin_object_size(p, type) usage.
-  *
-  * Optional: not supported by gcc.
-- * Optional: not supported by icc.
-  *
-  * clang: https://clang.llvm.org/docs/AttributeReference.html#pass-object-size-pass-dynamic-object-size
-  */
 diff --git a/include/linux/compiler_types.h b/include/linux/compiler_types.h
 index 74e04ecd4c89..0e06a1a79401 100644
 --- a/include/linux/compiler_types.h
@@ -491,6 +397,37 @@ index 74e04ecd4c89..0e06a1a79401 100644
  #elif defined(__GNUC__)
  /* The above compilers also define __GNUC__, so order is important here. */
  #include <linux/compiler-gcc.h>
+diff --git a/lib/zstd/common/compiler.h b/lib/zstd/common/compiler.h
+index f5a9c70a228a..c281a6430cd4 100644
+--- a/lib/zstd/common/compiler.h
++++ b/lib/zstd/common/compiler.h
+@@ -116,7 +116,7 @@
+ 
+ /* vectorization
+  * older GCC (pre gcc-4.3 picked as the cutoff) uses a different syntax */
+-#if !defined(__INTEL_COMPILER) && !defined(__clang__) && defined(__GNUC__)
++#if !defined(__clang__) && defined(__GNUC__)
+ #  if (__GNUC__ = 4 && __GNUC_MINOR__ > 3) || (__GNUC__ >= 5)
+ #    define DONT_VECTORIZE __attribute__((optimize("no-tree-vectorize")))
+ #  else
+diff --git a/lib/zstd/compress/zstd_fast.c b/lib/zstd/compress/zstd_fast.c
+index 96b7d48e2868..800f3865119f 100644
+--- a/lib/zstd/compress/zstd_fast.c
++++ b/lib/zstd/compress/zstd_fast.c
+@@ -80,13 +80,6 @@ ZSTD_compressBlock_fast_generic(
+     }
+ 
+     /* Main Search Loop */
+-#ifdef __INTEL_COMPILER
+-    /* From intel 'The vector pragma indicates that the loop should be
+-     * vectorized if it is legal to do so'. Can be used together with
+-     * #pragma ivdep (but have opted to exclude that because intel
+-     * warns against using it).*/
+-    #pragma vector always
+-#endif
+     while (ip1 < ilimit) {   /* < instead of <=, because check at ip0+2 */
+         size_t mLength;
+         BYTE const* ip2 = ip0 + 2;
 diff --git a/scripts/cc-version.sh b/scripts/cc-version.sh
 index 2401c86fcf53..0573c92e841d 100755
 --- a/scripts/cc-version.sh
