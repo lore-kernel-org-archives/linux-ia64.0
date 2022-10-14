@@ -1,61 +1,40 @@
-From: Sergey Shtylyov <s.shtylyov@omp.ru>
-Date: Fri, 14 Oct 2022 21:22:27 +0000
-Subject: [PATCH 05/13] ia64: ptrace: user_regset_copyin_ignore() always returns 0
-Message-Id: <20221014212235.10770-6-s.shtylyov@omp.ru>
+From: Bjorn Helgaas <helgaas@kernel.org>
+Date: Fri, 14 Oct 2022 00:19:10 +0000
+Subject: [PATCH 2/3] ia64: remove unused __SLOW_DOWN_IO and SLOW_DOWN_IO definitions
+Message-Id: <20221014001911.3342485-3-helgaas@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20221014212235.10770-1-s.shtylyov@omp.ru>
-In-Reply-To: <20221014212235.10770-1-s.shtylyov@omp.ru>
+References: <20221014001911.3342485-1-helgaas@kernel.org>
+In-Reply-To: <20221014001911.3342485-1-helgaas@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Oleg Nesterov <oleg@redhat.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: Andrew Morton <akpm@linux-foundation.org>
+To: linux-kernel@vger.kernel.org
+Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-ia64@vger.kernel.org
 
-user_regset_copyin_ignore() always returns 0, so checking its result seems
-pointless -- don't do this anymore...
+From: Bjorn Helgaas <bhelgaas@google.com>
 
-Signed-off-by: Sergey Shtylyov <s.shtylyov@omp.ru>
+Remove unused __SLOW_DOWN_IO and SLOW_DOWN_IO definitions.
+
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linux-ia64@vger.kernel.org
 ---
- arch/ia64/kernel/ptrace.c | 20 +++++++++-----------
- 1 file changed, 9 insertions(+), 11 deletions(-)
+ arch/ia64/include/asm/io.h | 4 ----
+ 1 file changed, 4 deletions(-)
 
-diff --git a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
-index ab8aeb34d1d9..4c41912c550f 100644
---- a/arch/ia64/kernel/ptrace.c
-+++ b/arch/ia64/kernel/ptrace.c
-@@ -1481,12 +1481,10 @@ static void do_gpregs_set(struct unw_frame_info *info, void *arg)
- 		return;
- 	/* Skip r0 */
- 	if (dst->pos < ELF_GR_OFFSET(1)) {
--		dst->ret = user_regset_copyin_ignore(&dst->pos, &dst->count,
--						       &dst->u.set.kbuf,
--						       &dst->u.set.ubuf,
--						       0, ELF_GR_OFFSET(1));
--		if (dst->ret)
--			return;
-+		user_regset_copyin_ignore(&dst->pos, &dst->count,
-+					  &dst->u.set.kbuf, &dst->u.set.ubuf,
-+					  0, ELF_GR_OFFSET(1));
-+		dst->ret = 0;
- 	}
+diff --git a/arch/ia64/include/asm/io.h b/arch/ia64/include/asm/io.h
+index ce66dfc0e719..83a492c8d298 100644
+--- a/arch/ia64/include/asm/io.h
++++ b/arch/ia64/include/asm/io.h
+@@ -23,10 +23,6 @@
+ #include <asm/unaligned.h>
+ #include <asm/early_ioremap.h>
  
- 	while (dst->count && dst->pos < ELF_AR_END_OFFSET) {
-@@ -1560,11 +1558,11 @@ static void do_fpregs_set(struct unw_frame_info *info, void *arg)
+-/* We don't use IO slowdowns on the ia64, but.. */
+-#define __SLOW_DOWN_IO	do { } while (0)
+-#define SLOW_DOWN_IO	do { } while (0)
+-
+ #define __IA64_UNCACHED_OFFSET	RGN_BASE(RGN_UNCACHED)
  
- 	/* Skip pos 0 and 1 */
- 	if (dst->count > 0 && dst->pos < ELF_FP_OFFSET(2)) {
--		dst->ret = user_regset_copyin_ignore(&dst->pos, &dst->count,
--						       &dst->u.set.kbuf,
--						       &dst->u.set.ubuf,
--						       0, ELF_FP_OFFSET(2));
--		if (dst->count = 0 || dst->ret)
-+		user_regset_copyin_ignore(&dst->pos, &dst->count,
-+					  &dst->u.set.kbuf, &dst->u.set.ubuf,
-+					  0, ELF_FP_OFFSET(2));
-+		dst->ret = 0;
-+		if (dst->count = 0)
- 			return;
- 	}
- 
+ /*
 -- 
-2.26.3
+2.25.1
