@@ -1,62 +1,61 @@
-From: Valentin Schneider <vschneid@redhat.com>
-Date: Fri, 07 Oct 2022 15:45:29 +0000
-Subject: [RFC PATCH 1/5] trace: Add trace_ipi_send_{cpu, cpumask}
-Message-Id: <20221007154533.1878285-1-vschneid@redhat.com>
+From: Sergey Shtylyov <s.shtylyov@omp.ru>
+Date: Fri, 14 Oct 2022 21:22:27 +0000
+Subject: [PATCH 05/13] ia64: ptrace: user_regset_copyin_ignore() always returns 0
+Message-Id: <20221014212235.10770-6-s.shtylyov@omp.ru>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20221007154145.1877054-1-vschneid@redhat.com>
-In-Reply-To: <20221007154145.1877054-1-vschneid@redhat.com>
+References: <20221014212235.10770-1-s.shtylyov@omp.ru>
+In-Reply-To: <20221014212235.10770-1-s.shtylyov@omp.ru>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org
-Cc: "Paul E. McKenney" <paulmck@kernel.org>, Steven Rostedt <rostedt@goodmis.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Juri Lelli <juri.lelli@redhat.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Marcelo Tosatti <mtosatti@redhat.com>, Frederic Weisbecker <frederic@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "H. Peter Anvin" <hpa@zytor.com>, Marc Zyngier <maz@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Russell King <linux@armlinux.org.uk>, Nicholas Piggin <npiggin@gmail.com>, Guo Ren <guoren@kernel.org>, "David S. Miller" <davem@davemloft.net>
+To: Oleg Nesterov <oleg@redhat.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>
 
-trace_ipi_raise is unsuitable for generically tracing IPI sources; add a
-variant of it that takes a callsite and a CPU. Define a macro helper for
-handling IPIs sent to multiple CPUs.
+user_regset_copyin_ignore() always returns 0, so checking its result seems
+pointless -- don't do this anymore...
 
-Signed-off-by: Valentin Schneider <vschneid@redhat.com>
+Signed-off-by: Sergey Shtylyov <s.shtylyov@omp.ru>
 ---
- include/trace/events/ipi.h | 27 +++++++++++++++++++++++++++
- 1 file changed, 27 insertions(+)
+ arch/ia64/kernel/ptrace.c | 20 +++++++++-----------
+ 1 file changed, 9 insertions(+), 11 deletions(-)
 
-diff --git a/include/trace/events/ipi.h b/include/trace/events/ipi.h
-index 0be71dad6ec0..fd2f2aeb36fe 100644
---- a/include/trace/events/ipi.h
-+++ b/include/trace/events/ipi.h
-@@ -35,6 +35,33 @@ TRACE_EVENT(ipi_raise,
- 	TP_printk("target_mask=%s (%s)", __get_bitmask(target_cpus), __entry->reason)
- );
+diff --git a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
+index ab8aeb34d1d9..4c41912c550f 100644
+--- a/arch/ia64/kernel/ptrace.c
++++ b/arch/ia64/kernel/ptrace.c
+@@ -1481,12 +1481,10 @@ static void do_gpregs_set(struct unw_frame_info *info, void *arg)
+ 		return;
+ 	/* Skip r0 */
+ 	if (dst->pos < ELF_GR_OFFSET(1)) {
+-		dst->ret = user_regset_copyin_ignore(&dst->pos, &dst->count,
+-						       &dst->u.set.kbuf,
+-						       &dst->u.set.ubuf,
+-						       0, ELF_GR_OFFSET(1));
+-		if (dst->ret)
+-			return;
++		user_regset_copyin_ignore(&dst->pos, &dst->count,
++					  &dst->u.set.kbuf, &dst->u.set.ubuf,
++					  0, ELF_GR_OFFSET(1));
++		dst->ret = 0;
+ 	}
  
-+TRACE_EVENT(ipi_send_cpu,
-+
-+	TP_PROTO(unsigned long callsite, unsigned int cpu),
-+
-+	TP_ARGS(callsite, cpu),
-+
-+	TP_STRUCT__entry(
-+		__field(unsigned long, callsite)
-+		__field(unsigned int, cpu)
-+	),
-+
-+	TP_fast_assign(
-+		__entry->callsite = callsite;
-+		__entry->cpu      = cpu;
-+	),
-+
-+	TP_printk("callsite=%pS target_cpu=%d", (void *)__entry->callsite, __entry->cpu)
-+);
-+
-+#define trace_ipi_send_cpumask(callsite, mask) do {		\
-+	if (static_key_false(&__tracepoint_ipi_send_cpu.key)) { \
-+		int cpu;					\
-+		for_each_cpu(cpu, mask)				\
-+			trace_ipi_send_cpu(callsite, cpu);	\
-+	}							\
-+} while (0)
-+
- DECLARE_EVENT_CLASS(ipi_handler,
+ 	while (dst->count && dst->pos < ELF_AR_END_OFFSET) {
+@@ -1560,11 +1558,11 @@ static void do_fpregs_set(struct unw_frame_info *info, void *arg)
  
- 	TP_PROTO(const char *reason),
+ 	/* Skip pos 0 and 1 */
+ 	if (dst->count > 0 && dst->pos < ELF_FP_OFFSET(2)) {
+-		dst->ret = user_regset_copyin_ignore(&dst->pos, &dst->count,
+-						       &dst->u.set.kbuf,
+-						       &dst->u.set.ubuf,
+-						       0, ELF_FP_OFFSET(2));
+-		if (dst->count = 0 || dst->ret)
++		user_regset_copyin_ignore(&dst->pos, &dst->count,
++					  &dst->u.set.kbuf, &dst->u.set.ubuf,
++					  0, ELF_FP_OFFSET(2));
++		dst->ret = 0;
++		if (dst->count = 0)
+ 			return;
+ 	}
+ 
 -- 
-2.31.1
+2.26.3
