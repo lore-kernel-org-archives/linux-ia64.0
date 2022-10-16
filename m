@@ -1,192 +1,523 @@
-From: Ulf Hansson <ulf.hansson@linaro.org>
-Date: Tue, 04 Oct 2022 11:43:31 +0000
-Subject: Re: [PATCH v2 12/44] cpuidle,dt: Push RCU-idle into driver
-Message-Id: <CAPDyKFqGSt2NFe8aY=6rkp4P-WH7DCO1fmWrcXk4_5XNEvv25w@mail.gmail.com>
+From: Masahiro Yamada <masahiroy@kernel.org>
+Date: Sun, 16 Oct 2022 18:23:49 +0000
+Subject: [PATCH v3] Remove Intel compiler support
+Message-Id: <20221016182349.49308-1-masahiroy@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20220919095939.761690562@infradead.org> <20220919101521.139727471@infradead.org>
- <CAPDyKFqTWd4W5Ofk76CtC4X43dxBTNHtmY9YzN355-vpviLsPw@mail.gmail.com>
-In-Reply-To: <CAPDyKFqTWd4W5Ofk76CtC4X43dxBTNHtmY9YzN355-vpviLsPw@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>
-Cc: juri.lelli@redhat.com, rafael@kernel.org, catalin.marinas@arm.com, linus.walleij@linaro.org, bsegall@google.com, guoren@kernel.org, pavel@ucw.cz, agordeev@linux.ibm.com, linux-arch@vger.kernel.org, vincent.guittot@linaro.org, mpe@ellerman.id.au, chenhuacai@kernel.org, christophe.leroy@csgroup.eu, linux-acpi@vger.kernel.org, agross@kernel.org, geert@linux-m68k.org, linux-imx@nxp.com, vgupta@kernel.org, mattst88@gmail.com, mturquette@baylibre.com, sammy@sammy.net, pmladek@suse.com, linux-pm@vger.kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, linux-um@lists.infradead.org, npiggin@gmail.com, tglx@linutronix.de, linux-omap@vger.kernel.org, dietmar.eggemann@arm.com, andreyknvl@gmail.com, gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org, linux-perf-users@vger.kernel.org, senozhatsky@chromium.org, svens@linux.ibm.com, jolsa@kernel.org, tj@kernel.org, Andrew Morton <akpm@linux-foundation.org>, mark.rutland@arm.com, linux-ia64@vger.kernel.org, dave.hansen@linux.intel.com, virtualization@lists.linux-foundation.org, James.Bottomley@hansenpartnership.com, jcmvbkbc@gmail.com, thierry.reding@gmail.com, kernel@xen0n.name, cl@linux.com, linux-s390@vger.kernel.org, vschneid@redhat.com, john.ogness@linutronix.de, ysato@users.sourceforge.jp, linux-sh@vger.kernel.org, festevam@gmail.com, deller@gmx.de, daniel.lezcano@linaro.org, jonathanh@nvidia.com, dennis@kernel.org, lenb@kernel.org, linux-xtensa@linux-xtensa.org, kernel@pengutronix.de, gor@linux.ibm.com, linux-arm-msm@vger.kernel.org, linux-alpha@vger.kernel.org, linux-m68k@lists.linux-m68k.org, loongarch@lists.linux.dev, shorne@gmail.com, chris@zankel.net, sboyd@kernel.org, dinguyen@kernel.org, bristot@redhat.com, alexander.shishkin@linux.intel.com, fweisbec@gmail.com, lpieralisi@kernel.org, atishp@atishpatra.org, linux@rasmusvillemoes.dk, kasan-dev@googlegroups.com, will@kernel.org, boris.ostrovsky@oracle.com, khilman@kernel.org, linux-csky@vger.kernel.org, pv-drivers@vmware.com, linux-snps-arc@lists.infradead.org, mgorman@suse.de, jacob.jun.pan@linux.intel.com, Arnd Bergmann <arnd@arndb.de>, ulli.kroll@googlemail.com, linux-clk@vger.kernel.org, rostedt@goodmis.org, ink@jurassic.park.msu.ru, bcain@quicinc.com, tsbogend@alpha.franken.de, linux-parisc@vger.kernel.org, ryabinin.a.a@gmail.com, sudeep.holla@arm.com, shawnguo@kernel.org, davem@davemloft.net, dalias@libc.org, tony@atomide.com, amakhalov@vmware.com, konrad.dybcio@somainline.org, bjorn.andersson@linaro.org, glider@google.com, hpa@zytor.com, sparclinux@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-riscv@lists.infradead.org, vincenzo.frascino@arm.com, anton.ivanov@cambridgegreys.com, jonas@southpole.se, yury.norov@gmail.com, richard@nod.at, x86@kernel.org, linux@armlinux.org.uk, mingo@redhat.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, richard.henderson@linaro.org, stefan.kristiansson@saunalahti.fi, openrisc@lists.librecores.org, acme@kernel.org, paul.walmsley@sifive.com, linux-tegra@vger.kernel.org, namhyung@kernel.org, andriy.shevchenko@linux.intel.com, jpoimboe@kernel.org, dvyukov@google.com, jgross@suse.com, monstr@monstr.eu, linux-mips@vger.kernel.org, palmer@dabbelt.com, anup@brainfault.org, bp@alien8.de, johannes@sipsolutions.net, linuxppc-dev@lists.ozlabs.org
+To: Linus Torvalds <torvalds@linux-foundation.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org
+Cc: Masahiro Yamada <masahiroy@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Nick Desaulniers <ndesaulniers@google.com>, Nathan Chancellor <nathan@kernel.org>, Miguel Ojeda <ojeda@kernel.org>, Len Brown <lenb@kernel.org>, Nick Terrell <terrelln@fb.com>, "Rafael J. Wysocki" <rafael@kernel.org>, Robert Moore <robert.moore@intel.com>, Tom Rix <trix@redhat.com>, devel@acpica.org, linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, llvm@lists.linux.dev
 
-On Tue, 4 Oct 2022 at 13:03, Ulf Hansson <ulf.hansson@linaro.org> wrote:
->
-> On Mon, 19 Sept 2022 at 12:18, Peter Zijlstra <peterz@infradead.org> wrote:
-> >
-> > Doing RCU-idle outside the driver, only to then temporarily enable it
-> > again before going idle is daft.
-> >
-> > Notably: this converts all dt_init_idle_driver() and
-> > __CPU_PM_CPU_IDLE_ENTER() users for they are inextrably intertwined.
-> >
-> > Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
->
-> Reviewed-by: Ulf Hansson <ulf.hansson@linaro.org>
+include/linux/compiler-intel.h had no update in the past 3 years.
 
-This was not (yet) my intention. Please have a look at the comments I
-provided below.
+We often forget about the third C compiler to build the kernel.
 
-Kind regards
-Uffe
+For example, commit a0a12c3ed057 ("asm goto: eradicate CC_HAS_ASM_GOTO")
+only mentioned GCC and Clang.
 
->
-> > ---
-> >  arch/arm/mach-omap2/cpuidle34xx.c    |    4 ++--
-> >  drivers/acpi/processor_idle.c        |    2 ++
-> >  drivers/cpuidle/cpuidle-arm.c        |    1 +
-> >  drivers/cpuidle/cpuidle-big_little.c |    8 ++++++--
-> >  drivers/cpuidle/cpuidle-psci.c       |    1 +
-> >  drivers/cpuidle/cpuidle-qcom-spm.c   |    1 +
-> >  drivers/cpuidle/cpuidle-riscv-sbi.c  |    1 +
-> >  drivers/cpuidle/dt_idle_states.c     |    2 +-
-> >  include/linux/cpuidle.h              |    4 ++++
-> >  9 files changed, 19 insertions(+), 5 deletions(-)
-> >
-> > --- a/drivers/acpi/processor_idle.c
-> > +++ b/drivers/acpi/processor_idle.c
-> > @@ -1200,6 +1200,8 @@ static int acpi_processor_setup_lpi_stat
-> >                 state->target_residency = lpi->min_residency;
-> >                 if (lpi->arch_flags)
-> >                         state->flags |= CPUIDLE_FLAG_TIMER_STOP;
-> > +               if (lpi->entry_method = ACPI_CSTATE_FFH)
-> > +                       state->flags |= CPUIDLE_FLAG_RCU_IDLE;
->
-> I assume the state index here will never be 0?
->
-> If not, it may lead to that acpi_processor_ffh_lpi_enter() may trigger
-> CPU_PM_CPU_IDLE_ENTER_PARAM() to call ct_cpuidle_enter|exit() for an
-> idle-state that doesn't have the CPUIDLE_FLAG_RCU_IDLE bit set.
->
-> >                 state->enter = acpi_idle_lpi_enter;
-> >                 drv->safe_state_index = i;
-> >         }
-> > --- a/drivers/cpuidle/cpuidle-arm.c
-> > +++ b/drivers/cpuidle/cpuidle-arm.c
-> > @@ -53,6 +53,7 @@ static struct cpuidle_driver arm_idle_dr
-> >          * handler for idle state index 0.
-> >          */
-> >         .states[0] = {
-> > +               .flags                  = CPUIDLE_FLAG_RCU_IDLE,
->
-> Comparing arm64 and arm32 idle-states/idle-drivers, the $subject
-> series ends up setting the CPUIDLE_FLAG_RCU_IDLE for the ARM WFI idle
-> state (state zero), but only for the arm64 and psci cases (mostly
-> arm64). For arm32 we would need to update the ARM_CPUIDLE_WFI_STATE
-> too, as that is what most arm32 idle-drivers are using. My point is,
-> the code becomes a bit inconsistent.
->
-> Perhaps it's easier to avoid setting the CPUIDLE_FLAG_RCU_IDLE bit for
-> all of the ARM WFI idle states, for both arm64 and arm32?
->
-> >                 .enter                  = arm_enter_idle_state,
-> >                 .exit_latency           = 1,
-> >                 .target_residency       = 1,
-> > --- a/drivers/cpuidle/cpuidle-big_little.c
-> > +++ b/drivers/cpuidle/cpuidle-big_little.c
-> > @@ -64,7 +64,8 @@ static struct cpuidle_driver bl_idle_lit
-> >                 .enter                  = bl_enter_powerdown,
-> >                 .exit_latency           = 700,
-> >                 .target_residency       = 2500,
-> > -               .flags                  = CPUIDLE_FLAG_TIMER_STOP,
-> > +               .flags                  = CPUIDLE_FLAG_TIMER_STOP |
-> > +                                         CPUIDLE_FLAG_RCU_IDLE,
-> >                 .name                   = "C1",
-> >                 .desc                   = "ARM little-cluster power down",
-> >         },
-> > @@ -85,7 +86,8 @@ static struct cpuidle_driver bl_idle_big
-> >                 .enter                  = bl_enter_powerdown,
-> >                 .exit_latency           = 500,
-> >                 .target_residency       = 2000,
-> > -               .flags                  = CPUIDLE_FLAG_TIMER_STOP,
-> > +               .flags                  = CPUIDLE_FLAG_TIMER_STOP |
-> > +                                         CPUIDLE_FLAG_RCU_IDLE,
-> >                 .name                   = "C1",
-> >                 .desc                   = "ARM big-cluster power down",
-> >         },
-> > @@ -124,11 +126,13 @@ static int bl_enter_powerdown(struct cpu
-> >                                 struct cpuidle_driver *drv, int idx)
-> >  {
-> >         cpu_pm_enter();
-> > +       ct_idle_enter();
-> >
-> >         cpu_suspend(0, bl_powerdown_finisher);
-> >
-> >         /* signals the MCPM core that CPU is out of low power state */
-> >         mcpm_cpu_powered_up();
-> > +       ct_idle_exit();
-> >
-> >         cpu_pm_exit();
-> >
-> > --- a/drivers/cpuidle/cpuidle-psci.c
-> > +++ b/drivers/cpuidle/cpuidle-psci.c
-> > @@ -357,6 +357,7 @@ static int psci_idle_init_cpu(struct dev
-> >          * PSCI idle states relies on architectural WFI to be represented as
-> >          * state index 0.
-> >          */
-> > +       drv->states[0].flags = CPUIDLE_FLAG_RCU_IDLE;
-> >         drv->states[0].enter = psci_enter_idle_state;
-> >         drv->states[0].exit_latency = 1;
-> >         drv->states[0].target_residency = 1;
-> > --- a/drivers/cpuidle/cpuidle-qcom-spm.c
-> > +++ b/drivers/cpuidle/cpuidle-qcom-spm.c
-> > @@ -72,6 +72,7 @@ static struct cpuidle_driver qcom_spm_id
-> >         .owner = THIS_MODULE,
-> >         .states[0] = {
-> >                 .enter                  = spm_enter_idle_state,
-> > +               .flags                  = CPUIDLE_FLAG_RCU_IDLE,
-> >                 .exit_latency           = 1,
-> >                 .target_residency       = 1,
-> >                 .power_usage            = UINT_MAX,
-> > --- a/drivers/cpuidle/cpuidle-riscv-sbi.c
-> > +++ b/drivers/cpuidle/cpuidle-riscv-sbi.c
-> > @@ -332,6 +332,7 @@ static int sbi_cpuidle_init_cpu(struct d
-> >         drv->cpumask = (struct cpumask *)cpumask_of(cpu);
-> >
-> >         /* RISC-V architectural WFI to be represented as state index 0. */
-> > +       drv->states[0].flags = CPUIDLE_FLAG_RCU_IDLE;
-> >         drv->states[0].enter = sbi_cpuidle_enter_state;
-> >         drv->states[0].exit_latency = 1;
-> >         drv->states[0].target_residency = 1;
-> > --- a/drivers/cpuidle/dt_idle_states.c
-> > +++ b/drivers/cpuidle/dt_idle_states.c
-> > @@ -77,7 +77,7 @@ static int init_state_node(struct cpuidl
-> >         if (err)
-> >                 desc = state_node->name;
-> >
-> > -       idle_state->flags = 0;
-> > +       idle_state->flags = CPUIDLE_FLAG_RCU_IDLE;
-> >         if (of_property_read_bool(state_node, "local-timer-stop"))
-> >                 idle_state->flags |= CPUIDLE_FLAG_TIMER_STOP;
-> >         /*
-> > --- a/include/linux/cpuidle.h
-> > +++ b/include/linux/cpuidle.h
-> > @@ -282,14 +282,18 @@ extern s64 cpuidle_governor_latency_req(
-> >         int __ret = 0;                                                  \
-> >                                                                         \
-> >         if (!idx) {                                                     \
-> > +               ct_idle_enter();                                        \
->
-> According to my comment above, we should then drop these calls to
-> ct_idle_enter and ct_idle_exit() here. Right?
->
-> >                 cpu_do_idle();                                          \
-> > +               ct_idle_exit();                                         \
-> >                 return idx;                                             \
-> >         }                                                               \
-> >                                                                         \
-> >         if (!is_retention)                                              \
-> >                 __ret =  cpu_pm_enter();                                \
-> >         if (!__ret) {                                                   \
-> > +               ct_idle_enter();                                        \
-> >                 __ret = low_level_idle_enter(state);                    \
-> > +               ct_idle_exit();                                         \
-> >                 if (!is_retention)                                      \
-> >                         cpu_pm_exit();                                  \
-> >         }                                                               \
-> >
->
-> Kind regards
-> Uffe
+init/Kconfig defines CC_IS_GCC and CC_IS_CLANG but not CC_IS_ICC,
+and nobody has reported any issue.
+
+I guess the Intel Compiler support is broken, and nobody is caring
+about it.
+
+Harald Arnesen pointed out ICC (classic Intel C/C++ compiler) is
+deprecated:
+
+    $ icc -v
+    icc: remark #10441: The Intel(R) C++ Compiler Classic (ICC) is
+    deprecated and will be removed from product release in the second half
+    of 2023. The Intel(R) oneAPI DPC++/C++ Compiler (ICX) is the recommended
+    compiler moving forward. Please transition to use this compiler. Use
+    '-diag-disable441' to disable this message.
+    icc version 2021.7.0 (gcc version 12.1.0 compatibility)
+
+Arnd Bergmann provided a link to the article, "Intel C/C++ compilers
+complete adoption of LLVM".
+
+lib/zstd/common/compiler.h and lib/zstd/compress/zstd_fast.c were kept
+untouched for better sync with https://github.com/facebook/zstd
+
+Link: https://www.intel.com/content/www/us/en/developer/articles/technical/adoption-of-llvm-complete-icx.html
+Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
+Acked-by: Arnd Bergmann <arnd@arndb.de>
+Reviewed-by: Nick Desaulniers <ndesaulniers@google.com>
+Reviewed-by: Nathan Chancellor <nathan@kernel.org>
+Reviewed-by: Miguel Ojeda <ojeda@kernel.org>
+---
+
+Changes in v3:
+  - Do not change lib/zstd/
+
+Changes in v2:
+  - Remove "not supported by icc." comments from compiler_attributes.h
+  - Clean up __assume_aligned() macro
+  - Add more info from Harald Arnesen and Arnd Bergmann
+
+ arch/ia64/include/uapi/asm/cmpxchg.h      |   6 +-
+ arch/ia64/include/uapi/asm/intel_intrin.h | 162 ----------------------
+ arch/ia64/include/uapi/asm/intrinsics.h   |   6 +-
+ include/acpi/platform/acenv.h             |   5 +-
+ include/acpi/platform/acenvex.h           |   2 +-
+ include/acpi/platform/acintel.h           |  55 --------
+ include/linux/compiler-intel.h            |  34 -----
+ include/linux/compiler_attributes.h       |  14 +-
+ include/linux/compiler_types.h            |   2 -
+ scripts/cc-version.sh                     |   2 -
+ scripts/min-tool-version.sh               |   4 -
+ 11 files changed, 5 insertions(+), 287 deletions(-)
+ delete mode 100644 arch/ia64/include/uapi/asm/intel_intrin.h
+ delete mode 100644 include/acpi/platform/acintel.h
+ delete mode 100644 include/linux/compiler-intel.h
+
+diff --git a/arch/ia64/include/uapi/asm/cmpxchg.h b/arch/ia64/include/uapi/asm/cmpxchg.h
+index ca2e02685343..259ae57570bf 100644
+--- a/arch/ia64/include/uapi/asm/cmpxchg.h
++++ b/arch/ia64/include/uapi/asm/cmpxchg.h
+@@ -15,11 +15,7 @@
+ #include <linux/types.h>
+ /* include compiler specific intrinsics */
+ #include <asm/ia64regs.h>
+-#ifdef __INTEL_COMPILER
+-# include <asm/intel_intrin.h>
+-#else
+-# include <asm/gcc_intrin.h>
+-#endif
++#include <asm/gcc_intrin.h>
+ 
+ /*
+  * This function doesn't exist, so you'll get a linker error if
+diff --git a/arch/ia64/include/uapi/asm/intel_intrin.h b/arch/ia64/include/uapi/asm/intel_intrin.h
+deleted file mode 100644
+index dc1884dc54b5..000000000000
+--- a/arch/ia64/include/uapi/asm/intel_intrin.h
++++ /dev/null
+@@ -1,162 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+-#ifndef _ASM_IA64_INTEL_INTRIN_H
+-#define _ASM_IA64_INTEL_INTRIN_H
+-/*
+- * Intel Compiler Intrinsics
+- *
+- * Copyright (C) 2002,2003 Jun Nakajima <jun.nakajima@intel.com>
+- * Copyright (C) 2002,2003 Suresh Siddha <suresh.b.siddha@intel.com>
+- * Copyright (C) 2005,2006 Hongjiu Lu <hongjiu.lu@intel.com>
+- *
+- */
+-#include <ia64intrin.h>
+-
+-#define ia64_barrier()		__memory_barrier()
+-
+-#define ia64_stop()	/* Nothing: As of now stop bit is generated for each
+-		 	 * intrinsic
+-		 	 */
+-
+-#define ia64_getreg		__getReg
+-#define ia64_setreg		__setReg
+-
+-#define ia64_hint		__hint
+-#define ia64_hint_pause		__hint_pause
+-
+-#define ia64_mux1_brcst		_m64_mux1_brcst
+-#define ia64_mux1_mix		_m64_mux1_mix
+-#define ia64_mux1_shuf		_m64_mux1_shuf
+-#define ia64_mux1_alt		_m64_mux1_alt
+-#define ia64_mux1_rev		_m64_mux1_rev
+-
+-#define ia64_mux1(x,v)		_m_to_int64(_m64_mux1(_m_from_int64(x), (v)))
+-#define ia64_popcnt		_m64_popcnt
+-#define ia64_getf_exp		__getf_exp
+-#define ia64_shrp		_m64_shrp
+-
+-#define ia64_tpa		__tpa
+-#define ia64_invala		__invala
+-#define ia64_invala_gr		__invala_gr
+-#define ia64_invala_fr		__invala_fr
+-#define ia64_nop		__nop
+-#define ia64_sum		__sum
+-#define ia64_ssm		__ssm
+-#define ia64_rum		__rum
+-#define ia64_rsm		__rsm
+-#define ia64_fc			__fc
+-
+-#define ia64_ldfs		__ldfs
+-#define ia64_ldfd		__ldfd
+-#define ia64_ldfe		__ldfe
+-#define ia64_ldf8		__ldf8
+-#define ia64_ldf_fill		__ldf_fill
+-
+-#define ia64_stfs		__stfs
+-#define ia64_stfd		__stfd
+-#define ia64_stfe		__stfe
+-#define ia64_stf8		__stf8
+-#define ia64_stf_spill		__stf_spill
+-
+-#define ia64_mf			__mf
+-#define ia64_mfa		__mfa
+-
+-#define ia64_fetchadd4_acq	__fetchadd4_acq
+-#define ia64_fetchadd4_rel	__fetchadd4_rel
+-#define ia64_fetchadd8_acq	__fetchadd8_acq
+-#define ia64_fetchadd8_rel	__fetchadd8_rel
+-
+-#define ia64_xchg1		_InterlockedExchange8
+-#define ia64_xchg2		_InterlockedExchange16
+-#define ia64_xchg4		_InterlockedExchange
+-#define ia64_xchg8		_InterlockedExchange64
+-
+-#define ia64_cmpxchg1_rel	_InterlockedCompareExchange8_rel
+-#define ia64_cmpxchg1_acq	_InterlockedCompareExchange8_acq
+-#define ia64_cmpxchg2_rel	_InterlockedCompareExchange16_rel
+-#define ia64_cmpxchg2_acq	_InterlockedCompareExchange16_acq
+-#define ia64_cmpxchg4_rel	_InterlockedCompareExchange_rel
+-#define ia64_cmpxchg4_acq	_InterlockedCompareExchange_acq
+-#define ia64_cmpxchg8_rel	_InterlockedCompareExchange64_rel
+-#define ia64_cmpxchg8_acq	_InterlockedCompareExchange64_acq
+-
+-#define __ia64_set_dbr(index, val)	\
+-		__setIndReg(_IA64_REG_INDR_DBR, index, val)
+-#define ia64_set_ibr(index, val)	\
+-		__setIndReg(_IA64_REG_INDR_IBR, index, val)
+-#define ia64_set_pkr(index, val)	\
+-		__setIndReg(_IA64_REG_INDR_PKR, index, val)
+-#define ia64_set_pmc(index, val)	\
+-		__setIndReg(_IA64_REG_INDR_PMC, index, val)
+-#define ia64_set_pmd(index, val)	\
+-		__setIndReg(_IA64_REG_INDR_PMD, index, val)
+-#define ia64_set_rr(index, val)		\
+-		__setIndReg(_IA64_REG_INDR_RR, index, val)
+-
+-#define ia64_get_cpuid(index)	\
+-		__getIndReg(_IA64_REG_INDR_CPUID, index)
+-#define __ia64_get_dbr(index)		__getIndReg(_IA64_REG_INDR_DBR, index)
+-#define ia64_get_ibr(index)		__getIndReg(_IA64_REG_INDR_IBR, index)
+-#define ia64_get_pkr(index)		__getIndReg(_IA64_REG_INDR_PKR, index)
+-#define ia64_get_pmc(index)		__getIndReg(_IA64_REG_INDR_PMC, index)
+-#define ia64_get_pmd(index)		__getIndReg(_IA64_REG_INDR_PMD, index)
+-#define ia64_get_rr(index)		__getIndReg(_IA64_REG_INDR_RR, index)
+-
+-#define ia64_srlz_d		__dsrlz
+-#define ia64_srlz_i		__isrlz
+-
+-#define ia64_dv_serialize_data()
+-#define ia64_dv_serialize_instruction()
+-
+-#define ia64_st1_rel		__st1_rel
+-#define ia64_st2_rel		__st2_rel
+-#define ia64_st4_rel		__st4_rel
+-#define ia64_st8_rel		__st8_rel
+-
+-/* FIXME: need st4.rel.nta intrinsic */
+-#define ia64_st4_rel_nta	__st4_rel
+-
+-#define ia64_ld1_acq		__ld1_acq
+-#define ia64_ld2_acq		__ld2_acq
+-#define ia64_ld4_acq		__ld4_acq
+-#define ia64_ld8_acq		__ld8_acq
+-
+-#define ia64_sync_i		__synci
+-#define ia64_thash		__thash
+-#define ia64_ttag		__ttag
+-#define ia64_itcd		__itcd
+-#define ia64_itci		__itci
+-#define ia64_itrd		__itrd
+-#define ia64_itri		__itri
+-#define ia64_ptce		__ptce
+-#define ia64_ptcl		__ptcl
+-#define ia64_ptcg		__ptcg
+-#define ia64_ptcga		__ptcga
+-#define ia64_ptri		__ptri
+-#define ia64_ptrd		__ptrd
+-#define ia64_dep_mi		_m64_dep_mi
+-
+-/* Values for lfhint in __lfetch and __lfetch_fault */
+-
+-#define ia64_lfhint_none	__lfhint_none
+-#define ia64_lfhint_nt1		__lfhint_nt1
+-#define ia64_lfhint_nt2		__lfhint_nt2
+-#define ia64_lfhint_nta		__lfhint_nta
+-
+-#define ia64_lfetch		__lfetch
+-#define ia64_lfetch_excl	__lfetch_excl
+-#define ia64_lfetch_fault	__lfetch_fault
+-#define ia64_lfetch_fault_excl	__lfetch_fault_excl
+-
+-#define ia64_intrin_local_irq_restore(x)		\
+-do {							\
+-	if ((x) != 0) {					\
+-		ia64_ssm(IA64_PSR_I);			\
+-		ia64_srlz_d();				\
+-	} else {					\
+-		ia64_rsm(IA64_PSR_I);			\
+-	}						\
+-} while (0)
+-
+-#define __builtin_trap()	__break(0);
+-
+-#endif /* _ASM_IA64_INTEL_INTRIN_H */
+diff --git a/arch/ia64/include/uapi/asm/intrinsics.h b/arch/ia64/include/uapi/asm/intrinsics.h
+index a0e0a064f5b1..63f27c4ec739 100644
+--- a/arch/ia64/include/uapi/asm/intrinsics.h
++++ b/arch/ia64/include/uapi/asm/intrinsics.h
+@@ -14,11 +14,7 @@
+ #include <linux/types.h>
+ /* include compiler specific intrinsics */
+ #include <asm/ia64regs.h>
+-#ifdef __INTEL_COMPILER
+-# include <asm/intel_intrin.h>
+-#else
+-# include <asm/gcc_intrin.h>
+-#endif
++#include <asm/gcc_intrin.h>
+ #include <asm/cmpxchg.h>
+ 
+ #define ia64_set_rr0_to_rr4(val0, val1, val2, val3, val4)		\
+diff --git a/include/acpi/platform/acenv.h b/include/acpi/platform/acenv.h
+index 03eb3d977075..9e4f7564201a 100644
+--- a/include/acpi/platform/acenv.h
++++ b/include/acpi/platform/acenv.h
+@@ -148,15 +148,12 @@
+  *
+  *****************************************************************************/
+ 
+-#if defined(__GNUC__) && !defined(__INTEL_COMPILER)
++#if defined(__GNUC__)
+ #include <acpi/platform/acgcc.h>
+ 
+ #elif defined(_MSC_VER)
+ #include "acmsvc.h"
+ 
+-#elif defined(__INTEL_COMPILER)
+-#include <acpi/platform/acintel.h>
+-
+ #endif
+ 
+ #if defined(_LINUX) || defined(__linux__)
+diff --git a/include/acpi/platform/acenvex.h b/include/acpi/platform/acenvex.h
+index 3a6b1db9a984..72cc7bab469e 100644
+--- a/include/acpi/platform/acenvex.h
++++ b/include/acpi/platform/acenvex.h
+@@ -35,7 +35,7 @@
+ 
+ #endif
+ 
+-#if defined(__GNUC__) && !defined(__INTEL_COMPILER)
++#if defined(__GNUC__)
+ #include "acgccex.h"
+ 
+ #elif defined(_MSC_VER)
+diff --git a/include/acpi/platform/acintel.h b/include/acpi/platform/acintel.h
+deleted file mode 100644
+index 85b1ae86ee63..000000000000
+--- a/include/acpi/platform/acintel.h
++++ /dev/null
+@@ -1,55 +0,0 @@
+-/* SPDX-License-Identifier: BSD-3-Clause OR GPL-2.0 */
+-/******************************************************************************
+- *
+- * Name: acintel.h - VC specific defines, etc.
+- *
+- * Copyright (C) 2000 - 2022, Intel Corp.
+- *
+- *****************************************************************************/
+-
+-#ifndef __ACINTEL_H__
+-#define __ACINTEL_H__
+-
+-/*
+- * Use compiler specific <stdarg.h> is a good practice for even when
+- * -nostdinc is specified (i.e., ACPI_USE_STANDARD_HEADERS undefined.
+- */
+-#ifndef va_arg
+-#include <stdarg.h>
+-#endif
+-
+-/* Configuration specific to Intel 64-bit C compiler */
+-
+-#define COMPILER_DEPENDENT_INT64    __int64
+-#define COMPILER_DEPENDENT_UINT64   unsigned __int64
+-#define ACPI_INLINE                 __inline
+-
+-/*
+- * Calling conventions:
+- *
+- * ACPI_SYSTEM_XFACE        - Interfaces to host OS (handlers, threads)
+- * ACPI_EXTERNAL_XFACE      - External ACPI interfaces
+- * ACPI_INTERNAL_XFACE      - Internal ACPI interfaces
+- * ACPI_INTERNAL_VAR_XFACE  - Internal variable-parameter list interfaces
+- */
+-#define ACPI_SYSTEM_XFACE
+-#define ACPI_EXTERNAL_XFACE
+-#define ACPI_INTERNAL_XFACE
+-#define ACPI_INTERNAL_VAR_XFACE
+-
+-/* remark 981 - operands evaluated in no particular order */
+-#pragma warning(disable:981)
+-
+-/* warn C4100: unreferenced formal parameter */
+-#pragma warning(disable:4100)
+-
+-/* warn C4127: conditional expression is constant */
+-#pragma warning(disable:4127)
+-
+-/* warn C4706: assignment within conditional expression */
+-#pragma warning(disable:4706)
+-
+-/* warn C4214: bit field types other than int */
+-#pragma warning(disable:4214)
+-
+-#endif				/* __ACINTEL_H__ */
+diff --git a/include/linux/compiler-intel.h b/include/linux/compiler-intel.h
+deleted file mode 100644
+index b17f3cd18334..000000000000
+--- a/include/linux/compiler-intel.h
++++ /dev/null
+@@ -1,34 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-#ifndef __LINUX_COMPILER_TYPES_H
+-#error "Please don't include <linux/compiler-intel.h> directly, include <linux/compiler.h> instead."
+-#endif
+-
+-#ifdef __ECC
+-
+-/* Compiler specific definitions for Intel ECC compiler */
+-
+-#include <asm/intrinsics.h>
+-
+-/* Intel ECC compiler doesn't support gcc specific asm stmts.
+- * It uses intrinsics to do the equivalent things.
+- */
+-
+-#define barrier() __memory_barrier()
+-#define barrier_data(ptr) barrier()
+-
+-#define RELOC_HIDE(ptr, off)					\
+-  ({ unsigned long __ptr;					\
+-     __ptr = (unsigned long) (ptr);				\
+-    (typeof(ptr)) (__ptr + (off)); })
+-
+-/* This should act as an optimization barrier on var.
+- * Given that this compiler does not have inline assembly, a compiler barrier
+- * is the best we can do.
+- */
+-#define OPTIMIZER_HIDE_VAR(var) barrier()
+-
+-#endif
+-
+-/* icc has this, but it's called _bswap16 */
+-#define __HAVE_BUILTIN_BSWAP16__
+-#define __builtin_bswap16 _bswap16
+diff --git a/include/linux/compiler_attributes.h b/include/linux/compiler_attributes.h
+index 898b3458b24a..9221302f6ae8 100644
+--- a/include/linux/compiler_attributes.h
++++ b/include/linux/compiler_attributes.h
+@@ -64,16 +64,10 @@
+  * compiler should see some alignment anyway, when the return value is
+  * massaged by 'flags = ptr & 3; ptr &= ~3;').
+  *
+- * Optional: not supported by icc
+- *
+  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-assume_005faligned-function-attribute
+  * clang: https://clang.llvm.org/docs/AttributeReference.html#assume-aligned
+  */
+-#if __has_attribute(__assume_aligned__)
+-# define __assume_aligned(a, ...)       __attribute__((__assume_aligned__(a, ## __VA_ARGS__)))
+-#else
+-# define __assume_aligned(a, ...)
+-#endif
++#define __assume_aligned(a, ...)        __attribute__((__assume_aligned__(a, ## __VA_ARGS__)))
+ 
+ /*
+  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-cold-function-attribute
+@@ -91,7 +85,6 @@
+ /*
+  * Optional: only supported since gcc >= 9
+  * Optional: not supported by clang
+- * Optional: not supported by icc
+  *
+  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-copy-function-attribute
+  */
+@@ -104,7 +97,6 @@
+ /*
+  * Optional: not supported by gcc
+  * Optional: only supported since clang >= 14.0
+- * Optional: not supported by icc
+  *
+  * clang: https://clang.llvm.org/docs/AttributeReference.html#diagnose_as_builtin
+  */
+@@ -128,7 +120,6 @@
+ 
+ /*
+  * Optional: not supported by clang
+- * Optional: not supported by icc
+  *
+  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Type-Attributes.html#index-designated_005finit-type-attribute
+  */
+@@ -242,7 +233,6 @@
+ /*
+  * Optional: only supported since gcc >= 8
+  * Optional: not supported by clang
+- * Optional: not supported by icc
+  *
+  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html#index-nonstring-variable-attribute
+  */
+@@ -273,7 +263,6 @@
+ 
+ /*
+  * Optional: not supported by gcc.
+- * Optional: not supported by icc.
+  *
+  * clang: https://clang.llvm.org/docs/AttributeReference.html#overloadable
+  */
+@@ -293,7 +282,6 @@
+  * Note: the "type" argument should match any __builtin_object_size(p, type) usage.
+  *
+  * Optional: not supported by gcc.
+- * Optional: not supported by icc.
+  *
+  * clang: https://clang.llvm.org/docs/AttributeReference.html#pass-object-size-pass-dynamic-object-size
+  */
+diff --git a/include/linux/compiler_types.h b/include/linux/compiler_types.h
+index 74e04ecd4c89..0e06a1a79401 100644
+--- a/include/linux/compiler_types.h
++++ b/include/linux/compiler_types.h
+@@ -92,8 +92,6 @@ static inline void __chk_io_ptr(const volatile void __iomem *ptr) { }
+ /* Compiler specific macros. */
+ #ifdef __clang__
+ #include <linux/compiler-clang.h>
+-#elif defined(__INTEL_COMPILER)
+-#include <linux/compiler-intel.h>
+ #elif defined(__GNUC__)
+ /* The above compilers also define __GNUC__, so order is important here. */
+ #include <linux/compiler-gcc.h>
+diff --git a/scripts/cc-version.sh b/scripts/cc-version.sh
+index 2401c86fcf53..0573c92e841d 100755
+--- a/scripts/cc-version.sh
++++ b/scripts/cc-version.sh
+@@ -12,8 +12,6 @@ get_c_compiler_info()
+ 	cat <<- EOF | "$@" -E -P -x c - 2>/dev/null
+ 	#if defined(__clang__)
+ 	Clang	__clang_major__  __clang_minor__  __clang_patchlevel__
+-	#elif defined(__INTEL_COMPILER)
+-	ICC	__INTEL_COMPILER  __INTEL_COMPILER_UPDATE
+ 	#elif defined(__GNUC__)
+ 	GCC	__GNUC__  __GNUC_MINOR__  __GNUC_PATCHLEVEL__
+ 	#else
+diff --git a/scripts/min-tool-version.sh b/scripts/min-tool-version.sh
+index b6593eac5003..8766e248ffbb 100755
+--- a/scripts/min-tool-version.sh
++++ b/scripts/min-tool-version.sh
+@@ -19,10 +19,6 @@ binutils)
+ gcc)
+ 	echo 5.1.0
+ 	;;
+-icc)
+-	# temporary
+-	echo 16.0.3
+-	;;
+ llvm)
+ 	if [ "$SRCARCH" = s390 ]; then
+ 		echo 14.0.0
+-- 
+2.34.1
