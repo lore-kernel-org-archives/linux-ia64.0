@@ -1,10 +1,10 @@
 From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Mon, 24 Oct 2022 11:29:36 +0000
-Subject: [PATCH 5.10 179/390] ia64: export memory_add_physaddr_to_nid to fix cxl build error
-Message-Id: <20221024113030.363399091@linuxfoundation.org>
+Date: Sat, 22 Oct 2022 07:24:01 +0000
+Subject: [PATCH 5.19 362/717] ia64: export memory_add_physaddr_to_nid to fix cxl build error
+Message-Id: <20221022072512.283950772@linuxfoundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20221024113022.510008560@linuxfoundation.org>
-In-Reply-To: <20221024113022.510008560@linuxfoundation.org>
+References: <20221022072415.034382448@linuxfoundation.org>
+In-Reply-To: <20221022072415.034382448@linuxfoundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -39,10 +39,10 @@ Signed-off-by: Sasha Levin <sashal@kernel.org>
  1 file changed, 1 insertion(+)
 
 diff --git a/arch/ia64/mm/numa.c b/arch/ia64/mm/numa.c
-index f34964271101..6cd002e8163d 100644
+index d6579ec3ea32..4c7b1f50e3b7 100644
 --- a/arch/ia64/mm/numa.c
 +++ b/arch/ia64/mm/numa.c
-@@ -106,5 +106,6 @@ int memory_add_physaddr_to_nid(u64 addr)
+@@ -75,5 +75,6 @@ int memory_add_physaddr_to_nid(u64 addr)
  		return 0;
  	return nid;
  }
