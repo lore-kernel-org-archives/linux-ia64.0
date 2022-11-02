@@ -1,85 +1,164 @@
-From: Daniel Vetter <daniel@ffwll.ch>
-Date: Wed, 16 Nov 2022 10:49:43 +0000
-Subject: Re: [PATCH mm-unstable v1 14/20] drm/etnaviv: remove FOLL_FORCE usage
-Message-Id: <Y3TAR7Ndmat+zYpJ@phenom.ffwll.local>
+From: Valentin Schneider <vschneid@redhat.com>
+Date: Wed, 02 Nov 2022 18:29:41 +0000
+Subject: [RFC PATCH v2 0/8] Generic IPI sending tracepoint
+Message-Id: <20221102182949.3119584-1-vschneid@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20221116102659.70287-1-david@redhat.com>
- <20221116102659.70287-15-david@redhat.com>
-In-Reply-To: <20221116102659.70287-15-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>
-Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, etnaviv@lists.freedesktop.org, dri-devel@lists.freedesktop.org, linux-samsung-soc@vger.kernel.org, linux-rdma@vger.kernel.org, linux-media@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-mm@kvack.org, linux-perf-users@vger.kernel.org, linux-security-module@vger.kernel.org, linux-kselftest@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Jason Gunthorpe <jgg@ziepe.ca>, John Hubbard <jhubbard@nvidia.com>, Peter Xu <peterx@redhat.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Andrea Arcangeli <aarcange@redhat.com>, Hugh Dickins <hughd@google.com>, Nadav Amit <namit@vmware.com>, Vlastimil Babka <vbabka@suse.cz>, Matthew Wilcox <willy@infradead.org>, Mike Kravetz <mike.kravetz@oracle.com>, Muchun Song <songmuchun@bytedance.com>, Shuah Khan <shuah@kernel.org>, Lucas Stach <l.stach@pengutronix.de>, David Airlie <airlied@gmail.com>, Oded Gabbay <ogabbay@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Christoph Hellwig <hch@infradead.org>, Alex Williamson <alex.williamson@redhat.com>, Daniel Vetter <daniel.vetter@ffwll.ch>, Russell King <linux+etnaviv@armlinux.org.uk>, Christian Gmeiner <christian.gmeiner@gmail.com>
+To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org
+Cc: Juri Lelli <juri.lelli@redhat.com>, Mark Rutland <mark.rutland@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, "Paul E. McKenney" <paulmck@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Marc Zyngier <maz@kernel.org>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Marcelo Tosatti <mtosatti@redhat.com>, Russell King <linux@armlinux.org.uk>, Steven Rostedt <rostedt@goodmis.org>, "David S. Miller" <davem@davemloft.net>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Nicholas Piggin <npiggin@gmail.com>, "H. Peter Anvin" <hpa@zytor.com>, Guo Ren <guoren@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Daniel Bristot de Oliveira <bristot@redhat.com>, Frederic Weisbecker <frederic@kernel.org>
 
-On Wed, Nov 16, 2022 at 11:26:53AM +0100, David Hildenbrand wrote:
-> GUP now supports reliable R/O long-term pinning in COW mappings, such
-> that we break COW early. MAP_SHARED VMAs only use the shared zeropage so
-> far in one corner case (DAXFS file with holes), which can be ignored
-> because GUP does not support long-term pinning in fsdax (see
-> check_vma_flags()).
-> 
-> commit cd5297b0855f ("drm/etnaviv: Use FOLL_FORCE for userptr")
-> documents that FOLL_FORCE | FOLL_WRITE was really only used for reliable
-> R/O pinning.
-> 
-> Consequently, FOLL_FORCE | FOLL_WRITE | FOLL_LONGTERM is no longer required
-> for reliable R/O long-term pinning: FOLL_LONGTERM is sufficient. So stop
-> using FOLL_FORCE, which is really only for ptrace access.
-> 
-> Cc: Daniel Vetter <daniel.vetter@ffwll.ch>
-> Cc: Lucas Stach <l.stach@pengutronix.de>
-> Cc: Russell King <linux+etnaviv@armlinux.org.uk>
-> Cc: Christian Gmeiner <christian.gmeiner@gmail.com>
-> Cc: David Airlie <airlied@gmail.com>
-> Signed-off-by: David Hildenbrand <david@redhat.com>
+Background
+=====
 
-Reviewed-by: Daniel Vetter <daniel.vetter@ffwll.ch>
+Detecting IPI *reception* is relatively easy, e.g. using
+trace_irq_handler_{entry,exit} or even just function-trace
+flush_smp_call_function_queue() for SMP calls.  
 
-Also ack for merging through whatever tree suits best, since I guess this
-should all land together.
--Daniel
+Figuring out their *origin*, is trickier as there is no generic tracepoint tied
+to e.g. smp_call_function():
 
-> ---
->  drivers/gpu/drm/etnaviv/etnaviv_gem.c | 8 +++++---
->  1 file changed, 5 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/gpu/drm/etnaviv/etnaviv_gem.c b/drivers/gpu/drm/etnaviv/etnaviv_gem.c
-> index cc386f8a7116..efe2240945d0 100644
-> --- a/drivers/gpu/drm/etnaviv/etnaviv_gem.c
-> +++ b/drivers/gpu/drm/etnaviv/etnaviv_gem.c
-> @@ -638,6 +638,7 @@ static int etnaviv_gem_userptr_get_pages(struct etnaviv_gem_object *etnaviv_obj)
->  	struct page **pvec = NULL;
->  	struct etnaviv_gem_userptr *userptr = &etnaviv_obj->userptr;
->  	int ret, pinned = 0, npages = etnaviv_obj->base.size >> PAGE_SHIFT;
-> +	unsigned int gup_flags = FOLL_LONGTERM;
->  
->  	might_lock_read(&current->mm->mmap_lock);
->  
-> @@ -648,14 +649,15 @@ static int etnaviv_gem_userptr_get_pages(struct etnaviv_gem_object *etnaviv_obj)
->  	if (!pvec)
->  		return -ENOMEM;
->  
-> +	if (!userptr->ro)
-> +		gup_flags |= FOLL_WRITE;
-> +
->  	do {
->  		unsigned num_pages = npages - pinned;
->  		uint64_t ptr = userptr->ptr + pinned * PAGE_SIZE;
->  		struct page **pages = pvec + pinned;
->  
-> -		ret = pin_user_pages_fast(ptr, num_pages,
-> -					  FOLL_WRITE | FOLL_FORCE | FOLL_LONGTERM,
-> -					  pages);
-> +		ret = pin_user_pages_fast(ptr, num_pages, gup_flags, pages);
->  		if (ret < 0) {
->  			unpin_user_pages(pvec, pinned);
->  			kvfree(pvec);
-> -- 
-> 2.38.1
-> 
+o AFAIA x86 has no tracepoint tied to sending IPIs, only receiving them
+  (cf. trace_call_function{_single}_entry()).
+o arm/arm64 do have trace_ipi_raise(), which gives us the target cpus but also a
+  mostly useless string (smp_calls will all be "Function call interrupts").
+o Other architectures don't seem to have any IPI-sending related tracepoint.  
 
--- 
-Daniel Vetter
-Software Engineer, Intel Corporation
-http://blog.ffwll.ch
+I believe one reason those tracepoints used by arm/arm64 ended up as they were
+is because these archs used to handle IPIs differently from regular interrupts
+(the IRQ driver would directly invoke an IPI-handling routine), which meant they 
+never showed up in trace_irq_handler_{entry, exit}. The trace_ipi_{entry,exit}
+tracepoints gave a way to trace IPI reception but those have become redundant as
+of: 
+
+      56afcd3dbd19 ("ARM: Allow IPIs to be handled as normal interrupts")
+      d3afc7f12987 ("arm64: Allow IPIs to be handled as normal interrupts")
+
+which gave IPIs a "proper" handler function used through
+generic_handle_domain_irq(), which makes them show up via
+trace_irq_handler_{entry, exit}.
+
+Changing stuff up
+========
+Per the above, it would make sense to reshuffle trace_ipi_raise() and move it
+into generic code. This also came up during Daniel's talk on Osnoise at the CPU
+isolation MC of LPC 2022 [1]. 
+
+Now, to be useful, such a tracepoint needs to export:
+o targeted CPU(s)
+o calling context
+
+The only way to get the calling context with trace_ipi_raise() is to trigger a
+stack dump, e.g. $(trace-cmd -e ipi* -T echo 42).
+
+This is instead introducing a new tracepoint which exports the relevant context
+(callsite, and requested callback for when the callsite isn't helpful), and is
+usable by all architectures as it sits in generic code. 
+
+Another thing worth mentioning is that depending on the callsite, the _RET_IP_
+fed to the tracepoint is not always useful - generic_exec_single() doesn't tell
+you much about the actual callback being sent via IPI, which is why the new
+tracepoint also has a @callback argument.
+
+Patches
+===
+o Patch 1 is included for convenience and will most likely be merged
+  independently. FYI I have libtraceevent patches [2] to improve the
+  pretty-printing of cpumasks using the new type, which look like:
+  <...>-3322  [021]   560.402583: ipi_send_cpumask:     cpumask,17,21 callsite=on_each_cpu_cond_mask+0x40 callback=flush_tlb_func+0x0
+  <...>-187   [010]   562.590584: ipi_send_cpumask:     cpumask=0-23 callsite=on_each_cpu_cond_mask+0x40 callback=do_sync_core+0x0
+
+o Patches 2-6 spread out the tracepoint accross relevant sites.
+o Patch 8 is trying to be smart about tracing the callback associated with the
+  IPI.
+
+This results in having IPI trace events for:
+
+o smp_call_function*()
+o smp_send_reschedule()
+o irq_work_queue*()
+o standalone uses of __smp_call_single_queue()
+
+This is incomplete, just looking at arm64 there's more IPI types that aren't
+covered: 
+
+  IPI_CPU_STOP,
+  IPI_CPU_CRASH_STOP,
+  IPI_TIMER,
+  IPI_WAKEUP,
+
+... But it feels like a good starting point.
+
+Links
+==
+[1]: https://youtu.be/5gT57y4OzBM?t234
+[2]: https://lore.kernel.org/all/20221018151630.1513535-1-vschneid@redhat.com/
+
+Revisions
+====
+v1 -> v2
+++++++++
+
+o Ditched single-CPU tracepoint
+o Changed tracepoint signature to include callback
+o Changed tracepoint callsite field to void *; the parameter is still UL to save
+  up on casts due to using _RET_IP_.
+o Fixed linking failures due to not exporting smp_send_reschedule()
+
+Steven Rostedt (Google) (1):
+  tracing: Add __cpumask to denote a trace event field that is a
+    cpumask_t
+
+Valentin Schneider (7):
+  trace: Add trace_ipi_send_cpumask()
+  sched, smp: Trace IPIs sent via send_call_function_single_ipi()
+  smp: Trace IPIs sent via arch_send_call_function_ipi_mask()
+  irq_work: Trace self-IPIs sent via arch_irq_work_raise()
+  treewide: Trace IPIs sent via smp_send_reschedule()
+  smp: reword smp call IPI comment
+  sched, smp: Trace smp callback causing an IPI
+
+ arch/alpha/kernel/smp.c                      |  2 +-
+ arch/arc/kernel/smp.c                        |  2 +-
+ arch/arm/kernel/smp.c                        |  5 +-
+ arch/arm64/kernel/smp.c                      |  3 +-
+ arch/csky/kernel/smp.c                       |  2 +-
+ arch/hexagon/kernel/smp.c                    |  2 +-
+ arch/ia64/kernel/smp.c                       |  4 +-
+ arch/loongarch/include/asm/smp.h             |  2 +-
+ arch/mips/include/asm/smp.h                  |  2 +-
+ arch/openrisc/kernel/smp.c                   |  2 +-
+ arch/parisc/kernel/smp.c                     |  4 +-
+ arch/powerpc/kernel/smp.c                    |  4 +-
+ arch/powerpc/kvm/book3s_hv.c                 |  1 +
+ arch/riscv/kernel/smp.c                      |  4 +-
+ arch/s390/kernel/smp.c                       |  2 +-
+ arch/sh/kernel/smp.c                         |  2 +-
+ arch/sparc/kernel/smp_32.c                   |  2 +-
+ arch/sparc/kernel/smp_64.c                   |  2 +-
+ arch/x86/include/asm/smp.h                   |  2 +-
+ arch/x86/kvm/svm/svm.c                       |  1 +
+ arch/x86/kvm/x86.c                           |  1 +
+ arch/xtensa/kernel/smp.c                     |  2 +-
+ include/linux/smp.h                          |  2 +-
+ include/trace/bpf_probe.h                    |  6 ++
+ include/trace/events/ipi.h                   | 22 +++++++
+ include/trace/perf.h                         |  6 ++
+ include/trace/stages/stage1_struct_define.h  |  6 ++
+ include/trace/stages/stage2_data_offsets.h   |  6 ++
+ include/trace/stages/stage3_trace_output.h   |  6 ++
+ include/trace/stages/stage4_event_fields.h   |  6 ++
+ include/trace/stages/stage5_get_offsets.h    |  6 ++
+ include/trace/stages/stage6_event_callback.h | 20 ++++++
+ include/trace/stages/stage7_class_define.h   |  2 +
+ kernel/irq_work.c                            | 16 ++++-
+ kernel/sched/core.c                          | 34 +++++++---
+ kernel/sched/smp.h                           |  1 +
+ kernel/smp.c                                 | 66 ++++++++++++++++++--
+ samples/trace_events/trace-events-sample.c   |  2 +-
+ samples/trace_events/trace-events-sample.h   | 34 +++++++---
+ 39 files changed, 241 insertions(+), 53 deletions(-)
+
+--
+2.31.1
