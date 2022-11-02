@@ -1,135 +1,45 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Wed, 16 Nov 2022 10:26:39 +0000
-Subject: [PATCH mm-unstable v1 00/20] mm/gup: remove FOLL_FORCE usage from drivers (reliable R/O long-term pi
-Message-Id: <20221116102659.70287-1-david@redhat.com>
+From: Valentin Schneider <vschneid@redhat.com>
+Date: Wed, 02 Nov 2022 18:33:35 +0000
+Subject: [RFC PATCH v2 7/8] smp: reword smp call IPI comment
+Message-Id: <20221102183336.3120536-6-vschneid@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20221102182949.3119584-1-vschneid@redhat.com>
+In-Reply-To: <20221102182949.3119584-1-vschneid@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Catalin Marinas <catalin.marinas@arm.com>, dri-devel@lists.freedesktop.org, Hans Verkuil <hverkuil@xs4all.nl>, Leon Romanovsky <leonro@nvidia.com>, Marek Szyprowski <m.szyprowski@samsung.com>, linux-samsung-soc@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, James Morris <jmorris@namei.org>, Christophe Leroy <christophe.leroy@csgroup.eu>, Christoph Hellwig <hch@infradead.org>, Matt Turner <mattst88@gmail.com>, John Hubbard <jhubbard@nvidia.com>, linux-um@lists.infradead.org, etnaviv@lists.freedesktop.org, Arnaldo Carvalho de Melo <acme@kernel.org>, Alex Williamson <alex.williamson@redhat.com>, Alexander Viro <viro@zeniv.linux.org.uk>, Thomas Gleixner <tglx@linutronix.de>, Andy Walls <awalls@md.metrocast.net>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Seung-Woo Kim <sw0312.kim@samsung.com>, linux-perf-users@vger.kernel.org, Jiri Olsa <jolsa@kernel.org>, linux-fsdevel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Christian Benvenuti <benve@cisco.com>, Mark Rutland <mark.rutland@arm.com>, linux-ia64@vger.kernel.org, David Hildenbrand <david@redhat.com>, Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>, Dave Hansen <dave.hansen@linux.intel.com>, Nadav Amit <namit@vmware.com>, Shuah Khan <shuah@kernel.org>, Kentaro Takeda <takedakn@nttdata.co.jp>, Paul Moore <paul@paul-moore.com>, Leon Romanovsky <leon@kernel.org>, Hugh Dickins <hughd@google.com>, Russell King <linux+etnaviv@armlinux.org.uk>, linux-media@vger.kernel.org, Muchun Song <songmuchun@bytedance.com>, linux-arm-kernel@lists.infradead.org, Kyungmin Park <kyungmin.park@samsung.com>, Eric Biederman <ebiederm@xmission.com>, Mike Kravetz <mike.kravetz@oracle.com>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Peter Xu <peterx@redhat.com>, linux-kselftest@vger.kernel.org, Will Deacon <will@kernel.org>, Dennis Dalessandro <dennis.dalessandro@cornelisnetworks.com>, linux-rdma@vger.kernel.org, Matthew Wilcox <willy@infradead.org>, Bernard Metzler <bmt@zurich.ibm.com>, "Serge E. Hallyn" <serge@hallyn.com>, Kees Cook <keescook@chromium.org>, Arnd Bergmann <arnd@arndb.de>, Borislav Petkov <bp@alien8.de>, Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Oleg Nesterov <oleg@redhat.com>, Tomasz Figa <tfiga@chromium.org>, linux-alpha@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Nelson Escobar <neescoba@cisco.com>, Peter Zijlstra <peterz@infradead.org>, Daniel Vetter <daniel.vetter@ffwll.ch>, linux-mm@kvack.org, "H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Andrea Arcangeli <aarcange@redhat.com>, Richard Weinberger <richard@nod.at>, x86@kernel.org, linux-security-module@vger.kernel.org, Jason Gunthorpe <jgg@ziepe.ca>, Ingo Molnar <mingo@redhat.com>, Richard Henderson <richard.henderson@linaro.org>, Nicholas Piggin <npiggin@gmail.com>, Namhyung Kim <namhyung@kernel.org>, Vlastimil Babka <vbabka@suse.cz>, Oded Gabbay <ogabbay@kernel.org>, linux-mips@vger.kernel.org, Krzysztof Kozlowski <krzysztof.kozlowski@linaro.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Johannes Berg <johannes@sipsolutions.net>, linuxppc-dev@lists.ozlabs.org
+To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org
+Cc: Juri Lelli <juri.lelli@redhat.com>, Mark Rutland <mark.rutland@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, "Paul E. McKenney" <paulmck@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Marc Zyngier <maz@kernel.org>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Marcelo Tosatti <mtosatti@redhat.com>, Russell King <linux@armlinux.org.uk>, Steven Rostedt <rostedt@goodmis.org>, "David S. Miller" <davem@davemloft.net>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Nicholas Piggin <npiggin@gmail.com>, "H. Peter Anvin" <hpa@zytor.com>, Guo Ren <guoren@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Daniel Bristot de Oliveira <bristot@redhat.com>, Frederic Weisbecker <frederic@kernel.org>
 
-For now, we did not support reliable R/O long-term pinning in COW mappings.
-That means, if we would trigger R/O long-term pinning in MAP_PRIVATE
-mapping, we could end up pinning the (R/O-mapped) shared zeropage or a
-pagecache page.
+Accessing the call_single_queue hasn't involved a spinlock since 2014:
 
-The next write access would trigger a write fault and replace the pinned
-page by an exclusive anonymous page in the process page table; whatever the
-process would write to that private page copy would not be visible by the
-owner of the previous page pin: for example, RDMA could read stale data.
-The end result is essentially an unexpected and hard-to-debug memory
-corruption.
+  6897fc22ea01 ("kernel: use lockless list for smp_call_function_single")
 
-Some drivers tried working around that limitation by using
-"FOLL_FORCE|FOLL_WRITE|FOLL_LONGTERM" for R/O long-term pinning for now.
-FOLL_WRITE would trigger a write fault, if required, and break COW before
-pinning the page. FOLL_FORCE is required because the VMA might lack write
-permissions, and drivers wanted to make that working as well, just like
-one would expect (no write access, but still triggering a write access to
-break COW).
+The llist operations (namely cmpxchg() and xchg()) provide similar ordering
+guarantees, update the comment to lessen confusion.
 
-However, that is not a practical solution, because
-(1) Drivers that don't stick to that undocumented and debatable pattern
-    would still run into that issue. For example, VFIO only uses
-    FOLL_LONGTERM for R/O long-term pinning.
-(2) Using FOLL_WRITE just to work around a COW mapping + page pinning
-    limitation is unintuitive. FOLL_WRITE would, for example, mark the
-    page softdirty or trigger uffd-wp, even though, there actually isn't
-    going to be any write access.
-(3) The purpose of FOLL_FORCE is debug access, not access without lack of
-    VMA permissions by arbitrarty drivers.
+Signed-off-by: Valentin Schneider <vschneid@redhat.com>
+---
+ kernel/smp.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-So instead, make R/O long-term pinning work as expected, by breaking COW
-in a COW mapping early, such that we can remove any FOLL_FORCE usage from
-drivers and make FOLL_FORCE ptrace-specific (renaming it to FOLL_PTRACE).
-More details in patch #8.
-
-Patches #1--#3 add COW tests for non-anonymous pages.
-Patches #4--#7 prepare core MM for extended FAULT_FLAG_UNSHARE support in
-COW mappings.
-Patch #8 implements reliable R/O long-term pinning in COW mappings
-Patches #9--#19 remove any FOLL_FORCE usage from drivers.
-Patch #20 renames FOLL_FORCE to FOLL_PTRACE.
-
-I'm refraining from CCing all driver/arch maintainers on the whole patch
-set, but only CC them on the cover letter and the applicable patch
-(I know, I know, someone is always unhappy ... sorry).
-
-RFC -> v1:
-* Use term "ptrace" instead of "debuggers" in patch descriptions
-* Added ACK/Tested-by
-* "mm/frame-vector: remove FOLL_FORCE usage"
- -> Adjust description
-* "mm: rename FOLL_FORCE to FOLL_PTRACE"
- -> Added
-
-David Hildenbrand (20):
-  selftests/vm: anon_cow: prepare for non-anonymous COW tests
-  selftests/vm: cow: basic COW tests for non-anonymous pages
-  selftests/vm: cow: R/O long-term pinning reliability tests for
-    non-anon pages
-  mm: add early FAULT_FLAG_UNSHARE consistency checks
-  mm: add early FAULT_FLAG_WRITE consistency checks
-  mm: rework handling in do_wp_page() based on private vs. shared
-    mappings
-  mm: don't call vm_ops->huge_fault() in wp_huge_pmd()/wp_huge_pud() for
-    private mappings
-  mm: extend FAULT_FLAG_UNSHARE support to anything in a COW mapping
-  mm/gup: reliable R/O long-term pinning in COW mappings
-  RDMA/umem: remove FOLL_FORCE usage
-  RDMA/usnic: remove FOLL_FORCE usage
-  RDMA/siw: remove FOLL_FORCE usage
-  media: videobuf-dma-sg: remove FOLL_FORCE usage
-  drm/etnaviv: remove FOLL_FORCE usage
-  media: pci/ivtv: remove FOLL_FORCE usage
-  mm/frame-vector: remove FOLL_FORCE usage
-  drm/exynos: remove FOLL_FORCE usage
-  RDMA/hw/qib/qib_user_pages: remove FOLL_FORCE usage
-  habanalabs: remove FOLL_FORCE usage
-  mm: rename FOLL_FORCE to FOLL_PTRACE
-
- arch/alpha/kernel/ptrace.c                    |   6 +-
- arch/arm64/kernel/mte.c                       |   2 +-
- arch/ia64/kernel/ptrace.c                     |  10 +-
- arch/mips/kernel/ptrace32.c                   |   4 +-
- arch/mips/math-emu/dsemul.c                   |   2 +-
- arch/powerpc/kernel/ptrace/ptrace32.c         |   4 +-
- arch/sparc/kernel/ptrace_32.c                 |   4 +-
- arch/sparc/kernel/ptrace_64.c                 |   8 +-
- arch/x86/kernel/step.c                        |   2 +-
- arch/x86/um/ptrace_32.c                       |   2 +-
- arch/x86/um/ptrace_64.c                       |   2 +-
- drivers/gpu/drm/etnaviv/etnaviv_gem.c         |   8 +-
- drivers/gpu/drm/exynos/exynos_drm_g2d.c       |   2 +-
- drivers/infiniband/core/umem.c                |   8 +-
- drivers/infiniband/hw/qib/qib_user_pages.c    |   2 +-
- drivers/infiniband/hw/usnic/usnic_uiom.c      |   9 +-
- drivers/infiniband/sw/siw/siw_mem.c           |   9 +-
- drivers/media/common/videobuf2/frame_vector.c |   2 +-
- drivers/media/pci/ivtv/ivtv-udma.c            |   2 +-
- drivers/media/pci/ivtv/ivtv-yuv.c             |   5 +-
- drivers/media/v4l2-core/videobuf-dma-sg.c     |  14 +-
- drivers/misc/habanalabs/common/memory.c       |   3 +-
- fs/exec.c                                     |   2 +-
- fs/proc/base.c                                |   2 +-
- include/linux/mm.h                            |  35 +-
- include/linux/mm_types.h                      |   8 +-
- kernel/events/uprobes.c                       |   4 +-
- kernel/ptrace.c                               |  12 +-
- mm/gup.c                                      |  38 +-
- mm/huge_memory.c                              |  13 +-
- mm/hugetlb.c                                  |  14 +-
- mm/memory.c                                   |  97 +++--
- mm/util.c                                     |   4 +-
- security/tomoyo/domain.c                      |   2 +-
- tools/testing/selftests/vm/.gitignore         |   2 +-
- tools/testing/selftests/vm/Makefile           |  10 +-
- tools/testing/selftests/vm/check_config.sh    |   4 +-
- .../selftests/vm/{anon_cow.c => cow.c}        | 387 +++++++++++++++++-
- tools/testing/selftests/vm/run_vmtests.sh     |   8 +-
- 39 files changed, 575 insertions(+), 177 deletions(-)
- rename tools/testing/selftests/vm/{anon_cow.c => cow.c} (75%)
-
+diff --git a/kernel/smp.c b/kernel/smp.c
+index 44fa4b9b1f46b..b96579fe08f09 100644
+--- a/kernel/smp.c
++++ b/kernel/smp.c
+@@ -503,9 +503,10 @@ void __smp_call_single_queue(int cpu, struct llist_node *node)
+ #endif
+ 
+ 	/*
+-	 * The list addition should be visible before sending the IPI
+-	 * handler locks the list to pull the entry off it because of
+-	 * normal cache coherency rules implied by spinlocks.
++	 * The list addition should be visible to the target CPU when it pops
++	 * the head of the list to pull the entry off it in the IPI handler
++	 * because of normal cache coherency rules implied by the underlying
++	 * llist ops.
+ 	 *
+ 	 * If IPIs can go out of order to the cache coherency protocol
+ 	 * in an architecture, sufficient synchronisation should be added
 -- 
-2.38.1
+2.31.1
