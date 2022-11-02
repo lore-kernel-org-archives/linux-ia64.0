@@ -1,96 +1,50 @@
-From: Vlastimil Babka <vbabka@suse.cz>
-Date: Tue, 22 Nov 2022 14:50:06 +0000
-Subject: Re: [PATCH mm-unstable v1 07/20] mm: don't call vm_ops->huge_fault() in wp_huge_pmd()/wp_huge_pud() 
-Message-Id: <d40947e4-06c4-8413-9d53-e4926abd9559@suse.cz>
+From: Valentin Schneider <vschneid@redhat.com>
+Date: Wed, 02 Nov 2022 18:33:32 +0000
+Subject: [RFC PATCH v2 4/8] smp: Trace IPIs sent via arch_send_call_function_ipi_mask()
+Message-Id: <20221102183336.3120536-3-vschneid@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20221116102659.70287-1-david@redhat.com>
- <20221116102659.70287-8-david@redhat.com>
-In-Reply-To: <20221116102659.70287-8-david@redhat.com>
+References: <20221102182949.3119584-1-vschneid@redhat.com>
+In-Reply-To: <20221102182949.3119584-1-vschneid@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>, linux-kernel@vger.kernel.org
-Cc: x86@kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, etnaviv@lists.freedesktop.org, dri-devel@lists.freedesktop.org, linux-samsung-soc@vger.kernel.org, linux-rdma@vger.kernel.org, linux-media@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-mm@kvack.org, linux-perf-users@vger.kernel.org, linux-security-module@vger.kernel.org, linux-kselftest@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Jason Gunthorpe <jgg@ziepe.ca>, John Hubbard <jhubbard@nvidia.com>, Peter Xu <peterx@redhat.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Andrea Arcangeli <aarcange@redhat.com>, Hugh Dickins <hughd@google.com>, Nadav Amit <namit@vmware.com>, Matthew Wilcox <willy@infradead.org>, Mike Kravetz <mike.kravetz@oracle.com>, Muchun Song <songmuchun@bytedance.com>, Shuah Khan <shuah@kernel.org>, Lucas Stach <l.stach@pengutronix.de>, David Airlie <airlied@gmail.com>, Oded Gabbay <ogabbay@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Christoph Hellwig <hch@infradead.org>, Alex Williamson <alex.williamson@redhat.com>
+To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org
+Cc: "Paul E. McKenney" <paulmck@kernel.org>, Steven Rostedt <rostedt@goodmis.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Juri Lelli <juri.lelli@redhat.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Marcelo Tosatti <mtosatti@redhat.com>, Frederic Weisbecker <frederic@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "H. Peter Anvin" <hpa@zytor.com>, Marc Zyngier <maz@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Russell King <linux@armlinux.org.uk>, Nicholas Piggin <npiggin@gmail.com>, Guo Ren <guoren@kernel.org>, "David S. Miller" <davem@davemloft.net>
 
-On 11/16/22 11:26, David Hildenbrand wrote:
-> If we already have a PMD/PUD mapped write-protected in a private mapping
-> and we want to break COW either due to FAULT_FLAG_WRITE or
-> FAULT_FLAG_UNSHARE, there is no need to inform the file system just like on
-> the PTE path.
-> 
-> Let's just split (->zap) + fallback in that case.
-> 
-> This is a preparation for more generic FAULT_FLAG_UNSHARE support in
-> COW mappings.
-> 
-> Signed-off-by: David Hildenbrand <david@redhat.com>
+This simply wraps around the arch function and prepends it with a
+tracepoint, similar to send_call_function_single_ipi().
 
-Reviewed-by: Vlastimil Babka <vbabka@suse.cz>
+Signed-off-by: Valentin Schneider <vschneid@redhat.com>
+---
+ kernel/smp.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-Nits:
-
-> ---
->  mm/memory.c | 24 +++++++++++++++---------
->  1 file changed, 15 insertions(+), 9 deletions(-)
-> 
-> diff --git a/mm/memory.c b/mm/memory.c
-> index c35e6cd32b6a..d47ad33c6487 100644
-> --- a/mm/memory.c
-> +++ b/mm/memory.c
-> @@ -4802,6 +4802,7 @@ static inline vm_fault_t create_huge_pmd(struct vm_fault *vmf)
->  static inline vm_fault_t wp_huge_pmd(struct vm_fault *vmf)
->  {
->  	const bool unshare = vmf->flags & FAULT_FLAG_UNSHARE;
-> +	vm_fault_t ret;
->  
->  	if (vma_is_anonymous(vmf->vma)) {
->  		if (likely(!unshare) &&
-> @@ -4809,11 +4810,13 @@ static inline vm_fault_t wp_huge_pmd(struct vm_fault *vmf)
->  			return handle_userfault(vmf, VM_UFFD_WP);
->  		return do_huge_pmd_wp_page(vmf);
->  	}
-> -	if (vmf->vma->vm_ops->huge_fault) {
-> -		vm_fault_t ret = vmf->vma->vm_ops->huge_fault(vmf, PE_SIZE_PMD);
->  
-> -		if (!(ret & VM_FAULT_FALLBACK))
-> -			return ret;
-> +	if (vmf->vma->vm_flags & (VM_SHARED | VM_MAYSHARE)) {
-> +		if (vmf->vma->vm_ops->huge_fault) {
-
-I guess it could have been a single if with && and the reduced identation
-could fit keeping 'ret' declaration inside.
-AFAICS the later patches don't build more on top of this anyway.
-But also fine keeping as is.
-
-(the hunk below same)
-
-> +			ret = vmf->vma->vm_ops->huge_fault(vmf, PE_SIZE_PMD);
-> +			if (!(ret & VM_FAULT_FALLBACK))
-> +				return ret;
-> +		}
->  	}
->  
->  	/* COW or write-notify handled on pte level: split pmd. */
-> @@ -4839,14 +4842,17 @@ static vm_fault_t wp_huge_pud(struct vm_fault *vmf, pud_t orig_pud)
->  {
->  #if defined(CONFIG_TRANSPARENT_HUGEPAGE) &&			\
->  	defined(CONFIG_HAVE_ARCH_TRANSPARENT_HUGEPAGE_PUD)
-> +	vm_fault_t ret;
-> +
->  	/* No support for anonymous transparent PUD pages yet */
->  	if (vma_is_anonymous(vmf->vma))
->  		goto split;
-> -	if (vmf->vma->vm_ops->huge_fault) {
-> -		vm_fault_t ret = vmf->vma->vm_ops->huge_fault(vmf, PE_SIZE_PUD);
-> -
-> -		if (!(ret & VM_FAULT_FALLBACK))
-> -			return ret;
-> +	if (vmf->vma->vm_flags & (VM_SHARED | VM_MAYSHARE)) {
-> +		if (vmf->vma->vm_ops->huge_fault) {
-> +			ret = vmf->vma->vm_ops->huge_fault(vmf, PE_SIZE_PUD);
-> +			if (!(ret & VM_FAULT_FALLBACK))
-> +				return ret;
-> +		}
->  	}
->  split:
->  	/* COW or write-notify not handled on PUD level: split pud.*/
+diff --git a/kernel/smp.c b/kernel/smp.c
+index e2ca1e2f31274..c4d561cf50d45 100644
+--- a/kernel/smp.c
++++ b/kernel/smp.c
+@@ -160,6 +160,13 @@ void __init call_function_init(void)
+ 	smpcfd_prepare_cpu(smp_processor_id());
+ }
+ 
++static inline void
++send_call_function_ipi_mask(const struct cpumask *mask)
++{
++	trace_ipi_send_cpumask(mask, _RET_IP_, func);
++	arch_send_call_function_ipi_mask(mask);
++}
++
+ #ifdef CONFIG_CSD_LOCK_WAIT_DEBUG
+ 
+ static DEFINE_STATIC_KEY_FALSE(csdlock_debug_enabled);
+@@ -970,7 +977,7 @@ static void smp_call_function_many_cond(const struct cpumask *mask,
+ 		if (nr_cpus = 1)
+ 			send_call_function_single_ipi(last_cpu);
+ 		else if (likely(nr_cpus > 1))
+-			arch_send_call_function_ipi_mask(cfd->cpumask_ipi);
++			send_call_function_ipi_mask(cfd->cpumask_ipi);
+ 
+ 		cfd_seq_store(this_cpu_ptr(&cfd_seq_local)->pinged, this_cpu, CFD_SEQ_NOCPU, CFD_SEQ_PINGED);
+ 	}
+-- 
+2.31.1
