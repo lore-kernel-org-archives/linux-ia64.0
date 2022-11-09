@@ -1,25 +1,38 @@
-From: =?UTF-8?q?Jonathan=20Neusch=C3=A4fer?= <j.neuschaefer@gmx.net>
-Date: Tue, 01 Nov 2022 15:59:53 +0000
-Subject: [PATCH] docs: ia64: Fix a typo ("identify mappings")
-Message-Id: <20221101160609.961950-1-j.neuschaefer@gmx.net>
+From: Jonathan Corbet <corbet@lwn.net>
+Date: Wed, 09 Nov 2022 20:57:24 +0000
+Subject: Re: [PATCH] docs: ia64: Fix a typo ("identify mappings")
+Message-Id: <87leojj0vy.fsf@meer.lwn.net>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20221101160609.961950-1-j.neuschaefer@gmx.net>
+In-Reply-To: <20221101160609.961950-1-j.neuschaefer@gmx.net>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: linux-doc@vger.kernel.org
-Cc: =?UTF-8?q?Jonathan=20Neusch=C3=A4fer?= <j.neuschaefer@gmx.net>, Jonathan Corbet <corbet@lwn.net>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Jonathan =?utf-8?Q?Neusch=C3=A4fer?= <j.neuschaefer@gmx.net>, linux-doc@vger.kernel.org
+Cc: Jonathan =?utf-8?Q?Neusch=C3=A4fer?= <j.neuschaefer@gmx.net>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-VGhlIGNvcnJlY3QgdGVybSBoZXJlLCBhbHNvIHVzZWQgaW4gdGhlIG5leHQgbGluZSwgaXMgImlk
-ZW50aXR5Cm1hcHBpbmdzIi4gIml0ZW50aWZ5IG1hcHBpbmdzIiB3YXMgcHJvYmFibHkganVzdCBh
-IHR5cG8uCgpTaWduZWQtb2ZmLWJ5OiBKb25hdGhhbiBOZXVzY2jDpGZlciA8ai5uZXVzY2hhZWZl
-ckBnbXgubmV0PgotLS0KIERvY3VtZW50YXRpb24vaWE2NC9hbGlhc2luZy5yc3QgfCAyICstCiAx
-IGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKyksIDEgZGVsZXRpb24oLSkKCmRpZmYgLS1naXQg
-YS9Eb2N1bWVudGF0aW9uL2lhNjQvYWxpYXNpbmcucnN0IGIvRG9jdW1lbnRhdGlvbi9pYTY0L2Fs
-aWFzaW5nLnJzdAppbmRleCBhMDhiMzZhYmEwMTU5Li4zNmExZTFkNDg0MmI4IDEwMDY0NAotLS0g
-YS9Eb2N1bWVudGF0aW9uL2lhNjQvYWxpYXNpbmcucnN0CisrKyBiL0RvY3VtZW50YXRpb24vaWE2
-NC9hbGlhc2luZy5yc3QKQEAgLTYxLDcgKzYxLDcgQEAgTWVtb3J5IE1hcAogICAgIFRoZSBlZmlf
-bWVtbWFwIHRhYmxlIGlzIHByZXNlcnZlZCB1bm1vZGlmaWVkIGJlY2F1c2UgdGhlIG9yaWdpbmFs
-CiAgICAgYm9vdC10aW1lIGluZm9ybWF0aW9uIGlzIHJlcXVpcmVkIGZvciBrZXhlYy4KCi1LZXJu
-ZWwgSWRlbnRpZnkgTWFwcGluZ3MKK0tlcm5lbCBJZGVudGl0eSBNYXBwaW5ncwogPT09PT09PT09
-PT09PT09PT09PT09PT09CgogICAgIExpbnV4L2lhNjQgaWRlbnRpdHkgbWFwcGluZ3MgYXJlIGRv
-bmUgd2l0aCBsYXJnZSBwYWdlcywgY3VycmVudGx5Ci0tCjIuMzUuMQo=
+Jonathan Neuschäfer <j.neuschaefer@gmx.net> writes:
+
+> The correct term here, also used in the next line, is "identity
+> mappings". "itentify mappings" was probably just a typo.
+>
+> Signed-off-by: Jonathan Neuschäfer <j.neuschaefer@gmx.net>
+> ---
+>  Documentation/ia64/aliasing.rst | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/Documentation/ia64/aliasing.rst b/Documentation/ia64/aliasing.rst
+> index a08b36aba0159..36a1e1d4842b8 100644
+> --- a/Documentation/ia64/aliasing.rst
+> +++ b/Documentation/ia64/aliasing.rst
+> @@ -61,7 +61,7 @@ Memory Map
+>      The efi_memmap table is preserved unmodified because the original
+>      boot-time information is required for kexec.
+>
+> -Kernel Identify Mappings
+> +Kernel Identity Mappings
+>  ========================
+
+Applied, thanks.
+
+jon
