@@ -1,52 +1,67 @@
-From: Valentin Schneider <vschneid@redhat.com>
-Date: Thu, 17 Nov 2022 14:23:55 +0000
-Subject: Re: [RFC PATCH v2 4/8] smp: Trace IPIs sent via arch_send_call_function_ipi_mask()
-Message-Id: <xhsmhk03ty804.mognet@vschneid.remote.csb>
+From: David Hildenbrand <david@redhat.com>
+Date: Wed, 16 Nov 2022 10:26:51 +0000
+Subject: [PATCH mm-unstable v1 12/20] RDMA/siw: remove FOLL_FORCE usage
+Message-Id: <20221116102659.70287-13-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20221102182949.3119584-1-vschneid@redhat.com>
- <20221102183336.3120536-3-vschneid@redhat.com>
- <Y3X5/65o8127DgZl@hirez.programming.kicks-ass.net>
-In-Reply-To: <Y3X5/65o8127DgZl@hirez.programming.kicks-ass.net>
+References: <20221116102659.70287-1-david@redhat.com>
+In-Reply-To: <20221116102659.70287-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>
-Cc: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, "Paul E. McKenney" <paulmck@kernel.org>, Steven Rostedt <rostedt@goodmis.org>, Thomas Gleixner <tglx@linutronix.de>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Juri Lelli <juri.lelli@redhat.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Marcelo Tosatti <mtosatti@redhat.com>, Frederic Weisbecker <frederic@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "H. Peter Anvin" <hpa@zytor.com>, Marc Zyngier <maz@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Russell King <linux@armlinux.org.uk>, Nicholas Piggin <npiggin@gmail.com>, Guo Ren <guoren@kernel.org>, "David S. Miller" <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Cc: x86@kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, etnaviv@lists.freedesktop.org, dri-devel@lists.freedesktop.org, linux-samsung-soc@vger.kernel.org, linux-rdma@vger.kernel.org, linux-media@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-mm@kvack.org, linux-perf-users@vger.kernel.org, linux-security-module@vger.kernel.org, linux-kselftest@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Jason Gunthorpe <jgg@ziepe.ca>, John Hubbard <jhubbard@nvidia.com>, Peter Xu <peterx@redhat.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Andrea Arcangeli <aarcange@redhat.com>, Hugh Dickins <hughd@google.com>, Nadav Amit <namit@vmware.com>, Vlastimil Babka <vbabka@suse.cz>, Matthew Wilcox <willy@infradead.org>, Mike Kravetz <mike.kravetz@oracle.com>, Muchun Song <songmuchun@bytedance.com>, Shuah Khan <shuah@kernel.org>, Lucas Stach <l.stach@pengutronix.de>, David Airlie <airlied@gmail.com>, Oded Gabbay <ogabbay@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Christoph Hellwig <hch@infradead.org>, Alex Williamson <alex.williamson@redhat.com>, David Hildenbrand <david@redhat.com>, Bernard Metzler <bmt@zurich.ibm.com>, Leon Romanovsky <leon@kernel.org>
 
-On 17/11/22 10:08, Peter Zijlstra wrote:
-> On Wed, Nov 02, 2022 at 06:33:32PM +0000, Valentin Schneider wrote:
->> This simply wraps around the arch function and prepends it with a
->> tracepoint, similar to send_call_function_single_ipi().
->>
->> Signed-off-by: Valentin Schneider <vschneid@redhat.com>
->> ---
->>  kernel/smp.c | 9 ++++++++-
->>  1 file changed, 8 insertions(+), 1 deletion(-)
->>
->> diff --git a/kernel/smp.c b/kernel/smp.c
->> index e2ca1e2f31274..c4d561cf50d45 100644
->> --- a/kernel/smp.c
->> +++ b/kernel/smp.c
->> @@ -160,6 +160,13 @@ void __init call_function_init(void)
->>      smpcfd_prepare_cpu(smp_processor_id());
->>  }
->>
->> +static inline void
->
-> Given the use of _RET_IP_, I would strongly recommend you use
-> __always_inline.
->
+GUP now supports reliable R/O long-term pinning in COW mappings, such
+that we break COW early. MAP_SHARED VMAs only use the shared zeropage so
+far in one corner case (DAXFS file with holes), which can be ignored
+because GUP does not support long-term pinning in fsdax (see
+check_vma_flags()).
 
-Noted, thanks
+Consequently, FOLL_FORCE | FOLL_WRITE | FOLL_LONGTERM is no longer required
+for reliable R/O long-term pinning: FOLL_LONGTERM is sufficient. So stop
+using FOLL_FORCE, which is really only for ptrace access.
 
->> +send_call_function_ipi_mask(const struct cpumask *mask)
->> +{
->> +	trace_ipi_send_cpumask(mask, _RET_IP_, func);
->
-> What's func?
->
+Cc: Bernard Metzler <bmt@zurich.ibm.com>
+Cc: Jason Gunthorpe <jgg@ziepe.ca>
+Cc: Leon Romanovsky <leon@kernel.org>
+Signed-off-by: David Hildenbrand <david@redhat.com>
+---
+ drivers/infiniband/sw/siw/siw_mem.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-A rebase fail... That's only plugged in later.
-
->> +	arch_send_call_function_ipi_mask(mask);
->> +}
+diff --git a/drivers/infiniband/sw/siw/siw_mem.c b/drivers/infiniband/sw/siw/siw_mem.c
+index 61c17db70d65..b2b33dd3b4fa 100644
+--- a/drivers/infiniband/sw/siw/siw_mem.c
++++ b/drivers/infiniband/sw/siw/siw_mem.c
+@@ -368,7 +368,7 @@ struct siw_umem *siw_umem_get(u64 start, u64 len, bool writable)
+ 	struct mm_struct *mm_s;
+ 	u64 first_page_va;
+ 	unsigned long mlock_limit;
+-	unsigned int foll_flags = FOLL_WRITE;
++	unsigned int foll_flags = FOLL_LONGTERM;
+ 	int num_pages, num_chunks, i, rv = 0;
+ 
+ 	if (!can_do_mlock())
+@@ -391,8 +391,8 @@ struct siw_umem *siw_umem_get(u64 start, u64 len, bool writable)
+ 
+ 	mmgrab(mm_s);
+ 
+-	if (!writable)
+-		foll_flags |= FOLL_FORCE;
++	if (writable)
++		foll_flags |= FOLL_WRITE;
+ 
+ 	mmap_read_lock(mm_s);
+ 
+@@ -423,8 +423,7 @@ struct siw_umem *siw_umem_get(u64 start, u64 len, bool writable)
+ 		while (nents) {
+ 			struct page **plist = &umem->page_chunk[i].plist[got];
+ 
+-			rv = pin_user_pages(first_page_va, nents,
+-					    foll_flags | FOLL_LONGTERM,
++			rv = pin_user_pages(first_page_va, nents, foll_flags,
+ 					    plist, NULL);
+ 			if (rv < 0)
+ 				goto out_sem_up;
+-- 
+2.38.1
