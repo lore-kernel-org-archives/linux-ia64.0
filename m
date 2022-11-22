@@ -1,62 +1,70 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Date: Tue, 22 Nov 2022 20:28:05 +0000
+From: Nadav Amit <namit@vmware.com>
+Date: Tue, 22 Nov 2022 20:51:27 +0000
 Subject: Re: [PATCH 3/3] compiler: inline does not imply notrace
-Message-Id: <20221122152805.6d16afc8@gandalf.local.home>
+Message-Id: <B764D38F-470D-4022-A818-73814F442473@vmware.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20221122195329.252654-1-namit@vmware.com>
-        <20221122195329.252654-4-namit@vmware.com>
-        <de999ab8-78ff-44f7-aacc-68561897c6e2@app.fastmail.com>
+ <20221122195329.252654-4-namit@vmware.com>
+ <de999ab8-78ff-44f7-aacc-68561897c6e2@app.fastmail.com>
 In-Reply-To: <de999ab8-78ff-44f7-aacc-68561897c6e2@app.fastmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Arnd Bergmann <arnd@arndb.de>
-Cc: Nadav Amit <nadav.amit@gmail.com>, Thomas Gleixner <tglx@linutronix.de>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-um@lists.infradead.org, Linux-Arch <linux-arch@vger.kernel.org>, linux-mm@kvack.org, Andy Lutomirski <luto@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, Andrew Morton <akpm@linux-foundation.org>, Nadav Amit <namit@vmware.com>, Peter Zijlstra <peterz@infradead.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, kernel list <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>, Linux-Arch <linux-arch@vger.kernel.org>, Linux-MM <linux-mm@kvack.org>, Andy Lutomirski <luto@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, X86 ML <x86@kernel.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, Andrew Morton <akpm@linux-foundation.org>, Steven Rostedt <rostedt@goodmis.org>
 
-On Tue, 22 Nov 2022 21:09:08 +0100
-"Arnd Bergmann" <arnd@arndb.de> wrote:
-
-> On Tue, Nov 22, 2022, at 20:53, Nadav Amit wrote:
-> > From: Nadav Amit <namit@vmware.com>
-> >
-> > Functions that are marked as "inline" are currently also not tracable.
-> > Apparently, this has been done to prevent differences between different
-> > configs that caused different functions to be tracable on different
-> > platforms.
-> >
-> > Anyhow, this consideration is not very strong, and tying "inline" and
-> > "notrace" does not seem very beneficial. The "inline" keyword is just a
-> > hint, and many functions are currently not tracable due to this reason.  
-> 
-> The original reason was listed in 93b3cca1ccd3 ("ftrace: Make all
-> inline tags also include notrace"), which describes
-> 
->     Commit 5963e317b1e9d2a ("ftrace/x86: Do not change stacks in DEBUG when
->     calling lockdep") prevented lockdep calls from the int3 breakpoint handler
->     from reseting the stack if a function that was called was in the process
->     of being converted for tracing and had a breakpoint on it. The idea is,
->     before calling the lockdep code, do a load_idt() to the special IDT that
->     kept the breakpoint stack from reseting. This worked well as a quick fix
->     for this kernel release, until a certain config caused a lockup in the
->     function tracer start up tests.
->     
->     Investigating it, I found that the load_idt that was used to prevent
->     the int3 from changing stacks was itself being traced!
-> 
-> and this sounds like a much stronger reason than what you describe,
-> and I would expect your change to cause regressions in similar places.
-> 
-> It's possible that the right answer is that the affected functions
-> should be marked as __always_inline. 
-
-Actually, this requirement may not be as needed as much today. There's been
-a lot of work in the last 10 years (when that commit was added) to make
-ftrace much more robust.
-
-We could remove the notrace from inline and then see where it breaks ;-)
-
-But I'm guessing that it's probably not as much of an issue as it was
-before. Although, it may cause some splats with noinstr but I think that
-will be caught at compile time.
-
--- Steve
+T24gTm92IDIyLCAyMDIyLCBhdCAxMjowOSBQTSwgQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5k
+ZT4gd3JvdGU6DQoNCj4gISEgRXh0ZXJuYWwgRW1haWwNCj4gDQo+IE9uIFR1ZSwgTm92IDIyLCAy
+MDIyLCBhdCAyMDo1MywgTmFkYXYgQW1pdCB3cm90ZToNCj4+IEZyb206IE5hZGF2IEFtaXQgPG5h
+bWl0QHZtd2FyZS5jb20+DQo+PiANCj4+IEZ1bmN0aW9ucyB0aGF0IGFyZSBtYXJrZWQgYXMgImlu
+bGluZSIgYXJlIGN1cnJlbnRseSBhbHNvIG5vdCB0cmFjYWJsZS4NCj4+IEFwcGFyZW50bHksIHRo
+aXMgaGFzIGJlZW4gZG9uZSB0byBwcmV2ZW50IGRpZmZlcmVuY2VzIGJldHdlZW4gZGlmZmVyZW50
+DQo+PiBjb25maWdzIHRoYXQgY2F1c2VkIGRpZmZlcmVudCBmdW5jdGlvbnMgdG8gYmUgdHJhY2Fi
+bGUgb24gZGlmZmVyZW50DQo+PiBwbGF0Zm9ybXMuDQo+PiANCj4+IEFueWhvdywgdGhpcyBjb25z
+aWRlcmF0aW9uIGlzIG5vdCB2ZXJ5IHN0cm9uZywgYW5kIHR5aW5nICJpbmxpbmUiIGFuZA0KPj4g
+Im5vdHJhY2UiIGRvZXMgbm90IHNlZW0gdmVyeSBiZW5lZmljaWFsLiBUaGUgImlubGluZSIga2V5
+d29yZCBpcyBqdXN0IGENCj4+IGhpbnQsIGFuZCBtYW55IGZ1bmN0aW9ucyBhcmUgY3VycmVudGx5
+IG5vdCB0cmFjYWJsZSBkdWUgdG8gdGhpcyByZWFzb24uDQo+IA0KPiBUaGUgb3JpZ2luYWwgcmVh
+c29uIHdhcyBsaXN0ZWQgaW4gOTNiM2NjYTFjY2QzICgiZnRyYWNlOiBNYWtlIGFsbA0KPiBpbmxp
+bmUgdGFncyBhbHNvIGluY2x1ZGUgbm90cmFjZSIpLCB3aGljaCBkZXNjcmliZXMNCj4gDQo+ICAg
+IENvbW1pdCA1OTYzZTMxN2IxZTlkMmEgKCJmdHJhY2UveDg2OiBEbyBub3QgY2hhbmdlIHN0YWNr
+cyBpbiBERUJVRyB3aGVuDQo+ICAgIGNhbGxpbmcgbG9ja2RlcCIpIHByZXZlbnRlZCBsb2NrZGVw
+IGNhbGxzIGZyb20gdGhlIGludDMgYnJlYWtwb2ludCBoYW5kbGVyDQo+ICAgIGZyb20gcmVzZXRp
+bmcgdGhlIHN0YWNrIGlmIGEgZnVuY3Rpb24gdGhhdCB3YXMgY2FsbGVkIHdhcyBpbiB0aGUgcHJv
+Y2Vzcw0KPiAgICBvZiBiZWluZyBjb252ZXJ0ZWQgZm9yIHRyYWNpbmcgYW5kIGhhZCBhIGJyZWFr
+cG9pbnQgb24gaXQuIFRoZSBpZGVhIGlzLA0KPiAgICBiZWZvcmUgY2FsbGluZyB0aGUgbG9ja2Rl
+cCBjb2RlLCBkbyBhIGxvYWRfaWR0KCkgdG8gdGhlIHNwZWNpYWwgSURUIHRoYXQNCj4gICAga2Vw
+dCB0aGUgYnJlYWtwb2ludCBzdGFjayBmcm9tIHJlc2V0aW5nLiBUaGlzIHdvcmtlZCB3ZWxsIGFz
+IGEgcXVpY2sgZml4DQo+ICAgIGZvciB0aGlzIGtlcm5lbCByZWxlYXNlLCB1bnRpbCBhIGNlcnRh
+aW4gY29uZmlnIGNhdXNlZCBhIGxvY2t1cCBpbiB0aGUNCj4gICAgZnVuY3Rpb24gdHJhY2VyIHN0
+YXJ0IHVwIHRlc3RzLg0KPiANCj4gICAgSW52ZXN0aWdhdGluZyBpdCwgSSBmb3VuZCB0aGF0IHRo
+ZSBsb2FkX2lkdCB0aGF0IHdhcyB1c2VkIHRvIHByZXZlbnQNCj4gICAgdGhlIGludDMgZnJvbSBj
+aGFuZ2luZyBzdGFja3Mgd2FzIGl0c2VsZiBiZWluZyB0cmFjZWQhDQo+IA0KPiBhbmQgdGhpcyBz
+b3VuZHMgbGlrZSBhIG11Y2ggc3Ryb25nZXIgcmVhc29uIHRoYW4gd2hhdCB5b3UgZGVzY3JpYmUs
+DQo+IGFuZCBJIHdvdWxkIGV4cGVjdCB5b3VyIGNoYW5nZSB0byBjYXVzZSByZWdyZXNzaW9ucyBp
+biBzaW1pbGFyIHBsYWNlcy4NCg0KSSBoYWQgbm8gaW50ZW50aW9uIG9mIG1pc3JlcHJlc2VudGlu
+Zy4gVGhhdCB3YXMgbXkgdW5kZXJzdGFuZGluZyBmcm9tIG15DQpwcmV2aW91cyBkaXNjdXNzaW9u
+IHdpdGggU3RldmVuLg0KDQpJIGFzc3VtZSB0aGF0IHRoaXMgcGF0Y2ggbWlnaHQgY2F1c2Ugc29t
+ZSByZWdyZXNzaW9ucy4gVGhlIGZpcnN0IHBhdGNoIGluDQp0aGlzIHNlcmllcyB3YXMgaW50ZW5k
+ZWQgdG8gcHJldmVudHMgc29tZSByZWdyZXNzaW9ucyB0aGF0IEkgZW5jb3VudGVyZWQuDQpUaGlz
+IHBhdGNoIGFsc28gbWFya3MgYSBmdW5jdGlvbiB0aGF0IHdhcyBtaXNzaW5nIOKAnG5vdHJhY2Xi
+gJ0gYmVmb3JlLiBBbmQgSQ0KZGlkIGdldCBrZXJuZWwgaGFuZ3MgZHVlIHRvIHRoZSBtaXNzaW5n
+IOKAnG5vdHJhY2XigJ0uDQoNCkFueWhvdywgSSBiZWxpZXZlIHRoYXQgdGhlIGFsdGVybmF0aXZl
+IC0gb2YgbGVhdmluZyB0aGluZ3MgYXMgdGhleSBhcmUNCijigJxpbmxpbmXigJ0tPuKAnW5vdHJh
+Y2XigJ0pIC0gaXMgZXZlbiB3b3JzZS4gT2J2aW91c2x5IGl0IHByZXZlbnRzIHByb3BlciB0cmFj
+aW5nLA0KYXMgdGhlcmUgYXJlIGV2ZW4gc3lzdGVtIGNhbGxzIHRoYXQgdXNlIGlubGluZSwgZm9y
+IGluc3RhbmNlDQpfX2RvX3N5c19wcm9jZXNzX21hZHZpc2UoKSBhbmQgX19kb19zeXNfbXJlbWFw
+KCkuDQoNCkJ1dCBtb3JlIGltcG9ydGFudGx5LCB0aGUgY3VycmVudCDigJxpbmxpbmXigJ0tPuKA
+nW5vdHJhY2XigJ0gc29sdXRpb24ganVzdCBwYXBlcnMNCm92ZXIgbWlzc2luZyDigJxub3RyYWNl
+4oCdIGFubm90YXRpb25zLiBBbnlvbmUgY2FuIHJlbW92ZSB0aGUg4oCcaW5saW5l4oCdIGF0IGFu
+eQ0KZ2l2ZW4gbW9tZW50IHNpbmNlIHRoZXJlIGlzIG5vIGRpcmVjdCAob3IgaW5kaXJlY3QpIHJl
+bGF0aW9uc2hpcCBiZXR3ZWVuDQrigJxpbmxpbmXigJ0gYW5kIOKAnG5vdHJhY2XigJ0uIEl0IHNl
+ZW1zIHRvIG1lIGFsbCByYW5kb20gYW5kIGJvdW5kIHRvIGZhaWwgYXQgc29tZQ0KcG9pbnQuDQoN
+Cj4gSXQncyBwb3NzaWJsZSB0aGF0IHRoZSByaWdodCBhbnN3ZXIgaXMgdGhhdCB0aGUgYWZmZWN0
+ZWQgZnVuY3Rpb25zDQo+IHNob3VsZCBiZSBtYXJrZWQgYXMgX19hbHdheXNfaW5saW5lLg0KDQpJ
+IHRoaW5rIHRoYXQgaXQgaXMgcHJvYmFibHkgYmV0dGVyIHRvIG1hcmsgdGhlbSBhcyBub3RyYWNl
+LiBQZW9wbGUgbWlnaHQNCnJlbW92ZSBfX2Fsd2F5c19pbmxpbmUuIElmIHdlIHdhbnQgdHdvIHZl
+cnNpb25zIC0gb25lIHRyYWNlYWJsZSBhbmQgb25lIG5vdA0KdHJhY2VhYmxlIC0gd2UgY2FuIGFs
+c28gZG8gdGhhdC4gQnV0IEkgYW0gbm90IHN1cmUgaG93IG1hbnkgcGVvcGxlIGFyZSBhd2FyZQ0K
+b2YgdGhlIHJlbGF0aW9uc2hpcHMgYmV0d2VlbiBpbmxpbmUvX19hbHdheXNfaW5saW5lIGFuZCB0
+cmFjaW5nLg0KDQo
