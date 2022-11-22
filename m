@@ -1,33 +1,46 @@
-From: Vlastimil Babka <vbabka@suse.cz>
-Date: Fri, 18 Nov 2022 16:45:31 +0000
-Subject: Re: [PATCH mm-unstable v1 04/20] mm: add early FAULT_FLAG_UNSHARE consistency checks
-Message-Id: <f427422c-9af3-dc0a-dcc3-2a1114eb77ea@suse.cz>
+From: Nadav Amit <nadav.amit@gmail.com>
+Date: Tue, 22 Nov 2022 19:53:29 +0000
+Subject: [PATCH 3/3] compiler: inline does not imply notrace
+Message-Id: <20221122195329.252654-4-namit@vmware.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20221116102659.70287-1-david@redhat.com>
- <20221116102659.70287-5-david@redhat.com>
-In-Reply-To: <20221116102659.70287-5-david@redhat.com>
+References: <20221122195329.252654-1-namit@vmware.com>
+In-Reply-To: <20221122195329.252654-1-namit@vmware.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>, linux-kernel@vger.kernel.org
-Cc: x86@kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, etnaviv@lists.freedesktop.org, dri-devel@lists.freedesktop.org, linux-samsung-soc@vger.kernel.org, linux-rdma@vger.kernel.org, linux-media@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-mm@kvack.org, linux-perf-users@vger.kernel.org, linux-security-module@vger.kernel.org, linux-kselftest@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Jason Gunthorpe <jgg@ziepe.ca>, John Hubbard <jhubbard@nvidia.com>, Peter Xu <peterx@redhat.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Andrea Arcangeli <aarcange@redhat.com>, Hugh Dickins <hughd@google.com>, Nadav Amit <namit@vmware.com>, Matthew Wilcox <willy@infradead.org>, Mike Kravetz <mike.kravetz@oracle.com>, Muchun Song <songmuchun@bytedance.com>, Shuah Khan <shuah@kernel.org>, Lucas Stach <l.stach@pengutronix.de>, David Airlie <airlied@gmail.com>, Oded Gabbay <ogabbay@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Christoph Hellwig <hch@infradead.org>, Alex Williamson <alex.williamson@redhat.com>
+To: Thomas Gleixner <tglx@linutronix.de>
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-um@lists.infradead.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, Andy Lutomirski <luto@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, Arnd Bergmann <arnd@arndb.de>, Andrew Morton <akpm@linux-foundation.org>, Nadav Amit <namit@vmware.com>
 
-On 11/16/22 11:26, David Hildenbrand wrote:
-> For now, FAULT_FLAG_UNSHARE only applies to anonymous pages, which
-> implies a COW mapping. Let's hide FAULT_FLAG_UNSHARE early if we're not
-> dealing with a COW mapping, such that we treat it like a read fault as
-> documented and don't have to worry about the flag throughout all fault
-> handlers.
-> 
-> While at it, centralize the check for mutual exclusion of
-> FAULT_FLAG_UNSHARE and FAULT_FLAG_WRITE and just drop the check that
-> either flag is set in the WP handler.
-> 
-> Signed-off-by: David Hildenbrand <david@redhat.com>
-> ---
->  mm/huge_memory.c |  3 ---
->  mm/hugetlb.c     |  5 -----
->  mm/memory.c      | 23 ++++++++++++++++++++---
->  3 files changed, 20 insertions(+), 11 deletions(-)
+From: Nadav Amit <namit@vmware.com>
 
-Reviewed-by: Vlastimil Babka <vbabka@suse.cz>
+Functions that are marked as "inline" are currently also not tracable.
+Apparently, this has been done to prevent differences between different
+configs that caused different functions to be tracable on different
+platforms.
+
+Anyhow, this consideration is not very strong, and tying "inline" and
+"notrace" does not seem very beneficial. The "inline" keyword is just a
+hint, and many functions are currently not tracable due to this reason.
+
+Disconnect "inline" from "notrace".
+
+Signed-off-by: Nadav Amit <namit@vmware.com>
+---
+ include/linux/compiler_types.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/linux/compiler_types.h b/include/linux/compiler_types.h
+index eb0466236661..36a99ef03a1a 100644
+--- a/include/linux/compiler_types.h
++++ b/include/linux/compiler_types.h
+@@ -158,7 +158,7 @@ struct ftrace_likely_data {
+  * of extern inline functions at link time.
+  * A lot of inline functions can cause havoc with function tracing.
+  */
+-#define inline inline __gnu_inline __inline_maybe_unused notrace
++#define inline inline __gnu_inline __inline_maybe_unused
+ 
+ /*
+  * gcc provides both __inline__ and __inline as alternate spellings of
+-- 
+2.25.1
