@@ -1,7 +1,7 @@
-From: Daniel Vetter <daniel@ffwll.ch>
-Date: Wed, 16 Nov 2022 10:50:31 +0000
+From: Hans Verkuil <hverkuil@xs4all.nl>
+Date: Wed, 23 Nov 2022 13:26:10 +0000
 Subject: Re: [PATCH mm-unstable v1 16/20] mm/frame-vector: remove FOLL_FORCE usage
-Message-Id: <Y3TAd14jCBSKeqsL@phenom.ffwll.local>
+Message-Id: <36dd800b-d96b-af39-d0de-a5a8ca1034dd@xs4all.nl>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20221116102659.70287-1-david@redhat.com>
  <20221116102659.70287-17-david@redhat.com>
@@ -9,14 +9,30 @@ In-Reply-To: <20221116102659.70287-17-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, dri-devel@lists.freedesktop.org, Hans Verkuil <hverkuil@xs4all.nl>, linux-mm@kvack.org, Nadav Amit <namit@vmware.com>, linux-kselftest@vger.kernel.org, sparclinux@vger.kernel.org, Shuah Khan <shuah@kernel.org>, Marek Szyprowski <m.szyprowski@samsung.com>, Andrea Arcangeli <aarcange@redhat.com>, linux-samsung-soc@vger.kernel.org, linux-rdma@vger.kernel.org, x86@kernel.org, Hugh Dickins <hughd@google.com>, Matthew Wilcox <willy@infradead.org>, Christoph Hellwig <hch@infradead.org>, Jason Gunthorpe <jgg@ziepe.ca>, Vlastimil Babka <vbabka@suse.cz>, linux-media@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>, John Hubbard <jhubbard@nvidia.com>, linux-um@lists.infradead.org, etnaviv@lists.freedesktop.org, Alex Williamson <alex.williamson@redhat.com>, Peter Xu <peterx@redhat.com>, Muchun Song <songmuchun@bytedance.com>, Mauro Carvalho Chehab <mchehab@kernel.org>, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, Oded Gabbay <ogabbay@kernel.org>, linux-mips@vger.kernel.org, Tomasz Figa <tfiga@chromium.org>, linux-perf-users@vger.kernel.org, linux-security-module@vger.kernel.org, linux-alpha@vger.kernel.org, linux-fsdevel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Mike Kravetz <mike.kravetz@oracle.com>
+To: David Hildenbrand <david@redhat.com>, Tomasz Figa <tfiga@chromium.org>
+Cc: x86@kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, etnaviv@lists.freedesktop.org, dri-devel@lists.freedesktop.org, linux-samsung-soc@vger.kernel.org, linux-rdma@vger.kernel.org, linux-media@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-mm@kvack.org, linux-perf-users@vger.kernel.org, linux-security-module@vger.kernel.org, linux-kselftest@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Jason Gunthorpe <jgg@ziepe.ca>, John Hubbard <jhubbard@nvidia.com>, Peter Xu <peterx@redhat.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Andrea Arcangeli <aarcange@redhat.com>, Hugh Dickins <hughd@google.com>, Nadav Amit <namit@vmware.com>, Vlastimil Babka <vbabka@suse.cz>, Matthew Wilcox <willy@infradead.org>, Mike Kravetz <mike.kravetz@oracle.com>, Muchun Song <songmuchun@bytedance.com>, Shuah Khan <shuah@kernel.org>, Lucas Stach <l.stach@pengutronix.de>, David Airlie <airlied@gmail.com>, Oded Gabbay <ogabbay@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Christoph Hellwig <hch@infradead.org>, Alex Williamson <alex.williamson@redhat.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Mauro Carvalho Chehab <mchehab@kernel.org>, linux-kernel@vger.kernel.org
 
-On Wed, Nov 16, 2022 at 11:26:55AM +0100, David Hildenbrand wrote:
+Hi David, Tomasz,
+
+On 16/11/2022 11:26, David Hildenbrand wrote:
 > FOLL_FORCE is really only for ptrace access. According to commit
 > 707947247e95 ("media: videobuf2-vmalloc: get_userptr: buffers are always
 > writable"), get_vaddr_frames() currently pins all pages writable as a
 > workaround for issues with read-only buffers.
+
+I've decided to revert 707947247e95: I have not been able to reproduce the problem
+described in that commit, and Tomasz reported that it caused problems with a
+specific use-case they encountered. I'll post that patch soon and I expect it
+to land in 6.2. It will cause a conflict with this patch, though.
+
+If the problem described in that patch occurs again, then I will revisit it
+and hopefully do a better job than I did before. That commit was not my
+finest moment.
+
+Regards,
+
+	Hans
+
 > 
 > FOLL_FORCE, however, seems to be a legacy leftover as it predates
 > commit 707947247e95 ("media: videobuf2-vmalloc: get_userptr: buffers are
@@ -31,11 +47,6 @@ On Wed, Nov 16, 2022 at 11:26:55AM +0100, David Hildenbrand wrote:
 > Cc: Marek Szyprowski <m.szyprowski@samsung.com>
 > Cc: Mauro Carvalho Chehab <mchehab@kernel.org>
 > Signed-off-by: David Hildenbrand <david@redhat.com>
-
-Also code I looked at while looking at follow_pfn stuff
-
-Reviewed-by: Daniel Vetter <daniel.vetter@ffwll.ch>
-
 > ---
 >  drivers/media/common/videobuf2/frame_vector.c | 2 +-
 >  1 file changed, 1 insertion(+), 1 deletion(-)
@@ -53,11 +64,3 @@ Reviewed-by: Daniel Vetter <daniel.vetter@ffwll.ch>
 >  				  (struct page **)(vec->ptrs));
 >  	if (ret > 0) {
 >  		vec->got_ref = true;
-> -- 
-> 2.38.1
-> 
-
--- 
-Daniel Vetter
-Software Engineer, Intel Corporation
-http://blog.ffwll.ch
