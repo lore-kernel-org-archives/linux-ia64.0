@@ -1,7 +1,7 @@
-From: Daniel Vetter <daniel@ffwll.ch>
-Date: Wed, 16 Nov 2022 10:48:56 +0000
+From: Hans Verkuil <hverkuil@xs4all.nl>
+Date: Wed, 23 Nov 2022 13:17:35 +0000
 Subject: Re: [PATCH mm-unstable v1 13/20] media: videobuf-dma-sg: remove FOLL_FORCE usage
-Message-Id: <Y3TAGAUIo/IR+tAa@phenom.ffwll.local>
+Message-Id: <73481668-9c41-7d01-d328-bd137a57c0b3@xs4all.nl>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20221116102659.70287-1-david@redhat.com>
  <20221116102659.70287-14-david@redhat.com>
@@ -9,10 +9,10 @@ In-Reply-To: <20221116102659.70287-14-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, dri-devel@lists.freedesktop.org, linux-mm@kvack.org, Nadav Amit <namit@vmware.com>, linux-kselftest@vger.kernel.org, sparclinux@vger.kernel.org, Shuah Khan <shuah@kernel.org>, Andrea Arcangeli <aarcange@redhat.com>, linux-samsung-soc@vger.kernel.org, linux-rdma@vger.kernel.org, x86@kernel.org, Hugh Dickins <hughd@google.com>, Matthew Wilcox <willy@infradead.org>, Christoph Hellwig <hch@infradead.org>, Jason Gunthorpe <jgg@ziepe.ca>, Vlastimil Babka <vbabka@suse.cz>, linux-media@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>, John Hubbard <jhubbard@nvidia.com>, linux-um@lists.infradead.org, etnaviv@lists.freedesktop.org, Alex Williamson <alex.williamson@redhat.com>, Peter Xu <peterx@redhat.com>, Muchun Song <songmuchun@bytedance.com>, Mauro Carvalho Chehab <mchehab@kernel.org>, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, Oded Gabbay <ogabbay@kernel.org>, linux-mips@vger.kernel.org, linux-perf-users@vger.kernel.org, linux-security-module@vger.kernel.org, linux-alpha@vger.kernel.org, linux-fsdevel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Mike Kravetz <mike.kravetz@oracle.com>
+To: David Hildenbrand <david@redhat.com>, linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, dri-devel@lists.freedesktop.org, linux-mm@kvack.org, Nadav Amit <namit@vmware.com>, linux-kselftest@vger.kernel.org, sparclinux@vger.kernel.org, Shuah Khan <shuah@kernel.org>, Andrea Arcangeli <aarcange@redhat.com>, linux-samsung-soc@vger.kernel.org, linux-rdma@vger.kernel.org, x86@kernel.org, Hugh Dickins <hughd@google.com>, Matthew Wilcox <willy@infradead.org>, Christoph Hellwig <hch@infradead.org>, Jason Gunthorpe <jgg@ziepe.ca>, Vlastimil Babka <vbabka@suse.cz>, linux-media@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>, John Hubbard <jhubbard@nvidia.com>, linux-um@lists.infradead.org, etnaviv@lists.freedesktop.org, Alex Williamson <alex.williamson@redhat.com>, Peter Xu <peterx@redhat.com>, Muchun Song <songmuchun@bytedance.com>, Mauro Carvalho Chehab <mchehab@kernel.org>, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, Oded Gabbay <ogabbay@kernel.org>, linux-mips@vger.kernel.org, linux-perf-users@vger.kernel.org, linux-security-module@vger.kernel.org, linux-alpha@vger.kernel.org, linux-fsdevel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Mike Kravetz <mike.kravetz@oracle.com>
 
-On Wed, Nov 16, 2022 at 11:26:52AM +0100, David Hildenbrand wrote:
+On 16/11/2022 11:26, David Hildenbrand wrote:
 > GUP now supports reliable R/O long-term pinning in COW mappings, such
 > that we break COW early. MAP_SHARED VMAs only use the shared zeropage so
 > far in one corner case (DAXFS file with holes), which can be ignored
@@ -26,10 +26,11 @@ On Wed, Nov 16, 2022 at 11:26:52AM +0100, David Hildenbrand wrote:
 > Cc: Mauro Carvalho Chehab <mchehab@kernel.org>
 > Signed-off-by: David Hildenbrand <david@redhat.com>
 
-I looked at this a while ago when going through some of the follow_pfn
-stuff, so
+Acked-by: Hans Verkuil <hverkuil-cisco@xs4all.nl>
 
-Reviewed-by: Daniel Vetter <daniel.vetter@ffwll.ch>
+Looks good!
+
+	Hans
 
 > ---
 >  drivers/media/v4l2-core/videobuf-dma-sg.c | 14 +++++---------
@@ -77,11 +78,3 @@ Reviewed-by: Daniel Vetter <daniel.vetter@ffwll.ch>
 >  
 >  	if (err != dma->nr_pages) {
 >  		dma->nr_pages = (err >= 0) ? err : 0;
-> -- 
-> 2.38.1
-> 
-
--- 
-Daniel Vetter
-Software Engineer, Intel Corporation
-http://blog.ffwll.ch
