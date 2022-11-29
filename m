@@ -1,116 +1,130 @@
-From: Nadav Amit <namit@vmware.com>
-Date: Tue, 29 Nov 2022 04:25:38 +0000
+From: Steven Rostedt <rostedt@goodmis.org>
+Date: Tue, 29 Nov 2022 15:06:47 +0000
 Subject: Re: [PATCH 3/3] compiler: inline does not imply notrace
-Message-Id: <2CFF9131-48E9-44D3-93CA-976C47106092@vmware.com>
+Message-Id: <20221129100647.4957579e@gandalf.local.home>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20221122195329.252654-1-namit@vmware.com>
- <20221122195329.252654-4-namit@vmware.com>
- <de999ab8-78ff-44f7-aacc-68561897c6e2@app.fastmail.com>
- <B764D38F-470D-4022-A818-73814F442473@vmware.com>
- <4BDE3655-CCC3-412B-9DDB-226485113706@vmware.com>
- <20221128231532.40210855@gandalf.local.home>
-In-Reply-To: <20221128231532.40210855@gandalf.local.home>
+        <20221122195329.252654-4-namit@vmware.com>
+        <de999ab8-78ff-44f7-aacc-68561897c6e2@app.fastmail.com>
+        <B764D38F-470D-4022-A818-73814F442473@vmware.com>
+        <4BDE3655-CCC3-412B-9DDB-226485113706@vmware.com>
+        <20221128231532.40210855@gandalf.local.home>
+        <2CFF9131-48E9-44D3-93CA-976C47106092@vmware.com>
+In-Reply-To: <2CFF9131-48E9-44D3-93CA-976C47106092@vmware.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Nadav Amit <namit@vmware.com>
 Cc: Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, kernel list <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>, Linux-Arch <linux-arch@vger.kernel.org>, Linux-MM <linux-mm@kvack.org>, Andy Lutomirski <luto@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, X86 ML <x86@kernel.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, Andrew Morton <akpm@linux-foundation.org>
 
-T24gTm92IDI4LCAyMDIyLCBhdCA4OjE1IFBNLCBTdGV2ZW4gUm9zdGVkdCA8cm9zdGVkdEBnb29k
-bWlzLm9yZz4gd3JvdGU6DQoNCj4gISEgRXh0ZXJuYWwgRW1haWwNCj4gDQo+IE9uIFR1ZSwgMjkg
-Tm92IDIwMjIgMDI6MzY6MjIgKzAwMDANCj4gTmFkYXYgQW1pdCA8bmFtaXRAdm13YXJlLmNvbT4g
-d3JvdGU6DQo+IA0KPj4gT24gTm92IDIyLCAyMDIyLCBhdCAxMjo1MSBQTSwgTmFkYXYgQW1pdCA8
-bmFtaXRAdm13YXJlLmNvbT4gd3JvdGU6DQo+PiANCj4+PiBCdXQgbW9yZSBpbXBvcnRhbnRseSwg
-dGhlIGN1cnJlbnQg4oCcaW5saW5l4oCdLT7igJ1ub3RyYWNl4oCdIHNvbHV0aW9uIGp1c3QgcGFw
-ZXJzDQo+Pj4gb3ZlciBtaXNzaW5nIOKAnG5vdHJhY2XigJ0gYW5ub3RhdGlvbnMuIEFueW9uZSBj
-YW4gcmVtb3ZlIHRoZSDigJxpbmxpbmXigJ0gYXQgYW55DQo+Pj4gZ2l2ZW4gbW9tZW50IHNpbmNl
-IHRoZXJlIGlzIG5vIGRpcmVjdCAob3IgaW5kaXJlY3QpIHJlbGF0aW9uc2hpcCBiZXR3ZWVuDQo+
-Pj4g4oCcaW5saW5l4oCdIGFuZCDigJxub3RyYWNl4oCdLiBJdCBzZWVtcyB0byBtZSBhbGwgcmFu
-ZG9tIGFuZCBib3VuZCB0byBmYWlsIGF0IHNvbWUNCj4+PiBwb2ludC4NCj4+IA0KPj4gUGV0ZXIs
-IFN0ZXZlbiwgKGFuZCBvdGhlcnMpLA0KPj4gDQo+PiBCZXlvbmQgdGhlIGlzc3VlcyB0aGF0IGFy
-ZSBhZGRyZXNzZWQgaW4gdGhpcyBwYXRjaC1zZXQsIEkgZW5jb3VudGVyZWQgb25lDQo+PiBtb3Jl
-LCB3aGljaCByZWl0ZXJhdGVzIHRoZSBmYWN0IHRoYXQgdGhlIGhldXJpc3RpY3Mgb2YgbWFya2lu
-ZyDigJxpbmxpbmXigJ0NCj4+IGZ1bmN0aW9ucyBhcyDigJxub3RyYWNl4oCdIGlzIG5vdCBnb29k
-IGVub3VnaC4NCj4+IA0KPj4gQmVmb3JlIEkgc2VuZCBhIHBhdGNoLCBJIHdvdWxkIGxpa2UgdG8g
-Z2V0IHlvdXIgZmVlZGJhY2suIEkgaW5jbHVkZSBhIHNwbGF0DQo+PiBiZWxvdy4gSXQgYXBwZWFl
-cnMgdGhlIGV4ZWN1dGlvbiBtaWdodCBnZXQgc3R1Y2sgc2luY2Ugc29tZSBmdW5jdGlvbnMgdGhh
-dA0KPj4gY2FuIGJlIHVzZWQgZm9yIGZ1bmN0aW9uIHRyYWNpbmcgY2FuIGJlIHRyYWNlZCB0aGVt
-c2VsdmVzLg0KPj4gDQo+PiBGb3IgZXhhbXBsZSwgX19rZXJuZWxfdGV4dF9hZGRyZXNzKCkgYW5k
-IHVud2luZF9nZXRfcmV0dXJuX2FkZHJlc3MoKSBhcmUNCj4+IHRyYWNlYWJsZS4gSSB0aGluayB0
-aGF0IHdlIG5lZWQgdG8gZGlzYWxsb3cgdGhlIHRyYWNpbmcgb2YgYWxsIGZ1bmN0aW9ucw0KPj4g
-dGhhdCBhcmUgY2FsbGVkIGRpcmVjdGx5IGFuZCBpbmRpcmVjdGx5IGZyb20gZnVuY3Rpb25fc3Rh
-Y2tfdHJhY2VfY2FsbCgpDQo+PiAoaS5lLiwgdGhleSBhcmUgaW4gdGhlIGR5bmFtaWMgZXh0ZW50
-IG9mIGZ1bmN0aW9uX3N0YWNrX3RyYWNlX2NhbGwpLg0KPiANCj4gSG93IGRpZCB0aGlzIGhhcHBl
-bi4gSXQgc2hvdWxkIGJlIGFibGUgdG8gaGFuZGxlIHJlY3Vyc2lvbjoNCj4gDQo+IHN0YXRpYyB2
-b2lkDQo+IGZ1bmN0aW9uX3N0YWNrX3RyYWNlX2NhbGwodW5zaWduZWQgbG9uZyBpcCwgdW5zaWdu
-ZWQgbG9uZyBwYXJlbnRfaXAsDQo+ICAgICAgICAgICAgICAgICAgICAgICAgICBzdHJ1Y3QgZnRy
-YWNlX29wcyAqb3AsIHN0cnVjdCBmdHJhY2VfcmVncyAqZnJlZ3MpDQo+IHsNCj4gICAgICAgIHN0
-cnVjdCB0cmFjZV9hcnJheSAqdHIgPSBvcC0+cHJpdmF0ZTsNCj4gICAgICAgIHN0cnVjdCB0cmFj
-ZV9hcnJheV9jcHUgKmRhdGE7DQo+ICAgICAgICB1bnNpZ25lZCBsb25nIGZsYWdzOw0KPiAgICAg
-ICAgbG9uZyBkaXNhYmxlZDsNCj4gICAgICAgIGludCBjcHU7DQo+ICAgICAgICB1bnNpZ25lZCBp
-bnQgdHJhY2VfY3R4Ow0KPiANCj4gICAgICAgIGlmICh1bmxpa2VseSghdHItPmZ1bmN0aW9uX2Vu
-YWJsZWQpKQ0KPiAgICAgICAgICAgICAgICByZXR1cm47DQo+IA0KPiAgICAgICAgLyoNCj4gICAg
-ICAgICAqIE5lZWQgdG8gdXNlIHJhdywgc2luY2UgdGhpcyBtdXN0IGJlIGNhbGxlZCBiZWZvcmUg
-dGhlDQo+ICAgICAgICAgKiByZWN1cnNpdmUgcHJvdGVjdGlvbiBpcyBwZXJmb3JtZWQuDQo+ICAg
-ICAgICAgKi8NCj4gICAgICAgIGxvY2FsX2lycV9zYXZlKGZsYWdzKTsNCj4gICAgICAgIGNwdSA9
-IHJhd19zbXBfcHJvY2Vzc29yX2lkKCk7DQo+ICAgICAgICBkYXRhID0gcGVyX2NwdV9wdHIodHIt
-PmFycmF5X2J1ZmZlci5kYXRhLCBjcHUpOw0KPiAgICAgICAgZGlzYWJsZWQgPSBhdG9taWNfaW5j
-X3JldHVybigmZGF0YS0+ZGlzYWJsZWQpOw0KPiANCj4gICAgICAgIGlmIChsaWtlbHkoZGlzYWJs
-ZWQgPT0gMSkpIHsgPDw8LS0tLSBUaGlzIHN0b3BzIHJlY3Vyc2lvbg0KPiANCj4gICAgICAgICAg
-ICAgICAgdHJhY2VfY3R4ID0gdHJhY2luZ19nZW5fY3R4X2ZsYWdzKGZsYWdzKTsNCj4gICAgICAg
-ICAgICAgICAgdHJhY2VfZnVuY3Rpb24odHIsIGlwLCBwYXJlbnRfaXAsIHRyYWNlX2N0eCk7DQo+
-ICAgICAgICAgICAgICAgIF9fdHJhY2Vfc3RhY2sodHIsIHRyYWNlX2N0eCwgU1RBQ0tfU0tJUCk7
-DQo+ICAgICAgICB9DQo+IA0KPiAgICAgICAgYXRvbWljX2RlYygmZGF0YS0+ZGlzYWJsZWQpOw0K
-PiAgICAgICAgbG9jYWxfaXJxX3Jlc3RvcmUoZmxhZ3MpOw0KPiB9DQo+IA0KPiBFYWNoIG9mIHRo
-ZSBzdGFjayB0cmFjZSBmdW5jdGlvbnMgbWF5IHJlY3Vyc2UgYmFjayBpbnRvIHRoaXMgZnVuY3Rp
-b24sIGJ1dA0KPiBpdCB3aWxsIG5vdCByZWN1cnNlIGZ1cnRoZXIuIEhvdyBkaWQgaXQgY3Jhc2g/
-DQoNClVnaC4gVGhhbmtzLiBJIGRpZG7igJl0IGtub3cgdGhhdCAtIHNvIHlvdXIgaW5wdXQgaXMg
-cmVhbGx5IGhlbHBmdWwuDQoNCkkgd2lsbCBuZWVkIHRvIGZ1cnRoZXIgZGVidWcgaXQsIGJ1dCB0
-aGlzIGlzc3VlIGRvZXMgbm90IG9jY3VyIGV2ZXJ5IHRpbWUuDQoNClRoZSBrZXJuZWwgZGlkbuKA
-mXQgY3Jhc2ggZXhhY3RseSAtIGl04oCZcyBtb3JlIG9mIGEgZGVhZGxvY2suIEkgaGF2ZSBsb2Nr
-ZGVwDQplbmFibGVkLCBzbyBpdCBpcyBub3QgYSBkZWFkbG9jayB0aGF0IGxvY2tkZXAga25vd3Mu
-IENvdWxkIGl0IGJlIHRoYXQNCnNvbWVob3cgdGhpbmdzIGp1c3Qgc2xvd2VkIGRvd24gZHVlIHRv
-IElQSXMgYW5kIG1vc3RseS1kaXNhYmxlZCBJUlFzPyBJIGhhdmUNCm5vIGlkZWEuIEkgd291bGQg
-bmVlZCB0byByZWNyZWF0ZSB0aGUgc2NlbmFyaW8uIA0KDQpGb3IgdGhlIHJlY29yZCwgSSB0cmll
-ZCB0byBzYXZlZCBzb21lIGRldGFpbHMgaW4gdGhlIHByZXZpb3VzIGVtYWlsLiBJdCB3YXMNCmtp
-bmQgb2YgaGFyZCB0byB1bmRlcnN0YW5kIHdoYXTigJlzIGdvaW5nIG9uIG9uIHRoZSBvdGhlciBj
-b3Jlcywgc2luY2UgdGhlDQp0cmFjZSBvZiBvdGhlciBjb3JlcyB3YXMgaW50ZXJsZWF2ZWQuIEkg
-ZXh0cmFjdCB0aGUgcGFydHMgZnJvbSB0aGF0IEkgdGhpbmsNCnRoZSByZWZlciB0byB0aGUgYW5v
-dGhlciBDUFUgKHllcywgdGhlIG91dHB1dCBpcyByZWFsbHkgc2xvdywgYXMgc2VlbiBpbiB0aGUN
-CnRpbWVzdGFtcHMpOg0KDQpbNTMxNDEzLjkyMzYyOF0gQ29kZTogMDAgMDAgMzEgYzAgZWIgZjEg
-MGYgMWYgODAgMDAgMDAgMDAgMDAgZTggMWIgMmUgMTYgM2UgNTUgNDggODkgZTUgYzYgMDcgMDAg
-MGYgMWYgMDAgZjcgYzYgMDAgMDIgMDAgMDAgNzQgMDYgZmIgMGYgMWYgNDQgMDAgMDAgPGJmPiAw
-MSAwMCAwMCAwMCBlOCA5OSBkYSBmMSBmZSA2NSA4YiAwNSBmMiA5OSBkNyA3ZCA4NSBjMCA3NCAw
-MiA1ZA0KDQpBbGwgY29kZQ0KPT09PT09PT0NCjA6IDAwIDAwIGFkZCAlYWwsKCVyYXgpDQoyOiAz
-MSBjMCB4b3IgJWVheCwlZWF4DQo0OiBlYiBmMSBqbXAgMHhmZmZmZmZmZmZmZmZmZmY3DQo2OiAw
-ZiAxZiA4MCAwMCAwMCAwMCAwMCBub3BsIDB4MCglcmF4KQ0KZDogZTggMWIgMmUgMTYgM2UgY2Fs
-bCAweDNlMTYyZTJkDQoxMjogNTUgcHVzaCAlcmJwDQoxMzogNDggODkgZTUgbW92ICVyc3AsJXJi
-cA0KMTY6IGM2IDA3IDAwIG1vdmIgJDB4MCwoJXJkaSkNCjE5OiAwZiAxZiAwMCBub3BsICglcmF4
-KQ0KMWM6IGY3IGM2IDAwIDAyIDAwIDAwIHRlc3QgJDB4MjAwLCVlc2kNCjIyOiA3NCAwNiBqZSAw
-eDJhDQoyNDogZmIgc3RpIA0KMjU6IDBmIDFmIDQ0IDAwIDAwIG5vcGwgMHgwKCVyYXgsJXJheCwx
-KQ0KMmE6KiBiZiAwMSAwMCAwMCAwMCBtb3YgJDB4MSwlZWRpIDwtLSB0cmFwcGluZyBpbnN0cnVj
-dGlvbg0KMmY6IGU4IDk5IGRhIGYxIGZlIGNhbGwgMHhmZmZmZmZmZmZlZjFkYWNkDQozNDogNjUg
-OGIgMDUgZjIgOTkgZDcgN2QgbW92ICVnczoweDdkZDc5OWYyKCVyaXApLCVlYXggIyAweDdkZDc5
-YTJkDQozYjogODUgYzAgdGVzdCAlZWF4LCVlYXgNCjNkOiA3NCAwMiBqZSAweDQxDQozZjogNWQg
-cG9wICVyYnANCg0KQ29kZSBzdGFydGluZyB3aXRoIHRoZSBmYXVsdGluZyBpbnN0cnVjdGlvbg0K
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQ0KMDogYmYgMDEgMDAg
-MDAgMDAgbW92ICQweDEsJWVkaQ0KNTogZTggOTkgZGEgZjEgZmUgY2FsbCAweGZmZmZmZmZmZmVm
-MWRhYTMNCmE6IDY1IDhiIDA1IGYyIDk5IGQ3IDdkIG1vdiAlZ3M6MHg3ZGQ3OTlmMiglcmlwKSwl
-ZWF4ICMgMHg3ZGQ3OWEwMw0KMTE6IDg1IGMwIHRlc3QgJWVheCwlZWF4DQoxMzogNzQgMDIgamUg
-MHgxNw0KMTU6IDVkIHBvcCAlcmJwDQoNCls1MzE0MTQuMDY2NzY1XSBSU1A6IDAwMTg6ZmZmZmM5
-MDAwYzlhNzdkOCBFRkxBR1M6IDAwMDAwMjA2DQpbNTMxNDE0LjA3Nzk0M10gUklQOiAwMDEwOnNt
-cF9jYWxsX2Z1bmN0aW9uX21hbnlfY29uZCAoa2VybmVsL3NtcC5jOjQ0MyBrZXJuZWwvc21wLmM6
-OTg4KSANCls1MzE0MTYuOTg3MzUxXSBvbl9lYWNoX2NwdV9jb25kX21hc2sgKGtlcm5lbC9zbXAu
-YzoxMTU1KSANCls1MzE0MTYuMjA1ODYyXSA/IHRleHRfcG9rZV9tZW1zZXQgKGFyY2gveDg2L2tl
-cm5lbC9hbHRlcm5hdGl2ZS5jOjEyOTYpIA0KWzUzMTQxNi42ODEyOTRdID8gdGV4dF9wb2tlX21l
-bXNldCAoYXJjaC94ODYva2VybmVsL2FsdGVybmF0aXZlLmM6MTI5NikgDQpbNTMxNDE3LjQ2ODQ0
-M10gdGV4dF9wb2tlX2JwX2JhdGNoIChhcmNoL3g4Ni9rZXJuZWwvYWx0ZXJuYXRpdmUuYzoxNTUz
-KSANCls1MzE0MTguOTM5OTIzXSBhcmNoX2Z0cmFjZV91cGRhdGVfdHJhbXBvbGluZSAoYXJjaC94
-ODYva2VybmVsL2Z0cmFjZS5jOjUwMCkNCls1MzE0MTkuODgyMDU1XSA/IGZ0cmFjZV9ub19waWRf
-d3JpdGUgKGtlcm5lbC90cmFjZS9mdHJhY2UuYzo3ODY0KSANCls1MzE0MjAuNTEwMzc2XSBmdHJh
-Y2VfdXBkYXRlX3BpZF9mdW5jIChrZXJuZWwvdHJhY2UvZnRyYWNlLmM6Mzc0IChkaXNjcmltaW5h
-dG9yIDEpKQ0KWzUzMTQyMC43ODQ3MDNdIGZ0cmFjZV9waWRfb3BlbiAoa2VybmVsL3RyYWNlL2Z0
-cmFjZS5jOjI5MTgga2VybmVsL3RyYWNlL2Z0cmFjZS5jOjI5MzIga2VybmVsL3RyYWNlL2Z0cmFj
-ZS5jOjc3MjUga2VybmVsL3RyYWNlL2Z0cmFjZS5jOjc4MzUga2VybmVsL3RyYWNlL2Z0cmFjZS5j
-Ojc4NjUpIA0KWzUzMTQyMS44NTEyOTRdIHZmc19vcGVuIChmcy9vcGVuLmM6MTAxNykNCg0KDQoN
-Cg=
+On Tue, 29 Nov 2022 04:25:38 +0000
+Nadav Amit <namit@vmware.com> wrote:
+
+
+> I will need to further debug it, but this issue does not occur every time.
+> 
+> The kernel didn’t crash exactly - it’s more of a deadlock. I have lockdep
+> enabled, so it is not a deadlock that lockdep knows. Could it be that
+> somehow things just slowed down due to IPIs and mostly-disabled IRQs? I have
+> no idea. I would need to recreate the scenario. 
+
+You have lockdep enabled and you are running function tracing with stack
+trace on? So you are doing a stack trace on *every* function that is traced?
+
+I don't think you hit a deadlock, I think you hit a live lock. You could
+possibly slow the system down so much that when an interrupt finishes it's
+time for it to be triggered again, and you never make forward progress.
+
+> 
+> For the record, I tried to saved some details in the previous email. It was
+> kind of hard to understand what’s going on on the other cores, since the
+> trace of other cores was interleaved. I extract the parts from that I think
+> the refer to the another CPU (yes, the output is really slow, as seen in the
+> timestamps):
+> 
+> [531413.923628] Code: 00 00 31 c0 eb f1 0f 1f 80 00 00 00 00 e8 1b 2e 16 3e 55 48 89 e5 c6 07 00 0f 1f 00 f7 c6 00 02 00 00 74 06 fb 0f 1f 44 00 00 <bf> 01 00 00 00 e8 99 da f1 fe 65 8b 05 f2 99 d7 7d 85 c0 74 02 5d
+> 
+> All code
+> ====
+> 0: 00 00 add %al,(%rax)
+> 2: 31 c0 xor %eax,%eax
+> 4: eb f1 jmp 0xfffffffffffffff7
+> 6: 0f 1f 80 00 00 00 00 nopl 0x0(%rax)
+> d: e8 1b 2e 16 3e call 0x3e162e2d
+> 12: 55 push %rbp
+> 13: 48 89 e5 mov %rsp,%rbp
+> 16: c6 07 00 movb $0x0,(%rdi)
+> 19: 0f 1f 00 nopl (%rax)
+> 1c: f7 c6 00 02 00 00 test $0x200,%esi
+> 22: 74 06 je 0x2a
+> 24: fb sti 
+> 25: 0f 1f 44 00 00 nopl 0x0(%rax,%rax,1)
+> 2a:* bf 01 00 00 00 mov $0x1,%edi <-- trapping instruction
+> 2f: e8 99 da f1 fe call 0xfffffffffef1dacd
+> 34: 65 8b 05 f2 99 d7 7d mov %gs:0x7dd799f2(%rip),%eax # 0x7dd79a2d
+> 3b: 85 c0 test %eax,%eax
+> 3d: 74 02 je 0x41
+> 3f: 5d pop %rbp
+> 
+> Code starting with the faulting instruction
+> =====================> 0: bf 01 00 00 00 mov $0x1,%edi
+> 5: e8 99 da f1 fe call 0xfffffffffef1daa3
+> a: 65 8b 05 f2 99 d7 7d mov %gs:0x7dd799f2(%rip),%eax # 0x7dd79a03
+> 11: 85 c0 test %eax,%eax
+> 13: 74 02 je 0x17
+> 15: 5d pop %rbp
+> 
+> [531414.066765] RSP: 0018:ffffc9000c9a77d8 EFLAGS: 00000206
+> [531414.077943] RIP: 0010:smp_call_function_many_cond (kernel/smp.c:443 kernel/smp.c:988) 
+> [531416.987351] on_each_cpu_cond_mask (kernel/smp.c:1155) 
+> [531416.205862] ? text_poke_memset (arch/x86/kernel/alternative.c:1296) 
+> [531416.681294] ? text_poke_memset (arch/x86/kernel/alternative.c:1296) 
+> [531417.468443] text_poke_bp_batch (arch/x86/kernel/alternative.c:1553) 
+> [531418.939923] arch_ftrace_update_trampoline (arch/x86/kernel/ftrace.c:500)
+> [531419.882055] ? ftrace_no_pid_write (kernel/trace/ftrace.c:7864) 
+> [531420.510376] ftrace_update_pid_func (kernel/trace/ftrace.c:374 (discriminator 1))
+> [531420.784703] ftrace_pid_open (kernel/trace/ftrace.c:2918 kernel/trace/ftrace.c:2932 kernel/trace/ftrace.c:7725 kernel/trace/ftrace.c:7835 kernel/trace/ftrace.c:7865) 
+> [531421.851294] vfs_open (fs/open.c:1017)
+> 
+> 
+> 
+
+Do you have an issue with normal function tracing, and not tracing every
+function.
+
+I should also add this, because it detects recursion faster than the
+atomic_inc_return() does.
+
+-- Steve
+
+diff --git a/kernel/trace/trace_functions.c b/kernel/trace/trace_functions.c
+index 9f1bfbe105e8..93ec756dc24b 100644
+--- a/kernel/trace/trace_functions.c
++++ b/kernel/trace/trace_functions.c
+@@ -221,12 +221,18 @@ function_stack_trace_call(unsigned long ip, unsigned long parent_ip,
+ 	struct trace_array_cpu *data;
+ 	unsigned long flags;
+ 	long disabled;
++	int bit;
+ 	int cpu;
+ 	unsigned int trace_ctx;
+ 
+ 	if (unlikely(!tr->function_enabled))
+ 		return;
+ 
++	/* Faster than atomic_inc_return() */
++	bit = ftrace_test_recursion_trylock(ip, parent_ip);
++	if (bit < 0)
++		return;
++
+ 	/*
+ 	 * Need to use raw, since this must be called before the
+ 	 * recursive protection is performed.
+@@ -244,6 +250,7 @@ function_stack_trace_call(unsigned long ip, unsigned long parent_ip,
+ 
+ 	atomic_dec(&data->disabled);
+ 	local_irq_restore(flags);
++	ftrace_test_recursion_unlock(bit);
+ }
+ 
+ static inline bool is_repeat_check(struct trace_array *tr,
