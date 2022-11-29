@@ -1,130 +1,41 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Date: Tue, 29 Nov 2022 15:06:47 +0000
+From: Nadav Amit <namit@vmware.com>
+Date: Tue, 29 Nov 2022 17:56:14 +0000
 Subject: Re: [PATCH 3/3] compiler: inline does not imply notrace
-Message-Id: <20221129100647.4957579e@gandalf.local.home>
+Message-Id: <58C520A0-D263-4F08-B1CB-D32C043865F2@vmware.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20221122195329.252654-1-namit@vmware.com>
-        <20221122195329.252654-4-namit@vmware.com>
-        <de999ab8-78ff-44f7-aacc-68561897c6e2@app.fastmail.com>
-        <B764D38F-470D-4022-A818-73814F442473@vmware.com>
-        <4BDE3655-CCC3-412B-9DDB-226485113706@vmware.com>
-        <20221128231532.40210855@gandalf.local.home>
-        <2CFF9131-48E9-44D3-93CA-976C47106092@vmware.com>
-In-Reply-To: <2CFF9131-48E9-44D3-93CA-976C47106092@vmware.com>
+ <20221122195329.252654-4-namit@vmware.com>
+ <de999ab8-78ff-44f7-aacc-68561897c6e2@app.fastmail.com>
+ <B764D38F-470D-4022-A818-73814F442473@vmware.com>
+ <4BDE3655-CCC3-412B-9DDB-226485113706@vmware.com>
+ <20221128231532.40210855@gandalf.local.home>
+ <2CFF9131-48E9-44D3-93CA-976C47106092@vmware.com>
+ <20221129100647.4957579e@gandalf.local.home>
+In-Reply-To: <20221129100647.4957579e@gandalf.local.home>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Nadav Amit <namit@vmware.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Steven Rostedt <rostedt@goodmis.org>
 Cc: Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, kernel list <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>, Linux-Arch <linux-arch@vger.kernel.org>, Linux-MM <linux-mm@kvack.org>, Andy Lutomirski <luto@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, X86 ML <x86@kernel.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, Andrew Morton <akpm@linux-foundation.org>
 
-On Tue, 29 Nov 2022 04:25:38 +0000
-Nadav Amit <namit@vmware.com> wrote:
-
-
-> I will need to further debug it, but this issue does not occur every time.
-> 
-> The kernel didn’t crash exactly - it’s more of a deadlock. I have lockdep
-> enabled, so it is not a deadlock that lockdep knows. Could it be that
-> somehow things just slowed down due to IPIs and mostly-disabled IRQs? I have
-> no idea. I would need to recreate the scenario. 
-
-You have lockdep enabled and you are running function tracing with stack
-trace on? So you are doing a stack trace on *every* function that is traced?
-
-I don't think you hit a deadlock, I think you hit a live lock. You could
-possibly slow the system down so much that when an interrupt finishes it's
-time for it to be triggered again, and you never make forward progress.
-
-> 
-> For the record, I tried to saved some details in the previous email. It was
-> kind of hard to understand what’s going on on the other cores, since the
-> trace of other cores was interleaved. I extract the parts from that I think
-> the refer to the another CPU (yes, the output is really slow, as seen in the
-> timestamps):
-> 
-> [531413.923628] Code: 00 00 31 c0 eb f1 0f 1f 80 00 00 00 00 e8 1b 2e 16 3e 55 48 89 e5 c6 07 00 0f 1f 00 f7 c6 00 02 00 00 74 06 fb 0f 1f 44 00 00 <bf> 01 00 00 00 e8 99 da f1 fe 65 8b 05 f2 99 d7 7d 85 c0 74 02 5d
-> 
-> All code
-> ====
-> 0: 00 00 add %al,(%rax)
-> 2: 31 c0 xor %eax,%eax
-> 4: eb f1 jmp 0xfffffffffffffff7
-> 6: 0f 1f 80 00 00 00 00 nopl 0x0(%rax)
-> d: e8 1b 2e 16 3e call 0x3e162e2d
-> 12: 55 push %rbp
-> 13: 48 89 e5 mov %rsp,%rbp
-> 16: c6 07 00 movb $0x0,(%rdi)
-> 19: 0f 1f 00 nopl (%rax)
-> 1c: f7 c6 00 02 00 00 test $0x200,%esi
-> 22: 74 06 je 0x2a
-> 24: fb sti 
-> 25: 0f 1f 44 00 00 nopl 0x0(%rax,%rax,1)
-> 2a:* bf 01 00 00 00 mov $0x1,%edi <-- trapping instruction
-> 2f: e8 99 da f1 fe call 0xfffffffffef1dacd
-> 34: 65 8b 05 f2 99 d7 7d mov %gs:0x7dd799f2(%rip),%eax # 0x7dd79a2d
-> 3b: 85 c0 test %eax,%eax
-> 3d: 74 02 je 0x41
-> 3f: 5d pop %rbp
-> 
-> Code starting with the faulting instruction
-> =====================> 0: bf 01 00 00 00 mov $0x1,%edi
-> 5: e8 99 da f1 fe call 0xfffffffffef1daa3
-> a: 65 8b 05 f2 99 d7 7d mov %gs:0x7dd799f2(%rip),%eax # 0x7dd79a03
-> 11: 85 c0 test %eax,%eax
-> 13: 74 02 je 0x17
-> 15: 5d pop %rbp
-> 
-> [531414.066765] RSP: 0018:ffffc9000c9a77d8 EFLAGS: 00000206
-> [531414.077943] RIP: 0010:smp_call_function_many_cond (kernel/smp.c:443 kernel/smp.c:988) 
-> [531416.987351] on_each_cpu_cond_mask (kernel/smp.c:1155) 
-> [531416.205862] ? text_poke_memset (arch/x86/kernel/alternative.c:1296) 
-> [531416.681294] ? text_poke_memset (arch/x86/kernel/alternative.c:1296) 
-> [531417.468443] text_poke_bp_batch (arch/x86/kernel/alternative.c:1553) 
-> [531418.939923] arch_ftrace_update_trampoline (arch/x86/kernel/ftrace.c:500)
-> [531419.882055] ? ftrace_no_pid_write (kernel/trace/ftrace.c:7864) 
-> [531420.510376] ftrace_update_pid_func (kernel/trace/ftrace.c:374 (discriminator 1))
-> [531420.784703] ftrace_pid_open (kernel/trace/ftrace.c:2918 kernel/trace/ftrace.c:2932 kernel/trace/ftrace.c:7725 kernel/trace/ftrace.c:7835 kernel/trace/ftrace.c:7865) 
-> [531421.851294] vfs_open (fs/open.c:1017)
-> 
-> 
-> 
-
-Do you have an issue with normal function tracing, and not tracing every
-function.
-
-I should also add this, because it detects recursion faster than the
-atomic_inc_return() does.
-
--- Steve
-
-diff --git a/kernel/trace/trace_functions.c b/kernel/trace/trace_functions.c
-index 9f1bfbe105e8..93ec756dc24b 100644
---- a/kernel/trace/trace_functions.c
-+++ b/kernel/trace/trace_functions.c
-@@ -221,12 +221,18 @@ function_stack_trace_call(unsigned long ip, unsigned long parent_ip,
- 	struct trace_array_cpu *data;
- 	unsigned long flags;
- 	long disabled;
-+	int bit;
- 	int cpu;
- 	unsigned int trace_ctx;
- 
- 	if (unlikely(!tr->function_enabled))
- 		return;
- 
-+	/* Faster than atomic_inc_return() */
-+	bit = ftrace_test_recursion_trylock(ip, parent_ip);
-+	if (bit < 0)
-+		return;
-+
- 	/*
- 	 * Need to use raw, since this must be called before the
- 	 * recursive protection is performed.
-@@ -244,6 +250,7 @@ function_stack_trace_call(unsigned long ip, unsigned long parent_ip,
- 
- 	atomic_dec(&data->disabled);
- 	local_irq_restore(flags);
-+	ftrace_test_recursion_unlock(bit);
- }
- 
- static inline bool is_repeat_check(struct trace_array *tr,
+T24gTm92IDI5LCAyMDIyLCBhdCA3OjA2IEFNLCBTdGV2ZW4gUm9zdGVkdCA8cm9zdGVkdEBnb29k
+bWlzLm9yZz4gd3JvdGU6DQoNCj4gT24gVHVlLCAyOSBOb3YgMjAyMiAwNDoyNTozOCArMDAwMA0K
+PiBOYWRhdiBBbWl0IDxuYW1pdEB2bXdhcmUuY29tPiB3cm90ZToNCj4gDQo+IA0KPj4gSSB3aWxs
+IG5lZWQgdG8gZnVydGhlciBkZWJ1ZyBpdCwgYnV0IHRoaXMgaXNzdWUgZG9lcyBub3Qgb2NjdXIg
+ZXZlcnkgdGltZS4NCj4+IA0KPj4gVGhlIGtlcm5lbCBkaWRu4oCZdCBjcmFzaCBleGFjdGx5IC0g
+aXTigJlzIG1vcmUgb2YgYSBkZWFkbG9jay4gSSBoYXZlIGxvY2tkZXANCj4+IGVuYWJsZWQsIHNv
+IGl0IGlzIG5vdCBhIGRlYWRsb2NrIHRoYXQgbG9ja2RlcCBrbm93cy4gQ291bGQgaXQgYmUgdGhh
+dA0KPj4gc29tZWhvdyB0aGluZ3MganVzdCBzbG93ZWQgZG93biBkdWUgdG8gSVBJcyBhbmQgbW9z
+dGx5LWRpc2FibGVkIElSUXM/IEkgaGF2ZQ0KPj4gbm8gaWRlYS4gSSB3b3VsZCBuZWVkIHRvIHJl
+Y3JlYXRlIHRoZSBzY2VuYXJpby4gDQo+IA0KPiBZb3UgaGF2ZSBsb2NrZGVwIGVuYWJsZWQgYW5k
+IHlvdSBhcmUgcnVubmluZyBmdW5jdGlvbiB0cmFjaW5nIHdpdGggc3RhY2sNCj4gdHJhY2Ugb24/
+IFNvIHlvdSBhcmUgZG9pbmcgYSBzdGFjayB0cmFjZSBvbiAqZXZlcnkqIGZ1bmN0aW9uIHRoYXQg
+aXMgdHJhY2VkPw0KPiANCj4gSSBkb24ndCB0aGluayB5b3UgaGl0IGEgZGVhZGxvY2ssIEkgdGhp
+bmsgeW91IGhpdCBhIGxpdmUgbG9jay4gWW91IGNvdWxkDQo+IHBvc3NpYmx5IHNsb3cgdGhlIHN5
+c3RlbSBkb3duIHNvIG11Y2ggdGhhdCB3aGVuIGFuIGludGVycnVwdCBmaW5pc2hlcyBpdCdzDQo+
+IHRpbWUgZm9yIGl0IHRvIGJlIHRyaWdnZXJlZCBhZ2FpbiwgYW5kIHlvdSBuZXZlciBtYWtlIGZv
+cndhcmQgcHJvZ3Jlc3MuDQoNCkl0IG1pZ2h0IGJlIHRoZSBpc3N1ZS4gUGVyaGFwcyBJIGhhdmUg
+YSBidWcsIGJlY2F1c2UgbXkgY29kZSB3YXMgc3VwcG9zZWQgdG8NCmVpdGhlciBlbmFibGUgc3Rh
+Y2stdHJhY2luZyB3aXRoIHNlbGVjdGVkIGZ1bmN0aW9ucyBvciBjcmVhdGUgYSB0cmFjZSBhbGwN
+CmZ1bmN0aW9uIGJ1dCAqd2l0aG91dCogc3RhY2stdHJhY2luZy4NCg0KVGhhbmtzIGZvciB0aGUg
+cG9pbnRlciBhbmQgc29ycnkgZm9yIHRoZSBub2lzZS4NCg0KUmVnYXJkcywNCk5hZGF2
