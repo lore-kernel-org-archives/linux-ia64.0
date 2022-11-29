@@ -1,230 +1,299 @@
-From: Nadav Amit <namit@vmware.com>
-Date: Tue, 29 Nov 2022 02:36:22 +0000
+From: Steven Rostedt <rostedt@goodmis.org>
+Date: Tue, 29 Nov 2022 04:15:32 +0000
 Subject: Re: [PATCH 3/3] compiler: inline does not imply notrace
-Message-Id: <4BDE3655-CCC3-412B-9DDB-226485113706@vmware.com>
+Message-Id: <20221128231532.40210855@gandalf.local.home>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20221122195329.252654-1-namit@vmware.com>
- <20221122195329.252654-4-namit@vmware.com>
- <de999ab8-78ff-44f7-aacc-68561897c6e2@app.fastmail.com>
- <B764D38F-470D-4022-A818-73814F442473@vmware.com>
-In-Reply-To: <B764D38F-470D-4022-A818-73814F442473@vmware.com>
+        <20221122195329.252654-4-namit@vmware.com>
+        <de999ab8-78ff-44f7-aacc-68561897c6e2@app.fastmail.com>
+        <B764D38F-470D-4022-A818-73814F442473@vmware.com>
+        <4BDE3655-CCC3-412B-9DDB-226485113706@vmware.com>
+In-Reply-To: <4BDE3655-CCC3-412B-9DDB-226485113706@vmware.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>, Steven Rostedt <rostedt@goodmis.org>
-Cc: Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, kernel list <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>, Linux-Arch <linux-arch@vger.kernel.org>, Linux-MM <linux-mm@kvack.org>, Andy Lutomirski <luto@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, X86 ML <x86@kernel.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, Andrew Morton <akpm@linux-foundation.org>, Steven Rostedt <rostedt@goodmis.org>, Nadav Amit <nadav.amit@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Nadav Amit <namit@vmware.com>
+Cc: Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, kernel list <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>, Linux-Arch <linux-arch@vger.kernel.org>, Linux-MM <linux-mm@kvack.org>, Andy Lutomirski <luto@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, X86 ML <x86@kernel.org>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Johannes Berg <johannes@sipsolutions.net>, Andrew Morton <akpm@linux-foundation.org>, Nadav Amit <nadav.amit@gmail.com>
 
-T24gTm92IDIyLCAyMDIyLCBhdCAxMjo1MSBQTSwgTmFkYXYgQW1pdCA8bmFtaXRAdm13YXJlLmNv
-bT4gd3JvdGU6DQoNCj4gQnV0IG1vcmUgaW1wb3J0YW50bHksIHRoZSBjdXJyZW50IOKAnGlubGlu
-ZeKAnS0+4oCdbm90cmFjZeKAnSBzb2x1dGlvbiBqdXN0IHBhcGVycw0KPiBvdmVyIG1pc3Npbmcg
-4oCcbm90cmFjZeKAnSBhbm5vdGF0aW9ucy4gQW55b25lIGNhbiByZW1vdmUgdGhlIOKAnGlubGlu
-ZeKAnSBhdCBhbnkNCj4gZ2l2ZW4gbW9tZW50IHNpbmNlIHRoZXJlIGlzIG5vIGRpcmVjdCAob3Ig
-aW5kaXJlY3QpIHJlbGF0aW9uc2hpcCBiZXR3ZWVuDQo+IOKAnGlubGluZeKAnSBhbmQg4oCcbm90
-cmFjZeKAnS4gSXQgc2VlbXMgdG8gbWUgYWxsIHJhbmRvbSBhbmQgYm91bmQgdG8gZmFpbCBhdCBz
-b21lDQo+IHBvaW50Lg0KDQpQZXRlciwgU3RldmVuLCAoYW5kIG90aGVycyksDQoNCkJleW9uZCB0
-aGUgaXNzdWVzIHRoYXQgYXJlIGFkZHJlc3NlZCBpbiB0aGlzIHBhdGNoLXNldCwgSSBlbmNvdW50
-ZXJlZCBvbmUNCm1vcmUsIHdoaWNoIHJlaXRlcmF0ZXMgdGhlIGZhY3QgdGhhdCB0aGUgaGV1cmlz
-dGljcyBvZiBtYXJraW5nIOKAnGlubGluZeKAnQ0KZnVuY3Rpb25zIGFzIOKAnG5vdHJhY2XigJ0g
-aXMgbm90IGdvb2QgZW5vdWdoLg0KDQpCZWZvcmUgSSBzZW5kIGEgcGF0Y2gsIEkgd291bGQgbGlr
-ZSB0byBnZXQgeW91ciBmZWVkYmFjay4gSSBpbmNsdWRlIGEgc3BsYXQNCmJlbG93LiBJdCBhcHBl
-YWVycyB0aGUgZXhlY3V0aW9uIG1pZ2h0IGdldCBzdHVjayBzaW5jZSBzb21lIGZ1bmN0aW9ucyB0
-aGF0DQpjYW4gYmUgdXNlZCBmb3IgZnVuY3Rpb24gdHJhY2luZyBjYW4gYmUgdHJhY2VkIHRoZW1z
-ZWx2ZXMuDQoNCkZvciBleGFtcGxlLCBfX2tlcm5lbF90ZXh0X2FkZHJlc3MoKSBhbmQgdW53aW5k
-X2dldF9yZXR1cm5fYWRkcmVzcygpIGFyZQ0KdHJhY2VhYmxlLiBJIHRoaW5rIHRoYXQgd2UgbmVl
-ZCB0byBkaXNhbGxvdyB0aGUgdHJhY2luZyBvZiBhbGwgZnVuY3Rpb25zDQp0aGF0IGFyZSBjYWxs
-ZWQgZGlyZWN0bHkgYW5kIGluZGlyZWN0bHkgZnJvbSBmdW5jdGlvbl9zdGFja190cmFjZV9jYWxs
-KCkNCihpLmUuLCB0aGV5IGFyZSBpbiB0aGUgZHluYW1pYyBleHRlbnQgb2YgZnVuY3Rpb25fc3Rh
-Y2tfdHJhY2VfY2FsbCkuDQoNCkluIHRoZSBsYWNrIG9mIGEgcHJvcGVyIGF1dG9tYXRlZCBzdGF0
-aWMgYW5hbHlzaXMgdG9vbCBmb3IgdGhlIG1hdHRlciwgSQ0Kc3VnZ2VzdCB0aGUgZm9sbG93aW5n
-IHNvbHV0aW9uLCBidXQgSSB3b3VsZCBsaWtlIHRvIGNoZWNrIHRoYXQgeW91IGFyZSBvaw0Kd2l0
-aCB0aGUgZ3JhbnVsYXJpdHkgb2YgdGhlIOKAnG5vdHJhY2XigJ0gYXMgSSBwcm9wb3NlLiBBZ2Fp
-biwgbm90ZSB0aGF0IHRoaXMgaXMNCm5vdCBjYXVzZWQgYnkgdGhpcyDigJxpbmxpbmXigJ0gcGF0
-Y2gsIGJ1dCBhbiBpc3N1ZSB0aGF0IGV4aXN0ZWQgYmVmb3JlLg0KDQotLSA+OCAtLQ0KDQpBdXRo
-b3I6IE5hZGF2IEFtaXQgPG5hbWl0QHZtd2FyZS5jb20+DQpEYXRlOiAgIFR1ZSBOb3YgMjkgMDI6
-MjU6MTIgMjAyMiArMDAwMA0KDQogICAgdHJhY2U6IERpc2FibGUgdHJhY2luZyBvZiBjb2RlIGNh
-bGxlZCBmcm9tIGZ1bmN0aW9uX3N0YWNrX3RyYWNlX2NhbGwoKQ0KICAgIA0KICAgIFNpZ25lZC1v
-ZmYtYnk6IE5hZGF2IEFtaXQgPG5hbWl0QHZtd2FyZS5jb20+DQoNCmRpZmYgLS1naXQgYS9hcmNo
-L3g4Ni9rZXJuZWwvTWFrZWZpbGUgYi9hcmNoL3g4Ni9rZXJuZWwvTWFrZWZpbGUNCmluZGV4IGEy
-MGE1ZWJmYWNkNy4uMTg1OTMzMjIyZDA4IDEwMDY0NA0KLS0tIGEvYXJjaC94ODYva2VybmVsL01h
-a2VmaWxlDQorKysgYi9hcmNoL3g4Ni9rZXJuZWwvTWFrZWZpbGUNCkBAIC0yMSw2ICsyMSwxMCBA
-QCBDRkxBR1NfUkVNT1ZFX2Z0cmFjZS5vID0gLXBnDQogQ0ZMQUdTX1JFTU9WRV9lYXJseV9wcmlu
-dGsubyA9IC1wZw0KIENGTEFHU19SRU1PVkVfaGVhZDY0Lm8gPSAtcGcNCiBDRkxBR1NfUkVNT1ZF
-X3Nldi5vID0gLXBnDQorQ0ZMQUdTX1JFTU9WRV91bndpbmRfZnJhbWUubyA9IC1wZw0KK0NGTEFH
-U19SRU1PVkVfdW53aW5kX2d1ZXNzLm8gPSAtcGcNCitDRkxBR1NfUkVNT1ZFX3Vud2luZF9vcmMu
-byA9IC1wZw0KK0NGTEFHU19SRU1PVkVfc3RhY2t0cmFjZS5vID0gLXBnDQogZW5kaWYNCiANCiBL
-QVNBTl9TQU5JVElaRV9oZWFkJChCSVRTKS5vICAgICAgICAgICAgICAgICAgICAgICAgICAgOj0g
-bg0KZGlmZiAtLWdpdCBhL2tlcm5lbC9NYWtlZmlsZSBiL2tlcm5lbC9NYWtlZmlsZQ0KaW5kZXgg
-MzE4Nzg5YzcyOGQzLi5kNjg4ZWFiMWUxZjggMTAwNjQ0DQotLS0gYS9rZXJuZWwvTWFrZWZpbGUN
-CisrKyBiL2tlcm5lbC9NYWtlZmlsZQ0KQEAgLTE5LDYgKzE5LDggQEAgb2JqLSQoQ09ORklHX01V
-TFRJVVNFUikgKz0gZ3JvdXBzLm8NCiBpZmRlZiBDT05GSUdfRlVOQ1RJT05fVFJBQ0VSDQogIyBE
-byBub3QgdHJhY2UgaW50ZXJuYWwgZnRyYWNlIGZpbGVzDQogQ0ZMQUdTX1JFTU9WRV9pcnFfd29y
-ay5vID0gJChDQ19GTEFHU19GVFJBQ0UpDQorQ0ZMQUdTX1JFTU9WRV9zdGFja3RyYWNlLm8gPSAk
-KENDX0ZMQUdTX0ZUUkFDRSkNCitDRkxBR1NfUkVNT1ZFX2V4dGFibGUubyA9ICQoQ0NfRkxBR1Nf
-RlRSQUNFKQ0KIGVuZGlmDQogDQogIyBQcmV2ZW50cyBmbGlja2VyIG9mIHVuaW50ZXJlc3Rpbmcg
-X19kb19zb2Z0aXJxKCkvX19sb2NhbF9iaF9kaXNhYmxlX2lwKCkNCg0KDQotLS0NCg0KDQpbNTMx
-Mzk0LjQ0NzE4NV0gc2NoZWQ6IFJUIHRocm90dGxpbmcgYWN0aXZhdGVkDQpbNTMxMzk0Ljg3NDU0
-MV0gTk1JIHdhdGNoZG9nOiBXYXRjaGRvZyBkZXRlY3RlZCBoYXJkIExPQ0tVUCBvbiBjcHUgMjYN
-Cls1MzEzOTQuODc0NzQ1XSBNb2R1bGVzIGxpbmtlZCBpbjogenJhbQ0KWzUzMTM5NC44NzUyMjRd
-IENQVTogMjYgUElEOiAwIENvbW06IHN3YXBwZXIvMjYgTm90IHRhaW50ZWQgNi4wLjAtcmM2dW1l
-bSsgIzI5DQpbNTMxMzk0Ljg3NTQyNl0gSGFyZHdhcmUgbmFtZTogQ2lzY28gU3lzdGVtcyBJbmMg
-VUNTQy1DMjIwLU01U1gvVUNTQy1DMjIwLU01U1gsIEJJT1MgQzIyME01LjQuMC4xaS4wLjA1MjIx
-OTAyMjYgMDUvMjIvMjAxOQ0KWzUzMTM5NC44NzU2MjNdIFJJUDogMDAxMDpwb2tlX2ludDNfaGFu
-ZGxlciAoYXJjaC94ODYva2VybmVsL2FsdGVybmF0aXZlLmM6MTQzNSkgDQpbNTMxMzk0Ljg3NTkw
-M10gQ29kZTogNDUgMDEgNDggOGIgMGQgYzggMGEgNDUgMDEgNDkgOGQgNzAgZmYgODMgZjggMDEg
-N2YgMWMgNDggNjMgMzkgMzEgYzAgNDggODEgYzcgMDAgMDAgMDAgODEgNDggMzkgZmUgNzQgM2Mg
-ZjAgZmYgMGQgYjMgMGEgNDUgMDEgPGMzPiAzMSBjMCBjMyA0OSA4OSBjYSA0OSA4OSBjMSA0OSBk
-MSBlOSA0YyA4OSBjOSA0OCBjMSBlMSAwNCA0YyAwMQ0KQWxsIGNvZGUNCj09PT09PT09DQogICAw
-Ogk0NSAwMSA0OCA4YiAgICAgICAgICAJYWRkICAgICVyOWQsLTB4NzUoJXI4KQ0KICAgNDoJMGQg
-YzggMGEgNDUgMDEgICAgICAgCW9yICAgICAkMHgxNDUwYWM4LCVlYXgNCiAgIDk6CTQ5IDhkIDcw
-IGZmICAgICAgICAgIAlsZWEgICAgLTB4MSglcjgpLCVyc2kNCiAgIGQ6CTgzIGY4IDAxICAgICAg
-ICAgICAgIAljbXAgICAgJDB4MSwlZWF4DQogIDEwOgk3ZiAxYyAgICAgICAgICAgICAgICAJamcg
-ICAgIDB4MmUNCiAgMTI6CTQ4IDYzIDM5ICAgICAgICAgICAgIAltb3ZzbHEgKCVyY3gpLCVyZGkN
-CiAgMTU6CTMxIGMwICAgICAgICAgICAgICAgIAl4b3IgICAgJWVheCwlZWF4DQogIDE3Ogk0OCA4
-MSBjNyAwMCAwMCAwMCA4MSAJYWRkICAgICQweGZmZmZmZmZmODEwMDAwMDAsJXJkaQ0KICAxZToJ
-NDggMzkgZmUgICAgICAgICAgICAgCWNtcCAgICAlcmRpLCVyc2kNCiAgMjE6CTc0IDNjICAgICAg
-ICAgICAgICAgIAlqZSAgICAgMHg1Zg0KICAyMzoJZjAgZmYgMGQgYjMgMGEgNDUgMDEgCWxvY2sg
-ZGVjbCAweDE0NTBhYjMoJXJpcCkgICAgICAgICMgMHgxNDUwYWRkDQogIDJhOioJYzMgICAgICAg
-ICAgICAgICAgICAgCXJldCAgICAJCTwtLSB0cmFwcGluZyBpbnN0cnVjdGlvbg0KICAyYjoJMzEg
-YzAgICAgICAgICAgICAgICAgCXhvciAgICAlZWF4LCVlYXgNCiAgMmQ6CWMzICAgICAgICAgICAg
-ICAgICAgIAlyZXQgICAgDQogIDJlOgk0OSA4OSBjYSAgICAgICAgICAgICAJbW92ICAgICVyY3gs
-JXIxMA0KICAzMToJNDkgODkgYzEgICAgICAgICAgICAgCW1vdiAgICAlcmF4LCVyOQ0KICAzNDoJ
-NDkgZDEgZTkgICAgICAgICAgICAgCXNociAgICAlcjkNCiAgMzc6CTRjIDg5IGM5ICAgICAgICAg
-ICAgIAltb3YgICAgJXI5LCVyY3gNCiAgM2E6CTQ4IGMxIGUxIDA0ICAgICAgICAgIAlzaGwgICAg
-JDB4NCwlcmN4DQogIDNlOgk0YyAgICAgICAgICAgICAgICAgICAJcmV4LldSDQogIDNmOgkwMSAg
-ICAgICAgICAgICAgICAgICAJLmJ5dGUgMHgxDQoNCkNvZGUgc3RhcnRpbmcgd2l0aCB0aGUgZmF1
-bHRpbmcgaW5zdHJ1Y3Rpb24NCj09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT0NCiAgIDA6CWMzICAgICAgICAgICAgICAgICAgIAlyZXQgICAgDQogICAxOgkzMSBjMCAg
-ICAgICAgICAgICAgICAJeG9yICAgICVlYXgsJWVheA0KICAgMzoJYzMgICAgICAgICAgICAgICAg
-ICAgCXJldCAgICANCiAgIDQ6CTQ5IDg5IGNhICAgICAgICAgICAgIAltb3YgICAgJXJjeCwlcjEw
-DQogICA3Ogk0OSA4OSBjMSAgICAgICAgICAgICAJbW92ICAgICVyYXgsJXI5DQogICBhOgk0OSBk
-MSBlOSAgICAgICAgICAgICAJc2hyICAgICVyOQ0KICAgZDoJNGMgODkgYzkgICAgICAgICAgICAg
-CW1vdiAgICAlcjksJXJjeA0KICAxMDoJNDggYzEgZTEgMDQgICAgICAgICAgCXNobCAgICAkMHg0
-LCVyY3gNCiAgMTQ6CTRjICAgICAgICAgICAgICAgICAgIAlyZXguV1INCiAgMTU6CTAxICAgICAg
-ICAgICAgICAgICAgIAkuYnl0ZSAweDENCls1MzEzOTQuODc2MDMxXSBSU1A6IDAwMTg6ZmZmZmM5
-MDAwY2QzODdiMCBFRkxBR1M6IDAwMDAwMDAzDQpbNTMxMzk0Ljg3NjMyMF0gUkFYOiAwMDAwMDAw
-MDAwMDAwMDAxIFJCWDogMDAwMDAwMDAwMDAwMDAwMCBSQ1g6IGZmZmZjOTAwMGNkMzg4YTgNCls1
-MzEzOTQuODc2NDgyXSBSRFg6IGZmZmZjOTAwMGNkMzg3ZDggUlNJOiBmZmZmZmZmZjgxMmJhMzEw
-IFJESTogZmZmZmZmZmZjMDQwOTA5NA0KWzUzMTM5NC44NzY2NTJdIFJCUDogZmZmZmM5MDAwY2Qz
-ODdjOCBSMDg6IGZmZmZmZmZmYzA0MDkwOTkgUjA5OiAwMDAwMDAwMDAwMDAwMDAwDQpbNTMxMzk0
-Ljg3Njc4Ml0gUjEwOiAwMDAwMDAwMDAwMDAwMDAwIFIxMTogMDAwMDAwMDAwMDAwMDAwMCBSMTI6
-IGZmZmZjOTAwMGNkMzg3ZDgNCls1MzEzOTQuODc2OTI3XSBSMTM6IDAwMDAwMDAwMDAwMDAwMDAg
-UjE0OiAwMDAwMDAwMDAwMDAwMDAwIFIxNTogMDAwMDAwMDAwMDAwMDAwMA0KWzUzMTM5NC44Nzcx
-ODBdIEZTOiAgMDAwMDAwMDAwMDAwMDAwMCgwMDAwKSBHUzpmZmZmODhhZmRmOTAwMDAwKDAwMDAp
-IGtubEdTOjAwMDAwMDAwMDAwMDAwMDANCls1MzEzOTQuODc3MzcxXSBDUzogIDAwMTAgRFM6IDAw
-MDAgRVM6IDAwMDAgQ1IwOiAwMDAwMDAwMDgwMDUwMDMzDQpbNTMxMzk0Ljg3NzUwM10gQ1IyOiAw
-MDAwN2VmZDFlNDdiMDFjIENSMzogMDAwMDAwMDAwNmEwYTAwMSBDUjQ6IDAwMDAwMDAwMDA3NzA2
-ZTANCls1MzEzOTQuODc3NjQxXSBEUjA6IDAwMDAwMDAwMDAwMDAwMDAgRFIxOiAwMDAwMDAwMDAw
-MDAwMDAwIERSMjogMDAwMDAwMDAwMDAwMDAwMA0KWzUzMTM5NC44Nzc4MjJdIERSMzogMDAwMDAw
-MDAwMDAwMDAwMCBEUjY6IDAwMDAwMDAwZmZmZTBmZjAgRFI3OiAwMDAwMDAwMDAwMDAwNDAwDQpb
-NTMxMzk0Ljg3Nzk5M10gUEtSVTogNTU1NTU1NTQNCls1MzEzOTQuODc4MTY0XSBDYWxsIFRyYWNl
-Og0KWzUzMTM5NC44NzgzNTZdICA8SVJRPg0KWzUzMTM5NC44Nzg1NzNdID8gZXhjX2ludDMgKGFy
-Y2gveDg2L2tlcm5lbC90cmFwcy5jOjgxNykgDQpbNTMxMzk0Ljg3OTMwNl0gYXNtX2V4Y19pbnQz
-ICguL2FyY2gveDg2L2luY2x1ZGUvYXNtL2lkdGVudHJ5Lmg6NTY5KSANCls1MzEzOTQuODc5NzI1
-XSBSSVA6IDAwMTA6ZnVuY3Rpb25fc3RhY2tfdHJhY2VfY2FsbCAoa2VybmVsL3RyYWNlL3RyYWNl
-X2Z1bmN0aW9ucy5jOjIxOSkgDQpbNTMxMzk0Ljg4MDA1OF0gQ29kZTogMmIgODEgNDggYzcgYzcg
-ZTAgZTIgMzMgODMgZTggMWMgZmEgZmQgZmYgNDggYzcgYzcgODAgZTYgMWMgODMgZTggNDAgNjEg
-ZmUgMDAgNWQgYzMgY2MgY2MgY2MgY2MgY2MgY2MgY2MgY2MgY2MgY2MgY2MgY2MgY2MgY2MgPDU1
-PiA0OCA4OSBlNSA0MSA1NyA0MSA1NiA0MSA1NSA0MSA1NCA1MyA0OCA4MyBlYyAwOCA0YyA4YiA2
-MiAxOCA0MQ0KQWxsIGNvZGUNCj09PT09PT09DQogICAwOgkyYiA4MSA0OCBjNyBjNyBlMCAgICAJ
-c3ViICAgIC0weDFmMzgzOGI4KCVyY3gpLCVlYXgNCiAgIDY6CWUyIDMzICAgICAgICAgICAgICAg
-IAlsb29wICAgMHgzYg0KICAgODoJODMgZTggMWMgICAgICAgICAgICAgCXN1YiAgICAkMHgxYywl
-ZWF4DQogICBiOglmYSAgICAgICAgICAgICAgICAgICAJY2xpICAgIA0KICAgYzoJZmQgICAgICAg
-ICAgICAgICAgICAgCXN0ZCAgICANCiAgIGQ6CWZmIDQ4IGM3ICAgICAgICAgICAgIAlkZWNsICAg
-LTB4MzkoJXJheCkNCiAgMTA6CWM3IDgwIGU2IDFjIDgzIGU4IDQwIAltb3ZsICAgJDB4ZmU2MTQw
-LC0weDE3N2NlMzFhKCVyYXgpDQogIDE3Ogk2MSBmZSAwMCANCiAgMWE6CTVkICAgICAgICAgICAg
-ICAgICAgIAlwb3AgICAgJXJicA0KICAxYjoJYzMgICAgICAgICAgICAgICAgICAgCXJldCAgICAN
-CiAgMWM6CWNjICAgICAgICAgICAgICAgICAgIAlpbnQzICAgDQogIDFkOgljYyAgICAgICAgICAg
-ICAgICAgICAJaW50MyAgIA0KICAxZToJY2MgICAgICAgICAgICAgICAgICAgCWludDMgICANCiAg
-MWY6CWNjICAgICAgICAgICAgICAgICAgIAlpbnQzICAgDQogIDIwOgljYyAgICAgICAgICAgICAg
-ICAgICAJaW50MyAgIA0KICAyMToJY2MgICAgICAgICAgICAgICAgICAgCWludDMgICANCiAgMjI6
-CWNjICAgICAgICAgICAgICAgICAgIAlpbnQzICAgDQogIDIzOgljYyAgICAgICAgICAgICAgICAg
-ICAJaW50MyAgIA0KICAyNDoJY2MgICAgICAgICAgICAgICAgICAgCWludDMgICANCiAgMjU6CWNj
-ICAgICAgICAgICAgICAgICAgIAlpbnQzICAgDQogIDI2OgljYyAgICAgICAgICAgICAgICAgICAJ
-aW50MyAgIA0KICAyNzoJY2MgICAgICAgICAgICAgICAgICAgCWludDMgICANCiAgMjg6CWNjICAg
-ICAgICAgICAgICAgICAgIAlpbnQzICAgDQogIDI5OgljYyAgICAgICAgICAgICAgICAgICAJaW50
-MyAgIA0KICAyYToqCTU1ICAgICAgICAgICAgICAgICAgIAlwdXNoICAgJXJicAkJPC0tIHRyYXBw
-aW5nIGluc3RydWN0aW9uDQogIDJiOgk0OCA4OSBlNSAgICAgICAgICAgICAJbW92ICAgICVyc3As
-JXJicA0KICAyZToJNDEgNTcgICAgICAgICAgICAgICAgCXB1c2ggICAlcjE1DQogIDMwOgk0MSA1
-NiAgICAgICAgICAgICAgICAJcHVzaCAgICVyMTQNCiAgMzI6CTQxIDU1ICAgICAgICAgICAgICAg
-IAlwdXNoICAgJXIxMw0KICAzNDoJNDEgNTQgICAgICAgICAgICAgICAgCXB1c2ggICAlcjEyDQog
-IDM2Ogk1MyAgICAgICAgICAgICAgICAgICAJcHVzaCAgICVyYngNCiAgMzc6CTQ4IDgzIGVjIDA4
-ICAgICAgICAgIAlzdWIgICAgJDB4OCwlcnNwDQogIDNiOgk0YyA4YiA2MiAxOCAgICAgICAgICAJ
-bW92ICAgIDB4MTgoJXJkeCksJXIxMg0KICAzZjoJNDEgICAgICAgICAgICAgICAgICAgCXJleC5C
-DQoNCkNvZGUgc3RhcnRpbmcgd2l0aCB0aGUgZmF1bHRpbmcgaW5zdHJ1Y3Rpb24NCj09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0NCiAgIDA6CTU1ICAgICAgICAgICAg
-ICAgICAgIAlwdXNoICAgJXJicA0KICAgMToJNDggODkgZTUgICAgICAgICAgICAgCW1vdiAgICAl
-cnNwLCVyYnANCiAgIDQ6CTQxIDU3ICAgICAgICAgICAgICAgIAlwdXNoICAgJXIxNQ0KICAgNjoJ
-NDEgNTYgICAgICAgICAgICAgICAgCXB1c2ggICAlcjE0DQogICA4Ogk0MSA1NSAgICAgICAgICAg
-ICAgICAJcHVzaCAgICVyMTMNCiAgIGE6CTQxIDU0ICAgICAgICAgICAgICAgIAlwdXNoICAgJXIx
-Mg0KICAgYzoJNTMgICAgICAgICAgICAgICAgICAgCXB1c2ggICAlcmJ4DQogICBkOgk0OCA4MyBl
-YyAwOCAgICAgICAgICAJc3ViICAgICQweDgsJXJzcA0KICAxMToJNGMgOGIgNjIgMTggICAgICAg
-ICAgCW1vdiAgICAweDE4KCVyZHgpLCVyMTINCiAgMTU6CTQxICAgICAgICAgICAgICAgICAgIAly
-ZXguQg0KWzUzMTM5NC44ODAyMjVdIFJTUDogMDAxODpmZmZmYzkwMDBjZDM4OGE4IEVGTEFHUzog
-MDAwMDAwODINCls1MzEzOTQuODgwNTM4XSBSQVg6IDAwMDAwMDAwMDAwMDAwMDIgUkJYOiBmZmZm
-YzkwMDBjZDM4OWE4IFJDWDogZmZmZmM5MDAwY2QzODhiMA0KWzUzMTM5NC44ODA3MDJdIFJEWDog
-ZmZmZmZmZmY4MzFjYmVjMCBSU0k6IGZmZmZmZmZmODExMTg5M2YgUkRJOiBmZmZmZmZmZjgxMWIy
-YzgwDQpbNTMxMzk0Ljg4MDg4NF0gUkJQOiBmZmZmYzkwMDBjZDM4OTU4IFIwODogZmZmZmM5MDAw
-ODJmN2Y0OCBSMDk6IDAwMDAwMDAwMDAwMDAwMDENCls1MzEzOTQuODgxMDU1XSBSMTA6IDAwMDAw
-MDAwMDAwMDBlMDAgUjExOiAwMDAwMDAwMDAwMDAwMDAxIFIxMjogZmZmZmM5MDAwY2QzOGE1MA0K
-WzUzMTM5NC44ODEyMjVdIFIxMzogMDAwMDAwMDAwMDAwMDAwMCBSMTQ6IGZmZmY4ODk4NDZlY2Mw
-ODAgUjE1OiAwMDAwMDAwMDAwMDAwMDA0DQpbNTMxMzk0Ljg4MzY5NF0gPyB1bndpbmRfZ2V0X3Jl
-dHVybl9hZGRyZXNzIChhcmNoL3g4Ni9rZXJuZWwvdW53aW5kX2ZyYW1lLmM6MTkgYXJjaC94ODYv
-a2VybmVsL3Vud2luZF9mcmFtZS5jOjE0KSANCls1MzEzOTQuODgzOTg0XSA/IGtlcm5lbF90ZXh0
-X2FkZHJlc3MgKGtlcm5lbC9leHRhYmxlLmM6NzgpIA0KWzUzMTM5NC44ODU0MTBdICA/IDB4ZmZm
-ZmZmZmZjMDQwOTA5NQ0KWzUzMTM5NC44ODY0MzJdICA/IDB4ZmZmZmZmZmZjMDQwOTA5OQ0KWzUz
-MTM5NC44ODcyNzhdICA/IDB4ZmZmZmZmZmZjMDQwOTA5OQ0KWzUzMTM5NC44ODk1NjFdID8gX190
-cmFjZV9zdGFjayAoa2VybmVsL3RyYWNlL3RyYWNlLmM6MzExOSkgDQpbNTMxMzk0Ljg5MDAzNl0g
-PyBfX2tlcm5lbF90ZXh0X2FkZHJlc3MgKGtlcm5lbC9leHRhYmxlLmM6NzgpIA0KWzUzMTM5NC44
-OTExOTZdIF9fa2VybmVsX3RleHRfYWRkcmVzcyAoa2VybmVsL2V4dGFibGUuYzo3OCkgDQpbNTMx
-Mzk0Ljg5MTY1OF0gdW53aW5kX2dldF9yZXR1cm5fYWRkcmVzcyAoYXJjaC94ODYva2VybmVsL3Vu
-d2luZF9mcmFtZS5jOjE5IGFyY2gveDg2L2tlcm5lbC91bndpbmRfZnJhbWUuYzoxNCkgDQpbNTMx
-Mzk0Ljg5MjExMl0gPyBfX2tlcm5lbF90ZXh0X2FkZHJlc3MgKGtlcm5lbC9leHRhYmxlLmM6Nzgp
-IA0KWzUzMTM5NC44OTIzODJdID8gdW53aW5kX2dldF9yZXR1cm5fYWRkcmVzcyAoYXJjaC94ODYv
-a2VybmVsL3Vud2luZF9mcmFtZS5jOjE5IGFyY2gveDg2L2tlcm5lbC91bndpbmRfZnJhbWUuYzox
-NCkgDQpbNTMxMzk0Ljg5Mjc4OV0gPyB3cml0ZV9wcm9maWxlIChrZXJuZWwvc3RhY2t0cmFjZS5j
-OjgzKSANCls1MzEzOTQuODkzMjYwXSBhcmNoX3N0YWNrX3dhbGsgKGFyY2gveDg2L2tlcm5lbC9z
-dGFja3RyYWNlLmM6MjYpIA0KWzUzMTM5NC44OTU2NTBdID8gX190cmFjZV9zdGFjayAoa2VybmVs
-L3RyYWNlL3RyYWNlLmM6MzExOSkgDQpbNTMxMzk0Ljg5NzIwOV0gc3RhY2tfdHJhY2Vfc2F2ZSAo
-a2VybmVsL3N0YWNrdHJhY2UuYzoxMjMpIA0KWzUzMTM5NC44OTgzNDRdIF9fZnRyYWNlX3RyYWNl
-X3N0YWNrIChrZXJuZWwvdHJhY2UvdHJhY2UuYzozMDYxKSANCls1MzEzOTQuODk5NTAwXSA/IHJ0
-X211dGV4X3Bvc3R1bmxvY2sgKGtlcm5lbC9wcmludGsvcHJpbnRrLmM6Mjg5NCkgDQpbNTMxMzk0
-Ljg5OTk3NV0gX190cmFjZV9zdGFjayAoa2VybmVsL3RyYWNlL3RyYWNlLmM6MzExOSkgDQpbNTMx
-Mzk0LjkwMTAyNV0gZnVuY3Rpb25fc3RhY2tfdHJhY2VfY2FsbCAoLi9hcmNoL3g4Ni9pbmNsdWRl
-L2FzbS9hdG9taWMuaDoxMDggLi9pbmNsdWRlL2xpbnV4L2F0b21pYy9hdG9taWMtaW5zdHJ1bWVu
-dGVkLmg6MjU4IGtlcm5lbC90cmFjZS90cmFjZV9mdW5jdGlvbnMuYzoyNDUpIA0KWzUzMTM5NC45
-MDEzNTZdID8gZmJjb25fcmVkcmF3LmNvbnN0cHJvcC4wIChkcml2ZXJzL3ZpZGVvL2ZiZGV2L2Nv
-cmUvZmJjb24uYzoxNjYxKSANCls1MzEzOTQuOTAyNzQ4XSAgMHhmZmZmZmZmZmMwNDA5MDk5DQpb
-NTMxMzk0LjkwNDI4OV0gPyBmYl9nZXRfY29sb3JfZGVwdGggKGRyaXZlcnMvdmlkZW8vZmJkZXYv
-Y29yZS9mYm1lbS5jOjkyKSANCls1MzEzOTQuOTA2MTczXSA/IGNvbnNvbGVfY29uZGl0aW9uYWxf
-c2NoZWR1bGUgKGtlcm5lbC9wcmludGsvcHJpbnRrLmM6Mjg5NSkgDQpbNTMxMzk0LjkwNzI0NF0g
-Y29uc29sZV9jb25kaXRpb25hbF9zY2hlZHVsZSAoa2VybmVsL3ByaW50ay9wcmludGsuYzoyODk1
-KSANCls1MzEzOTQuOTA3NzI3XSBmYmNvbl9yZWRyYXcuY29uc3Rwcm9wLjAgKGRyaXZlcnMvdmlk
-ZW8vZmJkZXYvY29yZS9mYmNvbi5jOjE2NjEpIA0KWzUzMTM5NC45MDgyMDBdID8gY29uc29sZV9j
-b25kaXRpb25hbF9zY2hlZHVsZSAoa2VybmVsL3ByaW50ay9wcmludGsuYzoyODk1KSANCls1MzEz
-OTQuOTA4NTA2XSA/IGZiY29uX3JlZHJhdy5jb25zdHByb3AuMCAoZHJpdmVycy92aWRlby9mYmRl
-di9jb3JlL2ZiY29uLmM6MTY2MSkgDQpbNTMxMzk0LjkxMTIzMF0gZmJjb25fc2Nyb2xsIChkcml2
-ZXJzL3ZpZGVvL2ZiZGV2L2NvcmUvZmJjb24uYzoxODM4KSANCls1MzEzOTQuOTEyNzQzXSBjb25f
-c2Nyb2xsIChkcml2ZXJzL3R0eS92dC92dC5jOjYzMCAoZGlzY3JpbWluYXRvciAxKSkgDQpbNTMx
-Mzk0LjkxNDM2MF0gbGYgKGRyaXZlcnMvdHR5L3Z0L3Z0LmM6MTUwNykgDQpbNTMxMzk0LjkxNDY4
-MF0gPyBsZiAoZHJpdmVycy90dHkvdnQvdnQuYzoxNTAyKSANCls1MzEzOTQuOTE1Nzc5XSB2dF9j
-b25zb2xlX3ByaW50IChkcml2ZXJzL3R0eS92dC92dC5jOjMxMjYpIA0KWzUzMTM5NC45MTgyNDhd
-IGNvbnNvbGVfZW1pdF9uZXh0X3JlY29yZC5jb25zdHByb3AuMCAoa2VybmVsL3ByaW50ay9wcmlu
-dGsuYzoxOTQ1IGtlcm5lbC9wcmludGsvcHJpbnRrLmM6MjczMikgDQpbNTMxMzk0LjkyMjM2NV0g
-Y29uc29sZV91bmxvY2sgKGtlcm5lbC9wcmludGsvcHJpbnRrLmM6Mjc5NCBrZXJuZWwvcHJpbnRr
-L3ByaW50ay5jOjI4NjEpIA0KWzUzMTM5NC45MjQxMjldIHZwcmludGtfZW1pdCAoa2VybmVsL3By
-aW50ay9wcmludGsuYzoyMjcyKSANCls1MzEzOTQuOTI1NzgyXSB2cHJpbnRrX2RlZmF1bHQgKGtl
-cm5lbC9wcmludGsvcHJpbnRrLmM6MjI4MykgDQpbNTMxMzk0LjkyNjMwNl0gdnByaW50ayAoa2Vy
-bmVsL3ByaW50ay9wcmludGtfc2FmZS5jOjUwKSANCls1MzEzOTQuOTI2OTQzXSBfcHJpbnRrIChr
-ZXJuZWwvcHJpbnRrL3ByaW50ay5jOjIyOTYpIA0KWzUzMTM5NC45MjkwMTZdIHBlcmZfZHVyYXRp
-b25fd2Fybi5jb2xkIChrZXJuZWwvZXZlbnRzL2NvcmUuYzo1MTAga2VybmVsL2V2ZW50cy9jb3Jl
-LmM6NTA4KSANCls1MzEzOTQuOTI5NTE4XSBpcnFfd29ya19zaW5nbGUgKGtlcm5lbC9pcnFfd29y
-ay5jOjIxMSkgDQpbNTMxMzk0LjkzMDQ0OV0gaXJxX3dvcmtfcnVuX2xpc3QgKGtlcm5lbC9pcnFf
-d29yay5jOjI0MSAoZGlzY3JpbWluYXRvciAzKSkgDQpbNTMxMzk0LjkzMTE2OV0gaXJxX3dvcmtf
-cnVuIChrZXJuZWwvaXJxX3dvcmsuYzoyNTMpIA0KWzUzMTM5NC45MzE4MTZdIF9fc3lzdmVjX2ly
-cV93b3JrICguL2FyY2gveDg2L2luY2x1ZGUvYXNtL2p1bXBfbGFiZWwuaDoyNyAuL2luY2x1ZGUv
-bGludXgvanVtcF9sYWJlbC5oOjIwNyAuL2FyY2gveDg2L2luY2x1ZGUvYXNtL3RyYWNlL2lycV92
-ZWN0b3JzLmg6NjQgYXJjaC94ODYva2VybmVsL2lycV93b3JrLmM6MjMpIA0KWzUzMTM5NC45MzIy
-NTldIHN5c3ZlY19pcnFfd29yayAoYXJjaC94ODYva2VybmVsL2lycV93b3JrLmM6MTcgKGRpc2Ny
-aW1pbmF0b3IgMTQpKSANCls1MzEzOTQuOTMyNjYwXSAgPC9JUlE+DQpbNTMxMzk0LjkzMjg1NF0g
-IDxUQVNLPg0KWzUzMTM5NC45MzM2MDddIGFzbV9zeXN2ZWNfaXJxX3dvcmsgKC4vYXJjaC94ODYv
-aW5jbHVkZS9hc20vaWR0ZW50cnkuaDo2NzUpDQoNCg0KDQoNCg0K
+On Tue, 29 Nov 2022 02:36:22 +0000
+Nadav Amit <namit@vmware.com> wrote:
+
+> On Nov 22, 2022, at 12:51 PM, Nadav Amit <namit@vmware.com> wrote:
+> 
+> > But more importantly, the current “inline”->”notrace” solution just papers
+> > over missing “notrace” annotations. Anyone can remove the “inline” at any
+> > given moment since there is no direct (or indirect) relationship between
+> > “inline” and “notrace”. It seems to me all random and bound to fail at some
+> > point.  
+> 
+> Peter, Steven, (and others),
+> 
+> Beyond the issues that are addressed in this patch-set, I encountered one
+> more, which reiterates the fact that the heuristics of marking “inline”
+> functions as “notrace” is not good enough.
+> 
+> Before I send a patch, I would like to get your feedback. I include a splat
+> below. It appeaers the execution might get stuck since some functions that
+> can be used for function tracing can be traced themselves.
+> 
+> For example, __kernel_text_address() and unwind_get_return_address() are
+> traceable. I think that we need to disallow the tracing of all functions
+> that are called directly and indirectly from function_stack_trace_call()
+> (i.e., they are in the dynamic extent of function_stack_trace_call).
+
+How did this happen. It should be able to handle recursion:
+
+static void
+function_stack_trace_call(unsigned long ip, unsigned long parent_ip,
+			  struct ftrace_ops *op, struct ftrace_regs *fregs)
+{
+	struct trace_array *tr = op->private;
+	struct trace_array_cpu *data;
+	unsigned long flags;
+	long disabled;
+	int cpu;
+	unsigned int trace_ctx;
+
+	if (unlikely(!tr->function_enabled))
+		return;
+
+	/*
+	 * Need to use raw, since this must be called before the
+	 * recursive protection is performed.
+	 */
+	local_irq_save(flags);
+	cpu = raw_smp_processor_id();
+	data = per_cpu_ptr(tr->array_buffer.data, cpu);
+	disabled = atomic_inc_return(&data->disabled);
+
+	if (likely(disabled = 1)) { <<<---- This stops recursion
+
+		trace_ctx = tracing_gen_ctx_flags(flags);
+		trace_function(tr, ip, parent_ip, trace_ctx);
+		__trace_stack(tr, trace_ctx, STACK_SKIP);
+	}
+
+	atomic_dec(&data->disabled);
+	local_irq_restore(flags);
+}
+
+Each of the stack trace functions may recurse back into this function, but
+it will not recurse further. How did it crash?
+
+-- Steve
+
+
+> 
+> In the lack of a proper automated static analysis tool for the matter, I
+> suggest the following solution, but I would like to check that you are ok
+> with the granularity of the “notrace” as I propose. Again, note that this is
+> not caused by this “inline” patch, but an issue that existed before.
+> 
+> -- >8 --  
+> 
+> Author: Nadav Amit <namit@vmware.com>
+> Date:   Tue Nov 29 02:25:12 2022 +0000
+> 
+>     trace: Disable tracing of code called from function_stack_trace_call()
+>     
+>     Signed-off-by: Nadav Amit <namit@vmware.com>
+> 
+> diff --git a/arch/x86/kernel/Makefile b/arch/x86/kernel/Makefile
+> index a20a5ebfacd7..185933222d08 100644
+> --- a/arch/x86/kernel/Makefile
+> +++ b/arch/x86/kernel/Makefile
+> @@ -21,6 +21,10 @@ CFLAGS_REMOVE_ftrace.o = -pg
+>  CFLAGS_REMOVE_early_printk.o = -pg
+>  CFLAGS_REMOVE_head64.o = -pg
+>  CFLAGS_REMOVE_sev.o = -pg
+> +CFLAGS_REMOVE_unwind_frame.o = -pg
+> +CFLAGS_REMOVE_unwind_guess.o = -pg
+> +CFLAGS_REMOVE_unwind_orc.o = -pg
+> +CFLAGS_REMOVE_stacktrace.o = -pg
+>  endif
+>  
+>  KASAN_SANITIZE_head$(BITS).o                           := n
+> diff --git a/kernel/Makefile b/kernel/Makefile
+> index 318789c728d3..d688eab1e1f8 100644
+> --- a/kernel/Makefile
+> +++ b/kernel/Makefile
+> @@ -19,6 +19,8 @@ obj-$(CONFIG_MULTIUSER) += groups.o
+>  ifdef CONFIG_FUNCTION_TRACER
+>  # Do not trace internal ftrace files
+>  CFLAGS_REMOVE_irq_work.o = $(CC_FLAGS_FTRACE)
+> +CFLAGS_REMOVE_stacktrace.o = $(CC_FLAGS_FTRACE)
+> +CFLAGS_REMOVE_extable.o = $(CC_FLAGS_FTRACE)
+>  endif
+>  
+>  # Prevents flicker of uninteresting __do_softirq()/__local_bh_disable_ip()
+> 
+> 
+> ---
+> 
+> 
+> [531394.447185] sched: RT throttling activated
+> [531394.874541] NMI watchdog: Watchdog detected hard LOCKUP on cpu 26
+> [531394.874745] Modules linked in: zram
+> [531394.875224] CPU: 26 PID: 0 Comm: swapper/26 Not tainted 6.0.0-rc6umem+ #29
+> [531394.875426] Hardware name: Cisco Systems Inc UCSC-C220-M5SX/UCSC-C220-M5SX, BIOS C220M5.4.0.1i.0.0522190226 05/22/2019
+> [531394.875623] RIP: 0010:poke_int3_handler (arch/x86/kernel/alternative.c:1435) 
+> [531394.875903] Code: 45 01 48 8b 0d c8 0a 45 01 49 8d 70 ff 83 f8 01 7f 1c 48 63 39 31 c0 48 81 c7 00 00 00 81 48 39 fe 74 3c f0 ff 0d b3 0a 45 01 <c3> 31 c0 c3 49 89 ca 49 89 c1 49 d1 e9 4c 89 c9 48 c1 e1 04 4c 01
+> All code
+> ====
+>    0:	45 01 48 8b          	add    %r9d,-0x75(%r8)
+>    4:	0d c8 0a 45 01       	or     $0x1450ac8,%eax
+>    9:	49 8d 70 ff          	lea    -0x1(%r8),%rsi
+>    d:	83 f8 01             	cmp    $0x1,%eax
+>   10:	7f 1c                	jg     0x2e
+>   12:	48 63 39             	movslq (%rcx),%rdi
+>   15:	31 c0                	xor    %eax,%eax
+>   17:	48 81 c7 00 00 00 81 	add    $0xffffffff81000000,%rdi
+>   1e:	48 39 fe             	cmp    %rdi,%rsi
+>   21:	74 3c                	je     0x5f
+>   23:	f0 ff 0d b3 0a 45 01 	lock decl 0x1450ab3(%rip)        # 0x1450add
+>   2a:*	c3                   	ret    		<-- trapping instruction
+>   2b:	31 c0                	xor    %eax,%eax
+>   2d:	c3                   	ret    
+>   2e:	49 89 ca             	mov    %rcx,%r10
+>   31:	49 89 c1             	mov    %rax,%r9
+>   34:	49 d1 e9             	shr    %r9
+>   37:	4c 89 c9             	mov    %r9,%rcx
+>   3a:	48 c1 e1 04          	shl    $0x4,%rcx
+>   3e:	4c                   	rex.WR
+>   3f:	01                   	.byte 0x1
+> 
+> Code starting with the faulting instruction
+> =====================>    0:	c3                   	ret    
+>    1:	31 c0                	xor    %eax,%eax
+>    3:	c3                   	ret    
+>    4:	49 89 ca             	mov    %rcx,%r10
+>    7:	49 89 c1             	mov    %rax,%r9
+>    a:	49 d1 e9             	shr    %r9
+>    d:	4c 89 c9             	mov    %r9,%rcx
+>   10:	48 c1 e1 04          	shl    $0x4,%rcx
+>   14:	4c                   	rex.WR
+>   15:	01                   	.byte 0x1
+> [531394.876031] RSP: 0018:ffffc9000cd387b0 EFLAGS: 00000003
+> [531394.876320] RAX: 0000000000000001 RBX: 0000000000000000 RCX: ffffc9000cd388a8
+> [531394.876482] RDX: ffffc9000cd387d8 RSI: ffffffff812ba310 RDI: ffffffffc0409094
+> [531394.876652] RBP: ffffc9000cd387c8 R08: ffffffffc0409099 R09: 0000000000000000
+> [531394.876782] R10: 0000000000000000 R11: 0000000000000000 R12: ffffc9000cd387d8
+> [531394.876927] R13: 0000000000000000 R14: 0000000000000000 R15: 0000000000000000
+> [531394.877180] FS:  0000000000000000(0000) GS:ffff88afdf900000(0000) knlGS:0000000000000000
+> [531394.877371] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> [531394.877503] CR2: 00007efd1e47b01c CR3: 0000000006a0a001 CR4: 00000000007706e0
+> [531394.877641] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> [531394.877822] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
+> [531394.877993] PKRU: 55555554
+> [531394.878164] Call Trace:
+> [531394.878356]  <IRQ>
+> [531394.878573] ? exc_int3 (arch/x86/kernel/traps.c:817) 
+> [531394.879306] asm_exc_int3 (./arch/x86/include/asm/idtentry.h:569) 
+> [531394.879725] RIP: 0010:function_stack_trace_call (kernel/trace/trace_functions.c:219) 
+> [531394.880058] Code: 2b 81 48 c7 c7 e0 e2 33 83 e8 1c fa fd ff 48 c7 c7 80 e6 1c 83 e8 40 61 fe 00 5d c3 cc cc cc cc cc cc cc cc cc cc cc cc cc cc <55> 48 89 e5 41 57 41 56 41 55 41 54 53 48 83 ec 08 4c 8b 62 18 41
+> All code
+> ====
+>    0:	2b 81 48 c7 c7 e0    	sub    -0x1f3838b8(%rcx),%eax
+>    6:	e2 33                	loop   0x3b
+>    8:	83 e8 1c             	sub    $0x1c,%eax
+>    b:	fa                   	cli    
+>    c:	fd                   	std    
+>    d:	ff 48 c7             	decl   -0x39(%rax)
+>   10:	c7 80 e6 1c 83 e8 40 	movl   $0xfe6140,-0x177ce31a(%rax)
+>   17:	61 fe 00 
+>   1a:	5d                   	pop    %rbp
+>   1b:	c3                   	ret    
+>   1c:	cc                   	int3   
+>   1d:	cc                   	int3   
+>   1e:	cc                   	int3   
+>   1f:	cc                   	int3   
+>   20:	cc                   	int3   
+>   21:	cc                   	int3   
+>   22:	cc                   	int3   
+>   23:	cc                   	int3   
+>   24:	cc                   	int3   
+>   25:	cc                   	int3   
+>   26:	cc                   	int3   
+>   27:	cc                   	int3   
+>   28:	cc                   	int3   
+>   29:	cc                   	int3   
+>   2a:*	55                   	push   %rbp		<-- trapping instruction
+>   2b:	48 89 e5             	mov    %rsp,%rbp
+>   2e:	41 57                	push   %r15
+>   30:	41 56                	push   %r14
+>   32:	41 55                	push   %r13
+>   34:	41 54                	push   %r12
+>   36:	53                   	push   %rbx
+>   37:	48 83 ec 08          	sub    $0x8,%rsp
+>   3b:	4c 8b 62 18          	mov    0x18(%rdx),%r12
+>   3f:	41                   	rex.B
+> 
+> Code starting with the faulting instruction
+> =====================>    0:	55                   	push   %rbp
+>    1:	48 89 e5             	mov    %rsp,%rbp
+>    4:	41 57                	push   %r15
+>    6:	41 56                	push   %r14
+>    8:	41 55                	push   %r13
+>    a:	41 54                	push   %r12
+>    c:	53                   	push   %rbx
+>    d:	48 83 ec 08          	sub    $0x8,%rsp
+>   11:	4c 8b 62 18          	mov    0x18(%rdx),%r12
+>   15:	41                   	rex.B
+> [531394.880225] RSP: 0018:ffffc9000cd388a8 EFLAGS: 00000082
+> [531394.880538] RAX: 0000000000000002 RBX: ffffc9000cd389a8 RCX: ffffc9000cd388b0
+> [531394.880702] RDX: ffffffff831cbec0 RSI: ffffffff8111893f RDI: ffffffff811b2c80
+> [531394.880884] RBP: ffffc9000cd38958 R08: ffffc900082f7f48 R09: 0000000000000001
+> [531394.881055] R10: 0000000000000e00 R11: 0000000000000001 R12: ffffc9000cd38a50
+> [531394.881225] R13: 0000000000000000 R14: ffff889846ecc080 R15: 0000000000000004
+> [531394.883694] ? unwind_get_return_address (arch/x86/kernel/unwind_frame.c:19 arch/x86/kernel/unwind_frame.c:14) 
+> [531394.883984] ? kernel_text_address (kernel/extable.c:78) 
+> [531394.885410]  ? 0xffffffffc0409095
+> [531394.886432]  ? 0xffffffffc0409099
+> [531394.887278]  ? 0xffffffffc0409099
+> [531394.889561] ? __trace_stack (kernel/trace/trace.c:3119) 
+> [531394.890036] ? __kernel_text_address (kernel/extable.c:78) 
+> [531394.891196] __kernel_text_address (kernel/extable.c:78) 
+> [531394.891658] unwind_get_return_address (arch/x86/kernel/unwind_frame.c:19 arch/x86/kernel/unwind_frame.c:14) 
+> [531394.892112] ? __kernel_text_address (kernel/extable.c:78) 
+> [531394.892382] ? unwind_get_return_address (arch/x86/kernel/unwind_frame.c:19 arch/x86/kernel/unwind_frame.c:14) 
+> [531394.892789] ? write_profile (kernel/stacktrace.c:83) 
+> [531394.893260] arch_stack_walk (arch/x86/kernel/stacktrace.c:26) 
+> [531394.895650] ? __trace_stack (kernel/trace/trace.c:3119) 
+> [531394.897209] stack_trace_save (kernel/stacktrace.c:123) 
+> [531394.898344] __ftrace_trace_stack (kernel/trace/trace.c:3061) 
+> [531394.899500] ? rt_mutex_postunlock (kernel/printk/printk.c:2894) 
+> [531394.899975] __trace_stack (kernel/trace/trace.c:3119) 
+> [531394.901025] function_stack_trace_call (./arch/x86/include/asm/atomic.h:108 ./include/linux/atomic/atomic-instrumented.h:258 kernel/trace/trace_functions.c:245) 
+> [531394.901356] ? fbcon_redraw.constprop.0 (drivers/video/fbdev/core/fbcon.c:1661) 
+> [531394.902748]  0xffffffffc0409099
+> [531394.904289] ? fb_get_color_depth (drivers/video/fbdev/core/fbmem.c:92) 
+> [531394.906173] ? console_conditional_schedule (kernel/printk/printk.c:2895) 
+> [531394.907244] console_conditional_schedule (kernel/printk/printk.c:2895) 
+> [531394.907727] fbcon_redraw.constprop.0 (drivers/video/fbdev/core/fbcon.c:1661) 
+> [531394.908200] ? console_conditional_schedule (kernel/printk/printk.c:2895) 
+> [531394.908506] ? fbcon_redraw.constprop.0 (drivers/video/fbdev/core/fbcon.c:1661) 
+> [531394.911230] fbcon_scroll (drivers/video/fbdev/core/fbcon.c:1838) 
+> [531394.912743] con_scroll (drivers/tty/vt/vt.c:630 (discriminator 1)) 
+> [531394.914360] lf (drivers/tty/vt/vt.c:1507) 
+> [531394.914680] ? lf (drivers/tty/vt/vt.c:1502) 
+> [531394.915779] vt_console_print (drivers/tty/vt/vt.c:3126) 
+> [531394.918248] console_emit_next_record.constprop.0 (kernel/printk/printk.c:1945 kernel/printk/printk.c:2732) 
+> [531394.922365] console_unlock (kernel/printk/printk.c:2794 kernel/printk/printk.c:2861) 
+> [531394.924129] vprintk_emit (kernel/printk/printk.c:2272) 
+> [531394.925782] vprintk_default (kernel/printk/printk.c:2283) 
+> [531394.926306] vprintk (kernel/printk/printk_safe.c:50) 
+> [531394.926943] _printk (kernel/printk/printk.c:2296) 
+> [531394.929016] perf_duration_warn.cold (kernel/events/core.c:510 kernel/events/core.c:508) 
+> [531394.929518] irq_work_single (kernel/irq_work.c:211) 
+> [531394.930449] irq_work_run_list (kernel/irq_work.c:241 (discriminator 3)) 
+> [531394.931169] irq_work_run (kernel/irq_work.c:253) 
+> [531394.931816] __sysvec_irq_work (./arch/x86/include/asm/jump_label.h:27 ./include/linux/jump_label.h:207 ./arch/x86/include/asm/trace/irq_vectors.h:64 arch/x86/kernel/irq_work.c:23) 
+> [531394.932259] sysvec_irq_work (arch/x86/kernel/irq_work.c:17 (discriminator 14)) 
+> [531394.932660]  </IRQ>
+> [531394.932854]  <TASK>
+> [531394.933607] asm_sysvec_irq_work (./arch/x86/include/asm/idtentry.h:675)
+> 
+> 
+> 
+> 
+> 
