@@ -1,60 +1,71 @@
-From: Valentin Schneider <vschneid@redhat.com>
-Date: Fri, 02 Dec 2022 15:58:11 +0000
-Subject: [PATCH v3 2/8] trace: Add trace_ipi_send_cpumask()
-Message-Id: <20221202155817.2102944-3-vschneid@redhat.com>
+From: David Hildenbrand <david@redhat.com>
+Date: Tue, 06 Dec 2022 14:47:05 +0000
+Subject: [PATCH mm-unstable RFC 01/26] mm/debug_vm_pgtable: more pte_swp_exclusive() sanity checks
+Message-Id: <20221206144730.163732-2-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20221202155817.2102944-1-vschneid@redhat.com>
-In-Reply-To: <20221202155817.2102944-1-vschneid@redhat.com>
+References: <20221206144730.163732-1-david@redhat.com>
+In-Reply-To: <20221206144730.163732-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org
-Cc: Juri Lelli <juri.lelli@redhat.com>, Mark Rutland <mark.rutland@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, "Paul E. McKenney" <paulmck@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Marc Zyngier <maz@kernel.org>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Marcelo Tosatti <mtosatti@redhat.com>, Russell King <linux@armlinux.org.uk>, Steven Rostedt <rostedt@goodmis.org>, "David S. Miller" <davem@davemloft.net>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Nicholas Piggin <npiggin@gmail.com>, "H. Peter Anvin" <hpa@zytor.com>, Guo Ren <guoren@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Daniel Bristot de Oliveira <bristot@redhat.com>, Frederic Weisbecker <frederic@kernel.org>
+To: linux-kernel@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>, Hugh Dickins <hughd@google.com>, John Hubbard <jhubbard@nvidia.com>, Jason Gunthorpe <jgg@nvidia.com>, Mike Rapoport <rppt@linux.ibm.com>, Yang Shi <shy828301@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Nadav Amit <namit@vmware.com>, Andrea Arcangeli <aarcange@redhat.com>, Peter Xu <peterx@redhat.com>, linux-mm@kvack.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, David Hildenbrand <david@redhat.com>
 
-trace_ipi_raise() is unsuitable for generically tracing IPI sources due to
-its "reason" argument being an uninformative string (on arm64 all you get
-is "Function call interrupts" for SMP calls).
+We want to implement __HAVE_ARCH_PTE_SWP_EXCLUSIVE on all architectures.
+Let's extend our sanity checks, especially testing that our PTE bit
+does not affect:
+* is_swap_pte() -> pte_present() and pte_none()
+* the swap entry + type
+* pte_swp_soft_dirty()
 
-Add a variant of it that exports a target CPU, a callsite and a callback.
+Especially, the pfn_pte() is dodgy when the swap PTE layout differs
+heavily from ordinary PTEs. Let's properly construct a swap PTE from
+swap type+offset.
 
-Signed-off-by: Valentin Schneider <vschneid@redhat.com>
-Reviewed-by: Steven Rostedt (Google) <rostedt@goodmis.org>
+Signed-off-by: David Hildenbrand <david@redhat.com>
 ---
- include/trace/events/ipi.h | 22 ++++++++++++++++++++++
- 1 file changed, 22 insertions(+)
+ mm/debug_vm_pgtable.c | 23 ++++++++++++++++++++++-
+ 1 file changed, 22 insertions(+), 1 deletion(-)
 
-diff --git a/include/trace/events/ipi.h b/include/trace/events/ipi.h
-index 0be71dad6ec03..b1125dc27682c 100644
---- a/include/trace/events/ipi.h
-+++ b/include/trace/events/ipi.h
-@@ -35,6 +35,28 @@ TRACE_EVENT(ipi_raise,
- 	TP_printk("target_mask=%s (%s)", __get_bitmask(target_cpus), __entry->reason)
- );
+diff --git a/mm/debug_vm_pgtable.c b/mm/debug_vm_pgtable.c
+index c631ade3f1d2..0506622016d9 100644
+--- a/mm/debug_vm_pgtable.c
++++ b/mm/debug_vm_pgtable.c
+@@ -807,13 +807,34 @@ static void __init pmd_swap_soft_dirty_tests(struct pgtable_debug_args *args) {
+ static void __init pte_swap_exclusive_tests(struct pgtable_debug_args *args)
+ {
+ #ifdef __HAVE_ARCH_PTE_SWP_EXCLUSIVE
+-	pte_t pte = pfn_pte(args->fixed_pte_pfn, args->page_prot);
++	unsigned long max_swapfile_size = generic_max_swapfile_size();
++	swp_entry_t entry, entry2;
++	pte_t pte;
  
-+TRACE_EVENT(ipi_send_cpumask,
+ 	pr_debug("Validating PTE swap exclusive\n");
 +
-+	TP_PROTO(const struct cpumask *cpumask, unsigned long callsite, void *callback),
++	/* Create a swp entry with all possible bits set */
++	entry = swp_entry((1 << MAX_SWAPFILES_SHIFT) - 1,
++			  max_swapfile_size - 1);
 +
-+	TP_ARGS(cpumask, callsite, callback),
++	pte = swp_entry_to_pte(entry);
++	WARN_ON(pte_swp_exclusive(pte));
++	WARN_ON(!is_swap_pte(pte));
++	entry2 = pte_to_swp_entry(pte);
++	WARN_ON(memcmp(&entry, &entry2, sizeof(entry)));
 +
-+	TP_STRUCT__entry(
-+		__cpumask(cpumask)
-+		__field(void *, callsite)
-+		__field(void *, callback)
-+	),
+ 	pte = pte_swp_mkexclusive(pte);
+ 	WARN_ON(!pte_swp_exclusive(pte));
++	WARN_ON(!is_swap_pte(pte));
++	WARN_ON(pte_swp_soft_dirty(pte));
++	entry2 = pte_to_swp_entry(pte);
++	WARN_ON(memcmp(&entry, &entry2, sizeof(entry)));
 +
-+	TP_fast_assign(
-+		__assign_cpumask(cpumask, cpumask_bits(cpumask));
-+		__entry->callsite = (void *)callsite;
-+		__entry->callback = callback;
-+	),
-+
-+	TP_printk("cpumask=%s callsite=%pS callback=%pS",
-+		  __get_cpumask(cpumask), __entry->callsite, __entry->callback)
-+);
-+
- DECLARE_EVENT_CLASS(ipi_handler,
+ 	pte = pte_swp_clear_exclusive(pte);
+ 	WARN_ON(pte_swp_exclusive(pte));
++	WARN_ON(!is_swap_pte(pte));
++	entry2 = pte_to_swp_entry(pte);
++	WARN_ON(memcmp(&entry, &entry2, sizeof(entry)));
+ #endif /* __HAVE_ARCH_PTE_SWP_EXCLUSIVE */
+ }
  
- 	TP_PROTO(const char *reason),
 -- 
-2.31.1
+2.38.1
