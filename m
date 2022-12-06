@@ -1,7 +1,7 @@
 From: David Hildenbrand <david@redhat.com>
-Date: Tue, 06 Dec 2022 14:47:28 +0000
-Subject: [PATCH mm-unstable RFC 24/26] x86/mm: support __HAVE_ARCH_PTE_SWP_EXCLUSIVE also on 32bit
-Message-Id: <20221206144730.163732-25-david@redhat.com>
+Date: Tue, 06 Dec 2022 14:47:17 +0000
+Subject: [PATCH mm-unstable RFC 13/26] nios2/mm: refactor swap PTE layout
+Message-Id: <20221206144730.163732-14-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20221206144730.163732-1-david@redhat.com>
 In-Reply-To: <20221206144730.163732-1-david@redhat.com>
@@ -9,147 +9,56 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: Andrew Morton <akpm@linux-foundation.org>, Hugh Dickins <hughd@google.com>, John Hubbard <jhubbard@nvidia.com>, Jason Gunthorpe <jgg@nvidia.com>, Mike Rapoport <rppt@linux.ibm.com>, Yang Shi <shy828301@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Nadav Amit <namit@vmware.com>, Andrea Arcangeli <aarcange@redhat.com>, Peter Xu <peterx@redhat.com>, linux-mm@kvack.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, David Hildenbrand <david@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "H. Peter Anvin" <hpa@zytor.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>, Hugh Dickins <hughd@google.com>, John Hubbard <jhubbard@nvidia.com>, Jason Gunthorpe <jgg@nvidia.com>, Mike Rapoport <rppt@linux.ibm.com>, Yang Shi <shy828301@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Nadav Amit <namit@vmware.com>, Andrea Arcangeli <aarcange@redhat.com>, Peter Xu <peterx@redhat.com>, linux-mm@kvack.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, David Hildenbrand <david@redhat.com>, Dinh Nguyen <dinguyen@kernel.org>
 
-Let's support __HAVE_ARCH_PTE_SWP_EXCLUSIVE just like we already do on
-x86-64. After deciphering the PTE layout it becomes clear that there are
-still unused bits for 2-level and 3-level page tables that we should be
-able to use. Reusing a bit avoids stealing one bit from the swap offset.
+nios2 disables swap for a good reason: it doesn't even provide
+sufficient type bits as required by core MM. However, swap entries are
+nowadays also used for other purposes (migration entries,
+PTE markers, HWPoison, ...), and accidential use could be problematic.
 
-While at it, mask the type in __swp_entry(); use some helper definitions
-to make the macros easier to grasp.
+Let's properly use 5 bits for the swap type and document the layout.
+Bits 26--31 should get ignored by hardware completely, so they can be
+used.
 
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: Borislav Petkov <bp@alien8.de>
-Cc: Dave Hansen <dave.hansen@linux.intel.com>
-Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: Dinh Nguyen <dinguyen@kernel.org>
 Signed-off-by: David Hildenbrand <david@redhat.com>
 ---
- arch/x86/include/asm/pgtable-2level.h | 26 +++++++++++++++++++++-----
- arch/x86/include/asm/pgtable-3level.h | 26 +++++++++++++++++++++++---
- arch/x86/include/asm/pgtable.h        |  2 --
- 3 files changed, 44 insertions(+), 10 deletions(-)
+ arch/nios2/include/asm/pgtable.h | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
 
-diff --git a/arch/x86/include/asm/pgtable-2level.h b/arch/x86/include/asm/pgtable-2level.h
-index 60d0f9015317..e9482a11ac52 100644
---- a/arch/x86/include/asm/pgtable-2level.h
-+++ b/arch/x86/include/asm/pgtable-2level.h
-@@ -80,21 +80,37 @@ static inline unsigned long pte_bitop(unsigned long value, unsigned int rightshi
- 	return ((value >> rightshift) & mask) << leftshift;
- }
- 
--/* Encode and de-code a swap entry */
-+/*
-+ * Encode/decode swap entries and swap PTEs. Swap PTEs are all PTEs that
-+ * are !pte_none() && !pte_present().
-+ *
-+ * Format of swap PTEs:
-+ *
-+ *   3 3 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 1 1 1 1 1
-+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
-+ *   <----------------- offset ------------------> 0 E <- type --> 0
-+ *
-+ *   E is the exclusive marker that is not stored in swap entries.
-+ */
- #define SWP_TYPE_BITS 5
-+#define _SWP_TYPE_MASK ((1U << SWP_TYPE_BITS) - 1)
-+#define _SWP_TYPE_SHIFT (_PAGE_BIT_PRESENT + 1)
- #define SWP_OFFSET_SHIFT (_PAGE_BIT_PROTNONE + 1)
- 
--#define MAX_SWAPFILES_CHECK() BUILD_BUG_ON(MAX_SWAPFILES_SHIFT > SWP_TYPE_BITS)
-+#define MAX_SWAPFILES_CHECK() BUILD_BUG_ON(MAX_SWAPFILES_SHIFT > 5)
- 
--#define __swp_type(x)			(((x).val >> (_PAGE_BIT_PRESENT + 1)) \
--					 & ((1U << SWP_TYPE_BITS) - 1))
-+#define __swp_type(x)			(((x).val >> _SWP_TYPE_SHIFT) \
-+					 & _SWP_TYPE_MASK)
- #define __swp_offset(x)			((x).val >> SWP_OFFSET_SHIFT)
- #define __swp_entry(type, offset)	((swp_entry_t) { \
--					 ((type) << (_PAGE_BIT_PRESENT + 1)) \
-+					 (((type) & _SWP_TYPE_MASK) << _SWP_TYPE_SHIFT) \
- 					 | ((offset) << SWP_OFFSET_SHIFT) })
- #define __pte_to_swp_entry(pte)		((swp_entry_t) { (pte).pte_low })
- #define __swp_entry_to_pte(x)		((pte_t) { .pte = (x).val })
- 
-+/* We borrow bit 7 to store the exclusive marker in swap PTEs. */
-+#define _PAGE_SWP_EXCLUSIVE	_PAGE_PSE
-+
- /* No inverted PFNs on 2 level page tables */
- 
- static inline u64 protnone_mask(u64 val)
-diff --git a/arch/x86/include/asm/pgtable-3level.h b/arch/x86/include/asm/pgtable-3level.h
-index 28421a887209..2b87f965dd86 100644
---- a/arch/x86/include/asm/pgtable-3level.h
-+++ b/arch/x86/include/asm/pgtable-3level.h
-@@ -248,8 +248,24 @@ static inline pud_t native_pudp_get_and_clear(pud_t *pudp)
- #define native_pudp_get_and_clear(xp) native_local_pudp_get_and_clear(xp)
- #endif
- 
--/* Encode and de-code a swap entry */
-+/*
-+ * Encode/decode swap entries and swap PTEs. Swap PTEs are all PTEs that
-+ * are !pte_none() && !pte_present().
-+ *
-+  * Format of swap PTEs:
-+ *
-+ *   6 6 6 6 5 5 5 5 5 5 5 5 5 5 4 4 4 4 4 4 4 4 4 4 3 3 3 3 3 3 3 3
-+ *   3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2
-+ *   < type -> <---------------------- offset ----------------------
-+ *
-+ *   3 3 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 1 1 1 1 1
-+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
-+ *   --------------------------------------------> 0 E 0 0 0 0 0 0 0
-+ *
-+ *   E is the exclusive marker that is not stored in swap entries.
-+ */
- #define SWP_TYPE_BITS		5
-+#define _SWP_TYPE_MASK ((1U << SWP_TYPE_BITS) - 1)
- 
- #define SWP_OFFSET_FIRST_BIT	(_PAGE_BIT_PROTNONE + 1)
- 
-@@ -257,9 +273,10 @@ static inline pud_t native_pudp_get_and_clear(pud_t *pudp)
- #define SWP_OFFSET_SHIFT	(SWP_OFFSET_FIRST_BIT + SWP_TYPE_BITS)
- 
- #define MAX_SWAPFILES_CHECK() BUILD_BUG_ON(MAX_SWAPFILES_SHIFT > SWP_TYPE_BITS)
--#define __swp_type(x)			(((x).val) & ((1UL << SWP_TYPE_BITS) - 1))
-+#define __swp_type(x)			(((x).val) & _SWP_TYPE_MASK)
- #define __swp_offset(x)			((x).val >> SWP_TYPE_BITS)
--#define __swp_entry(type, offset)	((swp_entry_t){(type) | (offset) << SWP_TYPE_BITS})
-+#define __swp_entry(type, offset)	((swp_entry_t){((type) & _SWP_TYPE_MASK) \
-+					| (offset) << SWP_TYPE_BITS})
+diff --git a/arch/nios2/include/asm/pgtable.h b/arch/nios2/include/asm/pgtable.h
+index ab793bc517f5..d1e5c9eb4643 100644
+--- a/arch/nios2/include/asm/pgtable.h
++++ b/arch/nios2/include/asm/pgtable.h
+@@ -232,19 +232,21 @@ static inline unsigned long pmd_page_vaddr(pmd_t pmd)
+ 		__FILE__, __LINE__, pgd_val(e))
  
  /*
-  * Normally, __swp_entry() converts from arch-independent swp_entry_t to
-@@ -287,6 +304,9 @@ static inline pud_t native_pudp_get_and_clear(pud_t *pudp)
- #define __pte_to_swp_entry(pte)	(__swp_entry(__pteval_swp_type(pte), \
- 					     __pteval_swp_offset(pte)))
- 
-+/* We borrow bit 7 to store the exclusive marker in swap PTEs. */
-+#define _PAGE_SWP_EXCLUSIVE	_PAGE_PSE
-+
- #include <asm/pgtable-invert.h>
- 
- #endif /* _ASM_X86_PGTABLE_3LEVEL_H */
-diff --git a/arch/x86/include/asm/pgtable.h b/arch/x86/include/asm/pgtable.h
-index 0564edd24ffb..02df42cde004 100644
---- a/arch/x86/include/asm/pgtable.h
-+++ b/arch/x86/include/asm/pgtable.h
-@@ -1299,7 +1299,6 @@ static inline void update_mmu_cache_pud(struct vm_area_struct *vma,
- 		unsigned long addr, pud_t *pud)
- {
- }
--#ifdef _PAGE_SWP_EXCLUSIVE
- #define __HAVE_ARCH_PTE_SWP_EXCLUSIVE
- static inline pte_t pte_swp_mkexclusive(pte_t pte)
- {
-@@ -1315,7 +1314,6 @@ static inline pte_t pte_swp_clear_exclusive(pte_t pte)
- {
- 	return pte_clear_flags(pte, _PAGE_SWP_EXCLUSIVE);
- }
--#endif /* _PAGE_SWP_EXCLUSIVE */
- 
- #ifdef CONFIG_HAVE_ARCH_SOFT_DIRTY
- static inline pte_t pte_swp_mksoft_dirty(pte_t pte)
+- * Encode and decode a swap entry (must be !pte_none(pte) && !pte_present(pte):
++ * Encode/decode swap entries and swap PTEs. Swap PTEs are all PTEs that
++ * are !pte_none() && !pte_present().
+  *
+- * 31 30 29 28 27 26 25 24 23 22 21 20 19 18 ...  1  0
+- *  0  0  0  0 type.  0  0  0  0  0  0 offset.........
++ * Format of swap PTEs:
+  *
+- * This gives us up to 2**2 = 4 swap files and 2**20 * 4K = 4G per swap file.
++ *   3 3 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 1 1 1 1 1
++ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
++ *   0 < type -> 0 0 0 0 0 0 <-------------- offset --------------->
+  *
+- * Note that the offset field is always non-zero, thus !pte_none(pte) is always
+- * true.
++ * Note that the offset field is always non-zero if the swap type is 0, thus
++ * !pte_none() is always true.
+  */
+-#define __swp_type(swp)		(((swp).val >> 26) & 0x3)
++#define __swp_type(swp)		(((swp).val >> 26) & 0x1f)
+ #define __swp_offset(swp)	((swp).val & 0xfffff)
+-#define __swp_entry(type, off)	((swp_entry_t) { (((type) & 0x3) << 26) \
++#define __swp_entry(type, off)	((swp_entry_t) { (((type) & 0x1f) << 26) \
+ 						 | ((off) & 0xfffff) })
+ #define __swp_entry_to_pte(swp)	((pte_t) { (swp).val })
+ #define __pte_to_swp_entry(pte)	((swp_entry_t) { pte_val(pte) })
 -- 
 2.38.1
