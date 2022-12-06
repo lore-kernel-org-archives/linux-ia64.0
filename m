@@ -1,53 +1,152 @@
-From: Andrzej Hajda <andrzej.hajda@intel.com>
-Date: Thu, 22 Dec 2022 11:46:24 +0000
-Subject: [PATCH 08/19] arch/m68k: rename internal name __xchg to __arch_xchg
-Message-Id: <20221222114635.1251934-9-andrzej.hajda@intel.com>
+From: David Hildenbrand <david@redhat.com>
+Date: Tue, 06 Dec 2022 14:47:09 +0000
+Subject: [PATCH mm-unstable RFC 05/26] csky/mm: support __HAVE_ARCH_PTE_SWP_EXCLUSIVE
+Message-Id: <20221206144730.163732-6-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20221222114635.1251934-1-andrzej.hajda@intel.com>
-In-Reply-To: <20221222114635.1251934-1-andrzej.hajda@intel.com>
+References: <20221206144730.163732-1-david@redhat.com>
+In-Reply-To: <20221206144730.163732-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, intel-gfx@lists.freedesktop.org, dri-devel@lists.freedesktop.org
-Cc: Mark Rutland <mark.rutland@arm.com>, Arnd Bergmann <arnd@arndb.de>, Peter Zijlstra <peterz@infradead.org>, Boqun Feng <boqun.feng@gmail.com>, Andrzej Hajda <andrzej.hajda@intel.com>, Rodrigo Vivi <rodrigo.vivi@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To: linux-kernel@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>, Hugh Dickins <hughd@google.com>, John Hubbard <jhubbard@nvidia.com>, Jason Gunthorpe <jgg@nvidia.com>, Mike Rapoport <rppt@linux.ibm.com>, Yang Shi <shy828301@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Nadav Amit <namit@vmware.com>, Andrea Arcangeli <aarcange@redhat.com>, Peter Xu <peterx@redhat.com>, linux-mm@kvack.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, David Hildenbrand <david@redhat.com>, Guo Ren <guoren@kernel.org>
 
-__xchg will be used for non-atomic xchg macro.
+Let's support __HAVE_ARCH_PTE_SWP_EXCLUSIVE by stealing one bit from the
+offset. This reduces the maximum swap space per file to 16 GiB (was 32
+GiB).
 
-Signed-off-by: Andrzej Hajda <andrzej.hajda@intel.com>
+We might actually be able to reuse one of the other software bits
+(_PAGE_READ / PAGE_WRITE) instead, because we only have to keep
+pte_present(), pte_none() and HW happy. For now, let's keep it simple
+because there might be something non-obvious.
+
+Cc: Guo Ren <guoren@kernel.org>
+Signed-off-by: David Hildenbrand <david@redhat.com>
 ---
- arch/m68k/include/asm/cmpxchg.h | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ arch/csky/abiv1/inc/abi/pgtable-bits.h | 13 +++++++++----
+ arch/csky/abiv2/inc/abi/pgtable-bits.h | 19 ++++++++++++-------
+ arch/csky/include/asm/pgtable.h        | 18 ++++++++++++++++++
+ 3 files changed, 39 insertions(+), 11 deletions(-)
 
-diff --git a/arch/m68k/include/asm/cmpxchg.h b/arch/m68k/include/asm/cmpxchg.h
-index 6cf464cdab067e..d7f3de9c5d6f79 100644
---- a/arch/m68k/include/asm/cmpxchg.h
-+++ b/arch/m68k/include/asm/cmpxchg.h
-@@ -9,7 +9,7 @@
- extern unsigned long __invalid_xchg_size(unsigned long, volatile void *, int);
+diff --git a/arch/csky/abiv1/inc/abi/pgtable-bits.h b/arch/csky/abiv1/inc/abi/pgtable-bits.h
+index 752c8b3f9194..ae7a2f76dd42 100644
+--- a/arch/csky/abiv1/inc/abi/pgtable-bits.h
++++ b/arch/csky/abiv1/inc/abi/pgtable-bits.h
+@@ -10,6 +10,9 @@
+ #define _PAGE_ACCESSED		(1<<3)
+ #define _PAGE_MODIFIED		(1<<4)
  
- #ifndef CONFIG_RMW_INSNS
--static inline unsigned long __xchg(unsigned long x, volatile void * ptr, int size)
-+static inline unsigned long __arch_xchg(unsigned long x, volatile void * ptr, int size)
- {
- 	unsigned long flags, tmp;
++/* We borrow bit 9 to store the exclusive marker in swap PTEs. */
++#define _PAGE_SWP_EXCLUSIVE	(1<<9)
++
+ /* implemented in hardware */
+ #define _PAGE_GLOBAL		(1<<6)
+ #define _PAGE_VALID		(1<<7)
+@@ -26,7 +29,8 @@
+ #define _PAGE_PROT_NONE		_PAGE_READ
  
-@@ -40,7 +40,7 @@ static inline unsigned long __xchg(unsigned long x, volatile void * ptr, int siz
- 	return x;
+ /*
+- * Encode and decode a swap entry
++ * Encode/decode swap entries and swap PTEs. Swap PTEs are all PTEs that
++ * are !pte_none() && !pte_present().
+  *
+  * Format of swap PTE:
+  *     bit          0:    _PAGE_PRESENT (zero)
+@@ -35,15 +39,16 @@
+  *     bit          6:    _PAGE_GLOBAL (zero)
+  *     bit          7:    _PAGE_VALID (zero)
+  *     bit          8:    swap type[4]
+- *     bit     9 - 31:    swap offset
++ *     bit          9:    exclusive marker
++ *     bit    10 - 31:    swap offset
+  */
+ #define __swp_type(x)			((((x).val >> 2) & 0xf) | \
+ 					(((x).val >> 4) & 0x10))
+-#define __swp_offset(x)			((x).val >> 9)
++#define __swp_offset(x)			((x).val >> 10)
+ #define __swp_entry(type, offset)	((swp_entry_t) { \
+ 					((type & 0xf) << 2) | \
+ 					((type & 0x10) << 4) | \
+-					((offset) << 9)})
++					((offset) << 10)})
+ 
+ #define HAVE_ARCH_UNMAPPED_AREA
+ 
+diff --git a/arch/csky/abiv2/inc/abi/pgtable-bits.h b/arch/csky/abiv2/inc/abi/pgtable-bits.h
+index 7e7f389f546f..526152bd2156 100644
+--- a/arch/csky/abiv2/inc/abi/pgtable-bits.h
++++ b/arch/csky/abiv2/inc/abi/pgtable-bits.h
+@@ -10,6 +10,9 @@
+ #define _PAGE_PRESENT		(1<<10)
+ #define _PAGE_MODIFIED		(1<<11)
+ 
++/* We borrow bit 7 to store the exclusive marker in swap PTEs. */
++#define _PAGE_SWP_EXCLUSIVE	(1<<7)
++
+ /* implemented in hardware */
+ #define _PAGE_GLOBAL		(1<<0)
+ #define _PAGE_VALID		(1<<1)
+@@ -26,23 +29,25 @@
+ #define _PAGE_PROT_NONE		_PAGE_WRITE
+ 
+ /*
+- * Encode and decode a swap entry
++ * Encode/decode swap entries and swap PTEs. Swap PTEs are all PTEs that
++ * are !pte_none() && !pte_present().
+  *
+  * Format of swap PTE:
+  *     bit          0:    _PAGE_GLOBAL (zero)
+  *     bit          1:    _PAGE_VALID (zero)
+  *     bit      2 - 6:    swap type
+- *     bit      7 - 8:    swap offset[0 - 1]
++ *     bit          7:    exclusive marker
++ *     bit          8:    swap offset[0]
+  *     bit          9:    _PAGE_WRITE (zero)
+  *     bit         10:    _PAGE_PRESENT (zero)
+- *     bit    11 - 31:    swap offset[2 - 22]
++ *     bit    11 - 31:    swap offset[1 - 21]
+  */
+ #define __swp_type(x)			(((x).val >> 2) & 0x1f)
+-#define __swp_offset(x)			((((x).val >> 7) & 0x3) | \
+-					(((x).val >> 9) & 0x7ffffc))
++#define __swp_offset(x)			((((x).val >> 8) & 0x1) | \
++					(((x).val >> 10) & 0x3ffffe))
+ #define __swp_entry(type, offset)	((swp_entry_t) { \
+ 					((type & 0x1f) << 2) | \
+-					((offset & 0x3) << 7) | \
+-					((offset & 0x7ffffc) << 9)})
++					((offset & 0x1) << 8) | \
++					((offset & 0x3ffffe) << 10)})
+ 
+ #endif /* __ASM_CSKY_PGTABLE_BITS_H */
+diff --git a/arch/csky/include/asm/pgtable.h b/arch/csky/include/asm/pgtable.h
+index 77bc6caff2d2..574c97b9ecca 100644
+--- a/arch/csky/include/asm/pgtable.h
++++ b/arch/csky/include/asm/pgtable.h
+@@ -200,6 +200,24 @@ static inline pte_t pte_mkyoung(pte_t pte)
+ 	return pte;
  }
- #else
--static inline unsigned long __xchg(unsigned long x, volatile void * ptr, int size)
-+static inline unsigned long __arch_xchg(unsigned long x, volatile void * ptr, int size)
- {
- 	switch (size) {
- 	case 1:
-@@ -75,7 +75,7 @@ static inline unsigned long __xchg(unsigned long x, volatile void * ptr, int siz
- }
- #endif
  
--#define arch_xchg(ptr,x) ({(__typeof__(*(ptr)))__xchg((unsigned long)(x),(ptr),sizeof(*(ptr)));})
-+#define arch_xchg(ptr,x) ({(__typeof__(*(ptr)))__arch_xchg((unsigned long)(x),(ptr),sizeof(*(ptr)));})
- 
- #include <asm-generic/cmpxchg-local.h>
- 
++#define __HAVE_ARCH_PTE_SWP_EXCLUSIVE
++static inline int pte_swp_exclusive(pte_t pte)
++{
++	return pte_val(pte) & _PAGE_SWP_EXCLUSIVE;
++}
++
++static inline pte_t pte_swp_mkexclusive(pte_t pte)
++{
++	pte_val(pte) |= _PAGE_SWP_EXCLUSIVE;
++	return pte;
++}
++
++static inline pte_t pte_swp_clear_exclusive(pte_t pte)
++{
++	pte_val(pte) &= ~_PAGE_SWP_EXCLUSIVE;
++	return pte;
++}
++
+ #define __HAVE_PHYS_MEM_ACCESS_PROT
+ struct file;
+ extern pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
 -- 
-2.34.1
+2.38.1
