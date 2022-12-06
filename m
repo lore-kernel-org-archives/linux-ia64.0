@@ -1,7 +1,7 @@
 From: David Hildenbrand <david@redhat.com>
-Date: Tue, 06 Dec 2022 14:47:06 +0000
-Subject: [PATCH mm-unstable RFC 02/26] alpha/mm: support __HAVE_ARCH_PTE_SWP_EXCLUSIVE
-Message-Id: <20221206144730.163732-3-david@redhat.com>
+Date: Tue, 06 Dec 2022 14:47:10 +0000
+Subject: [PATCH mm-unstable RFC 06/26] hexagon/mm: support __HAVE_ARCH_PTE_SWP_EXCLUSIVE
+Message-Id: <20221206144730.163732-7-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20221206144730.163732-1-david@redhat.com>
 In-Reply-To: <20221206144730.163732-1-david@redhat.com>
@@ -9,72 +9,75 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: Andrew Morton <akpm@linux-foundation.org>, Hugh Dickins <hughd@google.com>, John Hubbard <jhubbard@nvidia.com>, Jason Gunthorpe <jgg@nvidia.com>, Mike Rapoport <rppt@linux.ibm.com>, Yang Shi <shy828301@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Nadav Amit <namit@vmware.com>, Andrea Arcangeli <aarcange@redhat.com>, Peter Xu <peterx@redhat.com>, linux-mm@kvack.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, David Hildenbrand <david@redhat.com>, Richard Henderson <richard.henderson@linaro.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>, Hugh Dickins <hughd@google.com>, John Hubbard <jhubbard@nvidia.com>, Jason Gunthorpe <jgg@nvidia.com>, Mike Rapoport <rppt@linux.ibm.com>, Yang Shi <shy828301@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Nadav Amit <namit@vmware.com>, Andrea Arcangeli <aarcange@redhat.com>, Peter Xu <peterx@redhat.com>, linux-mm@kvack.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, David Hildenbrand <david@redhat.com>, Brian Cain <bcain@quicinc.com>
 
-Let's support __HAVE_ARCH_PTE_SWP_EXCLUSIVE by stealing one bit
-from the type. Generic MM currently only uses 5 bits for the type
-(MAX_SWAPFILES_SHIFT), so the stolen bit is effectively unused.
+Let's support __HAVE_ARCH_PTE_SWP_EXCLUSIVE by stealing one bit from the
+offset. This reduces the maximum swap space per file to 16 GiB (was 32
+GiB).
 
-While at it, mask the type in mk_swap_pte() as well.
+While at it, mask the type in __swp_entry().
 
-Note that 32bit alpha has 64bit PTEs but only 32bit swap entries. So the
-lower 32bit are zero in a swap PTE and we could have taken a bit in
-there as well.
-
-Cc: Richard Henderson <richard.henderson@linaro.org>
-Cc: Ivan Kokshaysky <ink@jurassic.park.msu.ru>
-Cc: Matt Turner <mattst88@gmail.com>
+Cc: Brian Cain <bcain@quicinc.com>
 Signed-off-by: David Hildenbrand <david@redhat.com>
 ---
- arch/alpha/include/asm/pgtable.h | 41 ++++++++++++++++++++++++++++----
- 1 file changed, 37 insertions(+), 4 deletions(-)
+ arch/hexagon/include/asm/pgtable.h | 37 +++++++++++++++++++++++++-----
+ 1 file changed, 31 insertions(+), 6 deletions(-)
 
-diff --git a/arch/alpha/include/asm/pgtable.h b/arch/alpha/include/asm/pgtable.h
-index 9e45f6735d5d..970abf511b13 100644
---- a/arch/alpha/include/asm/pgtable.h
-+++ b/arch/alpha/include/asm/pgtable.h
-@@ -74,6 +74,9 @@ struct vm_area_struct;
- #define _PAGE_DIRTY	0x20000
- #define _PAGE_ACCESSED	0x40000
+diff --git a/arch/hexagon/include/asm/pgtable.h b/arch/hexagon/include/asm/pgtable.h
+index f7048c18b6f9..7eb008e477c8 100644
+--- a/arch/hexagon/include/asm/pgtable.h
++++ b/arch/hexagon/include/asm/pgtable.h
+@@ -61,6 +61,9 @@ extern unsigned long empty_zero_page;
+  * So we'll put up with a bit of inefficiency for now...
+  */
  
-+/* We borrow bit 39 to store the exclusive marker in swap PTEs. */
-+#define _PAGE_SWP_EXCLUSIVE	0x8000000000UL
++/* We borrow bit 6 to store the exclusive marker in swap PTEs. */
++#define _PAGE_SWP_EXCLUSIVE	(1<<6)
 +
  /*
-  * NOTE! The "accessed" bit isn't necessarily exact:  it can be kept exactly
-  * by software (use the KRE/URE/KWE/UWE bits appropriately), but I'll fake it.
-@@ -301,18 +304,48 @@ extern inline void update_mmu_cache(struct vm_area_struct * vma,
- }
+  * Top "FOURTH" level (pgd), which for the Hexagon VM is really
+  * only the second from the bottom, pgd and pud both being collapsed.
+@@ -359,9 +362,12 @@ static inline unsigned long pmd_page_vaddr(pmd_t pmd)
+ #define ZERO_PAGE(vaddr) (virt_to_page(&empty_zero_page))
  
  /*
-- * Non-present pages:  high 24 bits are offset, next 8 bits type,
-- * low 32 bits zero.
 + * Encode/decode swap entries and swap PTEs. Swap PTEs are all PTEs that
 + * are !pte_none() && !pte_present().
 + *
-+ * Format of swap PTEs:
-+ *
-+ *   6 6 6 6 5 5 5 5 5 5 5 5 5 5 4 4 4 4 4 4 4 4 4 4 3 3 3 3 3 3 3 3
-+ *   3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2
-+ *   <------------------- offset ------------------> E <--- type -->
-+ *
-+ *   3 3 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 1 1 1 1 1
-+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
-+ *   <--------------------------- zeroes -------------------------->
-+ *
-+ *   E is the exclusive marker that is not stored in swap entries.
-  */
- extern inline pte_t mk_swap_pte(unsigned long type, unsigned long offset)
--{ pte_t pte; pte_val(pte) = (type << 32) | (offset << 40); return pte; }
-+{ pte_t pte; pte_val(pte) = ((type & 0x7f) << 32) | (offset << 40); return pte; }
+  * Swap/file PTE definitions.  If _PAGE_PRESENT is zero, the rest of the PTE is
+  * interpreted as swap information.  The remaining free bits are interpreted as
+- * swap type/offset tuple.  Rather than have the TLB fill handler test
++ * listed below.  Rather than have the TLB fill handler test
+  * _PAGE_PRESENT, we're going to reserve the permissions bits and set them to
+  * all zeros for swap entries, which speeds up the miss handler at the cost of
+  * 3 bits of offset.  That trade-off can be revisited if necessary, but Hexagon
+@@ -371,9 +377,10 @@ static inline unsigned long pmd_page_vaddr(pmd_t pmd)
+  * Format of swap PTE:
+  *	bit	0:	Present (zero)
+  *	bits	1-5:	swap type (arch independent layer uses 5 bits max)
+- *	bits	6-9:	bits 3:0 of offset
++ *	bit	6:	exclusive marker
++ *	bits	7-9:	bits 2:0 of offset
+  *	bits	10-12:	effectively _PAGE_PROTNONE (all zero)
+- *	bits	13-31:  bits 22:4 of swap offset
++ *	bits	13-31:  bits 21:3 of swap offset
+  *
+  * The split offset makes some of the following macros a little gnarly,
+  * but there's plenty of precedent for this sort of thing.
+@@ -383,11 +390,29 @@ static inline unsigned long pmd_page_vaddr(pmd_t pmd)
+ #define __swp_type(swp_pte)		(((swp_pte).val >> 1) & 0x1f)
  
--#define __swp_type(x)		(((x).val >> 32) & 0xff)
-+#define __swp_type(x)		(((x).val >> 32) & 0x7f)
- #define __swp_offset(x)		((x).val >> 40)
- #define __swp_entry(type, off)	((swp_entry_t) { pte_val(mk_swap_pte((type), (off))) })
- #define __pte_to_swp_entry(pte)	((swp_entry_t) { pte_val(pte) })
- #define __swp_entry_to_pte(x)	((pte_t) { (x).val })
+ #define __swp_offset(swp_pte) \
+-	((((swp_pte).val >> 6) & 0xf) | (((swp_pte).val >> 9) & 0x7ffff0))
++	((((swp_pte).val >> 7) & 0x7) | (((swp_pte).val >> 10) & 0x3ffff8))
  
+ #define __swp_entry(type, offset) \
+ 	((swp_entry_t)	{ \
+-		((type << 1) | \
+-		 ((offset & 0x7ffff0) << 9) | ((offset & 0xf) << 6)) })
++		(((type & 0x1f) << 1) | \
++		 ((offset & 0x3ffff8) << 10) | ((offset & 0x7) << 7)) })
++
 +#define __HAVE_ARCH_PTE_SWP_EXCLUSIVE
 +static inline int pte_swp_exclusive(pte_t pte)
 +{
@@ -92,9 +95,7 @@ index 9e45f6735d5d..970abf511b13 100644
 +	pte_val(pte) &= ~_PAGE_SWP_EXCLUSIVE;
 +	return pte;
 +}
-+
- #define pte_ERROR(e) \
- 	printk("%s:%d: bad pte %016lx.\n", __FILE__, __LINE__, pte_val(e))
- #define pmd_ERROR(e) \
+ 
+ #endif
 -- 
 2.38.1
