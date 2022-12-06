@@ -1,53 +1,120 @@
-From: Andrzej Hajda <andrzej.hajda@intel.com>
-Date: Thu, 22 Dec 2022 11:46:17 +0000
-Subject: [PATCH 01/19] arch/alpha: rename internal name __xchg to __arch_xchg
-Message-Id: <20221222114635.1251934-2-andrzej.hajda@intel.com>
+From: David Hildenbrand <david@redhat.com>
+Date: Tue, 06 Dec 2022 14:47:08 +0000
+Subject: [PATCH mm-unstable RFC 04/26] arm/mm: support __HAVE_ARCH_PTE_SWP_EXCLUSIVE
+Message-Id: <20221206144730.163732-5-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20221222114635.1251934-1-andrzej.hajda@intel.com>
-In-Reply-To: <20221222114635.1251934-1-andrzej.hajda@intel.com>
+References: <20221206144730.163732-1-david@redhat.com>
+In-Reply-To: <20221206144730.163732-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, intel-gfx@lists.freedesktop.org, dri-devel@lists.freedesktop.org
-Cc: Andrzej Hajda <andrzej.hajda@intel.com>, Arnd Bergmann <arnd@arndb.de>, Rodrigo Vivi <rodrigo.vivi@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Peter Zijlstra <peterz@infradead.org>, Boqun Feng <boqun.feng@gmail.com>, Mark Rutland <mark.rutland@arm.com>
+To: linux-kernel@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>, Hugh Dickins <hughd@google.com>, John Hubbard <jhubbard@nvidia.com>, Jason Gunthorpe <jgg@nvidia.com>, Mike Rapoport <rppt@linux.ibm.com>, Yang Shi <shy828301@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Nadav Amit <namit@vmware.com>, Andrea Arcangeli <aarcange@redhat.com>, Peter Xu <peterx@redhat.com>, linux-mm@kvack.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, David Hildenbrand <david@redhat.com>, Russell King <linux@armlinux.org.uk>
 
-__xchg will be used for non-atomic xchg macro.
+Let's support __HAVE_ARCH_PTE_SWP_EXCLUSIVE by stealing one bit from the
+offset. This reduces the maximum swap space per file to 64 GiB (was 128
+GiB).
 
-Signed-off-by: Andrzej Hajda <andrzej.hajda@intel.com>
+While at it drop the PTE_TYPE_FAULT from __swp_entry_to_pte() which is
+defined to be 0 and is rather confusing because we should be dealing
+with "Linux PTEs" not "hardware PTEs". Also, properly mask the type in
+__swp_entry().
+
+Cc: Russell King <linux@armlinux.org.uk>
+Signed-off-by: David Hildenbrand <david@redhat.com>
 ---
- arch/alpha/include/asm/cmpxchg.h | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ arch/arm/include/asm/pgtable-2level.h |  3 +++
+ arch/arm/include/asm/pgtable-3level.h |  3 +++
+ arch/arm/include/asm/pgtable.h        | 35 +++++++++++++++++++++------
+ 3 files changed, 34 insertions(+), 7 deletions(-)
 
-diff --git a/arch/alpha/include/asm/cmpxchg.h b/arch/alpha/include/asm/cmpxchg.h
-index 6e0a850aa9d38c..40e8159ef6e794 100644
---- a/arch/alpha/include/asm/cmpxchg.h
-+++ b/arch/alpha/include/asm/cmpxchg.h
-@@ -6,7 +6,7 @@
-  * Atomic exchange routines.
+diff --git a/arch/arm/include/asm/pgtable-2level.h b/arch/arm/include/asm/pgtable-2level.h
+index 92abd4cd8ca2..ce543cd9380c 100644
+--- a/arch/arm/include/asm/pgtable-2level.h
++++ b/arch/arm/include/asm/pgtable-2level.h
+@@ -126,6 +126,9 @@
+ #define L_PTE_SHARED		(_AT(pteval_t, 1) << 10)	/* shared(v6), coherent(xsc3) */
+ #define L_PTE_NONE		(_AT(pteval_t, 1) << 11)
+ 
++/* We borrow bit 7 to store the exclusive marker in swap PTEs. */
++#define L_PTE_SWP_EXCLUSIVE	L_PTE_RDONLY
++
+ /*
+  * These are the memory types, defined to be compatible with
+  * pre-ARMv6 CPUs cacheable and bufferable bits: n/a,n/a,C,B
+diff --git a/arch/arm/include/asm/pgtable-3level.h b/arch/arm/include/asm/pgtable-3level.h
+index eabe72ff7381..106049791500 100644
+--- a/arch/arm/include/asm/pgtable-3level.h
++++ b/arch/arm/include/asm/pgtable-3level.h
+@@ -76,6 +76,9 @@
+ #define L_PTE_NONE		(_AT(pteval_t, 1) << 57)	/* PROT_NONE */
+ #define L_PTE_RDONLY		(_AT(pteval_t, 1) << 58)	/* READ ONLY */
+ 
++/* We borrow bit 7 to store the exclusive marker in swap PTEs. */
++#define L_PTE_SWP_EXCLUSIVE	(_AT(pteval_t, 1) << 7)
++
+ #define L_PMD_SECT_VALID	(_AT(pmdval_t, 1) << 0)
+ #define L_PMD_SECT_DIRTY	(_AT(pmdval_t, 1) << 55)
+ #define L_PMD_SECT_NONE		(_AT(pmdval_t, 1) << 57)
+diff --git a/arch/arm/include/asm/pgtable.h b/arch/arm/include/asm/pgtable.h
+index 00954ab1a039..5e0446a9c667 100644
+--- a/arch/arm/include/asm/pgtable.h
++++ b/arch/arm/include/asm/pgtable.h
+@@ -269,27 +269,48 @@ static inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
+ }
+ 
+ /*
+- * Encode and decode a swap entry.  Swap entries are stored in the Linux
+- * page tables as follows:
++ * Encode/decode swap entries and swap PTEs. Swap PTEs are all PTEs that
++ * are !pte_none() && !pte_present().
++ *
++ * Format of swap PTEs:
+  *
+  *   3 3 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 1 1 1 1 1
+  *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+- *   <--------------- offset ------------------------> < type -> 0 0
++ *   <------------------- offset ------------------> E < type -> 0 0
++ *
++ *   E is the exclusive marker that is not stored in swap entries.
+  *
+- * This gives us up to 31 swap files and 128GB per swap file.  Note that
++ * This gives us up to 31 swap files and 64GB per swap file.  Note that
+  * the offset field is always non-zero.
   */
+ #define __SWP_TYPE_SHIFT	2
+ #define __SWP_TYPE_BITS		5
+ #define __SWP_TYPE_MASK		((1 << __SWP_TYPE_BITS) - 1)
+-#define __SWP_OFFSET_SHIFT	(__SWP_TYPE_BITS + __SWP_TYPE_SHIFT)
++#define __SWP_OFFSET_SHIFT	(__SWP_TYPE_BITS + __SWP_TYPE_SHIFT + 1)
  
--#define ____xchg(type, args...)		__xchg ## type ## _local(args)
-+#define ____xchg(type, args...)		__arch_xchg ## type ## _local(args)
- #define ____cmpxchg(type, args...)	__cmpxchg ## type ## _local(args)
- #include <asm/xchg.h>
+ #define __swp_type(x)		(((x).val >> __SWP_TYPE_SHIFT) & __SWP_TYPE_MASK)
+ #define __swp_offset(x)		((x).val >> __SWP_OFFSET_SHIFT)
+-#define __swp_entry(type,offset) ((swp_entry_t) { ((type) << __SWP_TYPE_SHIFT) | ((offset) << __SWP_OFFSET_SHIFT) })
++#define __swp_entry(type,offset) ((swp_entry_t) { (((type) & __SWP_TYPE_BITS) << __SWP_TYPE_SHIFT) | \
++						 ((offset) << __SWP_OFFSET_SHIFT) })
  
-@@ -34,7 +34,7 @@
+ #define __pte_to_swp_entry(pte)	((swp_entry_t) { pte_val(pte) })
+-#define __swp_entry_to_pte(swp)	__pte((swp).val | PTE_TYPE_FAULT)
++#define __swp_entry_to_pte(swp)	__pte((swp).val)
++
++#define __HAVE_ARCH_PTE_SWP_EXCLUSIVE
++static inline int pte_swp_exclusive(pte_t pte)
++{
++	return pte_isset(pte, L_PTE_SWP_EXCLUSIVE);
++}
++
++static inline pte_t pte_swp_mkexclusive(pte_t pte)
++{
++	return set_pte_bit(pte, __pgprot(L_PTE_SWP_EXCLUSIVE));
++}
++
++static inline pte_t pte_swp_clear_exclusive(pte_t pte)
++{
++	return clear_pte_bit(pte, __pgprot(L_PTE_SWP_EXCLUSIVE));
++}
  
- #undef ____xchg
- #undef ____cmpxchg
--#define ____xchg(type, args...)		__xchg ##type(args)
-+#define ____xchg(type, args...)		__arch_xchg ##type(args)
- #define ____cmpxchg(type, args...)	__cmpxchg ##type(args)
- #include <asm/xchg.h>
- 
-@@ -48,7 +48,7 @@
- 	__typeof__(*(ptr)) _x_ = (x);					\
- 	smp_mb();							\
- 	__ret = (__typeof__(*(ptr)))					\
--		__xchg((ptr), (unsigned long)_x_, sizeof(*(ptr)));	\
-+		__arch_xchg((ptr), (unsigned long)_x_, sizeof(*(ptr)));	\
- 	smp_mb();							\
- 	__ret;								\
- })
+ /*
+  * It is an error for the kernel to have more swap files than we can
 -- 
-2.34.1
+2.38.1
