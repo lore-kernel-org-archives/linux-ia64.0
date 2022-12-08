@@ -1,79 +1,91 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Wed, 07 Dec 2022 13:55:36 +0000
+From: David Hildenbrand <david@redhat.com>
+Date: Thu, 08 Dec 2022 08:52:57 +0000
 Subject: Re: [PATCH mm-unstable RFC 17/26] powerpc/mm: support __HAVE_ARCH_PTE_SWP_EXCLUSIVE on 32bit book3s
-Message-Id: <8be167b6-3836-25c3-9f69-b8b3916ee5b4@csgroup.eu>
+Message-Id: <0b5b1303-8bcb-c19d-5f63-0e4a3517fea5@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20221206144730.163732-1-david@redhat.com>
  <20221206144730.163732-18-david@redhat.com>
-In-Reply-To: <20221206144730.163732-18-david@redhat.com>
+ <8be167b6-3836-25c3-9f69-b8b3916ee5b4@csgroup.eu>
+In-Reply-To: <8be167b6-3836-25c3-9f69-b8b3916ee5b4@csgroup.eu>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Christophe Leroy <christophe.leroy@csgroup.eu>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Cc: Andrew Morton <akpm@linux-foundation.org>, Hugh Dickins <hughd@google.com>, John Hubbard <jhubbard@nvidia.com>, Jason Gunthorpe <jgg@nvidia.com>, Mike Rapoport <rppt@linux.ibm.com>, Yang Shi <shy828301@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Nadav Amit <namit@vmware.com>, Andrea Arcangeli <aarcange@redhat.com>, Peter Xu <peterx@redhat.com>, "linux-mm@kvack.org" <linux-mm@kvack.org>, "x86@kernel.org" <x86@kernel.org>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>, "linux-hexagon@vger.kernel.org" <linux-hexagon@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "loongarch@lists.linux.dev" <loongarch@lists.linux.dev>, "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "openrisc@lists.librecores.org" <openrisc@lists.librecores.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>, "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>, "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>, "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>, Michael Ellerman <mpe@ellerman.id.au>, Nicholas Piggin <npiggin@gmail.com>
 
-DQoNCkxlIDA2LzEyLzIwMjIgw6AgMTU6NDcsIERhdmlkIEhpbGRlbmJyYW5kIGEgw6ljcml0wqA6
-DQo+IFdlIGFscmVhZHkgaW1wbGVtZW50ZWQgc3VwcG9ydCBmb3IgNjRiaXQgYm9vazNzIGluIGNv
-bW1pdCBiZmY5YmVhYTJlODANCj4gKCJwb3dlcnBjL3BndGFibGU6IHN1cHBvcnQgX19IQVZFX0FS
-Q0hfUFRFX1NXUF9FWENMVVNJVkUgZm9yIGJvb2szcyIpDQo+IA0KPiBMZXQncyBzdXBwb3J0IF9f
-SEFWRV9BUkNIX1BURV9TV1BfRVhDTFVTSVZFIGFsc28gaW4gMzJiaXQgYnkgcmV1c2luZyB5ZXQN
-Cj4gdW51c2VkIExTQiAyIC8gTVNCIDI5LiBUaGVyZSBzZWVtcyB0byBiZSBubyByZWFsIHJlYXNv
-biB3aHkgdGhhdCBiaXQgY2Fubm90DQo+IGJlIHVzZWQsIGFuZCByZXVzaW5nIGl0IGF2b2lkcyBo
-YXZpbmcgdG8gc3RlYWwgb25lIGJpdCBmcm9tIHRoZSBzd2FwDQo+IG9mZnNldC4NCj4gDQo+IFdo
-aWxlIGF0IGl0LCBtYXNrIHRoZSB0eXBlIGluIF9fc3dwX2VudHJ5KCkuDQo+IA0KPiBDYzogTWlj
-aGFlbCBFbGxlcm1hbiA8bXBlQGVsbGVybWFuLmlkLmF1Pg0KPiBDYzogTmljaG9sYXMgUGlnZ2lu
-IDxucGlnZ2luQGdtYWlsLmNvbT4NCj4gQ2M6IENocmlzdG9waGUgTGVyb3kgPGNocmlzdG9waGUu
-bGVyb3lAY3Nncm91cC5ldT4NCj4gU2lnbmVkLW9mZi1ieTogRGF2aWQgSGlsZGVuYnJhbmQgPGRh
-dmlkQHJlZGhhdC5jb20+DQo+IC0tLQ0KPiAgIGFyY2gvcG93ZXJwYy9pbmNsdWRlL2FzbS9ib29r
-M3MvMzIvcGd0YWJsZS5oIHwgMzggKysrKysrKysrKysrKysrKystLS0NCj4gICAxIGZpbGUgY2hh
-bmdlZCwgMzMgaW5zZXJ0aW9ucygrKSwgNSBkZWxldGlvbnMoLSkNCj4gDQo+IGRpZmYgLS1naXQg
-YS9hcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vYm9vazNzLzMyL3BndGFibGUuaCBiL2FyY2gvcG93
-ZXJwYy9pbmNsdWRlL2FzbS9ib29rM3MvMzIvcGd0YWJsZS5oDQo+IGluZGV4IDc1ODIzZjM5ZTA0
-Mi4uODEwNzgzNWIzOGMxIDEwMDY0NA0KPiAtLS0gYS9hcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20v
-Ym9vazNzLzMyL3BndGFibGUuaA0KPiArKysgYi9hcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vYm9v
-azNzLzMyL3BndGFibGUuaA0KPiBAQCAtNDIsNiArNDIsOSBAQA0KPiAgICNkZWZpbmUgX1BNRF9Q
-UkVTRU5UX01BU0sgKFBBR0VfTUFTSykNCj4gICAjZGVmaW5lIF9QTURfQkFECSh+UEFHRV9NQVNL
-KQ0KPiAgIA0KPiArLyogV2UgYm9ycm93IHRoZSBfUEFHRV9VU0VSIGJpdCB0byBzdG9yZSB0aGUg
-ZXhjbHVzaXZlIG1hcmtlciBpbiBzd2FwIFBURXMuICovDQo+ICsjZGVmaW5lIF9QQUdFX1NXUF9F
-WENMVVNJVkUJX1BBR0VfVVNFUg0KPiArDQo+ICAgLyogQW5kIGhlcmUgd2UgaW5jbHVkZSBjb21t
-b24gZGVmaW5pdGlvbnMgKi8NCj4gICANCj4gICAjZGVmaW5lIF9QQUdFX0tFUk5FTF9STwkJMA0K
-PiBAQCAtMzYzLDE3ICszNjYsNDIgQEAgc3RhdGljIGlubGluZSB2b2lkIF9fcHRlcF9zZXRfYWNj
-ZXNzX2ZsYWdzKHN0cnVjdCB2bV9hcmVhX3N0cnVjdCAqdm1hLA0KPiAgICNkZWZpbmUgcG1kX3Bh
-Z2UocG1kKQkJcGZuX3RvX3BhZ2UocG1kX3BmbihwbWQpKQ0KPiAgIA0KPiAgIC8qDQo+IC0gKiBF
-bmNvZGUgYW5kIGRlY29kZSBhIHN3YXAgZW50cnkuDQo+IC0gKiBOb3RlIHRoYXQgdGhlIGJpdHMg
-d2UgdXNlIGluIGEgUFRFIGZvciByZXByZXNlbnRpbmcgYSBzd2FwIGVudHJ5DQo+IC0gKiBtdXN0
-IG5vdCBpbmNsdWRlIHRoZSBfUEFHRV9QUkVTRU5UIGJpdCBvciB0aGUgX1BBR0VfSEFTSFBURSBi
-aXQgKGlmIHVzZWQpLg0KPiAtICogICAtLSBwYXVsdXMNCj4gKyAqIEVuY29kZS9kZWNvZGUgc3dh
-cCBlbnRyaWVzIGFuZCBzd2FwIFBURXMuIFN3YXAgUFRFcyBhcmUgYWxsIFBURXMgdGhhdA0KPiAr
-ICogYXJlICFwdGVfbm9uZSgpICYmICFwdGVfcHJlc2VudCgpLg0KPiArICoNCj4gKyAqIEZvcm1h
-dCBvZiBzd2FwIFBURXMgKDMyYml0IFBURXMpOg0KPiArICoNCj4gKyAqICAgICAgICAgICAgICAg
-ICAgICAgICAgIDEgMSAxIDEgMSAxIDEgMSAxIDIgMiAyIDIgMiAyIDIgMiAyIDIgMyAzDQo+ICsg
-KiAgIDAgMSAyIDMgNCA1IDYgNyA4IDkgMCAxIDIgMyA0IDUgNiA3IDggOSAwIDEgMiAzIDQgNSA2
-IDcgOCA5IDAgMQ0KPiArICogICBFIEggUCA8LSB0eXBlIC0tPiA8LS0tLS0tLS0tLS0tLS0tLS0g
-b2Zmc2V0IC0tLS0tLS0tLS0tLS0tLS0tLT4NCg0KVGhhdCdzIGluIHJldmVyc2VkIG9yZGVyLiBf
-UEFHRV9IQVNIUFRFIGlzIGJpdCAzMCBhbmQgc2hvdWxkIGJlIG9uIHRoZSANCnJpZ2h0IGhhbmQg
-c2lkZS4gRXRjIC4uLg0KDQpTb21lIGV4ZW1wbGUgaW4gYXJjaC9wb3dlcnBjL2luY2x1ZGUvYXNt
-L25vaGFzaC8zMi9wdGUtNDB4Lmggb3IgDQphcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vbm9oYXNo
-LzMyL3B0ZS04NXh4LmgNCg0KPiArICoNCj4gKyAqICAgRSBpcyB0aGUgZXhjbHVzaXZlIG1hcmtl
-ciB0aGF0IGlzIG5vdCBzdG9yZWQgaW4gc3dhcCBlbnRyaWVzLg0KPiArICogICBfUEFHRV9QUkVT
-RU5UIChQKSBhbmQgX19QQUdFX0hBU0hQVEUgKEgpIG11c3QgYmUgMC4NCj4gKyAqDQo+ICsgKiBG
-b3IgNjRiaXQgUFRFcywgdGhlIG9mZnNldCBpcyBleHRlbmRlZCBieSAzMmJpdC4NCj4gICAgKi8N
-Cj4gICAjZGVmaW5lIF9fc3dwX3R5cGUoZW50cnkpCQkoKGVudHJ5KS52YWwgJiAweDFmKQ0KPiAg
-ICNkZWZpbmUgX19zd3Bfb2Zmc2V0KGVudHJ5KQkJKChlbnRyeSkudmFsID4+IDUpDQo+IC0jZGVm
-aW5lIF9fc3dwX2VudHJ5KHR5cGUsIG9mZnNldCkJKChzd3BfZW50cnlfdCkgeyAodHlwZSkgfCAo
-KG9mZnNldCkgPDwgNSkgfSkNCj4gKyNkZWZpbmUgX19zd3BfZW50cnkodHlwZSwgb2Zmc2V0KQko
-KHN3cF9lbnRyeV90KSB7ICgodHlwZSkgJiAweDFmKSB8ICgob2Zmc2V0KSA8PCA1KSB9KQ0KPiAg
-ICNkZWZpbmUgX19wdGVfdG9fc3dwX2VudHJ5KHB0ZSkJCSgoc3dwX2VudHJ5X3QpIHsgcHRlX3Zh
-bChwdGUpID4+IDMgfSkNCj4gICAjZGVmaW5lIF9fc3dwX2VudHJ5X3RvX3B0ZSh4KQkJKChwdGVf
-dCkgeyAoeCkudmFsIDw8IDMgfSkNCj4gICANCj4gKyNkZWZpbmUgX19IQVZFX0FSQ0hfUFRFX1NX
-UF9FWENMVVNJVkUNCj4gK3N0YXRpYyBpbmxpbmUgaW50IHB0ZV9zd3BfZXhjbHVzaXZlKHB0ZV90
-IHB0ZSkNCj4gK3sNCj4gKwlyZXR1cm4gcHRlX3ZhbChwdGUpICYgX1BBR0VfU1dQX0VYQ0xVU0lW
-RTsNCj4gK30NCj4gKw0KPiArc3RhdGljIGlubGluZSBwdGVfdCBwdGVfc3dwX21rZXhjbHVzaXZl
-KHB0ZV90IHB0ZSkNCj4gK3sNCj4gKwlyZXR1cm4gX19wdGUocHRlX3ZhbChwdGUpIHwgX1BBR0Vf
-U1dQX0VYQ0xVU0lWRSk7DQo+ICt9DQo+ICsNCj4gK3N0YXRpYyBpbmxpbmUgcHRlX3QgcHRlX3N3
-cF9jbGVhcl9leGNsdXNpdmUocHRlX3QgcHRlKQ0KPiArew0KPiArCXJldHVybiBfX3B0ZShwdGVf
-dmFsKHB0ZSkgJiB+X1BBR0VfU1dQX0VYQ0xVU0lWRSk7DQo+ICt9DQo+ICsNCj4gICAvKiBHZW5l
-cmljIGFjY2Vzc29ycyB0byBQVEUgYml0cyAqLw0KPiAgIHN0YXRpYyBpbmxpbmUgaW50IHB0ZV93
-cml0ZShwdGVfdCBwdGUpCQl7IHJldHVybiAhIShwdGVfdmFsKHB0ZSkgJiBfUEFHRV9SVyk7fQ0K
-PiAgIHN0YXRpYyBpbmxpbmUgaW50IHB0ZV9yZWFkKHB0ZV90IHB0ZSkJCXsgcmV0dXJuIDE7IH0N
-Cg=
+On 07.12.22 14:55, Christophe Leroy wrote:
+> 
+> 
+> Le 06/12/2022 à 15:47, David Hildenbrand a écrit :
+>> We already implemented support for 64bit book3s in commit bff9beaa2e80
+>> ("powerpc/pgtable: support __HAVE_ARCH_PTE_SWP_EXCLUSIVE for book3s")
+>>
+>> Let's support __HAVE_ARCH_PTE_SWP_EXCLUSIVE also in 32bit by reusing yet
+>> unused LSB 2 / MSB 29. There seems to be no real reason why that bit cannot
+>> be used, and reusing it avoids having to steal one bit from the swap
+>> offset.
+>>
+>> While at it, mask the type in __swp_entry().
+>>
+>> Cc: Michael Ellerman <mpe@ellerman.id.au>
+>> Cc: Nicholas Piggin <npiggin@gmail.com>
+>> Cc: Christophe Leroy <christophe.leroy@csgroup.eu>
+>> Signed-off-by: David Hildenbrand <david@redhat.com>
+>> ---
+>>    arch/powerpc/include/asm/book3s/32/pgtable.h | 38 +++++++++++++++++---
+>>    1 file changed, 33 insertions(+), 5 deletions(-)
+>>
+>> diff --git a/arch/powerpc/include/asm/book3s/32/pgtable.h b/arch/powerpc/include/asm/book3s/32/pgtable.h
+>> index 75823f39e042..8107835b38c1 100644
+>> --- a/arch/powerpc/include/asm/book3s/32/pgtable.h
+>> +++ b/arch/powerpc/include/asm/book3s/32/pgtable.h
+>> @@ -42,6 +42,9 @@
+>>    #define _PMD_PRESENT_MASK (PAGE_MASK)
+>>    #define _PMD_BAD	(~PAGE_MASK)
+>>    
+>> +/* We borrow the _PAGE_USER bit to store the exclusive marker in swap PTEs. */
+>> +#define _PAGE_SWP_EXCLUSIVE	_PAGE_USER
+>> +
+>>    /* And here we include common definitions */
+>>    
+>>    #define _PAGE_KERNEL_RO		0
+>> @@ -363,17 +366,42 @@ static inline void __ptep_set_access_flags(struct vm_area_struct *vma,
+>>    #define pmd_page(pmd)		pfn_to_page(pmd_pfn(pmd))
+>>    
+>>    /*
+>> - * Encode and decode a swap entry.
+>> - * Note that the bits we use in a PTE for representing a swap entry
+>> - * must not include the _PAGE_PRESENT bit or the _PAGE_HASHPTE bit (if used).
+>> - *   -- paulus
+>> + * Encode/decode swap entries and swap PTEs. Swap PTEs are all PTEs that
+>> + * are !pte_none() && !pte_present().
+>> + *
+>> + * Format of swap PTEs (32bit PTEs):
+>> + *
+>> + *                         1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+>> + *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+>> + *   E H P <- type --> <----------------- offset ------------------>
+> 
+> That's in reversed order. _PAGE_HASHPTE is bit 30 and should be on the
+> right hand side. Etc ...
+
+Ugh, messed it up while converting back and forth between LSB 0 and MSB 0.
+
+/*
+  * Format of swap PTEs (32bit PTEs):
+  *
+  *                         1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+  *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  *   <----------------- offset ------------------> <- type --> E H P
+
+
+Now the patch description ("unused LSB 2 / MSB 29") makes sense.
+
+Thanks!
+
+Any feedback if the bit could be problematic?
+
+-- 
+Thanks,
+
+David / dhildenb
