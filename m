@@ -1,98 +1,94 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Thu, 08 Dec 2022 08:55:49 +0000
-Subject: Re: [PATCH mm-unstable RFC 17/26] powerpc/mm: support __HAVE_ARCH_PTE_SWP_EXCLUSIVE on 32bit book3s
-Message-Id: <c904aa67-1add-119c-162f-e35d8243a11a@redhat.com>
+From: Christophe Leroy <christophe.leroy@csgroup.eu>
+Date: Tue, 13 Dec 2022 07:29:50 +0000
+Subject: Re: [RFC PATCH] Syscall tracing on PPC64_ELF_ABI_V1 without KALLSYMS_ALL
+Message-Id: <39c53bd1-432f-15f6-4cbd-b8551fc261cf@csgroup.eu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20221206144730.163732-1-david@redhat.com>
- <20221206144730.163732-18-david@redhat.com>
- <8be167b6-3836-25c3-9f69-b8b3916ee5b4@csgroup.eu>
- <0b5b1303-8bcb-c19d-5f63-0e4a3517fea5@redhat.com>
-In-Reply-To: <0b5b1303-8bcb-c19d-5f63-0e4a3517fea5@redhat.com>
+References: <20221212212159.3435046-1-mjeanson@efficios.com>
+In-Reply-To: <20221212212159.3435046-1-mjeanson@efficios.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Christophe Leroy <christophe.leroy@csgroup.eu>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Cc: Andrew Morton <akpm@linux-foundation.org>, Hugh Dickins <hughd@google.com>, John Hubbard <jhubbard@nvidia.com>, Jason Gunthorpe <jgg@nvidia.com>, Mike Rapoport <rppt@linux.ibm.com>, Yang Shi <shy828301@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Nadav Amit <namit@vmware.com>, Andrea Arcangeli <aarcange@redhat.com>, Peter Xu <peterx@redhat.com>, "linux-mm@kvack.org" <linux-mm@kvack.org>, "x86@kernel.org" <x86@kernel.org>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>, "linux-hexagon@vger.kernel.org" <linux-hexagon@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "loongarch@lists.linux.dev" <loongarch@lists.linux.dev>, "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "openrisc@lists.librecores.org" <openrisc@lists.librecores.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>, "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>, "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>, "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>, Michael Ellerman <mpe@ellerman.id.au>, Nicholas Piggin <npiggin@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Michael Jeanson <mjeanson@efficios.com>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
+Cc: Michael Ellerman <mpe@ellerman.id.au>, Mathieu Desnoyers <mathieu.desnoyers@efficios.com>, Arnd Bergmann <arnd@arndb.de>, "linux-mm@kvack.org" <linux-mm@kvack.org>, Steven Rostedt <rostedt@goodmis.org>, Masami Hiramatsu <mhiramat@kernel.org>, linux-arch <linux-arch@vger.kernel.org>, "open list:PARISC ARCHITECTURE" <linux-parisc@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
 
-On 08.12.22 09:52, David Hildenbrand wrote:
-> On 07.12.22 14:55, Christophe Leroy wrote:
->>
->>
->> Le 06/12/2022 à 15:47, David Hildenbrand a écrit :
->>> We already implemented support for 64bit book3s in commit bff9beaa2e80
->>> ("powerpc/pgtable: support __HAVE_ARCH_PTE_SWP_EXCLUSIVE for book3s")
->>>
->>> Let's support __HAVE_ARCH_PTE_SWP_EXCLUSIVE also in 32bit by reusing yet
->>> unused LSB 2 / MSB 29. There seems to be no real reason why that bit cannot
->>> be used, and reusing it avoids having to steal one bit from the swap
->>> offset.
->>>
->>> While at it, mask the type in __swp_entry().
->>>
->>> Cc: Michael Ellerman <mpe@ellerman.id.au>
->>> Cc: Nicholas Piggin <npiggin@gmail.com>
->>> Cc: Christophe Leroy <christophe.leroy@csgroup.eu>
->>> Signed-off-by: David Hildenbrand <david@redhat.com>
->>> ---
->>>     arch/powerpc/include/asm/book3s/32/pgtable.h | 38 +++++++++++++++++---
->>>     1 file changed, 33 insertions(+), 5 deletions(-)
->>>
->>> diff --git a/arch/powerpc/include/asm/book3s/32/pgtable.h b/arch/powerpc/include/asm/book3s/32/pgtable.h
->>> index 75823f39e042..8107835b38c1 100644
->>> --- a/arch/powerpc/include/asm/book3s/32/pgtable.h
->>> +++ b/arch/powerpc/include/asm/book3s/32/pgtable.h
->>> @@ -42,6 +42,9 @@
->>>     #define _PMD_PRESENT_MASK (PAGE_MASK)
->>>     #define _PMD_BAD	(~PAGE_MASK)
->>>     
->>> +/* We borrow the _PAGE_USER bit to store the exclusive marker in swap PTEs. */
->>> +#define _PAGE_SWP_EXCLUSIVE	_PAGE_USER
->>> +
->>>     /* And here we include common definitions */
->>>     
->>>     #define _PAGE_KERNEL_RO		0
->>> @@ -363,17 +366,42 @@ static inline void __ptep_set_access_flags(struct vm_area_struct *vma,
->>>     #define pmd_page(pmd)		pfn_to_page(pmd_pfn(pmd))
->>>     
->>>     /*
->>> - * Encode and decode a swap entry.
->>> - * Note that the bits we use in a PTE for representing a swap entry
->>> - * must not include the _PAGE_PRESENT bit or the _PAGE_HASHPTE bit (if used).
->>> - *   -- paulus
->>> + * Encode/decode swap entries and swap PTEs. Swap PTEs are all PTEs that
->>> + * are !pte_none() && !pte_present().
->>> + *
->>> + * Format of swap PTEs (32bit PTEs):
->>> + *
->>> + *                         1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
->>> + *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
->>> + *   E H P <- type --> <----------------- offset ------------------>
->>
->> That's in reversed order. _PAGE_HASHPTE is bit 30 and should be on the
->> right hand side. Etc ...
-> 
-> Ugh, messed it up while converting back and forth between LSB 0 and MSB 0.
-> 
-> /*
->    * Format of swap PTEs (32bit PTEs):
->    *
->    *                         1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
->    *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
->    *   <----------------- offset ------------------> <- type --> E H P
-> 
-> 
-
-Still wrong, the type is only 5 bits:
-
-+ * Format of swap PTEs (32bit PTEs):
-+ *
-+ *                         1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
-+ *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+ *   <----------------- offset --------------------> < type -> E H P
-+ *
-
-
--- 
-Thanks,
-
-David / dhildenb
+VGhlIGNoYW5nZXMgYXJlIGFic29sdXRlbHkgbm90IHNwZWNpZmljIHRvIHBvd2VycGMuIFlvdSBz
+aG91bGQgYWRqdXN0IA0KdGhlIHN1YmplY3QgYWNjb3JkaW5nbHksIGFuZCBjb3B5IGxpbnV4LWFy
+Y2ggYW5kIHRyYWNpbmcgYW5kIHByb2JhYmx5IA0KYWxzbyBpYTY0IGFuZCBwYXJpc2MuDQoNCkxl
+IDEyLzEyLzIwMjIgw6AgMjI6MjEsIE1pY2hhZWwgSmVhbnNvbiBhIMOpY3JpdMKgOg0KPiBJbiBh
+ZDA1MGQyMzkwZmNjYjIyYWEzZTZmNjVlMTE3NTdjZTdhNWE3Y2E1IHdlIGZpeGVkIGZ0cmFjZSBz
+eXNjYWxsDQo+IHRyYWNpbmcgb24gUFBDNjRfRUxGX0FCSV9WMSBieSBsb29raW5nIGZvciB0aGUg
+bm9uLWRvdCBwcmVmaXhlZCBzeW1ib2wNCj4gb2YgYSBzeXNjYWxsLg0KDQpTaG91bGQgYmUgd3Jp
+dHRlbiBhczoNCg0KQ29tbWl0IGFkMDUwZDIzOTBmYyAoInBvd2VycGMvZnRyYWNlOiBmaXggc3lz
+Y2FsbCB0cmFjaW5nIG9uIA0KUFBDNjRfRUxGX0FCSV9WMSIpIGZpeGVkIC4uLi4NCg0KDQo+IA0K
+PiBGdHJhY2UgdXNlcyBrYWxsc3ltcyB0byBsb2NhdGUgc3lzY2FsbCBzeW1ib2xzIGFuZCB0aG9z
+ZSBub24tZG90DQo+IHByZWZpeGVkIHN5bWJvbHMgcmVzaWRlIGluIGEgc2VwYXJhdGUgJy5vcGQn
+IHNlY3Rpb24gd2hpY2ggaXMgbm90DQo+IGluY2x1ZGVkIGJ5IGthbGxzeW1zLg0KPiANCj4gU28g
+d2UgZWl0aGVyIG5lZWQgdG8gaGF2ZSBGVFJBQ0VfU1lTQ0FMTFMgc2VsZWN0IEtBTExTWU1TX0FM
+TCBvbg0KPiBQUEM2NF9FTEZfQUJJX1YxIG9yIGFkZCB0aGUgJy5vcGQnIHNlY3Rpb24gc3ltYm9s
+cyB0byBrYWxsc3ltcy4NCj4gDQo+IFRoaXMgcGF0Y2ggZG9lcyB0aGUgbWluaW11bSB0byBhY2hp
+ZXZlIHRoZSBsYXR0ZXIsIGl0J3MgdGVzdGVkIG9uIGENCj4gY29yZW5ldDY0X3NtcF9kZWZjb25m
+aWcgd2l0aCBLQUxMU1lNU19BTEwgdHVybmVkIG9mZi4NCj4gDQo+IEknbSB1bnN1cmUgd2hpY2gg
+b2YgdGhlIGFsdGVybmF0aXZlcyB3b3VsZCBiZSBiZXR0ZXIuDQo+IA0KPiAtLS0NCj4gSW4gJ2tl
+cm5lbC9tb2R1bGUva2FsbHN5bXMuYycgdGhlICdpc19jb3JlX3N5bWJvbCcgZnVuY3Rpb24gbWln
+aHQgYWxzbw0KPiByZXF1aXJlIHNvbWUgdHdlYWtpbmcgdG8gbWFrZSBhbGwgb3BkIHN5bWJvbHMg
+YXZhaWxhYmxlIHRvIGthbGxzeW1zIGJ1dA0KPiB0aGF0IGRvZXNuJ3QgaW1wYWN0IGZ0cmFjZSBz
+eXNjYWxsIHRyYWNpbmcuDQo+IA0KPiBDYzogTWljaGFlbCBFbGxlcm1hbiA8bXBlQGVsbGVybWFu
+LmlkLmF1Pg0KPiBDYzogQ2hyaXN0b3BoZSBMZXJveSA8Y2hyaXN0b3BoZS5sZXJveUBjc2dyb3Vw
+LmV1Pg0KPiBDYzogTWF0aGlldSBEZXNub3llcnMgPG1hdGhpZXUuZGVzbm95ZXJzQGVmZmljaW9z
+LmNvbT4NCj4gU2lnbmVkLW9mZi1ieTogTWljaGFlbCBKZWFuc29uIDxtamVhbnNvbkBlZmZpY2lv
+cy5jb20+DQo+IC0tLQ0KPiAgIGluY2x1ZGUvYXNtLWdlbmVyaWMvc2VjdGlvbnMuaCB8IDE0ICsr
+KysrKysrKysrKysrDQo+ICAgaW5jbHVkZS9saW51eC9rYWxsc3ltcy5oICAgICAgIHwgIDMgKysr
+DQo+ICAga2VybmVsL2thbGxzeW1zLmMgICAgICAgICAgICAgIHwgIDIgKysNCj4gICBzY3JpcHRz
+L2thbGxzeW1zLmMgICAgICAgICAgICAgfCAgMSArDQo+ICAgNCBmaWxlcyBjaGFuZ2VkLCAyMCBp
+bnNlcnRpb25zKCspDQo+IA0KPiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS9hc20tZ2VuZXJpYy9zZWN0
+aW9ucy5oIGIvaW5jbHVkZS9hc20tZ2VuZXJpYy9zZWN0aW9ucy5oDQo+IGluZGV4IGRiMTNiYjYy
+MGY1Mi4uMTQxMDU2Njk1N2U1IDEwMDY0NA0KPiAtLS0gYS9pbmNsdWRlL2FzbS1nZW5lcmljL3Nl
+Y3Rpb25zLmgNCj4gKysrIGIvaW5jbHVkZS9hc20tZ2VuZXJpYy9zZWN0aW9ucy5oDQo+IEBAIC0x
+ODAsNiArMTgwLDIwIEBAIHN0YXRpYyBpbmxpbmUgYm9vbCBpc19rZXJuZWxfcm9kYXRhKHVuc2ln
+bmVkIGxvbmcgYWRkcikNCj4gICAJICAgICAgIGFkZHIgPCAodW5zaWduZWQgbG9uZylfX2VuZF9y
+b2RhdGE7DQo+ICAgfQ0KPiAgIA0KPiArLyoqDQo+ICsgKiBpc19rZXJuZWxfb3BkIC0gY2hlY2tz
+IGlmIHRoZSBwb2ludGVyIGFkZHJlc3MgaXMgbG9jYXRlZCBpbiB0aGUNCj4gKyAqICAgICAgICAg
+ICAgICAgICAub3BkIHNlY3Rpb24NCj4gKyAqDQo+ICsgKiBAYWRkcjogYWRkcmVzcyB0byBjaGVj
+aw0KPiArICoNCj4gKyAqIFJldHVybnM6IHRydWUgaWYgdGhlIGFkZHJlc3MgaXMgbG9jYXRlZCBp
+biAub3BkLCBmYWxzZSBvdGhlcndpc2UuDQo+ICsgKi8NCj4gK3N0YXRpYyBpbmxpbmUgYm9vbCBp
+c19rZXJuZWxfb3BkKHVuc2lnbmVkIGxvbmcgYWRkcikNCj4gK3sNCg0KSSB3b3VsZCBhZGQgYSBj
+aGVjayBvZiBDT05GSUdfSEFWRV9GVU5DVElPTl9ERVNDUklQVE9SUzoNCg0KCWlmICghSVNfRU5B
+QkxFRChDT05GSUdfSEFWRV9GVU5DVElPTl9ERVNDUklQVE9SUykpDQoJCXJldHVybiBmYWxzZTsN
+Cg0KPiArCXJldHVybiBhZGRyID49ICh1bnNpZ25lZCBsb25nKV9fc3RhcnRfb3BkICYmDQo+ICsJ
+ICAgICAgIGFkZHIgPCAodW5zaWduZWQgbG9uZylfX2VuZF9vcGQ7DQo+ICt9DQo+ICsNCj4gICAv
+KioNCj4gICAgKiBpc19rZXJuZWxfaW5pdHRleHQgLSBjaGVja3MgaWYgdGhlIHBvaW50ZXIgYWRk
+cmVzcyBpcyBsb2NhdGVkIGluIHRoZQ0KPiAgICAqICAgICAgICAgICAgICAgICAgICAgIC5pbml0
+LnRleHQgc2VjdGlvbg0KPiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9rYWxsc3ltcy5oIGIv
+aW5jbHVkZS9saW51eC9rYWxsc3ltcy5oDQo+IGluZGV4IDY0OWZhYWMzMWRkYi4uOWJmYjRkOGQ0
+MWE1IDEwMDY0NA0KPiAtLS0gYS9pbmNsdWRlL2xpbnV4L2thbGxzeW1zLmgNCj4gKysrIGIvaW5j
+bHVkZS9saW51eC9rYWxsc3ltcy5oDQo+IEBAIC00Myw2ICs0Myw5IEBAIHN0YXRpYyBpbmxpbmUg
+aW50IGlzX2tzeW1fYWRkcih1bnNpZ25lZCBsb25nIGFkZHIpDQo+ICAgCWlmIChJU19FTkFCTEVE
+KENPTkZJR19LQUxMU1lNU19BTEwpKQ0KPiAgIAkJcmV0dXJuIGlzX2tlcm5lbChhZGRyKTsNCj4g
+ICANCj4gKwlpZiAoSVNfRU5BQkxFRChDT05GSUdfSEFWRV9GVU5DVElPTl9ERVNDUklQVE9SUykp
+DQo+ICsJCXJldHVybiBpc19rZXJuZWxfdGV4dChhZGRyKSB8fCBpc19rZXJuZWxfaW5pdHRleHQo
+YWRkcikgfHwgaXNfa2VybmVsX29wZChhZGRyKTsNCj4gKw0KDQpXaXRoIHRoZSBjaGVjayBpbnNp
+ZGUgaXNfa2VybmVsX29wZCgpLCB5b3UgY2FuIG1ha2UgaXQgc2ltcGxlcjoNCg0KCXJldHVybiBp
+c19rZXJuZWxfdGV4dChhZGRyKSB8fCBpc19rZXJuZWxfaW5pdHRleHQoYWRkcikgfHwgDQppc19r
+ZXJuZWxfb3BkKGFkZHIpOw0KDQo+ICAgCXJldHVybiBpc19rZXJuZWxfdGV4dChhZGRyKSB8fCBp
+c19rZXJuZWxfaW5pdHRleHQoYWRkcik7DQo+ICAgfQ0KPiAgIA0KPiBkaWZmIC0tZ2l0IGEva2Vy
+bmVsL2thbGxzeW1zLmMgYi9rZXJuZWwva2FsbHN5bXMuYw0KPiBpbmRleCA2MGMyMGYzMDFhNmIu
+LjAwOWIxY2EyMTYxOCAxMDA2NDQNCj4gLS0tIGEva2VybmVsL2thbGxzeW1zLmMNCj4gKysrIGIv
+a2VybmVsL2thbGxzeW1zLmMNCj4gQEAgLTI4MSw2ICsyODEsOCBAQCBzdGF0aWMgdW5zaWduZWQg
+bG9uZyBnZXRfc3ltYm9sX3Bvcyh1bnNpZ25lZCBsb25nIGFkZHIsDQo+ICAgCQkJc3ltYm9sX2Vu
+ZCA9ICh1bnNpZ25lZCBsb25nKV9laW5pdHRleHQ7DQo+ICAgCQllbHNlIGlmIChJU19FTkFCTEVE
+KENPTkZJR19LQUxMU1lNU19BTEwpKQ0KPiAgIAkJCXN5bWJvbF9lbmQgPSAodW5zaWduZWQgbG9u
+ZylfZW5kOw0KPiArCQllbHNlIGlmIChJU19FTkFCTEVEKENPTkZJR19IQVZFX0ZVTkNUSU9OX0RF
+U0NSSVBUT1JTKSAmJiBpc19rZXJuZWxfb3BkKGFkZHIpKQ0KPiArCQkJc3ltYm9sX2VuZCA9ICh1
+bnNpZ25lZCBsb25nKV9fZW5kX29wZDsNCg0KU2FtZSwgd2l0aCB0aGUgY2hlY2sgaW5jbHVkZWQg
+aW5zaWRlIGlzX2tlcm5lbF9vcGQoKSB5b3UgZG9uJ3QgbmVlZCB0aGUgDQpJU19FTkFCTEVEKENP
+TkZJR19IQVZFX0ZVTkNUSU9OX0RFU0NSSVBUT1JTKSBoZXJlLg0KDQo+ICAgCQllbHNlDQo+ICAg
+CQkJc3ltYm9sX2VuZCA9ICh1bnNpZ25lZCBsb25nKV9ldGV4dDsNCj4gICAJfQ0KPiBkaWZmIC0t
+Z2l0IGEvc2NyaXB0cy9rYWxsc3ltcy5jIGIvc2NyaXB0cy9rYWxsc3ltcy5jDQo+IGluZGV4IDAz
+ZmEwN2FkNDVkOS4uZGVjZjMxYzQ5N2Y1IDEwMDY0NA0KPiAtLS0gYS9zY3JpcHRzL2thbGxzeW1z
+LmMNCj4gKysrIGIvc2NyaXB0cy9rYWxsc3ltcy5jDQo+IEBAIC02NCw2ICs2NCw3IEBAIHN0YXRp
+YyB1bnNpZ25lZCBsb25nIGxvbmcgcmVsYXRpdmVfYmFzZTsNCj4gICBzdGF0aWMgc3RydWN0IGFk
+ZHJfcmFuZ2UgdGV4dF9yYW5nZXNbXSA9IHsNCj4gICAJeyAiX3N0ZXh0IiwgICAgICJfZXRleHQi
+ICAgICB9LA0KPiAgIAl7ICJfc2luaXR0ZXh0IiwgIl9laW5pdHRleHQiIH0sDQo+ICsJeyAiX19z
+dGFydF9vcGQiLCAiX19lbmRfb3BkIiB9LA0KPiAgIH07DQo+ICAgI2RlZmluZSB0ZXh0X3Jhbmdl
+X3RleHQgICAgICgmdGV4dF9yYW5nZXNbMF0pDQo+ICAgI2RlZmluZSB0ZXh0X3JhbmdlX2luaXR0
+ZXh0ICgmdGV4dF9yYW5nZXNbMV0pDQo
