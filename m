@@ -1,71 +1,44 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Tue, 06 Dec 2022 14:47:05 +0000
-Subject: [PATCH mm-unstable RFC 01/26] mm/debug_vm_pgtable: more pte_swp_exclusive() sanity checks
-Message-Id: <20221206144730.163732-2-david@redhat.com>
+From: Andrzej Hajda <andrzej.hajda@intel.com>
+Date: Thu, 22 Dec 2022 11:46:31 +0000
+Subject: [PATCH 15/19] arch/sh: rename internal name __xchg to __arch_xchg
+Message-Id: <20221222114635.1251934-16-andrzej.hajda@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20221206144730.163732-1-david@redhat.com>
-In-Reply-To: <20221206144730.163732-1-david@redhat.com>
+References: <20221222114635.1251934-1-andrzej.hajda@intel.com>
+In-Reply-To: <20221222114635.1251934-1-andrzej.hajda@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Andrew Morton <akpm@linux-foundation.org>, Hugh Dickins <hughd@google.com>, John Hubbard <jhubbard@nvidia.com>, Jason Gunthorpe <jgg@nvidia.com>, Mike Rapoport <rppt@linux.ibm.com>, Yang Shi <shy828301@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Nadav Amit <namit@vmware.com>, Andrea Arcangeli <aarcange@redhat.com>, Peter Xu <peterx@redhat.com>, linux-mm@kvack.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, David Hildenbrand <david@redhat.com>
+To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, intel-gfx@lists.freedesktop.org, dri-devel@lists.freedesktop.org
+Cc: Mark Rutland <mark.rutland@arm.com>, Arnd Bergmann <arnd@arndb.de>, Peter Zijlstra <peterz@infradead.org>, Boqun Feng <boqun.feng@gmail.com>, Andrzej Hajda <andrzej.hajda@intel.com>, Rodrigo Vivi <rodrigo.vivi@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 
-We want to implement __HAVE_ARCH_PTE_SWP_EXCLUSIVE on all architectures.
-Let's extend our sanity checks, especially testing that our PTE bit
-does not affect:
-* is_swap_pte() -> pte_present() and pte_none()
-* the swap entry + type
-* pte_swp_soft_dirty()
+__xchg will be used for non-atomic xchg macro.
 
-Especially, the pfn_pte() is dodgy when the swap PTE layout differs
-heavily from ordinary PTEs. Let's properly construct a swap PTE from
-swap type+offset.
-
-Signed-off-by: David Hildenbrand <david@redhat.com>
+Signed-off-by: Andrzej Hajda <andrzej.hajda@intel.com>
 ---
- mm/debug_vm_pgtable.c | 23 ++++++++++++++++++++++-
- 1 file changed, 22 insertions(+), 1 deletion(-)
+ arch/sh/include/asm/cmpxchg.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/mm/debug_vm_pgtable.c b/mm/debug_vm_pgtable.c
-index c631ade3f1d2..0506622016d9 100644
---- a/mm/debug_vm_pgtable.c
-+++ b/mm/debug_vm_pgtable.c
-@@ -807,13 +807,34 @@ static void __init pmd_swap_soft_dirty_tests(struct pgtable_debug_args *args) {
- static void __init pte_swap_exclusive_tests(struct pgtable_debug_args *args)
- {
- #ifdef __HAVE_ARCH_PTE_SWP_EXCLUSIVE
--	pte_t pte = pfn_pte(args->fixed_pte_pfn, args->page_prot);
-+	unsigned long max_swapfile_size = generic_max_swapfile_size();
-+	swp_entry_t entry, entry2;
-+	pte_t pte;
+diff --git a/arch/sh/include/asm/cmpxchg.h b/arch/sh/include/asm/cmpxchg.h
+index 0ed9b3f4a57796..288f6f38d98fb4 100644
+--- a/arch/sh/include/asm/cmpxchg.h
++++ b/arch/sh/include/asm/cmpxchg.h
+@@ -22,7 +22,7 @@
  
- 	pr_debug("Validating PTE swap exclusive\n");
-+
-+	/* Create a swp entry with all possible bits set */
-+	entry = swp_entry((1 << MAX_SWAPFILES_SHIFT) - 1,
-+			  max_swapfile_size - 1);
-+
-+	pte = swp_entry_to_pte(entry);
-+	WARN_ON(pte_swp_exclusive(pte));
-+	WARN_ON(!is_swap_pte(pte));
-+	entry2 = pte_to_swp_entry(pte);
-+	WARN_ON(memcmp(&entry, &entry2, sizeof(entry)));
-+
- 	pte = pte_swp_mkexclusive(pte);
- 	WARN_ON(!pte_swp_exclusive(pte));
-+	WARN_ON(!is_swap_pte(pte));
-+	WARN_ON(pte_swp_soft_dirty(pte));
-+	entry2 = pte_to_swp_entry(pte);
-+	WARN_ON(memcmp(&entry, &entry2, sizeof(entry)));
-+
- 	pte = pte_swp_clear_exclusive(pte);
- 	WARN_ON(pte_swp_exclusive(pte));
-+	WARN_ON(!is_swap_pte(pte));
-+	entry2 = pte_to_swp_entry(pte);
-+	WARN_ON(memcmp(&entry, &entry2, sizeof(entry)));
- #endif /* __HAVE_ARCH_PTE_SWP_EXCLUSIVE */
- }
+ extern void __xchg_called_with_bad_pointer(void);
  
+-#define __xchg(ptr, x, size)				\
++#define __arch_xchg(ptr, x, size)				\
+ ({							\
+ 	unsigned long __xchg__res;			\
+ 	volatile void *__xchg_ptr = (ptr);		\
+@@ -46,7 +46,7 @@ extern void __xchg_called_with_bad_pointer(void);
+ })
+ 
+ #define arch_xchg(ptr,x)	\
+-	((__typeof__(*(ptr)))__xchg((ptr),(unsigned long)(x), sizeof(*(ptr))))
++	((__typeof__(*(ptr)))__arch_xchg((ptr),(unsigned long)(x), sizeof(*(ptr))))
+ 
+ /* This function doesn't exist, so you'll get a linker error
+  * if something tries to do an invalid cmpxchg(). */
 -- 
-2.38.1
+2.34.1
