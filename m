@@ -1,105 +1,319 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Tue, 06 Dec 2022 14:47:29 +0000
-Subject: [PATCH mm-unstable RFC 25/26] xtensa/mm: support __HAVE_ARCH_PTE_SWP_EXCLUSIVE
-Message-Id: <20221206144730.163732-26-david@redhat.com>
+From: Andrzej Hajda <andrzej.hajda@intel.com>
+Date: Thu, 22 Dec 2022 11:46:35 +0000
+Subject: [PATCH 19/19] drm/i915/gt: use __xchg instead of internal helper
+Message-Id: <20221222114635.1251934-20-andrzej.hajda@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20221206144730.163732-1-david@redhat.com>
-In-Reply-To: <20221206144730.163732-1-david@redhat.com>
+References: <20221222114635.1251934-1-andrzej.hajda@intel.com>
+In-Reply-To: <20221222114635.1251934-1-andrzej.hajda@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Andrew Morton <akpm@linux-foundation.org>, Hugh Dickins <hughd@google.com>, John Hubbard <jhubbard@nvidia.com>, Jason Gunthorpe <jgg@nvidia.com>, Mike Rapoport <rppt@linux.ibm.com>, Yang Shi <shy828301@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Nadav Amit <namit@vmware.com>, Andrea Arcangeli <aarcange@redhat.com>, Peter Xu <peterx@redhat.com>, linux-mm@kvack.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, David Hildenbrand <david@redhat.com>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>
+To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, intel-gfx@lists.freedesktop.org, dri-devel@lists.freedesktop.org
+Cc: Mark Rutland <mark.rutland@arm.com>, Arnd Bergmann <arnd@arndb.de>, Peter Zijlstra <peterz@infradead.org>, Boqun Feng <boqun.feng@gmail.com>, Andrzej Hajda <andrzej.hajda@intel.com>, Rodrigo Vivi <rodrigo.vivi@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 
-Let's support __HAVE_ARCH_PTE_SWP_EXCLUSIVE by using bit 1. This
-bit should be safe to use for our usecase.
+Prefer core helper if available.
 
-Most importantly, we can still distinguish swap PTEs from PAGE_NONE PTEs
-(see pte_present()) and don't use one of the two reserved attribute
-masks (1101 and 1111). Attribute mask 1100 and 1110 now identify swap PTEs.
-
-While at it, remove SWP_TYPE_BITS (not really helpful as it's not used in
-the actual swap macros) and mask the type in __swp_entry().
-
-Cc: Chris Zankel <chris@zankel.net>
-Cc: Max Filippov <jcmvbkbc@gmail.com>
-Signed-off-by: David Hildenbrand <david@redhat.com>
+Signed-off-by: Andrzej Hajda <andrzej.hajda@intel.com>
 ---
- arch/xtensa/include/asm/pgtable.h | 32 ++++++++++++++++++++++++++-----
- 1 file changed, 27 insertions(+), 5 deletions(-)
+ drivers/gpu/drm/i915/gt/intel_engine_cs.c            | 2 +-
+ drivers/gpu/drm/i915/gt/intel_engine_heartbeat.c     | 4 ++--
+ drivers/gpu/drm/i915/gt/intel_execlists_submission.c | 4 ++--
+ drivers/gpu/drm/i915/gt/intel_ggtt.c                 | 4 ++--
+ drivers/gpu/drm/i915/gt/intel_gsc.c                  | 2 +-
+ drivers/gpu/drm/i915/gt/intel_gt.c                   | 4 ++--
+ drivers/gpu/drm/i915/gt/intel_gt_pm.c                | 2 +-
+ drivers/gpu/drm/i915/gt/intel_lrc.c                  | 6 +++---
+ drivers/gpu/drm/i915/gt/intel_migrate.c              | 2 +-
+ drivers/gpu/drm/i915/gt/intel_rc6.c                  | 2 +-
+ drivers/gpu/drm/i915/gt/intel_rps.c                  | 2 +-
+ drivers/gpu/drm/i915/gt/selftest_context.c           | 2 +-
+ drivers/gpu/drm/i915/gt/selftest_ring_submission.c   | 2 +-
+ drivers/gpu/drm/i915/gt/selftest_timeline.c          | 2 +-
+ drivers/gpu/drm/i915/gt/uc/intel_gsc_uc.c            | 2 +-
+ drivers/gpu/drm/i915/gt/uc/intel_uc.c                | 2 +-
+ drivers/gpu/drm/i915/gt/uc/intel_uc_fw.c             | 2 +-
+ drivers/gpu/drm/i915/i915_utils.h                    | 1 +
+ 18 files changed, 24 insertions(+), 23 deletions(-)
 
-diff --git a/arch/xtensa/include/asm/pgtable.h b/arch/xtensa/include/asm/pgtable.h
-index 5b5484d707b2..1025e2dc292b 100644
---- a/arch/xtensa/include/asm/pgtable.h
-+++ b/arch/xtensa/include/asm/pgtable.h
-@@ -96,7 +96,7 @@
-  *		+- - - - - - - - - - - - - - - - - - - - -+
-  *   (PAGE_NONE)|    PPN    | 0 | 00 | ADW | 01 | 11 | 11 |
-  *		+-----------------------------------------+
-- *   swap	|     index     |   type   | 01 | 11 | 00 |
-+ *   swap	|     index     |   type   | 01 | 11 | e0 |
-  *		+-----------------------------------------+
-  *
-  * For T1050 hardware and earlier the layout differs for present and (PAGE_NONE)
-@@ -112,6 +112,7 @@
-  *   RI         ring (0=privileged, 1=user, 2 and 3 are unused)
-  *   CA		cache attribute: 00 bypass, 01 writeback, 10 writethrough
-  *		(11 is invalid and used to mark pages that are not present)
-+ *   e		exclusive marker in swap PTEs
-  *   w		page is writable (hw)
-  *   x		page is executable (hw)
-  *   index      swap offset / PAGE_SIZE (bit 11-31: 21 bits -> 8 GB)
-@@ -158,6 +159,9 @@
- #define _PAGE_DIRTY		(1<<7)	/* software: page dirty */
- #define _PAGE_ACCESSED		(1<<8)	/* software: page accessed (read) */
+diff --git a/drivers/gpu/drm/i915/gt/intel_engine_cs.c b/drivers/gpu/drm/i915/gt/intel_engine_cs.c
+index 99c4b866adddfa..aa548bd0b83687 100644
+--- a/drivers/gpu/drm/i915/gt/intel_engine_cs.c
++++ b/drivers/gpu/drm/i915/gt/intel_engine_cs.c
+@@ -1042,7 +1042,7 @@ static void cleanup_status_page(struct intel_engine_cs *engine)
+ 	/* Prevent writes into HWSP after returning the page to the system */
+ 	intel_engine_set_hwsp_writemask(engine, ~0u);
  
-+/* We borrow bit 1 to store the exclusive marker in swap PTEs. */
-+#define _PAGE_SWP_EXCLUSIVE	(1<<1)
-+
- #ifdef CONFIG_MMU
+-	vma = fetch_and_zero(&engine->status_page.vma);
++	vma = __xchg(&engine->status_page.vma, 0);
+ 	if (!vma)
+ 		return;
  
- #define _PAGE_CHG_MASK	   (PAGE_MASK | _PAGE_ACCESSED | _PAGE_DIRTY)
-@@ -343,19 +347,37 @@ ptep_set_wrprotect(struct mm_struct *mm, unsigned long addr, pte_t *ptep)
+diff --git a/drivers/gpu/drm/i915/gt/intel_engine_heartbeat.c b/drivers/gpu/drm/i915/gt/intel_engine_heartbeat.c
+index 9a527e1f5be655..09befcc6a84fa1 100644
+--- a/drivers/gpu/drm/i915/gt/intel_engine_heartbeat.c
++++ b/drivers/gpu/drm/i915/gt/intel_engine_heartbeat.c
+@@ -229,7 +229,7 @@ static void heartbeat(struct work_struct *wrk)
+ 	mutex_unlock(&ce->timeline->mutex);
+ out:
+ 	if (!engine->i915->params.enable_hangcheck || !next_heartbeat(engine))
+-		i915_request_put(fetch_and_zero(&engine->heartbeat.systole));
++		i915_request_put(__xchg(&engine->heartbeat.systole, 0));
+ 	intel_engine_pm_put(engine);
  }
  
- /*
-- * Encode and decode a swap and file entry.
-+ * Encode/decode swap entries and swap PTEs. Swap PTEs are all PTEs that
-+ * are !pte_none() && !pte_present().
-  */
--#define SWP_TYPE_BITS		5
--#define MAX_SWAPFILES_CHECK() BUILD_BUG_ON(MAX_SWAPFILES_SHIFT > SWP_TYPE_BITS)
-+#define MAX_SWAPFILES_CHECK() BUILD_BUG_ON(MAX_SWAPFILES_SHIFT > 5)
+@@ -244,7 +244,7 @@ void intel_engine_unpark_heartbeat(struct intel_engine_cs *engine)
+ void intel_engine_park_heartbeat(struct intel_engine_cs *engine)
+ {
+ 	if (cancel_delayed_work(&engine->heartbeat.work))
+-		i915_request_put(fetch_and_zero(&engine->heartbeat.systole));
++		i915_request_put(__xchg(&engine->heartbeat.systole, 0));
+ }
  
- #define __swp_type(entry)	(((entry).val >> 6) & 0x1f)
- #define __swp_offset(entry)	((entry).val >> 11)
- #define __swp_entry(type,offs)	\
--	((swp_entry_t){((type) << 6) | ((offs) << 11) | \
-+	((swp_entry_t){(((type) & 0x1f) << 6) | ((offs) << 11) | \
- 	 _PAGE_CA_INVALID | _PAGE_USER})
- #define __pte_to_swp_entry(pte)	((swp_entry_t) { pte_val(pte) })
- #define __swp_entry_to_pte(x)	((pte_t) { (x).val })
+ void intel_gt_unpark_heartbeats(struct intel_gt *gt)
+diff --git a/drivers/gpu/drm/i915/gt/intel_execlists_submission.c b/drivers/gpu/drm/i915/gt/intel_execlists_submission.c
+index 49a8f10d76c77b..692f18e5a10ef3 100644
+--- a/drivers/gpu/drm/i915/gt/intel_execlists_submission.c
++++ b/drivers/gpu/drm/i915/gt/intel_execlists_submission.c
+@@ -3197,7 +3197,7 @@ static void execlists_reset_cancel(struct intel_engine_cs *engine)
+ 		RB_CLEAR_NODE(rb);
  
-+#define __HAVE_ARCH_PTE_SWP_EXCLUSIVE
-+static inline int pte_swp_exclusive(pte_t pte)
-+{
-+	return pte_val(pte) & _PAGE_SWP_EXCLUSIVE;
-+}
-+
-+static inline pte_t pte_swp_mkexclusive(pte_t pte)
-+{
-+	pte_val(pte) |= _PAGE_SWP_EXCLUSIVE;
-+	return pte;
-+}
-+
-+static inline pte_t pte_swp_clear_exclusive(pte_t pte)
-+{
-+	pte_val(pte) &= ~_PAGE_SWP_EXCLUSIVE;
-+	return pte;
-+}
-+
- #endif /*  !defined (__ASSEMBLY__) */
+ 		spin_lock(&ve->base.sched_engine->lock);
+-		rq = fetch_and_zero(&ve->request);
++		rq = __xchg(&ve->request, NULL);
+ 		if (rq) {
+ 			if (i915_request_mark_eio(rq)) {
+ 				rq->engine = engine;
+@@ -3602,7 +3602,7 @@ static void rcu_virtual_context_destroy(struct work_struct *wrk)
  
+ 		spin_lock_irq(&ve->base.sched_engine->lock);
  
+-		old = fetch_and_zero(&ve->request);
++		old = __xchg(&ve->request, NULL);
+ 		if (old) {
+ 			GEM_BUG_ON(!__i915_request_is_complete(old));
+ 			__i915_request_submit(old);
+diff --git a/drivers/gpu/drm/i915/gt/intel_ggtt.c b/drivers/gpu/drm/i915/gt/intel_ggtt.c
+index 0c7fe360f87331..81317187d0c5c6 100644
+--- a/drivers/gpu/drm/i915/gt/intel_ggtt.c
++++ b/drivers/gpu/drm/i915/gt/intel_ggtt.c
+@@ -684,7 +684,7 @@ static void fini_aliasing_ppgtt(struct i915_ggtt *ggtt)
+ {
+ 	struct i915_ppgtt *ppgtt;
+ 
+-	ppgtt = fetch_and_zero(&ggtt->alias);
++	ppgtt = __xchg(&ggtt->alias, NULL);
+ 	if (!ppgtt)
+ 		return;
+ 
+@@ -1238,7 +1238,7 @@ bool i915_ggtt_resume_vm(struct i915_address_space *vm)
+ 				   was_bound);
+ 
+ 		if (obj) { /* only used during resume => exclusive access */
+-			write_domain_objs |= fetch_and_zero(&obj->write_domain);
++			write_domain_objs |= __xchg(&obj->write_domain, 0);
+ 			obj->read_domains |= I915_GEM_DOMAIN_GTT;
+ 		}
+ 	}
+diff --git a/drivers/gpu/drm/i915/gt/intel_gsc.c b/drivers/gpu/drm/i915/gt/intel_gsc.c
+index bcc3605158dbde..38fbea757ba741 100644
+--- a/drivers/gpu/drm/i915/gt/intel_gsc.c
++++ b/drivers/gpu/drm/i915/gt/intel_gsc.c
+@@ -70,7 +70,7 @@ gsc_ext_om_alloc(struct intel_gsc *gsc, struct intel_gsc_intf *intf, size_t size
+ 
+ static void gsc_ext_om_destroy(struct intel_gsc_intf *intf)
+ {
+-	struct drm_i915_gem_object *obj = fetch_and_zero(&intf->gem_obj);
++	struct drm_i915_gem_object *obj = __xchg(&intf->gem_obj, 0);
+ 
+ 	if (!obj)
+ 		return;
+diff --git a/drivers/gpu/drm/i915/gt/intel_gt.c b/drivers/gpu/drm/i915/gt/intel_gt.c
+index 7eeee5a7cb33cb..03fe262de7bda5 100644
+--- a/drivers/gpu/drm/i915/gt/intel_gt.c
++++ b/drivers/gpu/drm/i915/gt/intel_gt.c
+@@ -754,7 +754,7 @@ int intel_gt_init(struct intel_gt *gt)
+ 	intel_uc_fini(&gt->uc);
+ err_engines:
+ 	intel_engines_release(gt);
+-	i915_vm_put(fetch_and_zero(&gt->vm));
++	i915_vm_put(__xchg(&gt->vm, 0));
+ err_pm:
+ 	intel_gt_pm_fini(gt);
+ 	intel_gt_fini_scratch(gt);
+@@ -801,7 +801,7 @@ void intel_gt_driver_release(struct intel_gt *gt)
+ {
+ 	struct i915_address_space *vm;
+ 
+-	vm = fetch_and_zero(&gt->vm);
++	vm = __xchg(&gt->vm, 0);
+ 	if (vm) /* FIXME being called twice on error paths :( */
+ 		i915_vm_put(vm);
+ 
+diff --git a/drivers/gpu/drm/i915/gt/intel_gt_pm.c b/drivers/gpu/drm/i915/gt/intel_gt_pm.c
+index c065950d0badec..219dfecf5f48db 100644
+--- a/drivers/gpu/drm/i915/gt/intel_gt_pm.c
++++ b/drivers/gpu/drm/i915/gt/intel_gt_pm.c
+@@ -123,7 +123,7 @@ static int __gt_unpark(struct intel_wakeref *wf)
+ static int __gt_park(struct intel_wakeref *wf)
+ {
+ 	struct intel_gt *gt = container_of(wf, typeof(*gt), wakeref);
+-	intel_wakeref_t wakeref = fetch_and_zero(&gt->awake);
++	intel_wakeref_t wakeref = __xchg(&gt->awake, 0);
+ 	struct drm_i915_private *i915 = gt->i915;
+ 
+ 	GT_TRACE(gt, "\n");
+diff --git a/drivers/gpu/drm/i915/gt/intel_lrc.c b/drivers/gpu/drm/i915/gt/intel_lrc.c
+index 7771a19008c604..9dfa3c10ddc85f 100644
+--- a/drivers/gpu/drm/i915/gt/intel_lrc.c
++++ b/drivers/gpu/drm/i915/gt/intel_lrc.c
+@@ -1144,7 +1144,7 @@ __lrc_alloc_state(struct intel_context *ce, struct intel_engine_cs *engine)
+ static struct intel_timeline *
+ pinned_timeline(struct intel_context *ce, struct intel_engine_cs *engine)
+ {
+-	struct intel_timeline *tl = fetch_and_zero(&ce->timeline);
++	struct intel_timeline *tl = __xchg(&ce->timeline, 0);
+ 
+ 	return intel_timeline_create_from_engine(engine, page_unmask_bits(tl));
+ }
+@@ -1261,8 +1261,8 @@ void lrc_fini(struct intel_context *ce)
+ 	if (!ce->state)
+ 		return;
+ 
+-	intel_ring_put(fetch_and_zero(&ce->ring));
+-	i915_vma_put(fetch_and_zero(&ce->state));
++	intel_ring_put(__xchg(&ce->ring, 0));
++	i915_vma_put(__xchg(&ce->state, 0));
+ }
+ 
+ void lrc_destroy(struct kref *kref)
+diff --git a/drivers/gpu/drm/i915/gt/intel_migrate.c b/drivers/gpu/drm/i915/gt/intel_migrate.c
+index 3f638f19879685..3eab1867a4abee 100644
+--- a/drivers/gpu/drm/i915/gt/intel_migrate.c
++++ b/drivers/gpu/drm/i915/gt/intel_migrate.c
+@@ -1147,7 +1147,7 @@ void intel_migrate_fini(struct intel_migrate *m)
+ {
+ 	struct intel_context *ce;
+ 
+-	ce = fetch_and_zero(&m->context);
++	ce = __xchg(&m->context, 0);
+ 	if (!ce)
+ 		return;
+ 
+diff --git a/drivers/gpu/drm/i915/gt/intel_rc6.c b/drivers/gpu/drm/i915/gt/intel_rc6.c
+index 2ee4051e4d9613..dde40fe05709cc 100644
+--- a/drivers/gpu/drm/i915/gt/intel_rc6.c
++++ b/drivers/gpu/drm/i915/gt/intel_rc6.c
+@@ -702,7 +702,7 @@ void intel_rc6_fini(struct intel_rc6 *rc6)
+ 
+ 	intel_rc6_disable(rc6);
+ 
+-	pctx = fetch_and_zero(&rc6->pctx);
++	pctx = __xchg(&rc6->pctx, 0);
+ 	if (pctx)
+ 		i915_gem_object_put(pctx);
+ 
+diff --git a/drivers/gpu/drm/i915/gt/intel_rps.c b/drivers/gpu/drm/i915/gt/intel_rps.c
+index 9ad3bc7201cbaa..e34ca33b09d2e7 100644
+--- a/drivers/gpu/drm/i915/gt/intel_rps.c
++++ b/drivers/gpu/drm/i915/gt/intel_rps.c
+@@ -1831,7 +1831,7 @@ static void rps_work(struct work_struct *work)
+ 	u32 pm_iir = 0;
+ 
+ 	spin_lock_irq(gt->irq_lock);
+-	pm_iir = fetch_and_zero(&rps->pm_iir) & rps->pm_events;
++	pm_iir = __xchg(&rps->pm_iir, 0) & rps->pm_events;
+ 	client_boost = atomic_read(&rps->num_waiters);
+ 	spin_unlock_irq(gt->irq_lock);
+ 
+diff --git a/drivers/gpu/drm/i915/gt/selftest_context.c b/drivers/gpu/drm/i915/gt/selftest_context.c
+index 76fbae358072df..3f49ca1debc6ce 100644
+--- a/drivers/gpu/drm/i915/gt/selftest_context.c
++++ b/drivers/gpu/drm/i915/gt/selftest_context.c
+@@ -171,7 +171,7 @@ static int live_context_size(void *arg)
+ 		 * active state is sufficient, we are only checking that we
+ 		 * don't use more than we planned.
+ 		 */
+-		saved = fetch_and_zero(&engine->default_state);
++		saved = __xchg(&engine->default_state, 0);
+ 
+ 		/* Overlaps with the execlists redzone */
+ 		engine->context_size += I915_GTT_PAGE_SIZE;
+diff --git a/drivers/gpu/drm/i915/gt/selftest_ring_submission.c b/drivers/gpu/drm/i915/gt/selftest_ring_submission.c
+index 87ceb0f374b673..a01aaca4fbf5ff 100644
+--- a/drivers/gpu/drm/i915/gt/selftest_ring_submission.c
++++ b/drivers/gpu/drm/i915/gt/selftest_ring_submission.c
+@@ -269,7 +269,7 @@ static int live_ctx_switch_wa(void *arg)
+ 		if (IS_GRAPHICS_VER(gt->i915, 4, 5))
+ 			continue; /* MI_STORE_DWORD is privileged! */
+ 
+-		saved_wa = fetch_and_zero(&engine->wa_ctx.vma);
++		saved_wa = __xchg(&engine->wa_ctx.vma, 0);
+ 
+ 		intel_engine_pm_get(engine);
+ 		err = __live_ctx_switch_wa(engine);
+diff --git a/drivers/gpu/drm/i915/gt/selftest_timeline.c b/drivers/gpu/drm/i915/gt/selftest_timeline.c
+index 522d0190509ccc..d14d5159024ec7 100644
+--- a/drivers/gpu/drm/i915/gt/selftest_timeline.c
++++ b/drivers/gpu/drm/i915/gt/selftest_timeline.c
+@@ -892,7 +892,7 @@ static int create_watcher(struct hwsp_watcher *w,
+ static int check_watcher(struct hwsp_watcher *w, const char *name,
+ 			 bool (*op)(u32 hwsp, u32 seqno))
+ {
+-	struct i915_request *rq = fetch_and_zero(&w->rq);
++	struct i915_request *rq = __xchg(&w->rq, NULL);
+ 	u32 offset, end;
+ 	int err;
+ 
+diff --git a/drivers/gpu/drm/i915/gt/uc/intel_gsc_uc.c b/drivers/gpu/drm/i915/gt/uc/intel_gsc_uc.c
+index fd21dbd2663bec..3f85d3f6fc6e92 100644
+--- a/drivers/gpu/drm/i915/gt/uc/intel_gsc_uc.c
++++ b/drivers/gpu/drm/i915/gt/uc/intel_gsc_uc.c
+@@ -110,7 +110,7 @@ void intel_gsc_uc_fini(struct intel_gsc_uc *gsc)
+ 	flush_work(&gsc->work);
+ 
+ 	if (gsc->ce)
+-		intel_engine_destroy_pinned_context(fetch_and_zero(&gsc->ce));
++		intel_engine_destroy_pinned_context(__xchg(&gsc->ce, NULL));
+ 
+ 	i915_vma_unpin_and_release(&gsc->local, 0);
+ 
+diff --git a/drivers/gpu/drm/i915/gt/uc/intel_uc.c b/drivers/gpu/drm/i915/gt/uc/intel_uc.c
+index 9a8a1abf71d7fe..0292212cffbcb9 100644
+--- a/drivers/gpu/drm/i915/gt/uc/intel_uc.c
++++ b/drivers/gpu/drm/i915/gt/uc/intel_uc.c
+@@ -169,7 +169,7 @@ static void __uc_capture_load_err_log(struct intel_uc *uc)
+ 
+ static void __uc_free_load_err_log(struct intel_uc *uc)
+ {
+-	struct drm_i915_gem_object *log = fetch_and_zero(&uc->load_err_log);
++	struct drm_i915_gem_object *log = __xchg(&uc->load_err_log, NULL);
+ 
+ 	if (log)
+ 		i915_gem_object_put(log);
+diff --git a/drivers/gpu/drm/i915/gt/uc/intel_uc_fw.c b/drivers/gpu/drm/i915/gt/uc/intel_uc_fw.c
+index d6ff6c584c1e1d..21324c017aea49 100644
+--- a/drivers/gpu/drm/i915/gt/uc/intel_uc_fw.c
++++ b/drivers/gpu/drm/i915/gt/uc/intel_uc_fw.c
+@@ -1105,7 +1105,7 @@ void intel_uc_fw_cleanup_fetch(struct intel_uc_fw *uc_fw)
+ 	if (!intel_uc_fw_is_available(uc_fw))
+ 		return;
+ 
+-	i915_gem_object_put(fetch_and_zero(&uc_fw->obj));
++	i915_gem_object_put(__xchg(&uc_fw->obj, NULL));
+ 
+ 	intel_uc_fw_change_status(uc_fw, INTEL_UC_FIRMWARE_SELECTED);
+ }
+diff --git a/drivers/gpu/drm/i915/i915_utils.h b/drivers/gpu/drm/i915/i915_utils.h
+index b64192d9c7daa7..2394a4e9e53d4c 100644
+--- a/drivers/gpu/drm/i915/i915_utils.h
++++ b/drivers/gpu/drm/i915/i915_utils.h
+@@ -26,6 +26,7 @@
+ #define __I915_UTILS_H
+ 
+ #include <linux/list.h>
++#include <linux/non-atomic/xchg.h>
+ #include <linux/overflow.h>
+ #include <linux/sched.h>
+ #include <linux/string_helpers.h>
 -- 
-2.38.1
+2.34.1
