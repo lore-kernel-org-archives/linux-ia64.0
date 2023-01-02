@@ -1,43 +1,72 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Thu, 26 Jan 2023 14:48:04 +0000
-Subject: Re: [PATCH v2 6/6] mm: export dump_mm()
-Message-Id: <Y9KSpNJ4y0GMwkrW@kernel.org>
+From: Alexander Lobakin <alexandr.lobakin@intel.com>
+Date: Mon, 02 Jan 2023 16:30:59 +0000
+Subject: Re: [PATCH v5 2/9] bitops: always define asm-generic non-atomic bitops
+Message-Id: <20230102163059.3556962-1-alexandr.lobakin@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230125083851.27759-1-surenb@google.com>
- <20230125083851.27759-7-surenb@google.com>
-In-Reply-To: <20230125083851.27759-7-surenb@google.com>
+References: <20220624121313.2382500-1-alexandr.lobakin@intel.com> <20220624121313.2382500-3-alexandr.lobakin@intel.com> <Y7MC5/wxgGZz/met@boxer>
+In-Reply-To: <Y7MC5/wxgGZz/met@boxer>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Suren Baghdasaryan <surenb@google.com>
-Cc: akpm@linux-foundation.org, michel@lespinasse.org, jglisse@google.com, mhocko@suse.com, vbabka@suse.cz, hannes@cmpxchg.org, mgorman@techsingularity.net, dave@stgolabs.net, willy@infradead.org, liam.howlett@oracle.com, peterz@infradead.org, ldufour@linux.ibm.com, paulmck@kernel.org, luto@kernel.org, songliubraving@fb.com, peterx@redhat.com, david@redhat.com, dhowells@redhat.com, hughd@google.com, bigeasy@linutronix.de, kent.overstreet@linux.dev, punit.agrawal@bytedance.com, lstoakes@gmail.com, peterjung1337@gmail.com, rientjes@google.com, axelrasmussen@google.com, joelaf@google.com, minchan@google.com, jannh@google.com, shakeelb@google.com, tatashin@google.com, edumazet@google.com, gthelen@google.com, gurua@google.com, arjunroy@google.com, soheil@google.com, hughlynch@google.com, leewalsh@google.com, posk@google.com, will@kernel.org, aneesh.kumar@linux.ibm.com, npiggin@gmail.com, chenhuacai@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, richard@nod.at, anton.ivanov@cambridgegreys.com, johannes@sipsolutions.net, qianweili@huawei.com, wangzhou1@hisilicon.com, herbert@gondor.apana.org.au, davem@davemloft.net, vkoul@kernel.org, airlied@gmail.com, daniel@ffwll.ch, maarten.lankhorst@linux.intel.com, mripard@kernel.org, tzimmermann@suse.de, l.stach@pengutronix.de, krzysztof.kozlowski@linaro.org, patrik.r.jakobsson@gmail.com, matthias.bgg@gmail.com, robdclark@gmail.com, quic_abhinavk@quicinc.com, dmitry.baryshkov@linaro.org, tomba@kernel.org, hjc@rock-chips.com, heiko@sntech.de, ray.huang@amd.com, kraxel@redhat.com, sre@kernel.org, mcoquelin.stm32@gmail.com, alexandre.torgue@foss.st.com, tfiga@chromium.org, m.szyprowski@samsung.com, mchehab@kernel.org, dimitri.sivanich@hpe.com, zhangfei.gao@linaro.org, jejb@linux.ibm.com, martin.petersen@oracle.com, dgilbert@interlog.com, hdegoede@redhat.com, mst@redhat.com, jasowang@redhat.com, alex.williamson@redhat.com, deller@gmx.de, jayalk@intworks.biz, viro@zeniv.linux.org.uk, nico@fluxnic.net, xiang@kernel.org, chao@kernel.org, tytso@mit.edu, adilger.kernel@dilger.ca, miklos@szeredi.hu, mike.kravetz@oracle.com, muchun.song@linux.dev, bhe@redhat.com, andrii@kernel.org, yoshfuji@linux-ipv6.org, dsahern@kernel.org, kuba@kernel.org, pabeni@redhat.com, perex@perex.cz, tiwai@suse.com, haojian.zhuang@gmail.com, robert.jarzmik@free.fr, linux-mm@kvack.org, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, x86@kernel.org, linux-kernel@vger.kernel.org, linux-graphics-maintainer@vmware.com, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, loongarch@lists.linux.dev, kvm@vger.kernel.org, linux-s390@vger.kernel.org, linux-sgx@vger.kernel.org, linux-um@lists.infradead.org, linux-acpi@vger.kernel.org, linux-crypto@vger.kernel.org, nvdimm@lists.linux.dev, dmaengine@vger.kernel.org, amd-gfx@lists.freedesktop.org, dri-devel@lists.freedesktop.org, etnaviv@lists.freedesktop.org, linux-samsung-soc@vger.kernel.org, intel-gfx@lists.freedesktop.org, linux-mediatek@lists.infradead.org, linux-arm-msm@vger.kernel.org, freedreno@lists.freedesktop.org, linux-rockchip@lists.infradead.org, linux-tegra@vger.kernel.org, virtualization@lists.linux-foundation.org, xen-devel@lists.xenproject.org, linux-stm32@st-md-mailman.stormreply.com, linux-rdma@vger.kernel.org, linux-media@vger.kernel.org, linux-accelerators@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-scsi@vger.kernel.org, linux-staging@lists.linux.dev, target-devel@vger.kernel.org, linux-usb@vger.kernel.org, netdev@vger.kernel.org, linux-fbdev@vger.kernel.org, linux-aio@kvack.org, linux-fsdevel@vger.kernel.org, linux-erofs@lists.ozlabs.org, linux-ext4@vger.kernel.org, devel@lists.orangefs.org, kexec@lists.infradead.org, linux-xfs@vger.kernel.org, bpf@vger.kernel.org, linux-perf-users@vger.kernel.org, kasan-dev@googlegroups.com, selinux@vger.kernel.org, alsa-devel@alsa-project.org, kernel-team@android.com
+To: Maciej Fijalkowski <maciej.fijalkowski@intel.com>
+Cc: Alexander Lobakin <alexandr.lobakin@intel.com>, Arnd Bergmann <arnd@arndb.de>, Yury Norov <yury.norov@gmail.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Mark Rutland <mark.rutland@arm.com>, Matt Turner <mattst88@gmail.com>, Brian Cain <bcain@quicinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Kees Cook <keescook@chromium.org>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Marco Elver <elver@google.com>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Nathan Chancellor <nathan@kernel.org>, Nick Desaulniers <ndesaulniers@google.com>, Tom Rix <trix@redhat.com>, kernel test robot <lkp@intel.com>, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, llvm@lists.linux.dev, linux-kernel@vger.kernel.org
 
-On Wed, Jan 25, 2023 at 12:38:51AM -0800, Suren Baghdasaryan wrote:
-> mmap_assert_write_locked() is used in vm_flags modifiers. Because
-> mmap_assert_write_locked() uses dump_mm() and vm_flags are sometimes
-> modified from from inside a module, it's necessary to export
-> dump_mm() function.
-> 
-> Signed-off-by: Suren Baghdasaryan <surenb@google.com>
+From: Maciej Fijalkowski <maciej.fijalkowski@intel.com>
+Date: Mon, 2 Jan 2023 17:14:31 +0100
 
-Acked-by: Mike Rapoport (IBM) <rppt@kernel.org>
+> On Fri, Jun 24, 2022 at 02:13:06PM +0200, Alexander Lobakin wrote:
+> > Move generic non-atomic bitops from the asm-generic header which
+> > gets included only when there are no architecture-specific
+> > alternatives, to a separate independent file to make them always
+> > available.
+> > Almost no actual code changes, only one comment added to
+> > generic_test_bit() saying that it's an atomic operation itself
+> > and thus `volatile` must always stay there with no cast-aways.
+> > 
+> > Suggested-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com> # comment
+> > Suggested-by: Marco Elver <elver@google.com> # reference to kernel-doc
+> > Signed-off-by: Alexander Lobakin <alexandr.lobakin@intel.com>
+> > Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+> > Reviewed-by: Marco Elver <elver@google.com>
+> > ---
+> >  .../asm-generic/bitops/generic-non-atomic.h   | 130 ++++++++++++++++++
+> >  include/asm-generic/bitops/non-atomic.h       | 110 ++-------------
+> >  2 files changed, 138 insertions(+), 102 deletions(-)
+> >  create mode 100644 include/asm-generic/bitops/generic-non-atomic.h
+> > 
+> 
+> Hi,
+> 
+> this patch gives me a headache when trying to run sparse against a module.
+> 
+> Olek please help :D
 
-> ---
->  mm/debug.c | 1 +
->  1 file changed, 1 insertion(+)
+It was fixed shortly after the build bots turned on on the original
+series with [0]. Hovewer, no release tag's been made after the fix.
+There's also a short discussion regarding packaging Sparse 0.6.4 for
+Debian with that fix cherry-picked[1], not sure if it led anywhere.
+
 > 
-> diff --git a/mm/debug.c b/mm/debug.c
-> index 9d3d893dc7f4..96d594e16292 100644
-> --- a/mm/debug.c
-> +++ b/mm/debug.c
-> @@ -215,6 +215,7 @@ void dump_mm(const struct mm_struct *mm)
->  		mm->def_flags, &mm->def_flags
->  	);
->  }
-> +EXPORT_SYMBOL(dump_mm);
->  
->  static bool page_init_poisoning __read_mostly = true;
->  
-> -- 
-> 2.39.1
+> $ sudo make C=2 -C . M=drivers/net/ethernet/intel/ice/
+> make: Entering directory '/home/mfijalko/bpf-next'
+>   CHECK   drivers/net/ethernet/intel/ice/ice_main.c
+> drivers/net/ethernet/intel/ice/ice_main.c: note: in included file (through include/linux/bitops.h, include/linux/kernel.h, drivers/net/ethernet/intel/ice/ice.h):
+> ./arch/x86/include/asm/bitops.h:66:1: warning: unreplaced symbol 'return'
+
+[...]
+
+> drivers/net/ethernet/intel/ice/ice_main.c: note: in included file (through arch/x86/include/asm/bitops.h, include/linux/bitops.h, include/linux/kernel.h, drivers/net/ethernet/intel/ice/ice.h):
+> ./include/asm-generic/bitops/instrumented-non-atomic.h:142:9: warning: unreplaced symbol 'return'
+> ./include/asm-generic/bitops/instrumented-non-atomic.h:139:1: warning: unreplaced symbol 'return'
 > 
+> that's for a single file, there's no point in including same output for
+> every other file being checked.
+> 
+> Thanks,
+> Maciej
+
+[0] https://git.kernel.org/pub/scm/devel/sparse/sparse.git/commit/?id1aae55e49cad7ea43848af5b58ff0f57e7af99
+[1] https://lore.kernel.org/all/Yr7kPM1wLZnOqxOA@smile.fi.intel.com
+
+Thanks,
+Olek
