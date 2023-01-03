@@ -1,68 +1,51 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Tue, 03 Jan 2023 08:14:07 +0000
-Subject: [PATCH 5.10 37/63] ia64: add support for TIF_NOTIFY_SIGNAL
-Message-Id: <20230103081310.802833748@linuxfoundation.org>
+From: Heiko Carstens <hca@linux.ibm.com>
+Date: Tue, 03 Jan 2023 10:02:09 +0000
+Subject: Re: [PATCH v3] arch: rename all internal names __xchg to __arch_xchg
+Message-Id: <Y7P9IcR7/jgYWMcq@osiris>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230103081308.548338576@linuxfoundation.org>
-In-Reply-To: <20230103081308.548338576@linuxfoundation.org>
+References: <202212300642.6pdgegGO-lkp@intel.com>
+ <20221230141552.128508-1-andrzej.hajda@intel.com>
+In-Reply-To: <20221230141552.128508-1-andrzej.hajda@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: stable@vger.kernel.org
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, patches@lists.linux.dev, linux-ia64@vger.kernel.org, Jens Axboe <axboe@kernel.dk>
+To: Andrzej Hajda <andrzej.hajda@intel.com>
+Cc: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, intel-gfx@lists.freedesktop.org, dri-devel@lists.freedesktop.org, Arnd Bergmann <arnd@arndb.de>, Rodrigo Vivi <rodrigo.vivi@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Peter Zijlstra <peterz@infradead.org>, Boqun Feng <boqun.feng@gmail.com>, Mark Rutland <mark.rutland@arm.com>
 
-From: Jens Axboe <axboe@kernel.dk>
+On Fri, Dec 30, 2022 at 03:15:52PM +0100, Andrzej Hajda wrote:
+> __xchg will be used for non-atomic xchg macro.
+> 
+> Signed-off-by: Andrzej Hajda <andrzej.hajda@intel.com>
+> Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+> ---
+> v2: squashed all arch patches into one
+> v3: fixed alpha/xchg_local, thx to lkp@intel.com
+> ---
+...
+>  arch/s390/include/asm/cmpxchg.h      | 4 ++--
+> diff --git a/arch/s390/include/asm/cmpxchg.h b/arch/s390/include/asm/cmpxchg.h
+> index 84c3f0d576c5b1..efc16f4aac8643 100644
+> --- a/arch/s390/include/asm/cmpxchg.h
+> +++ b/arch/s390/include/asm/cmpxchg.h
+> @@ -14,7 +14,7 @@
+>  
+>  void __xchg_called_with_bad_pointer(void);
+>  
+> -static __always_inline unsigned long __xchg(unsigned long x,
+> +static __always_inline unsigned long __arch_xchg(unsigned long x,
+>  					    unsigned long address, int size)
 
-[ Upstream commit b269c229b0e89aedb7943c06673b56b6052cf5e5 ]
+Please adjust the alignment of the second line.
 
-Wire up TIF_NOTIFY_SIGNAL handling for ia64.
+> @@ -77,7 +77,7 @@ static __always_inline unsigned long __xchg(unsigned long x,
+>  	__typeof__(*(ptr)) __ret;					\
+>  									\
+>  	__ret = (__typeof__(*(ptr)))					\
+> -		__xchg((unsigned long)(x), (unsigned long)(ptr),	\
+> +		__arch_xchg((unsigned long)(x), (unsigned long)(ptr),	\
+>  		       sizeof(*(ptr)));					\
 
-Cc: linux-ia64@vger.kernel.org
-[axboe: added fixes from Mike Rapoport <rppt@kernel.org>]
-Signed-off-by: Jens Axboe <axboe@kernel.dk>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
----
- arch/ia64/include/asm/thread_info.h |    4 +++-
- arch/ia64/kernel/process.c          |    3 ++-
- 2 files changed, 5 insertions(+), 2 deletions(-)
+Same here.
 
---- a/arch/ia64/include/asm/thread_info.h
-+++ b/arch/ia64/include/asm/thread_info.h
-@@ -103,6 +103,7 @@ struct thread_info {
- #define TIF_SYSCALL_TRACE	2	/* syscall trace active */
- #define TIF_SYSCALL_AUDIT	3	/* syscall auditing active */
- #define TIF_SINGLESTEP		4	/* restore singlestep on return to user mode */
-+#define TIF_NOTIFY_SIGNAL	5	/* signal notification exist */
- #define TIF_NOTIFY_RESUME	6	/* resumption notification requested */
- #define TIF_MEMDIE		17	/* is terminating due to OOM killer */
- #define TIF_MCA_INIT		18	/* this task is processing MCA or INIT */
-@@ -115,6 +116,7 @@ struct thread_info {
- #define _TIF_SINGLESTEP		(1 << TIF_SINGLESTEP)
- #define _TIF_SYSCALL_TRACEAUDIT	(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT|_TIF_SINGLESTEP)
- #define _TIF_NOTIFY_RESUME	(1 << TIF_NOTIFY_RESUME)
-+#define _TIF_NOTIFY_SIGNAL	(1 << TIF_NOTIFY_SIGNAL)
- #define _TIF_SIGPENDING		(1 << TIF_SIGPENDING)
- #define _TIF_NEED_RESCHED	(1 << TIF_NEED_RESCHED)
- #define _TIF_MCA_INIT		(1 << TIF_MCA_INIT)
-@@ -124,7 +126,7 @@ struct thread_info {
- 
- /* "work to do on user-return" bits */
- #define TIF_ALLWORK_MASK	(_TIF_SIGPENDING|_TIF_NOTIFY_RESUME|_TIF_SYSCALL_AUDIT|\
--				 _TIF_NEED_RESCHED|_TIF_SYSCALL_TRACE)
-+				 _TIF_NEED_RESCHED|_TIF_SYSCALL_TRACE|_TIF_NOTIFY_SIGNAL)
- /* like TIF_ALLWORK_BITS but sans TIF_SYSCALL_TRACE or TIF_SYSCALL_AUDIT */
- #define TIF_WORK_MASK		(TIF_ALLWORK_MASK&~(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT))
- 
---- a/arch/ia64/kernel/process.c
-+++ b/arch/ia64/kernel/process.c
-@@ -171,7 +171,8 @@ do_notify_resume_user(sigset_t *unused,
- 	}
- 
- 	/* deal with pending signal delivery */
--	if (test_thread_flag(TIF_SIGPENDING)) {
-+	if (test_thread_flag(TIF_SIGPENDING) ||
-+	    test_thread_flag(TIF_NOTIFY_SIGNAL)) {
- 		local_irq_enable();	/* force interrupt enable */
- 		ia64_do_signal(scr, in_syscall);
- 	}
-
+The same is true for a couple of other architectures - not sure if
+they care however.
