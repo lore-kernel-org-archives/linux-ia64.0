@@ -1,90 +1,33 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Fri, 13 Jan 2023 17:10:07 +0000
-Subject: [PATCH mm-unstable v1 07/26] ia64/mm: support __HAVE_ARCH_PTE_SWP_EXCLUSIVE
-Message-Id: <20230113171026.582290-8-david@redhat.com>
+From: Valentin Schneider <vschneid@redhat.com>
+Date: Mon, 09 Jan 2023 19:01:22 +0000
+Subject: Re: [PATCH v3 6/8] treewide: Trace IPIs sent via smp_send_reschedule()
+Message-Id: <xhsmh5ydfedml.mognet@vschneid.remote.csb>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230113171026.582290-1-david@redhat.com>
-In-Reply-To: <20230113171026.582290-1-david@redhat.com>
+References: <20221202155817.2102944-1-vschneid@redhat.com>
+ <20221202155817.2102944-7-vschneid@redhat.com>
+ <CAAhV-H6Oii6t-4aHFjgPkCgFAd+LcVVg+7jMu_w4mEa0Ecuwaw@mail.gmail.com>
+In-Reply-To: <CAAhV-H6Oii6t-4aHFjgPkCgFAd+LcVVg+7jMu_w4mEa0Ecuwaw@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Andrew Morton <akpm@linux-foundation.org>, Hugh Dickins <hughd@google.com>, John Hubbard <jhubbard@nvidia.com>, Jason Gunthorpe <jgg@nvidia.com>, Mike Rapoport <rppt@linux.ibm.com>, Yang Shi <shy828301@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Nadav Amit <namit@vmware.com>, Andrea Arcangeli <aarcange@redhat.com>, Peter Xu <peterx@redhat.com>, linux-mm@kvack.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, David Hildenbrand <david@redhat.com>
+To: Huacai Chen <chenhuacai@kernel.org>
+Cc: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, Guo Ren <guoren@kernel.org>, "Paul E. McKenney" <paulmck@kernel.org>, Steven Rostedt <rostedt@goodmis.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Juri Lelli <juri.lelli@redhat.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Marcelo Tosatti <mtosatti@redhat.com>, Frederic Weisbecker <frederic@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "H. Peter Anvin" <hpa@zytor.com>, Marc Zyngier <maz@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Russell King <linux@armlinux.org.uk>, Nicholas Piggin <npiggin@gmail.com>, "David
+ S. Miller" <davem@davemloft.net>
 
-Let's support __HAVE_ARCH_PTE_SWP_EXCLUSIVE by stealing one bit
-from the type. Generic MM currently only uses 5 bits for the type
-(MAX_SWAPFILES_SHIFT), so the stolen bit is effectively unused.
+On 08/01/23 20:17, Huacai Chen wrote:
+> Hi, Valentin,
+>
+> On Fri, Dec 2, 2022 at 11:59 PM Valentin Schneider <vschneid@redhat.com> wrote:
+>> @@ -83,7 +83,7 @@ extern void show_ipi_list(struct seq_file *p, int prec);
+>>   * it goes straight through and wastes no time serializing
+>>   * anything. Worst case is that we lose a reschedule ...
+>>   */
+>> -static inline void smp_send_reschedule(int cpu)
+>> +static inline void arch_smp_send_reschedule(int cpu)
+>>  {
+>>         loongson_send_ipi_single(cpu, SMP_RESCHEDULE);
+>>  }
+> This function has been moved to arch/loongarch/kernel/smp.c since 6.2.
+>
 
-While at it, also mask the type in __swp_entry().
-
-Signed-off-by: David Hildenbrand <david@redhat.com>
----
- arch/ia64/include/asm/pgtable.h | 32 +++++++++++++++++++++++++++++---
- 1 file changed, 29 insertions(+), 3 deletions(-)
-
-diff --git a/arch/ia64/include/asm/pgtable.h b/arch/ia64/include/asm/pgtable.h
-index 01517a5e6778..e4b8ab931399 100644
---- a/arch/ia64/include/asm/pgtable.h
-+++ b/arch/ia64/include/asm/pgtable.h
-@@ -58,6 +58,9 @@
- #define _PAGE_ED		(__IA64_UL(1) << 52)	/* exception deferral */
- #define _PAGE_PROTNONE		(__IA64_UL(1) << 63)
- 
-+/* We borrow bit 7 to store the exclusive marker in swap PTEs. */
-+#define _PAGE_SWP_EXCLUSIVE	(1 << 7)
-+
- #define _PFN_MASK		_PAGE_PPN_MASK
- /* Mask of bits which may be changed by pte_modify(); the odd bits are there for _PAGE_PROTNONE */
- #define _PAGE_CHG_MASK	(_PAGE_P | _PAGE_PROTNONE | _PAGE_PL_MASK | _PAGE_AR_MASK | _PAGE_ED)
-@@ -399,6 +402,9 @@ extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
- extern void paging_init (void);
- 
- /*
-+ * Encode/decode swap entries and swap PTEs. Swap PTEs are all PTEs that
-+ * are !pte_none() && !pte_present().
-+ *
-  * Note: The macros below rely on the fact that MAX_SWAPFILES_SHIFT <= number of
-  *	 bits in the swap-type field of the swap pte.  It would be nice to
-  *	 enforce that, but we can't easily include <linux/swap.h> here.
-@@ -406,16 +412,36 @@ extern void paging_init (void);
-  *
-  * Format of swap pte:
-  *	bit   0   : present bit (must be zero)
-- *	bits  1- 7: swap-type
-+ *	bits  1- 6: swap type
-+ *	bit   7   : exclusive marker
-  *	bits  8-62: swap offset
-  *	bit  63   : _PAGE_PROTNONE bit
-  */
--#define __swp_type(entry)		(((entry).val >> 1) & 0x7f)
-+#define __swp_type(entry)		(((entry).val >> 1) & 0x3f)
- #define __swp_offset(entry)		(((entry).val << 1) >> 9)
--#define __swp_entry(type,offset)	((swp_entry_t) { ((type) << 1) | ((long) (offset) << 8) })
-+#define __swp_entry(type, offset)	((swp_entry_t) { ((type & 0x3f) << 1) | \
-+							 ((long) (offset) << 8) })
- #define __pte_to_swp_entry(pte)		((swp_entry_t) { pte_val(pte) })
- #define __swp_entry_to_pte(x)		((pte_t) { (x).val })
- 
-+#define __HAVE_ARCH_PTE_SWP_EXCLUSIVE
-+static inline int pte_swp_exclusive(pte_t pte)
-+{
-+	return pte_val(pte) & _PAGE_SWP_EXCLUSIVE;
-+}
-+
-+static inline pte_t pte_swp_mkexclusive(pte_t pte)
-+{
-+	pte_val(pte) |= _PAGE_SWP_EXCLUSIVE;
-+	return pte;
-+}
-+
-+static inline pte_t pte_swp_clear_exclusive(pte_t pte)
-+{
-+	pte_val(pte) &= ~_PAGE_SWP_EXCLUSIVE;
-+	return pte;
-+}
-+
- /*
-  * ZERO_PAGE is a global shared page that is always zero: used
-  * for zero-mapped memory areas etc..
--- 
-2.39.0
+Thanks! I'll make sure to rerun the coccinelle script for the next version.
