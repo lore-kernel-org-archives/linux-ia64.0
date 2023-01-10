@@ -1,70 +1,130 @@
-From: Valentin Schneider <vschneid@redhat.com>
-Date: Mon, 09 Jan 2023 19:02:08 +0000
-Subject: Re: [PATCH v3 3/8] sched, smp: Trace IPIs sent via send_call_function_single_ipi()
-Message-Id: <xhsmh4jszedlb.mognet@vschneid.remote.csb>
+From: Andrzej Hajda <andrzej.hajda@intel.com>
+Date: Tue, 10 Jan 2023 12:46:37 +0000
+Subject: Re: [Intel-gfx] [RFC DO NOT MERGE] treewide: use __xchg in most obvious places
+Message-Id: <1bfae3d0-8c0b-ea83-7184-db847a4a969f@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20221202155817.2102944-1-vschneid@redhat.com>
- <20221202155817.2102944-4-vschneid@redhat.com>
- <Y7lRz7oCaAmAhoqS@gmail.com>
-In-Reply-To: <Y7lRz7oCaAmAhoqS@gmail.com>
+References: <Y7b6/7coJEVlTVxK@phenom.ffwll.local>
+ <20230110105306.3973122-1-andrzej.hajda@intel.com>
+ <Y71G1tkmUzM4BLxn@smile.fi.intel.com>
+In-Reply-To: <Y71G1tkmUzM4BLxn@smile.fi.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@kernel.org>
-Cc: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, Steven Rostedt <rostedt@goodmis.org>, "Paul E. McKenney" <paulmck@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Juri Lelli <juri.lelli@redhat.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Marcelo Tosatti <mtosatti@redhat.com>, Frederic Weisbecker <frederic@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "H. Peter
- Anvin" <hpa@zytor.com>, Marc Zyngier <maz@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Russell King <linux@armlinux.org.uk>, Nicholas Piggin <npiggin@gmail.com>, Guo Ren <guoren@kernel.org>, "David S. Miller" <davem@davemloft.net>
+To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Cc: Mark Rutland <mark.rutland@arm.com>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, dri-devel@lists.freedesktop.org, linux-mips@vger.kernel.org, sparclinux@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-snps-arc@lists.infradead.org, Boqun Feng <boqun.feng@gmail.com>, linux-xtensa@linux-xtensa.org, Arnd Bergmann <arnd@arndb.de>, intel-gfx@lists.freedesktop.org, linux-m68k@lists.linux-m68k.org, openrisc@lists.librecores.org, loongarch@lists.linux.dev, Rodrigo Vivi <rodrigo.vivi@intel.com>, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, linux-kernel@vger.kernel.org, Daniel Vetter <daniel@ffwll.ch>, linux-alpha@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org
 
-On 07/01/23 12:04, Ingo Molnar wrote:
-> * Valentin Schneider <vschneid@redhat.com> wrote:
->
->> send_call_function_single_ipi() is the thing that sends IPIs at the bottom
->> of smp_call_function*() via either generic_exec_single() or
->> smp_call_function_many_cond(). Give it an IPI-related tracepoint.
->> 
->> Note that this ends up tracing any IPI sent via __smp_call_single_queue(),
->> which covers __ttwu_queue_wakelist() and irq_work_queue_on() "for free".
->> 
->> Signed-off-by: Valentin Schneider <vschneid@redhat.com>
->> Reviewed-by: Steven Rostedt (Google) <rostedt@goodmis.org>
->
-> Acked-by: Ingo Molnar <mingo@kernel.org>
->
-> Patch series logistics:
->
->  - No objections from the scheduler side, this feature looks pretty useful.
->
+On 10.01.2023 12:07, Andy Shevchenko wrote:
+> On Tue, Jan 10, 2023 at 11:53:06AM +0100, Andrzej Hajda wrote:
+>> This patch tries to show usability of __xchg helper.
+>> It is not intended to be merged, but I can convert
+>> it to proper patchset if necessary.
+>>
+>> There are many more places where __xchg can be used.
+>> This demo shows the most spectacular cases IMHO:
+>> - previous value is returned from function,
+>> - temporary variables are in use.
+>>
+>> As a result readability is much better and diffstat is quite
+>> nice, less local vars to look at.
+>> In many cases whole body of functions is replaced
+>> with __xchg(ptr, val), so as further refactoring the whole
+>> function can be removed and __xchg can be called directly.
+> 
+> ...
+> 
+>>   arch_uretprobe_hijack_return_addr(unsigned long trampoline_vaddr,
+>>   				  struct pt_regs *regs)
+>>   {
+>> -	unsigned long orig_ret_vaddr;
+>> -
+>> -	orig_ret_vaddr = regs->ARM_lr;
+>> -	/* Replace the return addr with trampoline addr */
+>> -	regs->ARM_lr = trampoline_vaddr;
+>> -	return orig_ret_vaddr;
+>> +	return __xchg(&regs->ARM_lr, trampoline_vaddr);
+>>   }
+> 
+> If it's not a callback, the entire function can be killed.
+> And this is a good example of the function usage.
+> OTOH, these places might have a side effect (if it's in deep CPU
+> handlers), means we need to do this carefully.
+> 
+> ...
+> 
+>>   static inline void *qed_chain_produce(struct qed_chain *p_chain)
+>>   {
+>> -	void *p_ret = NULL, *p_prod_idx, *p_prod_page_idx;
+>> +	void *p_prod_idx, *p_prod_page_idx;
+>>   
+>>   	if (is_chain_u16(p_chain)) {
+>>   		if ((p_chain->u.chain16.prod_idx &
+>> @@ -390,11 +391,8 @@ static inline void *qed_chain_produce(struct qed_chain *p_chain)
+>>   		p_chain->u.chain32.prod_idx++;
+>>   	}
+>>   
+>> -	p_ret = p_chain->p_prod_elem;
+>> -	p_chain->p_prod_elem = (void *)(((u8 *)p_chain->p_prod_elem) +
+>> -					p_chain->elem_size);
+>> -
+>> -	return p_ret;
+>> +	return __xchg(&p_chain->p_prod_elem,
+>> +		      (void *)(((u8 *)p_chain->p_prod_elem) + p_chain->elem_size));
+> 
+> Wondering if you still need a (void *) casting after the change. Ditto for the
+> rest of similar cases.
 
-Thanks!
+IMHO it is not needed also before the change and IIRC gcc has an 
+extension which allows to drop (u8 *) cast as well [1].
 
->  - Certain patches are incomplete, others are noted as being merged 
->    separately, so I presume you'll send an updated/completed series 
->    eventually?
->
+[1]: https://gcc.gnu.org/onlinedocs/gcc/Pointer-Arith.html
 
-The first patch from Steve is now in, so can drop it.
+> 
+>>   }
+> 
+> ...
+> 
+> Btw, is it done by coccinelle? If no, why not providing the script?
+> 
 
-The other patches are complete, though I need to rebase them and regenerate
-the treewide patch to catch any changes that came with 6.2. I'll do that
-this week.
+Yes I have used cocci. My cocci skills are far from perfect, so I did 
+not want to share my dirty code, but this is nothing secret:
 
-The "incompleteness" pointed out in the cover letter is about the types of
-IPIs that can be traced. This series covers the ones that end up invoking
-some core code (coincidentally those are the most common ones), others such
-as e.g. tick_broadcast() for arm, arm64, riscv and hexagon remain
-unaffected.
+@r1@
+expression x, v;
+local idexpression p;
+@@
+-       p = x;
+-       x = v;
+-       return p;
++       return __xchg(&x, v);
 
-I'm not that much interested in these (other than maybe the tick broadcast
-one they are all fairly unfrequent), but I'm happy to have a shot at them
-for the sake of completeness - either in that series or in a followup, up
-to you.  
+@depends on r1@
+expression e;
+@@
+         __xchg(
+-       &*e,
++       e,
+         ...)
 
->  - We can merge this via the scheduler tree I suspect, as most callbacks 
->    affected relate to tip:sched/core and tmp:smp/core - but if you have 
->    some other preferred tree that's fine too.
->
+@depends on r1@
+expression t;
+@@
+-       if (t) {
++       if (t)
+                 return __xchg(...);
+-       }
 
-Either sound good to me.
+@depends on r1@
+type t;
+identifier p;
+expression e;
+@@
+(
+-       t p;
+|
+-       t p = e;
+)
+         ... when != p
 
-> Thanks,
->
-> 	Ingo
+Regards
+Andrzej
