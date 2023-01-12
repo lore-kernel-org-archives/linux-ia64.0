@@ -1,152 +1,39 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Fri, 13 Jan 2023 17:10:05 +0000
-Subject: [PATCH mm-unstable v1 05/26] csky/mm: support __HAVE_ARCH_PTE_SWP_EXCLUSIVE
-Message-Id: <20230113171026.582290-6-david@redhat.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Thu, 12 Jan 2023 19:43:45 +0000
+Subject: [PATCH v3 31/51] cpuidle,nospec: Make noinstr clean
+Message-Id: <20230112195541.233779815@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230113171026.582290-1-david@redhat.com>
-In-Reply-To: <20230113171026.582290-1-david@redhat.com>
+References: <20230112194314.845371875@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Andrew Morton <akpm@linux-foundation.org>, Hugh Dickins <hughd@google.com>, John Hubbard <jhubbard@nvidia.com>, Jason Gunthorpe <jgg@nvidia.com>, Mike Rapoport <rppt@linux.ibm.com>, Yang Shi <shy828301@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Nadav Amit <namit@vmware.com>, Andrea Arcangeli <aarcange@redhat.com>, Peter Xu <peterx@redhat.com>, linux-mm@kvack.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, David Hildenbrand <david@redhat.com>, Guo Ren <guoren@kernel.org>
+To: peterz@infradead.org
+Cc: richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@kernel.org, linux@armlinux.org.uk, nsekhar@ti.com, brgl@bgdev.pl, ulli.kroll@googlemail.com, linus.walleij@linaro.org, shawnguo@kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, kernel@pengutronix.de, festevam@gmail.com, linux-imx@nxp.com, tony@atomide.com, khilman@kernel.org, krzysztof.kozlowski@linaro.org, alim.akhtar@samsung.com, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, bcain@quicinc.com, chenhuacai@kernel.org, kernel@xen0n.name, geert@linux-m68k.org, sammy@sammy.net, monstr@monstr.eu, tsbogend@alpha.franken.de, dinguyen@kernel.org, jonas@southpole.se, stefan.kristiansson@saunalahti.fi, shorne@gmail.com, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, paul.walmsley@sifive.com, palmer@dabbelt.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, richard@nod.at, anton.ivanov@cambridgegreys.com, johannes@sipsolutions.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, acme@kernel.org, mark.rutland@arm.com, alexander.shishkin@linux.intel.com, jolsa@kernel.org, namhyung@kernel.org, jgross@suse.com, srivatsa@csail.mit.edu, amakhalov@vmware.com, pv-drivers@vmware.com, boris.ostrovsky@oracle.com, chris@zankel.net, jcmvbkbc@gmail.com, rafael@kernel.org, lenb@kernel.org, pavel@ucw.cz, gregkh@linuxfoundation.org, mturquette@baylibre.com, sboyd@kernel.org, daniel.lezcano@linaro.org, lpieralisi@kernel.org, sudeep.holla@arm.com, agross@kernel.org, andersson@kernel.org, konrad.dybcio@linaro.org, anup@brainfault.org, thierry.reding@gmail.com, jonathanh@nvidia.com, jacob.jun.pan@linux.intel.com, atishp@atishpatra.org, Arnd Bergmann <arnd@arndb.de>, yury.norov@gmail.com, andriy.shevchenko@linux.intel.com, linux@rasmusvillemoes.dk, dennis@kernel.org, tj@kernel.org, cl@linux.com, rostedt@goodmis.org, mhiramat@kernel.org, frederic@kernel.org, paulmck@kernel.org, pmladek@suse.com, senozhatsky@chromium.org, john.ogness@linutronix.de, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, ryabinin.a.a@gmail.com, glider@google.com, andreyknvl@gmail.com, dvyukov@google.com, vincenzo.frascino@arm.com, Andrew Morton <akpm@linux-foundation.org>, jpoimboe@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-omap@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-perf-users@vger.kernel.org, virtualization@lists.linux-foundation.org, linux-xtensa@linux-xtensa.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-clk@vger.kernel.org, linux-arm-msm@vger.kernel.org, linux-tegra@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-trace-kernel@vger.kernel.org, kasan-dev@googlegroups.com, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
 
-Let's support __HAVE_ARCH_PTE_SWP_EXCLUSIVE by stealing one bit from the
-offset. This reduces the maximum swap space per file to 16 GiB (was 32
-GiB).
+vmlinux.o: warning: objtool: mwait_idle+0x47: call to mds_idle_clear_cpu_buffers() leaves .noinstr.text section
+vmlinux.o: warning: objtool: acpi_processor_ffh_cstate_enter+0xa2: call to mds_idle_clear_cpu_buffers() leaves .noinstr.text section
+vmlinux.o: warning: objtool: intel_idle+0x91: call to mds_idle_clear_cpu_buffers() leaves .noinstr.text section
+vmlinux.o: warning: objtool: intel_idle_s2idle+0x8c: call to mds_idle_clear_cpu_buffers() leaves .noinstr.text section
+vmlinux.o: warning: objtool: intel_idle_irq+0xaa: call to mds_idle_clear_cpu_buffers() leaves .noinstr.text section
 
-We might actually be able to reuse one of the other software bits
-(_PAGE_READ / PAGE_WRITE) instead, because we only have to keep
-pte_present(), pte_none() and HW happy. For now, let's keep it simple
-because there might be something non-obvious.
-
-Cc: Guo Ren <guoren@kernel.org>
-Signed-off-by: David Hildenbrand <david@redhat.com>
+Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
+Acked-by: Frederic Weisbecker <frederic@kernel.org>
+Tested-by: Tony Lindgren <tony@atomide.com>
+Tested-by: Ulf Hansson <ulf.hansson@linaro.org>
 ---
- arch/csky/abiv1/inc/abi/pgtable-bits.h | 13 +++++++++----
- arch/csky/abiv2/inc/abi/pgtable-bits.h | 19 ++++++++++++-------
- arch/csky/include/asm/pgtable.h        | 18 ++++++++++++++++++
- 3 files changed, 39 insertions(+), 11 deletions(-)
+ arch/x86/include/asm/nospec-branch.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/csky/abiv1/inc/abi/pgtable-bits.h b/arch/csky/abiv1/inc/abi/pgtable-bits.h
-index 752c8b3f9194..ae7a2f76dd42 100644
---- a/arch/csky/abiv1/inc/abi/pgtable-bits.h
-+++ b/arch/csky/abiv1/inc/abi/pgtable-bits.h
-@@ -10,6 +10,9 @@
- #define _PAGE_ACCESSED		(1<<3)
- #define _PAGE_MODIFIED		(1<<4)
- 
-+/* We borrow bit 9 to store the exclusive marker in swap PTEs. */
-+#define _PAGE_SWP_EXCLUSIVE	(1<<9)
-+
- /* implemented in hardware */
- #define _PAGE_GLOBAL		(1<<6)
- #define _PAGE_VALID		(1<<7)
-@@ -26,7 +29,8 @@
- #define _PAGE_PROT_NONE		_PAGE_READ
- 
- /*
-- * Encode and decode a swap entry
-+ * Encode/decode swap entries and swap PTEs. Swap PTEs are all PTEs that
-+ * are !pte_none() && !pte_present().
+--- a/arch/x86/include/asm/nospec-branch.h
++++ b/arch/x86/include/asm/nospec-branch.h
+@@ -310,7 +310,7 @@ static __always_inline void mds_user_cle
   *
-  * Format of swap PTE:
-  *     bit          0:    _PAGE_PRESENT (zero)
-@@ -35,15 +39,16 @@
-  *     bit          6:    _PAGE_GLOBAL (zero)
-  *     bit          7:    _PAGE_VALID (zero)
-  *     bit          8:    swap type[4]
-- *     bit     9 - 31:    swap offset
-+ *     bit          9:    exclusive marker
-+ *     bit    10 - 31:    swap offset
+  * Clear CPU buffers if the corresponding static key is enabled
   */
- #define __swp_type(x)			((((x).val >> 2) & 0xf) | \
- 					(((x).val >> 4) & 0x10))
--#define __swp_offset(x)			((x).val >> 9)
-+#define __swp_offset(x)			((x).val >> 10)
- #define __swp_entry(type, offset)	((swp_entry_t) { \
- 					((type & 0xf) << 2) | \
- 					((type & 0x10) << 4) | \
--					((offset) << 9)})
-+					((offset) << 10)})
- 
- #define HAVE_ARCH_UNMAPPED_AREA
- 
-diff --git a/arch/csky/abiv2/inc/abi/pgtable-bits.h b/arch/csky/abiv2/inc/abi/pgtable-bits.h
-index 7e7f389f546f..526152bd2156 100644
---- a/arch/csky/abiv2/inc/abi/pgtable-bits.h
-+++ b/arch/csky/abiv2/inc/abi/pgtable-bits.h
-@@ -10,6 +10,9 @@
- #define _PAGE_PRESENT		(1<<10)
- #define _PAGE_MODIFIED		(1<<11)
- 
-+/* We borrow bit 7 to store the exclusive marker in swap PTEs. */
-+#define _PAGE_SWP_EXCLUSIVE	(1<<7)
-+
- /* implemented in hardware */
- #define _PAGE_GLOBAL		(1<<0)
- #define _PAGE_VALID		(1<<1)
-@@ -26,23 +29,25 @@
- #define _PAGE_PROT_NONE		_PAGE_WRITE
- 
- /*
-- * Encode and decode a swap entry
-+ * Encode/decode swap entries and swap PTEs. Swap PTEs are all PTEs that
-+ * are !pte_none() && !pte_present().
-  *
-  * Format of swap PTE:
-  *     bit          0:    _PAGE_GLOBAL (zero)
-  *     bit          1:    _PAGE_VALID (zero)
-  *     bit      2 - 6:    swap type
-- *     bit      7 - 8:    swap offset[0 - 1]
-+ *     bit          7:    exclusive marker
-+ *     bit          8:    swap offset[0]
-  *     bit          9:    _PAGE_WRITE (zero)
-  *     bit         10:    _PAGE_PRESENT (zero)
-- *     bit    11 - 31:    swap offset[2 - 22]
-+ *     bit    11 - 31:    swap offset[1 - 21]
-  */
- #define __swp_type(x)			(((x).val >> 2) & 0x1f)
--#define __swp_offset(x)			((((x).val >> 7) & 0x3) | \
--					(((x).val >> 9) & 0x7ffffc))
-+#define __swp_offset(x)			((((x).val >> 8) & 0x1) | \
-+					(((x).val >> 10) & 0x3ffffe))
- #define __swp_entry(type, offset)	((swp_entry_t) { \
- 					((type & 0x1f) << 2) | \
--					((offset & 0x3) << 7) | \
--					((offset & 0x7ffffc) << 9)})
-+					((offset & 0x1) << 8) | \
-+					((offset & 0x3ffffe) << 10)})
- 
- #endif /* __ASM_CSKY_PGTABLE_BITS_H */
-diff --git a/arch/csky/include/asm/pgtable.h b/arch/csky/include/asm/pgtable.h
-index 77bc6caff2d2..574c97b9ecca 100644
---- a/arch/csky/include/asm/pgtable.h
-+++ b/arch/csky/include/asm/pgtable.h
-@@ -200,6 +200,24 @@ static inline pte_t pte_mkyoung(pte_t pte)
- 	return pte;
- }
- 
-+#define __HAVE_ARCH_PTE_SWP_EXCLUSIVE
-+static inline int pte_swp_exclusive(pte_t pte)
-+{
-+	return pte_val(pte) & _PAGE_SWP_EXCLUSIVE;
-+}
-+
-+static inline pte_t pte_swp_mkexclusive(pte_t pte)
-+{
-+	pte_val(pte) |= _PAGE_SWP_EXCLUSIVE;
-+	return pte;
-+}
-+
-+static inline pte_t pte_swp_clear_exclusive(pte_t pte)
-+{
-+	pte_val(pte) &= ~_PAGE_SWP_EXCLUSIVE;
-+	return pte;
-+}
-+
- #define __HAVE_PHYS_MEM_ACCESS_PROT
- struct file;
- extern pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
--- 
-2.39.0
+-static inline void mds_idle_clear_cpu_buffers(void)
++static __always_inline void mds_idle_clear_cpu_buffers(void)
+ {
+ 	if (static_branch_likely(&mds_idle_clear))
+ 		mds_clear_cpu_buffers();
+
