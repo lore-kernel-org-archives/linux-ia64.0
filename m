@@ -1,320 +1,65 @@
-From: Andrzej Hajda <andrzej.hajda@intel.com>
-Date: Wed, 18 Jan 2023 15:44:50 +0000
-Subject: [PATCH v5 7/7] drm/i915/gt: use __xchg instead of internal helper
-Message-Id: <20230118154450.73842-7-andrzej.hajda@intel.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Thu, 12 Jan 2023 19:44:00 +0000
+Subject: [PATCH v3 46/51] arm64,riscv,perf: Remove RCU_NONIDLE() usage
+Message-Id: <20230112195542.151174682@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230118153529.57695-1-andrzej.hajda@intel.com>
- <20230118154450.73842-1-andrzej.hajda@intel.com>
-In-Reply-To: <20230118154450.73842-1-andrzej.hajda@intel.com>
+References: <20230112194314.845371875@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, intel-gfx@lists.freedesktop.org, dri-devel@lists.freedesktop.org
-Cc: Andrzej Hajda <andrzej.hajda@intel.com>, Arnd Bergmann <arnd@arndb.de>, Rodrigo Vivi <rodrigo.vivi@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Peter Zijlstra <peterz@infradead.org>, Boqun Feng <boqun.feng@gmail.com>, Mark Rutland <mark.rutland@arm.com>
+To: peterz@infradead.org
+Cc: richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@kernel.org, linux@armlinux.org.uk, nsekhar@ti.com, brgl@bgdev.pl, ulli.kroll@googlemail.com, linus.walleij@linaro.org, shawnguo@kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, kernel@pengutronix.de, festevam@gmail.com, linux-imx@nxp.com, tony@atomide.com, khilman@kernel.org, krzysztof.kozlowski@linaro.org, alim.akhtar@samsung.com, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, bcain@quicinc.com, chenhuacai@kernel.org, kernel@xen0n.name, geert@linux-m68k.org, sammy@sammy.net, monstr@monstr.eu, tsbogend@alpha.franken.de, dinguyen@kernel.org, jonas@southpole.se, stefan.kristiansson@saunalahti.fi, shorne@gmail.com, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, paul.walmsley@sifive.com, palmer@dabbelt.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, richard@nod.at, anton.ivanov@cambridgegreys.com, johannes@sipsolutions.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, acme@kernel.org, mark.rutland@arm.com, alexander.shishkin@linux.intel.com, jolsa@kernel.org, namhyung@kernel.org, jgross@suse.com, srivatsa@csail.mit.edu, amakhalov@vmware.com, pv-drivers@vmware.com, boris.ostrovsky@oracle.com, chris@zankel.net, jcmvbkbc@gmail.com, rafael@kernel.org, lenb@kernel.org, pavel@ucw.cz, gregkh@linuxfoundation.org, mturquette@baylibre.com, sboyd@kernel.org, daniel.lezcano@linaro.org, lpieralisi@kernel.org, sudeep.holla@arm.com, agross@kernel.org, andersson@kernel.org, konrad.dybcio@linaro.org, anup@brainfault.org, thierry.reding@gmail.com, jonathanh@nvidia.com, jacob.jun.pan@linux.intel.com, atishp@atishpatra.org, Arnd Bergmann <arnd@arndb.de>, yury.norov@gmail.com, andriy.shevchenko@linux.intel.com, linux@rasmusvillemoes.dk, dennis@kernel.org, tj@kernel.org, cl@linux.com, rostedt@goodmis.org, mhiramat@kernel.org, frederic@kernel.org, paulmck@kernel.org, pmladek@suse.com, senozhatsky@chromium.org, john.ogness@linutronix.de, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, ryabinin.a.a@gmail.com, glider@google.com, andreyknvl@gmail.com, dvyukov@google.com, vincenzo.frascino@arm.com, Andrew Morton <akpm@linux-foundation.org>, jpoimboe@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-omap@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-perf-users@vger.kernel.org, virtualization@lists.linux-foundation.org, linux-xtensa@linux-xtensa.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-clk@vger.kernel.org, linux-arm-msm@vger.kernel.org, linux-tegra@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-trace-kernel@vger.kernel.org, kasan-dev@googlegroups.com, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
 
-Prefer core helper if available.
+The PM notifiers should no longer be ran with RCU disabled (per the
+previous patches), as such this hack is no longer required either.
 
-Signed-off-by: Andrzej Hajda <andrzej.hajda@intel.com>
+Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
+Acked-by: Frederic Weisbecker <frederic@kernel.org>
+Tested-by: Tony Lindgren <tony@atomide.com>
+Tested-by: Ulf Hansson <ulf.hansson@linaro.org>
 ---
- drivers/gpu/drm/i915/gt/intel_engine_cs.c            | 2 +-
- drivers/gpu/drm/i915/gt/intel_engine_heartbeat.c     | 4 ++--
- drivers/gpu/drm/i915/gt/intel_execlists_submission.c | 4 ++--
- drivers/gpu/drm/i915/gt/intel_ggtt.c                 | 4 ++--
- drivers/gpu/drm/i915/gt/intel_gsc.c                  | 2 +-
- drivers/gpu/drm/i915/gt/intel_gt.c                   | 4 ++--
- drivers/gpu/drm/i915/gt/intel_gt_pm.c                | 2 +-
- drivers/gpu/drm/i915/gt/intel_lrc.c                  | 6 +++---
- drivers/gpu/drm/i915/gt/intel_migrate.c              | 2 +-
- drivers/gpu/drm/i915/gt/intel_rc6.c                  | 2 +-
- drivers/gpu/drm/i915/gt/intel_rps.c                  | 2 +-
- drivers/gpu/drm/i915/gt/selftest_context.c           | 2 +-
- drivers/gpu/drm/i915/gt/selftest_ring_submission.c   | 2 +-
- drivers/gpu/drm/i915/gt/selftest_timeline.c          | 2 +-
- drivers/gpu/drm/i915/gt/uc/intel_gsc_uc.c            | 2 +-
- drivers/gpu/drm/i915/gt/uc/intel_uc.c                | 2 +-
- drivers/gpu/drm/i915/gt/uc/intel_uc_fw.c             | 2 +-
- drivers/gpu/drm/i915/i915_utils.h                    | 1 +
- 18 files changed, 24 insertions(+), 23 deletions(-)
+ drivers/perf/arm_pmu.c       |   11 +----------
+ drivers/perf/riscv_pmu_sbi.c |    8 +-------
+ 2 files changed, 2 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/gpu/drm/i915/gt/intel_engine_cs.c b/drivers/gpu/drm/i915/gt/intel_engine_cs.c
-index 922f1bb22dc685..9712bfc2c6523d 100644
---- a/drivers/gpu/drm/i915/gt/intel_engine_cs.c
-+++ b/drivers/gpu/drm/i915/gt/intel_engine_cs.c
-@@ -1042,7 +1042,7 @@ static void cleanup_status_page(struct intel_engine_cs *engine)
- 	/* Prevent writes into HWSP after returning the page to the system */
- 	intel_engine_set_hwsp_writemask(engine, ~0u);
- 
--	vma = fetch_and_zero(&engine->status_page.vma);
-+	vma = __xchg(&engine->status_page.vma, 0);
- 	if (!vma)
- 		return;
- 
-diff --git a/drivers/gpu/drm/i915/gt/intel_engine_heartbeat.c b/drivers/gpu/drm/i915/gt/intel_engine_heartbeat.c
-index 9a527e1f5be655..09befcc6a84fa1 100644
---- a/drivers/gpu/drm/i915/gt/intel_engine_heartbeat.c
-+++ b/drivers/gpu/drm/i915/gt/intel_engine_heartbeat.c
-@@ -229,7 +229,7 @@ static void heartbeat(struct work_struct *wrk)
- 	mutex_unlock(&ce->timeline->mutex);
- out:
- 	if (!engine->i915->params.enable_hangcheck || !next_heartbeat(engine))
--		i915_request_put(fetch_and_zero(&engine->heartbeat.systole));
-+		i915_request_put(__xchg(&engine->heartbeat.systole, 0));
- 	intel_engine_pm_put(engine);
- }
- 
-@@ -244,7 +244,7 @@ void intel_engine_unpark_heartbeat(struct intel_engine_cs *engine)
- void intel_engine_park_heartbeat(struct intel_engine_cs *engine)
- {
- 	if (cancel_delayed_work(&engine->heartbeat.work))
--		i915_request_put(fetch_and_zero(&engine->heartbeat.systole));
-+		i915_request_put(__xchg(&engine->heartbeat.systole, 0));
- }
- 
- void intel_gt_unpark_heartbeats(struct intel_gt *gt)
-diff --git a/drivers/gpu/drm/i915/gt/intel_execlists_submission.c b/drivers/gpu/drm/i915/gt/intel_execlists_submission.c
-index 18ffe55282e594..5c985e6fa1be2f 100644
---- a/drivers/gpu/drm/i915/gt/intel_execlists_submission.c
-+++ b/drivers/gpu/drm/i915/gt/intel_execlists_submission.c
-@@ -3199,7 +3199,7 @@ static void execlists_reset_cancel(struct intel_engine_cs *engine)
- 		RB_CLEAR_NODE(rb);
- 
- 		spin_lock(&ve->base.sched_engine->lock);
--		rq = fetch_and_zero(&ve->request);
-+		rq = __xchg(&ve->request, NULL);
- 		if (rq) {
- 			if (i915_request_mark_eio(rq)) {
- 				rq->engine = engine;
-@@ -3604,7 +3604,7 @@ static void rcu_virtual_context_destroy(struct work_struct *wrk)
- 
- 		spin_lock_irq(&ve->base.sched_engine->lock);
- 
--		old = fetch_and_zero(&ve->request);
-+		old = __xchg(&ve->request, NULL);
- 		if (old) {
- 			GEM_BUG_ON(!__i915_request_is_complete(old));
- 			__i915_request_submit(old);
-diff --git a/drivers/gpu/drm/i915/gt/intel_ggtt.c b/drivers/gpu/drm/i915/gt/intel_ggtt.c
-index fe64c13fd3b4aa..6f441c3d3d1cef 100644
---- a/drivers/gpu/drm/i915/gt/intel_ggtt.c
-+++ b/drivers/gpu/drm/i915/gt/intel_ggtt.c
-@@ -684,7 +684,7 @@ static void fini_aliasing_ppgtt(struct i915_ggtt *ggtt)
- {
- 	struct i915_ppgtt *ppgtt;
- 
--	ppgtt = fetch_and_zero(&ggtt->alias);
-+	ppgtt = __xchg(&ggtt->alias, NULL);
- 	if (!ppgtt)
- 		return;
- 
-@@ -1238,7 +1238,7 @@ bool i915_ggtt_resume_vm(struct i915_address_space *vm)
- 				   was_bound);
- 
- 		if (obj) { /* only used during resume => exclusive access */
--			write_domain_objs |= fetch_and_zero(&obj->write_domain);
-+			write_domain_objs |= __xchg(&obj->write_domain, 0);
- 			obj->read_domains |= I915_GEM_DOMAIN_GTT;
- 		}
- 	}
-diff --git a/drivers/gpu/drm/i915/gt/intel_gsc.c b/drivers/gpu/drm/i915/gt/intel_gsc.c
-index bcc3605158dbde..38fbea757ba741 100644
---- a/drivers/gpu/drm/i915/gt/intel_gsc.c
-+++ b/drivers/gpu/drm/i915/gt/intel_gsc.c
-@@ -70,7 +70,7 @@ gsc_ext_om_alloc(struct intel_gsc *gsc, struct intel_gsc_intf *intf, size_t size
- 
- static void gsc_ext_om_destroy(struct intel_gsc_intf *intf)
- {
--	struct drm_i915_gem_object *obj = fetch_and_zero(&intf->gem_obj);
-+	struct drm_i915_gem_object *obj = __xchg(&intf->gem_obj, 0);
- 
- 	if (!obj)
- 		return;
-diff --git a/drivers/gpu/drm/i915/gt/intel_gt.c b/drivers/gpu/drm/i915/gt/intel_gt.c
-index f0dbfc434e0773..884458507969e6 100644
---- a/drivers/gpu/drm/i915/gt/intel_gt.c
-+++ b/drivers/gpu/drm/i915/gt/intel_gt.c
-@@ -753,7 +753,7 @@ int intel_gt_init(struct intel_gt *gt)
- 	intel_uc_fini(&gt->uc);
- err_engines:
- 	intel_engines_release(gt);
--	i915_vm_put(fetch_and_zero(&gt->vm));
-+	i915_vm_put(__xchg(&gt->vm, 0));
- err_pm:
- 	intel_gt_pm_fini(gt);
- 	intel_gt_fini_scratch(gt);
-@@ -800,7 +800,7 @@ void intel_gt_driver_release(struct intel_gt *gt)
- {
- 	struct i915_address_space *vm;
- 
--	vm = fetch_and_zero(&gt->vm);
-+	vm = __xchg(&gt->vm, 0);
- 	if (vm) /* FIXME being called twice on error paths :( */
- 		i915_vm_put(vm);
- 
-diff --git a/drivers/gpu/drm/i915/gt/intel_gt_pm.c b/drivers/gpu/drm/i915/gt/intel_gt_pm.c
-index cef3d6f5c34e01..2527c5ae72e59b 100644
---- a/drivers/gpu/drm/i915/gt/intel_gt_pm.c
-+++ b/drivers/gpu/drm/i915/gt/intel_gt_pm.c
-@@ -124,7 +124,7 @@ static int __gt_unpark(struct intel_wakeref *wf)
- static int __gt_park(struct intel_wakeref *wf)
- {
- 	struct intel_gt *gt = container_of(wf, typeof(*gt), wakeref);
--	intel_wakeref_t wakeref = fetch_and_zero(&gt->awake);
-+	intel_wakeref_t wakeref = __xchg(&gt->awake, 0);
- 	struct drm_i915_private *i915 = gt->i915;
- 
- 	GT_TRACE(gt, "\n");
-diff --git a/drivers/gpu/drm/i915/gt/intel_lrc.c b/drivers/gpu/drm/i915/gt/intel_lrc.c
-index 7771a19008c604..9dfa3c10ddc85f 100644
---- a/drivers/gpu/drm/i915/gt/intel_lrc.c
-+++ b/drivers/gpu/drm/i915/gt/intel_lrc.c
-@@ -1144,7 +1144,7 @@ __lrc_alloc_state(struct intel_context *ce, struct intel_engine_cs *engine)
- static struct intel_timeline *
- pinned_timeline(struct intel_context *ce, struct intel_engine_cs *engine)
- {
--	struct intel_timeline *tl = fetch_and_zero(&ce->timeline);
-+	struct intel_timeline *tl = __xchg(&ce->timeline, 0);
- 
- 	return intel_timeline_create_from_engine(engine, page_unmask_bits(tl));
- }
-@@ -1261,8 +1261,8 @@ void lrc_fini(struct intel_context *ce)
- 	if (!ce->state)
- 		return;
- 
--	intel_ring_put(fetch_and_zero(&ce->ring));
--	i915_vma_put(fetch_and_zero(&ce->state));
-+	intel_ring_put(__xchg(&ce->ring, 0));
-+	i915_vma_put(__xchg(&ce->state, 0));
- }
- 
- void lrc_destroy(struct kref *kref)
-diff --git a/drivers/gpu/drm/i915/gt/intel_migrate.c b/drivers/gpu/drm/i915/gt/intel_migrate.c
-index 3f638f19879685..3eab1867a4abee 100644
---- a/drivers/gpu/drm/i915/gt/intel_migrate.c
-+++ b/drivers/gpu/drm/i915/gt/intel_migrate.c
-@@ -1147,7 +1147,7 @@ void intel_migrate_fini(struct intel_migrate *m)
- {
- 	struct intel_context *ce;
- 
--	ce = fetch_and_zero(&m->context);
-+	ce = __xchg(&m->context, 0);
- 	if (!ce)
- 		return;
- 
-diff --git a/drivers/gpu/drm/i915/gt/intel_rc6.c b/drivers/gpu/drm/i915/gt/intel_rc6.c
-index 5c91622dfca420..ca6b0c905accb3 100644
---- a/drivers/gpu/drm/i915/gt/intel_rc6.c
-+++ b/drivers/gpu/drm/i915/gt/intel_rc6.c
-@@ -702,7 +702,7 @@ void intel_rc6_fini(struct intel_rc6 *rc6)
- 
- 	intel_rc6_disable(rc6);
- 
--	pctx = fetch_and_zero(&rc6->pctx);
-+	pctx = __xchg(&rc6->pctx, 0);
- 	if (pctx)
- 		i915_gem_object_put(pctx);
- 
-diff --git a/drivers/gpu/drm/i915/gt/intel_rps.c b/drivers/gpu/drm/i915/gt/intel_rps.c
-index 9ad3bc7201cbaa..e34ca33b09d2e7 100644
---- a/drivers/gpu/drm/i915/gt/intel_rps.c
-+++ b/drivers/gpu/drm/i915/gt/intel_rps.c
-@@ -1831,7 +1831,7 @@ static void rps_work(struct work_struct *work)
- 	u32 pm_iir = 0;
- 
- 	spin_lock_irq(gt->irq_lock);
--	pm_iir = fetch_and_zero(&rps->pm_iir) & rps->pm_events;
-+	pm_iir = __xchg(&rps->pm_iir, 0) & rps->pm_events;
- 	client_boost = atomic_read(&rps->num_waiters);
- 	spin_unlock_irq(gt->irq_lock);
- 
-diff --git a/drivers/gpu/drm/i915/gt/selftest_context.c b/drivers/gpu/drm/i915/gt/selftest_context.c
-index 76fbae358072df..3f49ca1debc6ce 100644
---- a/drivers/gpu/drm/i915/gt/selftest_context.c
-+++ b/drivers/gpu/drm/i915/gt/selftest_context.c
-@@ -171,7 +171,7 @@ static int live_context_size(void *arg)
- 		 * active state is sufficient, we are only checking that we
- 		 * don't use more than we planned.
- 		 */
--		saved = fetch_and_zero(&engine->default_state);
-+		saved = __xchg(&engine->default_state, 0);
- 
- 		/* Overlaps with the execlists redzone */
- 		engine->context_size += I915_GTT_PAGE_SIZE;
-diff --git a/drivers/gpu/drm/i915/gt/selftest_ring_submission.c b/drivers/gpu/drm/i915/gt/selftest_ring_submission.c
-index 87ceb0f374b673..a01aaca4fbf5ff 100644
---- a/drivers/gpu/drm/i915/gt/selftest_ring_submission.c
-+++ b/drivers/gpu/drm/i915/gt/selftest_ring_submission.c
-@@ -269,7 +269,7 @@ static int live_ctx_switch_wa(void *arg)
- 		if (IS_GRAPHICS_VER(gt->i915, 4, 5))
- 			continue; /* MI_STORE_DWORD is privileged! */
- 
--		saved_wa = fetch_and_zero(&engine->wa_ctx.vma);
-+		saved_wa = __xchg(&engine->wa_ctx.vma, 0);
- 
- 		intel_engine_pm_get(engine);
- 		err = __live_ctx_switch_wa(engine);
-diff --git a/drivers/gpu/drm/i915/gt/selftest_timeline.c b/drivers/gpu/drm/i915/gt/selftest_timeline.c
-index 522d0190509ccc..d14d5159024ec7 100644
---- a/drivers/gpu/drm/i915/gt/selftest_timeline.c
-+++ b/drivers/gpu/drm/i915/gt/selftest_timeline.c
-@@ -892,7 +892,7 @@ static int create_watcher(struct hwsp_watcher *w,
- static int check_watcher(struct hwsp_watcher *w, const char *name,
- 			 bool (*op)(u32 hwsp, u32 seqno))
- {
--	struct i915_request *rq = fetch_and_zero(&w->rq);
-+	struct i915_request *rq = __xchg(&w->rq, NULL);
- 	u32 offset, end;
- 	int err;
- 
-diff --git a/drivers/gpu/drm/i915/gt/uc/intel_gsc_uc.c b/drivers/gpu/drm/i915/gt/uc/intel_gsc_uc.c
-index fd21dbd2663bec..3f85d3f6fc6e92 100644
---- a/drivers/gpu/drm/i915/gt/uc/intel_gsc_uc.c
-+++ b/drivers/gpu/drm/i915/gt/uc/intel_gsc_uc.c
-@@ -110,7 +110,7 @@ void intel_gsc_uc_fini(struct intel_gsc_uc *gsc)
- 	flush_work(&gsc->work);
- 
- 	if (gsc->ce)
--		intel_engine_destroy_pinned_context(fetch_and_zero(&gsc->ce));
-+		intel_engine_destroy_pinned_context(__xchg(&gsc->ce, NULL));
- 
- 	i915_vma_unpin_and_release(&gsc->local, 0);
- 
-diff --git a/drivers/gpu/drm/i915/gt/uc/intel_uc.c b/drivers/gpu/drm/i915/gt/uc/intel_uc.c
-index 9a8a1abf71d7fe..0292212cffbcb9 100644
---- a/drivers/gpu/drm/i915/gt/uc/intel_uc.c
-+++ b/drivers/gpu/drm/i915/gt/uc/intel_uc.c
-@@ -169,7 +169,7 @@ static void __uc_capture_load_err_log(struct intel_uc *uc)
- 
- static void __uc_free_load_err_log(struct intel_uc *uc)
- {
--	struct drm_i915_gem_object *log = fetch_and_zero(&uc->load_err_log);
-+	struct drm_i915_gem_object *log = __xchg(&uc->load_err_log, NULL);
- 
- 	if (log)
- 		i915_gem_object_put(log);
-diff --git a/drivers/gpu/drm/i915/gt/uc/intel_uc_fw.c b/drivers/gpu/drm/i915/gt/uc/intel_uc_fw.c
-index 65672ff8260540..3f684f34469581 100644
---- a/drivers/gpu/drm/i915/gt/uc/intel_uc_fw.c
-+++ b/drivers/gpu/drm/i915/gt/uc/intel_uc_fw.c
-@@ -1119,7 +1119,7 @@ void intel_uc_fw_cleanup_fetch(struct intel_uc_fw *uc_fw)
- 	if (!intel_uc_fw_is_available(uc_fw))
- 		return;
- 
--	i915_gem_object_put(fetch_and_zero(&uc_fw->obj));
-+	i915_gem_object_put(__xchg(&uc_fw->obj, NULL));
- 
- 	intel_uc_fw_change_status(uc_fw, INTEL_UC_FIRMWARE_SELECTED);
- }
-diff --git a/drivers/gpu/drm/i915/i915_utils.h b/drivers/gpu/drm/i915/i915_utils.h
-index 2c430c0c3badde..be7df2c384c832 100644
---- a/drivers/gpu/drm/i915/i915_utils.h
-+++ b/drivers/gpu/drm/i915/i915_utils.h
-@@ -26,6 +26,7 @@
- #define __I915_UTILS_H
- 
- #include <linux/list.h>
-+#include <linux/non-atomic/xchg.h>
- #include <linux/overflow.h>
- #include <linux/sched.h>
- #include <linux/string_helpers.h>
--- 
-2.34.1
+--- a/drivers/perf/arm_pmu.c
++++ b/drivers/perf/arm_pmu.c
+@@ -762,17 +762,8 @@ static void cpu_pm_pmu_setup(struct arm_
+ 		case CPU_PM_ENTER_FAILED:
+ 			 /*
+ 			  * Restore and enable the counter.
+-			  * armpmu_start() indirectly calls
+-			  *
+-			  * perf_event_update_userpage()
+-			  *
+-			  * that requires RCU read locking to be functional,
+-			  * wrap the call within RCU_NONIDLE to make the
+-			  * RCU subsystem aware this cpu is not idle from
+-			  * an RCU perspective for the armpmu_start() call
+-			  * duration.
+ 			  */
+-			RCU_NONIDLE(armpmu_start(event, PERF_EF_RELOAD));
++			armpmu_start(event, PERF_EF_RELOAD);
+ 			break;
+ 		default:
+ 			break;
+--- a/drivers/perf/riscv_pmu_sbi.c
++++ b/drivers/perf/riscv_pmu_sbi.c
+@@ -747,14 +747,8 @@ static int riscv_pm_pmu_notify(struct no
+ 		case CPU_PM_ENTER_FAILED:
+ 			/*
+ 			 * Restore and enable the counter.
+-			 *
+-			 * Requires RCU read locking to be functional,
+-			 * wrap the call within RCU_NONIDLE to make the
+-			 * RCU subsystem aware this cpu is not idle from
+-			 * an RCU perspective for the riscv_pmu_start() call
+-			 * duration.
+ 			 */
+-			RCU_NONIDLE(riscv_pmu_start(event, PERF_EF_RELOAD));
++			riscv_pmu_start(event, PERF_EF_RELOAD);
+ 			break;
+ 		default:
+ 			break;
+
