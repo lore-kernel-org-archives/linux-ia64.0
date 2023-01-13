@@ -1,54 +1,92 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Thu, 12 Jan 2023 19:43:32 +0000
-Subject: [PATCH v3 18/51] cpuidle,intel_idle: Fix CPUIDLE_FLAG_IRQ_ENABLE *again*
-Message-Id: <20230112195540.434302128@infradead.org>
+From: David Hildenbrand <david@redhat.com>
+Date: Fri, 13 Jan 2023 17:10:22 +0000
+Subject: [PATCH mm-unstable v1 22/26] sparc/mm: support __HAVE_ARCH_PTE_SWP_EXCLUSIVE on 64bit
+Message-Id: <20230113171026.582290-23-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230112194314.845371875@infradead.org>
+References: <20230113171026.582290-1-david@redhat.com>
+In-Reply-To: <20230113171026.582290-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: peterz@infradead.org
-Cc: richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@kernel.org, linux@armlinux.org.uk, nsekhar@ti.com, brgl@bgdev.pl, ulli.kroll@googlemail.com, linus.walleij@linaro.org, shawnguo@kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, kernel@pengutronix.de, festevam@gmail.com, linux-imx@nxp.com, tony@atomide.com, khilman@kernel.org, krzysztof.kozlowski@linaro.org, alim.akhtar@samsung.com, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, bcain@quicinc.com, chenhuacai@kernel.org, kernel@xen0n.name, geert@linux-m68k.org, sammy@sammy.net, monstr@monstr.eu, tsbogend@alpha.franken.de, dinguyen@kernel.org, jonas@southpole.se, stefan.kristiansson@saunalahti.fi, shorne@gmail.com, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, paul.walmsley@sifive.com, palmer@dabbelt.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, richard@nod.at, anton.ivanov@cambridgegreys.com, johannes@sipsolutions.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, acme@kernel.org, mark.rutland@arm.com, alexander.shishkin@linux.intel.com, jolsa@kernel.org, namhyung@kernel.org, jgross@suse.com, srivatsa@csail.mit.edu, amakhalov@vmware.com, pv-drivers@vmware.com, boris.ostrovsky@oracle.com, chris@zankel.net, jcmvbkbc@gmail.com, rafael@kernel.org, lenb@kernel.org, pavel@ucw.cz, gregkh@linuxfoundation.org, mturquette@baylibre.com, sboyd@kernel.org, daniel.lezcano@linaro.org, lpieralisi@kernel.org, sudeep.holla@arm.com, agross@kernel.org, andersson@kernel.org, konrad.dybcio@linaro.org, anup@brainfault.org, thierry.reding@gmail.com, jonathanh@nvidia.com, jacob.jun.pan@linux.intel.com, atishp@atishpatra.org, Arnd Bergmann <arnd@arndb.de>, yury.norov@gmail.com, andriy.shevchenko@linux.intel.com, linux@rasmusvillemoes.dk, dennis@kernel.org, tj@kernel.org, cl@linux.com, rostedt@goodmis.org, mhiramat@kernel.org, frederic@kernel.org, paulmck@kernel.org, pmladek@suse.com, senozhatsky@chromium.org, john.ogness@linutronix.de, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, ryabinin.a.a@gmail.com, glider@google.com, andreyknvl@gmail.com, dvyukov@google.com, vincenzo.frascino@arm.com, Andrew Morton <akpm@linux-foundation.org>, jpoimboe@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-omap@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-perf-users@vger.kernel.org, virtualization@lists.linux-foundation.org, linux-xtensa@linux-xtensa.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-clk@vger.kernel.org, linux-arm-msm@vger.kernel.org, linux-tegra@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-trace-kernel@vger.kernel.org, kasan-dev@googlegroups.com, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
+To: linux-kernel@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>, Hugh Dickins <hughd@google.com>, John Hubbard <jhubbard@nvidia.com>, Jason Gunthorpe <jgg@nvidia.com>, Mike Rapoport <rppt@linux.ibm.com>, Yang Shi <shy828301@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Nadav Amit <namit@vmware.com>, Andrea Arcangeli <aarcange@redhat.com>, Peter Xu <peterx@redhat.com>, linux-mm@kvack.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, David Hildenbrand <david@redhat.com>, "David S. Miller" <davem@davemloft.net>
 
-  vmlinux.o: warning: objtool: intel_idle_irq+0x10c: call to trace_hardirqs_off() leaves .noinstr.text section
+Let's support __HAVE_ARCH_PTE_SWP_EXCLUSIVE by stealing one bit
+from the type. Generic MM currently only uses 5 bits for the type
+(MAX_SWAPFILES_SHIFT), so the stolen bit was effectively unused.
 
-As per commit 32d4fd5751ea ("cpuidle,intel_idle: Fix
-CPUIDLE_FLAG_IRQ_ENABLE"):
+While at it, mask the type in __swp_entry().
 
-  "must not have tracing in idle functions"
-
-Clearly people can't read and tinker along until splat dissapears.
-This straight up reverts commit d295ad34f236 ("intel_idle: Fix false
-positive RCU splats due to incorrect hardirqs state").
-
-It doesn't re-introduce the problem because preceding patches fixed it
-properly.
-
-Fixes: d295ad34f236 ("intel_idle: Fix false positive RCU splats due to incorrect hardirqs state")
-Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
-Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
-Acked-by: Frederic Weisbecker <frederic@kernel.org>
-Tested-by: Tony Lindgren <tony@atomide.com>
-Tested-by: Ulf Hansson <ulf.hansson@linaro.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: David Hildenbrand <david@redhat.com>
 ---
- drivers/idle/intel_idle.c |    8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+ arch/sparc/include/asm/pgtable_64.h | 38 ++++++++++++++++++++++++++---
+ 1 file changed, 35 insertions(+), 3 deletions(-)
 
---- a/drivers/idle/intel_idle.c
-+++ b/drivers/idle/intel_idle.c
-@@ -168,13 +168,7 @@ static __cpuidle int intel_idle_irq(stru
+diff --git a/arch/sparc/include/asm/pgtable_64.h b/arch/sparc/include/asm/pgtable_64.h
+index 3bc9736bddb1..a1658eebd036 100644
+--- a/arch/sparc/include/asm/pgtable_64.h
++++ b/arch/sparc/include/asm/pgtable_64.h
+@@ -187,6 +187,9 @@ bool kern_addr_valid(unsigned long addr);
+ #define _PAGE_SZHUGE_4U	_PAGE_SZ4MB_4U
+ #define _PAGE_SZHUGE_4V	_PAGE_SZ4MB_4V
  
- 	raw_local_irq_enable();
- 	ret = __intel_idle(dev, drv, index);
--
--	/*
--	 * The lockdep hardirqs state may be changed to 'on' with timer
--	 * tick interrupt followed by __do_softirq(). Use local_irq_disable()
--	 * to keep the hardirqs state correct.
--	 */
--	local_irq_disable();
-+	raw_local_irq_disable();
++/* We borrow bit 20 to store the exclusive marker in swap PTEs. */
++#define _PAGE_SWP_EXCLUSIVE	_AC(0x0000000000100000, UL)
++
+ #ifndef __ASSEMBLY__
  
- 	return ret;
- }
-
+ pte_t mk_pte_io(unsigned long, pgprot_t, int, unsigned long);
+@@ -961,18 +964,47 @@ void pgtable_trans_huge_deposit(struct mm_struct *mm, pmd_t *pmdp,
+ pgtable_t pgtable_trans_huge_withdraw(struct mm_struct *mm, pmd_t *pmdp);
+ #endif
+ 
+-/* Encode and de-code a swap entry */
+-#define __swp_type(entry)	(((entry).val >> PAGE_SHIFT) & 0xffUL)
++/*
++ * Encode/decode swap entries and swap PTEs. Swap PTEs are all PTEs that
++ * are !pte_none() && !pte_present().
++ *
++ * Format of swap PTEs:
++ *
++ *   6 6 6 6 5 5 5 5 5 5 5 5 5 5 4 4 4 4 4 4 4 4 4 4 3 3 3 3 3 3 3 3
++ *   3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2
++ *   <--------------------------- offset ---------------------------
++ *
++ *   3 3 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 1 1 1 1 1
++ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
++ *   --------------------> E <-- type ---> <------- zeroes -------->
++ */
++#define __swp_type(entry)	(((entry).val >> PAGE_SHIFT) & 0x7fUL)
+ #define __swp_offset(entry)	((entry).val >> (PAGE_SHIFT + 8UL))
+ #define __swp_entry(type, offset)	\
+ 	( (swp_entry_t) \
+ 	  { \
+-		(((long)(type) << PAGE_SHIFT) | \
++		((((long)(type) & 0x7fUL) << PAGE_SHIFT) | \
+                  ((long)(offset) << (PAGE_SHIFT + 8UL))) \
+ 	  } )
+ #define __pte_to_swp_entry(pte)		((swp_entry_t) { pte_val(pte) })
+ #define __swp_entry_to_pte(x)		((pte_t) { (x).val })
+ 
++#define __HAVE_ARCH_PTE_SWP_EXCLUSIVE
++static inline int pte_swp_exclusive(pte_t pte)
++{
++	return pte_val(pte) & _PAGE_SWP_EXCLUSIVE;
++}
++
++static inline pte_t pte_swp_mkexclusive(pte_t pte)
++{
++	return __pte(pte_val(pte) | _PAGE_SWP_EXCLUSIVE);
++}
++
++static inline pte_t pte_swp_clear_exclusive(pte_t pte)
++{
++	return __pte(pte_val(pte) & ~_PAGE_SWP_EXCLUSIVE);
++}
++
+ int page_in_phys_avail(unsigned long paddr);
+ 
+ /*
+-- 
+2.39.0
