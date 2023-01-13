@@ -1,238 +1,92 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Thu, 12 Jan 2023 19:44:02 +0000
-Subject: [PATCH v3 48/51] cpuidle,arch: Mark all ct_cpuidle_enter() callers __cpuidle
-Message-Id: <20230112195542.274096325@infradead.org>
+From: David Hildenbrand <david@redhat.com>
+Date: Fri, 13 Jan 2023 17:10:15 +0000
+Subject: [PATCH mm-unstable v1 15/26] openrisc/mm: support __HAVE_ARCH_PTE_SWP_EXCLUSIVE
+Message-Id: <20230113171026.582290-16-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230112194314.845371875@infradead.org>
+References: <20230113171026.582290-1-david@redhat.com>
+In-Reply-To: <20230113171026.582290-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: peterz@infradead.org
-Cc: richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@kernel.org, linux@armlinux.org.uk, nsekhar@ti.com, brgl@bgdev.pl, ulli.kroll@googlemail.com, linus.walleij@linaro.org, shawnguo@kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, kernel@pengutronix.de, festevam@gmail.com, linux-imx@nxp.com, tony@atomide.com, khilman@kernel.org, krzysztof.kozlowski@linaro.org, alim.akhtar@samsung.com, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, bcain@quicinc.com, chenhuacai@kernel.org, kernel@xen0n.name, geert@linux-m68k.org, sammy@sammy.net, monstr@monstr.eu, tsbogend@alpha.franken.de, dinguyen@kernel.org, jonas@southpole.se, stefan.kristiansson@saunalahti.fi, shorne@gmail.com, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, paul.walmsley@sifive.com, palmer@dabbelt.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, richard@nod.at, anton.ivanov@cambridgegreys.com, johannes@sipsolutions.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, acme@kernel.org, mark.rutland@arm.com, alexander.shishkin@linux.intel.com, jolsa@kernel.org, namhyung@kernel.org, jgross@suse.com, srivatsa@csail.mit.edu, amakhalov@vmware.com, pv-drivers@vmware.com, boris.ostrovsky@oracle.com, chris@zankel.net, jcmvbkbc@gmail.com, rafael@kernel.org, lenb@kernel.org, pavel@ucw.cz, gregkh@linuxfoundation.org, mturquette@baylibre.com, sboyd@kernel.org, daniel.lezcano@linaro.org, lpieralisi@kernel.org, sudeep.holla@arm.com, agross@kernel.org, andersson@kernel.org, konrad.dybcio@linaro.org, anup@brainfault.org, thierry.reding@gmail.com, jonathanh@nvidia.com, jacob.jun.pan@linux.intel.com, atishp@atishpatra.org, Arnd Bergmann <arnd@arndb.de>, yury.norov@gmail.com, andriy.shevchenko@linux.intel.com, linux@rasmusvillemoes.dk, dennis@kernel.org, tj@kernel.org, cl@linux.com, rostedt@goodmis.org, mhiramat@kernel.org, frederic@kernel.org, paulmck@kernel.org, pmladek@suse.com, senozhatsky@chromium.org, john.ogness@linutronix.de, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, ryabinin.a.a@gmail.com, glider@google.com, andreyknvl@gmail.com, dvyukov@google.com, vincenzo.frascino@arm.com, Andrew Morton <akpm@linux-foundation.org>, jpoimboe@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-omap@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-perf-users@vger.kernel.org, virtualization@lists.linux-foundation.org, linux-xtensa@linux-xtensa.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-clk@vger.kernel.org, linux-arm-msm@vger.kernel.org, linux-tegra@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-trace-kernel@vger.kernel.org, kasan-dev@googlegroups.com
+To: linux-kernel@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>, Hugh Dickins <hughd@google.com>, John Hubbard <jhubbard@nvidia.com>, Jason Gunthorpe <jgg@nvidia.com>, Mike Rapoport <rppt@linux.ibm.com>, Yang Shi <shy828301@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Nadav Amit <namit@vmware.com>, Andrea Arcangeli <aarcange@redhat.com>, Peter Xu <peterx@redhat.com>, linux-mm@kvack.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, David Hildenbrand <david@redhat.com>, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, Stafford Horne <shorne@gmail.com>
 
-For all cpuidle drivers that use CPUIDLE_FLAG_RCU_IDLE, ensure that
-all functions that call ct_cpuidle_enter() are marked __cpuidle.
+Let's support __HAVE_ARCH_PTE_SWP_EXCLUSIVE by stealing one bit
+from the type. Generic MM currently only uses 5 bits for the type
+(MAX_SWAPFILES_SHIFT), so the stolen bit is effectively unused.
 
-( due to lack of noinstr validation on these platforms it is entirely
-  possible this isn't complete )
+While at it, mask the type in __swp_entry().
 
-Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+Cc: Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>
+Cc: Stafford Horne <shorne@gmail.com>
+Signed-off-by: David Hildenbrand <david@redhat.com>
 ---
- arch/arm/mach-imx/cpuidle-imx6q.c         |    4 ++--
- arch/arm/mach-imx/cpuidle-imx6sx.c        |    4 ++--
- arch/arm/mach-omap2/omap-mpuss-lowpower.c |    4 ++--
- arch/arm/mach-omap2/pm34xx.c              |    2 +-
- arch/arm64/kernel/cpuidle.c               |    2 +-
- drivers/cpuidle/cpuidle-arm.c             |    4 ++--
- drivers/cpuidle/cpuidle-big_little.c      |    4 ++--
- drivers/cpuidle/cpuidle-mvebu-v7.c        |    6 +++---
- drivers/cpuidle/cpuidle-psci.c            |   17 ++++++-----------
- drivers/cpuidle/cpuidle-qcom-spm.c        |    4 ++--
- drivers/cpuidle/cpuidle-riscv-sbi.c       |   10 +++++-----
- drivers/cpuidle/cpuidle-tegra.c           |   10 +++++-----
- 12 files changed, 33 insertions(+), 38 deletions(-)
+ arch/openrisc/include/asm/pgtable.h | 41 +++++++++++++++++++++++++----
+ 1 file changed, 36 insertions(+), 5 deletions(-)
 
---- a/arch/arm/mach-imx/cpuidle-imx6q.c
-+++ b/arch/arm/mach-imx/cpuidle-imx6q.c
-@@ -17,8 +17,8 @@
- static int num_idle_cpus = 0;
- static DEFINE_RAW_SPINLOCK(cpuidle_lock);
+diff --git a/arch/openrisc/include/asm/pgtable.h b/arch/openrisc/include/asm/pgtable.h
+index 6477c17b3062..903b32d662ab 100644
+--- a/arch/openrisc/include/asm/pgtable.h
++++ b/arch/openrisc/include/asm/pgtable.h
+@@ -154,6 +154,9 @@ extern void paging_init(void);
+ #define _KERNPG_TABLE \
+ 	(_PAGE_BASE | _PAGE_SRE | _PAGE_SWE | _PAGE_ACCESSED | _PAGE_DIRTY)
  
--static int imx6q_enter_wait(struct cpuidle_device *dev,
--			    struct cpuidle_driver *drv, int index)
-+static __cpuidle int imx6q_enter_wait(struct cpuidle_device *dev,
-+				      struct cpuidle_driver *drv, int index)
- {
- 	raw_spin_lock(&cpuidle_lock);
- 	if (++num_idle_cpus = num_online_cpus())
---- a/arch/arm/mach-imx/cpuidle-imx6sx.c
-+++ b/arch/arm/mach-imx/cpuidle-imx6sx.c
-@@ -30,8 +30,8 @@ static int imx6sx_idle_finish(unsigned l
- 	return 0;
- }
++/* We borrow bit 11 to store the exclusive marker in swap PTEs. */
++#define _PAGE_SWP_EXCLUSIVE	_PAGE_U_SHARED
++
+ #define PAGE_NONE       __pgprot(_PAGE_ALL)
+ #define PAGE_READONLY   __pgprot(_PAGE_ALL | _PAGE_URE | _PAGE_SRE)
+ #define PAGE_READONLY_X __pgprot(_PAGE_ALL | _PAGE_URE | _PAGE_SRE | _PAGE_EXEC)
+@@ -385,16 +388,44 @@ static inline void update_mmu_cache(struct vm_area_struct *vma,
  
--static int imx6sx_enter_wait(struct cpuidle_device *dev,
--			    struct cpuidle_driver *drv, int index)
-+static __cpuidle int imx6sx_enter_wait(struct cpuidle_device *dev,
-+				       struct cpuidle_driver *drv, int index)
- {
- 	imx6_set_lpm(WAIT_UNCLOCKED);
+ /* __PHX__ FIXME, SWAP, this probably doesn't work */
  
---- a/arch/arm/mach-omap2/omap-mpuss-lowpower.c
-+++ b/arch/arm/mach-omap2/omap-mpuss-lowpower.c
-@@ -224,8 +224,8 @@ static void __init save_l2x0_context(voi
-  *	2 - CPUx L1 and logic lost + GIC lost: MPUSS OSWR
-  *	3 - CPUx L1 and logic lost + GIC + L2 lost: DEVICE OFF
-  */
--int omap4_enter_lowpower(unsigned int cpu, unsigned int power_state,
--			 bool rcuidle)
-+__cpuidle int omap4_enter_lowpower(unsigned int cpu, unsigned int power_state,
-+				   bool rcuidle)
- {
- 	struct omap4_cpu_pm_info *pm_info = &per_cpu(omap4_pm_info, cpu);
- 	unsigned int save_state = 0, cpu_logic_state = PWRDM_POWER_RET;
---- a/arch/arm/mach-omap2/pm34xx.c
-+++ b/arch/arm/mach-omap2/pm34xx.c
-@@ -175,7 +175,7 @@ static int omap34xx_do_sram_idle(unsigne
- 	return 0;
- }
- 
--void omap_sram_idle(bool rcuidle)
-+__cpuidle void omap_sram_idle(bool rcuidle)
- {
- 	/* Variable to tell what needs to be saved and restored
- 	 * in omap_sram_idle*/
---- a/arch/arm64/kernel/cpuidle.c
-+++ b/arch/arm64/kernel/cpuidle.c
-@@ -62,7 +62,7 @@ int acpi_processor_ffh_lpi_probe(unsigne
- 	return psci_acpi_cpu_init_idle(cpu);
- }
- 
--int acpi_processor_ffh_lpi_enter(struct acpi_lpi_state *lpi)
-+__cpuidle int acpi_processor_ffh_lpi_enter(struct acpi_lpi_state *lpi)
- {
- 	u32 state = lpi->address;
- 
---- a/drivers/cpuidle/cpuidle-arm.c
-+++ b/drivers/cpuidle/cpuidle-arm.c
-@@ -31,8 +31,8 @@
-  * Called from the CPUidle framework to program the device to the
-  * specified target state selected by the governor.
-  */
--static int arm_enter_idle_state(struct cpuidle_device *dev,
--				struct cpuidle_driver *drv, int idx)
-+static __cpuidle int arm_enter_idle_state(struct cpuidle_device *dev,
-+					  struct cpuidle_driver *drv, int idx)
- {
- 	/*
- 	 * Pass idle state index to arm_cpuidle_suspend which in turn
---- a/drivers/cpuidle/cpuidle-big_little.c
-+++ b/drivers/cpuidle/cpuidle-big_little.c
-@@ -122,8 +122,8 @@ static int notrace bl_powerdown_finisher
-  * Called from the CPUidle framework to program the device to the
-  * specified target state selected by the governor.
-  */
--static int bl_enter_powerdown(struct cpuidle_device *dev,
--				struct cpuidle_driver *drv, int idx)
-+static __cpuidle int bl_enter_powerdown(struct cpuidle_device *dev,
-+					struct cpuidle_driver *drv, int idx)
- {
- 	cpu_pm_enter();
- 	ct_cpuidle_enter();
---- a/drivers/cpuidle/cpuidle-mvebu-v7.c
-+++ b/drivers/cpuidle/cpuidle-mvebu-v7.c
-@@ -25,9 +25,9 @@
- 
- static int (*mvebu_v7_cpu_suspend)(int);
- 
--static int mvebu_v7_enter_idle(struct cpuidle_device *dev,
--				struct cpuidle_driver *drv,
--				int index)
-+static __cpuidle int mvebu_v7_enter_idle(struct cpuidle_device *dev,
-+					 struct cpuidle_driver *drv,
-+					 int index)
- {
- 	int ret;
- 	bool deepidle = false;
---- a/drivers/cpuidle/cpuidle-psci.c
-+++ b/drivers/cpuidle/cpuidle-psci.c
-@@ -49,14 +49,9 @@ static inline u32 psci_get_domain_state(
- 	return __this_cpu_read(domain_state);
- }
- 
--static inline int psci_enter_state(int idx, u32 state)
--{
--	return CPU_PM_CPU_IDLE_ENTER_PARAM(psci_cpu_suspend_enter, idx, state);
--}
+-/* Encode and de-code a swap entry (must be !pte_none(e) && !pte_present(e)) */
+-/* Since the PAGE_PRESENT bit is bit 4, we can use the bits above */
 -
--static int __psci_enter_domain_idle_state(struct cpuidle_device *dev,
--					  struct cpuidle_driver *drv, int idx,
--					  bool s2idle)
-+static __cpuidle int __psci_enter_domain_idle_state(struct cpuidle_device *dev,
-+						    struct cpuidle_driver *drv, int idx,
-+						    bool s2idle)
- {
- 	struct psci_cpuidle_data *data = this_cpu_ptr(&psci_cpuidle_data);
- 	u32 *states = data->psci_states;
-@@ -192,12 +187,12 @@ static void psci_idle_init_cpuhp(void)
- 		pr_warn("Failed %d while setup cpuhp state\n", err);
- }
+-#define __swp_type(x)			(((x).val >> 5) & 0x7f)
++/*
++ * Encode/decode swap entries and swap PTEs. Swap PTEs are all PTEs that
++ * are !pte_none() && !pte_present().
++ *
++ * Format of swap PTEs:
++ *
++ *   3 3 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 1 1 1 1 1
++ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
++ *   <-------------- offset ---------------> E <- type --> 0 0 0 0 0
++ *
++ *   E is the exclusive marker that is not stored in swap entries.
++ *   The zero'ed bits include _PAGE_PRESENT.
++ */
++#define __swp_type(x)			(((x).val >> 5) & 0x3f)
+ #define __swp_offset(x)			((x).val >> 12)
+ #define __swp_entry(type, offset) \
+-	((swp_entry_t) { ((type) << 5) | ((offset) << 12) })
++	((swp_entry_t) { (((type) & 0x3f) << 5) | ((offset) << 12) })
+ #define __pte_to_swp_entry(pte)		((swp_entry_t) { pte_val(pte) })
+ #define __swp_entry_to_pte(x)		((pte_t) { (x).val })
  
--static int psci_enter_idle_state(struct cpuidle_device *dev,
--				struct cpuidle_driver *drv, int idx)
-+static __cpuidle int psci_enter_idle_state(struct cpuidle_device *dev,
-+					   struct cpuidle_driver *drv, int idx)
- {
- 	u32 *state = __this_cpu_read(psci_cpuidle_data.psci_states);
++#define __HAVE_ARCH_PTE_SWP_EXCLUSIVE
++static inline int pte_swp_exclusive(pte_t pte)
++{
++	return pte_val(pte) & _PAGE_SWP_EXCLUSIVE;
++}
++
++static inline pte_t pte_swp_mkexclusive(pte_t pte)
++{
++	pte_val(pte) |= _PAGE_SWP_EXCLUSIVE;
++	return pte;
++}
++
++static inline pte_t pte_swp_clear_exclusive(pte_t pte)
++{
++	pte_val(pte) &= ~_PAGE_SWP_EXCLUSIVE;
++	return pte;
++}
++
+ typedef pte_t *pte_addr_t;
  
--	return psci_enter_state(idx, state[idx]);
-+	return CPU_PM_CPU_IDLE_ENTER_PARAM(psci_cpu_suspend_enter, idx, state[idx]);
- }
- 
- static const struct of_device_id psci_idle_state_match[] = {
---- a/drivers/cpuidle/cpuidle-qcom-spm.c
-+++ b/drivers/cpuidle/cpuidle-qcom-spm.c
-@@ -58,8 +58,8 @@ static int qcom_cpu_spc(struct spm_drive
- 	return ret;
- }
- 
--static int spm_enter_idle_state(struct cpuidle_device *dev,
--				struct cpuidle_driver *drv, int idx)
-+static __cpuidle int spm_enter_idle_state(struct cpuidle_device *dev,
-+					  struct cpuidle_driver *drv, int idx)
- {
- 	struct cpuidle_qcom_spm_data *data = container_of(drv, struct cpuidle_qcom_spm_data,
- 							  cpuidle_driver);
---- a/drivers/cpuidle/cpuidle-riscv-sbi.c
-+++ b/drivers/cpuidle/cpuidle-riscv-sbi.c
-@@ -93,8 +93,8 @@ static int sbi_suspend(u32 state)
- 		return sbi_suspend_finisher(state, 0, 0);
- }
- 
--static int sbi_cpuidle_enter_state(struct cpuidle_device *dev,
--				   struct cpuidle_driver *drv, int idx)
-+static __cpuidle int sbi_cpuidle_enter_state(struct cpuidle_device *dev,
-+					     struct cpuidle_driver *drv, int idx)
- {
- 	u32 *states = __this_cpu_read(sbi_cpuidle_data.states);
- 	u32 state = states[idx];
-@@ -106,9 +106,9 @@ static int sbi_cpuidle_enter_state(struc
- 							     idx, state);
- }
- 
--static int __sbi_enter_domain_idle_state(struct cpuidle_device *dev,
--					  struct cpuidle_driver *drv, int idx,
--					  bool s2idle)
-+static __cpuidle int __sbi_enter_domain_idle_state(struct cpuidle_device *dev,
-+						   struct cpuidle_driver *drv, int idx,
-+						   bool s2idle)
- {
- 	struct sbi_cpuidle_data *data = this_cpu_ptr(&sbi_cpuidle_data);
- 	u32 *states = data->states;
---- a/drivers/cpuidle/cpuidle-tegra.c
-+++ b/drivers/cpuidle/cpuidle-tegra.c
-@@ -160,8 +160,8 @@ static int tegra_cpuidle_coupled_barrier
- 	return 0;
- }
- 
--static int tegra_cpuidle_state_enter(struct cpuidle_device *dev,
--				     int index, unsigned int cpu)
-+static __cpuidle int tegra_cpuidle_state_enter(struct cpuidle_device *dev,
-+					       int index, unsigned int cpu)
- {
- 	int err;
- 
-@@ -226,9 +226,9 @@ static int tegra_cpuidle_adjust_state_in
- 	return index;
- }
- 
--static int tegra_cpuidle_enter(struct cpuidle_device *dev,
--			       struct cpuidle_driver *drv,
--			       int index)
-+static __cpuidle int tegra_cpuidle_enter(struct cpuidle_device *dev,
-+					 struct cpuidle_driver *drv,
-+					 int index)
- {
- 	bool do_rcu = drv->states[index].flags & CPUIDLE_FLAG_RCU_IDLE;
- 	unsigned int cpu = cpu_logical_map(dev->cpu);
-
+ #endif /* __ASSEMBLY__ */
+-- 
+2.39.0
