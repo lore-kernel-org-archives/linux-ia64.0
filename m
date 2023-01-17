@@ -1,108 +1,214 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Date: Mon, 16 Jan 2023 16:59:04 +0000
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Tue, 17 Jan 2023 10:26:29 +0000
 Subject: Re: [PATCH v3 00/51] cpuidle,rcu: Clean up the mess
-Message-Id: <Y8WCWAuQSHN651dA@FVFF77S0Q05N.cambridge.arm.com>
+Message-Id: <Y8Z31UbzG3LJgAXE@hirez.programming.kicks-ass.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20230112194314.845371875@infradead.org>
-In-Reply-To: <20230112194314.845371875@infradead.org>
+ <Y8WCWAuQSHN651dA@FVFF77S0Q05N.cambridge.arm.com>
+In-Reply-To: <Y8WCWAuQSHN651dA@FVFF77S0Q05N.cambridge.arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>
-Cc: richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@kernel.org, linux@armlinux.org.uk, nsekhar@ti.com, brgl@bgdev.pl, ulli.kroll@googlemail.com, linus.walleij@linaro.org, shawnguo@kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, kernel@pengutronix.de, festevam@gmail.com, linux-imx@nxp.com, tony@atomide.com, khilman@kernel.org, krzysztof.kozlowski@linaro.org, alim.akhtar@samsung.com, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, bcain@quicinc.com, chenhuacai@kernel.org, kernel@xen0n.name, geert@linux-m68k.org, sammy@sammy.net, monstr@monstr.eu, tsbogend@alpha.franken.de, dinguyen@kernel.org, jonas@southpole.se, stefan.kristiansson@saunalahti.fi, shorne@gmail.com, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, paul.walmsley@sifive.com, palmer@dabbelt.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, richard@nod.at, anton.ivanov@cambridgegreys.com, johannes@sipsolutions.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, acme@kernel.org, alexander.shishkin@linux.intel.com, jolsa@kernel.org, namhyung@kernel.org, jgross@suse.com, srivatsa@csail.mit.edu, amakhalov@vmware.com, pv-drivers@vmware.com, boris.ostrovsky@oracle.com, chris@zankel.net, jcmvbkbc@gmail.com, rafael@kernel.org, lenb@kernel.org, pavel@ucw.cz, gregkh@linuxfoundation.org, mturquette@baylibre.com, sboyd@kernel.org, daniel.lezcano@linaro.org, lpieralisi@kernel.org, sudeep.holla@arm.com, agross@kernel.org, andersson@kernel.org, konrad.dybcio@linaro.org, anup@brainfault.org, thierry.reding@gmail.com, jonathanh@nvidia.com, jacob.jun.pan@linux.intel.com, atishp@atishpatra.org, Arnd Bergmann <arnd@arndb.de>, yury.norov@gmail.com, andriy.shevchenko@linux.intel.com, linux@rasmusvillemoes.dk, dennis@kernel.org, tj@kernel.org, cl@linux.com, rostedt@goodmis.org, mhiramat@kernel.org, frederic@kernel.org, paulmck@kernel.org, pmladek@suse.com, senozhatsky@chromium.org, john.ogness@linutronix.de, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, ryabinin.a.a@gmail.com, glider@google.com, andreyknvl@gmail.com, dvyukov@google.com, vincenzo.frascino@arm.com, Andrew Morton <akpm@linux-foundation.org>, jpoimboe@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-omap@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-perf-users@vger.kernel.org, virtualization@lists.linux-foundation.org, linux-xtensa@linux-xtensa.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-clk@vger.kernel.org, linux-arm-msm@vger.kernel.org, linux-tegra@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-trace-kernel@vger.kernel.org, kasan-dev@googlegroups.com
+To: Mark Rutland <mark.rutland@arm.com>
+Cc: richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@kernel.org, linux@armlinux.org.uk, nsekhar@ti.com, brgl@bgdev.pl, ulli.kroll@googlemail.com, linus.walleij@linaro.org, shawnguo@kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, kernel@pengutronix.de, festevam@gmail.com, linux-imx@nxp.com, tony@atomide.com, khilman@kernel.org, krzysztof.kozlowski@linaro.org, alim.akhtar@samsung.com, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, bcain@quicinc.com, chenhuacai@kernel.org, kernel@xen0n.name, geert@linux-m68k.org, sammy@sammy.net, monstr@monstr.eu, tsbogend@alpha.franken.de, dinguyen@kernel.org, jonas@southpole.se, stefan.kristiansson@saunalahti.fi, shorne@gmail.com, James.Bottomley@hansenpartnership.com, deller@gmx.de, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, paul.walmsley@sifive.com, palmer@dabbelt.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, richard@nod.at, anton.ivanov@cambridgegreys.com, johannes@sipsolutions.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, acme@kernel.org, alexander.shishkin@linux.intel.com, jolsa@kernel.org, namhyung@kernel.org, jgross@suse.com, srivatsa@csail.mit.edu, amakhalov@vmware.com, pv-drivers@vmware.com, boris.ostrovsky@oracle.com, chris@zankel.net, jcmvbkbc@gmail.com, rafael@kernel.org, lenb@kernel.org, pavel@ucw.cz, gregkh@linuxfoundation.org, mturquette@baylibre.com, sboyd@kernel.org, daniel.lezcano@linaro.org, lpieralisi@kernel.org, sudeep.holla@arm.com, agross@kernel.org, andersson@kernel.org, konrad.dybcio@linaro.org, anup@brainfault.org, thierry.reding@gmail.com, jonathanh@nvidia.com, jacob.jun.pan@linux.intel.com, atishp@atishpatra.org, Arnd Bergmann <arnd@arndb.de>, yury.norov@gmail.com, andriy.shevchenko@linux.intel.com, linux@rasmusvillemoes.dk, dennis@kernel.org, tj@kernel.org, cl@linux.com, rostedt@goodmis.org, mhiramat@kernel.org, frederic@kernel.org, paulmck@kernel.org, pmladek@suse.com, senozhatsky@chromium.org, john.ogness@linutronix.de, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, ryabinin.a.a@gmail.com, glider@google.com, andreyknvl@gmail.com, dvyukov@google.com, vincenzo.frascino@arm.com, Andrew Morton <akpm@linux-foundation.org>, jpoimboe@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-omap@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-perf-users@vger.kernel.org, virtualization@lists.linux-foundation.org, linux-xtensa@linux-xtensa.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-clk@vger.kernel.org, linux-arm-msm@vger.kernel.org, linux-tegra@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-trace-kernel@vger.kernel.org, kasan-dev@googlegroups.com
 
-On Thu, Jan 12, 2023 at 08:43:14PM +0100, Peter Zijlstra wrote:
-> Hi All!
+On Mon, Jan 16, 2023 at 04:59:04PM +0000, Mark Rutland wrote:
 
-Hi Peter,
+> I'm sorry to have to bear some bad news on that front. :(
 
-> The (hopefully) final respin of cpuidle vs rcu cleanup patches. Barring any
-> objections I'll be queueing these patches in tip/sched/core in the next few
-> days.
+Moo, something had to give..
 
-I'm sorry to have to bear some bad news on that front. :(
 
-I just had a go at testing this on a Juno dev board, using your queue.git
-sched/idle branch and defconfig + CONFIG_PROVE_LOCKING=y +
-CONFIG_DEBUG_LOCKDEP=y + CONFIG_DEBUG_ATOMIC_SLEEP=y.
+> IIUC what's happenign here is the PSCI cpuidle driver has entered idle and RCU
+> is no longer watching when arm64's cpu_suspend() manipulates DAIF. Our
+> local_daif_*() helpers poke lockdep and tracing, hence the call to
+> trace_hardirqs_off() and the RCU usage.
 
-With that I consistently see RCU at boot time (log below).
+Right, strictly speaking not needed at this point, IRQs should have been
+traced off a long time ago.
 
-| ==============| WARNING: suspicious RCU usage
-| 6.2.0-rc3-00051-gced9b6eecb31 #1 Not tainted
-| -----------------------------
-| include/trace/events/ipi.h:19 suspicious rcu_dereference_check() usage!
-| 
-| other info that might help us debug this:
-| 
-| 
-| rcu_scheduler_active = 2, debug_locks = 1
-| RCU used illegally from extended quiescent state!
-| no locks held by swapper/0/0.
-| 
-| stack backtrace:
-| CPU: 0 PID: 0 Comm: swapper/0 Not tainted 6.2.0-rc3-00051-gced9b6eecb31 #1
-| Hardware name: ARM LTD ARM Juno Development Platform/ARM Juno Development Platform, BIOS EDK II May 16 2021
-| Call trace:
-|  dump_backtrace.part.0+0xe4/0xf0
-|  show_stack+0x18/0x30
-|  dump_stack_lvl+0x98/0xd4
-|  dump_stack+0x18/0x34
-|  lockdep_rcu_suspicious+0xf8/0x10c
-|  trace_ipi_raise+0x1a8/0x1b0
-|  arch_irq_work_raise+0x4c/0x70
-|  __irq_work_queue_local+0x48/0x80
-|  irq_work_queue+0x50/0x80
-|  __wake_up_klogd.part.0+0x98/0xe0
-|  defer_console_output+0x20/0x30
-|  vprintk+0x98/0xf0
-|  _printk+0x5c/0x84
-|  lockdep_rcu_suspicious+0x34/0x10c
-|  trace_lock_acquire+0x174/0x180
-|  lock_acquire+0x3c/0x8c
-|  _raw_spin_lock_irqsave+0x70/0x150
-|  down_trylock+0x18/0x50
-|  __down_trylock_console_sem+0x3c/0xd0
-|  console_trylock+0x28/0x90
-|  vprintk_emit+0x11c/0x354
-|  vprintk_default+0x38/0x4c
-|  vprintk+0xd4/0xf0
-|  _printk+0x5c/0x84
-|  lockdep_rcu_suspicious+0x34/0x10c
-|  printk_sprint+0x238/0x240
-|  vprintk_store+0x32c/0x4b0
-|  vprintk_emit+0x104/0x354
-|  vprintk_default+0x38/0x4c
-|  vprintk+0xd4/0xf0
-|  _printk+0x5c/0x84
-|  lockdep_rcu_suspicious+0x34/0x10c
-|  trace_irq_disable+0x1ac/0x1b0
-|  trace_hardirqs_off+0xe8/0x110
-|  cpu_suspend+0x4c/0xfc
-|  psci_cpu_suspend_enter+0x58/0x6c
-|  psci_enter_idle_state+0x70/0x170
-|  cpuidle_enter_state+0xc4/0x464
-|  cpuidle_enter+0x38/0x50
-|  do_idle+0x230/0x2c0
-|  cpu_startup_entry+0x24/0x30
-|  rest_init+0x110/0x190
-|  arch_post_acpi_subsys_init+0x0/0x18
-|  start_kernel+0x6f8/0x738
-|  __primary_switched+0xbc/0xc4
+> I think we need RCU to be watching all the way down to cpu_suspend(), and it's
+> cpu_suspend() that should actually enter/exit idle context. That and we need to
+> make cpu_suspend() and the low-level PSCI invocation noinstr.
+> 
+> I'm not sure whether 32-bit will have a similar issue or not.
 
-IIUC what's happenign here is the PSCI cpuidle driver has entered idle and RCU
-is no longer watching when arm64's cpu_suspend() manipulates DAIF. Our
-local_daif_*() helpers poke lockdep and tracing, hence the call to
-trace_hardirqs_off() and the RCU usage.
+I'm not seeing 32bit or Risc-V have similar issues here, but who knows,
+maybe I missed somsething.
 
-I think we need RCU to be watching all the way down to cpu_suspend(), and it's
-cpu_suspend() that should actually enter/exit idle context. That and we need to
-make cpu_suspend() and the low-level PSCI invocation noinstr.
+In any case, the below ought to cure the ARM64 case and remove that last
+known RCU_NONIDLE() user as a bonus.
 
-I'm not sure whether 32-bit will have a similar issue or not.
-
-I'm surprised no-one else who has tested has seen this; I suspect people
-haven't enabled lockdep and friends. :/
-
-Thanks,
-Mark. 
+---
+diff --git a/arch/arm64/kernel/cpuidle.c b/arch/arm64/kernel/cpuidle.c
+index 41974a1a229a..42e19fff40ee 100644
+--- a/arch/arm64/kernel/cpuidle.c
++++ b/arch/arm64/kernel/cpuidle.c
+@@ -67,10 +67,10 @@ __cpuidle int acpi_processor_ffh_lpi_enter(struct acpi_lpi_state *lpi)
+ 	u32 state = lpi->address;
+ 
+ 	if (ARM64_LPI_IS_RETENTION_STATE(lpi->arch_flags))
+-		return CPU_PM_CPU_IDLE_ENTER_RETENTION_PARAM(psci_cpu_suspend_enter,
++		return CPU_PM_CPU_IDLE_ENTER_RETENTION_PARAM_RCU(psci_cpu_suspend_enter,
+ 						lpi->index, state);
+ 	else
+-		return CPU_PM_CPU_IDLE_ENTER_PARAM(psci_cpu_suspend_enter,
++		return CPU_PM_CPU_IDLE_ENTER_PARAM_RCU(psci_cpu_suspend_enter,
+ 					     lpi->index, state);
+ }
+ #endif
+diff --git a/arch/arm64/kernel/suspend.c b/arch/arm64/kernel/suspend.c
+index e7163f31f716..0fbdf5fe64d8 100644
+--- a/arch/arm64/kernel/suspend.c
++++ b/arch/arm64/kernel/suspend.c
+@@ -4,6 +4,7 @@
+ #include <linux/slab.h>
+ #include <linux/uaccess.h>
+ #include <linux/pgtable.h>
++#include <linux/cpuidle.h>
+ #include <asm/alternative.h>
+ #include <asm/cacheflush.h>
+ #include <asm/cpufeature.h>
+@@ -104,6 +105,10 @@ int cpu_suspend(unsigned long arg, int (*fn)(unsigned long))
+ 	 * From this point debug exceptions are disabled to prevent
+ 	 * updates to mdscr register (saved and restored along with
+ 	 * general purpose registers) from kernel debuggers.
++	 *
++	 * Strictly speaking the trace_hardirqs_off() here is superfluous,
++	 * hardirqs should be firmly off by now. This really ought to use
++	 * something like raw_local_daif_save().
+ 	 */
+ 	flags = local_daif_save();
+ 
+@@ -120,6 +125,8 @@ int cpu_suspend(unsigned long arg, int (*fn)(unsigned long))
+ 	 */
+ 	arm_cpuidle_save_irq_context(&context);
+ 
++	ct_cpuidle_enter();
++
+ 	if (__cpu_suspend_enter(&state)) {
+ 		/* Call the suspend finisher */
+ 		ret = fn(arg);
+@@ -133,8 +140,11 @@ int cpu_suspend(unsigned long arg, int (*fn)(unsigned long))
+ 		 */
+ 		if (!ret)
+ 			ret = -EOPNOTSUPP;
++
++		ct_cpuidle_exit();
+ 	} else {
+-		RCU_NONIDLE(__cpu_suspend_exit());
++		ct_cpuidle_exit();
++		__cpu_suspend_exit();
+ 	}
+ 
+ 	arm_cpuidle_restore_irq_context(&context);
+diff --git a/drivers/cpuidle/cpuidle-psci.c b/drivers/cpuidle/cpuidle-psci.c
+index 4fc4e0381944..312a34ef28dc 100644
+--- a/drivers/cpuidle/cpuidle-psci.c
++++ b/drivers/cpuidle/cpuidle-psci.c
+@@ -69,16 +69,12 @@ static __cpuidle int __psci_enter_domain_idle_state(struct cpuidle_device *dev,
+ 	else
+ 		pm_runtime_put_sync_suspend(pd_dev);
+ 
+-	ct_cpuidle_enter();
+-
+ 	state = psci_get_domain_state();
+ 	if (!state)
+ 		state = states[idx];
+ 
+ 	ret = psci_cpu_suspend_enter(state) ? -1 : idx;
+ 
+-	ct_cpuidle_exit();
+-
+ 	if (s2idle)
+ 		dev_pm_genpd_resume(pd_dev);
+ 	else
+@@ -192,7 +188,7 @@ static __cpuidle int psci_enter_idle_state(struct cpuidle_device *dev,
+ {
+ 	u32 *state = __this_cpu_read(psci_cpuidle_data.psci_states);
+ 
+-	return CPU_PM_CPU_IDLE_ENTER_PARAM(psci_cpu_suspend_enter, idx, state[idx]);
++	return CPU_PM_CPU_IDLE_ENTER_PARAM_RCU(psci_cpu_suspend_enter, idx, state[idx]);
+ }
+ 
+ static const struct of_device_id psci_idle_state_match[] = {
+diff --git a/drivers/firmware/psci/psci.c b/drivers/firmware/psci/psci.c
+index e7bcfca4159f..f3a044fa4652 100644
+--- a/drivers/firmware/psci/psci.c
++++ b/drivers/firmware/psci/psci.c
+@@ -462,11 +462,22 @@ int psci_cpu_suspend_enter(u32 state)
+ 	if (!psci_power_state_loses_context(state)) {
+ 		struct arm_cpuidle_irq_context context;
+ 
++		ct_cpuidle_enter();
+ 		arm_cpuidle_save_irq_context(&context);
+ 		ret = psci_ops.cpu_suspend(state, 0);
+ 		arm_cpuidle_restore_irq_context(&context);
++		ct_cpuidle_exit();
+ 	} else {
++		/*
++		 * ARM64 cpu_suspend() wants to do ct_cpuidle_*() itself.
++		 */
++		if (!IS_ENABLED(CONFIG_ARM64))
++			ct_cpuidle_enter();
++
+ 		ret = cpu_suspend(state, psci_suspend_finisher);
++
++		if (!IS_ENABLED(CONFIG_ARM64))
++			ct_cpuidle_exit();
+ 	}
+ 
+ 	return ret;
+diff --git a/include/linux/cpuidle.h b/include/linux/cpuidle.h
+index 630c879143c7..3183aeb7f5b4 100644
+--- a/include/linux/cpuidle.h
++++ b/include/linux/cpuidle.h
+@@ -307,7 +307,7 @@ extern s64 cpuidle_governor_latency_req(unsigned int cpu);
+ #define __CPU_PM_CPU_IDLE_ENTER(low_level_idle_enter,			\
+ 				idx,					\
+ 				state,					\
+-				is_retention)				\
++				is_retention, is_rcu)			\
+ ({									\
+ 	int __ret = 0;							\
+ 									\
+@@ -319,9 +319,11 @@ extern s64 cpuidle_governor_latency_req(unsigned int cpu);
+ 	if (!is_retention)						\
+ 		__ret =  cpu_pm_enter();				\
+ 	if (!__ret) {							\
+-		ct_cpuidle_enter();					\
++		if (!is_rcu)						\
++			ct_cpuidle_enter();				\
+ 		__ret = low_level_idle_enter(state);			\
+-		ct_cpuidle_exit();					\
++		if (!is_rcu)						\
++			ct_cpuidle_exit();				\
+ 		if (!is_retention)					\
+ 			cpu_pm_exit();					\
+ 	}								\
+@@ -330,15 +332,21 @@ extern s64 cpuidle_governor_latency_req(unsigned int cpu);
+ })
+ 
+ #define CPU_PM_CPU_IDLE_ENTER(low_level_idle_enter, idx)	\
+-	__CPU_PM_CPU_IDLE_ENTER(low_level_idle_enter, idx, idx, 0)
++	__CPU_PM_CPU_IDLE_ENTER(low_level_idle_enter, idx, idx, 0, 0)
+ 
+ #define CPU_PM_CPU_IDLE_ENTER_RETENTION(low_level_idle_enter, idx)	\
+-	__CPU_PM_CPU_IDLE_ENTER(low_level_idle_enter, idx, idx, 1)
++	__CPU_PM_CPU_IDLE_ENTER(low_level_idle_enter, idx, idx, 1, 0)
+ 
+ #define CPU_PM_CPU_IDLE_ENTER_PARAM(low_level_idle_enter, idx, state)	\
+-	__CPU_PM_CPU_IDLE_ENTER(low_level_idle_enter, idx, state, 0)
++	__CPU_PM_CPU_IDLE_ENTER(low_level_idle_enter, idx, state, 0, 0)
++
++#define CPU_PM_CPU_IDLE_ENTER_PARAM_RCU(low_level_idle_enter, idx, state)	\
++	__CPU_PM_CPU_IDLE_ENTER(low_level_idle_enter, idx, state, 0, 1)
+ 
+ #define CPU_PM_CPU_IDLE_ENTER_RETENTION_PARAM(low_level_idle_enter, idx, state)	\
+-	__CPU_PM_CPU_IDLE_ENTER(low_level_idle_enter, idx, state, 1)
++	__CPU_PM_CPU_IDLE_ENTER(low_level_idle_enter, idx, state, 1, 0)
++
++#define CPU_PM_CPU_IDLE_ENTER_RETENTION_PARAM_RCU(low_level_idle_enter, idx, state)	\
++	__CPU_PM_CPU_IDLE_ENTER(low_level_idle_enter, idx, state, 1, 1)
+ 
+ #endif /* _LINUX_CPUIDLE_H */
