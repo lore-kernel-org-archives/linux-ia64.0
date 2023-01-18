@@ -1,61 +1,242 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Thu, 12 Jan 2023 19:43:47 +0000
-Subject: [PATCH v3 33/51] trace: Remove trace_hardirqs_{on,off}_caller()
-Message-Id: <20230112195541.355283994@infradead.org>
+From: Andrzej Hajda <andrzej.hajda@intel.com>
+Date: Wed, 18 Jan 2023 15:44:46 +0000
+Subject: [PATCH v5 3/7] arch/*/uprobes: simplify arch_uretprobe_hijack_return_addr
+Message-Id: <20230118154450.73842-3-andrzej.hajda@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230112194314.845371875@infradead.org>
+References: <20230118153529.57695-1-andrzej.hajda@intel.com>
+ <20230118154450.73842-1-andrzej.hajda@intel.com>
+In-Reply-To: <20230118154450.73842-1-andrzej.hajda@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: peterz@infradead.org
-Cc: richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@kernel.org, linux@armlinux.org.uk, nsekhar@ti.com, brgl@bgdev.pl, ulli.kroll@googlemail.com, linus.walleij@linaro.org, shawnguo@kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, kernel@pengutronix.de, festevam@gmail.com, linux-imx@nxp.com, tony@atomide.com, khilman@kernel.org, krzysztof.kozlowski@linaro.org, alim.akhtar@samsung.com, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, bcain@quicinc.com, chenhuacai@kernel.org, kernel@xen0n.name, geert@linux-m68k.org, sammy@sammy.net, monstr@monstr.eu, tsbogend@alpha.franken.de, dinguyen@kernel.org, jonas@southpole.se, stefan.kristiansson@saunalahti.fi, shorne@gmail.com, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, paul.walmsley@sifive.com, palmer@dabbelt.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, richard@nod.at, anton.ivanov@cambridgegreys.com, johannes@sipsolutions.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, acme@kernel.org, mark.rutland@arm.com, alexander.shishkin@linux.intel.com, jolsa@kernel.org, namhyung@kernel.org, jgross@suse.com, srivatsa@csail.mit.edu, amakhalov@vmware.com, pv-drivers@vmware.com, boris.ostrovsky@oracle.com, chris@zankel.net, jcmvbkbc@gmail.com, rafael@kernel.org, lenb@kernel.org, pavel@ucw.cz, gregkh@linuxfoundation.org, mturquette@baylibre.com, sboyd@kernel.org, daniel.lezcano@linaro.org, lpieralisi@kernel.org, sudeep.holla@arm.com, agross@kernel.org, andersson@kernel.org, konrad.dybcio@linaro.org, anup@brainfault.org, thierry.reding@gmail.com, jonathanh@nvidia.com, jacob.jun.pan@linux.intel.com, atishp@atishpatra.org, Arnd Bergmann <arnd@arndb.de>, yury.norov@gmail.com, andriy.shevchenko@linux.intel.com, linux@rasmusvillemoes.dk, dennis@kernel.org, tj@kernel.org, cl@linux.com, rostedt@goodmis.org, mhiramat@kernel.org, frederic@kernel.org, paulmck@kernel.org, pmladek@suse.com, senozhatsky@chromium.org, john.ogness@linutronix.de, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, ryabinin.a.a@gmail.com, glider@google.com, andreyknvl@gmail.com, dvyukov@google.com, vincenzo.frascino@arm.com, Andrew Morton <akpm@linux-foundation.org>, jpoimboe@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-omap@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-perf-users@vger.kernel.org, virtualization@lists.linux-foundation.org, linux-xtensa@linux-xtensa.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-clk@vger.kernel.org, linux-arm-msm@vger.kernel.org, linux-tegra@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-trace-kernel@vger.kernel.org, kasan-dev@googlegroups.com
+To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, intel-gfx@lists.freedesktop.org, dri-devel@lists.freedesktop.org
+Cc: Andrzej Hajda <andrzej.hajda@intel.com>, Arnd Bergmann <arnd@arndb.de>, Rodrigo Vivi <rodrigo.vivi@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Peter Zijlstra <peterz@infradead.org>, Boqun Feng <boqun.feng@gmail.com>, Mark Rutland <mark.rutland@arm.com>
 
-Per commit 56e62a737028 ("s390: convert to generic entry") the last
-and only callers of trace_hardirqs_{on,off}_caller() went away, clean
-up.
+In all architectures, except x86, arch_uretprobe_hijack_return_addr
+is just __xchg.
 
-Cc: Sven Schnelle <svens@linux.ibm.com>
-Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+Signed-off-by: Andrzej Hajda <andrzej.hajda@intel.com>
 ---
- kernel/trace/trace_preemptirq.c |   29 -----------------------------
- 1 file changed, 29 deletions(-)
+ arch/arm/probes/uprobes/core.c     |  8 ++------
+ arch/arm64/kernel/probes/uprobes.c |  9 ++-------
+ arch/csky/kernel/probes/uprobes.c  |  9 ++-------
+ arch/mips/kernel/uprobes.c         | 10 ++--------
+ arch/powerpc/kernel/uprobes.c      | 10 ++--------
+ arch/riscv/kernel/probes/uprobes.c |  9 ++-------
+ arch/s390/kernel/uprobes.c         |  7 ++-----
+ arch/sparc/kernel/uprobes.c        |  7 ++-----
+ 8 files changed, 16 insertions(+), 53 deletions(-)
 
---- a/kernel/trace/trace_preemptirq.c
-+++ b/kernel/trace/trace_preemptirq.c
-@@ -84,35 +84,6 @@ void trace_hardirqs_off(void)
- }
- EXPORT_SYMBOL(trace_hardirqs_off);
- NOKPROBE_SYMBOL(trace_hardirqs_off);
--
--__visible void trace_hardirqs_on_caller(unsigned long caller_addr)
--{
--	if (this_cpu_read(tracing_irq_cpu)) {
--		if (!in_nmi())
--			trace_irq_enable_rcuidle(CALLER_ADDR0, caller_addr);
--		tracer_hardirqs_on(CALLER_ADDR0, caller_addr);
--		this_cpu_write(tracing_irq_cpu, 0);
--	}
--
--	lockdep_hardirqs_on_prepare();
--	lockdep_hardirqs_on(caller_addr);
--}
--EXPORT_SYMBOL(trace_hardirqs_on_caller);
--NOKPROBE_SYMBOL(trace_hardirqs_on_caller);
--
--__visible void trace_hardirqs_off_caller(unsigned long caller_addr)
--{
--	lockdep_hardirqs_off(caller_addr);
--
--	if (!this_cpu_read(tracing_irq_cpu)) {
--		this_cpu_write(tracing_irq_cpu, 1);
--		tracer_hardirqs_off(CALLER_ADDR0, caller_addr);
--		if (!in_nmi())
--			trace_irq_disable_rcuidle(CALLER_ADDR0, caller_addr);
--	}
--}
--EXPORT_SYMBOL(trace_hardirqs_off_caller);
--NOKPROBE_SYMBOL(trace_hardirqs_off_caller);
- #endif /* CONFIG_TRACE_IRQFLAGS */
+diff --git a/arch/arm/probes/uprobes/core.c b/arch/arm/probes/uprobes/core.c
+index f5f790c6e5f896..77ce8ae431376d 100644
+--- a/arch/arm/probes/uprobes/core.c
++++ b/arch/arm/probes/uprobes/core.c
+@@ -9,6 +9,7 @@
+ #include <linux/highmem.h>
+ #include <linux/sched.h>
+ #include <linux/uprobes.h>
++#include <linux/non-atomic/xchg.h>
+ #include <linux/notifier.h>
  
- #ifdef CONFIG_TRACE_PREEMPT_TOGGLE
-
+ #include <asm/opcodes.h>
+@@ -61,12 +62,7 @@ unsigned long
+ arch_uretprobe_hijack_return_addr(unsigned long trampoline_vaddr,
+ 				  struct pt_regs *regs)
+ {
+-	unsigned long orig_ret_vaddr;
+-
+-	orig_ret_vaddr = regs->ARM_lr;
+-	/* Replace the return addr with trampoline addr */
+-	regs->ARM_lr = trampoline_vaddr;
+-	return orig_ret_vaddr;
++	return __xchg(&regs->ARM_lr, trampoline_vaddr);
+ }
+ 
+ int arch_uprobe_analyze_insn(struct arch_uprobe *auprobe, struct mm_struct *mm,
+diff --git a/arch/arm64/kernel/probes/uprobes.c b/arch/arm64/kernel/probes/uprobes.c
+index d49aef2657cdf7..d7171d30ea6681 100644
+--- a/arch/arm64/kernel/probes/uprobes.c
++++ b/arch/arm64/kernel/probes/uprobes.c
+@@ -3,6 +3,7 @@
+  * Copyright (C) 2014-2016 Pratyush Anand <panand@redhat.com>
+  */
+ #include <linux/highmem.h>
++#include <linux/non-atomic/xchg.h>
+ #include <linux/ptrace.h>
+ #include <linux/uprobes.h>
+ #include <asm/cacheflush.h>
+@@ -150,13 +151,7 @@ unsigned long
+ arch_uretprobe_hijack_return_addr(unsigned long trampoline_vaddr,
+ 				  struct pt_regs *regs)
+ {
+-	unsigned long orig_ret_vaddr;
+-
+-	orig_ret_vaddr = procedure_link_pointer(regs);
+-	/* Replace the return addr with trampoline addr */
+-	procedure_link_pointer_set(regs, trampoline_vaddr);
+-
+-	return orig_ret_vaddr;
++	return __xchg(&procedure_link_pointer(regs), trampoline_vaddr);
+ }
+ 
+ int arch_uprobe_exception_notify(struct notifier_block *self,
+diff --git a/arch/csky/kernel/probes/uprobes.c b/arch/csky/kernel/probes/uprobes.c
+index 2d31a12e46cfee..775fe88b5f0016 100644
+--- a/arch/csky/kernel/probes/uprobes.c
++++ b/arch/csky/kernel/probes/uprobes.c
+@@ -3,6 +3,7 @@
+  * Copyright (C) 2014-2016 Pratyush Anand <panand@redhat.com>
+  */
+ #include <linux/highmem.h>
++#include <linux/non-atomic/xchg.h>
+ #include <linux/ptrace.h>
+ #include <linux/uprobes.h>
+ #include <asm/cacheflush.h>
+@@ -123,13 +124,7 @@ unsigned long
+ arch_uretprobe_hijack_return_addr(unsigned long trampoline_vaddr,
+ 				  struct pt_regs *regs)
+ {
+-	unsigned long ra;
+-
+-	ra = regs->lr;
+-
+-	regs->lr = trampoline_vaddr;
+-
+-	return ra;
++	return __xchg(&regs->lr, trampoline_vaddr);
+ }
+ 
+ int arch_uprobe_exception_notify(struct notifier_block *self,
+diff --git a/arch/mips/kernel/uprobes.c b/arch/mips/kernel/uprobes.c
+index 6c063aa188e626..2b1f375c407b87 100644
+--- a/arch/mips/kernel/uprobes.c
++++ b/arch/mips/kernel/uprobes.c
+@@ -2,6 +2,7 @@
+ #include <linux/highmem.h>
+ #include <linux/kdebug.h>
+ #include <linux/types.h>
++#include <linux/non-atomic/xchg.h>
+ #include <linux/notifier.h>
+ #include <linux/sched.h>
+ #include <linux/uprobes.h>
+@@ -197,14 +198,7 @@ void arch_uprobe_abort_xol(struct arch_uprobe *aup,
+ unsigned long arch_uretprobe_hijack_return_addr(
+ 	unsigned long trampoline_vaddr, struct pt_regs *regs)
+ {
+-	unsigned long ra;
+-
+-	ra = regs->regs[31];
+-
+-	/* Replace the return address with the trampoline address */
+-	regs->regs[31] = trampoline_vaddr;
+-
+-	return ra;
++	return __xchg(&regs->regs[31], trampoline_vaddr);
+ }
+ 
+ /**
+diff --git a/arch/powerpc/kernel/uprobes.c b/arch/powerpc/kernel/uprobes.c
+index 95a41ae9dfa755..3c15c320315e6c 100644
+--- a/arch/powerpc/kernel/uprobes.c
++++ b/arch/powerpc/kernel/uprobes.c
+@@ -7,6 +7,7 @@
+  * Adapted from the x86 port by Ananth N Mavinakayanahalli <ananth@in.ibm.com>
+  */
+ #include <linux/kernel.h>
++#include <linux/non-atomic/xchg.h>
+ #include <linux/sched.h>
+ #include <linux/ptrace.h>
+ #include <linux/uprobes.h>
+@@ -197,14 +198,7 @@ bool arch_uprobe_skip_sstep(struct arch_uprobe *auprobe, struct pt_regs *regs)
+ unsigned long
+ arch_uretprobe_hijack_return_addr(unsigned long trampoline_vaddr, struct pt_regs *regs)
+ {
+-	unsigned long orig_ret_vaddr;
+-
+-	orig_ret_vaddr = regs->link;
+-
+-	/* Replace the return addr with trampoline addr */
+-	regs->link = trampoline_vaddr;
+-
+-	return orig_ret_vaddr;
++	return __xchg(&regs->link, trampoline_vaddr);
+ }
+ 
+ bool arch_uretprobe_is_alive(struct return_instance *ret, enum rp_check ctx,
+diff --git a/arch/riscv/kernel/probes/uprobes.c b/arch/riscv/kernel/probes/uprobes.c
+index c976a21cd4bd5b..5c8415e216536d 100644
+--- a/arch/riscv/kernel/probes/uprobes.c
++++ b/arch/riscv/kernel/probes/uprobes.c
+@@ -1,6 +1,7 @@
+ // SPDX-License-Identifier: GPL-2.0-only
+ 
+ #include <linux/highmem.h>
++#include <linux/non-atomic/xchg.h>
+ #include <linux/ptrace.h>
+ #include <linux/uprobes.h>
+ 
+@@ -122,13 +123,7 @@ unsigned long
+ arch_uretprobe_hijack_return_addr(unsigned long trampoline_vaddr,
+ 				  struct pt_regs *regs)
+ {
+-	unsigned long ra;
+-
+-	ra = regs->ra;
+-
+-	regs->ra = trampoline_vaddr;
+-
+-	return ra;
++	return __xchg(&regs->ra, trampoline_vaddr);
+ }
+ 
+ int arch_uprobe_exception_notify(struct notifier_block *self,
+diff --git a/arch/s390/kernel/uprobes.c b/arch/s390/kernel/uprobes.c
+index b88345ef8bd9ed..18591ca40ae7e5 100644
+--- a/arch/s390/kernel/uprobes.c
++++ b/arch/s390/kernel/uprobes.c
+@@ -11,6 +11,7 @@
+ #include <linux/compat.h>
+ #include <linux/kdebug.h>
+ #include <linux/sched/task_stack.h>
++#include <linux/non-atomic/xchg.h>
+ 
+ #include <asm/switch_to.h>
+ #include <asm/facility.h>
+@@ -144,11 +145,7 @@ void arch_uprobe_abort_xol(struct arch_uprobe *auprobe, struct pt_regs *regs)
+ unsigned long arch_uretprobe_hijack_return_addr(unsigned long trampoline,
+ 						struct pt_regs *regs)
+ {
+-	unsigned long orig;
+-
+-	orig = regs->gprs[14];
+-	regs->gprs[14] = trampoline;
+-	return orig;
++	return __xchg(&regs->gprs[14], trampoline);
+ }
+ 
+ bool arch_uretprobe_is_alive(struct return_instance *ret, enum rp_check ctx,
+diff --git a/arch/sparc/kernel/uprobes.c b/arch/sparc/kernel/uprobes.c
+index 1a0600206bf5c2..1c02653d6de3ba 100644
+--- a/arch/sparc/kernel/uprobes.c
++++ b/arch/sparc/kernel/uprobes.c
+@@ -11,6 +11,7 @@
+ 
+ #include <linux/kernel.h>
+ #include <linux/highmem.h>
++#include <linux/non-atomic/xchg.h>
+ #include <linux/uprobes.h>
+ #include <linux/uaccess.h>
+ #include <linux/sched.h> /* For struct task_struct */
+@@ -310,9 +311,5 @@ unsigned long
+ arch_uretprobe_hijack_return_addr(unsigned long trampoline_vaddr,
+ 				  struct pt_regs *regs)
+ {
+-	unsigned long orig_ret_vaddr = regs->u_regs[UREG_I7];
+-
+-	regs->u_regs[UREG_I7] = trampoline_vaddr-8;
+-
+-	return orig_ret_vaddr + 8;
++	return __xchg(&regs->u_regs[UREG_I7], trampoline_vaddr - 8) + 8;
+ }
+-- 
+2.34.1
