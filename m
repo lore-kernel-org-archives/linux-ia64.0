@@ -1,44 +1,81 @@
-From: Al Viro <viro@zeniv.linux.org.uk>
-Date: Tue, 31 Jan 2023 20:03:28 +0000
-Subject: [PATCH 01/10] alpha: fix livelock in uaccess
-Message-Id: <Y9l0EDRr9DpNb5Pb@ZenIV>
+From: Andrzej Hajda <andrzej.hajda@intel.com>
+Date: Wed, 18 Jan 2023 15:44:49 +0000
+Subject: [PATCH v5 6/7] qed: use __xchg if possible
+Message-Id: <20230118154450.73842-6-andrzej.hajda@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Y9lz6yk113LmC9SI@ZenIV>
-In-Reply-To: <Y9lz6yk113LmC9SI@ZenIV>
+References: <20230118153529.57695-1-andrzej.hajda@intel.com>
+ <20230118154450.73842-1-andrzej.hajda@intel.com>
+In-Reply-To: <20230118154450.73842-1-andrzej.hajda@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arch@vger.kernel.org
-Cc: linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-m68k@lists.linux-m68k.org, Michal Simek <monstr@monstr.eu>, Dinh Nguyen <dinguyen@kernel.org>, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, sparclinux@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>
+To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, intel-gfx@lists.freedesktop.org, dri-devel@lists.freedesktop.org
+Cc: Andrzej Hajda <andrzej.hajda@intel.com>, Arnd Bergmann <arnd@arndb.de>, Rodrigo Vivi <rodrigo.vivi@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Peter Zijlstra <peterz@infradead.org>, Boqun Feng <boqun.feng@gmail.com>, Mark Rutland <mark.rutland@arm.com>
 
-alpha equivalent of 26178ec11ef3 "x86: mm: consolidate VM_FAULT_RETRY handling"
-If e.g. get_user() triggers a page fault and a fatal signal is caught, we might
-end up with handle_mm_fault() returning VM_FAULT_RETRY and not doing anything
-to page tables.  In such case we must *not* return to the faulting insn -
-that would repeat the entire thing without making any progress; what we need
-instead is to treat that as failed (user) memory access.
+Recently introduced helper simplifies the code.
 
-Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: Andrzej Hajda <andrzej.hajda@intel.com>
 ---
- arch/alpha/mm/fault.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ include/linux/qed/qed_chain.h | 19 +++++++------------
+ 1 file changed, 7 insertions(+), 12 deletions(-)
 
-diff --git a/arch/alpha/mm/fault.c b/arch/alpha/mm/fault.c
-index ef427a6bdd1a..7b01ae4f3bc6 100644
---- a/arch/alpha/mm/fault.c
-+++ b/arch/alpha/mm/fault.c
-@@ -152,8 +152,11 @@ do_page_fault(unsigned long address, unsigned long mmcsr,
- 	   the fault.  */
- 	fault = handle_mm_fault(vma, address, flags, regs);
+diff --git a/include/linux/qed/qed_chain.h b/include/linux/qed/qed_chain.h
+index a84063492c71ae..6355d558cf01b2 100644
+--- a/include/linux/qed/qed_chain.h
++++ b/include/linux/qed/qed_chain.h
+@@ -11,6 +11,7 @@
+ #include <asm/byteorder.h>
+ #include <linux/kernel.h>
+ #include <linux/list.h>
++#include <linux/non-atomic/xchg.h>
+ #include <linux/sizes.h>
+ #include <linux/slab.h>
+ #include <linux/qed/common_hsi.h>
+@@ -368,7 +369,7 @@ static inline void qed_chain_return_produced(struct qed_chain *p_chain)
+  */
+ static inline void *qed_chain_produce(struct qed_chain *p_chain)
+ {
+-	void *p_ret = NULL, *p_prod_idx, *p_prod_page_idx;
++	void *p_prod_idx, *p_prod_page_idx;
  
--	if (fault_signal_pending(fault, regs))
-+	if (fault_signal_pending(fault, regs)) {
-+		if (!user_mode(regs))
-+			goto no_context;
- 		return;
-+	}
+ 	if (is_chain_u16(p_chain)) {
+ 		if ((p_chain->u.chain16.prod_idx &
+@@ -390,11 +391,8 @@ static inline void *qed_chain_produce(struct qed_chain *p_chain)
+ 		p_chain->u.chain32.prod_idx++;
+ 	}
  
- 	/* The fault is fully completed (including releasing mmap lock) */
- 	if (fault & VM_FAULT_COMPLETED)
+-	p_ret = p_chain->p_prod_elem;
+-	p_chain->p_prod_elem = (void *)(((u8 *)p_chain->p_prod_elem) +
+-					p_chain->elem_size);
+-
+-	return p_ret;
++	return __xchg(&p_chain->p_prod_elem,
++		      (u8 *)p_chain->p_prod_elem + p_chain->elem_size);
+ }
+ 
+ /**
+@@ -439,7 +437,7 @@ static inline void qed_chain_recycle_consumed(struct qed_chain *p_chain)
+  */
+ static inline void *qed_chain_consume(struct qed_chain *p_chain)
+ {
+-	void *p_ret = NULL, *p_cons_idx, *p_cons_page_idx;
++	void *p_cons_idx, *p_cons_page_idx;
+ 
+ 	if (is_chain_u16(p_chain)) {
+ 		if ((p_chain->u.chain16.cons_idx &
+@@ -461,11 +459,8 @@ static inline void *qed_chain_consume(struct qed_chain *p_chain)
+ 		p_chain->u.chain32.cons_idx++;
+ 	}
+ 
+-	p_ret = p_chain->p_cons_elem;
+-	p_chain->p_cons_elem = (void *)(((u8 *)p_chain->p_cons_elem) +
+-					p_chain->elem_size);
+-
+-	return p_ret;
++	return __xchg(&p_chain->p_cons_elem,
++		      (u8 *)p_chain->p_cons_elem + p_chain->elem_size);
+ }
+ 
+ /**
 -- 
-2.30.2
+2.34.1
