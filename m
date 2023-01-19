@@ -1,96 +1,51 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Fri, 13 Jan 2023 17:10:16 +0000
-Subject: [PATCH mm-unstable v1 16/26] parisc/mm: support __HAVE_ARCH_PTE_SWP_EXCLUSIVE
-Message-Id: <20230113171026.582290-17-david@redhat.com>
+From: Valentin Schneider <vschneid@redhat.com>
+Date: Thu, 19 Jan 2023 14:36:15 +0000
+Subject: [PATCH v4 3/7] smp: Trace IPIs sent via arch_send_call_function_ipi_mask()
+Message-Id: <20230119143619.2733236-4-vschneid@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230113171026.582290-1-david@redhat.com>
-In-Reply-To: <20230113171026.582290-1-david@redhat.com>
+References: <20230119143619.2733236-1-vschneid@redhat.com>
+In-Reply-To: <20230119143619.2733236-1-vschneid@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Andrew Morton <akpm@linux-foundation.org>, Hugh Dickins <hughd@google.com>, John Hubbard <jhubbard@nvidia.com>, Jason Gunthorpe <jgg@nvidia.com>, Mike Rapoport <rppt@linux.ibm.com>, Yang Shi <shy828301@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Nadav Amit <namit@vmware.com>, Andrea Arcangeli <aarcange@redhat.com>, Peter Xu <peterx@redhat.com>, linux-mm@kvack.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, David Hildenbrand <david@redhat.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>
+To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org
+Cc: Steven Rostedt <rostedt@goodmis.org>, "Paul E. McKenney" <paulmck@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Juri Lelli <juri.lelli@redhat.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Marcelo Tosatti <mtosatti@redhat.com>, Frederic Weisbecker <frederic@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "H. Peter Anvin" <hpa@zytor.com>, Marc Zyngier <maz@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Russell King <linux@armlinux.org.uk>, Nicholas Piggin <npiggin@gmail.com>, Guo Ren <guoren@kernel.org>, "David S. Miller" <davem@davemloft.net>
 
-Let's support __HAVE_ARCH_PTE_SWP_EXCLUSIVE by using the yet-unused
-_PAGE_ACCESSED location in the swap PTE. Looking at pte_present()
-and pte_none() checks, there seems to be no actual reason why we cannot
-use it: we only have to make sure we're not using _PAGE_PRESENT.
+This simply wraps around the arch function and prepends it with a
+tracepoint, similar to send_call_function_single_ipi().
 
-Reusing this bit avoids having to steal one bit from the swap offset.
-
-Cc: "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>
-Cc: Helge Deller <deller@gmx.de>
-Signed-off-by: David Hildenbrand <david@redhat.com>
+Signed-off-by: Valentin Schneider <vschneid@redhat.com>
+Reviewed-by: Steven Rostedt (Google) <rostedt@goodmis.org>
 ---
- arch/parisc/include/asm/pgtable.h | 41 ++++++++++++++++++++++++++++---
- 1 file changed, 38 insertions(+), 3 deletions(-)
+ kernel/smp.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-diff --git a/arch/parisc/include/asm/pgtable.h b/arch/parisc/include/asm/pgtable.h
-index ea357430aafe..3033bb88df34 100644
---- a/arch/parisc/include/asm/pgtable.h
-+++ b/arch/parisc/include/asm/pgtable.h
-@@ -218,6 +218,9 @@ extern void __update_cache(pte_t pte);
- #define _PAGE_KERNEL_RWX	(_PAGE_KERNEL_EXEC | _PAGE_WRITE)
- #define _PAGE_KERNEL		(_PAGE_KERNEL_RO | _PAGE_WRITE)
+diff --git a/kernel/smp.c b/kernel/smp.c
+index e2ca1e2f31274..93b4386cd3096 100644
+--- a/kernel/smp.c
++++ b/kernel/smp.c
+@@ -160,6 +160,13 @@ void __init call_function_init(void)
+ 	smpcfd_prepare_cpu(smp_processor_id());
+ }
  
-+/* We borrow bit 23 to store the exclusive marker in swap PTEs. */
-+#define _PAGE_SWP_EXCLUSIVE	_PAGE_ACCESSED
-+
- /* The pgd/pmd contains a ptr (in phys addr space); since all pgds/pmds
-  * are page-aligned, we don't care about the PAGE_OFFSET bits, except
-  * for a few meta-information bits, so we shift the address to be
-@@ -394,17 +397,49 @@ extern void paging_init (void);
- 
- #define update_mmu_cache(vms,addr,ptep) __update_cache(*ptep)
- 
--/* Encode and de-code a swap entry */
--
-+/*
-+ * Encode/decode swap entries and swap PTEs. Swap PTEs are all PTEs that
-+ * are !pte_none() && !pte_present().
-+ *
-+ * Format of swap PTEs (32bit):
-+ *
-+ *                         1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
-+ *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+ *   <---------------- offset -----------------> P E <ofs> < type ->
-+ *
-+ *   E is the exclusive marker that is not stored in swap entries.
-+ *   _PAGE_PRESENT (P) must be 0.
-+ *
-+ *   For the 64bit version, the offset is extended by 32bit.
-+ */
- #define __swp_type(x)                     ((x).val & 0x1f)
- #define __swp_offset(x)                   ( (((x).val >> 6) &  0x7) | \
- 					  (((x).val >> 8) & ~0x7) )
--#define __swp_entry(type, offset)         ((swp_entry_t) { (type) | \
-+#define __swp_entry(type, offset)         ((swp_entry_t) { \
-+					    ((type) & 0x1f) | \
- 					    ((offset &  0x7) << 6) | \
- 					    ((offset & ~0x7) << 8) })
- #define __pte_to_swp_entry(pte)		((swp_entry_t) { pte_val(pte) })
- #define __swp_entry_to_pte(x)		((pte_t) { (x).val })
- 
-+#define __HAVE_ARCH_PTE_SWP_EXCLUSIVE
-+static inline int pte_swp_exclusive(pte_t pte)
++static __always_inline void
++send_call_function_ipi_mask(const struct cpumask *mask)
 +{
-+	return pte_val(pte) & _PAGE_SWP_EXCLUSIVE;
++	trace_ipi_send_cpumask(mask, _RET_IP_, NULL);
++	arch_send_call_function_ipi_mask(mask);
 +}
 +
-+static inline pte_t pte_swp_mkexclusive(pte_t pte)
-+{
-+	pte_val(pte) |= _PAGE_SWP_EXCLUSIVE;
-+	return pte;
-+}
-+
-+static inline pte_t pte_swp_clear_exclusive(pte_t pte)
-+{
-+	pte_val(pte) &= ~_PAGE_SWP_EXCLUSIVE;
-+	return pte;
-+}
-+
- static inline int ptep_test_and_clear_young(struct vm_area_struct *vma, unsigned long addr, pte_t *ptep)
- {
- 	pte_t pte;
+ #ifdef CONFIG_CSD_LOCK_WAIT_DEBUG
+ 
+ static DEFINE_STATIC_KEY_FALSE(csdlock_debug_enabled);
+@@ -970,7 +977,7 @@ static void smp_call_function_many_cond(const struct cpumask *mask,
+ 		if (nr_cpus = 1)
+ 			send_call_function_single_ipi(last_cpu);
+ 		else if (likely(nr_cpus > 1))
+-			arch_send_call_function_ipi_mask(cfd->cpumask_ipi);
++			send_call_function_ipi_mask(cfd->cpumask_ipi);
+ 
+ 		cfd_seq_store(this_cpu_ptr(&cfd_seq_local)->pinged, this_cpu, CFD_SEQ_NOCPU, CFD_SEQ_PINGED);
+ 	}
 -- 
-2.39.0
+2.31.1
