@@ -1,242 +1,224 @@
-From: Andrzej Hajda <andrzej.hajda@intel.com>
-Date: Wed, 18 Jan 2023 15:44:46 +0000
-Subject: [PATCH v5 3/7] arch/*/uprobes: simplify arch_uretprobe_hijack_return_addr
-Message-Id: <20230118154450.73842-3-andrzej.hajda@intel.com>
+From: Valentin Schneider <vschneid@redhat.com>
+Date: Thu, 19 Jan 2023 14:36:19 +0000
+Subject: [PATCH v4 7/7] sched, smp: Trace smp callback causing an IPI
+Message-Id: <20230119143619.2733236-8-vschneid@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230118153529.57695-1-andrzej.hajda@intel.com>
- <20230118154450.73842-1-andrzej.hajda@intel.com>
-In-Reply-To: <20230118154450.73842-1-andrzej.hajda@intel.com>
+References: <20230119143619.2733236-1-vschneid@redhat.com>
+In-Reply-To: <20230119143619.2733236-1-vschneid@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, intel-gfx@lists.freedesktop.org, dri-devel@lists.freedesktop.org
-Cc: Andrzej Hajda <andrzej.hajda@intel.com>, Arnd Bergmann <arnd@arndb.de>, Rodrigo Vivi <rodrigo.vivi@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, Peter Zijlstra <peterz@infradead.org>, Boqun Feng <boqun.feng@gmail.com>, Mark Rutland <mark.rutland@arm.com>
+To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org
+Cc: "Paul E. McKenney" <paulmck@kernel.org>, Steven Rostedt <rostedt@goodmis.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Juri Lelli <juri.lelli@redhat.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Marcelo Tosatti <mtosatti@redhat.com>, Frederic Weisbecker <frederic@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "H. Peter Anvin" <hpa@zytor.com>, Marc Zyngier <maz@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Russell King <linux@armlinux.org.uk>, Nicholas Piggin <npiggin@gmail.com>, Guo Ren <guoren@kernel.org>, "David S. Miller" <davem@davemloft.net>
 
-In all architectures, except x86, arch_uretprobe_hijack_return_addr
-is just __xchg.
+Context
+===
+The newly-introduced ipi_send_cpumask tracepoint has a "callback" parameter
+which so far has only been fed with NULL.
 
-Signed-off-by: Andrzej Hajda <andrzej.hajda@intel.com>
+While CSD_TYPE_SYNC/ASYNC and CSD_TYPE_IRQ_WORK share a similar backing
+struct layout (meaning their callback func can be accessed without caring
+about the actual CSD type), CSD_TYPE_TTWU doesn't even have a function
+attached to its struct. This means we need to check the type of a CSD
+before eventually dereferencing its associated callback.
+
+This isn't as trivial as it sounds: the CSD type is stored in
+__call_single_node.u_flags, which get cleared right before the callback is
+executed via csd_unlock(). This implies checking the CSD type before it is
+enqueued on the call_single_queue, as the target CPU's queue can be flushed
+before we get to sending an IPI.
+
+Furthermore, send_call_function_single_ipi() only has a CPU parameter, and
+would need to have an additional argument to trickle down the invoked
+function. This is somewhat silly, as the extra argument will always be
+pushed down to the function even when nothing is being traced, which is
+unnecessary overhead.
+
+Changes
+===
+send_call_function_single_ipi() is only used by smp.c, and is defined in
+sched/core.c as it contains scheduler-specific ops (set_nr_if_polling() of
+a CPU's idle task).
+
+Split it into two parts: the scheduler bits remain in sched/core.c, and the
+actual IPI emission is moved into smp.c. This lets us define an
+__always_inline helper function that can take the related callback as
+parameter without creating useless register pressure in the non-traced path
+which only gains a (disabled) static branch.
+
+Do the same thing for the multi IPI case.
+
+Signed-off-by: Valentin Schneider <vschneid@redhat.com>
 ---
- arch/arm/probes/uprobes/core.c     |  8 ++------
- arch/arm64/kernel/probes/uprobes.c |  9 ++-------
- arch/csky/kernel/probes/uprobes.c  |  9 ++-------
- arch/mips/kernel/uprobes.c         | 10 ++--------
- arch/powerpc/kernel/uprobes.c      | 10 ++--------
- arch/riscv/kernel/probes/uprobes.c |  9 ++-------
- arch/s390/kernel/uprobes.c         |  7 ++-----
- arch/sparc/kernel/uprobes.c        |  7 ++-----
- 8 files changed, 16 insertions(+), 53 deletions(-)
+ kernel/sched/core.c | 18 +++++++-----
+ kernel/sched/smp.h  |  2 +-
+ kernel/smp.c        | 72 +++++++++++++++++++++++++++++++++------------
+ 3 files changed, 66 insertions(+), 26 deletions(-)
 
-diff --git a/arch/arm/probes/uprobes/core.c b/arch/arm/probes/uprobes/core.c
-index f5f790c6e5f896..77ce8ae431376d 100644
---- a/arch/arm/probes/uprobes/core.c
-+++ b/arch/arm/probes/uprobes/core.c
-@@ -9,6 +9,7 @@
- #include <linux/highmem.h>
- #include <linux/sched.h>
- #include <linux/uprobes.h>
-+#include <linux/non-atomic/xchg.h>
- #include <linux/notifier.h>
- 
- #include <asm/opcodes.h>
-@@ -61,12 +62,7 @@ unsigned long
- arch_uretprobe_hijack_return_addr(unsigned long trampoline_vaddr,
- 				  struct pt_regs *regs)
- {
--	unsigned long orig_ret_vaddr;
--
--	orig_ret_vaddr = regs->ARM_lr;
--	/* Replace the return addr with trampoline addr */
--	regs->ARM_lr = trampoline_vaddr;
--	return orig_ret_vaddr;
-+	return __xchg(&regs->ARM_lr, trampoline_vaddr);
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index c0d09eb249603..9733c3ecdbf16 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -3816,16 +3816,20 @@ void sched_ttwu_pending(void *arg)
+ 	rq_unlock_irqrestore(rq, &rf);
  }
  
- int arch_uprobe_analyze_insn(struct arch_uprobe *auprobe, struct mm_struct *mm,
-diff --git a/arch/arm64/kernel/probes/uprobes.c b/arch/arm64/kernel/probes/uprobes.c
-index d49aef2657cdf7..d7171d30ea6681 100644
---- a/arch/arm64/kernel/probes/uprobes.c
-+++ b/arch/arm64/kernel/probes/uprobes.c
-@@ -3,6 +3,7 @@
-  * Copyright (C) 2014-2016 Pratyush Anand <panand@redhat.com>
-  */
- #include <linux/highmem.h>
-+#include <linux/non-atomic/xchg.h>
- #include <linux/ptrace.h>
- #include <linux/uprobes.h>
- #include <asm/cacheflush.h>
-@@ -150,13 +151,7 @@ unsigned long
- arch_uretprobe_hijack_return_addr(unsigned long trampoline_vaddr,
- 				  struct pt_regs *regs)
+-void send_call_function_single_ipi(int cpu)
++/*
++ * Prepare the scene for sending an IPI for a remote smp_call
++ *
++ * Returns true if the caller can proceed with sending the IPI.
++ * Returns false otherwise.
++ */
++bool call_function_single_prep_ipi(int cpu)
  {
--	unsigned long orig_ret_vaddr;
+-	struct rq *rq = cpu_rq(cpu);
 -
--	orig_ret_vaddr = procedure_link_pointer(regs);
--	/* Replace the return addr with trampoline addr */
--	procedure_link_pointer_set(regs, trampoline_vaddr);
--
--	return orig_ret_vaddr;
-+	return __xchg(&procedure_link_pointer(regs), trampoline_vaddr);
+-	if (!set_nr_if_polling(rq->idle)) {
+-		trace_ipi_send_cpumask(cpumask_of(cpu), _RET_IP_, NULL);
+-		arch_send_call_function_single_ipi(cpu);
+-	} else {
++	if (set_nr_if_polling(cpu_rq(cpu)->idle)) {
+ 		trace_sched_wake_idle_without_ipi(cpu);
++		return false;
+ 	}
++
++	return true;
  }
  
- int arch_uprobe_exception_notify(struct notifier_block *self,
-diff --git a/arch/csky/kernel/probes/uprobes.c b/arch/csky/kernel/probes/uprobes.c
-index 2d31a12e46cfee..775fe88b5f0016 100644
---- a/arch/csky/kernel/probes/uprobes.c
-+++ b/arch/csky/kernel/probes/uprobes.c
-@@ -3,6 +3,7 @@
-  * Copyright (C) 2014-2016 Pratyush Anand <panand@redhat.com>
-  */
- #include <linux/highmem.h>
-+#include <linux/non-atomic/xchg.h>
- #include <linux/ptrace.h>
- #include <linux/uprobes.h>
- #include <asm/cacheflush.h>
-@@ -123,13 +124,7 @@ unsigned long
- arch_uretprobe_hijack_return_addr(unsigned long trampoline_vaddr,
- 				  struct pt_regs *regs)
- {
--	unsigned long ra;
--
--	ra = regs->lr;
--
--	regs->lr = trampoline_vaddr;
--
--	return ra;
-+	return __xchg(&regs->lr, trampoline_vaddr);
+ /*
+diff --git a/kernel/sched/smp.h b/kernel/sched/smp.h
+index 2eb23dd0f2856..21ac44428bb02 100644
+--- a/kernel/sched/smp.h
++++ b/kernel/sched/smp.h
+@@ -6,7 +6,7 @@
+ 
+ extern void sched_ttwu_pending(void *arg);
+ 
+-extern void send_call_function_single_ipi(int cpu);
++extern bool call_function_single_prep_ipi(int cpu);
+ 
+ #ifdef CONFIG_SMP
+ extern void flush_smp_call_function_queue(void);
+diff --git a/kernel/smp.c b/kernel/smp.c
+index 821b5986721ac..5cd680a7e78ef 100644
+--- a/kernel/smp.c
++++ b/kernel/smp.c
+@@ -161,9 +161,18 @@ void __init call_function_init(void)
  }
  
- int arch_uprobe_exception_notify(struct notifier_block *self,
-diff --git a/arch/mips/kernel/uprobes.c b/arch/mips/kernel/uprobes.c
-index 6c063aa188e626..2b1f375c407b87 100644
---- a/arch/mips/kernel/uprobes.c
-+++ b/arch/mips/kernel/uprobes.c
-@@ -2,6 +2,7 @@
- #include <linux/highmem.h>
- #include <linux/kdebug.h>
- #include <linux/types.h>
-+#include <linux/non-atomic/xchg.h>
- #include <linux/notifier.h>
- #include <linux/sched.h>
- #include <linux/uprobes.h>
-@@ -197,14 +198,7 @@ void arch_uprobe_abort_xol(struct arch_uprobe *aup,
- unsigned long arch_uretprobe_hijack_return_addr(
- 	unsigned long trampoline_vaddr, struct pt_regs *regs)
+ static __always_inline void
+-send_call_function_ipi_mask(const struct cpumask *mask)
++send_call_function_single_ipi(int cpu, smp_call_func_t func)
  {
--	unsigned long ra;
--
--	ra = regs->regs[31];
--
--	/* Replace the return address with the trampoline address */
--	regs->regs[31] = trampoline_vaddr;
--
--	return ra;
-+	return __xchg(&regs->regs[31], trampoline_vaddr);
+-	trace_ipi_send_cpumask(mask, _RET_IP_, NULL);
++	if (call_function_single_prep_ipi(cpu)) {
++		trace_ipi_send_cpumask(cpumask_of(cpu), _RET_IP_, func);
++		arch_send_call_function_single_ipi(cpu);
++	}
++}
++
++static __always_inline void
++send_call_function_ipi_mask(const struct cpumask *mask, smp_call_func_t func)
++{
++	trace_ipi_send_cpumask(mask, _RET_IP_, func);
+ 	arch_send_call_function_ipi_mask(mask);
  }
  
- /**
-diff --git a/arch/powerpc/kernel/uprobes.c b/arch/powerpc/kernel/uprobes.c
-index 95a41ae9dfa755..3c15c320315e6c 100644
---- a/arch/powerpc/kernel/uprobes.c
-+++ b/arch/powerpc/kernel/uprobes.c
-@@ -7,6 +7,7 @@
-  * Adapted from the x86 port by Ananth N Mavinakayanahalli <ananth@in.ibm.com>
-  */
- #include <linux/kernel.h>
-+#include <linux/non-atomic/xchg.h>
- #include <linux/sched.h>
- #include <linux/ptrace.h>
- #include <linux/uprobes.h>
-@@ -197,14 +198,7 @@ bool arch_uprobe_skip_sstep(struct arch_uprobe *auprobe, struct pt_regs *regs)
- unsigned long
- arch_uretprobe_hijack_return_addr(unsigned long trampoline_vaddr, struct pt_regs *regs)
- {
--	unsigned long orig_ret_vaddr;
--
--	orig_ret_vaddr = regs->link;
--
--	/* Replace the return addr with trampoline addr */
--	regs->link = trampoline_vaddr;
--
--	return orig_ret_vaddr;
-+	return __xchg(&regs->link, trampoline_vaddr);
+@@ -430,12 +439,16 @@ static void __smp_call_single_queue_debug(int cpu, struct llist_node *node)
+ 	struct cfd_seq_local *seq = this_cpu_ptr(&cfd_seq_local);
+ 	struct call_function_data *cfd = this_cpu_ptr(&cfd_data);
+ 	struct cfd_percpu *pcpu = per_cpu_ptr(cfd->pcpu, cpu);
++	struct __call_single_data *csd;
++
++	csd = container_of(node, call_single_data_t, node.llist);
++	WARN_ON_ONCE(!(CSD_TYPE(csd) & (CSD_TYPE_SYNC | CSD_TYPE_ASYNC)));
+ 
+ 	cfd_seq_store(pcpu->seq_queue, this_cpu, cpu, CFD_SEQ_QUEUE);
+ 	if (llist_add(node, &per_cpu(call_single_queue, cpu))) {
+ 		cfd_seq_store(pcpu->seq_ipi, this_cpu, cpu, CFD_SEQ_IPI);
+ 		cfd_seq_store(seq->ping, this_cpu, cpu, CFD_SEQ_PING);
+-		send_call_function_single_ipi(cpu);
++		send_call_function_single_ipi(cpu, csd->func);
+ 		cfd_seq_store(seq->pinged, this_cpu, cpu, CFD_SEQ_PINGED);
+ 	} else {
+ 		cfd_seq_store(pcpu->seq_noipi, this_cpu, cpu, CFD_SEQ_NOIPI);
+@@ -477,6 +490,25 @@ static __always_inline void csd_unlock(struct __call_single_data *csd)
+ 	smp_store_release(&csd->node.u_flags, 0);
  }
  
- bool arch_uretprobe_is_alive(struct return_instance *ret, enum rp_check ctx,
-diff --git a/arch/riscv/kernel/probes/uprobes.c b/arch/riscv/kernel/probes/uprobes.c
-index c976a21cd4bd5b..5c8415e216536d 100644
---- a/arch/riscv/kernel/probes/uprobes.c
-+++ b/arch/riscv/kernel/probes/uprobes.c
-@@ -1,6 +1,7 @@
- // SPDX-License-Identifier: GPL-2.0-only
++static __always_inline void
++raw_smp_call_single_queue(int cpu, struct llist_node *node, smp_call_func_t func)
++{
++	/*
++	 * The list addition should be visible to the target CPU when it pops
++	 * the head of the list to pull the entry off it in the IPI handler
++	 * because of normal cache coherency rules implied by the underlying
++	 * llist ops.
++	 *
++	 * If IPIs can go out of order to the cache coherency protocol
++	 * in an architecture, sufficient synchronisation should be added
++	 * to arch code to make it appear to obey cache coherency WRT
++	 * locking and barrier primitives. Generic code isn't really
++	 * equipped to do the right thing...
++	 */
++	if (llist_add(node, &per_cpu(call_single_queue, cpu)))
++		send_call_function_single_ipi(cpu, func);
++}
++
+ static DEFINE_PER_CPU_SHARED_ALIGNED(call_single_data_t, csd_data);
  
- #include <linux/highmem.h>
-+#include <linux/non-atomic/xchg.h>
- #include <linux/ptrace.h>
- #include <linux/uprobes.h>
- 
-@@ -122,13 +123,7 @@ unsigned long
- arch_uretprobe_hijack_return_addr(unsigned long trampoline_vaddr,
- 				  struct pt_regs *regs)
- {
--	unsigned long ra;
+ void __smp_call_single_queue(int cpu, struct llist_node *node)
+@@ -493,21 +525,25 @@ void __smp_call_single_queue(int cpu, struct llist_node *node)
+ 		}
+ 	}
+ #endif
 -
--	ra = regs->ra;
--
--	regs->ra = trampoline_vaddr;
--
--	return ra;
-+	return __xchg(&regs->ra, trampoline_vaddr);
+ 	/*
+-	 * The list addition should be visible to the target CPU when it pops
+-	 * the head of the list to pull the entry off it in the IPI handler
+-	 * because of normal cache coherency rules implied by the underlying
+-	 * llist ops.
+-	 *
+-	 * If IPIs can go out of order to the cache coherency protocol
+-	 * in an architecture, sufficient synchronisation should be added
+-	 * to arch code to make it appear to obey cache coherency WRT
+-	 * locking and barrier primitives. Generic code isn't really
+-	 * equipped to do the right thing...
++	 * We have to check the type of the CSD before queueing it, because
++	 * once queued it can have its flags cleared by
++	 *   flush_smp_call_function_queue()
++	 * even if we haven't sent the smp_call IPI yet (e.g. the stopper
++	 * executes migration_cpu_stop() on the remote CPU).
+ 	 */
+-	if (llist_add(node, &per_cpu(call_single_queue, cpu)))
+-		send_call_function_single_ipi(cpu);
++	if (trace_ipi_send_cpumask_enabled()) {
++		call_single_data_t *csd;
++		smp_call_func_t func;
++
++		csd = container_of(node, call_single_data_t, node.llist);
++		func = CSD_TYPE(csd) = CSD_TYPE_TTWU ?
++			sched_ttwu_pending : csd->func;
++
++		raw_smp_call_single_queue(cpu, node, func);
++	} else {
++		raw_smp_call_single_queue(cpu, node, NULL);
++	}
  }
  
- int arch_uprobe_exception_notify(struct notifier_block *self,
-diff --git a/arch/s390/kernel/uprobes.c b/arch/s390/kernel/uprobes.c
-index b88345ef8bd9ed..18591ca40ae7e5 100644
---- a/arch/s390/kernel/uprobes.c
-+++ b/arch/s390/kernel/uprobes.c
-@@ -11,6 +11,7 @@
- #include <linux/compat.h>
- #include <linux/kdebug.h>
- #include <linux/sched/task_stack.h>
-+#include <linux/non-atomic/xchg.h>
+ /*
+@@ -976,9 +1012,9 @@ static void smp_call_function_many_cond(const struct cpumask *mask,
+ 		 * provided mask.
+ 		 */
+ 		if (nr_cpus = 1)
+-			send_call_function_single_ipi(last_cpu);
++			send_call_function_single_ipi(last_cpu, func);
+ 		else if (likely(nr_cpus > 1))
+-			send_call_function_ipi_mask(cfd->cpumask_ipi);
++			send_call_function_ipi_mask(cfd->cpumask_ipi, func);
  
- #include <asm/switch_to.h>
- #include <asm/facility.h>
-@@ -144,11 +145,7 @@ void arch_uprobe_abort_xol(struct arch_uprobe *auprobe, struct pt_regs *regs)
- unsigned long arch_uretprobe_hijack_return_addr(unsigned long trampoline,
- 						struct pt_regs *regs)
- {
--	unsigned long orig;
--
--	orig = regs->gprs[14];
--	regs->gprs[14] = trampoline;
--	return orig;
-+	return __xchg(&regs->gprs[14], trampoline);
- }
- 
- bool arch_uretprobe_is_alive(struct return_instance *ret, enum rp_check ctx,
-diff --git a/arch/sparc/kernel/uprobes.c b/arch/sparc/kernel/uprobes.c
-index 1a0600206bf5c2..1c02653d6de3ba 100644
---- a/arch/sparc/kernel/uprobes.c
-+++ b/arch/sparc/kernel/uprobes.c
-@@ -11,6 +11,7 @@
- 
- #include <linux/kernel.h>
- #include <linux/highmem.h>
-+#include <linux/non-atomic/xchg.h>
- #include <linux/uprobes.h>
- #include <linux/uaccess.h>
- #include <linux/sched.h> /* For struct task_struct */
-@@ -310,9 +311,5 @@ unsigned long
- arch_uretprobe_hijack_return_addr(unsigned long trampoline_vaddr,
- 				  struct pt_regs *regs)
- {
--	unsigned long orig_ret_vaddr = regs->u_regs[UREG_I7];
--
--	regs->u_regs[UREG_I7] = trampoline_vaddr-8;
--
--	return orig_ret_vaddr + 8;
-+	return __xchg(&regs->u_regs[UREG_I7], trampoline_vaddr - 8) + 8;
- }
+ 		cfd_seq_store(this_cpu_ptr(&cfd_seq_local)->pinged, this_cpu, CFD_SEQ_NOCPU, CFD_SEQ_PINGED);
+ 	}
 -- 
-2.34.1
+2.31.1
