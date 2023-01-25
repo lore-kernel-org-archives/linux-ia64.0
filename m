@@ -1,76 +1,170 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Thu, 12 Jan 2023 19:43:33 +0000
-Subject: [PATCH v3 19/51] cpuidle,intel_idle: Fix CPUIDLE_FLAG_INIT_XSTATE
-Message-Id: <20230112195540.494977795@infradead.org>
+From: Suren Baghdasaryan <surenb@google.com>
+Date: Wed, 25 Jan 2023 08:38:45 +0000
+Subject: [PATCH v2 0/6] introduce vm_flags modifier functions
+Message-Id: <20230125083851.27759-1-surenb@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230112194314.845371875@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: peterz@infradead.org
-Cc: richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@kernel.org, linux@armlinux.org.uk, nsekhar@ti.com, brgl@bgdev.pl, ulli.kroll@googlemail.com, linus.walleij@linaro.org, shawnguo@kernel.org, Sascha Hauer <s.hauer@pengutronix.de>, kernel@pengutronix.de, festevam@gmail.com, linux-imx@nxp.com, tony@atomide.com, khilman@kernel.org, krzysztof.kozlowski@linaro.org, alim.akhtar@samsung.com, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, bcain@quicinc.com, chenhuacai@kernel.org, kernel@xen0n.name, geert@linux-m68k.org, sammy@sammy.net, monstr@monstr.eu, tsbogend@alpha.franken.de, dinguyen@kernel.org, jonas@southpole.se, stefan.kristiansson@saunalahti.fi, shorne@gmail.com, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, paul.walmsley@sifive.com, palmer@dabbelt.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, richard@nod.at, anton.ivanov@cambridgegreys.com, johannes@sipsolutions.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, acme@kernel.org, mark.rutland@arm.com, alexander.shishkin@linux.intel.com, jolsa@kernel.org, namhyung@kernel.org, jgross@suse.com, srivatsa@csail.mit.edu, amakhalov@vmware.com, pv-drivers@vmware.com, boris.ostrovsky@oracle.com, chris@zankel.net, jcmvbkbc@gmail.com, rafael@kernel.org, lenb@kernel.org, pavel@ucw.cz, gregkh@linuxfoundation.org, mturquette@baylibre.com, sboyd@kernel.org, daniel.lezcano@linaro.org, lpieralisi@kernel.org, sudeep.holla@arm.com, agross@kernel.org, andersson@kernel.org, konrad.dybcio@linaro.org, anup@brainfault.org, thierry.reding@gmail.com, jonathanh@nvidia.com, jacob.jun.pan@linux.intel.com, atishp@atishpatra.org, Arnd Bergmann <arnd@arndb.de>, yury.norov@gmail.com, andriy.shevchenko@linux.intel.com, linux@rasmusvillemoes.dk, dennis@kernel.org, tj@kernel.org, cl@linux.com, rostedt@goodmis.org, mhiramat@kernel.org, frederic@kernel.org, paulmck@kernel.org, pmladek@suse.com, senozhatsky@chromium.org, john.ogness@linutronix.de, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, ryabinin.a.a@gmail.com, glider@google.com, andreyknvl@gmail.com, dvyukov@google.com, vincenzo.frascino@arm.com, Andrew Morton <akpm@linux-foundation.org>, jpoimboe@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-omap@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-perf-users@vger.kernel.org, virtualization@lists.linux-foundation.org, linux-xtensa@linux-xtensa.org, linux-acpi@vger.kernel.org, linux-pm@vger.kernel.org, linux-clk@vger.kernel.org, linux-arm-msm@vger.kernel.org, linux-tegra@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-trace-kernel@vger.kernel.org, kasan-dev@googlegroups.com, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Ulf Hansson <ulf.hansson@linaro.org>
+To: akpm@linux-foundation.org
+Cc: michel@lespinasse.org, jglisse@google.com, mhocko@suse.com, vbabka@suse.cz, hannes@cmpxchg.org, mgorman@techsingularity.net, dave@stgolabs.net, willy@infradead.org, liam.howlett@oracle.com, peterz@infradead.org, ldufour@linux.ibm.com, paulmck@kernel.org, luto@kernel.org, songliubraving@fb.com, peterx@redhat.com, david@redhat.com, dhowells@redhat.com, hughd@google.com, bigeasy@linutronix.de, kent.overstreet@linux.dev, punit.agrawal@bytedance.com, lstoakes@gmail.com, peterjung1337@gmail.com, rientjes@google.com, axelrasmussen@google.com, joelaf@google.com, minchan@google.com, jannh@google.com, shakeelb@google.com, tatashin@google.com, edumazet@google.com, gthelen@google.com, gurua@google.com, arjunroy@google.com, soheil@google.com, hughlynch@google.com, leewalsh@google.com, posk@google.com, will@kernel.org, aneesh.kumar@linux.ibm.com, npiggin@gmail.com, chenhuacai@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, richard@nod.at, anton.ivanov@cambridgegreys.com, johannes@sipsolutions.net, qianweili@huawei.com, wangzhou1@hisilicon.com, herbert@gondor.apana.org.au, davem@davemloft.net, vkoul@kernel.org, airlied@gmail.com, daniel@ffwll.ch, maarten.lankhorst@linux.intel.com, mripard@kernel.org, tzimmermann@suse.de, l.stach@pengutronix.de, krzysztof.kozlowski@linaro.org, patrik.r.jakobsson@gmail.com, matthias.bgg@gmail.com, robdclark@gmail.com, quic_abhinavk@quicinc.com, dmitry.baryshkov@linaro.org, tomba@kernel.org, hjc@rock-chips.com, heiko@sntech.de, ray.huang@amd.com, kraxel@redhat.com, sre@kernel.org, mcoquelin.stm32@gmail.com, alexandre.torgue@foss.st.com, tfiga@chromium.org, m.szyprowski@samsung.com, mchehab@kernel.org, dimitri.sivanich@hpe.com, zhangfei.gao@linaro.org, jejb@linux.ibm.com, martin.petersen@oracle.com, dgilbert@interlog.com, hdegoede@redhat.com, mst@redhat.com, jasowang@redhat.com, alex.williamson@redhat.com, deller@gmx.de, jayalk@intworks.biz, viro@zeniv.linux.org.uk, nico@fluxnic.net, xiang@kernel.org, chao@kernel.org, tytso@mit.edu, adilger.kernel@dilger.ca, miklos@szeredi.hu, mike.kravetz@oracle.com, muchun.song@linux.dev, bhe@redhat.com, andrii@kernel.org, yoshfuji@linux-ipv6.org, dsahern@kernel.org, kuba@kernel.org, pabeni@redhat.com, perex@perex.cz, tiwai@suse.com, haojian.zhuang@gmail.com, robert.jarzmik@free.fr, linux-mm@kvack.org, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, x86@kernel.org, linux-kernel@vger.kernel.org, linux-graphics-maintainer@vmware.com, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, loongarch@lists.linux.dev, kvm@vger.kernel.org, linux-s390@vger.kernel.org, linux-sgx@vger.kernel.org, linux-um@lists.infradead.org, linux-acpi@vger.kernel.org, linux-crypto@vger.kernel.org, nvdimm@lists.linux.dev, dmaengine@vger.kernel.org, amd-gfx@lists.freedesktop.org, dri-devel@lists.freedesktop.org, etnaviv@lists.freedesktop.org, linux-samsung-soc@vger.kernel.org, intel-gfx@lists.freedesktop.org, linux-mediatek@lists.infradead.org, linux-arm-msm@vger.kernel.org, freedreno@lists.freedesktop.org, linux-rockchip@lists.infradead.org, linux-tegra@vger.kernel.org, virtualization@lists.linux-foundation.org, xen-devel@lists.xenproject.org, linux-stm32@st-md-mailman.stormreply.com, linux-rdma@vger.kernel.org, linux-media@vger.kernel.org, linux-accelerators@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-scsi@vger.kernel.org, linux-staging@lists.linux.dev, target-devel@vger.kernel.org, linux-usb@vger.kernel.org, netdev@vger.kernel.org, linux-fbdev@vger.kernel.org, linux-aio@kvack.org, linux-fsdevel@vger.kernel.org, linux-erofs@lists.ozlabs.org, linux-ext4@vger.kernel.org, devel@lists.orangefs.org, kexec@lists.infradead.org, linux-xfs@vger.kernel.org, bpf@vger.kernel.org, linux-perf-users@vger.kernel.org, kasan-dev@googlegroups.com, selinux@vger.kernel.org, alsa-devel@alsa-project.org, kernel-team@android.com, surenb@google.com
 
-vmlinux.o: warning: objtool: intel_idle_s2idle+0xd5: call to fpu_idle_fpregs() leaves .noinstr.text section
-vmlinux.o: warning: objtool: intel_idle_xstate+0x11: call to fpu_idle_fpregs() leaves .noinstr.text section
-vmlinux.o: warning: objtool: fpu_idle_fpregs+0x9: call to xfeatures_in_use() leaves .noinstr.text section
+This patchset was originally published as a part of per-VMA locking [1] and
+was split after suggestion that it's viable on its own and to facilitate
+the review process. It is now a preprequisite for the next version of per-VMA
+lock patchset, which reuses vm_flags modifier functions to lock the VMA when
+vm_flags are being updated.
 
-Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
-Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
-Acked-by: Frederic Weisbecker <frederic@kernel.org>
-Tested-by: Tony Lindgren <tony@atomide.com>
-Tested-by: Ulf Hansson <ulf.hansson@linaro.org>
----
- arch/x86/include/asm/fpu/xcr.h       |    4 ++--
- arch/x86/include/asm/special_insns.h |    2 +-
- arch/x86/kernel/fpu/core.c           |    4 ++--
- 3 files changed, 5 insertions(+), 5 deletions(-)
+VMA vm_flags modifications are usually done under exclusive mmap_lock
+protection because this attrubute affects other decisions like VMA merging
+or splitting and races should be prevented. Introduce vm_flags modifier
+functions to enforce correct locking.
 
---- a/arch/x86/include/asm/fpu/xcr.h
-+++ b/arch/x86/include/asm/fpu/xcr.h
-@@ -5,7 +5,7 @@
- #define XCR_XFEATURE_ENABLED_MASK	0x00000000
- #define XCR_XFEATURE_IN_USE_MASK	0x00000001
- 
--static inline u64 xgetbv(u32 index)
-+static __always_inline u64 xgetbv(u32 index)
- {
- 	u32 eax, edx;
- 
-@@ -27,7 +27,7 @@ static inline void xsetbv(u32 index, u64
-  *
-  * Callers should check X86_FEATURE_XGETBV1.
-  */
--static inline u64 xfeatures_in_use(void)
-+static __always_inline u64 xfeatures_in_use(void)
- {
- 	return xgetbv(XCR_XFEATURE_IN_USE_MASK);
- }
---- a/arch/x86/include/asm/special_insns.h
-+++ b/arch/x86/include/asm/special_insns.h
-@@ -295,7 +295,7 @@ static inline int enqcmds(void __iomem *
- 	return 0;
- }
- 
--static inline void tile_release(void)
-+static __always_inline void tile_release(void)
- {
- 	/*
- 	 * Instruction opcode for TILERELEASE; supported in binutils
---- a/arch/x86/kernel/fpu/core.c
-+++ b/arch/x86/kernel/fpu/core.c
-@@ -856,12 +856,12 @@ int fpu__exception_code(struct fpu *fpu,
-  * Initialize register state that may prevent from entering low-power idle.
-  * This function will be invoked from the cpuidle driver only when needed.
-  */
--void fpu_idle_fpregs(void)
-+noinstr void fpu_idle_fpregs(void)
- {
- 	/* Note: AMX_TILE being enabled implies XGETBV1 support */
- 	if (cpu_feature_enabled(X86_FEATURE_AMX_TILE) &&
- 	    (xfeatures_in_use() & XFEATURE_MASK_XTILE)) {
- 		tile_release();
--		fpregs_deactivate(&current->thread.fpu);
-+		__this_cpu_write(fpu_fpregs_owner_ctx, NULL);
- 	}
- }
+[1] https://lore.kernel.org/all/20230109205336.3665937-1-surenb@google.com/
 
+The patchset applies cleanly over mm-unstable branch of mm tree.
+
+My apologies for an extremely large distribution list. The patch touches
+lots of files and many are in arch/ and drivers/.
+
+Suren Baghdasaryan (6):
+  mm: introduce vma->vm_flags modifier functions
+  mm: replace VM_LOCKED_CLEAR_MASK with VM_LOCKED_MASK
+  mm: replace vma->vm_flags direct modifications with modifier calls
+  mm: replace vma->vm_flags indirect modification in ksm_madvise
+  mm: introduce mod_vm_flags_nolock and use it in untrack_pfn
+  mm: export dump_mm()
+
+ arch/arm/kernel/process.c                     |  2 +-
+ arch/ia64/mm/init.c                           |  8 +--
+ arch/loongarch/include/asm/tlb.h              |  2 +-
+ arch/powerpc/kvm/book3s_hv_uvmem.c            |  5 +-
+ arch/powerpc/kvm/book3s_xive_native.c         |  2 +-
+ arch/powerpc/mm/book3s64/subpage_prot.c       |  2 +-
+ arch/powerpc/platforms/book3s/vas-api.c       |  2 +-
+ arch/powerpc/platforms/cell/spufs/file.c      | 14 ++---
+ arch/s390/mm/gmap.c                           |  8 +--
+ arch/x86/entry/vsyscall/vsyscall_64.c         |  2 +-
+ arch/x86/kernel/cpu/sgx/driver.c              |  2 +-
+ arch/x86/kernel/cpu/sgx/virt.c                |  2 +-
+ arch/x86/mm/pat/memtype.c                     | 14 +++--
+ arch/x86/um/mem_32.c                          |  2 +-
+ drivers/acpi/pfr_telemetry.c                  |  2 +-
+ drivers/android/binder.c                      |  3 +-
+ drivers/char/mspec.c                          |  2 +-
+ drivers/crypto/hisilicon/qm.c                 |  2 +-
+ drivers/dax/device.c                          |  2 +-
+ drivers/dma/idxd/cdev.c                       |  2 +-
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c       |  2 +-
+ drivers/gpu/drm/amd/amdkfd/kfd_chardev.c      |  4 +-
+ drivers/gpu/drm/amd/amdkfd/kfd_doorbell.c     |  4 +-
+ drivers/gpu/drm/amd/amdkfd/kfd_events.c       |  4 +-
+ drivers/gpu/drm/amd/amdkfd/kfd_process.c      |  4 +-
+ drivers/gpu/drm/drm_gem.c                     |  2 +-
+ drivers/gpu/drm/drm_gem_dma_helper.c          |  3 +-
+ drivers/gpu/drm/drm_gem_shmem_helper.c        |  2 +-
+ drivers/gpu/drm/drm_vm.c                      |  8 +--
+ drivers/gpu/drm/etnaviv/etnaviv_gem.c         |  2 +-
+ drivers/gpu/drm/exynos/exynos_drm_gem.c       |  4 +-
+ drivers/gpu/drm/gma500/framebuffer.c          |  2 +-
+ drivers/gpu/drm/i810/i810_dma.c               |  2 +-
+ drivers/gpu/drm/i915/gem/i915_gem_mman.c      |  4 +-
+ drivers/gpu/drm/mediatek/mtk_drm_gem.c        |  2 +-
+ drivers/gpu/drm/msm/msm_gem.c                 |  2 +-
+ drivers/gpu/drm/omapdrm/omap_gem.c            |  3 +-
+ drivers/gpu/drm/rockchip/rockchip_drm_gem.c   |  3 +-
+ drivers/gpu/drm/tegra/gem.c                   |  5 +-
+ drivers/gpu/drm/ttm/ttm_bo_vm.c               |  3 +-
+ drivers/gpu/drm/virtio/virtgpu_vram.c         |  2 +-
+ drivers/gpu/drm/vmwgfx/vmwgfx_ttm_glue.c      |  2 +-
+ drivers/gpu/drm/xen/xen_drm_front_gem.c       |  3 +-
+ drivers/hsi/clients/cmt_speech.c              |  2 +-
+ drivers/hwtracing/intel_th/msu.c              |  2 +-
+ drivers/hwtracing/stm/core.c                  |  2 +-
+ drivers/infiniband/hw/hfi1/file_ops.c         |  4 +-
+ drivers/infiniband/hw/mlx5/main.c             |  4 +-
+ drivers/infiniband/hw/qib/qib_file_ops.c      | 13 +++--
+ drivers/infiniband/hw/usnic/usnic_ib_verbs.c  |  2 +-
+ .../infiniband/hw/vmw_pvrdma/pvrdma_verbs.c   |  2 +-
+ .../common/videobuf2/videobuf2-dma-contig.c   |  2 +-
+ .../common/videobuf2/videobuf2-vmalloc.c      |  2 +-
+ drivers/media/v4l2-core/videobuf-dma-contig.c |  2 +-
+ drivers/media/v4l2-core/videobuf-dma-sg.c     |  4 +-
+ drivers/media/v4l2-core/videobuf-vmalloc.c    |  2 +-
+ drivers/misc/cxl/context.c                    |  2 +-
+ drivers/misc/habanalabs/common/memory.c       |  2 +-
+ drivers/misc/habanalabs/gaudi/gaudi.c         |  4 +-
+ drivers/misc/habanalabs/gaudi2/gaudi2.c       |  8 +--
+ drivers/misc/habanalabs/goya/goya.c           |  4 +-
+ drivers/misc/ocxl/context.c                   |  4 +-
+ drivers/misc/ocxl/sysfs.c                     |  2 +-
+ drivers/misc/open-dice.c                      |  4 +-
+ drivers/misc/sgi-gru/grufile.c                |  4 +-
+ drivers/misc/uacce/uacce.c                    |  2 +-
+ drivers/sbus/char/oradax.c                    |  2 +-
+ drivers/scsi/cxlflash/ocxl_hw.c               |  2 +-
+ drivers/scsi/sg.c                             |  2 +-
+ .../staging/media/atomisp/pci/hmm/hmm_bo.c    |  2 +-
+ drivers/staging/media/deprecated/meye/meye.c  |  4 +-
+ .../media/deprecated/stkwebcam/stk-webcam.c   |  2 +-
+ drivers/target/target_core_user.c             |  2 +-
+ drivers/uio/uio.c                             |  2 +-
+ drivers/usb/core/devio.c                      |  3 +-
+ drivers/usb/mon/mon_bin.c                     |  3 +-
+ drivers/vdpa/vdpa_user/iova_domain.c          |  2 +-
+ drivers/vfio/pci/vfio_pci_core.c              |  2 +-
+ drivers/vhost/vdpa.c                          |  2 +-
+ drivers/video/fbdev/68328fb.c                 |  2 +-
+ drivers/video/fbdev/core/fb_defio.c           |  4 +-
+ drivers/xen/gntalloc.c                        |  2 +-
+ drivers/xen/gntdev.c                          |  4 +-
+ drivers/xen/privcmd-buf.c                     |  2 +-
+ drivers/xen/privcmd.c                         |  4 +-
+ fs/aio.c                                      |  2 +-
+ fs/cramfs/inode.c                             |  2 +-
+ fs/erofs/data.c                               |  2 +-
+ fs/exec.c                                     |  4 +-
+ fs/ext4/file.c                                |  2 +-
+ fs/fuse/dax.c                                 |  2 +-
+ fs/hugetlbfs/inode.c                          |  4 +-
+ fs/orangefs/file.c                            |  3 +-
+ fs/proc/task_mmu.c                            |  2 +-
+ fs/proc/vmcore.c                              |  3 +-
+ fs/userfaultfd.c                              |  2 +-
+ fs/xfs/xfs_file.c                             |  2 +-
+ include/linux/mm.h                            | 51 +++++++++++++++++--
+ include/linux/mm_types.h                      |  8 ++-
+ include/linux/pgtable.h                       |  5 +-
+ kernel/bpf/ringbuf.c                          |  4 +-
+ kernel/bpf/syscall.c                          |  4 +-
+ kernel/events/core.c                          |  2 +-
+ kernel/fork.c                                 |  2 +-
+ kernel/kcov.c                                 |  2 +-
+ kernel/relay.c                                |  2 +-
+ mm/debug.c                                    |  1 +
+ mm/hugetlb.c                                  |  4 +-
+ mm/khugepaged.c                               |  2 +
+ mm/ksm.c                                      |  2 +
+ mm/madvise.c                                  |  2 +-
+ mm/memory.c                                   | 19 +++----
+ mm/memremap.c                                 |  4 +-
+ mm/mlock.c                                    | 12 ++---
+ mm/mmap.c                                     | 32 +++++++-----
+ mm/mprotect.c                                 |  2 +-
+ mm/mremap.c                                   |  8 +--
+ mm/nommu.c                                    | 11 ++--
+ mm/secretmem.c                                |  2 +-
+ mm/shmem.c                                    |  2 +-
+ mm/vmalloc.c                                  |  2 +-
+ net/ipv4/tcp.c                                |  4 +-
+ security/selinux/selinuxfs.c                  |  6 +--
+ sound/core/oss/pcm_oss.c                      |  2 +-
+ sound/core/pcm_native.c                       |  9 ++--
+ sound/soc/pxa/mmp-sspa.c                      |  2 +-
+ sound/usb/usx2y/us122l.c                      |  4 +-
+ sound/usb/usx2y/usX2Yhwdep.c                  |  2 +-
+ sound/usb/usx2y/usx2yhwdeppcm.c               |  2 +-
+ 129 files changed, 292 insertions(+), 233 deletions(-)
+
+-- 
+2.39.1
