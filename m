@@ -1,45 +1,57 @@
-From: Valentin Schneider <vschneid@redhat.com>
-Date: Thu, 19 Jan 2023 14:36:18 +0000
-Subject: [PATCH v4 6/7] smp: reword smp call IPI comment
-Message-Id: <20230119143619.2733236-7-vschneid@redhat.com>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Sun, 29 Jan 2023 12:42:32 +0000
+Subject: [PATCH v2 1/4] arm: include asm-generic/memory_model.h from page.h rather than memory.h
+Message-Id: <20230129124235.209895-2-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230119143619.2733236-1-vschneid@redhat.com>
-In-Reply-To: <20230119143619.2733236-1-vschneid@redhat.com>
+References: <20230129124235.209895-1-rppt@kernel.org>
+In-Reply-To: <20230129124235.209895-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org
-Cc: "Paul E. McKenney" <paulmck@kernel.org>, Steven Rostedt <rostedt@goodmis.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Juri Lelli <juri.lelli@redhat.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Marcelo Tosatti <mtosatti@redhat.com>, Frederic Weisbecker <frederic@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "H. Peter Anvin" <hpa@zytor.com>, Marc Zyngier <maz@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Russell King <linux@armlinux.org.uk>, Nicholas Piggin <npiggin@gmail.com>, Guo Ren <guoren@kernel.org>, "David S. Miller" <davem@davemloft.net>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Arnd Bergmann <arnd@arndb.de>, Brian Cain <bcain@quicinc.com>, "David S. Miller" <davem@davemloft.net>, Dinh Nguyen <dinguyen@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Guo Ren <guoren@kernel.org>, Helge Deller <deller@gmx.de>, Huacai Chen <chenhuacai@kernel.org>, Matt Turner <mattst88@gmail.com>, Max Filippov <jcmvbkbc@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Michal Simek <monstr@monstr.eu>, Palmer Dabbelt <palmer@dabbelt.com>, Rich Felker <dalias@libc.org>, Richard Weinberger <richard@nod.at>, Russell King <linux@armlinux.org.uk>, Stafford Horne <shorne@gmail.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Vineet Gupta <vgupta@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-mm@kvack.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, loongarch@lists.linux.dev, openrisc@lists.librecores.org, sparclinux@vger.kernel.org, x86@kernel.org, "Mike Rapoport (IBM)" <rppt@kernel.org>
 
-Accessing the call_single_queue hasn't involved a spinlock since 2014:
+From: "Mike Rapoport (IBM)" <rppt@kernel.org>
 
-  6897fc22ea01 ("kernel: use lockless list for smp_call_function_single")
+Makes it consistent with other architectures and allows for generic
+definition of pfn_valid() in asm-generic/memory_model.h with clear override
+in arch/arm/include/asm/page.h
 
-The llist operations (namely cmpxchg() and xchg()) provide similar ordering
-guarantees, update the comment to lessen confusion.
-
-Signed-off-by: Valentin Schneider <vschneid@redhat.com>
+Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
 ---
- kernel/smp.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ arch/arm/include/asm/memory.h | 2 --
+ arch/arm/include/asm/page.h   | 2 ++
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/kernel/smp.c b/kernel/smp.c
-index 93b4386cd3096..821b5986721ac 100644
---- a/kernel/smp.c
-+++ b/kernel/smp.c
-@@ -495,9 +495,10 @@ void __smp_call_single_queue(int cpu, struct llist_node *node)
+diff --git a/arch/arm/include/asm/memory.h b/arch/arm/include/asm/memory.h
+index d8eef4bd8c71..62e9df024445 100644
+--- a/arch/arm/include/asm/memory.h
++++ b/arch/arm/include/asm/memory.h
+@@ -386,6 +386,4 @@ static inline unsigned long __virt_to_idmap(unsigned long x)
+ 
  #endif
  
- 	/*
--	 * The list addition should be visible before sending the IPI
--	 * handler locks the list to pull the entry off it because of
--	 * normal cache coherency rules implied by spinlocks.
-+	 * The list addition should be visible to the target CPU when it pops
-+	 * the head of the list to pull the entry off it in the IPI handler
-+	 * because of normal cache coherency rules implied by the underlying
-+	 * llist ops.
- 	 *
- 	 * If IPIs can go out of order to the cache coherency protocol
- 	 * in an architecture, sufficient synchronisation should be added
+-#include <asm-generic/memory_model.h>
+-
+ #endif
+diff --git a/arch/arm/include/asm/page.h b/arch/arm/include/asm/page.h
+index 5fcc8a600e36..74bb5947b387 100644
+--- a/arch/arm/include/asm/page.h
++++ b/arch/arm/include/asm/page.h
+@@ -158,6 +158,7 @@ typedef struct page *pgtable_t;
+ 
+ #ifdef CONFIG_HAVE_ARCH_PFN_VALID
+ extern int pfn_valid(unsigned long);
++#define pfn_valid pfn_valid
+ #endif
+ 
+ #include <asm/memory.h>
+@@ -167,5 +168,6 @@ extern int pfn_valid(unsigned long);
+ #define VM_DATA_DEFAULT_FLAGS	VM_DATA_FLAGS_TSK_EXEC
+ 
+ #include <asm-generic/getorder.h>
++#include <asm-generic/memory_model.h>
+ 
+ #endif
 -- 
-2.31.1
+2.35.1
