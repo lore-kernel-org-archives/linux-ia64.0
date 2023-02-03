@@ -1,45 +1,43 @@
-From: Josh Poimboeuf <jpoimboe@kernel.org>
-Date: Tue, 14 Feb 2023 07:05:48 +0000
-Subject: [PATCH v2 14/24] sh/cpu: Mark play_dead() __noreturn
-Message-Id: <03549a74fad9f73576d57e6fc0b5102322f9cff4.1676358308.git.jpoimboe@kernel.org>
+From: James Morse <james.morse@arm.com>
+Date: Fri, 03 Feb 2023 13:50:16 +0000
+Subject: [RFC PATCH 05/32] drivers: base: Move cpu_dev_init() after node_dev_init()
+Message-Id: <20230203135043.409192-6-james.morse@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1676358308.git.jpoimboe@kernel.org>
-In-Reply-To: <cover.1676358308.git.jpoimboe@kernel.org>
+References: <20230203135043.409192-1-james.morse@arm.com>
+In-Reply-To: <20230203135043.409192-1-james.morse@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: jgross@suse.com, richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux-alpha@vger.kernel.org, linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, loongarch@lists.linux.dev, f.fainelli@gmail.com, bcm-kernel-feedback-list@broadcom.com, tsbogend@alpha.franken.de, linux-mips@vger.kernel.org, jiaxun.yang@flygoat.com, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, ysato@users.sourceforge.jp, dalias@libc.org, linux-sh@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, jcmvbkbc@gmail.com, linux-xtensa@linux-xtensa.org, peterz@infradead.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, paulmck@kernel.org
+To: linux-pm@vger.kernel.org, loongarch@lists.linux.dev, kvmarm@lists.linux.dev, kvm@vger.kernel.org, linux-acpi@vger.kernel.org, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
+Cc: Marc Zyngier <maz@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Sudeep Holla <sudeep.holla@arm.com>, Borislav Petkov <bp@alien8.de>, H Peter Anvin <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will@kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, Huacai Chen <chenhuacai@kernel.org>, James Morse <james.morse@arm.com>, Suzuki K Poulose <suzuki.poulose@arm.com>, Oliver Upton <oliver.upton@linux.dev>, Len Brown <lenb@kernel.org>, Rafael Wysocki <rafael@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Salil Mehta <salil.mehta@huawei.com>, Russell King <linux@armlinux.org.uk>, Jean-Philippe Brucker <jean-philippe@linaro.org>
 
-play_dead() doesn't return.  Annotate it as such.  By extension this
-also makes arch_cpu_idle_dead() noreturn.
+NUMA systems require the node descriptions to be ready before CPUs are
+registered. This is so that the node symlinks can be created in sysfs.
 
-Signed-off-by: Josh Poimboeuf <jpoimboe@kernel.org>
+Currently none of these platforms use GENERIC_CPU_DEVICES, meaning
+that CPUs aren't registered by cpu_dev_init().
+
+Move cpu_dev_init() after node_dev_init() so that NUMA architectures
+can use GENERIC_CPU_DEVICES.
+
+Signed-off-by: James Morse <james.morse@arm.com>
 ---
- arch/sh/include/asm/smp-ops.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/base/init.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/sh/include/asm/smp-ops.h b/arch/sh/include/asm/smp-ops.h
-index 63866b1595a0..97331fcb7b85 100644
---- a/arch/sh/include/asm/smp-ops.h
-+++ b/arch/sh/include/asm/smp-ops.h
-@@ -24,7 +24,7 @@ static inline void plat_smp_setup(void)
- 	mp_ops->smp_setup();
- }
- 
--static inline void play_dead(void)
-+static inline void __noreturn play_dead(void)
- {
- 	mp_ops->play_dead();
- 	BUG();
-@@ -43,7 +43,7 @@ static inline void register_smp_ops(struct plat_smp_ops *ops)
- {
- }
- 
--static inline void play_dead(void)
-+static inline void __noreturn play_dead(void)
- {
- 	BUG();
+diff --git a/drivers/base/init.c b/drivers/base/init.c
+index 397eb9880cec..c4954835128c 100644
+--- a/drivers/base/init.c
++++ b/drivers/base/init.c
+@@ -35,8 +35,8 @@ void __init driver_init(void)
+ 	of_core_init();
+ 	platform_bus_init();
+ 	auxiliary_bus_init();
+-	cpu_dev_init();
+ 	memory_dev_init();
+ 	node_dev_init();
++	cpu_dev_init();
+ 	container_dev_init();
  }
 -- 
-2.39.1
+2.30.2
