@@ -1,74 +1,38 @@
-From: Guo Ren <guoren@kernel.org>
-Date: Mon, 06 Feb 2023 03:11:53 +0000
-Subject: Re: [PATCH 05/22] csky/cpu: Make sure arch_cpu_idle_dead() doesn't return
-Message-Id: <CAJF2gTSrGNm3xkwzws4uh1bv__1XYFCh322MJtk2ObQmv1_nEA@mail.gmail.com>
+From: David Hildenbrand <david@redhat.com>
+Date: Fri, 03 Feb 2023 14:33:45 +0000
+Subject: Re: [PATCH v2 4/4] mm, arch: add generic implementation of pfn_valid() for FLATMEM
+Message-Id: <de9cb029-b36e-efe9-9d0e-46a382e889b5@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1675461757.git.jpoimboe@kernel.org> <f860f3a1c1a53c437a99abc53e8f1a798aef6881.1675461757.git.jpoimboe@kernel.org>
- <CAJF2gTSKe3ve4_rsOYpmSBOyUSU5rpLHyijn9i2-i+WfLqxzYw@mail.gmail.com> <20230204022932.k24laszjs3v4bc3v@treble>
-In-Reply-To: <20230204022932.k24laszjs3v4bc3v@treble>
+References: <20230129124235.209895-1-rppt@kernel.org>
+ <20230129124235.209895-5-rppt@kernel.org>
+In-Reply-To: <20230129124235.209895-5-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Josh Poimboeuf <jpoimboe@kernel.org>
-Cc: linux-kernel@vger.kernel.org, jgross@suse.com, richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux-alpha@vger.kernel.org, linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, will@kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, loongarch@lists.linux.dev, f.fainelli@gmail.com, bcm-kernel-feedback-list@broadcom.com, tsbogend@alpha.franken.de, linux-mips@vger.kernel.org, jiaxun.yang@flygoat.com, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, ysato@users.sourceforge.jp, dalias@libc.org, linux-sh@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, jcmvbkbc@gmail.com, linux-xtensa@linux-xtensa.org, peterz@infradead.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, paulmck@kernel.org
+To: Mike Rapoport <rppt@kernel.org>, Andrew Morton <akpm@linux-foundation.org>
+Cc: Arnd Bergmann <arnd@arndb.de>, Brian Cain <bcain@quicinc.com>, "David S. Miller" <davem@davemloft.net>, Dinh Nguyen <dinguyen@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Guo Ren <guoren@kernel.org>, Helge Deller <deller@gmx.de>, Huacai Chen <chenhuacai@kernel.org>, Matt Turner <mattst88@gmail.com>, Max Filippov <jcmvbkbc@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Michal Simek <monstr@monstr.eu>, Palmer Dabbelt <palmer@dabbelt.com>, Rich Felker <dalias@libc.org>, Richard Weinberger <richard@nod.at>, Russell King <linux@armlinux.org.uk>, Stafford Horne <shorne@gmail.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Vineet Gupta <vgupta@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-mm@kvack.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, loongarch@lists.linux.dev, openrisc@lists.librecores.org, sparclinux@vger.kernel.org, x86@kernel.org, Huacai Chen <chenhuacai@loongson.cn>
 
-On Sat, Feb 4, 2023 at 10:29 AM Josh Poimboeuf <jpoimboe@kernel.org> wrote:
->
-> On Sat, Feb 04, 2023 at 09:12:31AM +0800, Guo Ren wrote:
-> > On Sat, Feb 4, 2023 at 6:05 AM Josh Poimboeuf <jpoimboe@kernel.org> wrote:
-> > >
-> > > arch_cpu_idle_dead() doesn't return.  Make that more explicit with a
-> > > BUG().
-> > >
-> > > BUG() is preferable to unreachable() because BUG() is a more explicit
-> > > failure mode and avoids undefined behavior like falling off the edge of
-> > > the function into whatever code happens to be next.
-> > >
-> > > Signed-off-by: Josh Poimboeuf <jpoimboe@kernel.org>
-> > > ---
-> > >  arch/csky/kernel/smp.c | 2 ++
-> > >  1 file changed, 2 insertions(+)
-> > >
-> > > diff --git a/arch/csky/kernel/smp.c b/arch/csky/kernel/smp.c
-> > > index b45d1073307f..0ec20efaf5fd 100644
-> > > --- a/arch/csky/kernel/smp.c
-> > > +++ b/arch/csky/kernel/smp.c
-> > > @@ -317,5 +317,7 @@ void arch_cpu_idle_dead(void)
-> > >                 "jmpi   csky_start_secondary"
-> > >                 :
-> > >                 : "r" (secondary_stack));
-> > > +
-> > > +       BUG();
-> > Why not:
-> > diff --git a/kernel/sched/idle.c b/kernel/sched/idle.c
-> > index f26ab2675f7d..1d3bf903add2 100644
-> > --- a/kernel/sched/idle.c
-> > +++ b/kernel/sched/idle.c
-> > @@ -285,6 +285,7 @@ static void do_idle(void)
-> >                         tick_nohz_idle_stop_tick();
-> >                         cpuhp_report_idle_dead();
-> >                         arch_cpu_idle_dead();
-> > +                       BUG();
->
-> Without the BUG() in csky arch_cpu_idle_dead(), the compiler will warn
-> about arch_cpu_idle_dead() returning, because it's marked __noreturn but
-> doesn't clearly return (as far as the compiler knows).
->
-> And we want it marked __noreturn so we'll be more likely to catch such
-> bugs at build time.
->
-> And as a bonus we get better code generation and clearer code semantics
-> which helps both humans and tooling understand the intent of the code.
-Thx for the clarification.
+On 29.01.23 13:42, Mike Rapoport wrote:
+> From: "Mike Rapoport (IBM)" <rppt@kernel.org>
+> 
+> Every architecture that supports FLATMEM memory model defines its own
+> version of pfn_valid() that essentially compares a pfn to max_mapnr.
+> 
+> Use mips/powerpc version implemented as static inline as a generic
+> implementation of pfn_valid() and drop its per-architecture definitions.
+> 
+> Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
+> Acked-by: Arnd Bergmann <arnd@arndb.de>
+> Acked-by: Guo Ren <guoren@kernel.org>		# csky
+> Acked-by: Huacai Chen <chenhuacai@loongson.cn>	# LoongArch
+> Acked-by: Stafford Horne <shorne@gmail.com>	# OpenRISC
+> ---
 
-Acked-by: Guo Ren <guoren@kernel.org>
+LGTM with the fixup
 
->
-> --
-> Josh
-
-
+Reviewed-by: David Hildenbrand <david@redhat.com>
 
 -- 
-Best Regards
- Guo Ren
+Thanks,
+
+David / dhildenb
