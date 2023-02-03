@@ -1,7 +1,7 @@
 From: James Morse <james.morse@arm.com>
-Date: Fri, 03 Feb 2023 13:50:35 +0000
-Subject: [RFC PATCH 24/32] arm64, irqchip/gic-v3, ACPI: Move MADT GICC enabled check into a helper
-Message-Id: <20230203135043.409192-25-james.morse@arm.com>
+Date: Fri, 03 Feb 2023 13:50:28 +0000
+Subject: [RFC PATCH 17/32] ACPI: Add post_eject to struct acpi_scan_handler for cpu hotplug
+Message-Id: <20230203135043.409192-18-james.morse@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20230203135043.409192-1-james.morse@arm.com>
 In-Reply-To: <20230203135043.409192-1-james.morse@arm.com>
@@ -11,103 +11,169 @@ Content-Transfer-Encoding: 7bit
 To: linux-pm@vger.kernel.org, loongarch@lists.linux.dev, kvmarm@lists.linux.dev, kvm@vger.kernel.org, linux-acpi@vger.kernel.org, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
 Cc: Marc Zyngier <maz@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Sudeep Holla <sudeep.holla@arm.com>, Borislav Petkov <bp@alien8.de>, H Peter Anvin <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will@kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, Huacai Chen <chenhuacai@kernel.org>, James Morse <james.morse@arm.com>, Suzuki K Poulose <suzuki.poulose@arm.com>, Oliver Upton <oliver.upton@linux.dev>, Len Brown <lenb@kernel.org>, Rafael Wysocki <rafael@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Salil Mehta <salil.mehta@huawei.com>, Russell King <linux@armlinux.org.uk>, Jean-Philippe Brucker <jean-philippe@linaro.org>
 
-ACPI, irqchip and the architecture code all inspect the MADT
-enabled bit for a GICC entry in the MADT.
+struct acpi_scan_handler has a detach callback that is used to remove
+a driver when a bus is changed. When interacting with an eject-request,
+the detach callback is called before _EJ0.
 
-The addition of an 'online capable' bit means all these sites need updating.
+This means the ACPI processor driver can't use _STA to determine if a
+CPU has been made not-present, or some of the other _STA bits have been
+changed. acpi_processor_remove() needs to know the value of _STA after
+_EJ0 has been called.
 
-Move the current checks behind a helper to make future updates easier.
+Add a post_eject callback to struct acpi_scan_handler. This is called
+after acpi_scan_hot_remove() has successfully called _EJ0. Because
+acpi_bus_trim_one() also clears the handler pointer, it needs to be
+told if the caller will go on to call acpi_bus_post_eject(), so
+that acpi_device_clear_enumerated() and clearing the handler pointer
+can be deferred. The existing not-used pointer is used for this.
 
 Signed-off-by: James Morse <james.morse@arm.com>
 ---
- arch/arm64/kernel/smp.c       |  2 +-
- drivers/acpi/processor_core.c |  2 +-
- drivers/irqchip/irq-gic-v3.c  | 10 ++++------
- include/linux/acpi.h          |  5 +++++
- 4 files changed, 11 insertions(+), 8 deletions(-)
+ drivers/acpi/acpi_processor.c |  4 +--
+ drivers/acpi/scan.c           | 52 ++++++++++++++++++++++++++++++-----
+ include/acpi/acpi_bus.h       |  1 +
+ 3 files changed, 48 insertions(+), 9 deletions(-)
 
-diff --git a/arch/arm64/kernel/smp.c b/arch/arm64/kernel/smp.c
-index ffc5d76cf695..5669b013c2b7 100644
---- a/arch/arm64/kernel/smp.c
-+++ b/arch/arm64/kernel/smp.c
-@@ -525,7 +525,7 @@ acpi_map_gic_cpu_interface(struct acpi_madt_generic_interrupt *processor)
+diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processor.c
+index 6ab55f109417..ab0f80b83773 100644
+--- a/drivers/acpi/acpi_processor.c
++++ b/drivers/acpi/acpi_processor.c
+@@ -411,7 +411,7 @@ static int acpi_processor_add(struct acpi_device *device,
+ 
+ #ifdef CONFIG_ACPI_HOTPLUG_PRESENT_CPU
+ /* Removal */
+-static void acpi_processor_remove(struct acpi_device *device)
++static void acpi_processor_post_eject(struct acpi_device *device)
  {
- 	u64 hwid = processor->arm_mpidr;
+ 	struct acpi_processor *pr;
  
--	if (!(processor->flags & ACPI_MADT_ENABLED)) {
-+	if (!acpi_gicc_is_usable(processor)) {
- 		pr_debug("skipping disabled CPU entry with 0x%llx MPIDR\n", hwid);
- 		return;
+@@ -523,7 +523,7 @@ static struct acpi_scan_handler processor_handler = {
+ 	.ids = processor_device_ids,
+ 	.attach = acpi_processor_add,
+ #ifdef CONFIG_ACPI_HOTPLUG_PRESENT_CPU
+-	.detach = acpi_processor_remove,
++	.post_eject = acpi_processor_post_eject,
+ #endif
+ 	.hotplug = {
+ 		.enabled = true,
+diff --git a/drivers/acpi/scan.c b/drivers/acpi/scan.c
+index cecf94192771..cd9bedb54393 100644
+--- a/drivers/acpi/scan.c
++++ b/drivers/acpi/scan.c
+@@ -245,18 +245,28 @@ static int acpi_scan_try_to_offline(struct acpi_device *device)
+ 	return 0;
+ }
+ 
+-static int acpi_bus_trim_one(struct acpi_device *adev, void *not_used)
++/**
++ * acpi_bus_trim_one() - Detach scan handlers and drivers from ACPI device
++ *                       objects.
++ * @adev:       Root of the ACPI namespace scope to walk.
++ * @eject:      Pointer to a bool that indicates if this was due to an
++ *              eject-request.
++ *
++ * Must be called under acpi_scan_lock.
++ * If @eject points to true, clearing the device enumeration is deferred until
++ * acpi_bus_post_eject() is called.
++ */
++static int acpi_bus_trim_one(struct acpi_device *adev, void *eject)
+ {
+ 	struct acpi_scan_handler *handler = adev->handler;
++	bool is_eject = *(bool *)eject;
+ 
+-	acpi_dev_for_each_child_reverse(adev, acpi_bus_trim_one, NULL);
++	acpi_dev_for_each_child_reverse(adev, acpi_bus_trim_one, eject);
+ 
+ 	adev->flags.match_driver = false;
+ 	if (handler) {
+ 		if (handler->detach)
+ 			handler->detach(adev);
+-
+-		adev->handler = NULL;
+ 	} else {
+ 		device_release_driver(&adev->dev);
  	}
-diff --git a/drivers/acpi/processor_core.c b/drivers/acpi/processor_core.c
-index 2ac48cda5b20..1ba273622faa 100644
---- a/drivers/acpi/processor_core.c
-+++ b/drivers/acpi/processor_core.c
-@@ -90,7 +90,7 @@ static int map_gicc_mpidr(struct acpi_subtable_header *entry,
- 	struct acpi_madt_generic_interrupt *gicc  	    container_of(entry, struct acpi_madt_generic_interrupt, header);
- 
--	if (!(gicc->flags & ACPI_MADT_ENABLED))
-+	if (!acpi_gicc_is_usable(gicc))
- 		return -ENODEV;
- 
- 	/* device_declaration means Device object in DSDT, in the
-diff --git a/drivers/irqchip/irq-gic-v3.c b/drivers/irqchip/irq-gic-v3.c
-index 997104d4338e..d484cccfd612 100644
---- a/drivers/irqchip/irq-gic-v3.c
-+++ b/drivers/irqchip/irq-gic-v3.c
-@@ -2189,8 +2189,7 @@ gic_acpi_parse_madt_gicc(union acpi_subtable_headers *header,
- 	u32 size = reg = GIC_PIDR2_ARCH_GICv4 ? SZ_64K * 4 : SZ_64K * 2;
- 	void __iomem *redist_base;
- 
--	/* GICC entry which has !ACPI_MADT_ENABLED is not unusable so skip */
--	if (!(gicc->flags & ACPI_MADT_ENABLED))
-+	if (!acpi_gicc_is_usable(gicc))
- 		return 0;
- 
- 	redist_base = ioremap(gicc->gicr_base_address, size);
-@@ -2240,7 +2239,7 @@ static int __init gic_acpi_match_gicc(union acpi_subtable_headers *header,
- 	 * If GICC is enabled and has valid gicr base address, then it means
- 	 * GICR base is presented via GICC
+@@ -266,7 +276,12 @@ static int acpi_bus_trim_one(struct acpi_device *adev, void *not_used)
  	 */
--	if ((gicc->flags & ACPI_MADT_ENABLED) && gicc->gicr_base_address) {
-+	if (acpi_gicc_is_usable(gicc) && gicc->gicr_base_address) {
- 		acpi_data.enabled_rdists++;
- 		return 0;
- 	}
-@@ -2249,7 +2248,7 @@ static int __init gic_acpi_match_gicc(union acpi_subtable_headers *header,
- 	 * It's perfectly valid firmware can pass disabled GICC entry, driver
- 	 * should not treat as errors, skip the entry instead of probe fail.
- 	 */
--	if (!(gicc->flags & ACPI_MADT_ENABLED))
-+	if (!acpi_gicc_is_usable(gicc))
- 		return 0;
+ 	acpi_device_set_power(adev, ACPI_STATE_D3_COLD);
+ 	adev->flags.initialized = false;
+-	acpi_device_clear_enumerated(adev);
++
++	/* For eject this is deferred to acpi_bus_post_eject() */
++	if (!is_eject) {
++		adev->handler = NULL;
++		acpi_device_clear_enumerated(adev);
++	}
  
- 	return -ENODEV;
-@@ -2308,8 +2307,7 @@ static int __init gic_acpi_parse_virt_madt_gicc(union acpi_subtable_headers *hea
- 	int maint_irq_mode;
- 	static int first_madt = true;
+ 	return 0;
+ }
+@@ -279,15 +294,36 @@ static int acpi_bus_trim_one(struct acpi_device *adev, void *not_used)
+  */
+ void acpi_bus_trim(struct acpi_device *adev)
+ {
+-	acpi_bus_trim_one(adev, NULL);
++	bool eject = false;
++
++	acpi_bus_trim_one(adev, &eject);
+ }
+ EXPORT_SYMBOL_GPL(acpi_bus_trim);
  
--	/* Skip unusable CPUs */
--	if (!(gicc->flags & ACPI_MADT_ENABLED))
-+	if (!acpi_gicc_is_usable(gicc))
- 		return 0;
- 
- 	maint_irq_mode = (gicc->flags & ACPI_MADT_VGIC_IRQ_MODE) ?
-diff --git a/include/linux/acpi.h b/include/linux/acpi.h
-index a59bca4dbcd5..d8e59953a27f 100644
---- a/include/linux/acpi.h
-+++ b/include/linux/acpi.h
-@@ -267,6 +267,11 @@ acpi_table_parse_cedt(enum acpi_cedt_type id,
- int acpi_parse_mcfg (struct acpi_table_header *header);
- void acpi_table_print_madt_entry (struct acpi_subtable_header *madt);
- 
-+static inline bool acpi_gicc_is_usable(struct acpi_madt_generic_interrupt *gicc)
++static int acpi_bus_post_eject(struct acpi_device *adev, void *not_used)
 +{
-+	return (gicc->flags & ACPI_MADT_ENABLED);
++	struct acpi_scan_handler *handler = adev->handler;
++
++	acpi_dev_for_each_child_reverse(adev, acpi_bus_post_eject, NULL);
++
++	if (handler) {
++		if (handler->post_eject)
++			handler->post_eject(adev);
++
++		adev->handler = NULL;
++	}
++
++	acpi_device_clear_enumerated(adev);
++
++	return 0;
 +}
 +
- /* the following numa functions are architecture-dependent */
- void acpi_numa_slit_init (struct acpi_table_slit *slit);
+ static int acpi_scan_hot_remove(struct acpi_device *device)
+ {
+ 	acpi_handle handle = device->handle;
+ 	unsigned long long sta;
+ 	acpi_status status;
++	bool eject = true;
  
+ 	if (device->handler && device->handler->hotplug.demand_offline) {
+ 		if (!acpi_scan_is_offline(device, true))
+@@ -300,7 +336,7 @@ static int acpi_scan_hot_remove(struct acpi_device *device)
+ 
+ 	acpi_handle_debug(handle, "Ejecting\n");
+ 
+-	acpi_bus_trim(device);
++	acpi_bus_trim_one(device, &eject);
+ 
+ 	acpi_evaluate_lck(handle, 0);
+ 	/*
+@@ -323,6 +359,8 @@ static int acpi_scan_hot_remove(struct acpi_device *device)
+ 	} else if (sta & ACPI_STA_DEVICE_ENABLED) {
+ 		acpi_handle_warn(handle,
+ 			"Eject incomplete - status 0x%llx\n", sta);
++	} else {
++		acpi_bus_post_eject(device, NULL);
+ 	}
+ 
+ 	return 0;
+diff --git a/include/acpi/acpi_bus.h b/include/acpi/acpi_bus.h
+index cd3b75e08ec3..dc4028cafd33 100644
+--- a/include/acpi/acpi_bus.h
++++ b/include/acpi/acpi_bus.h
+@@ -126,6 +126,7 @@ struct acpi_scan_handler {
+ 	bool (*match)(const char *idstr, const struct acpi_device_id **matchid);
+ 	int (*attach)(struct acpi_device *dev, const struct acpi_device_id *id);
+ 	void (*detach)(struct acpi_device *dev);
++	void (*post_eject)(struct acpi_device *dev);
+ 	void (*bind)(struct device *phys_dev);
+ 	void (*unbind)(struct device *phys_dev);
+ 	struct acpi_hotplug_profile hotplug;
 -- 
 2.30.2
