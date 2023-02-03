@@ -1,28 +1,39 @@
-From: Andi Shyti <andi.shyti@linux.intel.com>
-Date: Mon, 27 Feb 2023 09:53:03 +0000
-Subject: Re: [Intel-gfx] [PATCH v5 1/7] arch: rename all internal names __xchg to __arch_xchg
-Message-Id: <Y/x9fxS1cFsa1ylP@ashyti-mobl2.lan>
+From: Josh Poimboeuf <jpoimboe@kernel.org>
+Date: Fri, 03 Feb 2023 22:05:28 +0000
+Subject: [PATCH 19/22] xtensa/cpu: Make sure cpu_die() doesn't return
+Message-Id: <13cfde410b50047d778f535d12d928813e92c745.1675461757.git.jpoimboe@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230118153529.57695-1-andrzej.hajda@intel.com>
- <20230118154450.73842-1-andrzej.hajda@intel.com>
-In-Reply-To: <20230118154450.73842-1-andrzej.hajda@intel.com>
+References: <cover.1675461757.git.jpoimboe@kernel.org>
+In-Reply-To: <cover.1675461757.git.jpoimboe@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrzej Hajda <andrzej.hajda@intel.com>
-Cc: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, intel-gfx@lists.freedesktop.org, dri-devel@lists.freedesktop.org, Mark Rutland <mark.rutland@arm.com>, Arnd Bergmann <arnd@arndb.de>, Peter Zijlstra <peterz@infradead.org>, Boqun Feng <boqun.feng@gmail.com>, Palmer Dabbelt <palmer@rivosinc.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Rodrigo Vivi <rodrigo.vivi@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To: linux-kernel@vger.kernel.org
+Cc: jgross@suse.com, richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux-alpha@vger.kernel.org, linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, loongarch@lists.linux.dev, f.fainelli@gmail.com, bcm-kernel-feedback-list@broadcom.com, tsbogend@alpha.franken.de, linux-mips@vger.kernel.org, jiaxun.yang@flygoat.com, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, ysato@users.sourceforge.jp, dalias@libc.org, linux-sh@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, jcmvbkbc@gmail.com, linux-xtensa@linux-xtensa.org, peterz@infradead.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, paulmck@kernel.org
 
-Hi Andrzej,
+cpu_die() doesn't return.  Make that more explicit with a BUG().
 
-On Wed, Jan 18, 2023 at 04:44:44PM +0100, Andrzej Hajda wrote:
-> __xchg will be used for non-atomic xchg macro.
-> 
-> Signed-off-by: Andrzej Hajda <andrzej.hajda@intel.com>
-> Reviewed-by: Arnd Bergmann <arnd@arndb.de>
-> Acked-by: Geert Uytterhoeven <geert@linux-m68k.org> [m68k]
-> Acked-by: Palmer Dabbelt <palmer@rivosinc.com> [riscv]
+BUG() is preferable to unreachable() because BUG() is a more explicit
+failure mode and avoids undefined behavior like falling off the edge of
+the function into whatever code happens to be next.
 
-Reviewed-by: Andi Shyti <andi.shyti@linux.intel.com>
+Signed-off-by: Josh Poimboeuf <jpoimboe@kernel.org>
+---
+ arch/xtensa/kernel/smp.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Thanks,
-Andi
+diff --git a/arch/xtensa/kernel/smp.c b/arch/xtensa/kernel/smp.c
+index 4dc109dd6214..7bad78495536 100644
+--- a/arch/xtensa/kernel/smp.c
++++ b/arch/xtensa/kernel/smp.c
+@@ -341,6 +341,8 @@ void __ref cpu_die(void)
+ 	__asm__ __volatile__(
+ 			"	movi	a2, cpu_restart\n"
+ 			"	jx	a2\n");
++
++	BUG();
+ }
+ 
+ #endif /* CONFIG_HOTPLUG_CPU */
+-- 
+2.39.0
