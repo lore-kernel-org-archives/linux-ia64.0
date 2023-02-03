@@ -1,45 +1,74 @@
-From: Josh Poimboeuf <jpoimboe@kernel.org>
-Date: Fri, 03 Feb 2023 22:05:23 +0000
-Subject: [PATCH 14/22] sh/cpu: Mark play_dead() __noreturn
-Message-Id: <bba33f5055a1f5130d8d08ca019f3144c6345f1a.1675461757.git.jpoimboe@kernel.org>
+From: James Morse <james.morse@arm.com>
+Date: Fri, 03 Feb 2023 13:50:38 +0000
+Subject: [RFC PATCH 27/32] arm64: psci: Ignore DENIED CPUs
+Message-Id: <20230203135043.409192-28-james.morse@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1675461757.git.jpoimboe@kernel.org>
-In-Reply-To: <cover.1675461757.git.jpoimboe@kernel.org>
+References: <20230203135043.409192-1-james.morse@arm.com>
+In-Reply-To: <20230203135043.409192-1-james.morse@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: jgross@suse.com, richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux-alpha@vger.kernel.org, linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, loongarch@lists.linux.dev, f.fainelli@gmail.com, bcm-kernel-feedback-list@broadcom.com, tsbogend@alpha.franken.de, linux-mips@vger.kernel.org, jiaxun.yang@flygoat.com, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, ysato@users.sourceforge.jp, dalias@libc.org, linux-sh@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, jcmvbkbc@gmail.com, linux-xtensa@linux-xtensa.org, peterz@infradead.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, paulmck@kernel.org
+To: linux-pm@vger.kernel.org, loongarch@lists.linux.dev, kvmarm@lists.linux.dev, kvm@vger.kernel.org, linux-acpi@vger.kernel.org, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
+Cc: Marc Zyngier <maz@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Sudeep Holla <sudeep.holla@arm.com>, Borislav Petkov <bp@alien8.de>, H Peter Anvin <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will@kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, Huacai Chen <chenhuacai@kernel.org>, James Morse <james.morse@arm.com>, Suzuki K Poulose <suzuki.poulose@arm.com>, Oliver Upton <oliver.upton@linux.dev>, Len Brown <lenb@kernel.org>, Rafael Wysocki <rafael@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Salil Mehta <salil.mehta@huawei.com>, Russell King <linux@armlinux.org.uk>, Jean-Philippe Brucker <jean-philippe@linaro.org>
 
-play_dead() doesn't return.  Annotate it as such.  By extension this
-also makes arch_cpu_idle_dead() noreturn.
+From: Jean-Philippe Brucker <jean-philippe@linaro.org>
 
-Signed-off-by: Josh Poimboeuf <jpoimboe@kernel.org>
+When a CPU is marked as disabled, but online capable in the MADT, PSCI
+applies some firmware policy to control when it can be brought online.
+PSCI returns DENIED to a CPU_ON request if this is not currently
+permitted. The OS can learn the current policy from the _STA enabled bit.
+
+Handle the PSCI DENIED return code gracefully instead of printing an
+error.
+
+Signed-off-by: Jean-Philippe Brucker <jean-philippe@linaro.org>
+[ morse: Rewrote commit message ]
+Signed-off-by: James Morse <james.morse@arm.com>
 ---
- arch/sh/include/asm/smp-ops.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ arch/arm64/kernel/psci.c     | 2 +-
+ arch/arm64/kernel/smp.c      | 3 ++-
+ drivers/firmware/psci/psci.c | 2 ++
+ 3 files changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/arch/sh/include/asm/smp-ops.h b/arch/sh/include/asm/smp-ops.h
-index 63866b1595a0..97331fcb7b85 100644
---- a/arch/sh/include/asm/smp-ops.h
-+++ b/arch/sh/include/asm/smp-ops.h
-@@ -24,7 +24,7 @@ static inline void plat_smp_setup(void)
- 	mp_ops->smp_setup();
+diff --git a/arch/arm64/kernel/psci.c b/arch/arm64/kernel/psci.c
+index 29a8e444db83..4fcc0cdd757b 100644
+--- a/arch/arm64/kernel/psci.c
++++ b/arch/arm64/kernel/psci.c
+@@ -40,7 +40,7 @@ static int cpu_psci_cpu_boot(unsigned int cpu)
+ {
+ 	phys_addr_t pa_secondary_entry = __pa_symbol(secondary_entry);
+ 	int err = psci_ops.cpu_on(cpu_logical_map(cpu), pa_secondary_entry);
+-	if (err)
++	if (err && err != -EPROBE_DEFER)
+ 		pr_err("failed to boot CPU%d (%d)\n", cpu, err);
+ 
+ 	return err;
+diff --git a/arch/arm64/kernel/smp.c b/arch/arm64/kernel/smp.c
+index 5669b013c2b7..ea031641545d 100644
+--- a/arch/arm64/kernel/smp.c
++++ b/arch/arm64/kernel/smp.c
+@@ -125,7 +125,8 @@ int __cpu_up(unsigned int cpu, struct task_struct *idle)
+ 	/* Now bring the CPU into our world */
+ 	ret = boot_secondary(cpu, idle);
+ 	if (ret) {
+-		pr_err("CPU%u: failed to boot: %d\n", cpu, ret);
++		if (ret != -EPROBE_DEFER)
++			pr_err("CPU%u: failed to boot: %d\n", cpu, ret);
+ 		return ret;
+ 	}
+ 
+diff --git a/drivers/firmware/psci/psci.c b/drivers/firmware/psci/psci.c
+index e7bcfca4159f..3389c913b2ea 100644
+--- a/drivers/firmware/psci/psci.c
++++ b/drivers/firmware/psci/psci.c
+@@ -212,6 +212,8 @@ static int __psci_cpu_on(u32 fn, unsigned long cpuid, unsigned long entry_point)
+ 	int err;
+ 
+ 	err = invoke_psci_fn(fn, cpuid, entry_point, 0);
++	if (err = PSCI_RET_DENIED)
++		return -EPROBE_DEFER;
+ 	return psci_to_linux_errno(err);
  }
  
--static inline void play_dead(void)
-+static inline void __noreturn play_dead(void)
- {
- 	mp_ops->play_dead();
- 	BUG();
-@@ -43,7 +43,7 @@ static inline void register_smp_ops(struct plat_smp_ops *ops)
- {
- }
- 
--static inline void play_dead(void)
-+static inline void __noreturn play_dead(void)
- {
- 	BUG();
- }
 -- 
-2.39.0
+2.30.2
