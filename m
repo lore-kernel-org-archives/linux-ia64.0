@@ -1,34 +1,89 @@
-From: Alexandre Ghiti <alexghiti@rivosinc.com>
-Date: Tue, 14 Feb 2023 07:49:24 +0000
-Subject: [PATCH v3 23/24] mips: Remove empty <uapi/asm/setup.h>
-Message-Id: <20230214074925.228106-24-alexghiti@rivosinc.com>
+From: James Morse <james.morse@arm.com>
+Date: Fri, 03 Feb 2023 13:50:21 +0000
+Subject: [RFC PATCH 10/32] arch_topology: Make register_cpu_capacity_sysctl() tolerant to late CPUs
+Message-Id: <20230203135043.409192-11-james.morse@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230214074925.228106-1-alexghiti@rivosinc.com>
-In-Reply-To: <20230214074925.228106-1-alexghiti@rivosinc.com>
+References: <20230203135043.409192-1-james.morse@arm.com>
+In-Reply-To: <20230203135043.409192-1-james.morse@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jonathan Corbet <corbet@lwn.net>, Richard Henderson <richard.henderson@linaro.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Vineet Gupta <vgupta@kernel.org>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E . J . Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Nicholas Piggin <npiggin@gmail.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S . Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H . Peter Anvin" <hpa@zytor.com>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, Arnd Bergmann <arnd@arndb.de>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org
-Cc: Palmer Dabbelt <palmer@rivosinc.com>
+To: linux-pm@vger.kernel.org, loongarch@lists.linux.dev, kvmarm@lists.linux.dev, kvm@vger.kernel.org, linux-acpi@vger.kernel.org, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
+Cc: Marc Zyngier <maz@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Sudeep Holla <sudeep.holla@arm.com>, Borislav Petkov <bp@alien8.de>, H Peter Anvin <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will@kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, Huacai Chen <chenhuacai@kernel.org>, James Morse <james.morse@arm.com>, Suzuki K Poulose <suzuki.poulose@arm.com>, Oliver Upton <oliver.upton@linux.dev>, Len Brown <lenb@kernel.org>, Rafael Wysocki <rafael@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Salil Mehta <salil.mehta@huawei.com>, Russell King <linux@armlinux.org.uk>, Jean-Philippe Brucker <jean-philippe@linaro.org>
 
-From: Palmer Dabbelt <palmer@rivosinc.com>
+register_cpu_capacity_sysctl() adds a property to sysfs that describes
+the CPUs capacity. This is done from a subsys_initcall() that assumes
+all possible CPUs are registered.
 
-Signed-off-by: Palmer Dabbelt <palmer@rivosinc.com>
+With CPU hotplug, possible CPUs aren't registered until they become
+present, (or for arm64 enabled). This leads to messages during boot:
+| register_cpu_capacity_sysctl: too early to get CPU1 device!
+and once these CPUs are added to the system, the file is missing.
+
+Move this to a cpuhp callback, so that the file is created once
+CPUs are brought online. This covers CPUs that are added late by
+mechanisms like hotplug.
+One observable difference is the file is now missing for offline CPUs.
+
+Signed-off-by: James Morse <james.morse@arm.com>
 ---
- arch/mips/include/uapi/asm/setup.h | 5 -----
- 1 file changed, 5 deletions(-)
- delete mode 100644 arch/mips/include/uapi/asm/setup.h
+If the offline CPUs thing is a problem for the tools that consume
+this value, we'd need to move cpu_capacity to be part of cpu.c's
+common_cpu_attr_groups.
+---
+ drivers/base/arch_topology.c | 38 ++++++++++++++++++++++++------------
+ 1 file changed, 26 insertions(+), 12 deletions(-)
 
-diff --git a/arch/mips/include/uapi/asm/setup.h b/arch/mips/include/uapi/asm/setup.h
-deleted file mode 100644
-index 157c3c392fb4..000000000000
---- a/arch/mips/include/uapi/asm/setup.h
-+++ /dev/null
-@@ -1,5 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
--#ifndef _UAPI_MIPS_SETUP_H
--#define _UAPI_MIPS_SETUP_H
+diff --git a/drivers/base/arch_topology.c b/drivers/base/arch_topology.c
+index e7d6e6657ffa..83a46bc3105d 100644
+--- a/drivers/base/arch_topology.c
++++ b/drivers/base/arch_topology.c
+@@ -220,20 +220,34 @@ static DECLARE_WORK(update_topology_flags_work, update_topology_flags_workfn);
+ 
+ static DEVICE_ATTR_RO(cpu_capacity);
+ 
++static int cpu_capacity_sysctl_add(unsigned int cpu)
++{
++	struct device *cpu_dev = get_cpu_device(cpu);
++
++	if (!cpu_dev)
++		return -ENOENT;
++
++	device_create_file(cpu_dev, &dev_attr_cpu_capacity);
++
++	return 0;
++}
++
++static int cpu_capacity_sysctl_remove(unsigned int cpu)
++{
++	struct device *cpu_dev = get_cpu_device(cpu);
++
++	if (!cpu_dev)
++		return -ENOENT;
++
++	device_remove_file(cpu_dev, &dev_attr_cpu_capacity);
++
++	return 0;
++}
++
+ static int register_cpu_capacity_sysctl(void)
+ {
+-	int i;
+-	struct device *cpu;
 -
--#endif /* _UAPI_MIPS_SETUP_H */
+-	for_each_possible_cpu(i) {
+-		cpu = get_cpu_device(i);
+-		if (!cpu) {
+-			pr_err("%s: too early to get CPU%d device!\n",
+-			       __func__, i);
+-			continue;
+-		}
+-		device_create_file(cpu, &dev_attr_cpu_capacity);
+-	}
++	cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "topology/cpu-capacity",
++			  cpu_capacity_sysctl_add, cpu_capacity_sysctl_remove);
+ 
+ 	return 0;
+ }
 -- 
-2.37.2
+2.30.2
