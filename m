@@ -1,96 +1,50 @@
-From: James Morse <james.morse@arm.com>
-Date: Fri, 03 Feb 2023 13:50:39 +0000
-Subject: [RFC PATCH 28/32] ACPI: add support to register CPUs based on the _STA enabled bit
-Message-Id: <20230203135043.409192-29-james.morse@arm.com>
+From: Josh Poimboeuf <jpoimboe@kernel.org>
+Date: Fri, 03 Feb 2023 22:05:27 +0000
+Subject: [PATCH 18/22] x86/cpu: Mark play_dead() __noreturn
+Message-Id: <6e322880a30ed582847702f400fa99f55be821d3.1675461757.git.jpoimboe@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230203135043.409192-1-james.morse@arm.com>
-In-Reply-To: <20230203135043.409192-1-james.morse@arm.com>
+References: <cover.1675461757.git.jpoimboe@kernel.org>
+In-Reply-To: <cover.1675461757.git.jpoimboe@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-pm@vger.kernel.org, loongarch@lists.linux.dev, kvmarm@lists.linux.dev, kvm@vger.kernel.org, linux-acpi@vger.kernel.org, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
-Cc: Marc Zyngier <maz@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Sudeep Holla <sudeep.holla@arm.com>, Borislav Petkov <bp@alien8.de>, H Peter Anvin <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will@kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, Huacai Chen <chenhuacai@kernel.org>, James Morse <james.morse@arm.com>, Suzuki K Poulose <suzuki.poulose@arm.com>, Oliver Upton <oliver.upton@linux.dev>, Len Brown <lenb@kernel.org>, Rafael Wysocki <rafael@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Salil Mehta <salil.mehta@huawei.com>, Russell King <linux@armlinux.org.uk>, Jean-Philippe Brucker <jean-philippe@linaro.org>
+To: linux-kernel@vger.kernel.org
+Cc: jgross@suse.com, richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux-alpha@vger.kernel.org, linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, loongarch@lists.linux.dev, f.fainelli@gmail.com, bcm-kernel-feedback-list@broadcom.com, tsbogend@alpha.franken.de, linux-mips@vger.kernel.org, jiaxun.yang@flygoat.com, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, ysato@users.sourceforge.jp, dalias@libc.org, linux-sh@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, jcmvbkbc@gmail.com, linux-xtensa@linux-xtensa.org, peterz@infradead.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, paulmck@kernel.org
 
-acpi_processor_get_info() registers all present CPUs. Registering a
-CPU is what creates the sysfs entries and triggers the udev
-notifications.
+play_dead() doesn't return.  Annotate it as such.  By extension this
+also makes arch_cpu_idle_dead() noreturn.
 
-arm64 virtual machines that support 'virtual cpu hotplug' use the
-enabled bit to indicate whether the CPU can be brought online, as
-the existing ACPI tables require all hardware to be described and
-present.
-
-If firmware describes a CPU as present, but disabled, skip the
-registration. Such CPUs are present, but can't be brought online for
-whatever reason. (e.g. firmware/hypervisor policy).
-
-Once firmware sets the enabled bit, the CPU can be registered and
-brought online by user-space. Online CPUs, or CPUs that are missing
-an _STA method must always be registered.
-
-Signed-off-by: James Morse <james.morse@arm.com>
+Signed-off-by: Josh Poimboeuf <jpoimboe@kernel.org>
 ---
- drivers/acpi/acpi_processor.c | 34 +++++++++++++++++++++++++++++++++-
- 1 file changed, 33 insertions(+), 1 deletion(-)
+ arch/x86/include/asm/smp.h | 2 +-
+ arch/x86/kernel/process.c  | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processor.c
-index 572a12672c0e..20e810a066da 100644
---- a/drivers/acpi/acpi_processor.c
-+++ b/drivers/acpi/acpi_processor.c
-@@ -194,6 +194,35 @@ static int acpi_processor_make_present(struct acpi_processor *pr)
- 	return ret;
+diff --git a/arch/x86/include/asm/smp.h b/arch/x86/include/asm/smp.h
+index 8f628e08b25a..e6d1d2810e38 100644
+--- a/arch/x86/include/asm/smp.h
++++ b/arch/x86/include/asm/smp.h
+@@ -93,7 +93,7 @@ static inline void __cpu_die(unsigned int cpu)
+ 	smp_ops.cpu_die(cpu);
  }
  
-+static int acpi_processor_make_enabled(struct acpi_processor *pr)
-+{
-+	unsigned long long sta;
-+	acpi_status status;
-+	bool present, enabled;
-+
-+	if (!acpi_has_method(pr->handle, "_STA"))
-+		return arch_register_cpu(pr->id);
-+
-+	status = acpi_evaluate_integer(pr->handle, "_STA", NULL, &sta);
-+	if (ACPI_FAILURE(status))
-+		return -ENODEV;
-+
-+	present = sta & ACPI_STA_DEVICE_PRESENT;
-+	enabled = sta & ACPI_STA_DEVICE_ENABLED;
-+
-+	if (cpu_online(pr->id) && (!present || !enabled)) {
-+		pr_err_once(FW_BUG "CPU %u is online, but described as not present or disabled!\n", pr->id);
-+		add_taint(TAINT_FIRMWARE_WORKAROUND, LOCKDEP_STILL_OK);
-+	} else if (!present || !enabled) {
-+		return -ENODEV;
-+	}
-+
-+	if (get_cpu_device(pr->id))
-+		return -EEXIST;
-+
-+	return arch_register_cpu(pr->id);
-+}
-+
- static int acpi_processor_get_info(struct acpi_device *device)
+-static inline void play_dead(void)
++static inline void __noreturn play_dead(void)
  {
- 	union acpi_object object = { 0 };
-@@ -271,7 +300,7 @@ static int acpi_processor_get_info(struct acpi_device *device)
- 	}
- 
- 	if (!invalid_logical_cpuid(pr->id) && cpu_present(pr->id)) {
--		int ret = arch_register_cpu(pr->id);
-+		int ret = acpi_processor_make_enabled(pr);
- 		if (ret)
- 			return ret;
- 	}
-@@ -478,6 +507,9 @@ static void acpi_processor_post_eject(struct acpi_device *device)
- 		acpi_processor_make_not_present(device);
- 		return;
- 	}
-+
-+	if (cpu_present(pr->id) && !(sta & ACPI_STA_DEVICE_ENABLED))
-+		arch_unregister_cpu(pr->id);
+ 	smp_ops.play_dead();
+ 	BUG();
+diff --git a/arch/x86/kernel/process.c b/arch/x86/kernel/process.c
+index b650cde3f64d..f1ec36caf1d8 100644
+--- a/arch/x86/kernel/process.c
++++ b/arch/x86/kernel/process.c
+@@ -715,7 +715,7 @@ static bool x86_idle_set(void)
  }
  
- #ifdef CONFIG_X86
+ #ifndef CONFIG_SMP
+-static inline void play_dead(void)
++static inline void __noreturn play_dead(void)
+ {
+ 	BUG();
+ }
 -- 
-2.30.2
+2.39.0
