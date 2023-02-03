@@ -1,181 +1,30 @@
-From: "Matthew Wilcox (Oracle)" <willy@infradead.org>
-Date: Wed, 15 Feb 2023 20:09:17 +0000
-Subject: [PATCH 14/17] ia64: Implement the new page table range API
-Message-Id: <20230215200920.1849567-1-willy@infradead.org>
+From: David Hildenbrand <david@redhat.com>
+Date: Fri, 03 Feb 2023 14:31:32 +0000
+Subject: Re: [PATCH v2 3/4] mips: drop definition of pfn_valid() for DISCONTIGMEM
+Message-Id: <1d13abeb-ea4b-6314-2fd2-1b86b8f4d6c5@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230215000446.1655635-1-willy@infradead.org>
-In-Reply-To: <20230215000446.1655635-1-willy@infradead.org>
+References: <20230129124235.209895-1-rppt@kernel.org>
+ <20230129124235.209895-4-rppt@kernel.org>
+In-Reply-To: <20230129124235.209895-4-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org
-Cc: "Matthew Wilcox (Oracle)" <willy@infradead.org>
+To: Mike Rapoport <rppt@kernel.org>, Andrew Morton <akpm@linux-foundation.org>
+Cc: Arnd Bergmann <arnd@arndb.de>, Brian Cain <bcain@quicinc.com>, "David S. Miller" <davem@davemloft.net>, Dinh Nguyen <dinguyen@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Guo Ren <guoren@kernel.org>, Helge Deller <deller@gmx.de>, Huacai Chen <chenhuacai@kernel.org>, Matt Turner <mattst88@gmail.com>, Max Filippov <jcmvbkbc@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Michal Simek <monstr@monstr.eu>, Palmer Dabbelt <palmer@dabbelt.com>, Rich Felker <dalias@libc.org>, Richard Weinberger <richard@nod.at>, Russell King <linux@armlinux.org.uk>, Stafford Horne <shorne@gmail.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Vineet Gupta <vgupta@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-mm@kvack.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, loongarch@lists.linux.dev, openrisc@lists.librecores.org, sparclinux@vger.kernel.org, x86@kernel.org
 
-Add set_ptes(), update_mmu_cache_range() and flush_dcache_folio().
-PG_arch_1 (aka PG_dcache_clean) becomes a per-folio flag instead of
-per-page, which makes arch_dma_mark_clean() and mark_clean() a little
-more exciting.
+On 29.01.23 13:42, Mike Rapoport wrote:
+> From: "Mike Rapoport (IBM)" <rppt@kernel.org>
+> 
+> There is stale definition of pfn_valid() for DISCONTINGMEM memory model
+> guarded !FLATMEM && !SPARSEMEM && NUMA ifdefery.
+> 
+> Remove everything but definition of pfn_valid() for FLATMEM.
+> 
+> Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
 
-Signed-off-by: Matthew Wilcox (Oracle) <willy@infradead.org>
----
- arch/ia64/hp/common/sba_iommu.c    | 26 +++++++++++++++-----------
- arch/ia64/include/asm/cacheflush.h | 14 ++++++++++----
- arch/ia64/include/asm/pgtable.h    | 14 +++++++++++++-
- arch/ia64/mm/init.c                | 29 +++++++++++++++++++----------
- 4 files changed, 57 insertions(+), 26 deletions(-)
+Reviewed-by: David Hildenbrand <david@redhat.com>
 
-diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
-index 8ad6946521d8..48d475f10003 100644
---- a/arch/ia64/hp/common/sba_iommu.c
-+++ b/arch/ia64/hp/common/sba_iommu.c
-@@ -798,22 +798,26 @@ sba_io_pdir_entry(u64 *pdir_ptr, unsigned long vba)
- #endif
- 
- #ifdef ENABLE_MARK_CLEAN
--/**
-+/*
-  * Since DMA is i-cache coherent, any (complete) pages that were written via
-  * DMA can be marked as "clean" so that lazy_mmu_prot_update() doesn't have to
-  * flush them when they get mapped into an executable vm-area.
-  */
--static void
--mark_clean (void *addr, size_t size)
-+static void mark_clean(void *addr, size_t size)
- {
--	unsigned long pg_addr, end;
--
--	pg_addr = PAGE_ALIGN((unsigned long) addr);
--	end = (unsigned long) addr + size;
--	while (pg_addr + PAGE_SIZE <= end) {
--		struct page *page = virt_to_page((void *)pg_addr);
--		set_bit(PG_arch_1, &page->flags);
--		pg_addr += PAGE_SIZE;
-+	struct folio *folio = virt_to_folio(addr);
-+	ssize_t left = size;
-+	size_t offset = offset_in_folio(folio, addr);
-+
-+	if (offset) {
-+		left -= folio_size(folio) - offset;
-+		folio = folio_next(folio);
-+	}
-+
-+	while (left >= folio_size(folio)) {
-+		set_bit(PG_arch_1, &folio->flags);
-+		left -= folio_size(folio);
-+		folio = folio_next(folio);
- 	}
- }
- #endif
-diff --git a/arch/ia64/include/asm/cacheflush.h b/arch/ia64/include/asm/cacheflush.h
-index 708c0fa5d975..eac493fa9e0d 100644
---- a/arch/ia64/include/asm/cacheflush.h
-+++ b/arch/ia64/include/asm/cacheflush.h
-@@ -13,10 +13,16 @@
- #include <asm/page.h>
- 
- #define ARCH_IMPLEMENTS_FLUSH_DCACHE_PAGE 1
--#define flush_dcache_page(page)			\
--do {						\
--	clear_bit(PG_arch_1, &(page)->flags);	\
--} while (0)
-+static inline void flush_dcache_folio(struct folio *folio)
-+{
-+	clear_bit(PG_arch_1, &folio->flags);
-+}
-+#define flush_dcache_folio flush_dcache_folio
-+
-+static inline void flush_dcache_page(struct page *page)
-+{
-+	flush_dcache_folio(page_folio(page));
-+}
- 
- extern void flush_icache_range(unsigned long start, unsigned long end);
- #define flush_icache_range flush_icache_range
-diff --git a/arch/ia64/include/asm/pgtable.h b/arch/ia64/include/asm/pgtable.h
-index 21c97e31a28a..0c2be4ea664b 100644
---- a/arch/ia64/include/asm/pgtable.h
-+++ b/arch/ia64/include/asm/pgtable.h
-@@ -303,7 +303,18 @@ static inline void set_pte(pte_t *ptep, pte_t pteval)
- 	*ptep = pteval;
- }
- 
--#define set_pte_at(mm,addr,ptep,pteval) set_pte(ptep,pteval)
-+static inline void set_ptes(struct mm_struct *mm, unsigned long addr,
-+		pte_t *ptep, pte_t pte, unsigned int nr)
-+{
-+	for (;;) {
-+		set_pte(ptep, pte);
-+		if (--nr = 0)
-+			break;
-+		ptep++;
-+		pte_val(pte) += PAGE_SIZE;
-+	}
-+}
-+#define set_pte_at(mm, addr, ptep, pte) set_ptes(mm, add, ptep, pte, 1)
- 
- /*
-  * Make page protection values cacheable, uncacheable, or write-
-@@ -396,6 +407,7 @@ pte_same (pte_t a, pte_t b)
- 	return pte_val(a) = pte_val(b);
- }
- 
-+#define update_mmu_cache_range(vma, address, ptep, nr) do { } while (0)
- #define update_mmu_cache(vma, address, ptep) do { } while (0)
- 
- extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
-diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-index 7f5353e28516..12aef25944aa 100644
---- a/arch/ia64/mm/init.c
-+++ b/arch/ia64/mm/init.c
-@@ -50,30 +50,39 @@ void
- __ia64_sync_icache_dcache (pte_t pte)
- {
- 	unsigned long addr;
--	struct page *page;
-+	struct folio *folio;
- 
--	page = pte_page(pte);
--	addr = (unsigned long) page_address(page);
-+	folio = page_folio(pte_page(pte));
-+	addr = (unsigned long)folio_address(folio);
- 
--	if (test_bit(PG_arch_1, &page->flags))
-+	if (test_bit(PG_arch_1, &folio->flags))
- 		return;				/* i-cache is already coherent with d-cache */
- 
--	flush_icache_range(addr, addr + page_size(page));
--	set_bit(PG_arch_1, &page->flags);	/* mark page as clean */
-+	flush_icache_range(addr, addr + folio_size(folio));
-+	set_bit(PG_arch_1, &folio->flags);	/* mark page as clean */
- }
- 
- /*
-- * Since DMA is i-cache coherent, any (complete) pages that were written via
-+ * Since DMA is i-cache coherent, any (complete) folios that were written via
-  * DMA can be marked as "clean" so that lazy_mmu_prot_update() doesn't have to
-  * flush them when they get mapped into an executable vm-area.
-  */
- void arch_dma_mark_clean(phys_addr_t paddr, size_t size)
- {
--	unsigned long pfn = PHYS_PFN(paddr);
-+	struct folio *folio = page_folio(phys_to_page(paddr));
-+	ssize_t left = size;
-+	size_t offset = offset_in_folio(folio, paddr);
- 
--	do {
-+	if (offset) {
-+		left -= folio_size(folio) - offset;
-+		folio = folio_next(folio);
-+	}
-+
-+	while (left >= (ssize_t)folio_size(folio)) {
- 		set_bit(PG_arch_1, &pfn_to_page(pfn)->flags);
--	} while (++pfn <= PHYS_PFN(paddr + size - 1));
-+		left -= folio_size(folio);
-+		folio = folio_next(folio);
-+	}
- }
- 
- inline void
 -- 
-2.39.1
+Thanks,
+
+David / dhildenb
