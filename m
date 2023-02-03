@@ -1,7 +1,7 @@
 From: James Morse <james.morse@arm.com>
-Date: Fri, 03 Feb 2023 13:50:13 +0000
-Subject: [RFC PATCH 02/32] ACPI: Move ACPI_HOTPLUG_CPU to be enabled per architecture
-Message-Id: <20230203135043.409192-3-james.morse@arm.com>
+Date: Fri, 03 Feb 2023 13:50:30 +0000
+Subject: [RFC PATCH 19/32] ACPI: Warn when the present bit changes but the feature is not enabled
+Message-Id: <20230203135043.409192-20-james.morse@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20230203135043.409192-1-james.morse@arm.com>
 In-Reply-To: <20230203135043.409192-1-james.morse@arm.com>
@@ -11,128 +11,47 @@ Content-Transfer-Encoding: 7bit
 To: linux-pm@vger.kernel.org, loongarch@lists.linux.dev, kvmarm@lists.linux.dev, kvm@vger.kernel.org, linux-acpi@vger.kernel.org, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
 Cc: Marc Zyngier <maz@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Sudeep Holla <sudeep.holla@arm.com>, Borislav Petkov <bp@alien8.de>, H Peter Anvin <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will@kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, Huacai Chen <chenhuacai@kernel.org>, James Morse <james.morse@arm.com>, Suzuki K Poulose <suzuki.poulose@arm.com>, Oliver Upton <oliver.upton@linux.dev>, Len Brown <lenb@kernel.org>, Rafael Wysocki <rafael@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Salil Mehta <salil.mehta@huawei.com>, Russell King <linux@armlinux.org.uk>, Jean-Philippe Brucker <jean-philippe@linaro.org>
 
-arm64 doesn't support physical hotadd of CPUs that were not present at boot.
-Much of the platform description is in static tables which do not have
-update methods. arm64 does support HOTPLUG_CPU, which is backed by a
-firmware interface to turn CPUs on and off.
+ACPI firmware can trigger the events to add and remove CPUs, but the
+OS may not support this.
 
-acpi_processor_hotadd_init() and acpi_processor_remove() are for adding
-and removing CPUs that were not present at boot. arm64 systems that do this
-are not supported as there is currently insufficient information in the
-platform description. (e.g. did the GICR get removed too?)
+Print a warning when this happens.
 
-arm64 currently relies on the MADT enabled flag check in map_gicc_mpidr()
-to prevent CPUs that were not described as present at boot from being
-added to the system. Adding support for virtual CPU hotplug (where the
-vCPUs have been present the whole time) would require this check to be
-removed, possibly allowing physical CPUs to be added.
-
-Disable ACPI_HOTPLUG_CPU for arm64 by removing 'default y' and selecting
-it on the other three ACPI architectures. This allows the weak definitions
-of some symbols to be removed.
+This gives early warning on arm64 systems that don't support
+CONFIG_ACPI_HOTPLUG_PRESENT_CPU, as making CPUs not present has
+side effects for other parts of the system.
 
 Signed-off-by: James Morse <james.morse@arm.com>
 ---
- arch/ia64/Kconfig                |  1 +
- arch/loongarch/Kconfig           |  1 +
- arch/loongarch/include/asm/cpu.h |  7 +++++++
- arch/x86/Kconfig                 |  1 +
- drivers/acpi/Kconfig             |  1 -
- drivers/acpi/acpi_processor.c    | 18 ------------------
- 6 files changed, 10 insertions(+), 19 deletions(-)
+ drivers/acpi/acpi_processor.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index d7e4a24e8644..deabb8843aea 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -15,6 +15,7 @@ config IA64
- 	select ARCH_MIGHT_HAVE_PC_PARPORT
- 	select ARCH_MIGHT_HAVE_PC_SERIO
- 	select ACPI
-+	select ACPI_HOTPLUG_CPU if ACPI
- 	select ACPI_NUMA if NUMA
- 	select ARCH_ENABLE_MEMORY_HOTPLUG
- 	select ARCH_ENABLE_MEMORY_HOTREMOVE
-diff --git a/arch/loongarch/Kconfig b/arch/loongarch/Kconfig
-index 9cc8b84f7eb0..075aa50e5d5f 100644
---- a/arch/loongarch/Kconfig
-+++ b/arch/loongarch/Kconfig
-@@ -5,6 +5,7 @@ config LOONGARCH
- 	select ACPI
- 	select ACPI_GENERIC_GSI if ACPI
- 	select ACPI_MCFG if ACPI
-+	select ACPI_HOTPLUG_CPU if ACPI
- 	select ACPI_SYSTEM_POWER_STATES_SUPPORT	if ACPI
- 	select ARCH_BINFMT_ELF_STATE
- 	select ARCH_ENABLE_MEMORY_HOTPLUG
-diff --git a/arch/loongarch/include/asm/cpu.h b/arch/loongarch/include/asm/cpu.h
-index 754f28506791..da79862ff1f3 100644
---- a/arch/loongarch/include/asm/cpu.h
-+++ b/arch/loongarch/include/asm/cpu.h
-@@ -124,4 +124,11 @@ enum cpu_type_enum {
- #define LOONGARCH_CPU_GUESTID		BIT_ULL(CPU_FEATURE_GUESTID)
- #define LOONGARCH_CPU_HYPERVISOR	BIT_ULL(CPU_FEATURE_HYPERVISOR)
- 
-+#if !defined(__ASSEMBLY__)
-+#ifdef CONFIG_HOTPLUG_CPU
-+extern int arch_register_cpu(int num);
-+extern void arch_unregister_cpu(int);
-+#endif
-+#endif /* ! __ASSEMBLY__ */
-+
- #endif /* _ASM_CPU_H */
-diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-index 3604074a878b..6a520c22c3eb 100644
---- a/arch/x86/Kconfig
-+++ b/arch/x86/Kconfig
-@@ -59,6 +59,7 @@ config X86
- 	#
- 	select ACPI_LEGACY_TABLES_LOOKUP	if ACPI
- 	select ACPI_SYSTEM_POWER_STATES_SUPPORT	if ACPI
-+	select ACPI_HOTPLUG_CPU			if ACPI
- 	select ARCH_32BIT_OFF_T			if X86_32
- 	select ARCH_CLOCKSOURCE_INIT
- 	select ARCH_CORRECT_STACKTRACE_ON_KRETPROBE
-diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
-index ccbeab9500ec..4845e5b525ac 100644
---- a/drivers/acpi/Kconfig
-+++ b/drivers/acpi/Kconfig
-@@ -309,7 +309,6 @@ config ACPI_HOTPLUG_CPU
- 	bool
- 	depends on ACPI_PROCESSOR && HOTPLUG_CPU
- 	select ACPI_CONTAINER
--	default y
- 
- config ACPI_PROCESSOR_AGGREGATOR
- 	tristate "Processor Aggregator"
 diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processor.c
-index 6737b1cbf6d6..16b314340e68 100644
+index e6419b06cb37..572a12672c0e 100644
 --- a/drivers/acpi/acpi_processor.c
 +++ b/drivers/acpi/acpi_processor.c
-@@ -150,24 +150,6 @@ static int acpi_processor_errata(void)
+@@ -155,8 +155,10 @@ static int acpi_processor_make_present(struct acpi_processor *pr)
+ 	acpi_status status;
+ 	int ret;
  
- /* Initialization */
- #ifdef CONFIG_ACPI_HOTPLUG_CPU
--int __weak acpi_map_cpu(acpi_handle handle,
--		phys_cpuid_t physid, u32 acpi_id, int *pcpu)
--{
--	return -ENODEV;
--}
--
--int __weak acpi_unmap_cpu(int cpu)
--{
--	return -ENODEV;
--}
--
--int __weak arch_register_cpu(int cpu)
--{
--	return -ENODEV;
--}
--
--void __weak arch_unregister_cpu(int cpu) {}
--
- static int acpi_processor_hotadd_init(struct acpi_processor *pr)
+-	if (!IS_ENABLED(CONFIG_ACPI_HOTPLUG_PRESENT_CPU))
++	if (!IS_ENABLED(CONFIG_ACPI_HOTPLUG_PRESENT_CPU)) {
++		pr_err_once("Changing CPU present bit is not supported\n");
+ 		return -ENODEV;
++	}
+ 
+ 	if (invalid_phys_cpuid(pr->phys_id))
+ 		return -ENODEV;
+@@ -414,8 +416,10 @@ static void acpi_processor_make_not_present(struct acpi_device *device)
  {
- 	unsigned long long sta;
+ 	struct acpi_processor *pr;
+ 
+-	if (!IS_ENABLED(CONFIG_ACPI_HOTPLUG_PRESENT_CPU))
++	if (!IS_ENABLED(CONFIG_ACPI_HOTPLUG_PRESENT_CPU)) {
++		pr_err_once("Changing CPU present bit is not supported");
+ 		return;
++	}
+ 
+ 	pr = acpi_driver_data(device);
+ 	if (pr->id >= nr_cpu_ids)
 -- 
 2.30.2
