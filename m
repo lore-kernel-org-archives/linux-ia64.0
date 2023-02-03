@@ -1,45 +1,65 @@
-From: Josh Poimboeuf <jpoimboe@kernel.org>
-Date: Fri, 03 Feb 2023 22:05:15 +0000
-Subject: [PATCH 06/22] ia64/cpu: Mark play_dead() __noreturn
-Message-Id: <23142556bf02b84f108e17cda731d48449ce1532.1675461757.git.jpoimboe@kernel.org>
+From: James Morse <james.morse@arm.com>
+Date: Fri, 03 Feb 2023 13:50:14 +0000
+Subject: [RFC PATCH 03/32] drivers: base: Use present CPUs in GENERIC_CPU_DEVICES
+Message-Id: <20230203135043.409192-4-james.morse@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1675461757.git.jpoimboe@kernel.org>
-In-Reply-To: <cover.1675461757.git.jpoimboe@kernel.org>
+References: <20230203135043.409192-1-james.morse@arm.com>
+In-Reply-To: <20230203135043.409192-1-james.morse@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: jgross@suse.com, richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux-alpha@vger.kernel.org, linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, loongarch@lists.linux.dev, f.fainelli@gmail.com, bcm-kernel-feedback-list@broadcom.com, tsbogend@alpha.franken.de, linux-mips@vger.kernel.org, jiaxun.yang@flygoat.com, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, ysato@users.sourceforge.jp, dalias@libc.org, linux-sh@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, jcmvbkbc@gmail.com, linux-xtensa@linux-xtensa.org, peterz@infradead.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, paulmck@kernel.org
+To: linux-pm@vger.kernel.org, loongarch@lists.linux.dev, kvmarm@lists.linux.dev, kvm@vger.kernel.org, linux-acpi@vger.kernel.org, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
+Cc: Marc Zyngier <maz@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Sudeep Holla <sudeep.holla@arm.com>, Borislav Petkov <bp@alien8.de>, H Peter Anvin <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will@kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, Huacai Chen <chenhuacai@kernel.org>, James Morse <james.morse@arm.com>, Suzuki K Poulose <suzuki.poulose@arm.com>, Oliver Upton <oliver.upton@linux.dev>, Len Brown <lenb@kernel.org>, Rafael Wysocki <rafael@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Salil Mehta <salil.mehta@huawei.com>, Russell King <linux@armlinux.org.uk>, Jean-Philippe Brucker <jean-philippe@linaro.org>
 
-play_dead() doesn't return.  Annotate it as such.  By extension this
-also makes arch_cpu_idle_dead() noreturn.
+The four ACPI architectures only create sysfs entries using register_cpu()
+for present CPUs, whereas GENERIC_CPU_DEVICES does this for possible CPUs.
 
-Signed-off-by: Josh Poimboeuf <jpoimboe@kernel.org>
+Only two of the eight architectures that use GENERIC_CPU_DEVICES have a
+distinction between present and possible CPUs.
+
+To allow all four ACPI architectures to use GENERIC_CPU_DEVICES, change
+it to use for_each_present_cpu().
+
+The following architectures use GENERIC_CPU_DEVICES but are not SMP,
+so possible = present:
+ * m68k
+ * microblaze
+ * nios2
+
+The following architectures use GENERIC_CPU_DEVICES and consider
+possible = present:
+ * csky: setup_smp()
+ * hexagon: compare smp_start_cpus() and smp_prepare_cpus()
+ * parisc: smp_prepare_boot_cpu() marks the boot cpu as present,
+   processor_probe() sets possible for all CPUs and present for all CPUs
+   except the boot cpu.
+
+um appears to be a subarchitecture of x86.
+
+The remaining architecture using GENERIC_CPU_DEVICES is openrisc,
+where smp_init_cpus() makes all CPUs < NR_CPUS possible, whereas
+smp_prepare_cpus() only makes CPUs < setup_max_cpus present. After this
+change, openrisc systems that boot with max_cpus=1 would not see other
+CPUs present in sysfs. This should not be a problem as these CPUs can't
+be brought online as _cpu_up() checks cpu_present().
+
+Signed-off-by: James Morse <james.morse@arm.com>
 ---
- arch/ia64/kernel/process.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/base/cpu.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
-index f6195a0a00ae..78f5794b2dde 100644
---- a/arch/ia64/kernel/process.c
-+++ b/arch/ia64/kernel/process.c
-@@ -201,7 +201,7 @@ __setup("nohalt", nohalt_setup);
+diff --git a/drivers/base/cpu.c b/drivers/base/cpu.c
+index 4c98849577d4..cf6407c34ede 100644
+--- a/drivers/base/cpu.c
++++ b/drivers/base/cpu.c
+@@ -500,7 +500,7 @@ static void __init cpu_dev_register_generic(void)
+ #ifdef CONFIG_GENERIC_CPU_DEVICES
+ 	int i;
  
- #ifdef CONFIG_HOTPLUG_CPU
- /* We don't actually take CPU down, just spin without interrupts. */
--static inline void play_dead(void)
-+static inline void __noreturn play_dead(void)
- {
- 	unsigned int this_cpu = smp_processor_id();
- 
-@@ -219,7 +219,7 @@ static inline void play_dead(void)
- 	BUG();
- }
- #else
--static inline void play_dead(void)
-+static inline void __noreturn play_dead(void)
- {
- 	BUG();
- }
+-	for_each_possible_cpu(i) {
++	for_each_present_cpu(i) {
+ 		if (register_cpu(&per_cpu(cpu_devices, i), i))
+ 			panic("Failed to register CPU device");
+ 	}
 -- 
-2.39.0
+2.30.2
