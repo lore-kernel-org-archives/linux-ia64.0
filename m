@@ -1,38 +1,36 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Date: Thu, 23 Feb 2023 03:42:58 +0000
-Subject: [PATCH] ia64: mm/contig: fix section mismatch warning/error
-Message-Id: <20230223034258.12917-1-rdunlap@infradead.org>
+From: Josh Poimboeuf <jpoimboe@kernel.org>
+Date: Fri, 03 Feb 2023 22:05:13 +0000
+Subject: [PATCH 04/22] arm64/cpu: Mark cpu_die() __noreturn
+Message-Id: <b0d5d5608d1485495204d3dcac29bdeb8036a619.1675461757.git.jpoimboe@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <cover.1675461757.git.jpoimboe@kernel.org>
+In-Reply-To: <cover.1675461757.git.jpoimboe@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: Randy Dunlap <rdunlap@infradead.org>, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
+Cc: jgross@suse.com, richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux-alpha@vger.kernel.org, linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, loongarch@lists.linux.dev, f.fainelli@gmail.com, bcm-kernel-feedback-list@broadcom.com, tsbogend@alpha.franken.de, linux-mips@vger.kernel.org, jiaxun.yang@flygoat.com, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, ysato@users.sourceforge.jp, dalias@libc.org, linux-sh@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, jcmvbkbc@gmail.com, linux-xtensa@linux-xtensa.org, peterz@infradead.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, paulmck@kernel.org
 
-alloc_per_cpu_data() is called by find_memory(), which is marked
-as __init. Therefore alloc_per_cpu_data() can also be marked as
-__init to remedy this modpost problem.
+cpu_die() doesn't return.  Annotate it as such.  By extension this also
+makes arch_cpu_idle_dead() noreturn.
 
-WARNING: modpost: vmlinux.o: section mismatch in reference: alloc_per_cpu_data (section: .text) -> memblock_alloc_try_nid (section: .init.text)
-
-Fixes: 4b9ddc7cf272 ("[IA64] Fix section mismatch in contig.c version of per_cpu_init()")
-Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Josh Poimboeuf <jpoimboe@kernel.org>
 ---
- arch/ia64/mm/contig.c |    2 +-
+ arch/arm64/include/asm/smp.h | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff -- a/arch/ia64/mm/contig.c b/arch/ia64/mm/contig.c
---- a/arch/ia64/mm/contig.c
-+++ b/arch/ia64/mm/contig.c
-@@ -77,7 +77,7 @@ skip:
- 	return __per_cpu_start + __per_cpu_offset[smp_processor_id()];
- }
+diff --git a/arch/arm64/include/asm/smp.h b/arch/arm64/include/asm/smp.h
+index fc55f5a57a06..5733a31bab08 100644
+--- a/arch/arm64/include/asm/smp.h
++++ b/arch/arm64/include/asm/smp.h
+@@ -100,7 +100,7 @@ static inline void arch_send_wakeup_ipi_mask(const struct cpumask *mask)
+ extern int __cpu_disable(void);
  
--static inline void
-+static inline __init void
- alloc_per_cpu_data(void)
- {
- 	size_t size = PERCPU_PAGE_SIZE * num_possible_cpus();
+ extern void __cpu_die(unsigned int cpu);
+-extern void cpu_die(void);
++extern void __noreturn cpu_die(void);
+ extern void cpu_die_early(void);
+ 
+ static inline void cpu_park_loop(void)
+-- 
+2.39.0
