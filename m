@@ -1,27 +1,45 @@
-From: Andi Shyti <andi.shyti@linux.intel.com>
-Date: Mon, 27 Feb 2023 09:54:46 +0000
-Subject: Re: [Intel-gfx] [PATCH v5 3/7] arch/*/uprobes: simplify arch_uretprobe_hijack_return_addr
-Message-Id: <Y/x95g9aUmMdO7Hu@ashyti-mobl2.lan>
+From: Josh Poimboeuf <jpoimboe@kernel.org>
+Date: Fri, 03 Feb 2023 22:05:15 +0000
+Subject: [PATCH 06/22] ia64/cpu: Mark play_dead() __noreturn
+Message-Id: <23142556bf02b84f108e17cda731d48449ce1532.1675461757.git.jpoimboe@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230118153529.57695-1-andrzej.hajda@intel.com>
- <20230118154450.73842-1-andrzej.hajda@intel.com>
- <20230118154450.73842-3-andrzej.hajda@intel.com>
-In-Reply-To: <20230118154450.73842-3-andrzej.hajda@intel.com>
+References: <cover.1675461757.git.jpoimboe@kernel.org>
+In-Reply-To: <cover.1675461757.git.jpoimboe@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrzej Hajda <andrzej.hajda@intel.com>
-Cc: Mark Rutland <mark.rutland@arm.com>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, dri-devel@lists.freedesktop.org, linux-mips@vger.kernel.org, sparclinux@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-snps-arc@lists.infradead.org, Boqun Feng <boqun.feng@gmail.com>, linux-xtensa@linux-xtensa.org, Arnd Bergmann <arnd@arndb.de>, intel-gfx@lists.freedesktop.org, linux-m68k@lists.linux-m68k.org, openrisc@lists.librecores.org, loongarch@lists.linux.dev, Rodrigo Vivi <rodrigo.vivi@intel.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org
+To: linux-kernel@vger.kernel.org
+Cc: jgross@suse.com, richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux-alpha@vger.kernel.org, linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, loongarch@lists.linux.dev, f.fainelli@gmail.com, bcm-kernel-feedback-list@broadcom.com, tsbogend@alpha.franken.de, linux-mips@vger.kernel.org, jiaxun.yang@flygoat.com, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, ysato@users.sourceforge.jp, dalias@libc.org, linux-sh@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, jcmvbkbc@gmail.com, linux-xtensa@linux-xtensa.org, peterz@infradead.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, paulmck@kernel.org
 
-Hi Andrzej,
+play_dead() doesn't return.  Annotate it as such.  By extension this
+also makes arch_cpu_idle_dead() noreturn.
 
-On Wed, Jan 18, 2023 at 04:44:46PM +0100, Andrzej Hajda wrote:
-> In all architectures, except x86, arch_uretprobe_hijack_return_addr
-> is just __xchg.
-> 
-> Signed-off-by: Andrzej Hajda <andrzej.hajda@intel.com>
+Signed-off-by: Josh Poimboeuf <jpoimboe@kernel.org>
+---
+ arch/ia64/kernel/process.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Reviewed-by: Andi Shyti <andi.shyti@linux.intel.com>
-
-Thanks,
-Andi
+diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
+index f6195a0a00ae..78f5794b2dde 100644
+--- a/arch/ia64/kernel/process.c
++++ b/arch/ia64/kernel/process.c
+@@ -201,7 +201,7 @@ __setup("nohalt", nohalt_setup);
+ 
+ #ifdef CONFIG_HOTPLUG_CPU
+ /* We don't actually take CPU down, just spin without interrupts. */
+-static inline void play_dead(void)
++static inline void __noreturn play_dead(void)
+ {
+ 	unsigned int this_cpu = smp_processor_id();
+ 
+@@ -219,7 +219,7 @@ static inline void play_dead(void)
+ 	BUG();
+ }
+ #else
+-static inline void play_dead(void)
++static inline void __noreturn play_dead(void)
+ {
+ 	BUG();
+ }
+-- 
+2.39.0
