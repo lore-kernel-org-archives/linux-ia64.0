@@ -1,7 +1,7 @@
-From: Peter Xu <peterx@redhat.com>
-Date: Thu, 02 Feb 2023 22:56:22 +0000
+From: Al Viro <viro@zeniv.linux.org.uk>
+Date: Sat, 04 Feb 2023 00:26:39 +0000
 Subject: Re: [RFC][PATCHSET] VM_FAULT_RETRY fixes
-Message-Id: <Y9w/lrL6g4yauXz4@x1n>
+Message-Id: <Y92mP1GT28KfnPEQ@ZenIV>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Y9lz6yk113LmC9SI@ZenIV>
  <CAHk-=whf73Vm2U3jyTva95ihZzefQbThZZxqZuKAF-Xjwq=G4Q@mail.gmail.com>
@@ -11,185 +11,301 @@ References: <Y9lz6yk113LmC9SI@ZenIV>
  <CAHk-=wjNwwnBckTo8HLSdsd1ndoAR=5RBoZhdOyzhsnDAYWL9g@mail.gmail.com>
  <Y9rCBqwbLlLf1fHe@x1n>
  <Y9rlI6d5J2Y/YNQ+@ZenIV>
-In-Reply-To: <Y9rlI6d5J2Y/YNQ+@ZenIV>
+ <Y9w/lrL6g4yauXz4@x1n>
+In-Reply-To: <Y9w/lrL6g4yauXz4@x1n>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>
+To: Peter Xu <peterx@redhat.com>
 Cc: Linus Torvalds <torvalds@linux-foundation.org>, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-m68k@lists.linux-m68k.org, Michal Simek <monstr@monstr.eu>, Dinh Nguyen <dinguyen@kernel.org>, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, sparclinux@vger.kernel.org
 
-On Wed, Feb 01, 2023 at 10:18:11PM +0000, Al Viro wrote:
-> On Wed, Feb 01, 2023 at 02:48:22PM -0500, Peter Xu wrote:
-> 
-> > I do also see a common pattern of the possibility to have a generic fault
-> > handler like generic_page_fault().
-> > 
-> > It probably should start with taking the mmap_sem until providing some
-> > retval that is much easier to digest further by the arch-dependent code, so
-> > it can directly do something rather than parsing the bitmask in a
-> > duplicated way (hence the new retval should hopefully not a bitmask anymore
-> > but a "what to do").
-> > 
-> > Maybe it can be something like:
-> > 
-> > /**
-> >  * enum page_fault_retval - Higher level fault retval, generalized from
-> >  * vm_fault_reason above that is only used by hardware page fault handlers.
-> >  * It generalizes the bitmask-versioned retval into something that the arch
-> >  * dependent code should react upon.
-> >  *
-> >  * @PF_RET_COMPLETED:		The page fault is completed successfully
-> >  * @PF_RET_BAD_AREA:		The page fault address falls in a bad area
-> >  *				(e.g., vma not found, expand_stack() fails..)
-> 
-> FWIW, there's a fun discrepancy - VM_FAULT_SIGSEGV may yield SEGV_MAPERR
-> or SEGV_ACCERR; depends upon the architecture.  Not that there'd been
-> many places that return VM_FAULT_SIGSEGV these days...  Good thing, too,
-> since otherwise e.g. csky would oops...
-> 
-> >  * @PF_RET_ACCESS_ERR:		The page fault has access errors
-> >  *				(e.g., write fault on !VM_WRITE vmas)
-> >  * @PF_RET_KERN_FIXUP:		The page fault requires kernel fixups
-> >  *				(e.g., during copy_to_user() but fault failed?)
-> >  * @PF_RET_HWPOISON:		The page fault encountered poisoned pages
-> >  * @PF_RET_SIGNAL:		The page fault encountered poisoned pages
-> 
-> ??
-> 
-> >  * ...
-> >  */
-> > enum page_fault_retval {
-> > 	PF_RET_DONE = 0,
-> > 	PF_RET_BAD_AREA,
-> > 	PF_RET_ACCESS_ERR,
-> > 	PF_RET_KERN_FIXUP,
-> >         PF_RET_HWPOISON,
-> >         PF_RET_SIGNAL,
-> > 	...
-> > };
-> > 
-> > As a start we may still want to return some more information (perhaps still
-> > the vm_fault_t alongside?  Or another union that will provide different
-> > information based on different PF_RET_*).  One major thing is I see how we
-> > handle VM_FAULT_HWPOISON and also the fact that we encode something more
-> > into the bitmask on page sizes (VM_FAULT_HINDEX_MASK).
-> > 
-> > So the generic helper could, hopefully, hide the complexity of:
-> > 
-> >   - Taking and releasing of mmap lock
-> >   - find_vma(), and also relevant checks on access or stack handling
-> 
-> Umm...  arm is a bit special here:
->                 if (addr < FIRST_USER_ADDRESS)
-> 			return VM_FAULT_BADMAP;
-> with no counterparts elsewhere.
+On Thu, Feb 02, 2023 at 05:56:22PM -0500, Peter Xu wrote:
 
-For this specific case IIUC it's the same as bad_area.  VM_FAULT_BADMAP is
-further handled later in do_page_fault() there for either arm/arm64.
-
-This reminded me this, on how arm defines the private retvals, while the
-generic ones grows and probably no one noticed they can collapse already..
-
-#define VM_FAULT_BADMAP		0x010000
-#define VM_FAULT_BADACCESS	0x020000
-
-enum vm_fault_reason {
-        ...
-	VM_FAULT_HINDEX_MASK    = (__force vm_fault_t)0x0f0000,
-};
-
-VM_FAULT_HINDEX_MASK is only used by VM_FAULT_HWPOISON_LARGE, so I think
-arm[64] could expect some surprise when it hit hugetlb hwpoison pages...
-maybe I should prepare a patch for arm.
-
+> IMHO it'll be merely impossible to merge things across most (if not to say,
+> all) archs.  It will need to be start from one or at least a few that still
+> shares a major common base - I would still rely on x86 as a start - then we
+> try to use the helper in as much archs as possible.
 > 
-> >   - handle_mm_fault() itself (of course...)
-> >   - detect signals
-> >   - handle page fault retries (so, in the new layer of retval there should
-> >     have nothing telling it to retry; it should always be the ultimate result)
-> 
-> agreed.
-> 
->     - unlock mmap; don't leave that to caller.
-> 
-> >   - parse different errors into "what the arch code should do", and
-> >     generalize the common ones, e.g.
-> >     - OOM, do pagefault_out_of_memory() for user-mode
-> >     - VM_FAULT_SIGSEGV, which should be able to merge into PF_RET_BAD_AREA?
-> >     - ...
-> 
-> AFAICS, all errors in kernel mode => no_context.
-> 
-> > It'll simplify things if we can unify some small details like whether the
-> > -EFAULT above should contain a sigbus.
-> > 
-> > A trivial detail I found when I was looking at this is, x86_64 passes in
-> > different signals to kernelmode_fixup_or_oops() - in do_user_addr_fault()
-> > there're three call sites and each of them pass over a differerent signal.
-> > IIUC that will only make a difference if there's a nested page fault during
-> > the vsyscall emulation (but I may be wrong too because I'm new to this
-> > code), and I have no idea when it'll happen and whether that needs to be
-> > strictly followed.
-> 
-> From my (very incomplete so far) dig through that pile:
-> 	Q: do we still have the cases when handle_mm_fault() does
-> not return any of VM_FAULT_COMPLETED | VM_FAULT_RETRY | VM_FAULT_ERROR?
-> That gets treated as unlock + VM_FAULT_COMPLETED, but do we still need
-> that?
-> 	Q: can VM_FAULT_RETRY be mixed with anything in VM_FAULT_ERROR?
-> What locking, if that happens?
+> Even on x86, I do also see challenges so I'm not sure whether a common
+> enough routine can be abstracted indeed.  But I believe there's a way to do
+> this because obviously we still see tons of duplicated logics falling
+> around.  It may definitely need time to think out where's the best spot to
+> start, and how to gradually move towards covering more archs starting from
+> one.
 
-For this one, I don't think they can be mixed.  IMHO RETRY only binds with
-a wait, so if we didn't wait and found issue, we return ERROR; if we
-decided to wait, we will try nothing more besides return after wait with
-the RETRY.  We should just never check any error at all if the wait
-happened.  Otherwise there's a bug of potential deadlock.
+FWIW, after going through everything from alpha to loongarch (in alphabetic
+order, skipping the itanic) the following seems to be suitable for all of
+them:
 
-I'll skip some details in this email either above or below; I agree
-there're so many trivial details to take care of to not break a thing.
+generic_fault(address, flags, vm_flags, regs)
+{
+	struct mm_struct *mm = current->mm;
+	struct vm_area_struct *vma;
+	vm_fault_t fault;
 
-IMHO it'll be merely impossible to merge things across most (if not to say,
-all) archs.  It will need to be start from one or at least a few that still
-shares a major common base - I would still rely on x86 as a start - then we
-try to use the helper in as much archs as possible.
+	perf_sw_event(PERF_COUNT_SW_PAGE_FAULTS, 1, regs, address);
 
-Even on x86, I do also see challenges so I'm not sure whether a common
-enough routine can be abstracted indeed.  But I believe there's a way to do
-this because obviously we still see tons of duplicated logics falling
-around.  It may definitely need time to think out where's the best spot to
-start, and how to gradually move towards covering more archs starting from
-one.
+	if (unlikely(!mmap_read_trylock(mm))) {
+		if (!(flags & FAULT_FLAG_USER) &&
+		    !search_exception_tables(instruction_pointer(regs))) {
+			/*
+			 * Fault from code in kernel from
+			 * which we do not expect faults.
+			 */
+			return KERN;
+		}
+retry:
+		mmap_read_lock(mm);
+	} else {
+		might_sleep();
+#ifdef CONFIG_DEBUG_VM
+		if (!(flags & FAULT_FLAG_USER) &&
+		    !search_exception_tables(instruction_pointer(regs)))
+			return KERN;
+#endif
+	}
+	vma = find_vma(mm, address);
+	if (!vma)
+		goto Eunmapped;
+	if (unlikely(vma->vm_start > address)) {
+		if (!(vma->vm_flags & VM_GROWSDOWN))
+			goto Eunmapped;
+		if (addr < FIRST_USER_ADDRESS)
+			goto Eunmapped;
+		if (expand_stack(vma, address))
+			goto Eunmapped;
+	}
 
-Thanks,
+	/* Ok, we have a good vm_area for this memory access, so
+	   we can handle it.  */
+	if (!(vma->vm_flags & vm_flags))
+		goto Eaccess;
 
-> 	* details of storing the fault details (for ptrace, mostly)
-> vary a lot; no chance to unify, AFAICS.
-> 	* requirements for vma flags also differ; e.g. read fault on
-> alpha is explicitly OK with absence of VM_READ if VM_WRITE is there.
-> Probably should go by way of arm and pass the mask that must
-> have non-empty intersection with vma->vm_flags?  Because *that*
-> is very likely to be a part of ABI - mmap(2) callers that rely
-> upon the flags being OK for given architecture are quite possible.
-> 	* mmap lock is also quite variable in how it's taken;
-> x86 and arm have fun dance with trylock/search for exception handler/etc.
-> Other architectures do not; OTOH, there's a prefetch stuck in itanic
-> variant, with comment about mmap_sem being performance-critical...
-> 	* logics for stack expansion includes this twist:
->         if (!(vma->vm_flags & VM_GROWSDOWN))
->                 goto map_err;
->         if (user_mode(regs)) {
->                 /* Accessing the stack below usp is always a bug.  The
->                    "+ 256" is there due to some instructions doing
->                    pre-decrement on the stack and that doesn't show up
->                    until later.  */
->                 if (address + 256 < rdusp())
->                         goto map_err;
->         }
->         if (expand_stack(vma, address))
->                 goto map_err;
-> That's m68k; ISTR similar considerations elsewhere, but I could be
-> wrong.
-> 
+	/* If for any reason at all we couldn't handle the fault,
+	   make sure we exit gracefully rather than endlessly redo
+	   the fault.  */
+	fault = handle_mm_fault(vma, address, flags, regs);
 
--- 
-Peter Xu
+	if (unlikely(fault & VM_FAULT_RETRY)) {
+		if (!(flags & FAULT_FLAG_USER)) {
+			if (fatal_signal_pending(current))
+				return KERN;
+		} else {
+			if (signal_pending(current))
+				return FOAD;
+		}
+		flags |= FAULT_FLAG_TRIED;
+		goto retry;
+	}
+
+	if (fault & VM_FAULT_COMPLETED)
+		return DONE;
+
+	mmap_read_unlock(mm);
+
+	if (likely(!(fault & VM_FAULT_ERROR)))
+		return DONE;
+
+	if (!(flags & FAULT_FLAG_USER))
+		return KERN;
+
+	if (fault & VM_FAULT_OOM) {
+		pagefault_out_of_memory();
+		return FOAD;
+	}
+
+	if (fault & VM_FAULT_SIGSEGV)
+		return SIGSEGV;
+
+	if (fault & VM_FAULT_SIGBUS)
+		return SIGBUS;
+
+	if (fault & VM_FAULT_HWPOISON)
+		return POISON + PAGE_SHIFT;	// POISON = 256
+
+	if (fault & VM_FAULT_HWPOISON_LARGE)
+		return POISON + hstate_index_to_shift(VM_FAULT_GET_HINDEX(fault));
+
+	BUG();
+
+Eunmapped:
+	mmap_read_unlock(mm);
+	return flags & FAULT_FLAG_USER ? MAPERR : KERN;
+Eaccess:
+	mmap_read_unlock(mm);
+	return flags & FAULT_FLAG_USER ? ACCERR : KERN;
+}
+
+possible return values (and that's obviously not the identifiers to be
+used for real; for now I'm just looking for feasibility of it all):
+	DONE		success, nothing else to be done
+	FOAD		OOM/fatal signal with VM_FAULT_RETRY/
+			signal with VM_FAULT_RETRY from userland - nothing
+			to be done here.
+	KERN		kernel mode failed fault, fixup or oops
+	MAPERR		unmapped address, SIGSEGV/SEGV_MAPERR for you
+	ACCERR		nothing in vm_flags present in ->vm_flags of vma;
+			SIGSEGV/SEGV_ACCERR
+	SIGSEGV		VM_FAULT_SIGSEGV; some architectures treat that
+			as SEGV_MAPERR, some as SEGV_ACCERR.
+	SIGBUS		VM_FAULT_SIGBUS; SIGBUS/BUS_ADRERR
+	POISON + shift	VM_FAULT_HWPOISON and VM_FAULT_HWPOISON_LARGE, with
+			log2(affected page size) encoded into return value.
+
+This is obviously not even close to final helper, but... alpha, arc, arm, arm64,
+csky, hexagon, loongarch convert to that cleanly.
+
+Itanic very much does not (due to weird dual stacks, awful address space layout,
+etc.), but then git rm arch/ia64 is long overdue.
+
+Fairly typical look after conversion:
+
+arc: 
+{
+	struct task_struct *tsk = current;
+	struct mm_struct *mm = tsk->mm;
+	unsigned int mask;
+	unsigned int flags;
+	unsigned int res;
+
+	/*
+	 * NOTE! We MUST NOT take any locks for this case. We may
+	 * be in an interrupt or a critical region, and should
+	 * only copy the information from the master page table,
+	 * nothing more.
+	 */
+	if (address >= VMALLOC_START && !user_mode(regs)) {
+		if (unlikely(handle_kernel_vaddr_fault(address)))
+			goto no_context;
+		else
+			return;
+	}
+
+	/*
+	 * If we're in an interrupt or have no user
+	 * context, we must not take the fault..
+	 */
+	if (faulthandler_disabled() || !mm)
+		goto no_context;
+
+	flags = FAULT_FLAG_DEFAULT;
+	if (user_mode(regs))
+		flags |= FAULT_FLAG_USER;
+	mask = VM_READ;
+	if (regs->ecr_cause & ECR_C_PROTV_STORE) {	/* ST/EX */
+		flags |= FAULT_FLAG_WRITE;
+		mask = VM_WRITE;
+	} else if ((regs->ecr_vec = ECR_V_PROTV) &&
+	         (regs->ecr_cause = ECR_C_PROTV_INST_FETCH)) {
+		mask = VM_EXEC;
+	}
+
+	res = generic_fault(address, flags, mask, regs);
+	if (likely(res = DONE))
+		return;
+	if (res = FOAD)
+		return;
+	if (res = KERN) {
+no_context:
+		if (fixup_exception(regs))
+			return;
+		die("Oops", regs, address);
+	}
+
+	tsk->thread.fault_address = address;
+	if (res = SIGBUS)
+		force_sig_fault(SIGBUS, BUS_ADRERR, (void __user *) address);
+	else
+		force_sig_fault(SIGSEGV, res = ACCERR ? SEGV_ACCERR : SEGV_MAPERR,
+				(void __user *) address);
+}
+
+Or this arm64:
+
+{
+	const struct fault_info *inf;
+	struct mm_struct *mm = current->mm;
+	unsigned long vm_flags;
+	unsigned int mm_flags = FAULT_FLAG_DEFAULT;
+	unsigned long addr = untagged_addr(far);
+	unsigned int res;
+
+	if (kprobe_page_fault(regs, esr))
+		return 0;
+
+	/*
+	 * If we're in an interrupt or have no user context, we must not take
+	 * the fault.
+	 */
+	if (faulthandler_disabled() || !mm)
+		goto no_context;
+
+	if (user_mode(regs))
+		mm_flags |= FAULT_FLAG_USER;
+
+	/*
+	 * vm_flags tells us what bits we must have in vma->vm_flags
+	 * for the fault to be benign, __do_page_fault() would check
+	 * vma->vm_flags & vm_flags and returns an error if the
+	 * intersection is empty
+	 */
+	if (is_el0_instruction_abort(esr)) {
+		/* It was exec fault */
+		vm_flags = VM_EXEC;
+		mm_flags |= FAULT_FLAG_INSTRUCTION;
+	} else if (is_write_abort(esr)) {
+		/* It was write fault */
+		vm_flags = VM_WRITE;
+		mm_flags |= FAULT_FLAG_WRITE;
+	} else {
+		/* It was read fault */
+		vm_flags = VM_READ;
+		/* Write implies read */
+		vm_flags |= VM_WRITE;
+		/* If EPAN is absent then exec implies read */
+		if (!cpus_have_const_cap(ARM64_HAS_EPAN))
+			vm_flags |= VM_EXEC;
+	}
+
+	if (is_ttbr0_addr(addr) && is_el1_permission_fault(addr, esr, regs)) {
+		if (is_el1_instruction_abort(esr))
+			die_kernel_fault("execution of user memory",
+					 addr, esr, regs);
+
+		if (!search_exception_tables(regs->pc))
+			die_kernel_fault("access to user memory outside uaccess routines",
+					 addr, esr, regs);
+	}
+
+	res = generic_fault(addr, mm_flags, vm_flags, regs);
+	if (likely(res = DONE))
+		return 0;
+	if (res = FOAD)
+		return 0;
+	if (res = KERN) {
+no_context:
+		__do_kernel_fault(addr, esr, regs);
+		return 0;
+	}
+	inf = esr_to_fault_info(esr);
+	set_thread_esr(addr, esr);
+	if (res = SIGBUS) {
+		/*
+		 * We had some memory, but were unable to successfully fix up
+		 * this page fault.
+		 */
+		arm64_force_sig_fault(SIGBUS, BUS_ADRERR, far, inf->name);
+	} else if (res > POISON) {
+		arm64_force_sig_mceerr(BUS_MCEERR_AR, far, res - POISON, inf->name);
+	} else {
+		/*
+		 * Something tried to access memory that isn't in our memory
+		 * map.
+		 */
+		arm64_force_sig_fault(SIGSEGV,
+				      res = ACCERR ? SEGV_ACCERR : SEGV_MAPERR,
+				      far, inf->name);
+	}
+
+	return 0;
+}
