@@ -1,69 +1,41 @@
-From: Finn Thain <fthain@linux-m68k.org>
-Date: Sun, 05 Feb 2023 06:18:08 +0000
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Sun, 05 Feb 2023 18:51:57 +0000
 Subject: Re: [PATCH 04/10] m68k: fix livelock in uaccess
-Message-Id: <92a4aa45-0a7c-a389-798a-2f3e3cfa516f@linux-m68k.org>
+Message-Id: <CAHk-=wirpn8qX5hCyeS0a4GCQH5p-2ACXgzJTj7zjZ5rGux_Bw@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Y9lz6yk113LmC9SI@ZenIV> <Y9l0aBPUEpf1bci9@ZenIV>
-In-Reply-To: <Y9l0aBPUEpf1bci9@ZenIV>
+References: <Y9lz6yk113LmC9SI@ZenIV> <Y9l0aBPUEpf1bci9@ZenIV> <92a4aa45-0a7c-a389-798a-2f3e3cfa516f@linux-m68k.org>
+In-Reply-To: <92a4aa45-0a7c-a389-798a-2f3e3cfa516f@linux-m68k.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>
-Cc: linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-m68k@lists.linux-m68k.org, Michal Simek <monstr@monstr.eu>, Dinh Nguyen <dinguyen@kernel.org>, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, sparclinux@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>
+To: Finn Thain <fthain@linux-m68k.org>
+Cc: Al Viro <viro@zeniv.linux.org.uk>, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-m68k@lists.linux-m68k.org, Michal Simek <monstr@monstr.eu>, Dinh Nguyen <dinguyen@kernel.org>, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, sparclinux@vger.kernel.org
 
-Hello Al,
+On Sat, Feb 4, 2023 at 10:16 PM Finn Thain <fthain@linux-m68k.org> wrote:
+>
+> That could be a bug I was chasing back in 2021 but never found. The mmap
+> stressors in stress-ng were triggering a crash on a Mac Quadras, though
+> only rarely. Sometimes it would run all day without a failure.
+>
+> Last year when I started using GCC 12 to build the kernel, I saw the same
+> workload fail again but the failure mode had become a silent hang/livelock
+> instead of the oopses I got with GCC 6.
+>
+> When I press the NMI button after the livelock I always see
+> do_page_fault() in the backtrace. So I've been testing your patch. I've
+> been running the same stress-ng reproducer for about 12 hours now with no
+> failures which looks promising.
+>
+> In case that stress-ng testing is of use:
+> Tested-by: Finn Thain <fthain@linux-m68k.org>
 
-On Tue, 31 Jan 2023, Al Viro wrote:
+Could you test the thing that Mark Rutland pointed to? He had an
+actual test-case for this for the arm64 fixes some years ago.
 
-> m68k equivalent of 26178ec11ef3 "x86: mm: consolidate VM_FAULT_RETRY 
-> handling" If e.g. get_user() triggers a page fault and a fatal signal is 
-> caught, we might end up with handle_mm_fault() returning VM_FAULT_RETRY 
-> and not doing anything to page tables.  In such case we must *not* 
-> return to the faulting insn - that would repeat the entire thing without 
-> making any progress; what we need instead is to treat that as failed 
-> (user) memory access.
-> 
-> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+See
 
-That could be a bug I was chasing back in 2021 but never found. The mmap 
-stressors in stress-ng were triggering a crash on a Mac Quadras, though 
-only rarely. Sometimes it would run all day without a failure.
+   https://lore.kernel.org/all/Y9pD+TMP+%2FSyfeJm@FVFF77S0Q05N/
 
-Last year when I started using GCC 12 to build the kernel, I saw the same 
-workload fail again but the failure mode had become a silent hang/livelock 
-instead of the oopses I got with GCC 6.
+for his email with links to his old test-case?
 
-When I press the NMI button after the livelock I always see 
-do_page_fault() in the backtrace. So I've been testing your patch. I've 
-been running the same stress-ng reproducer for about 12 hours now with no 
-failures which looks promising.
-
-In case that stress-ng testing is of use:
-Tested-by: Finn Thain <fthain@linux-m68k.org>
-
-BTW, how did you identify that bug in do_page_fault()? If its the same bug 
-I was chasing, it could be an old one. The stress-ng logs I collected last 
-year include a crash from a v4.14 build.
-
-> ---
->  arch/m68k/mm/fault.c | 5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
-> 
-> diff --git a/arch/m68k/mm/fault.c b/arch/m68k/mm/fault.c
-> index 4d2837eb3e2a..228128e45c67 100644
-> --- a/arch/m68k/mm/fault.c
-> +++ b/arch/m68k/mm/fault.c
-> @@ -138,8 +138,11 @@ int do_page_fault(struct pt_regs *regs, unsigned long address,
->  	fault = handle_mm_fault(vma, address, flags, regs);
->  	pr_debug("handle_mm_fault returns %x\n", fault);
->  
-> -	if (fault_signal_pending(fault, regs))
-> +	if (fault_signal_pending(fault, regs)) {
-> +		if (!user_mode(regs))
-> +			goto no_context;
->  		return 0;
-> +	}
->  
->  	/* The fault is fully completed (including releasing mmap lock) */
->  	if (fault & VM_FAULT_COMPLETED)
-> 
+                Linus
