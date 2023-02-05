@@ -1,40 +1,95 @@
-From: Oliver Upton <oliver.upton@linux.dev>
-Date: Fri, 03 Feb 2023 21:08:00 +0000
+From: Marc Zyngier <maz@kernel.org>
+Date: Sun, 05 Feb 2023 10:12:49 +0000
 Subject: Re: [RFC PATCH 29/32] KVM: arm64: Pass hypercalls to userspace
-Message-Id: <Y913sIqWxmf4O5oG@google.com>
+Message-Id: <865ycg1kv2.wl-maz@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20230203135043.409192-1-james.morse@arm.com>
- <20230203135043.409192-30-james.morse@arm.com>
+	<20230203135043.409192-30-james.morse@arm.com>
 In-Reply-To: <20230203135043.409192-30-james.morse@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: James Morse <james.morse@arm.com>
-Cc: linux-pm@vger.kernel.org, loongarch@lists.linux.dev, kvmarm@lists.linux.dev, kvm@vger.kernel.org, linux-acpi@vger.kernel.org, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org, Marc Zyngier <maz@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Sudeep Holla <sudeep.holla@arm.com>, Borislav Petkov <bp@alien8.de>, H Peter Anvin <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will@kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, Huacai Chen <chenhuacai@kernel.org>, Suzuki K Poulose <suzuki.poulose@arm.com>, Len Brown <lenb@kernel.org>, Rafael Wysocki <rafael@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Salil Mehta <salil.mehta@huawei.com>, Russell King <linux@armlinux.org.uk>, Jean-Philippe Brucker <jean-philippe@linaro.org>
+Cc: linux-pm@vger.kernel.org, loongarch@lists.linux.dev, kvmarm@lists.linux.dev, kvm@vger.kernel.org, linux-acpi@vger.kernel.org, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Sudeep Holla <sudeep.holla@arm.com>, Borislav Petkov <bp@alien8.de>, H Peter Anvin <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will@kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, Huacai Chen <chenhuacai@kernel.org>, Suzuki K Poulose <suzuki.poulose@arm.com>, Oliver Upton <oliver.upton@linux.dev>, Len Brown <lenb@kernel.org>, Rafael Wysocki <rafael@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Salil Mehta <salil.mehta@huawei.com>, Russell King <linux@armlinux.org.uk>, Jean-Philippe Brucker <jean-philippe@linaro.org>
 
-Hi James,
-
-On Fri, Feb 03, 2023 at 01:50:40PM +0000, James Morse wrote:
+On Fri, 03 Feb 2023 13:50:40 +0000,
+James Morse <james.morse@arm.com> wrote:
+> 
 > From: Jean-Philippe Brucker <jean-philippe@linaro.org>
 > 
 > When capability KVM_CAP_ARM_HVC_TO_USER is available, userspace can
-> request to handle all hypercalls that aren't handled by KVM.
+> request to handle all hypercalls that aren't handled by KVM. With the
+> help of another capability, this will allow userspace to handle PSCI
+> calls.
+> 
+> Suggested-by: James Morse <james.morse@arm.com>
+> Signed-off-by: Jean-Philippe Brucker <jean-philippe@linaro.org>
+> Signed-off-by: James Morse <james.morse@arm.com>
+> 
+> ---
+> 
 
-I would very much prefer we not go down this route. This capability
-effectively constructs an ABI out of what KVM presently does not
-implement. What would happen if KVM decides to implement a new set
-of hypercalls later down the road that were previously forwarded to
-userspace?
+On top of Oliver's ask not to make this a blanket "steal everything",
+but instead to have an actual request for ranges of forwarded
+hypercalls:
 
-Instead of a catch-all I think we should take the approach of having
-userspace explicitly request which hypercalls should be forwarded to
-userspace. I proposed something similar [1], but never got around to
-respinning it (oops).
+> Notes on this implementation:
+> 
+> * A similar mechanism was proposed for SDEI some time ago [1]. This RFC
+>   generalizes the idea to all hypercalls, since that was suggested on
+>   the list [2, 3].
+> 
+> * We're reusing kvm_run.hypercall. I copied x0-x5 into
+>   kvm_run.hypercall.args[] to help userspace but I'm tempted to remove
+>   this, because:
+>   - Most user handlers will need to write results back into the
+>     registers (x0-x3 for SMCCC), so if we keep this shortcut we should
+>     go all the way and read them back on return to kernel.
+>   - QEMU doesn't care about this shortcut, it pulls all vcpu regs before
+>     handling the call.
+>   - SMCCC uses x0-x16 for parameters.
+>   x0 does contain the SMCCC function ID and may be useful for fast
+>   dispatch, we could keep that plus the immediate number.
+> 
+> * Add a flag in the kvm_run.hypercall telling whether this is HVC or
+>   SMC?  Can be added later in those bottom longmode and pad fields.
 
-Let me dust those patches off and align with Marc's suggestions.
+We definitely need this. A nested hypervisor can (and does) use SMCs
+as the conduit. The question is whether they represent two distinct
+namespaces or not. I *think* we can unify them, but someone should
+check and maybe get clarification from the owners of the SMCCC spec.
 
-[1]: https://lore.kernel.org/kvmarm/20221110015327.3389351-1-oliver.upton@linux.dev/
+>
+> * On top of this we could share with userspace which HVC ranges are
+>   available and which ones are handled by KVM. That can actually be added
+>   independently, through a vCPU/VM device attribute which doesn't consume
+>   a new ioctl:
+>   - userspace issues HAS_ATTR ioctl on the vcpu fd to query whether this
+>     feature is available.
+>   - userspace queries the number N of HVC ranges using one GET_ATTR.
+>   - userspace passes an array of N ranges using another GET_ATTR. The
+>     array is filled and returned by KVM.
 
---
+As mentioned above, I think this interface should go both ways.
+Userspace should request the forwarding of a certain range of
+hypercalls via a similar SET_ATTR interface.
+
+Another question is how we migrate VMs that have these forwarding
+requirements. Do we expect the VMM to replay the forwarding as part of
+the setting up on the other side? Or do we save/restore this via a
+firmware pseudo-register?
+
+> 
+> * Enabling this using a vCPU arch feature rather than the whole-VM
+>   capability would be fine, but it would be difficult to do the same for
+>   the following psci-in-user capability. So let's enable everything at
+>   the VM scope.
+
+Absolutely.
+
 Thanks,
-Oliver
+
+	M.
+
+-- 
+Without deviation from the norm, progress is not possible.
