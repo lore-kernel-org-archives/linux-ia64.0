@@ -1,21 +1,69 @@
-From: =?UTF-8?Q?Philippe_Mathieu-Daud=c3=a9?= <philmd@linaro.org>
-Date: Tue, 14 Feb 2023 08:06:20 +0000
-Subject: Re: [PATCH v2 08/24] loongarch/cpu: Mark play_dead() __noreturn
-Message-Id: <fa2028d1-501f-523e-7b83-2e72d374812c@linaro.org>
+From: Finn Thain <fthain@linux-m68k.org>
+Date: Sun, 05 Feb 2023 06:18:08 +0000
+Subject: Re: [PATCH 04/10] m68k: fix livelock in uaccess
+Message-Id: <92a4aa45-0a7c-a389-798a-2f3e3cfa516f@linux-m68k.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1676358308.git.jpoimboe@kernel.org>
- <4da55acfdec8a9132c4e21ffb7edb1f846841193.1676358308.git.jpoimboe@kernel.org>
-In-Reply-To: <4da55acfdec8a9132c4e21ffb7edb1f846841193.1676358308.git.jpoimboe@kernel.org>
+References: <Y9lz6yk113LmC9SI@ZenIV> <Y9l0aBPUEpf1bci9@ZenIV>
+In-Reply-To: <Y9l0aBPUEpf1bci9@ZenIV>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: Josh Poimboeuf <jpoimboe@kernel.org>, linux-kernel@vger.kernel.org
-Cc: jgross@suse.com, richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux-alpha@vger.kernel.org, linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, loongarch@lists.linux.dev, f.fainelli@gmail.com, bcm-kernel-feedback-list@broadcom.com, tsbogend@alpha.franken.de, linux-mips@vger.kernel.org, jiaxun.yang@flygoat.com, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, ysato@users.sourceforge.jp, dalias@libc.org, linux-sh@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, jcmvbkbc@gmail.com, linux-xtensa@linux-xtensa.org, peterz@infradead.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, paulmck@kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Al Viro <viro@zeniv.linux.org.uk>
+Cc: linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-m68k@lists.linux-m68k.org, Michal Simek <monstr@monstr.eu>, Dinh Nguyen <dinguyen@kernel.org>, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, sparclinux@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>
 
-T24gMTQvMi8yMyAwODowNSwgSm9zaCBQb2ltYm9ldWYgd3JvdGU6Cj4gcGxheV9kZWFkKCkgZG9l
-c24ndCByZXR1cm4uICBBbm5vdGF0ZSBpdCBhcyBzdWNoLiAgQnkgZXh0ZW5zaW9uIHRoaXMKPiBh
-bHNvIG1ha2VzIGFyY2hfY3B1X2lkbGVfZGVhZCgpIG5vcmV0dXJuLgo+IAo+IFNpZ25lZC1vZmYt
-Ynk6IEpvc2ggUG9pbWJvZXVmIDxqcG9pbWJvZUBrZXJuZWwub3JnPgo+IC0tLQo+ICAgYXJjaC9s
-b29uZ2FyY2gvaW5jbHVkZS9hc20vc21wLmggfCAyICstCj4gICAxIGZpbGUgY2hhbmdlZCwgMSBp
-bnNlcnRpb24oKyksIDEgZGVsZXRpb24oLSkKClJldmlld2VkLWJ5OiBQaGlsaXBwZSBNYXRoaWV1
-LURhdWTDqSA8cGhpbG1kQGxpbmFyby5vcmc+Cgo=
+Hello Al,
+
+On Tue, 31 Jan 2023, Al Viro wrote:
+
+> m68k equivalent of 26178ec11ef3 "x86: mm: consolidate VM_FAULT_RETRY 
+> handling" If e.g. get_user() triggers a page fault and a fatal signal is 
+> caught, we might end up with handle_mm_fault() returning VM_FAULT_RETRY 
+> and not doing anything to page tables.  In such case we must *not* 
+> return to the faulting insn - that would repeat the entire thing without 
+> making any progress; what we need instead is to treat that as failed 
+> (user) memory access.
+> 
+> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+
+That could be a bug I was chasing back in 2021 but never found. The mmap 
+stressors in stress-ng were triggering a crash on a Mac Quadras, though 
+only rarely. Sometimes it would run all day without a failure.
+
+Last year when I started using GCC 12 to build the kernel, I saw the same 
+workload fail again but the failure mode had become a silent hang/livelock 
+instead of the oopses I got with GCC 6.
+
+When I press the NMI button after the livelock I always see 
+do_page_fault() in the backtrace. So I've been testing your patch. I've 
+been running the same stress-ng reproducer for about 12 hours now with no 
+failures which looks promising.
+
+In case that stress-ng testing is of use:
+Tested-by: Finn Thain <fthain@linux-m68k.org>
+
+BTW, how did you identify that bug in do_page_fault()? If its the same bug 
+I was chasing, it could be an old one. The stress-ng logs I collected last 
+year include a crash from a v4.14 build.
+
+> ---
+>  arch/m68k/mm/fault.c | 5 ++++-
+>  1 file changed, 4 insertions(+), 1 deletion(-)
+> 
+> diff --git a/arch/m68k/mm/fault.c b/arch/m68k/mm/fault.c
+> index 4d2837eb3e2a..228128e45c67 100644
+> --- a/arch/m68k/mm/fault.c
+> +++ b/arch/m68k/mm/fault.c
+> @@ -138,8 +138,11 @@ int do_page_fault(struct pt_regs *regs, unsigned long address,
+>  	fault = handle_mm_fault(vma, address, flags, regs);
+>  	pr_debug("handle_mm_fault returns %x\n", fault);
+>  
+> -	if (fault_signal_pending(fault, regs))
+> +	if (fault_signal_pending(fault, regs)) {
+> +		if (!user_mode(regs))
+> +			goto no_context;
+>  		return 0;
+> +	}
+>  
+>  	/* The fault is fully completed (including releasing mmap lock) */
+>  	if (fault & VM_FAULT_COMPLETED)
+> 
