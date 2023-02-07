@@ -1,137 +1,283 @@
-From: James Morse <james.morse@arm.com>
-Date: Fri, 03 Feb 2023 13:50:18 +0000
-Subject: [RFC PATCH 07/32] ia64/topology: Switch over to GENERIC_CPU_DEVICES
-Message-Id: <20230203135043.409192-8-james.morse@arm.com>
+From: Josh Poimboeuf <jpoimboe@kernel.org>
+Date: Tue, 07 Feb 2023 17:33:04 +0000
+Subject: [PATCH v1.1 22/22] sched/idle: Mark arch_cpu_idle_dead() __noreturn
+Message-Id: <20230207173304.le5rvsz2emasye7s@treble>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230203135043.409192-1-james.morse@arm.com>
-In-Reply-To: <20230203135043.409192-1-james.morse@arm.com>
+References: <cover.1675461757.git.jpoimboe@kernel.org>
+ <2eeb4425572785d1f05d8761dba1cf88c2105304.1675461757.git.jpoimboe@kernel.org>
+In-Reply-To: <2eeb4425572785d1f05d8761dba1cf88c2105304.1675461757.git.jpoimboe@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-pm@vger.kernel.org, loongarch@lists.linux.dev, kvmarm@lists.linux.dev, kvm@vger.kernel.org, linux-acpi@vger.kernel.org, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
-Cc: Marc Zyngier <maz@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Sudeep Holla <sudeep.holla@arm.com>, Borislav Petkov <bp@alien8.de>, H Peter Anvin <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will@kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, Huacai Chen <chenhuacai@kernel.org>, James Morse <james.morse@arm.com>, Suzuki K Poulose <suzuki.poulose@arm.com>, Oliver Upton <oliver.upton@linux.dev>, Len Brown <lenb@kernel.org>, Rafael Wysocki <rafael@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Salil Mehta <salil.mehta@huawei.com>, Russell King <linux@armlinux.org.uk>, Jean-Philippe Brucker <jean-philippe@linaro.org>
+To: linux-kernel@vger.kernel.org
+Cc: jgross@suse.com, richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux-alpha@vger.kernel.org, linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, loongarch@lists.linux.dev, f.fainelli@gmail.com, bcm-kernel-feedback-list@broadcom.com, tsbogend@alpha.franken.de, linux-mips@vger.kernel.org, jiaxun.yang@flygoat.com, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, ysato@users.sourceforge.jp, dalias@libc.org, linux-sh@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, jcmvbkbc@gmail.com, linux-xtensa@linux-xtensa.org, peterz@infradead.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, paulmck@kernel.org
 
-ia64 has its own arch specific data structure for cpus: struct ia64_cpu.
-This has one member, making ia64's cpu_devices the same as that
-provided be GENERIC_CPU_DEVICES.
-ia64 craetes a percpu struct ia64_cpu called cpu_devices, which has no
-users. Instead it uses the struct ia64_cpu named sysfs_cpus allocated at
-boot.
+Before commit 076cbf5d2163 ("x86/xen: don't let xen_pv_play_dead()
+return"), in Xen, when a previously offlined CPU was brought back
+online, it unexpectedly resumed execution where it left off in the
+middle of the idle loop.
 
-Remove the arch specific structure allocation and initialisation.
-ia64's arch_register_cpu() now overrides the weak version from
-GENERIC_CPU_DEVICES, and uses the percpu cpu_devices defined by
-core code.
+There were some hacks to make that work, but the behavior was surprising
+as do_idle() doesn't expect an offlined CPU to return from the dead (in
+arch_cpu_idle_dead()).
 
-All uses of sysfs_cpus are changed to use the percpu cpu_devices.
+Now that Xen has been fixed, and the arch-specific implementations of
+arch_cpu_idle_dead() also don't return, give it a __noreturn attribute.
 
-This is an intermediate step to the logic being moved to drivers/acpi,
-where GENERIC_CPU_DEVICES will do the work when booting with acpi=off.
+This will cause the compiler to complain if an arch-specific
+implementation might return.  It also improves code generation for both
+caller and callee.
 
-Signed-off-by: James Morse <james.morse@arm.com>
+Also fixes the following warning:
+
+  vmlinux.o: warning: objtool: do_idle+0x25f: unreachable instruction
+
+Reported-by: Paul E. McKenney <paulmck@kernel.org>
+Tested-by: Paul E. McKenney <paulmck@kernel.org>
+Signed-off-by: Josh Poimboeuf <jpoimboe@kernel.org>
 ---
- arch/ia64/Kconfig           |  1 +
- arch/ia64/include/asm/cpu.h |  6 ------
- arch/ia64/kernel/topology.c | 35 +++++------------------------------
- 3 files changed, 6 insertions(+), 36 deletions(-)
+v1.1:
+- add __noreturn to the implementations (in addition to just the
+  prototype)
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index deabb8843aea..146a2226e2a3 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -40,6 +40,7 @@ config IA64
- 	select HAVE_FUNCTION_DESCRIPTORS
- 	select HAVE_VIRT_CPU_ACCOUNTING
- 	select HUGETLB_PAGE_SIZE_VARIABLE if HUGETLB_PAGE
-+	select GENERIC_CPU_DEVICES
- 	select GENERIC_IRQ_PROBE
- 	select GENERIC_PENDING_IRQ if SMP
- 	select GENERIC_IRQ_SHOW
-diff --git a/arch/ia64/include/asm/cpu.h b/arch/ia64/include/asm/cpu.h
-index a3e690e685e5..6e9786c6ec98 100644
---- a/arch/ia64/include/asm/cpu.h
-+++ b/arch/ia64/include/asm/cpu.h
-@@ -7,12 +7,6 @@
- #include <linux/topology.h>
- #include <linux/percpu.h>
- 
--struct ia64_cpu {
--	struct cpu cpu;
--};
--
--DECLARE_PER_CPU(struct ia64_cpu, cpu_devices);
--
- DECLARE_PER_CPU(int, cpu_state);
- 
- #ifdef CONFIG_HOTPLUG_CPU
-diff --git a/arch/ia64/kernel/topology.c b/arch/ia64/kernel/topology.c
-index 94a848b06f15..8f5cafde2bc9 100644
---- a/arch/ia64/kernel/topology.c
-+++ b/arch/ia64/kernel/topology.c
-@@ -26,8 +26,6 @@
- #include <asm/numa.h>
- #include <asm/cpu.h>
- 
--static struct ia64_cpu *sysfs_cpus;
--
- void arch_fix_phys_package_id(int num, u32 slot)
- {
- #ifdef CONFIG_SMP
-@@ -41,50 +39,27 @@ EXPORT_SYMBOL_GPL(arch_fix_phys_package_id);
- #ifdef CONFIG_HOTPLUG_CPU
- int __ref arch_register_cpu(int num)
- {
-+	struct cpu *cpu = &per_cpu(cpu_devices, num);
-+
- 	/*
- 	 * If CPEI can be re-targeted or if this is not
- 	 * CPEI target, then it is hotpluggable
- 	 */
- 	if (can_cpei_retarget() || !is_cpu_cpei_target(num))
--		sysfs_cpus[num].cpu.hotpluggable = 1;
-+		cpu->hotpluggable = 1;
- 	map_cpu_to_node(num, node_cpuid[num].nid);
--	return register_cpu(&sysfs_cpus[num].cpu, num);
-+	return register_cpu(cpu, num);
+ arch/alpha/kernel/process.c     | 2 +-
+ arch/arm/kernel/smp.c           | 2 +-
+ arch/arm64/kernel/process.c     | 2 +-
+ arch/csky/kernel/smp.c          | 2 +-
+ arch/ia64/kernel/process.c      | 2 +-
+ arch/loongarch/kernel/process.c | 2 +-
+ arch/mips/kernel/process.c      | 2 +-
+ arch/parisc/kernel/process.c    | 2 +-
+ arch/powerpc/kernel/smp.c       | 2 +-
+ arch/riscv/kernel/cpu-hotplug.c | 2 +-
+ arch/s390/kernel/idle.c         | 2 +-
+ arch/sh/kernel/idle.c           | 2 +-
+ arch/sparc/kernel/process_64.c  | 2 +-
+ arch/x86/kernel/process.c       | 2 +-
+ arch/xtensa/kernel/smp.c        | 2 +-
+ include/linux/cpu.h             | 2 +-
+ tools/objtool/check.c           | 1 +
+ 17 files changed, 17 insertions(+), 16 deletions(-)
+
+diff --git a/arch/alpha/kernel/process.c b/arch/alpha/kernel/process.c
+index 94938f856545..c9a5ed23c5a6 100644
+--- a/arch/alpha/kernel/process.c
++++ b/arch/alpha/kernel/process.c
+@@ -60,7 +60,7 @@ void arch_cpu_idle(void)
+ 	wtint(0);
  }
- EXPORT_SYMBOL(arch_register_cpu);
  
- void __ref arch_unregister_cpu(int num)
+-void arch_cpu_idle_dead(void)
++void __noreturn arch_cpu_idle_dead(void)
  {
--	unregister_cpu(&sysfs_cpus[num].cpu);
-+	unregister_cpu(&per_cpu(cpu_devices, num));
- 	unmap_cpu_from_node(num, cpu_to_node(num));
- }
- EXPORT_SYMBOL(arch_unregister_cpu);
--#else
--static int __init arch_register_cpu(int num)
--{
--	return register_cpu(&sysfs_cpus[num].cpu, num);
--}
- #endif /*CONFIG_HOTPLUG_CPU*/
- 
--
--static int __init topology_init(void)
--{
--	int i, err = 0;
--
--	sysfs_cpus = kcalloc(NR_CPUS, sizeof(struct ia64_cpu), GFP_KERNEL);
--	if (!sysfs_cpus)
--		panic("kzalloc in topology_init failed - NR_CPUS too big?");
--
--	for_each_present_cpu(i) {
--		if((err = arch_register_cpu(i)))
--			goto out;
--	}
--out:
--	return err;
--}
--
--subsys_initcall(topology_init);
--
--
- /*
-  * Export cpu cache information through sysfs
+ 	wtint(INT_MAX);
+ 	BUG();
+diff --git a/arch/arm/kernel/smp.c b/arch/arm/kernel/smp.c
+index adcd417c526b..c2daa0f2f784 100644
+--- a/arch/arm/kernel/smp.c
++++ b/arch/arm/kernel/smp.c
+@@ -320,7 +320,7 @@ void __cpu_die(unsigned int cpu)
+  * of the other hotplug-cpu capable cores, so presumably coming
+  * out of idle fixes this.
   */
+-void arch_cpu_idle_dead(void)
++void __noreturn arch_cpu_idle_dead(void)
+ {
+ 	unsigned int cpu = smp_processor_id();
+ 
+diff --git a/arch/arm64/kernel/process.c b/arch/arm64/kernel/process.c
+index 71d59b5abede..089ced6d6bd6 100644
+--- a/arch/arm64/kernel/process.c
++++ b/arch/arm64/kernel/process.c
+@@ -69,7 +69,7 @@ void (*pm_power_off)(void);
+ EXPORT_SYMBOL_GPL(pm_power_off);
+ 
+ #ifdef CONFIG_HOTPLUG_CPU
+-void arch_cpu_idle_dead(void)
++void __noreturn arch_cpu_idle_dead(void)
+ {
+        cpu_die();
+ }
+diff --git a/arch/csky/kernel/smp.c b/arch/csky/kernel/smp.c
+index 0ec20efaf5fd..9c7a20b73ac6 100644
+--- a/arch/csky/kernel/smp.c
++++ b/arch/csky/kernel/smp.c
+@@ -300,7 +300,7 @@ void __cpu_die(unsigned int cpu)
+ 	pr_notice("CPU%u: shutdown\n", cpu);
+ }
+ 
+-void arch_cpu_idle_dead(void)
++void __noreturn arch_cpu_idle_dead(void)
+ {
+ 	idle_task_exit();
+ 
+diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
+index 78f5794b2dde..9a5cd9fad3a9 100644
+--- a/arch/ia64/kernel/process.c
++++ b/arch/ia64/kernel/process.c
+@@ -225,7 +225,7 @@ static inline void __noreturn play_dead(void)
+ }
+ #endif /* CONFIG_HOTPLUG_CPU */
+ 
+-void arch_cpu_idle_dead(void)
++void __noreturn arch_cpu_idle_dead(void)
+ {
+ 	play_dead();
+ }
+diff --git a/arch/loongarch/kernel/process.c b/arch/loongarch/kernel/process.c
+index edfd220a3737..ba70e94eb996 100644
+--- a/arch/loongarch/kernel/process.c
++++ b/arch/loongarch/kernel/process.c
+@@ -61,7 +61,7 @@ unsigned long boot_option_idle_override = IDLE_NO_OVERRIDE;
+ EXPORT_SYMBOL(boot_option_idle_override);
+ 
+ #ifdef CONFIG_HOTPLUG_CPU
+-void arch_cpu_idle_dead(void)
++void __noreturn arch_cpu_idle_dead(void)
+ {
+ 	play_dead();
+ }
+diff --git a/arch/mips/kernel/process.c b/arch/mips/kernel/process.c
+index 093dbbd6b843..a3225912c862 100644
+--- a/arch/mips/kernel/process.c
++++ b/arch/mips/kernel/process.c
+@@ -40,7 +40,7 @@
+ #include <asm/stacktrace.h>
+ 
+ #ifdef CONFIG_HOTPLUG_CPU
+-void arch_cpu_idle_dead(void)
++void __noreturn arch_cpu_idle_dead(void)
+ {
+ 	play_dead();
+ }
+diff --git a/arch/parisc/kernel/process.c b/arch/parisc/kernel/process.c
+index c064719b49b0..97c6f875bd0e 100644
+--- a/arch/parisc/kernel/process.c
++++ b/arch/parisc/kernel/process.c
+@@ -159,7 +159,7 @@ EXPORT_SYMBOL(running_on_qemu);
+ /*
+  * Called from the idle thread for the CPU which has been shutdown.
+  */
+-void arch_cpu_idle_dead(void)
++void __noreturn arch_cpu_idle_dead(void)
+ {
+ #ifdef CONFIG_HOTPLUG_CPU
+ 	idle_task_exit();
+diff --git a/arch/powerpc/kernel/smp.c b/arch/powerpc/kernel/smp.c
+index 6b90f10a6c81..f62e5e651bcd 100644
+--- a/arch/powerpc/kernel/smp.c
++++ b/arch/powerpc/kernel/smp.c
+@@ -1752,7 +1752,7 @@ void __cpu_die(unsigned int cpu)
+ 		smp_ops->cpu_die(cpu);
+ }
+ 
+-void arch_cpu_idle_dead(void)
++void __noreturn arch_cpu_idle_dead(void)
+ {
+ 	/*
+ 	 * Disable on the down path. This will be re-enabled by
+diff --git a/arch/riscv/kernel/cpu-hotplug.c b/arch/riscv/kernel/cpu-hotplug.c
+index f7a832e3a1d1..59b80211c25f 100644
+--- a/arch/riscv/kernel/cpu-hotplug.c
++++ b/arch/riscv/kernel/cpu-hotplug.c
+@@ -71,7 +71,7 @@ void __cpu_die(unsigned int cpu)
+ /*
+  * Called from the idle thread for the CPU which has been shutdown.
+  */
+-void arch_cpu_idle_dead(void)
++void __noreturn arch_cpu_idle_dead(void)
+ {
+ 	idle_task_exit();
+ 
+diff --git a/arch/s390/kernel/idle.c b/arch/s390/kernel/idle.c
+index cb653c87018f..481ca32e628e 100644
+--- a/arch/s390/kernel/idle.c
++++ b/arch/s390/kernel/idle.c
+@@ -143,7 +143,7 @@ void arch_cpu_idle_exit(void)
+ {
+ }
+ 
+-void arch_cpu_idle_dead(void)
++void __noreturn arch_cpu_idle_dead(void)
+ {
+ 	cpu_die();
+ }
+diff --git a/arch/sh/kernel/idle.c b/arch/sh/kernel/idle.c
+index 114f0c4abeac..d662503b0665 100644
+--- a/arch/sh/kernel/idle.c
++++ b/arch/sh/kernel/idle.c
+@@ -30,7 +30,7 @@ void default_idle(void)
+ 	clear_bl_bit();
+ }
+ 
+-void arch_cpu_idle_dead(void)
++void __noreturn arch_cpu_idle_dead(void)
+ {
+ 	play_dead();
+ }
+diff --git a/arch/sparc/kernel/process_64.c b/arch/sparc/kernel/process_64.c
+index 91c2b8124527..b51d8fb0ecdc 100644
+--- a/arch/sparc/kernel/process_64.c
++++ b/arch/sparc/kernel/process_64.c
+@@ -95,7 +95,7 @@ void arch_cpu_idle(void)
+ }
+ 
+ #ifdef CONFIG_HOTPLUG_CPU
+-void arch_cpu_idle_dead(void)
++void __noreturn arch_cpu_idle_dead(void)
+ {
+ 	sched_preempt_enable_no_resched();
+ 	cpu_play_dead();
+diff --git a/arch/x86/kernel/process.c b/arch/x86/kernel/process.c
+index f1ec36caf1d8..3e30147a537e 100644
+--- a/arch/x86/kernel/process.c
++++ b/arch/x86/kernel/process.c
+@@ -727,7 +727,7 @@ void arch_cpu_idle_enter(void)
+ 	local_touch_nmi();
+ }
+ 
+-void arch_cpu_idle_dead(void)
++void __noreturn arch_cpu_idle_dead(void)
+ {
+ 	play_dead();
+ }
+diff --git a/arch/xtensa/kernel/smp.c b/arch/xtensa/kernel/smp.c
+index 7bad78495536..054bd64eab19 100644
+--- a/arch/xtensa/kernel/smp.c
++++ b/arch/xtensa/kernel/smp.c
+@@ -322,7 +322,7 @@ void __cpu_die(unsigned int cpu)
+ 	pr_err("CPU%u: unable to kill\n", cpu);
+ }
+ 
+-void arch_cpu_idle_dead(void)
++void __noreturn arch_cpu_idle_dead(void)
+ {
+ 	cpu_die();
+ }
+diff --git a/include/linux/cpu.h b/include/linux/cpu.h
+index f83e4519c5f0..8582a7142623 100644
+--- a/include/linux/cpu.h
++++ b/include/linux/cpu.h
+@@ -182,7 +182,7 @@ void arch_cpu_idle(void);
+ void arch_cpu_idle_prepare(void);
+ void arch_cpu_idle_enter(void);
+ void arch_cpu_idle_exit(void);
+-void arch_cpu_idle_dead(void);
++void __noreturn arch_cpu_idle_dead(void);
+ 
+ int cpu_report_state(int cpu);
+ int cpu_check_up_prepare(int cpu);
+diff --git a/tools/objtool/check.c b/tools/objtool/check.c
+index 0f67c6a8bc98..e3fa2279d612 100644
+--- a/tools/objtool/check.c
++++ b/tools/objtool/check.c
+@@ -167,6 +167,7 @@ static bool __dead_end_function(struct objtool_file *file, struct symbol *func,
+ 		"__reiserfs_panic",
+ 		"__stack_chk_fail",
+ 		"__ubsan_handle_builtin_unreachable",
++		"arch_cpu_idle_dead",
+ 		"cpu_bringup_and_idle",
+ 		"cpu_startup_entry",
+ 		"do_exit",
 -- 
-2.30.2
+2.39.0
