@@ -1,52 +1,111 @@
-From: Alexandre Ghiti <alexghiti@rivosinc.com>
-Date: Tue, 14 Feb 2023 07:49:07 +0000
-Subject: [PATCH v3 06/24] microblaze: Remove COMMAND_LINE_SIZE from uapi
-Message-Id: <20230214074925.228106-7-alexghiti@rivosinc.com>
+From: Michael Ellerman <mpe@ellerman.id.au>
+Date: Fri, 10 Feb 2023 05:08:07 +0000
+Subject: Re: [PATCH mm-unstable v1 17/26] powerpc/mm: support __HAVE_ARCH_PTE_SWP_EXCLUSIVE on 32bit book3s
+Message-Id: <87cz6iw1jc.fsf@mpe.ellerman.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230214074925.228106-1-alexghiti@rivosinc.com>
-In-Reply-To: <20230214074925.228106-1-alexghiti@rivosinc.com>
+References: <20230113171026.582290-1-david@redhat.com>
+ <20230113171026.582290-18-david@redhat.com>
+In-Reply-To: <20230113171026.582290-18-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jonathan Corbet <corbet@lwn.net>, Richard Henderson <richard.henderson@linaro.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Vineet Gupta <vgupta@kernel.org>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E . J . Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Nicholas Piggin <npiggin@gmail.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S . Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H . Peter Anvin" <hpa@zytor.com>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, Arnd Bergmann <arnd@arndb.de>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org
-Cc: Palmer Dabbelt <palmer@rivosinc.com>
+To: David Hildenbrand <david@redhat.com>, linux-kernel@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>, Hugh Dickins <hughd@google.com>, John Hubbard <jhubbard@nvidia.com>, Jason Gunthorpe <jgg@nvidia.com>, Mike Rapoport <rppt@linux.ibm.com>, Yang Shi <shy828301@gmail.com>, Vlastimil Babka <vbabka@suse.cz>, Nadav Amit <namit@vmware.com>, Andrea Arcangeli <aarcange@redhat.com>, Peter Xu <peterx@redhat.com>, linux-mm@kvack.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, David Hildenbrand <david@redhat.com>, Nicholas Piggin <npiggin@gmail.com>, Christophe Leroy <christophe.leroy@csgroup.eu>
 
-From: Palmer Dabbelt <palmer@rivosinc.com>
+David Hildenbrand <david@redhat.com> writes:
+> We already implemented support for 64bit book3s in commit bff9beaa2e80
+> ("powerpc/pgtable: support __HAVE_ARCH_PTE_SWP_EXCLUSIVE for book3s")
+>
+> Let's support __HAVE_ARCH_PTE_SWP_EXCLUSIVE also in 32bit by reusing yet
+> unused LSB 2 / MSB 29. There seems to be no real reason why that bit cannot
+> be used, and reusing it avoids having to steal one bit from the swap
+> offset.
+>
+> While at it, mask the type in __swp_entry().
+>
+> Cc: Michael Ellerman <mpe@ellerman.id.au>
+> Cc: Nicholas Piggin <npiggin@gmail.com>
+> Cc: Christophe Leroy <christophe.leroy@csgroup.eu>
+> Signed-off-by: David Hildenbrand <david@redhat.com>
+> ---
+>  arch/powerpc/include/asm/book3s/32/pgtable.h | 38 +++++++++++++++++---
+>  1 file changed, 33 insertions(+), 5 deletions(-)
 
-As far as I can tell this is not used by userspace and thus should not
-be part of the user-visible API.
+I gave this a quick test on a ppc32 machine, everything seems fine.
 
-Signed-off-by: Palmer Dabbelt <palmer@rivosinc.com>
----
- arch/microblaze/include/asm/setup.h      | 2 +-
- arch/microblaze/include/uapi/asm/setup.h | 2 --
- 2 files changed, 1 insertion(+), 3 deletions(-)
+Your test_swp_exclusive.c passes, and an LTP run looks normal.
 
-diff --git a/arch/microblaze/include/asm/setup.h b/arch/microblaze/include/asm/setup.h
-index a06cc1f97aa9..2becbf3b8baf 100644
---- a/arch/microblaze/include/asm/setup.h
-+++ b/arch/microblaze/include/asm/setup.h
-@@ -7,7 +7,7 @@
- #ifndef _ASM_MICROBLAZE_SETUP_H
- #define _ASM_MICROBLAZE_SETUP_H
- 
--#include <uapi/asm/setup.h>
-+#define COMMAND_LINE_SIZE	256
- 
- # ifndef __ASSEMBLY__
- extern char cmd_line[COMMAND_LINE_SIZE];
-diff --git a/arch/microblaze/include/uapi/asm/setup.h b/arch/microblaze/include/uapi/asm/setup.h
-index 6831794e6f2c..51aed65880e7 100644
---- a/arch/microblaze/include/uapi/asm/setup.h
-+++ b/arch/microblaze/include/uapi/asm/setup.h
-@@ -12,8 +12,6 @@
- #ifndef _UAPI_ASM_MICROBLAZE_SETUP_H
- #define _UAPI_ASM_MICROBLAZE_SETUP_H
- 
--#define COMMAND_LINE_SIZE	256
--
- # ifndef __ASSEMBLY__
- 
- # endif /* __ASSEMBLY__ */
--- 
-2.37.2
+Acked-by: Michael Ellerman <mpe@ellerman.id.au> (powerpc)
+
+cheers
+
+> diff --git a/arch/powerpc/include/asm/book3s/32/pgtable.h b/arch/powerpc/include/asm/book3s/32/pgtable.h
+> index 75823f39e042..0ecb3a58f23f 100644
+> --- a/arch/powerpc/include/asm/book3s/32/pgtable.h
+> +++ b/arch/powerpc/include/asm/book3s/32/pgtable.h
+> @@ -42,6 +42,9 @@
+>  #define _PMD_PRESENT_MASK (PAGE_MASK)
+>  #define _PMD_BAD	(~PAGE_MASK)
+>  
+> +/* We borrow the _PAGE_USER bit to store the exclusive marker in swap PTEs. */
+> +#define _PAGE_SWP_EXCLUSIVE	_PAGE_USER
+> +
+>  /* And here we include common definitions */
+>  
+>  #define _PAGE_KERNEL_RO		0
+> @@ -363,17 +366,42 @@ static inline void __ptep_set_access_flags(struct vm_area_struct *vma,
+>  #define pmd_page(pmd)		pfn_to_page(pmd_pfn(pmd))
+>  
+>  /*
+> - * Encode and decode a swap entry.
+> - * Note that the bits we use in a PTE for representing a swap entry
+> - * must not include the _PAGE_PRESENT bit or the _PAGE_HASHPTE bit (if used).
+> - *   -- paulus
+> + * Encode/decode swap entries and swap PTEs. Swap PTEs are all PTEs that
+> + * are !pte_none() && !pte_present().
+> + *
+> + * Format of swap PTEs (32bit PTEs):
+> + *
+> + *                         1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+> + *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+> + *   <----------------- offset --------------------> < type -> E H P
+> + *
+> + *   E is the exclusive marker that is not stored in swap entries.
+> + *   _PAGE_PRESENT (P) and __PAGE_HASHPTE (H) must be 0.
+> + *
+> + * For 64bit PTEs, the offset is extended by 32bit.
+>   */
+>  #define __swp_type(entry)		((entry).val & 0x1f)
+>  #define __swp_offset(entry)		((entry).val >> 5)
+> -#define __swp_entry(type, offset)	((swp_entry_t) { (type) | ((offset) << 5) })
+> +#define __swp_entry(type, offset)	((swp_entry_t) { ((type) & 0x1f) | ((offset) << 5) })
+>  #define __pte_to_swp_entry(pte)		((swp_entry_t) { pte_val(pte) >> 3 })
+>  #define __swp_entry_to_pte(x)		((pte_t) { (x).val << 3 })
+>  
+> +#define __HAVE_ARCH_PTE_SWP_EXCLUSIVE
+> +static inline int pte_swp_exclusive(pte_t pte)
+> +{
+> +	return pte_val(pte) & _PAGE_SWP_EXCLUSIVE;
+> +}
+> +
+> +static inline pte_t pte_swp_mkexclusive(pte_t pte)
+> +{
+> +	return __pte(pte_val(pte) | _PAGE_SWP_EXCLUSIVE);
+> +}
+> +
+> +static inline pte_t pte_swp_clear_exclusive(pte_t pte)
+> +{
+> +	return __pte(pte_val(pte) & ~_PAGE_SWP_EXCLUSIVE);
+> +}
+> +
+>  /* Generic accessors to PTE bits */
+>  static inline int pte_write(pte_t pte)		{ return !!(pte_val(pte) & _PAGE_RW);}
+>  static inline int pte_read(pte_t pte)		{ return 1; }
+> -- 
+> 2.39.0
+>
+>
+> _______________________________________________
+> linux-riscv mailing list
+> linux-riscv@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-riscv
