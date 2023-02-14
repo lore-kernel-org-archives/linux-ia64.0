@@ -1,64 +1,37 @@
-From: Alexandre Ghiti <alexghiti@rivosinc.com>
-Date: Thu, 23 Feb 2023 13:11:55 +0000
-Subject: Re: [PATCH v3 03/24] arm: Remove COMMAND_LINE_SIZE from uapi
-Message-Id: <CAHVXubidtBHNi8iFrFAWqRtkxiUBbmzzXFn+=R1DjEd5X0SpQw@mail.gmail.com>
+From: Josh Poimboeuf <jpoimboe@kernel.org>
+Date: Tue, 14 Feb 2023 07:05:46 +0000
+Subject: [PATCH v2 12/24] powerpc/cpu: Mark start_secondary_resume() __noreturn
+Message-Id: <b6b2141f832d8cd8ade65f190d04b011cda5f9bb.1676358308.git.jpoimboe@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230214074925.228106-1-alexghiti@rivosinc.com>
- <20230214074925.228106-4-alexghiti@rivosinc.com> <Y+zXIgwO5wteLQZ5@shell.armlinux.org.uk>
- <f3e1585c-0d9d-4709-9b21-74a63d8cc9ac@app.fastmail.com> <CAHVXubgsvjxGbgM6AcxfsHDsHT0iL2pAemGMr5t8KVLKiqC3RA@mail.gmail.com>
- <874b8076-b0d1-4aaa-bcd8-05d523060152@app.fastmail.com>
-In-Reply-To: <874b8076-b0d1-4aaa-bcd8-05d523060152@app.fastmail.com>
+References: <cover.1676358308.git.jpoimboe@kernel.org>
+In-Reply-To: <cover.1676358308.git.jpoimboe@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>
-Cc: Russell King <linux@armlinux.org.uk>, Jonathan Corbet <corbet@lwn.net>, Richard Henderson <richard.henderson@linaro.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Vineet Gupta <vgupta@kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E . J . Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Nicholas Piggin <npiggin@gmail.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S . Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Linux-Arch <linux-arch@vger.kernel.org>, Palmer Dabbelt <palmer@rivosinc.com>
+To: linux-kernel@vger.kernel.org
+Cc: jgross@suse.com, richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux-alpha@vger.kernel.org, linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, loongarch@lists.linux.dev, f.fainelli@gmail.com, bcm-kernel-feedback-list@broadcom.com, tsbogend@alpha.franken.de, linux-mips@vger.kernel.org, jiaxun.yang@flygoat.com, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, ysato@users.sourceforge.jp, dalias@libc.org, linux-sh@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, jcmvbkbc@gmail.com, linux-xtensa@linux-xtensa.org, peterz@infradead.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, paulmck@kernel.org
 
-On Thu, Feb 23, 2023 at 2:09 PM Arnd Bergmann <arnd@arndb.de> wrote:
->
-> On Thu, Feb 23, 2023, at 10:54, Alexandre Ghiti wrote:
-> > On Wed, Feb 15, 2023 at 2:05 PM Arnd Bergmann <arnd@arndb.de> wrote:
-> >>
-> >> On Wed, Feb 15, 2023, at 13:59, Russell King (Oracle) wrote:
-> >> > On Tue, Feb 14, 2023 at 08:49:04AM +0100, Alexandre Ghiti wrote:
-> >> >> From: Palmer Dabbelt <palmer@rivosinc.com>
-> >> >>
-> >> >> As far as I can tell this is not used by userspace and thus should not
-> >> >> be part of the user-visible API.
-> >> >>
-> >> >> Signed-off-by: Palmer Dabbelt <palmer@rivosinc.com>
-> >> >
-> >> > Looks good to me. What's the merge plan for this?
-> >>
-> >> The easiest way is probably if I merge it through the whole
-> >> series through the asm-generic tree. The timing is a bit
-> >> unfortunate as we're just ahead of the merge window, so unless
-> >> we really need this in 6.3, I'd suggest that Alexandre resend
-> >> the series to me in two weeks with the Acks added in and I'll
-> >> pick it up for 6.4.
-> >
-> > Sorry for the response delay, I was waiting to see if Palmer would
-> > merge my KASAN patchset in 6.3 (which he does): I have to admit that
-> > fixing the command line size + the KASAN patchset would allow 6.3 to
-> > run on syzkaller, which would be nice.
-> >
-> > If I don't see this merged in 6.3, I'll send another round as you
-> > suggested in 1 week now :)
->
-> Hi Alexandre,
->
-> I have no plans to still pick up the series for 6.3. The patches
-> all look fine to me, but it's clearly too late now. What is the
-> actual dependency for KASAN, do you just need a longer command
-> line or something else? If it's just the command line size,
-> I would suggest that Palmer can still pick up a oneline change
-> to increase it and refer to this thread in the changelog as a
-> reference for why it is not an actual UAPI break.
+start_secondary_resume() doesn't return.  Annotate it as such.  By
+extension this also makes arch_cpu_idle_dead() noreturn.
 
-Indeed, we only need a longer command line size. I'll ask Palmer to do
-that then, thanks!
+Acked-by: Michael Ellerman <mpe@ellerman.id.au> (powerpc)
+Signed-off-by: Josh Poimboeuf <jpoimboe@kernel.org>
+---
+ arch/powerpc/include/asm/smp.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Alex
-
->
->      Arnd
+diff --git a/arch/powerpc/include/asm/smp.h b/arch/powerpc/include/asm/smp.h
+index f63505d74932..cfd42ca8765c 100644
+--- a/arch/powerpc/include/asm/smp.h
++++ b/arch/powerpc/include/asm/smp.h
+@@ -66,7 +66,7 @@ void start_secondary(void *unused);
+ extern int smp_send_nmi_ipi(int cpu, void (*fn)(struct pt_regs *), u64 delay_us);
+ extern int smp_send_safe_nmi_ipi(int cpu, void (*fn)(struct pt_regs *), u64 delay_us);
+ extern void smp_send_debugger_break(void);
+-extern void start_secondary_resume(void);
++extern void __noreturn start_secondary_resume(void);
+ extern void smp_generic_give_timebase(void);
+ extern void smp_generic_take_timebase(void);
+ 
+-- 
+2.39.1
