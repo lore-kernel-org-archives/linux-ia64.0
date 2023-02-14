@@ -1,28 +1,51 @@
-From: Max Filippov <jcmvbkbc@gmail.com>
-Date: Tue, 14 Feb 2023 12:47:06 +0000
-Subject: Re: [PATCH v2 20/24] xtensa/cpu: Mark cpu_die() __noreturn
-Message-Id: <CAMo8BfJsxu0Q1a0KOq2giBCESZE-Y10nqTOT43XQje0FtM7ixQ@mail.gmail.com>
+From: Alexandre Ghiti <alexghiti@rivosinc.com>
+Date: Tue, 14 Feb 2023 07:49:09 +0000
+Subject: [PATCH v3 08/24] parisc: Remove COMMAND_LINE_SIZE from uapi
+Message-Id: <20230214074925.228106-9-alexghiti@rivosinc.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1676358308.git.jpoimboe@kernel.org> <ad801544cab7c26a0f3bbf7cfefb67303f4cd866.1676358308.git.jpoimboe@kernel.org>
-In-Reply-To: <ad801544cab7c26a0f3bbf7cfefb67303f4cd866.1676358308.git.jpoimboe@kernel.org>
+References: <20230214074925.228106-1-alexghiti@rivosinc.com>
+In-Reply-To: <20230214074925.228106-1-alexghiti@rivosinc.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Josh Poimboeuf <jpoimboe@kernel.org>
-Cc: linux-kernel@vger.kernel.org, jgross@suse.com, richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux-alpha@vger.kernel.org, linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, loongarch@lists.linux.dev, f.fainelli@gmail.com, bcm-kernel-feedback-list@broadcom.com, tsbogend@alpha.franken.de, linux-mips@vger.kernel.org, jiaxun.yang@flygoat.com, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, ysato@users.sourceforge.jp, dalias@libc.org, linux-sh@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, linux-xtensa@linux-xtensa.org, peterz@infradead.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, paulmck@kernel.org
+To: Jonathan Corbet <corbet@lwn.net>, Richard Henderson <richard.henderson@linaro.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Vineet Gupta <vgupta@kernel.org>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E . J . Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Nicholas Piggin <npiggin@gmail.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S . Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H . Peter Anvin" <hpa@zytor.com>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, Arnd Bergmann <arnd@arndb.de>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org
+Cc: Palmer Dabbelt <palmer@rivosinc.com>
 
-On Mon, Feb 13, 2023 at 11:07 PM Josh Poimboeuf <jpoimboe@kernel.org> wrote:
->
-> cpu_die() doesn't return.  Annotate it as such.  By extension this also
-> makes arch_cpu_idle_dead() noreturn.
->
-> Signed-off-by: Josh Poimboeuf <jpoimboe@kernel.org>
-> ---
->  arch/xtensa/include/asm/smp.h | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+From: Palmer Dabbelt <palmer@rivosinc.com>
 
-Acked-by: Max Filippov <jcmvbkbc@gmail.com>
+As far as I can tell this is not used by userspace and thus should not
+be part of the user-visible API.
 
+Signed-off-by: Palmer Dabbelt <palmer@rivosinc.com>
+---
+ arch/parisc/include/asm/setup.h      | 7 +++++++
+ arch/parisc/include/uapi/asm/setup.h | 2 --
+ 2 files changed, 7 insertions(+), 2 deletions(-)
+ create mode 100644 arch/parisc/include/asm/setup.h
+
+diff --git a/arch/parisc/include/asm/setup.h b/arch/parisc/include/asm/setup.h
+new file mode 100644
+index 000000000000..78b2f4ec7d65
+--- /dev/null
++++ b/arch/parisc/include/asm/setup.h
+@@ -0,0 +1,7 @@
++/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
++#ifndef _PARISC_SETUP_H
++#define _PARISC_SETUP_H
++
++#define COMMAND_LINE_SIZE	1024
++
++#endif /* _PARISC_SETUP_H */
+diff --git a/arch/parisc/include/uapi/asm/setup.h b/arch/parisc/include/uapi/asm/setup.h
+index 78b2f4ec7d65..bfad89428e47 100644
+--- a/arch/parisc/include/uapi/asm/setup.h
++++ b/arch/parisc/include/uapi/asm/setup.h
+@@ -2,6 +2,4 @@
+ #ifndef _PARISC_SETUP_H
+ #define _PARISC_SETUP_H
+ 
+-#define COMMAND_LINE_SIZE	1024
+-
+ #endif /* _PARISC_SETUP_H */
 -- 
-Thanks.
--- Max
+2.37.2
