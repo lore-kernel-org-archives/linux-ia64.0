@@ -1,69 +1,36 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Wed, 15 Feb 2023 17:08:15 +0000
-Subject: Re: [RFC PATCH] MAINTAINERS: Mark Itanium/IA64 as 'dead'
-Message-Id: <20230215170815.GA3787950@roeck-us.net>
+From: Josh Poimboeuf <jpoimboe@kernel.org>
+Date: Tue, 14 Feb 2023 07:05:42 +0000
+Subject: [PATCH v2 08/24] loongarch/cpu: Mark play_dead() __noreturn
+Message-Id: <4da55acfdec8a9132c4e21ffb7edb1f846841193.1676358308.git.jpoimboe@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230128122904.1345120-1-ardb@kernel.org>
- <20230215151547.GA3766362@roeck-us.net>
- <CAMj1kXEnoghSNpQFucmSCEhG3s_nyBCm+btgLHzOTiU56=XPfQ@mail.gmail.com>
-In-Reply-To: <CAMj1kXEnoghSNpQFucmSCEhG3s_nyBCm+btgLHzOTiU56=XPfQ@mail.gmail.com>
+References: <cover.1676358308.git.jpoimboe@kernel.org>
+In-Reply-To: <cover.1676358308.git.jpoimboe@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ard Biesheuvel <ardb@kernel.org>
-Cc: linux-kernel@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>, Arnd Bergmann <arnd@arndb.de>, Tony Luck <tony.luck@intel.com>, Jessica Clarke <jrtc27@jrtc27.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Matthew Wilcox <willy@infradead.org>, Marc Zyngier <maz@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: jgross@suse.com, richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux-alpha@vger.kernel.org, linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, loongarch@lists.linux.dev, f.fainelli@gmail.com, bcm-kernel-feedback-list@broadcom.com, tsbogend@alpha.franken.de, linux-mips@vger.kernel.org, jiaxun.yang@flygoat.com, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, ysato@users.sourceforge.jp, dalias@libc.org, linux-sh@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, jcmvbkbc@gmail.com, linux-xtensa@linux-xtensa.org, peterz@infradead.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, paulmck@kernel.org
 
-On Wed, Feb 15, 2023 at 04:40:30PM +0100, Ard Biesheuvel wrote:
-> On Wed, 15 Feb 2023 at 16:15, Guenter Roeck <linux@roeck-us.net> wrote:
-> >
-> > On Sat, Jan 28, 2023 at 01:29:04PM +0100, Ard Biesheuvel wrote:
-> > > Create a new status 'dead' which conveys that a subsystem is
-> > > unmaintained and scheduled for removal, and developers are free to
-> > > behave as if it's already gone. Also, automated build tests should
-> > > ignore such subsystems, or at least notify only those who are known to
-> > > have an interest in the subsystem in particular.
-> > >
-> > > Given that Itanium/IA64 has no maintainer, is no longer supported in
-> > > QEMU (for boot testing under emulation) and does not seem to have a user
-> > > base beyond a couple of machines used by distros to churn out packages,
-> > > let's mark it as dead. This shall mean that any treewide changes (such
-> > > as changes to the EFI subsystem, which I maintain) can be made even if
-> > > they might cause build or boot time regressions on IA64 machines. Also,
-> > > mark the port as scheduled for removal after the next LTS release.
-> > >
-> >
-> > Since this just came up, I very much prefer complete removal. I don't
-> > see the point of keeping dead code in the tree. That is still hidden
-> > maintenance effort.
-> >
-> 
-> Can I take this as an ack on
-> 
-> https://lore.kernel.org/linux-kernel/20230215100008.2565237-1-ardb@kernel.org/
->
+play_dead() doesn't return.  Annotate it as such.  By extension this
+also makes arch_cpu_idle_dead() noreturn.
 
-I would not have considered myself important enough to make such a call,
-but from a testbed maintainer's perspective it is an enthusiastic yes.
+Signed-off-by: Josh Poimboeuf <jpoimboe@kernel.org>
+---
+ arch/loongarch/include/asm/smp.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-At the same time, again from a testbed maintainer's perspective,
-introducing a new "dead" state into the code base deserves a just as
-enthusiastic NACK.
-
-Thanks,
-Guenter
-
-
-> ?
-> 
-> > If this proliferates, we'll end up having to parse the MAINTAINERS file
-> > for code marked "Dead" to ensure that we don't accidentally send e-mails
-> > to the wrong people, or we risk getting complaints about sending reports
-> > for such code. That puts extra burden on maintainers of automated test
-> > beds, which I think is not really appropriate. If the code is dead,
-> > remove it, period.
-> >
-> > For my part, I'll drop my test bed support immediately after this patch
-> > made it in, following the guidance above.
-> >
-> 
-> Thanks for the insight. I think we should take the immediate removal route.
+diff --git a/arch/loongarch/include/asm/smp.h b/arch/loongarch/include/asm/smp.h
+index d82687390b4a..416b653bccb4 100644
+--- a/arch/loongarch/include/asm/smp.h
++++ b/arch/loongarch/include/asm/smp.h
+@@ -99,7 +99,7 @@ static inline void __cpu_die(unsigned int cpu)
+ 	loongson_cpu_die(cpu);
+ }
+ 
+-extern void play_dead(void);
++extern void __noreturn play_dead(void);
+ #endif
+ 
+ #endif /* __ASM_SMP_H */
+-- 
+2.39.1
