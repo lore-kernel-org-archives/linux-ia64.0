@@ -1,44 +1,43 @@
-From: matoro <matoro_mailinglist_kernel@matoro.tk>
-Date: Wed, 22 Feb 2023 21:52:27 +0000
-Subject: Re: [RFC PATCH 0/5] Retire IA64/Itanium support
-Message-Id: <1d5b903ef5e5b5f83feee241fb0cbcca@matoro.tk>
+From: Alexandre Ghiti <alexghiti@rivosinc.com>
+Date: Tue, 14 Feb 2023 07:49:25 +0000
+Subject: [PATCH v3 24/24] s390: Remove empty <uapi/asm/setup.h>
+Message-Id: <20230214074925.228106-25-alexghiti@rivosinc.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230215100008.2565237-1-ardb@kernel.org>
- <534469b750e1847e1645f9ae5ed19dcc80b82be6.camel@physik.fu-berlin.de>
- <CAHk-=wjEmZ19T4XpVb0_Hacm53xJG_w5ygcuorwC0xBoT-myUA@mail.gmail.com>
- <SJ1PR11MB6083F7F30FE9ED8F39FA1F85FCA39@SJ1PR11MB6083.namprd11.prod.outlook.com>
- <CAHk-=wj9RkLN+GpYcFmsd8tze6zYL7MMkNpvdKbETQnqYm+Hwg@mail.gmail.com>
- <77ff2776d99286eac6eefecb1903b96899d0ff62.camel@physik.fu-berlin.de>
-In-Reply-To: <77ff2776d99286eac6eefecb1903b96899d0ff62.camel@physik.fu-berlin.de>
+References: <20230214074925.228106-1-alexghiti@rivosinc.com>
+In-Reply-To: <20230214074925.228106-1-alexghiti@rivosinc.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Cc: Linus Torvalds <torvalds@linux-foundation.org>, "Luck, Tony" <tony.luck@intel.com>, Al Viro <viro@zeniv.linux.org.uk>, Ard Biesheuvel <ardb@kernel.org>, linux-kernel@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>, Arnd Bergmann <arnd@arndb.de>, Jessica Clarke <jrtc27@jrtc27.com>, Matthew Wilcox <willy@infradead.org>, Marc Zyngier <maz@kernel.org>, Guenter Roeck <linux@roeck-us.net>, linux-ia64@vger.kernel.org
+To: Jonathan Corbet <corbet@lwn.net>, Richard Henderson <richard.henderson@linaro.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Vineet Gupta <vgupta@kernel.org>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E . J . Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Nicholas Piggin <npiggin@gmail.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S . Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H . Peter Anvin" <hpa@zytor.com>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, Arnd Bergmann <arnd@arndb.de>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org
+Cc: Palmer Dabbelt <palmer@rivosinc.com>
 
-On 2023-02-15 18:13, John Paul Adrian Glaubitz wrote:
-> On Wed, 2023-02-15 at 12:08 -0800, Linus Torvalds wrote:
->> But when it's actively known to be broken and nobody has time or
->> interest to look at it, at that point the "it doesn't look any more
->> painful than other architectures" becomes kind of moot.
-> 
-> Let me look after it in the weekend and let's see whether we can 
-> unbreak
-> it. I don't think there is really a big issue. The last time we had a
-> similar issue was the regression introduced by 974b9b2c68f3 which got 
-> fixed
-> with the simple fix in bd05220c7be3.
-> 
-> It's probably similarly trivial to fix the current regression.
-> 
-> Adrian
+From: Palmer Dabbelt <palmer@rivosinc.com>
 
-Just for reference, this specific bug does not seem to be universal, but 
-possibly only applies to a specific configuration.  I have observed no 
-problems with 6.1 on my rx 2800 i2 and just booted 6.2 with no issues.  
-Please feel free to try out my kernel config here:  
-https://dpaste.com/43CACUUG8.txt
+Signed-off-by: Palmer Dabbelt <palmer@rivosinc.com>
+---
+ arch/s390/include/asm/setup.h      | 1 -
+ arch/s390/include/uapi/asm/setup.h | 1 -
+ 2 files changed, 2 deletions(-)
+ delete mode 100644 arch/s390/include/uapi/asm/setup.h
 
-A possible guess is initramfs-related, as according to your logs on the 
-Debian ML the hang happens shortly after initramfs unpacking, and I do 
-not use an initramfs.
+diff --git a/arch/s390/include/asm/setup.h b/arch/s390/include/asm/setup.h
+index 177bf6deaa27..99c1cc97350a 100644
+--- a/arch/s390/include/asm/setup.h
++++ b/arch/s390/include/asm/setup.h
+@@ -7,7 +7,6 @@
+ #define _ASM_S390_SETUP_H
+ 
+ #include <linux/bits.h>
+-#include <uapi/asm/setup.h>
+ #include <linux/build_bug.h>
+ 
+ #define PARMAREA		0x10400
+diff --git a/arch/s390/include/uapi/asm/setup.h b/arch/s390/include/uapi/asm/setup.h
+deleted file mode 100644
+index 598d769e76df..000000000000
+--- a/arch/s390/include/uapi/asm/setup.h
++++ /dev/null
+@@ -1 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+-- 
+2.37.2
