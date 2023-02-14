@@ -1,85 +1,39 @@
-From: James Morse <james.morse@arm.com>
-Date: Fri, 03 Feb 2023 13:50:20 +0000
-Subject: [RFC PATCH 09/32] LoongArch: Switch over to GENERIC_CPU_DEVICES
-Message-Id: <20230203135043.409192-10-james.morse@arm.com>
+From: Josh Poimboeuf <jpoimboe@kernel.org>
+Date: Tue, 14 Feb 2023 07:05:41 +0000
+Subject: [PATCH v2 07/24] loongarch/cpu: Make sure play_dead() doesn't return
+Message-Id: <21245d687ffeda34dbcf04961a2df3724f04f7c8.1676358308.git.jpoimboe@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230203135043.409192-1-james.morse@arm.com>
-In-Reply-To: <20230203135043.409192-1-james.morse@arm.com>
+References: <cover.1676358308.git.jpoimboe@kernel.org>
+In-Reply-To: <cover.1676358308.git.jpoimboe@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-pm@vger.kernel.org, loongarch@lists.linux.dev, kvmarm@lists.linux.dev, kvm@vger.kernel.org, linux-acpi@vger.kernel.org, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
-Cc: Marc Zyngier <maz@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Sudeep Holla <sudeep.holla@arm.com>, Borislav Petkov <bp@alien8.de>, H Peter Anvin <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will@kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, Huacai Chen <chenhuacai@kernel.org>, James Morse <james.morse@arm.com>, Suzuki K Poulose <suzuki.poulose@arm.com>, Oliver Upton <oliver.upton@linux.dev>, Len Brown <lenb@kernel.org>, Rafael Wysocki <rafael@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Salil Mehta <salil.mehta@huawei.com>, Russell King <linux@armlinux.org.uk>, Jean-Philippe Brucker <jean-philippe@linaro.org>
+To: linux-kernel@vger.kernel.org
+Cc: jgross@suse.com, richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux-alpha@vger.kernel.org, linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, loongarch@lists.linux.dev, f.fainelli@gmail.com, bcm-kernel-feedback-list@broadcom.com, tsbogend@alpha.franken.de, linux-mips@vger.kernel.org, jiaxun.yang@flygoat.com, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, ysato@users.sourceforge.jp, dalias@libc.org, linux-sh@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, jcmvbkbc@gmail.com, linux-xtensa@linux-xtensa.org, peterz@infradead.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, paulmck@kernel.org
 
-Now that GENERIC_CPU_DEVICES calls arch_register_cpu(), which can be
-overridden by the arch code, switch over to this to allow common code
-to choose when the register_cpu() call is made.
+play_dead() doesn't return.  Make that more explicit with a BUG().
 
-This allows topology_init() to be removed.
+BUG() is preferable to unreachable() because BUG() is a more explicit
+failure mode and avoids undefined behavior like falling off the edge of
+the function into whatever code happens to be next.
 
-This is an intermediate step to the logic being moved to drivers/acpi,
-where GENERIC_CPU_DEVICES will do the work when booting with acpi=off.
-
-Signed-off-by: James Morse <james.morse@arm.com>
+Signed-off-by: Josh Poimboeuf <jpoimboe@kernel.org>
 ---
- arch/loongarch/Kconfig           |  1 +
- arch/loongarch/kernel/topology.c | 22 +---------------------
- 2 files changed, 2 insertions(+), 21 deletions(-)
+ arch/loongarch/kernel/smp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/loongarch/Kconfig b/arch/loongarch/Kconfig
-index 075aa50e5d5f..53f6feba0008 100644
---- a/arch/loongarch/Kconfig
-+++ b/arch/loongarch/Kconfig
-@@ -64,6 +64,7 @@ config LOONGARCH
- 	select GENERIC_CLOCKEVENTS
- 	select GENERIC_CMOS_UPDATE
- 	select GENERIC_CPU_AUTOPROBE
-+	select GENERIC_CPU_DEVICES
- 	select GENERIC_ENTRY
- 	select GENERIC_GETTIMEOFDAY
- 	select GENERIC_IOREMAP if !ARCH_IOREMAP
-diff --git a/arch/loongarch/kernel/topology.c b/arch/loongarch/kernel/topology.c
-index caa7cd859078..a86d51269b09 100644
---- a/arch/loongarch/kernel/topology.c
-+++ b/arch/loongarch/kernel/topology.c
-@@ -7,15 +7,13 @@
- #include <linux/percpu.h>
- #include <asm/bootinfo.h>
+diff --git a/arch/loongarch/kernel/smp.c b/arch/loongarch/kernel/smp.c
+index 8c6e227cb29d..51f328169a7b 100644
+--- a/arch/loongarch/kernel/smp.c
++++ b/arch/loongarch/kernel/smp.c
+@@ -336,7 +336,7 @@ void play_dead(void)
+ 	iocsr_write32(0xffffffff, LOONGARCH_IOCSR_IPI_CLEAR);
  
--static DEFINE_PER_CPU(struct cpu, cpu_devices);
--
- #ifdef CONFIG_HOTPLUG_CPU
- int arch_register_cpu(int cpu)
- {
- 	int ret;
- 	struct cpu *c = &per_cpu(cpu_devices, cpu);
- 
--	c->hotpluggable = 1;
-+	c->hotpluggable = !io_master(cpu);
- 	ret = register_cpu(c, cpu);
- 	if (ret < 0)
- 		pr_warn("register_cpu %d failed (%d)\n", cpu, ret);
-@@ -33,21 +31,3 @@ void arch_unregister_cpu(int cpu)
+ 	init_fn();
+-	unreachable();
++	BUG();
  }
- EXPORT_SYMBOL(arch_unregister_cpu);
+ 
  #endif
--
--static int __init topology_init(void)
--{
--	int i, ret;
--
--	for_each_present_cpu(i) {
--		struct cpu *c = &per_cpu(cpu_devices, i);
--
--		c->hotpluggable = !io_master(i);
--		ret = register_cpu(c, i);
--		if (ret < 0)
--			pr_warn("topology_init: register_cpu %d failed (%d)\n", i, ret);
--	}
--
--	return 0;
--}
--
--subsys_initcall(topology_init);
 -- 
-2.30.2
+2.39.1
