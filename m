@@ -1,65 +1,52 @@
-From: Michael Schmitz <schmitzmic@gmail.com>
-Date: Tue, 28 Feb 2023 19:18:59 +0000
-Subject: Re: [PATCH 08/10] parisc: fix livelock in uaccess
-Message-Id: <f619e8ce-1fce-ace9-3685-e0b50646e8fb@gmail.com>
+From: Alexandre Ghiti <alexghiti@rivosinc.com>
+Date: Tue, 14 Feb 2023 07:49:08 +0000
+Subject: [PATCH v3 07/24] mips: Remove COMMAND_LINE_SIZE from uapi
+Message-Id: <20230214074925.228106-8-alexghiti@rivosinc.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Y9lz6yk113LmC9SI@ZenIV> <Y9l0w4M91DwYLO3N@ZenIV>
- <20230228152236.GA4088022@roeck-us.net>
-In-Reply-To: <20230228152236.GA4088022@roeck-us.net>
+References: <20230214074925.228106-1-alexghiti@rivosinc.com>
+In-Reply-To: <20230214074925.228106-1-alexghiti@rivosinc.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Guenter Roeck <linux@roeck-us.net>, Al Viro <viro@zeniv.linux.org.uk>
-Cc: linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-m68k@lists.linux-m68k.org, Michal Simek <monstr@monstr.eu>, Dinh Nguyen <dinguyen@kernel.org>, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, sparclinux@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Jonathan Corbet <corbet@lwn.net>, Richard Henderson <richard.henderson@linaro.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Vineet Gupta <vgupta@kernel.org>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E . J . Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Nicholas Piggin <npiggin@gmail.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S . Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H . Peter Anvin" <hpa@zytor.com>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, Arnd Bergmann <arnd@arndb.de>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org
+Cc: Palmer Dabbelt <palmer@rivosinc.com>
 
-Guenter,
+From: Palmer Dabbelt <palmer@rivosinc.com>
 
-On 1/03/23 04:22, Guenter Roeck wrote:
-> On Tue, Jan 31, 2023 at 08:06:27PM +0000, Al Viro wrote:
->> parisc equivalent of 26178ec11ef3 "x86: mm: consolidate VM_FAULT_RETRY handling"
->> If e.g. get_user() triggers a page fault and a fatal signal is caught, we might
->> end up with handle_mm_fault() returning VM_FAULT_RETRY and not doing anything
->> to page tables.  In such case we must *not* return to the faulting insn -
->> that would repeat the entire thing without making any progress; what we need
->> instead is to treat that as failed (user) memory access.
->>
->> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
->> ---
->>   arch/parisc/mm/fault.c | 5 ++++-
->>   1 file changed, 4 insertions(+), 1 deletion(-)
->>
->> diff --git a/arch/parisc/mm/fault.c b/arch/parisc/mm/fault.c
->> index 869204e97ec9..bb30ff6a3e19 100644
->> --- a/arch/parisc/mm/fault.c
->> +++ b/arch/parisc/mm/fault.c
->> @@ -308,8 +308,11 @@ void do_page_fault(struct pt_regs *regs, unsigned long code,
->>   
->>   	fault = handle_mm_fault(vma, address, flags, regs);
->>   
->> -	if (fault_signal_pending(fault, regs))
->> +	if (fault_signal_pending(fault, regs)) {
->> +		if (!user_mode(regs))
->> +			goto no_context;
-> 0-day rightfully complains that this leaves 'msg' uninitialized.
->
-> arch/parisc/mm/fault.c:427 do_page_fault() error: uninitialized symbol 'msg'
->
-> Guenter
+As far as I can tell this is not used by userspace and thus should not
+be part of the user-visible API.
 
-What happens if you initialize msg to "Page fault: no context" right at 
-the start of do_page_fault (and drop the assignment a few lines down as 
-that's now redundant)?
+Signed-off-by: Palmer Dabbelt <palmer@rivosinc.com>
+---
+ arch/mips/include/asm/setup.h      | 3 ++-
+ arch/mips/include/uapi/asm/setup.h | 3 ---
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
-(Wondering if the zero page access on parisc could cause a trip right 
-back into do_page_fault, ad infinitum...)
-
-Cheers,
-
-     Michael
-
-
->>   		return;
->> +	}
->>   
->>   	/* The fault is fully completed (including releasing mmap lock) */
->>   	if (fault & VM_FAULT_COMPLETED)
+diff --git a/arch/mips/include/asm/setup.h b/arch/mips/include/asm/setup.h
+index 8c56b862fd9c..a13b9259b476 100644
+--- a/arch/mips/include/asm/setup.h
++++ b/arch/mips/include/asm/setup.h
+@@ -3,7 +3,8 @@
+ #define _MIPS_SETUP_H
+ 
+ #include <linux/types.h>
+-#include <uapi/asm/setup.h>
++
++#define COMMAND_LINE_SIZE	4096
+ 
+ extern void prom_putchar(char);
+ extern void setup_early_printk(void);
+diff --git a/arch/mips/include/uapi/asm/setup.h b/arch/mips/include/uapi/asm/setup.h
+index 7d48c433b0c2..157c3c392fb4 100644
+--- a/arch/mips/include/uapi/asm/setup.h
++++ b/arch/mips/include/uapi/asm/setup.h
+@@ -2,7 +2,4 @@
+ #ifndef _UAPI_MIPS_SETUP_H
+ #define _UAPI_MIPS_SETUP_H
+ 
+-#define COMMAND_LINE_SIZE	4096
+-
+-
+ #endif /* _UAPI_MIPS_SETUP_H */
+-- 
+2.37.2
