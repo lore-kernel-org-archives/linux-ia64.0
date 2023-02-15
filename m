@@ -1,21 +1,85 @@
-From: =?UTF-8?Q?Philippe_Mathieu-Daud=c3=a9?= <philmd@linaro.org>
-Date: Tue, 14 Feb 2023 09:05:59 +0000
-Subject: Re: [PATCH v3 14/24] arc: Remove empty <uapi/asm/setup.h>
-Message-Id: <84bde3ef-4701-431c-3ae0-3f5793e1e13a@linaro.org>
+From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Date: Wed, 15 Feb 2023 10:19:28 +0000
+Subject: Re: [RFC PATCH] MAINTAINERS: Mark Itanium/IA64 as 'dead'
+Message-Id: <6021a9ac7a57de5422a2070beb21b921195bdd96.camel@physik.fu-berlin.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230214074925.228106-1-alexghiti@rivosinc.com>
- <20230214074925.228106-15-alexghiti@rivosinc.com>
-In-Reply-To: <20230214074925.228106-15-alexghiti@rivosinc.com>
+References: <20230128122904.1345120-1-ardb@kernel.org>
+In-Reply-To: <20230128122904.1345120-1-ardb@kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: Alexandre Ghiti <alexghiti@rivosinc.com>, Jonathan Corbet <corbet@lwn.net>, Richard Henderson <richard.henderson@linaro.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Vineet Gupta <vgupta@kernel.org>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E . J . Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Nicholas Piggin <npiggin@gmail.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S . Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H . Peter Anvin" <hpa@zytor.com>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, Arnd Bergmann <arnd@arndb.de>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org
-Cc: Palmer Dabbelt <palmer@rivosinc.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Ard Biesheuvel <ardb@kernel.org>, linux-kernel@vger.kernel.org
+Cc: Jonathan Corbet <corbet@lwn.net>, Arnd Bergmann <arnd@arndb.de>, Tony Luck <tony.luck@intel.com>, Jessica Clarke <jrtc27@jrtc27.com>, Matthew Wilcox <willy@infradead.org>, Marc Zyngier <maz@kernel.org>, Guenter Roeck <linux@roeck-us.net>, Linus Torvalds <torvalds@linux-foundation.org>, linux-ia64@vger.kernel.org
 
-T24gMTQvMi8yMyAwODo0OSwgQWxleGFuZHJlIEdoaXRpIHdyb3RlOgo+IEZyb206IFBhbG1lciBE
-YWJiZWx0IDxwYWxtZXJAcml2b3NpbmMuY29tPgo+IAo+IFNpZ25lZC1vZmYtYnk6IFBhbG1lciBE
-YWJiZWx0IDxwYWxtZXJAcml2b3NpbmMuY29tPgo+IC0tLQo+ICAgYXJjaC9hcmMvaW5jbHVkZS9h
-c20vc2V0dXAuaCAgICAgIHwgMSAtCj4gICBhcmNoL2FyYy9pbmNsdWRlL3VhcGkvYXNtL3NldHVw
-LmggfCA2IC0tLS0tLQo+ICAgMiBmaWxlcyBjaGFuZ2VkLCA3IGRlbGV0aW9ucygtKQo+ICAgZGVs
-ZXRlIG1vZGUgMTAwNjQ0IGFyY2gvYXJjL2luY2x1ZGUvdWFwaS9hc20vc2V0dXAuaAoKUmV2aWV3
-ZWQtYnk6IFBoaWxpcHBlIE1hdGhpZXUtRGF1ZMOpIDxwaGlsbWRAbGluYXJvLm9yZz4K
+Hello Ard!
+
+On Sat, 2023-01-28 at 13:29 +0100, Ard Biesheuvel wrote:
+> Create a new status 'dead' which conveys that a subsystem is
+> unmaintained and scheduled for removal, and developers are free to
+> behave as if it's already gone. Also, automated build tests should
+> ignore such subsystems, or at least notify only those who are known to
+> have an interest in the subsystem in particular.
+> 
+> Given that Itanium/IA64 has no maintainer, is no longer supported in
+> QEMU (for boot testing under emulation) and does not seem to have a user
+> base beyond a couple of machines used by distros to churn out packages,
+> let's mark it as dead. This shall mean that any treewide changes (such
+> as changes to the EFI subsystem, which I maintain) can be made even if
+> they might cause build or boot time regressions on IA64 machines. Also,
+> mark the port as scheduled for removal after the next LTS release.
+> 
+> Cc: Jonathan Corbet <corbet@lwn.net>
+> Cc: Arnd Bergmann <arnd@arndb.de>
+> Cc: Tony Luck <tony.luck@intel.com>
+> Cc: Jessica Clarke <jrtc27@jrtc27.com>
+> Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+> Cc: Matthew Wilcox <willy@infradead.org>
+> Cc: Marc Zyngier <maz@kernel.org>
+> Cc: Guenter Roeck <linux@roeck-us.net>
+> Cc: Linus Torvalds <torvalds@linux-foundation.org>
+> Cc: linux-ia64@vger.kernel.org
+> Link: https://lore.kernel.org/all/CAMj1kXEqbMEcrKYzz2-huLPMnotPoxFY8adyH=Xb4Ex8o98x-w@mail.gmail.com/
+> Signed-off-by: Ard Biesheuvel <ardb@kernel.org>
+> ---
+>  MAINTAINERS | 10 +++++++++-
+>  1 file changed, 9 insertions(+), 1 deletion(-)
+> 
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index 5b74014994f5c1cc..5481967c2112e8ce 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -94,6 +94,14 @@ Descriptions of section entries and preferred order
+>  	   Obsolete:	Old code. Something tagged obsolete generally means
+>  			it has been replaced by a better system and you
+>  			should be using that.
+> +	   Dead:	Code has no maintainer and no significant user base,
+> +			and is scheduled for removal. Developers are free to
+> +			ignore it when it comes to testing bug fixes or other
+> +			code changes, and automated build test systems must not
+> +			report any detected issues, except possibly to mailing
+> +			lists or other recipients that have opted in
+> +			specifically to receiving reports about the state of
+> +			this code.
+>  	W: *Web-page* with status/info
+>  	Q: *Patchwork* web based patch tracking system site
+>  	B: URI for where to file *bugs*. A web-page with detailed bug
+> @@ -9833,7 +9841,7 @@ F:	include/linux/i3c/
+>  
+>  IA64 (Itanium) PLATFORM
+>  L:	linux-ia64@vger.kernel.org
+> -S:	Orphan
+> +S:	Dead # to be removed after the 2023 LTS release
+>  F:	Documentation/ia64/
+>  F:	arch/ia64/
+
+Sounds reasonable to me.
+
+Acked-by: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+
+Adrian
+
+-- 
+ .''`.  John Paul Adrian Glaubitz
+: :' :  Debian Developer
+`. `'   Physicist
+  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
