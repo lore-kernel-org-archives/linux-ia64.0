@@ -1,19 +1,17 @@
-From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Date: Wed, 15 Feb 2023 10:19:28 +0000
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Wed, 15 Feb 2023 15:15:47 +0000
 Subject: Re: [RFC PATCH] MAINTAINERS: Mark Itanium/IA64 as 'dead'
-Message-Id: <6021a9ac7a57de5422a2070beb21b921195bdd96.camel@physik.fu-berlin.de>
+Message-Id: <20230215151547.GA3766362@roeck-us.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20230128122904.1345120-1-ardb@kernel.org>
 In-Reply-To: <20230128122904.1345120-1-ardb@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ard Biesheuvel <ardb@kernel.org>, linux-kernel@vger.kernel.org
-Cc: Jonathan Corbet <corbet@lwn.net>, Arnd Bergmann <arnd@arndb.de>, Tony Luck <tony.luck@intel.com>, Jessica Clarke <jrtc27@jrtc27.com>, Matthew Wilcox <willy@infradead.org>, Marc Zyngier <maz@kernel.org>, Guenter Roeck <linux@roeck-us.net>, Linus Torvalds <torvalds@linux-foundation.org>, linux-ia64@vger.kernel.org
+To: Ard Biesheuvel <ardb@kernel.org>
+Cc: linux-kernel@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>, Arnd Bergmann <arnd@arndb.de>, Tony Luck <tony.luck@intel.com>, Jessica Clarke <jrtc27@jrtc27.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Matthew Wilcox <willy@infradead.org>, Marc Zyngier <maz@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, linux-ia64@vger.kernel.org
 
-Hello Ard!
-
-On Sat, 2023-01-28 at 13:29 +0100, Ard Biesheuvel wrote:
+On Sat, Jan 28, 2023 at 01:29:04PM +0100, Ard Biesheuvel wrote:
 > Create a new status 'dead' which conveys that a subsystem is
 > unmaintained and scheduled for removal, and developers are free to
 > behave as if it's already gone. Also, automated build tests should
@@ -28,6 +26,23 @@ On Sat, 2023-01-28 at 13:29 +0100, Ard Biesheuvel wrote:
 > they might cause build or boot time regressions on IA64 machines. Also,
 > mark the port as scheduled for removal after the next LTS release.
 > 
+
+Since this just came up, I very much prefer complete removal. I don't
+see the point of keeping dead code in the tree. That is still hidden
+maintenance effort.
+
+If this proliferates, we'll end up having to parse the MAINTAINERS file
+for code marked "Dead" to ensure that we don't accidentally send e-mails
+to the wrong people, or we risk getting complaints about sending reports
+for such code. That puts extra burden on maintainers of automated test
+beds, which I think is not really appropriate. If the code is dead,
+remove it, period.
+
+For my part, I'll drop my test bed support immediately after this patch
+made it in, following the guidance above.
+
+Guenter
+
 > Cc: Jonathan Corbet <corbet@lwn.net>
 > Cc: Arnd Bergmann <arnd@arndb.de>
 > Cc: Tony Luck <tony.luck@intel.com>
@@ -71,15 +86,7 @@ On Sat, 2023-01-28 at 13:29 +0100, Ard Biesheuvel wrote:
 > +S:	Dead # to be removed after the 2023 LTS release
 >  F:	Documentation/ia64/
 >  F:	arch/ia64/
-
-Sounds reasonable to me.
-
-Acked-by: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-
-Adrian
-
--- 
- .''`.  John Paul Adrian Glaubitz
-: :' :  Debian Developer
-`. `'   Physicist
-  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
+>  
+> -- 
+> 2.39.0
+> 
