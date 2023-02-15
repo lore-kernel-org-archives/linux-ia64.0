@@ -1,39 +1,568 @@
-From: Josh Poimboeuf <jpoimboe@kernel.org>
-Date: Fri, 03 Feb 2023 22:05:16 +0000
-Subject: [PATCH 07/22] loongarch/cpu: Make sure play_dead() doesn't return
-Message-Id: <054ac5118731ae340a8bb7026a15ab78bf57ae89.1675461757.git.jpoimboe@kernel.org>
+From: Ard Biesheuvel <ardb@kernel.org>
+Date: Wed, 15 Feb 2023 10:00:06 +0000
+Subject: [RFC PATCH 3/5] Documentation: Drop IA64 from feature descriptions
+Message-Id: <20230215100008.2565237-4-ardb@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1675461757.git.jpoimboe@kernel.org>
-In-Reply-To: <cover.1675461757.git.jpoimboe@kernel.org>
+References: <20230215100008.2565237-1-ardb@kernel.org>
+In-Reply-To: <20230215100008.2565237-1-ardb@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: jgross@suse.com, richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux-alpha@vger.kernel.org, linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, loongarch@lists.linux.dev, f.fainelli@gmail.com, bcm-kernel-feedback-list@broadcom.com, tsbogend@alpha.franken.de, linux-mips@vger.kernel.org, jiaxun.yang@flygoat.com, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, ysato@users.sourceforge.jp, dalias@libc.org, linux-sh@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, jcmvbkbc@gmail.com, linux-xtensa@linux-xtensa.org, peterz@infradead.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, paulmck@kernel.org
+Cc: Ard Biesheuvel <ardb@kernel.org>, Jonathan Corbet <corbet@lwn.net>, Arnd Bergmann <arnd@arndb.de>, Tony Luck <tony.luck@intel.com>, Jessica Clarke <jrtc27@jrtc27.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Matthew Wilcox <willy@infradead.org>, Marc Zyngier <maz@kernel.org>, Guenter Roeck <linux@roeck-us.net>, Linus Torvalds <torvalds@linux-foundation.org>, linux-ia64@vger.kernel.org
 
-play_dead() doesn't return.  Make that more explicit with a BUG().
+Itanium (IA64) is going away, so drop it from the kernel feature
+documentation.
 
-BUG() is preferable to unreachable() because BUG() is a more explicit
-failure mode and avoids undefined behavior like falling off the edge of
-the function into whatever code happens to be next.
-
-Signed-off-by: Josh Poimboeuf <jpoimboe@kernel.org>
+Signed-off-by: Ard Biesheuvel <ardb@kernel.org>
 ---
- arch/loongarch/kernel/smp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ Documentation/features/core/cBPF-JIT/arch-support.txt              | 1 -
+ Documentation/features/core/eBPF-JIT/arch-support.txt              | 1 -
+ Documentation/features/core/generic-idle-thread/arch-support.txt   | 1 -
+ Documentation/features/core/jump-labels/arch-support.txt           | 1 -
+ Documentation/features/core/thread-info-in-task/arch-support.txt   | 1 -
+ Documentation/features/core/tracehook/arch-support.txt             | 1 -
+ Documentation/features/debug/KASAN/arch-support.txt                | 1 -
+ Documentation/features/debug/debug-vm-pgtable/arch-support.txt     | 1 -
+ Documentation/features/debug/gcov-profile-all/arch-support.txt     | 1 -
+ Documentation/features/debug/kcov/arch-support.txt                 | 1 -
+ Documentation/features/debug/kgdb/arch-support.txt                 | 1 -
+ Documentation/features/debug/kmemleak/arch-support.txt             | 1 -
+ Documentation/features/debug/kprobes-on-ftrace/arch-support.txt    | 1 -
+ Documentation/features/debug/kprobes/arch-support.txt              | 1 -
+ Documentation/features/debug/kretprobes/arch-support.txt           | 1 -
+ Documentation/features/debug/optprobes/arch-support.txt            | 1 -
+ Documentation/features/debug/stackprotector/arch-support.txt       | 1 -
+ Documentation/features/debug/uprobes/arch-support.txt              | 1 -
+ Documentation/features/debug/user-ret-profiler/arch-support.txt    | 1 -
+ Documentation/features/io/dma-contiguous/arch-support.txt          | 1 -
+ Documentation/features/locking/cmpxchg-local/arch-support.txt      | 1 -
+ Documentation/features/locking/lockdep/arch-support.txt            | 1 -
+ Documentation/features/locking/queued-rwlocks/arch-support.txt     | 1 -
+ Documentation/features/locking/queued-spinlocks/arch-support.txt   | 1 -
+ Documentation/features/perf/kprobes-event/arch-support.txt         | 1 -
+ Documentation/features/perf/perf-regs/arch-support.txt             | 1 -
+ Documentation/features/perf/perf-stackdump/arch-support.txt        | 1 -
+ Documentation/features/sched/membarrier-sync-core/arch-support.txt | 1 -
+ Documentation/features/sched/numa-balancing/arch-support.txt       | 1 -
+ Documentation/features/seccomp/seccomp-filter/arch-support.txt     | 1 -
+ Documentation/features/time/arch-tick-broadcast/arch-support.txt   | 1 -
+ Documentation/features/time/clockevents/arch-support.txt           | 1 -
+ Documentation/features/time/context-tracking/arch-support.txt      | 1 -
+ Documentation/features/time/irq-time-acct/arch-support.txt         | 1 -
+ Documentation/features/time/virt-cpuacct/arch-support.txt          | 1 -
+ Documentation/features/vm/ELF-ASLR/arch-support.txt                | 1 -
+ Documentation/features/vm/PG_uncached/arch-support.txt             | 1 -
+ Documentation/features/vm/THP/arch-support.txt                     | 1 -
+ Documentation/features/vm/TLB/arch-support.txt                     | 1 -
+ Documentation/features/vm/huge-vmap/arch-support.txt               | 1 -
+ Documentation/features/vm/ioremap_prot/arch-support.txt            | 1 -
+ Documentation/features/vm/pte_special/arch-support.txt             | 1 -
+ 42 files changed, 42 deletions(-)
 
-diff --git a/arch/loongarch/kernel/smp.c b/arch/loongarch/kernel/smp.c
-index 8c6e227cb29d..51f328169a7b 100644
---- a/arch/loongarch/kernel/smp.c
-+++ b/arch/loongarch/kernel/smp.c
-@@ -336,7 +336,7 @@ void play_dead(void)
- 	iocsr_write32(0xffffffff, LOONGARCH_IOCSR_IPI_CLEAR);
- 
- 	init_fn();
--	unreachable();
-+	BUG();
- }
- 
- #endif
+diff --git a/Documentation/features/core/cBPF-JIT/arch-support.txt b/Documentation/features/core/cBPF-JIT/arch-support.txt
+index 0a1f5bb7eeb9a63a..937840080de718cd 100644
+--- a/Documentation/features/core/cBPF-JIT/arch-support.txt
++++ b/Documentation/features/core/cBPF-JIT/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: | TODO |
+     |        csky: | TODO |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: | TODO |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/core/eBPF-JIT/arch-support.txt b/Documentation/features/core/eBPF-JIT/arch-support.txt
+index 6c0f3d759e6a0b2e..7434b43c2ff8727f 100644
+--- a/Documentation/features/core/eBPF-JIT/arch-support.txt
++++ b/Documentation/features/core/eBPF-JIT/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: | TODO |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: |  ok  |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/core/generic-idle-thread/arch-support.txt b/Documentation/features/core/generic-idle-thread/arch-support.txt
+index 0b94099cf6aca230..0735cb5367b4b179 100644
+--- a/Documentation/features/core/generic-idle-thread/arch-support.txt
++++ b/Documentation/features/core/generic-idle-thread/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ok  |
+     |     hexagon: |  ok  |
+-    |        ia64: |  ok  |
+     |   loongarch: |  ok  |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/core/jump-labels/arch-support.txt b/Documentation/features/core/jump-labels/arch-support.txt
+index 2328eada3a491a4d..f1921393981c6e4c 100644
+--- a/Documentation/features/core/jump-labels/arch-support.txt
++++ b/Documentation/features/core/jump-labels/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ok  |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: | TODO |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/core/thread-info-in-task/arch-support.txt b/Documentation/features/core/thread-info-in-task/arch-support.txt
+index 9c5d39eebef21520..89a9f69ff9fdbc60 100644
+--- a/Documentation/features/core/thread-info-in-task/arch-support.txt
++++ b/Documentation/features/core/thread-info-in-task/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: | TODO |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: | TODO |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/core/tracehook/arch-support.txt b/Documentation/features/core/tracehook/arch-support.txt
+index aed5679da651cad2..a72330e2554245c2 100644
+--- a/Documentation/features/core/tracehook/arch-support.txt
++++ b/Documentation/features/core/tracehook/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ok  |
+     |     hexagon: |  ok  |
+-    |        ia64: |  ok  |
+     |   loongarch: |  ok  |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/debug/KASAN/arch-support.txt b/Documentation/features/debug/KASAN/arch-support.txt
+index bf0124fae643a1bb..83633c583104774a 100644
+--- a/Documentation/features/debug/KASAN/arch-support.txt
++++ b/Documentation/features/debug/KASAN/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: | TODO |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: | TODO |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/debug/debug-vm-pgtable/arch-support.txt b/Documentation/features/debug/debug-vm-pgtable/arch-support.txt
+index 9ec5d13f4939c6b3..bbf029f095cb57eb 100644
+--- a/Documentation/features/debug/debug-vm-pgtable/arch-support.txt
++++ b/Documentation/features/debug/debug-vm-pgtable/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: | TODO |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: | TODO |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/debug/gcov-profile-all/arch-support.txt b/Documentation/features/debug/gcov-profile-all/arch-support.txt
+index dc4014f7e1f8ad77..63494bddc2638e13 100644
+--- a/Documentation/features/debug/gcov-profile-all/arch-support.txt
++++ b/Documentation/features/debug/gcov-profile-all/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ok  |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: | TODO |
+     |        m68k: | TODO |
+     |  microblaze: |  ok  |
+diff --git a/Documentation/features/debug/kcov/arch-support.txt b/Documentation/features/debug/kcov/arch-support.txt
+index ffcc9f2b1d74d393..cdeace38aa9775b3 100644
+--- a/Documentation/features/debug/kcov/arch-support.txt
++++ b/Documentation/features/debug/kcov/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: | TODO |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: | TODO |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/debug/kgdb/arch-support.txt b/Documentation/features/debug/kgdb/arch-support.txt
+index 958498f9f2a41f2b..9c7e23d574ef4c05 100644
+--- a/Documentation/features/debug/kgdb/arch-support.txt
++++ b/Documentation/features/debug/kgdb/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: | TODO |
+     |     hexagon: |  ok  |
+-    |        ia64: | TODO |
+     |   loongarch: | TODO |
+     |        m68k: | TODO |
+     |  microblaze: |  ok  |
+diff --git a/Documentation/features/debug/kmemleak/arch-support.txt b/Documentation/features/debug/kmemleak/arch-support.txt
+index 0cfa5f0e4db15230..1fa8bd638716979e 100644
+--- a/Documentation/features/debug/kmemleak/arch-support.txt
++++ b/Documentation/features/debug/kmemleak/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ok  |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: | TODO |
+     |        m68k: | TODO |
+     |  microblaze: |  ok  |
+diff --git a/Documentation/features/debug/kprobes-on-ftrace/arch-support.txt b/Documentation/features/debug/kprobes-on-ftrace/arch-support.txt
+index bcc29d3aba9ad884..9343ec9347b7148f 100644
+--- a/Documentation/features/debug/kprobes-on-ftrace/arch-support.txt
++++ b/Documentation/features/debug/kprobes-on-ftrace/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: | TODO |
+     |        csky: |  ok  |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: | TODO |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/debug/kprobes/arch-support.txt b/Documentation/features/debug/kprobes/arch-support.txt
+index 8a77d62a42c59b81..4bf01cc4e023be0a 100644
+--- a/Documentation/features/debug/kprobes/arch-support.txt
++++ b/Documentation/features/debug/kprobes/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ok  |
+     |     hexagon: | TODO |
+-    |        ia64: |  ok  |
+     |   loongarch: | TODO |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/debug/kretprobes/arch-support.txt b/Documentation/features/debug/kretprobes/arch-support.txt
+index cf4723c5ac55df9c..0493d0b07ea4b496 100644
+--- a/Documentation/features/debug/kretprobes/arch-support.txt
++++ b/Documentation/features/debug/kretprobes/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ok  |
+     |     hexagon: | TODO |
+-    |        ia64: |  ok  |
+     |   loongarch: | TODO |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/debug/optprobes/arch-support.txt b/Documentation/features/debug/optprobes/arch-support.txt
+index 83a4639a5c0a15aa..92f5d0f444faa554 100644
+--- a/Documentation/features/debug/optprobes/arch-support.txt
++++ b/Documentation/features/debug/optprobes/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: | TODO |
+     |        csky: | TODO |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: | TODO |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/debug/stackprotector/arch-support.txt b/Documentation/features/debug/stackprotector/arch-support.txt
+index 71cd4ba18f7df6b0..8919efaeef989c59 100644
+--- a/Documentation/features/debug/stackprotector/arch-support.txt
++++ b/Documentation/features/debug/stackprotector/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ok  |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: | TODO |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/debug/uprobes/arch-support.txt b/Documentation/features/debug/uprobes/arch-support.txt
+index d53f2f94fbda5fda..6f8296c0dbbee1db 100644
+--- a/Documentation/features/debug/uprobes/arch-support.txt
++++ b/Documentation/features/debug/uprobes/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ok  |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: | TODO |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/debug/user-ret-profiler/arch-support.txt b/Documentation/features/debug/user-ret-profiler/arch-support.txt
+index 059110a5fa6eb9cc..3e431767581d1f33 100644
+--- a/Documentation/features/debug/user-ret-profiler/arch-support.txt
++++ b/Documentation/features/debug/user-ret-profiler/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: | TODO |
+     |        csky: | TODO |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: | TODO |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/io/dma-contiguous/arch-support.txt b/Documentation/features/io/dma-contiguous/arch-support.txt
+index bfe0921a3853ad6c..3c6ce35d704f97f4 100644
+--- a/Documentation/features/io/dma-contiguous/arch-support.txt
++++ b/Documentation/features/io/dma-contiguous/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ok  |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: |  ok  |
+     |        m68k: | TODO |
+     |  microblaze: |  ok  |
+diff --git a/Documentation/features/locking/cmpxchg-local/arch-support.txt b/Documentation/features/locking/cmpxchg-local/arch-support.txt
+index 68329e96dffad2d0..2c3a4b91f16df341 100644
+--- a/Documentation/features/locking/cmpxchg-local/arch-support.txt
++++ b/Documentation/features/locking/cmpxchg-local/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: | TODO |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: | TODO |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/locking/lockdep/arch-support.txt b/Documentation/features/locking/lockdep/arch-support.txt
+index ddb945278589e1d8..4d9c5306f72f1c71 100644
+--- a/Documentation/features/locking/lockdep/arch-support.txt
++++ b/Documentation/features/locking/lockdep/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ok  |
+     |     hexagon: |  ok  |
+-    |        ia64: | TODO |
+     |   loongarch: |  ok  |
+     |        m68k: | TODO |
+     |  microblaze: |  ok  |
+diff --git a/Documentation/features/locking/queued-rwlocks/arch-support.txt b/Documentation/features/locking/queued-rwlocks/arch-support.txt
+index 5deb845477e4909a..b286a5fff283be7b 100644
+--- a/Documentation/features/locking/queued-rwlocks/arch-support.txt
++++ b/Documentation/features/locking/queued-rwlocks/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ok  |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: |  ok  |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/locking/queued-spinlocks/arch-support.txt b/Documentation/features/locking/queued-spinlocks/arch-support.txt
+index 2d3961bfef5d666e..22f2990392ff8f5c 100644
+--- a/Documentation/features/locking/queued-spinlocks/arch-support.txt
++++ b/Documentation/features/locking/queued-spinlocks/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ok  |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: |  ok  |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/perf/kprobes-event/arch-support.txt b/Documentation/features/perf/kprobes-event/arch-support.txt
+index 641a7d2ff2a3cacb..713a69fcd697bd70 100644
+--- a/Documentation/features/perf/kprobes-event/arch-support.txt
++++ b/Documentation/features/perf/kprobes-event/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ok  |
+     |     hexagon: |  ok  |
+-    |        ia64: | TODO |
+     |   loongarch: |  ok  |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/perf/perf-regs/arch-support.txt b/Documentation/features/perf/perf-regs/arch-support.txt
+index 33866eb242c18b27..09431518b0e858ee 100644
+--- a/Documentation/features/perf/perf-regs/arch-support.txt
++++ b/Documentation/features/perf/perf-regs/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ok  |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: |  ok  |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/perf/perf-stackdump/arch-support.txt b/Documentation/features/perf/perf-stackdump/arch-support.txt
+index c8e4c7c65012c1b3..f9db4dd8ef79a1be 100644
+--- a/Documentation/features/perf/perf-stackdump/arch-support.txt
++++ b/Documentation/features/perf/perf-stackdump/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ok  |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: |  ok  |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/sched/membarrier-sync-core/arch-support.txt b/Documentation/features/sched/membarrier-sync-core/arch-support.txt
+index 1e51614c136eb6e2..c7e41e91559fd144 100644
+--- a/Documentation/features/sched/membarrier-sync-core/arch-support.txt
++++ b/Documentation/features/sched/membarrier-sync-core/arch-support.txt
+@@ -35,7 +35,6 @@
+     |       arm64: |  ok  |
+     |        csky: | TODO |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: | TODO |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/sched/numa-balancing/arch-support.txt b/Documentation/features/sched/numa-balancing/arch-support.txt
+index 532cc67cdf921784..984601c7c479dabf 100644
+--- a/Documentation/features/sched/numa-balancing/arch-support.txt
++++ b/Documentation/features/sched/numa-balancing/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ..  |
+     |     hexagon: |  ..  |
+-    |        ia64: | TODO |
+     |   loongarch: |  ok  |
+     |        m68k: |  ..  |
+     |  microblaze: |  ..  |
+diff --git a/Documentation/features/seccomp/seccomp-filter/arch-support.txt b/Documentation/features/seccomp/seccomp-filter/arch-support.txt
+index dc71bf7b1a7ef333..1c2067944a64c9c6 100644
+--- a/Documentation/features/seccomp/seccomp-filter/arch-support.txt
++++ b/Documentation/features/seccomp/seccomp-filter/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ok  |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: |  ok  |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/time/arch-tick-broadcast/arch-support.txt b/Documentation/features/time/arch-tick-broadcast/arch-support.txt
+index 9bffac80019e990a..ccba965e8d07178b 100644
+--- a/Documentation/features/time/arch-tick-broadcast/arch-support.txt
++++ b/Documentation/features/time/arch-tick-broadcast/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: | TODO |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: |  ok  |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/time/clockevents/arch-support.txt b/Documentation/features/time/clockevents/arch-support.txt
+index 625160048f68f012..4d4bfac529701f11 100644
+--- a/Documentation/features/time/clockevents/arch-support.txt
++++ b/Documentation/features/time/clockevents/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ok  |
+     |     hexagon: |  ok  |
+-    |        ia64: | TODO |
+     |   loongarch: |  ok  |
+     |        m68k: | TODO |
+     |  microblaze: |  ok  |
+diff --git a/Documentation/features/time/context-tracking/arch-support.txt b/Documentation/features/time/context-tracking/arch-support.txt
+index 72bc5bad0348cae0..891be9f619030293 100644
+--- a/Documentation/features/time/context-tracking/arch-support.txt
++++ b/Documentation/features/time/context-tracking/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ok  |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: |  ok  |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/time/irq-time-acct/arch-support.txt b/Documentation/features/time/irq-time-acct/arch-support.txt
+index ceb036610d09bdba..3d10075a8a8a4ab1 100644
+--- a/Documentation/features/time/irq-time-acct/arch-support.txt
++++ b/Documentation/features/time/irq-time-acct/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: | TODO |
+     |     hexagon: | TODO |
+-    |        ia64: |  ..  |
+     |   loongarch: |  ok  |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/time/virt-cpuacct/arch-support.txt b/Documentation/features/time/virt-cpuacct/arch-support.txt
+index c063dffd5261dce0..21f11d47ef722c56 100644
+--- a/Documentation/features/time/virt-cpuacct/arch-support.txt
++++ b/Documentation/features/time/virt-cpuacct/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ok  |
+     |     hexagon: | TODO |
+-    |        ia64: |  ok  |
+     |   loongarch: |  ok  |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/vm/ELF-ASLR/arch-support.txt b/Documentation/features/vm/ELF-ASLR/arch-support.txt
+index 15164f36f2240816..ad0180c3b75f58ec 100644
+--- a/Documentation/features/vm/ELF-ASLR/arch-support.txt
++++ b/Documentation/features/vm/ELF-ASLR/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: | TODO |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: | TODO |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/vm/PG_uncached/arch-support.txt b/Documentation/features/vm/PG_uncached/arch-support.txt
+index 5acd64b97dba5cfb..5a7508b8c967e2fc 100644
+--- a/Documentation/features/vm/PG_uncached/arch-support.txt
++++ b/Documentation/features/vm/PG_uncached/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: | TODO |
+     |        csky: | TODO |
+     |     hexagon: | TODO |
+-    |        ia64: |  ok  |
+     |   loongarch: | TODO |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/vm/THP/arch-support.txt b/Documentation/features/vm/THP/arch-support.txt
+index 9dd7d75d04653ebf..b4a5ce16940dfd3d 100644
+--- a/Documentation/features/vm/THP/arch-support.txt
++++ b/Documentation/features/vm/THP/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: |  ..  |
+     |     hexagon: |  ..  |
+-    |        ia64: | TODO |
+     |   loongarch: |  ok  |
+     |        m68k: |  ..  |
+     |  microblaze: |  ..  |
+diff --git a/Documentation/features/vm/TLB/arch-support.txt b/Documentation/features/vm/TLB/arch-support.txt
+index 7f049c251a79e4c0..e83b49d2d7563f65 100644
+--- a/Documentation/features/vm/TLB/arch-support.txt
++++ b/Documentation/features/vm/TLB/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: | N/A  |
+     |        csky: | TODO |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: | TODO |
+     |        m68k: |  ..  |
+     |  microblaze: |  ..  |
+diff --git a/Documentation/features/vm/huge-vmap/arch-support.txt b/Documentation/features/vm/huge-vmap/arch-support.txt
+index 34647d9bdca46e2c..2d6de7b045385db1 100644
+--- a/Documentation/features/vm/huge-vmap/arch-support.txt
++++ b/Documentation/features/vm/huge-vmap/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: | TODO |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: | TODO |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/vm/ioremap_prot/arch-support.txt b/Documentation/features/vm/ioremap_prot/arch-support.txt
+index a24149e59d73e492..1638c2cb17f15cb2 100644
+--- a/Documentation/features/vm/ioremap_prot/arch-support.txt
++++ b/Documentation/features/vm/ioremap_prot/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: | TODO |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: |  ok  |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
+diff --git a/Documentation/features/vm/pte_special/arch-support.txt b/Documentation/features/vm/pte_special/arch-support.txt
+index d2b22a06945e7526..3f777f8b67d539c2 100644
+--- a/Documentation/features/vm/pte_special/arch-support.txt
++++ b/Documentation/features/vm/pte_special/arch-support.txt
+@@ -12,7 +12,6 @@
+     |       arm64: |  ok  |
+     |        csky: | TODO |
+     |     hexagon: | TODO |
+-    |        ia64: | TODO |
+     |   loongarch: |  ok  |
+     |        m68k: | TODO |
+     |  microblaze: | TODO |
 -- 
-2.39.0
+2.39.1
