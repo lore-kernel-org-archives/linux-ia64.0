@@ -1,23 +1,38 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Mon, 06 Feb 2023 22:36:02 +0000
-Subject: Re: [PATCH 09/22] mips/cpu: Expose play_dead()'s prototype definition
-Message-Id: <efaa5dfa-cf00-d68f-2b7c-911b70b4cb5e@gmail.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Wed, 15 Feb 2023 16:58:32 +0000
+Subject: Re: [RFC PATCH 1/5] arch: Remove Itanium (IA-64) architecture
+Message-Id: <20230215165832.GB3786546@roeck-us.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1675461757.git.jpoimboe@kernel.org>
- <a532966831383927f5f4fbec0a1e13304588685a.1675461757.git.jpoimboe@kernel.org>
-In-Reply-To: <a532966831383927f5f4fbec0a1e13304588685a.1675461757.git.jpoimboe@kernel.org>
+References: <20230215100008.2565237-1-ardb@kernel.org>
+ <20230215100008.2565237-2-ardb@kernel.org>
+In-Reply-To: <20230215100008.2565237-2-ardb@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Josh Poimboeuf <jpoimboe@kernel.org>, linux-kernel@vger.kernel.org
-Cc: jgross@suse.com, richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux-alpha@vger.kernel.org, linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, loongarch@lists.linux.dev, f.fainelli@gmail.com, bcm-kernel-feedback-list@broadcom.com, tsbogend@alpha.franken.de, linux-mips@vger.kernel.org, jiaxun.yang@flygoat.com, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, ysato@users.sourceforge.jp, dalias@libc.org, linux-sh@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, jcmvbkbc@gmail.com, linux-xtensa@linux-xtensa.org, peterz@infradead.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, paulmck@kernel.org
+To: Ard Biesheuvel <ardb@kernel.org>
+Cc: linux-kernel@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>, Arnd Bergmann <arnd@arndb.de>, Tony Luck <tony.luck@intel.com>, Jessica Clarke <jrtc27@jrtc27.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Matthew Wilcox <willy@infradead.org>, Marc Zyngier <maz@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, linux-ia64@vger.kernel.org
 
-On 2/3/23 14:05, Josh Poimboeuf wrote:
-> Include <asm/smp.h> to make sure play_dead() matches its prototype going
-> forward.
+On Wed, Feb 15, 2023 at 11:00:04AM +0100, Ard Biesheuvel wrote:
+> Itanium is the original architecture for which EFI was developed, and
+> the way Linux supports it deviates significantly from other
+> architectures.
 > 
-> Signed-off-by: Josh Poimboeuf <jpoimboe@kernel.org>
+> So it is anyone's guess whether the ongoing maintenance and developement
+> of the EFI subsystem has regressed Itanium or not - QEMU no longer
+> implements support for it, and so there is zero test coverage using
+> actual hardware.
+> 
+> Note that the Intel firmware team themselves already removed all IA-64
+> support from the Tianocore/EDK2 reference implementation of EFI in 2018,
+> so let's follow suit, and drop IA-64 from Linux as well.
+> 
+> Acked-by: Tony Luck <tony.luck@intel.com>
+> Signed-off-by: Ard Biesheuvel <ardb@kernel.org>
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+Trying again since the previous message bounced with "message too long".
+
+Acked-by: Guenter Roeck <linux@roeck-us.net>
+
+Sorry for the noise for anyone receiving this twice.
+
+Guenter
