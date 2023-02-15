@@ -1,47 +1,52 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Wed, 15 Feb 2023 20:08:28 +0000
+From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Date: Wed, 15 Feb 2023 23:09:10 +0000
 Subject: Re: [RFC PATCH 0/5] Retire IA64/Itanium support
-Message-Id: <CAHk-=wj9RkLN+GpYcFmsd8tze6zYL7MMkNpvdKbETQnqYm+Hwg@mail.gmail.com>
+Message-Id: <f896bde517ac65e1933bba4f2ceb9f4a9717e7bd.camel@physik.fu-berlin.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230215100008.2565237-1-ardb@kernel.org> <534469b750e1847e1645f9ae5ed19dcc80b82be6.camel@physik.fu-berlin.de>
- <CAHk-=wjEmZ19T4XpVb0_Hacm53xJG_w5ygcuorwC0xBoT-myUA@mail.gmail.com> <SJ1PR11MB6083F7F30FE9ED8F39FA1F85FCA39@SJ1PR11MB6083.namprd11.prod.outlook.com>
-In-Reply-To: <SJ1PR11MB6083F7F30FE9ED8F39FA1F85FCA39@SJ1PR11MB6083.namprd11.prod.outlook.com>
+References: <20230215100008.2565237-1-ardb@kernel.org>
+         <534469b750e1847e1645f9ae5ed19dcc80b82be6.camel@physik.fu-berlin.de>
+         <CAHk-=wjEmZ19T4XpVb0_Hacm53xJG_w5ygcuorwC0xBoT-myUA@mail.gmail.com>
+In-Reply-To: <CAHk-=wjEmZ19T4XpVb0_Hacm53xJG_w5ygcuorwC0xBoT-myUA@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Al Viro <viro@zeniv.linux.org.uk>, Ard Biesheuvel <ardb@kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Jonathan Corbet <corbet@lwn.net>, Arnd Bergmann <arnd@arndb.de>, Jessica Clarke <jrtc27@jrtc27.com>, Matthew Wilcox <willy@infradead.org>, Marc Zyngier <maz@kernel.org>, Guenter Roeck <linux@roeck-us.net>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Ard Biesheuvel <ardb@kernel.org>, linux-kernel@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>, Arnd Bergmann <arnd@arndb.de>, Tony Luck <tony.luck@intel.com>, Jessica Clarke <jrtc27@jrtc27.com>, Matthew Wilcox <willy@infradead.org>, Marc Zyngier <maz@kernel.org>, Guenter Roeck <linux@roeck-us.net>, linux-ia64@vger.kernel.org
 
-On Wed, Feb 15, 2023 at 11:43 AM Luck, Tony <tony.luck@intel.com> wrote:
->
-> Maybe you don't see others pain?  I added Al Viro ... perhaps
-> he'll replay some of his thoughts from trying to make signals
-> and other stuff work correctly on ia64.
+Hi Linus!
 
-Well, as long as it's ia64-specific, I'll just go "hey, it was Al's
-choice to look at that code".
+On Wed, 2023-02-15 at 11:30 -0800, Linus Torvalds wrote:
+> On Wed, Feb 15, 2023 at 2:17 AM John Paul Adrian Glaubitz
+> <glaubitz@physik.fu-berlin.de> wrote:
+> > 
+> > It's not that I don't care. I just haven't been able to bisect the bug .yet
+> 
+> I'm not a fan of ia64 as an architecture, but it's a bit sad to remove
+> it entirely. It's not like it's been a huge maintenance burden in
+> general.
 
-IOW, I'm more worried about "ia64 makes it a pain to make _generic_ changes".
+I agree. It would be sad to see it go.
 
-IOW, doing something like this:
+> That said, if it doesn't work, and nobody has the time and/or
+> inclination to figure out why, I don't really see any alternative.
 
-    git log -p --no-merges --since=1.year arch/ia64/
+That's not really what I meant though. I definitely have the time to look
+after the architecture as I am also maintaining it in Debian.
 
-to see what kind of pain ia64 parts of patches have caused, about a
-third of them are that "look, somebody cared about ia64 explicitly".
+What I meant here is that I simply hadn't had the time yet to fully debug
+this particular regression that was introduced with 6.1. I did actually
+start a bisect and got close to the problematic commit as I got distracted
+with my day job.
 
-And then the rest are trivial fixups for generic changes that aren't
-any different from any other architecture. The only half-way
-complicated one is the SET_FS removal, and I don't think it was any
-worse than most other architectures.
+My plan was definitely to continue debugging the problem in the coming weekend
+and at least find the commit that introduced the regression. I always have an
+Itanium server ready for testing kernels that I can power on and control remotely
+via its built-in management system.
 
-IOW, it doesn't look like ia64 causes any huge issues _per_se_. I
-suspect alpha continues to be more of a pain.
+Adrian
 
-That said, it's entirely possible I've missed some particular painpoint.
-
-But when it's actively known to be broken and nobody has time or
-interest to look at it, at that point the "it doesn't look any more
-painful than other architectures" becomes kind of moot.
-
-                  Linus
+-- 
+ .''`.  John Paul Adrian Glaubitz
+: :' :  Debian Developer
+`. `'   Physicist
+  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
