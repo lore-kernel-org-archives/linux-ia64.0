@@ -1,98 +1,58 @@
-From: James Morse <james.morse@arm.com>
-Date: Fri, 03 Feb 2023 13:50:27 +0000
-Subject: [RFC PATCH 16/32] ACPI: Rename acpi_processor_hotadd_init and remove pre-processor guards
-Message-Id: <20230203135043.409192-17-james.morse@arm.com>
+From: Palmer Dabbelt <palmer@dabbelt.com>
+Date: Wed, 15 Feb 2023 05:22:24 +0000
+Subject: Re: [PATCH 13/19] arch/riscv: rename internal name __xchg to __arch_xchg
+Message-Id: <mhng-e75808d7-21de-4ef8-a606-b7c652a1f38e@palmer-ri-x1c9>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230203135043.409192-1-james.morse@arm.com>
-In-Reply-To: <20230203135043.409192-1-james.morse@arm.com>
+In-Reply-To: <20221222114635.1251934-14-andrzej.hajda@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-pm@vger.kernel.org, loongarch@lists.linux.dev, kvmarm@lists.linux.dev, kvm@vger.kernel.org, linux-acpi@vger.kernel.org, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
-Cc: Marc Zyngier <maz@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Sudeep Holla <sudeep.holla@arm.com>, Borislav Petkov <bp@alien8.de>, H Peter Anvin <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will@kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, Huacai Chen <chenhuacai@kernel.org>, James Morse <james.morse@arm.com>, Suzuki K Poulose <suzuki.poulose@arm.com>, Oliver Upton <oliver.upton@linux.dev>, Len Brown <lenb@kernel.org>, Rafael Wysocki <rafael@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Salil Mehta <salil.mehta@huawei.com>, Russell King <linux@armlinux.org.uk>, Jean-Philippe Brucker <jean-philippe@linaro.org>
+To: andrzej.hajda@intel.com
+Cc: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, intel-gfx@lists.freedesktop.org, dri-devel@lists.freedesktop.org, Arnd Bergmann <arnd@arndb.de>, rodrigo.vivi@intel.com, akpm@linux-foundation.org, andriy.shevchenko@linux.intel.com, peterz@infradead.org, boqun.feng@gmail.com, mark.rutland@arm.com
 
-acpi_processor_hotadd_init() will make a CPU present by mapping it
-based on its hardware id.
+On Thu, 22 Dec 2022 03:46:29 PST (-0800), andrzej.hajda@intel.com wrote:
+> __xchg will be used for non-atomic xchg macro.
+>
+> Signed-off-by: Andrzej Hajda <andrzej.hajda@intel.com>
+> ---
+>  arch/riscv/include/asm/atomic.h  | 2 +-
+>  arch/riscv/include/asm/cmpxchg.h | 4 ++--
+>  2 files changed, 3 insertions(+), 3 deletions(-)
+>
+> diff --git a/arch/riscv/include/asm/atomic.h b/arch/riscv/include/asm/atomic.h
+> index 0dfe9d857a762b..bba472928b5393 100644
+> --- a/arch/riscv/include/asm/atomic.h
+> +++ b/arch/riscv/include/asm/atomic.h
+> @@ -261,7 +261,7 @@ c_t arch_atomic##prefix##_xchg_release(atomic##prefix##_t *v, c_t n)	\
+>  static __always_inline							\
+>  c_t arch_atomic##prefix##_xchg(atomic##prefix##_t *v, c_t n)		\
+>  {									\
+> -	return __xchg(&(v->counter), n, size);				\
+> +	return __arch_xchg(&(v->counter), n, size);			\
+>  }									\
+>  static __always_inline							\
+>  c_t arch_atomic##prefix##_cmpxchg_relaxed(atomic##prefix##_t *v,	\
+> diff --git a/arch/riscv/include/asm/cmpxchg.h b/arch/riscv/include/asm/cmpxchg.h
+> index 12debce235e52d..2f4726d3cfcc25 100644
+> --- a/arch/riscv/include/asm/cmpxchg.h
+> +++ b/arch/riscv/include/asm/cmpxchg.h
+> @@ -114,7 +114,7 @@
+>  					    _x_, sizeof(*(ptr)));	\
+>  })
+>
+> -#define __xchg(ptr, new, size)						\
+> +#define __arch_xchg(ptr, new, size)					\
+>  ({									\
+>  	__typeof__(ptr) __ptr = (ptr);					\
+>  	__typeof__(new) __new = (new);					\
+> @@ -143,7 +143,7 @@
+>  #define arch_xchg(ptr, x)						\
+>  ({									\
+>  	__typeof__(*(ptr)) _x_ = (x);					\
+> -	(__typeof__(*(ptr))) __xchg((ptr), _x_, sizeof(*(ptr)));	\
+> +	(__typeof__(*(ptr))) __arch_xchg((ptr), _x_, sizeof(*(ptr)));	\
+>  })
+>
+>  #define xchg32(ptr, x)							\
 
-'hotadd_init' is ambiguous once there are two different behaviours
-for cpu hotplug. This is for toggling the _STA present bit. Subsequent
-patches will add support for toggling the _STA enabled bit, named
-acpi_processor_make_enabled().
-
-Rename it acpi_processor_make_present() to make it clear this is
-for CPUs that were not previously present.
-
-Expose the function prototypes it uses to allow the preprocessor
-guards to be removed. The IS_ENABLED() check will let the compiler
-dead-code elimination pass remove this if it isn't going to be
-used.
-
-Signed-off-by: James Morse <james.morse@arm.com>
----
- drivers/acpi/acpi_processor.c | 14 +++++---------
- include/linux/acpi.h          |  2 --
- 2 files changed, 5 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processor.c
-index 682721594820..6ab55f109417 100644
---- a/drivers/acpi/acpi_processor.c
-+++ b/drivers/acpi/acpi_processor.c
-@@ -149,13 +149,15 @@ static int acpi_processor_errata(void)
- }
- 
- /* Initialization */
--#ifdef CONFIG_ACPI_HOTPLUG_PRESENT_CPU
--static int acpi_processor_hotadd_init(struct acpi_processor *pr)
-+static int acpi_processor_make_present(struct acpi_processor *pr)
- {
- 	unsigned long long sta;
- 	acpi_status status;
- 	int ret;
- 
-+	if (!IS_ENABLED(CONFIG_ACPI_HOTPLUG_PRESENT_CPU))
-+		return -ENODEV;
-+
- 	if (invalid_phys_cpuid(pr->phys_id))
- 		return -ENODEV;
- 
-@@ -189,12 +191,6 @@ static int acpi_processor_hotadd_init(struct acpi_processor *pr)
- 	cpu_maps_update_done();
- 	return ret;
- }
--#else
--static inline int acpi_processor_hotadd_init(struct acpi_processor *pr)
--{
--	return -ENODEV;
--}
--#endif /* CONFIG_ACPI_HOTPLUG_PRESENT_CPU */
- 
- static int acpi_processor_get_info(struct acpi_device *device)
- {
-@@ -287,7 +283,7 @@ static int acpi_processor_get_info(struct acpi_device *device)
- 	 *  because cpuid <-> apicid mapping is persistent now.
- 	 */
- 	if (invalid_logical_cpuid(pr->id) || !cpu_present(pr->id)) {
--		int ret = acpi_processor_hotadd_init(pr);
-+		int ret = acpi_processor_make_present(pr);
- 
- 		if (ret)
- 			return ret;
-diff --git a/include/linux/acpi.h b/include/linux/acpi.h
-index 0bc1eacd0dfc..a59bca4dbcd5 100644
---- a/include/linux/acpi.h
-+++ b/include/linux/acpi.h
-@@ -327,12 +327,10 @@ static inline int acpi_processor_evaluate_cst(acpi_handle handle, u32 cpu,
- }
- #endif
- 
--#ifdef CONFIG_ACPI_HOTPLUG_PRESENT_CPU
- /* Arch dependent functions for cpu hotplug support */
- int acpi_map_cpu(acpi_handle handle, phys_cpuid_t physid, u32 acpi_id,
- 		 int *pcpu);
- int acpi_unmap_cpu(int cpu);
--#endif /* CONFIG_ACPI_HOTPLUG_PRESENT_CPU */
- 
- #ifdef CONFIG_ACPI_HOTPLUG_IOAPIC
- int acpi_get_ioapic_id(acpi_handle handle, u32 gsi_base, u64 *phys_addr);
--- 
-2.30.2
+Acked-by: Palmer Dabbelt <palmer@rivosinc.com>
