@@ -1,21 +1,50 @@
-From: =?UTF-8?Q?Philippe_Mathieu-Daud=c3=a9?= <philmd@linaro.org>
-Date: Tue, 14 Feb 2023 07:52:14 +0000
-Subject: Re: [PATCH v2 16/24] sparc/cpu: Mark cpu_play_dead() __noreturn
-Message-Id: <6989da47-3e94-fa1e-6edc-0c0bbbb1bbfe@linaro.org>
+From: Josh Poimboeuf <jpoimboe@kernel.org>
+Date: Thu, 16 Feb 2023 18:42:49 +0000
+Subject: [PATCH v2.1 09/24] mips/cpu: Expose play_dead()'s prototype definition
+Message-Id: <20230216184249.ogaqsaykottpxtcb@treble>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <cover.1676358308.git.jpoimboe@kernel.org>
- <847fdb53cc7124bb7c94e3e104e443a29be85184.1676358308.git.jpoimboe@kernel.org>
-In-Reply-To: <847fdb53cc7124bb7c94e3e104e443a29be85184.1676358308.git.jpoimboe@kernel.org>
+ <39835bc75af2e812fce56400533cb2ab41bcf0e2.1676358308.git.jpoimboe@kernel.org>
+ <080a5ccb-7fa0-1a75-538f-a09dc146fc4e@linaro.org>
+ <20230214181101.3a2tscbmwdnwbqpu@treble>
+ <c56dc4b9-035d-7773-ecb2-0e1ac6af7abc@linaro.org>
+In-Reply-To: <c56dc4b9-035d-7773-ecb2-0e1ac6af7abc@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="macroman"
 Content-Transfer-Encoding: base64
-To: Josh Poimboeuf <jpoimboe@kernel.org>, linux-kernel@vger.kernel.org
-Cc: jgross@suse.com, richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux-alpha@vger.kernel.org, linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, loongarch@lists.linux.dev, f.fainelli@gmail.com, bcm-kernel-feedback-list@broadcom.com, tsbogend@alpha.franken.de, linux-mips@vger.kernel.org, jiaxun.yang@flygoat.com, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, ysato@users.sourceforge.jp, dalias@libc.org, linux-sh@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, jcmvbkbc@gmail.com, linux-xtensa@linux-xtensa.org, peterz@infradead.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, paulmck@kernel.org
+To: Philippe =?utf-8?Q?Mathieu-Daud=C3=A9?= <philmd@linaro.org>
+Cc: linux-kernel@vger.kernel.org, jgross@suse.com, richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux-alpha@vger.kernel.org, linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, loongarch@lists.linux.dev, f.fainelli@gmail.com, bcm-kernel-feedback-list@broadcom.com, tsbogend@alpha.franken.de, linux-mips@vger.kernel.org, jiaxun.yang@flygoat.com, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, ysato@users.sourceforge.jp, dalias@libc.org, linux-sh@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, jcmvbkbc@gmail.com, linux-xtensa@linux-xtensa.org, peterz@infradead.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, paulmck@kernel.org
 
-T24gMTQvMi8yMyAwODowNSwgSm9zaCBQb2ltYm9ldWYgd3JvdGU6Cj4gY3B1X3BsYXlfZGVhZCgp
-IGRvZXNuJ3QgcmV0dXJuLiAgQW5ub3RhdGUgaXQgYXMgc3VjaC4gIEJ5IGV4dGVuc2lvbiB0aGlz
-Cj4gYWxzbyBtYWtlcyBhcmNoX2NwdV9pZGxlX2RlYWQoKSBub3JldHVybi4KPiAKPiBTaWduZWQt
-b2ZmLWJ5OiBKb3NoIFBvaW1ib2V1ZiA8anBvaW1ib2VAa2VybmVsLm9yZz4KPiAtLS0KPiAgIGFy
-Y2gvc3BhcmMvaW5jbHVkZS9hc20vc21wXzY0LmggfCAyICstCj4gICAxIGZpbGUgY2hhbmdlZCwg
-MSBpbnNlcnRpb24oKyksIDEgZGVsZXRpb24oLSkKClJldmlld2VkLWJ5OiBQaGlsaXBwZSBNYXRo
-aWV1LURhdWTDqSA8cGhpbG1kQGxpbmFyby5vcmc+Cg==
+SW5jbHVkZSA8YXNtL3NtcC5oPiB0byBtYWtlIHN1cmUgcGxheV9kZWFkKCkgbWF0Y2hlcyBpdHMg
+cHJvdG90eXBlIGdvaW5nCmZvcndhcmQuCgpBY2tlZC1ieTogRmxvcmlhbiBGYWluZWxsaSA8Zi5m
+YWluZWxsaUBnbWFpbC5jb20+ClJldmlld2VkLWJ5OiBQaGlsaXBwZSBNYXRoaWV1LURhdWTDqSA8
+cGhpbG1kQGxpbmFyby5vcmc+ClNpZ25lZC1vZmYtYnk6IEpvc2ggUG9pbWJvZXVmIDxqcG9pbWJv
+ZUBrZXJuZWwub3JnPgotLS0KIGFyY2gvbWlwcy9jYXZpdW0tb2N0ZW9uL3NtcC5jIHwgMSArCiBh
+cmNoL21pcHMva2VybmVsL3NtcC1ibWlwcy5jICB8IDEgKwogYXJjaC9taXBzL2tlcm5lbC9zbXAt
+Y3BzLmMgICAgfCAxICsKIGFyY2gvbWlwcy9sb29uZ3NvbjY0L3NtcC5jICAgIHwgMSArCiA0IGZp
+bGVzIGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygrKQoKZGlmZiAtLWdpdCBhL2FyY2gvbWlwcy9jYXZp
+dW0tb2N0ZW9uL3NtcC5jIGIvYXJjaC9taXBzL2Nhdml1bS1vY3Rlb24vc21wLmMKaW5kZXggODk5
+NTRmNWY4N2ZiLi40MjEyNTg0ZTZlZmEgMTAwNjQ0Ci0tLSBhL2FyY2gvbWlwcy9jYXZpdW0tb2N0
+ZW9uL3NtcC5jCisrKyBiL2FyY2gvbWlwcy9jYXZpdW0tb2N0ZW9uL3NtcC5jCkBAIC0yMCw2ICsy
+MCw3IEBACiAjaW5jbHVkZSA8YXNtL21tdV9jb250ZXh0Lmg+CiAjaW5jbHVkZSA8YXNtL3RpbWUu
+aD4KICNpbmNsdWRlIDxhc20vc2V0dXAuaD4KKyNpbmNsdWRlIDxhc20vc21wLmg+CiAKICNpbmNs
+dWRlIDxhc20vb2N0ZW9uL29jdGVvbi5oPgogCmRpZmYgLS1naXQgYS9hcmNoL21pcHMva2VybmVs
+L3NtcC1ibWlwcy5jIGIvYXJjaC9taXBzL2tlcm5lbC9zbXAtYm1pcHMuYwppbmRleCBmNWQ3YmZh
+MzQ3MmEuLmRmOTE1OGU4MzI5ZCAxMDA2NDQKLS0tIGEvYXJjaC9taXBzL2tlcm5lbC9zbXAtYm1p
+cHMuYworKysgYi9hcmNoL21pcHMva2VybmVsL3NtcC1ibWlwcy5jCkBAIC0zOCw2ICszOCw3IEBA
+CiAjaW5jbHVkZSA8YXNtL3RyYXBzLmg+CiAjaW5jbHVkZSA8YXNtL2JhcnJpZXIuaD4KICNpbmNs
+dWRlIDxhc20vY3B1LWZlYXR1cmVzLmg+CisjaW5jbHVkZSA8YXNtL3NtcC5oPgogCiBzdGF0aWMg
+aW50IF9fbWF5YmVfdW51c2VkIG1heF9jcHVzID0gMTsKIApkaWZmIC0tZ2l0IGEvYXJjaC9taXBz
+L2tlcm5lbC9zbXAtY3BzLmMgYi9hcmNoL21pcHMva2VybmVsL3NtcC1jcHMuYwppbmRleCBiY2Q2
+YTk0NGI4MzkuLjZkNjlhOWJhODE2NyAxMDA2NDQKLS0tIGEvYXJjaC9taXBzL2tlcm5lbC9zbXAt
+Y3BzLmMKKysrIGIvYXJjaC9taXBzL2tlcm5lbC9zbXAtY3BzLmMKQEAgLTIwLDYgKzIwLDcgQEAK
+ICNpbmNsdWRlIDxhc20vbWlwc3JlZ3MuaD4KICNpbmNsdWRlIDxhc20vcG0tY3BzLmg+CiAjaW5j
+bHVkZSA8YXNtL3I0a2NhY2hlLmg+CisjaW5jbHVkZSA8YXNtL3NtcC5oPgogI2luY2x1ZGUgPGFz
+bS9zbXAtY3BzLmg+CiAjaW5jbHVkZSA8YXNtL3RpbWUuaD4KICNpbmNsdWRlIDxhc20vdWFzbS5o
+PgpkaWZmIC0tZ2l0IGEvYXJjaC9taXBzL2xvb25nc29uNjQvc21wLmMgYi9hcmNoL21pcHMvbG9v
+bmdzb242NC9zbXAuYwppbmRleCA2NjBlMWRlNDQxMmEuLjRlMjRiMzE3ZTdjYiAxMDA2NDQKLS0t
+IGEvYXJjaC9taXBzL2xvb25nc29uNjQvc21wLmMKKysrIGIvYXJjaC9taXBzL2xvb25nc29uNjQv
+c21wLmMKQEAgLTE0LDYgKzE0LDcgQEAKICNpbmNsdWRlIDxsaW51eC9jcHVmcmVxLmg+CiAjaW5j
+bHVkZSA8bGludXgva2V4ZWMuaD4KICNpbmNsdWRlIDxhc20vcHJvY2Vzc29yLmg+CisjaW5jbHVk
+ZSA8YXNtL3NtcC5oPgogI2luY2x1ZGUgPGFzbS90aW1lLmg+CiAjaW5jbHVkZSA8YXNtL3RsYmZs
+dXNoLmg+CiAjaW5jbHVkZSA8YXNtL2NhY2hlZmx1c2guaD4KLS0gCjIuMzkuMQo=
