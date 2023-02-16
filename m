@@ -1,99 +1,143 @@
-From: Josh Poimboeuf <jpoimboe@kernel.org>
-Date: Tue, 14 Feb 2023 07:05:57 +0000
-Subject: [PATCH v2 23/24] init: Make arch_call_rest_init() and rest_init() __noreturn
-Message-Id: <8e901950d98b940972920578654ce186b714e74b.1676358308.git.jpoimboe@kernel.org>
+From: Baoquan He <bhe@redhat.com>
+Date: Thu, 16 Feb 2023 12:34:10 +0000
+Subject: [PATCH v4 07/16] ia64: mm: Convert to GENERIC_IOREMAP
+Message-Id: <20230216123419.461016-8-bhe@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1676358308.git.jpoimboe@kernel.org>
-In-Reply-To: <cover.1676358308.git.jpoimboe@kernel.org>
+References: <20230216123419.461016-1-bhe@redhat.com>
+In-Reply-To: <20230216123419.461016-1-bhe@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: jgross@suse.com, richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux-alpha@vger.kernel.org, linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, loongarch@lists.linux.dev, f.fainelli@gmail.com, bcm-kernel-feedback-list@broadcom.com, tsbogend@alpha.franken.de, linux-mips@vger.kernel.org, jiaxun.yang@flygoat.com, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, ysato@users.sourceforge.jp, dalias@libc.org, linux-sh@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, jcmvbkbc@gmail.com, linux-xtensa@linux-xtensa.org, peterz@infradead.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, paulmck@kernel.org
+Cc: linux-mm@kvack.org, akpm@linux-foundation.org, christophe.leroy@csgroup.eu, hch@infradead.org, agordeev@linux.ibm.com, wangkefeng.wang@huawei.com, schnelle@linux.ibm.com, David.Laight@ACULAB.COM, shorne@gmail.com, arnd@arndb.de, Baoquan He <bhe@redhat.com>, linux-ia64@vger.kernel.org
 
-arch_call_rest_init() and rest_init() don't return.  Annotate them as
-such.
+By taking GENERIC_IOREMAP method, the generic generic_ioremap_prot(),
+generic_iounmap(), and their generic wrapper ioremap_prot(), ioremap()
+and iounmap() are all visible and available to arch. Arch needs to
+provide wrapper functions to override the generic versions if there's
+arch specific handling in its ioremap_prot(), ioremap() or iounmap().
+This change will simplify implementation by removing duplicated codes
+with generic_ioremap_prot() and generic_iounmap(), and has the equivalent
+functioality as before.
 
-Fixes the following warning:
+Here, add wrapper functions ioremap_prot() and iounmap() for ia64's
+special operation when ioremap() and iounmap().
 
-  init/main.o: warning: objtool: start_kernel+0x4ad: unreachable instruction
-
-Signed-off-by: Josh Poimboeuf <jpoimboe@kernel.org>
+Signed-off-by: Baoquan He <bhe@redhat.com>
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
 ---
- arch/s390/kernel/setup.c     | 2 +-
- include/linux/start_kernel.h | 4 ++--
- init/main.c                  | 4 ++--
- tools/objtool/check.c        | 2 ++
- 4 files changed, 7 insertions(+), 5 deletions(-)
+ arch/ia64/Kconfig          |  1 +
+ arch/ia64/include/asm/io.h | 13 +++++-------
+ arch/ia64/mm/ioremap.c     | 41 ++++++--------------------------------
+ 3 files changed, 12 insertions(+), 43 deletions(-)
 
-diff --git a/arch/s390/kernel/setup.c b/arch/s390/kernel/setup.c
-index 696c9e007a36..85abff362f29 100644
---- a/arch/s390/kernel/setup.c
-+++ b/arch/s390/kernel/setup.c
-@@ -393,7 +393,7 @@ int __init arch_early_irq_init(void)
- 	return 0;
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index d7e4a24e8644..74568cb73d87 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -45,6 +45,7 @@ config IA64
+ 	select GENERIC_IRQ_LEGACY
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+ 	select GENERIC_IOMAP
++	select GENERIC_IOREMAP
+ 	select GENERIC_SMP_IDLE_THREAD
+ 	select ARCH_TASK_STRUCT_ON_STACK
+ 	select ARCH_TASK_STRUCT_ALLOCATOR
+diff --git a/arch/ia64/include/asm/io.h b/arch/ia64/include/asm/io.h
+index 83a492c8d298..eedc0afa8cad 100644
+--- a/arch/ia64/include/asm/io.h
++++ b/arch/ia64/include/asm/io.h
+@@ -243,15 +243,12 @@ static inline void outsl(unsigned long port, const void *src,
+ 
+ # ifdef __KERNEL__
+ 
+-extern void __iomem * ioremap(unsigned long offset, unsigned long size);
++#define _PAGE_IOREMAP pgprot_val(PAGE_KERNEL)
++
+ extern void __iomem * ioremap_uc(unsigned long offset, unsigned long size);
+-extern void iounmap (volatile void __iomem *addr);
+-static inline void __iomem * ioremap_cache (unsigned long phys_addr, unsigned long size)
+-{
+-	return ioremap(phys_addr, size);
+-}
+-#define ioremap ioremap
+-#define ioremap_cache ioremap_cache
++
++#define ioremap_prot ioremap_prot
++#define ioremap_cache ioremap
+ #define ioremap_uc ioremap_uc
+ #define iounmap iounmap
+ 
+diff --git a/arch/ia64/mm/ioremap.c b/arch/ia64/mm/ioremap.c
+index 55fd3eb753ff..35e75e9c878b 100644
+--- a/arch/ia64/mm/ioremap.c
++++ b/arch/ia64/mm/ioremap.c
+@@ -29,13 +29,9 @@ early_ioremap (unsigned long phys_addr, unsigned long size)
+ 	return __ioremap_uc(phys_addr);
  }
  
--void __init arch_call_rest_init(void)
-+void __init __noreturn arch_call_rest_init(void)
+-void __iomem *
+-ioremap (unsigned long phys_addr, unsigned long size)
++void __iomem *ioremap_prot(phys_addr_t phys_addr, size_t size,
++			   unsigned long flags)
  {
- 	unsigned long stack;
+-	void __iomem *addr;
+-	struct vm_struct *area;
+-	unsigned long offset;
+-	pgprot_t prot;
+ 	u64 attr;
+ 	unsigned long gran_base, gran_size;
+ 	unsigned long page_base;
+@@ -68,36 +64,12 @@ ioremap (unsigned long phys_addr, unsigned long size)
+ 	 */
+ 	page_base = phys_addr & PAGE_MASK;
+ 	size = PAGE_ALIGN(phys_addr + size) - page_base;
+-	if (efi_mem_attribute(page_base, size) & EFI_MEMORY_WB) {
+-		prot = PAGE_KERNEL;
+-
+-		/*
+-		 * Mappings have to be page-aligned
+-		 */
+-		offset = phys_addr & ~PAGE_MASK;
+-		phys_addr &= PAGE_MASK;
+-
+-		/*
+-		 * Ok, go for it..
+-		 */
+-		area = get_vm_area(size, VM_IOREMAP);
+-		if (!area)
+-			return NULL;
+-
+-		area->phys_addr = phys_addr;
+-		addr = (void __iomem *) area->addr;
+-		if (ioremap_page_range((unsigned long) addr,
+-				(unsigned long) addr + size, phys_addr, prot)) {
+-			vunmap((void __force *) addr);
+-			return NULL;
+-		}
+-
+-		return (void __iomem *) (offset + (char __iomem *)addr);
+-	}
++	if (efi_mem_attribute(page_base, size) & EFI_MEMORY_WB)
++		return generic_ioremap_prot(phys_addr, size, __pgprot(flags));
  
-diff --git a/include/linux/start_kernel.h b/include/linux/start_kernel.h
-index 8b369a41c03c..864921e54c92 100644
---- a/include/linux/start_kernel.h
-+++ b/include/linux/start_kernel.h
-@@ -9,7 +9,7 @@
-    up something else. */
- 
- extern asmlinkage void __init start_kernel(void);
--extern void __init arch_call_rest_init(void);
--extern void __ref rest_init(void);
-+extern void __init __noreturn arch_call_rest_init(void);
-+extern void __ref __noreturn rest_init(void);
- 
- #endif /* _LINUX_START_KERNEL_H */
-diff --git a/init/main.c b/init/main.c
-index e1c3911d7c70..ef71a9902e47 100644
---- a/init/main.c
-+++ b/init/main.c
-@@ -683,7 +683,7 @@ static void __init setup_command_line(char *command_line)
- 
- static __initdata DECLARE_COMPLETION(kthreadd_done);
- 
--noinline void __ref rest_init(void)
-+noinline void __ref __noreturn rest_init(void)
- {
- 	struct task_struct *tsk;
- 	int pid;
-@@ -889,7 +889,7 @@ static int __init early_randomize_kstack_offset(char *buf)
- early_param("randomize_kstack_offset", early_randomize_kstack_offset);
- #endif
- 
--void __init __weak arch_call_rest_init(void)
-+void __init __weak __noreturn arch_call_rest_init(void)
- {
- 	rest_init();
+ 	return __ioremap_uc(phys_addr);
  }
-diff --git a/tools/objtool/check.c b/tools/objtool/check.c
-index 0a1cf867d9b2..f79baae3e338 100644
---- a/tools/objtool/check.c
-+++ b/tools/objtool/check.c
-@@ -167,6 +167,7 @@ static bool __dead_end_function(struct objtool_file *file, struct symbol *func,
- 		"__reiserfs_panic",
- 		"__stack_chk_fail",
- 		"__ubsan_handle_builtin_unreachable",
-+		"arch_call_rest_init",
- 		"cpu_bringup_and_idle",
- 		"cpu_startup_entry",
- 		"do_exit",
-@@ -181,6 +182,7 @@ static bool __dead_end_function(struct objtool_file *file, struct symbol *func,
- 		"machine_real_restart",
- 		"make_task_dead",
- 		"panic",
-+		"rest_init",
- 		"rewind_stack_and_make_dead",
- 		"sev_es_terminate",
- 		"snp_abort",
+-EXPORT_SYMBOL(ioremap);
++EXPORT_SYMBOL(ioremap_prot);
+ 
+ void __iomem *
+ ioremap_uc(unsigned long phys_addr, unsigned long size)
+@@ -114,8 +86,7 @@ early_iounmap (volatile void __iomem *addr, unsigned long size)
+ {
+ }
+ 
+-void
+-iounmap (volatile void __iomem *addr)
++void iounmap(volatile void __iomem *addr)
+ {
+ 	if (REGION_NUMBER(addr) = RGN_GATE)
+ 		vunmap((void *) ((unsigned long) addr & PAGE_MASK));
 -- 
-2.39.1
+2.34.1
