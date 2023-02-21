@@ -1,23 +1,23 @@
-From: Catalin Marinas <catalin.marinas@arm.com>
-Date: Tue, 14 Feb 2023 14:14:56 +0000
-Subject: Re: [PATCH v3 02/24] arm64: Remove COMMAND_LINE_SIZE from uapi
-Message-Id: <Y+uXYILgDMc7zrh+@arm.com>
+From: "Adam Charachuta" <adam.charachuta@lokoho.com>
+Date: Tue, 21 Feb 2023 08:30:33 +0000
+Subject: =?UTF-8?Q?S=C5=82owa_kluczowe_do_wypozycjonowania?=
+Message-Id: <20230221074501-0.1.45.15sfi.0.3g81npidb9@lokoho.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230214074925.228106-1-alexghiti@rivosinc.com>
- <20230214074925.228106-3-alexghiti@rivosinc.com>
-In-Reply-To: <20230214074925.228106-3-alexghiti@rivosinc.com>
+References: <20221213074501-0.1.2s.95qp.0.a03w3p9pzm@lokoho.com>
+In-Reply-To: <20221213074501-0.1.2s.95qp.0.a03w3p9pzm@lokoho.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Alexandre Ghiti <alexghiti@rivosinc.com>
-Cc: Jonathan Corbet <corbet@lwn.net>, Richard Henderson <richard.henderson@linaro.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Vineet Gupta <vgupta@kernel.org>, Russell King <linux@armlinux.org.uk>, Will Deacon <will@kernel.org>, Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E . J . Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Nicholas Piggin <npiggin@gmail.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S . Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H . Peter Anvin" <hpa@zytor.com>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, Arnd Bergmann <arnd@arndb.de>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Palmer Dabbelt <palmer@rivosinc.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: linux-ia64@vger.kernel.org
 
-On Tue, Feb 14, 2023 at 08:49:03AM +0100, Alexandre Ghiti wrote:
-> From: Palmer Dabbelt <palmer@rivosinc.com>
-> 
-> As far as I can tell this is not used by userspace and thus should not
-> be part of the user-visible API.
-> 
-> Signed-off-by: Palmer Dabbelt <palmer@rivosinc.com>
+Dzień dobry,
 
-Acked-by: Catalin Marinas <catalin.marinas@arm.com>
+zapoznałem się z Państwa ofertą i z przyjemnością przyznaję, że przyciąga uwagę i zachęca do dalszych rozmów. 
+
+Pomyślałem, że może mógłbym mieć swój wkład w Państwa rozwój i pomóc dotrzeć z tą ofertą do większego grona odbiorców. Pozycjonuję strony www, dzięki czemu generują świetny ruch w sieci.
+
+Możemy porozmawiać w najbliższym czasie?
+
+
+Pozdrawiam
+Adam Charachuta
