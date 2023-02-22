@@ -1,41 +1,132 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Tue, 14 Feb 2023 07:19:27 +0000
-Subject: Re: [PATCH v2 12/24] powerpc/cpu: Mark start_secondary_resume() __noreturn
-Message-Id: <3a1be09c-b9fd-a473-0819-81a4ebdf34cc@csgroup.eu>
+From: Andrzej Hajda <andrzej.hajda@intel.com>
+Date: Wed, 22 Feb 2023 10:36:17 +0000
+Subject: Re: [Intel-gfx] [PATCH v5 0/7] Introduce __xchg, non-atomic xchg
+Message-Id: <50c1806b-f153-da48-ddf4-53923fa90334@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1676358308.git.jpoimboe@kernel.org>
- <b6b2141f832d8cd8ade65f190d04b011cda5f9bb.1676358308.git.jpoimboe@kernel.org>
-In-Reply-To: 
- <b6b2141f832d8cd8ade65f190d04b011cda5f9bb.1676358308.git.jpoimboe@kernel.org>
+References: <20230118153529.57695-1-andrzej.hajda@intel.com>
+In-Reply-To: <20230118153529.57695-1-andrzej.hajda@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Josh Poimboeuf <jpoimboe@kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Cc: "jgross@suse.com" <jgross@suse.com>, "richard.henderson@linaro.org" <richard.henderson@linaro.org>, "ink@jurassic.park.msu.ru" <ink@jurassic.park.msu.ru>, "mattst88@gmail.com" <mattst88@gmail.com>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux@armlinux.org.uk" <linux@armlinux.org.uk>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "catalin.marinas@arm.com" <catalin.marinas@arm.com>, "will@kernel.org" <will@kernel.org>, "guoren@kernel.org" <guoren@kernel.org>, "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "chenhuacai@kernel.org" <chenhuacai@kernel.org>, "kernel@xen0n.name" <kernel@xen0n.name>, "loongarch@lists.linux.dev" <loongarch@lists.linux.dev>, "f.fainelli@gmail.com" <f.fainelli@gmail.com>, "bcm-kernel-feedback-list@broadcom.com" <bcm-kernel-feedback-list@broadcom.com>, "tsbogend@alpha.franken.de" <tsbogend@alpha.franken.de>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "jiaxun.yang@flygoat.com" <jiaxun.yang@flygoat.com>, "mpe@ellerman.id.au" <mpe@ellerman.id.au>, "npiggin@gmail.com" <npiggin@gmail.com>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "ysato@users.sourceforge.jp" <ysato@users.sourceforge.jp>, "dalias@libc.org" <dalias@libc.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "davem@davemloft.net" <davem@davemloft.net>, "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>, "tglx@linutronix.de" <tglx@linutronix.de>, "mingo@redhat.com" <mingo@redhat.com>, "bp@alien8.de" <bp@alien8.de>, "dave.hansen@linux.intel.com" <dave.hansen@linux.intel.com>, "x86@kernel.org" <x86@kernel.org>, "hpa@zytor.com" <hpa@zytor.com>, "chris@zankel.net" <chris@zankel.net>, "jcmvbkbc@gmail.com" <jcmvbkbc@gmail.com>, "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>, "peterz@infradead.org" <peterz@infradead.org>, "juri.lelli@redhat.com" <juri.lelli@redhat.com>, "vincent.guittot@linaro.org" <vincent.guittot@linaro.org>, "dietmar.eggemann@arm.com" <dietmar.eggemann@arm.com>, "rostedt@goodmis.org" <rostedt@goodmis.org>, "bsegall@google.com" <bsegall@google.com>, "mgorman@suse.de" <mgorman@suse.de>, "bristot@redhat.com" <bristot@redhat.com>, "vschneid@redhat.com" <vschneid@redhat.com>, "paulmck@kernel.org" <paulmck@kernel.org>
+To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, intel-gfx@lists.freedesktop.org, dri-devel@lists.freedesktop.org
+Cc: Mark Rutland <mark.rutland@arm.com>, Arnd Bergmann <arnd@arndb.de>, Peter Zijlstra <peterz@infradead.org>, Boqun Feng <boqun.feng@gmail.com>, Rodrigo Vivi <rodrigo.vivi@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 
-DQoNCkxlIDE0LzAyLzIwMjMgw6AgMDg6MDUsIEpvc2ggUG9pbWJvZXVmIGEgw6ljcml0wqA6DQo+
-IHN0YXJ0X3NlY29uZGFyeV9yZXN1bWUoKSBkb2Vzbid0IHJldHVybi4gIEFubm90YXRlIGl0IGFz
-IHN1Y2guICBCeQ0KPiBleHRlbnNpb24gdGhpcyBhbHNvIG1ha2VzIGFyY2hfY3B1X2lkbGVfZGVh
-ZCgpIG5vcmV0dXJuLg0KPiANCj4gQWNrZWQtYnk6IE1pY2hhZWwgRWxsZXJtYW4gPG1wZUBlbGxl
-cm1hbi5pZC5hdT4gKHBvd2VycGMpDQo+IFNpZ25lZC1vZmYtYnk6IEpvc2ggUG9pbWJvZXVmIDxq
-cG9pbWJvZUBrZXJuZWwub3JnPg0KDQpSZXZpZXdlZC1ieTogQ2hyaXN0b3BoZSBMZXJveSA8Y2hy
-aXN0b3BoZS5sZXJveUBjc2dyb3VwLmV1Pg0KDQo+IC0tLQ0KPiAgIGFyY2gvcG93ZXJwYy9pbmNs
-dWRlL2FzbS9zbXAuaCB8IDIgKy0NCj4gICAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKyks
-IDEgZGVsZXRpb24oLSkNCj4gDQo+IGRpZmYgLS1naXQgYS9hcmNoL3Bvd2VycGMvaW5jbHVkZS9h
-c20vc21wLmggYi9hcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vc21wLmgNCj4gaW5kZXggZjYzNTA1
-ZDc0OTMyLi5jZmQ0MmNhODc2NWMgMTAwNjQ0DQo+IC0tLSBhL2FyY2gvcG93ZXJwYy9pbmNsdWRl
-L2FzbS9zbXAuaA0KPiArKysgYi9hcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vc21wLmgNCj4gQEAg
-LTY2LDcgKzY2LDcgQEAgdm9pZCBzdGFydF9zZWNvbmRhcnkodm9pZCAqdW51c2VkKTsNCj4gICBl
-eHRlcm4gaW50IHNtcF9zZW5kX25taV9pcGkoaW50IGNwdSwgdm9pZCAoKmZuKShzdHJ1Y3QgcHRf
-cmVncyAqKSwgdTY0IGRlbGF5X3VzKTsNCj4gICBleHRlcm4gaW50IHNtcF9zZW5kX3NhZmVfbm1p
-X2lwaShpbnQgY3B1LCB2b2lkICgqZm4pKHN0cnVjdCBwdF9yZWdzICopLCB1NjQgZGVsYXlfdXMp
-Ow0KPiAgIGV4dGVybiB2b2lkIHNtcF9zZW5kX2RlYnVnZ2VyX2JyZWFrKHZvaWQpOw0KPiAtZXh0
-ZXJuIHZvaWQgc3RhcnRfc2Vjb25kYXJ5X3Jlc3VtZSh2b2lkKTsNCj4gK2V4dGVybiB2b2lkIF9f
-bm9yZXR1cm4gc3RhcnRfc2Vjb25kYXJ5X3Jlc3VtZSh2b2lkKTsNCg0KV291bGQgaGF2ZSBiZWVu
-IGEgZ29vZCBvcHBvcnR1bml0eSB0byBkcm9wIHRoZSBwb2ludGxlc3MgJ2V4dGVybicga2V5d29y
-ZC4NCg0KQ2hlY2twYXRjaCByZXBvcnRzOg0KDQpDSEVDSzogZXh0ZXJuIHByb3RvdHlwZXMgc2hv
-dWxkIGJlIGF2b2lkZWQgaW4gLmggZmlsZXMNCiMxOTogRklMRTogYXJjaC9wb3dlcnBjL2luY2x1
-ZGUvYXNtL3NtcC5oOjY5Og0KK2V4dGVybiB2b2lkIF9fbm9yZXR1cm4gc3RhcnRfc2Vjb25kYXJ5
-X3Jlc3VtZSh2b2lkKTsNCg0KDQo+ICAgZXh0ZXJuIHZvaWQgc21wX2dlbmVyaWNfZ2l2ZV90aW1l
-YmFzZSh2b2lkKTsNCj4gICBleHRlcm4gdm9pZCBzbXBfZ2VuZXJpY190YWtlX3RpbWViYXNlKHZv
-aWQpOw0KPiAgIA0K
+Hi,
+
+Ping on the series.
+Arnd, Andrew is there anything more I can do to push the process forward?
+
+Regards
+Andrzej
+
+
+On 18.01.2023 16:35, Andrzej Hajda wrote:
+> Hi all,
+> 
+> The helper is tiny and there are advices we can live without it, so
+> I want to present few arguments why it would be good to have it:
+> 
+> 1. Code readability/simplification/number of lines:
+>    - decreases number of lines,
+>    - it often eliminates local variables,
+>    - for real examples see patches 3+.
+> 
+> 2. Presence of similar helpers in other somehow related languages/libs:
+> 
+> a) Rust[1]: 'replace' from std::mem module, there is also 'take'
+>      helper (__xchg(&x, 0)), which is the same as private helper in
+>      i915 - fetch_and_zero, see latest patch.
+> b) C++ [2]: 'exchange' from utility header.
+> 
+> If the idea is OK there are still 2 questions to answer:
+> 
+> 1. Name of the helper, __xchg follows kernel conventions,
+>      but for me Rust names are also OK.
+> 2. Where to put the helper:
+> a) as in this patchset include/linux/non-atomic/xchg.h,
+>      proposed by Andy Shevchenko,
+> b) include/linux/utils.h ? any better name? Some kind
+>      of container for simple helpers.
+> 
+> All __xchg conversions were performed using cocci script,
+> then manually adjusted if necessary.
+> 
+> There is lot of places it can be used in, I have just chosen
+> some of them. I can provide cocci script to detect others (not all),
+> if necessary.
+> 
+> Changes:
+> v2: squashed all __xchg -> __arch_xchg t one patch (Arnd)
+> v3: fixed alpha/xchg_local (lkp@intel.com)
+> v4: adjusted indentation (Heiko)
+> v5: added more __xchg conversions - patches 3-6, added tags
+> 
+> [1]: https://doc.rust-lang.org/std/mem/index.html
+> [2]: https://en.cppreference.com/w/cpp/header/utility
+> 
+> Regards
+> Andrzej
+> 
+> Andrzej Hajda (7):
+>    arch: rename all internal names __xchg to __arch_xchg
+>    linux/include: add non-atomic version of xchg
+>    arch/*/uprobes: simplify arch_uretprobe_hijack_return_addr
+>    llist: simplify __llist_del_all
+>    io_uring: use __xchg if possible
+>    qed: use __xchg if possible
+>    drm/i915/gt: use __xchg instead of internal helper
+> 
+>   arch/alpha/include/asm/cmpxchg.h              | 10 +++++-----
+>   arch/arc/include/asm/cmpxchg.h                |  4 ++--
+>   arch/arm/include/asm/cmpxchg.h                |  7 ++++---
+>   arch/arm/probes/uprobes/core.c                |  8 ++------
+>   arch/arm64/include/asm/cmpxchg.h              |  7 +++----
+>   arch/arm64/kernel/probes/uprobes.c            |  9 ++-------
+>   arch/csky/kernel/probes/uprobes.c             |  9 ++-------
+>   arch/hexagon/include/asm/cmpxchg.h            | 10 +++++-----
+>   arch/ia64/include/asm/cmpxchg.h               |  2 +-
+>   arch/ia64/include/uapi/asm/cmpxchg.h          |  4 ++--
+>   arch/loongarch/include/asm/cmpxchg.h          |  4 ++--
+>   arch/m68k/include/asm/cmpxchg.h               |  6 +++---
+>   arch/mips/include/asm/cmpxchg.h               |  4 ++--
+>   arch/mips/kernel/uprobes.c                    | 10 ++--------
+>   arch/openrisc/include/asm/cmpxchg.h           | 10 +++++-----
+>   arch/parisc/include/asm/cmpxchg.h             |  4 ++--
+>   arch/powerpc/include/asm/cmpxchg.h            |  4 ++--
+>   arch/powerpc/kernel/uprobes.c                 | 10 ++--------
+>   arch/riscv/include/asm/atomic.h               |  2 +-
+>   arch/riscv/include/asm/cmpxchg.h              |  4 ++--
+>   arch/riscv/kernel/probes/uprobes.c            |  9 ++-------
+>   arch/s390/include/asm/cmpxchg.h               |  8 ++++----
+>   arch/s390/kernel/uprobes.c                    |  7 ++-----
+>   arch/sh/include/asm/cmpxchg.h                 |  4 ++--
+>   arch/sparc/include/asm/cmpxchg_32.h           |  4 ++--
+>   arch/sparc/include/asm/cmpxchg_64.h           |  6 +++---
+>   arch/sparc/kernel/uprobes.c                   |  7 ++-----
+>   arch/xtensa/include/asm/cmpxchg.h             |  4 ++--
+>   drivers/gpu/drm/i915/gt/intel_engine_cs.c     |  2 +-
+>   .../gpu/drm/i915/gt/intel_engine_heartbeat.c  |  4 ++--
+>   .../drm/i915/gt/intel_execlists_submission.c  |  4 ++--
+>   drivers/gpu/drm/i915/gt/intel_ggtt.c          |  4 ++--
+>   drivers/gpu/drm/i915/gt/intel_gsc.c           |  2 +-
+>   drivers/gpu/drm/i915/gt/intel_gt.c            |  4 ++--
+>   drivers/gpu/drm/i915/gt/intel_gt_pm.c         |  2 +-
+>   drivers/gpu/drm/i915/gt/intel_lrc.c           |  6 +++---
+>   drivers/gpu/drm/i915/gt/intel_migrate.c       |  2 +-
+>   drivers/gpu/drm/i915/gt/intel_rc6.c           |  2 +-
+>   drivers/gpu/drm/i915/gt/intel_rps.c           |  2 +-
+>   drivers/gpu/drm/i915/gt/selftest_context.c    |  2 +-
+>   .../drm/i915/gt/selftest_ring_submission.c    |  2 +-
+>   drivers/gpu/drm/i915/gt/selftest_timeline.c   |  2 +-
+>   drivers/gpu/drm/i915/gt/uc/intel_gsc_uc.c     |  2 +-
+>   drivers/gpu/drm/i915/gt/uc/intel_uc.c         |  2 +-
+>   drivers/gpu/drm/i915/gt/uc/intel_uc_fw.c      |  2 +-
+>   drivers/gpu/drm/i915/i915_utils.h             |  1 +
+>   include/linux/llist.h                         |  6 ++----
+>   include/linux/non-atomic/xchg.h               | 19 +++++++++++++++++++
+>   include/linux/qed/qed_chain.h                 | 19 +++++++------------
+>   io_uring/io_uring.c                           |  7 ++-----
+>   io_uring/slist.h                              |  6 ++----
+>   51 files changed, 126 insertions(+), 155 deletions(-)
+>   create mode 100644 include/linux/non-atomic/xchg.h
+> 
