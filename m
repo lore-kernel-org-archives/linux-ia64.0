@@ -1,40 +1,27 @@
-From: Josh Poimboeuf <jpoimboe@kernel.org>
-Date: Fri, 03 Feb 2023 22:05:26 +0000
-Subject: [PATCH 17/22] x86/cpu: Make sure play_dead() doesn't return
-Message-Id: <7bfd319e3ebf5a3e56d668bee7a3b981b22b1863.1675461757.git.jpoimboe@kernel.org>
+From: Andi Shyti <andi.shyti@linux.intel.com>
+Date: Mon, 27 Feb 2023 09:54:46 +0000
+Subject: Re: [Intel-gfx] [PATCH v5 3/7] arch/*/uprobes: simplify arch_uretprobe_hijack_return_addr
+Message-Id: <Y/x95g9aUmMdO7Hu@ashyti-mobl2.lan>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1675461757.git.jpoimboe@kernel.org>
-In-Reply-To: <cover.1675461757.git.jpoimboe@kernel.org>
+References: <20230118153529.57695-1-andrzej.hajda@intel.com>
+ <20230118154450.73842-1-andrzej.hajda@intel.com>
+ <20230118154450.73842-3-andrzej.hajda@intel.com>
+In-Reply-To: <20230118154450.73842-3-andrzej.hajda@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: jgross@suse.com, richard.henderson@linaro.org, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux-alpha@vger.kernel.org, linux@armlinux.org.uk, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, will@kernel.org, guoren@kernel.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, loongarch@lists.linux.dev, f.fainelli@gmail.com, bcm-kernel-feedback-list@broadcom.com, tsbogend@alpha.franken.de, linux-mips@vger.kernel.org, jiaxun.yang@flygoat.com, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, linuxppc-dev@lists.ozlabs.org, ysato@users.sourceforge.jp, dalias@libc.org, linux-sh@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, jcmvbkbc@gmail.com, linux-xtensa@linux-xtensa.org, peterz@infradead.org, juri.lelli@redhat.com, vincent.guittot@linaro.org, dietmar.eggemann@arm.com, rostedt@goodmis.org, bsegall@google.com, mgorman@suse.de, bristot@redhat.com, vschneid@redhat.com, paulmck@kernel.org
+To: Andrzej Hajda <andrzej.hajda@intel.com>
+Cc: Mark Rutland <mark.rutland@arm.com>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, dri-devel@lists.freedesktop.org, linux-mips@vger.kernel.org, sparclinux@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-snps-arc@lists.infradead.org, Boqun Feng <boqun.feng@gmail.com>, linux-xtensa@linux-xtensa.org, Arnd Bergmann <arnd@arndb.de>, intel-gfx@lists.freedesktop.org, linux-m68k@lists.linux-m68k.org, openrisc@lists.librecores.org, loongarch@lists.linux.dev, Rodrigo Vivi <rodrigo.vivi@intel.com>, Andy Shevchenko <andriy.shevchenko@linux.intel.com>, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org
 
-After commit 076cbf5d2163 ("x86/xen: don't let xen_pv_play_dead()
-return"), play_dead() never returns.  Make that more explicit with a
-BUG().
+Hi Andrzej,
 
-BUG() is preferable to unreachable() because BUG() is a more explicit
-failure mode and avoids undefined behavior like falling off the edge of
-the function into whatever code happens to be next.
+On Wed, Jan 18, 2023 at 04:44:46PM +0100, Andrzej Hajda wrote:
+> In all architectures, except x86, arch_uretprobe_hijack_return_addr
+> is just __xchg.
+> 
+> Signed-off-by: Andrzej Hajda <andrzej.hajda@intel.com>
 
-Signed-off-by: Josh Poimboeuf <jpoimboe@kernel.org>
----
- arch/x86/include/asm/smp.h | 1 +
- 1 file changed, 1 insertion(+)
+Reviewed-by: Andi Shyti <andi.shyti@linux.intel.com>
 
-diff --git a/arch/x86/include/asm/smp.h b/arch/x86/include/asm/smp.h
-index b4dbb20dab1a..8f628e08b25a 100644
---- a/arch/x86/include/asm/smp.h
-+++ b/arch/x86/include/asm/smp.h
-@@ -96,6 +96,7 @@ static inline void __cpu_die(unsigned int cpu)
- static inline void play_dead(void)
- {
- 	smp_ops.play_dead();
-+	BUG();
- }
- 
- static inline void smp_send_reschedule(int cpu)
--- 
-2.39.0
+Thanks,
+Andi
