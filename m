@@ -1,143 +1,108 @@
-From: Baoquan He <bhe@redhat.com>
-Date: Thu, 16 Feb 2023 12:34:10 +0000
-Subject: [PATCH v4 07/16] ia64: mm: Convert to GENERIC_IOREMAP
-Message-Id: <20230216123419.461016-8-bhe@redhat.com>
+From: Palmer Dabbelt <palmer@dabbelt.com>
+Date: Tue, 28 Feb 2023 15:50:36 +0000
+Subject: Re: [PATCH mm-unstable v1 19/26] riscv/mm: support __HAVE_ARCH_PTE_SWP_EXCLUSIVE
+Message-Id: <mhng-b8dc8a57-dde0-4995-bbb7-3948a95ba0b1@palmer-ri-x1c9a>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230216123419.461016-1-bhe@redhat.com>
-In-Reply-To: <20230216123419.461016-1-bhe@redhat.com>
+In-Reply-To: <20230113171026.582290-20-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-mm@kvack.org, akpm@linux-foundation.org, christophe.leroy@csgroup.eu, hch@infradead.org, agordeev@linux.ibm.com, wangkefeng.wang@huawei.com, schnelle@linux.ibm.com, David.Laight@ACULAB.COM, shorne@gmail.com, arnd@arndb.de, Baoquan He <bhe@redhat.com>, linux-ia64@vger.kernel.org
+To: david@redhat.com
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org, hughd@google.com, jhubbard@nvidia.com, jgg@nvidia.com, rppt@linux.ibm.com, shy828301@gmail.com, vbabka@suse.cz, namit@vmware.com, aarcange@redhat.com, peterx@redhat.com, linux-mm@kvack.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, Paul Walmsley <paul.walmsley@sifive.com>, aou@eecs.berkeley.edu
 
-By taking GENERIC_IOREMAP method, the generic generic_ioremap_prot(),
-generic_iounmap(), and their generic wrapper ioremap_prot(), ioremap()
-and iounmap() are all visible and available to arch. Arch needs to
-provide wrapper functions to override the generic versions if there's
-arch specific handling in its ioremap_prot(), ioremap() or iounmap().
-This change will simplify implementation by removing duplicated codes
-with generic_ioremap_prot() and generic_iounmap(), and has the equivalent
-functioality as before.
+On Fri, 13 Jan 2023 09:10:19 PST (-0800), david@redhat.com wrote:
+> Let's support __HAVE_ARCH_PTE_SWP_EXCLUSIVE by stealing one bit
+> from the offset. This reduces the maximum swap space per file: on 32bit
+> to 16 GiB (was 32 GiB).
 
-Here, add wrapper functions ioremap_prot() and iounmap() for ia64's
-special operation when ioremap() and iounmap().
+Seems fine to me, I doubt anyone wants a huge pile of swap on rv32.
 
-Signed-off-by: Baoquan He <bhe@redhat.com>
-Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Christophe Leroy <christophe.leroy@csgroup.eu>
----
- arch/ia64/Kconfig          |  1 +
- arch/ia64/include/asm/io.h | 13 +++++-------
- arch/ia64/mm/ioremap.c     | 41 ++++++--------------------------------
- 3 files changed, 12 insertions(+), 43 deletions(-)
+>
+> Note that this bit does not conflict with swap PMDs and could also be used
+> in swap PMD context later.
+>
+> While at it, mask the type in __swp_entry().
+>
+> Cc: Paul Walmsley <paul.walmsley@sifive.com>
+> Cc: Palmer Dabbelt <palmer@dabbelt.com>
+> Cc: Albert Ou <aou@eecs.berkeley.edu>
+> Signed-off-by: David Hildenbrand <david@redhat.com>
+> ---
+>  arch/riscv/include/asm/pgtable-bits.h |  3 +++
+>  arch/riscv/include/asm/pgtable.h      | 29 ++++++++++++++++++++++-----
+>  2 files changed, 27 insertions(+), 5 deletions(-)
+>
+> diff --git a/arch/riscv/include/asm/pgtable-bits.h b/arch/riscv/include/asm/pgtable-bits.h
+> index b9e13a8fe2b7..f896708e8331 100644
+> --- a/arch/riscv/include/asm/pgtable-bits.h
+> +++ b/arch/riscv/include/asm/pgtable-bits.h
+> @@ -27,6 +27,9 @@
+>   */
+>  #define _PAGE_PROT_NONE _PAGE_GLOBAL
+>
+> +/* Used for swap PTEs only. */
+> +#define _PAGE_SWP_EXCLUSIVE _PAGE_ACCESSED
+> +
+>  #define _PAGE_PFN_SHIFT 10
+>
+>  /*
+> diff --git a/arch/riscv/include/asm/pgtable.h b/arch/riscv/include/asm/pgtable.h
+> index 4eba9a98d0e3..03a4728db039 100644
+> --- a/arch/riscv/include/asm/pgtable.h
+> +++ b/arch/riscv/include/asm/pgtable.h
+> @@ -724,16 +724,18 @@ static inline pmd_t pmdp_establish(struct vm_area_struct *vma,
+>  #endif /* CONFIG_TRANSPARENT_HUGEPAGE */
+>
+>  /*
+> - * Encode and decode a swap entry
+> + * Encode/decode swap entries and swap PTEs. Swap PTEs are all PTEs that
+> + * are !pte_none() && !pte_present().
+>   *
+>   * Format of swap PTE:
+>   *	bit            0:	_PAGE_PRESENT (zero)
+>   *	bit       1 to 3:       _PAGE_LEAF (zero)
+>   *	bit            5:	_PAGE_PROT_NONE (zero)
+> - *	bits      6 to 10:	swap type
+> - *	bits 10 to XLEN-1:	swap offset
+> + *	bit            6:	exclusive marker
+> + *	bits      7 to 11:	swap type
+> + *	bits 11 to XLEN-1:	swap offset
+>   */
+> -#define __SWP_TYPE_SHIFT	6
+> +#define __SWP_TYPE_SHIFT	7
+>  #define __SWP_TYPE_BITS		5
+>  #define __SWP_TYPE_MASK		((1UL << __SWP_TYPE_BITS) - 1)
+>  #define __SWP_OFFSET_SHIFT	(__SWP_TYPE_BITS + __SWP_TYPE_SHIFT)
+> @@ -744,11 +746,28 @@ static inline pmd_t pmdp_establish(struct vm_area_struct *vma,
+>  #define __swp_type(x)	(((x).val >> __SWP_TYPE_SHIFT) & __SWP_TYPE_MASK)
+>  #define __swp_offset(x)	((x).val >> __SWP_OFFSET_SHIFT)
+>  #define __swp_entry(type, offset) ((swp_entry_t) \
+> -	{ ((type) << __SWP_TYPE_SHIFT) | ((offset) << __SWP_OFFSET_SHIFT) })
+> +	{ (((type) & __SWP_TYPE_MASK) << __SWP_TYPE_SHIFT) | \
+> +	  ((offset) << __SWP_OFFSET_SHIFT) })
+>
+>  #define __pte_to_swp_entry(pte)	((swp_entry_t) { pte_val(pte) })
+>  #define __swp_entry_to_pte(x)	((pte_t) { (x).val })
+>
+> +#define __HAVE_ARCH_PTE_SWP_EXCLUSIVE
+> +static inline int pte_swp_exclusive(pte_t pte)
+> +{
+> +	return pte_val(pte) & _PAGE_SWP_EXCLUSIVE;
+> +}
+> +
+> +static inline pte_t pte_swp_mkexclusive(pte_t pte)
+> +{
+> +	return __pte(pte_val(pte) | _PAGE_SWP_EXCLUSIVE);
+> +}
+> +
+> +static inline pte_t pte_swp_clear_exclusive(pte_t pte)
+> +{
+> +	return __pte(pte_val(pte) & ~_PAGE_SWP_EXCLUSIVE);
+> +}
+> +
+>  #ifdef CONFIG_ARCH_ENABLE_THP_MIGRATION
+>  #define __pmd_to_swp_entry(pmd) ((swp_entry_t) { pmd_val(pmd) })
+>  #define __swp_entry_to_pmd(swp) __pmd((swp).val)
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index d7e4a24e8644..74568cb73d87 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -45,6 +45,7 @@ config IA64
- 	select GENERIC_IRQ_LEGACY
- 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
- 	select GENERIC_IOMAP
-+	select GENERIC_IOREMAP
- 	select GENERIC_SMP_IDLE_THREAD
- 	select ARCH_TASK_STRUCT_ON_STACK
- 	select ARCH_TASK_STRUCT_ALLOCATOR
-diff --git a/arch/ia64/include/asm/io.h b/arch/ia64/include/asm/io.h
-index 83a492c8d298..eedc0afa8cad 100644
---- a/arch/ia64/include/asm/io.h
-+++ b/arch/ia64/include/asm/io.h
-@@ -243,15 +243,12 @@ static inline void outsl(unsigned long port, const void *src,
- 
- # ifdef __KERNEL__
- 
--extern void __iomem * ioremap(unsigned long offset, unsigned long size);
-+#define _PAGE_IOREMAP pgprot_val(PAGE_KERNEL)
-+
- extern void __iomem * ioremap_uc(unsigned long offset, unsigned long size);
--extern void iounmap (volatile void __iomem *addr);
--static inline void __iomem * ioremap_cache (unsigned long phys_addr, unsigned long size)
--{
--	return ioremap(phys_addr, size);
--}
--#define ioremap ioremap
--#define ioremap_cache ioremap_cache
-+
-+#define ioremap_prot ioremap_prot
-+#define ioremap_cache ioremap
- #define ioremap_uc ioremap_uc
- #define iounmap iounmap
- 
-diff --git a/arch/ia64/mm/ioremap.c b/arch/ia64/mm/ioremap.c
-index 55fd3eb753ff..35e75e9c878b 100644
---- a/arch/ia64/mm/ioremap.c
-+++ b/arch/ia64/mm/ioremap.c
-@@ -29,13 +29,9 @@ early_ioremap (unsigned long phys_addr, unsigned long size)
- 	return __ioremap_uc(phys_addr);
- }
- 
--void __iomem *
--ioremap (unsigned long phys_addr, unsigned long size)
-+void __iomem *ioremap_prot(phys_addr_t phys_addr, size_t size,
-+			   unsigned long flags)
- {
--	void __iomem *addr;
--	struct vm_struct *area;
--	unsigned long offset;
--	pgprot_t prot;
- 	u64 attr;
- 	unsigned long gran_base, gran_size;
- 	unsigned long page_base;
-@@ -68,36 +64,12 @@ ioremap (unsigned long phys_addr, unsigned long size)
- 	 */
- 	page_base = phys_addr & PAGE_MASK;
- 	size = PAGE_ALIGN(phys_addr + size) - page_base;
--	if (efi_mem_attribute(page_base, size) & EFI_MEMORY_WB) {
--		prot = PAGE_KERNEL;
--
--		/*
--		 * Mappings have to be page-aligned
--		 */
--		offset = phys_addr & ~PAGE_MASK;
--		phys_addr &= PAGE_MASK;
--
--		/*
--		 * Ok, go for it..
--		 */
--		area = get_vm_area(size, VM_IOREMAP);
--		if (!area)
--			return NULL;
--
--		area->phys_addr = phys_addr;
--		addr = (void __iomem *) area->addr;
--		if (ioremap_page_range((unsigned long) addr,
--				(unsigned long) addr + size, phys_addr, prot)) {
--			vunmap((void __force *) addr);
--			return NULL;
--		}
--
--		return (void __iomem *) (offset + (char __iomem *)addr);
--	}
-+	if (efi_mem_attribute(page_base, size) & EFI_MEMORY_WB)
-+		return generic_ioremap_prot(phys_addr, size, __pgprot(flags));
- 
- 	return __ioremap_uc(phys_addr);
- }
--EXPORT_SYMBOL(ioremap);
-+EXPORT_SYMBOL(ioremap_prot);
- 
- void __iomem *
- ioremap_uc(unsigned long phys_addr, unsigned long size)
-@@ -114,8 +86,7 @@ early_iounmap (volatile void __iomem *addr, unsigned long size)
- {
- }
- 
--void
--iounmap (volatile void __iomem *addr)
-+void iounmap(volatile void __iomem *addr)
- {
- 	if (REGION_NUMBER(addr) = RGN_GATE)
- 		vunmap((void *) ((unsigned long) addr & PAGE_MASK));
--- 
-2.34.1
+Acked-by: Palmer Dabbelt <palmer@rivosinc.com>
+Reviewed-by: Palmer Dabbelt <palmer@rivosinc.com>
