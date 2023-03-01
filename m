@@ -1,46 +1,142 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Thu, 23 Mar 2023 09:21:54 +0000
-Subject: [PATCH 12/14] sh: drop ranges for definition of ARCH_FORCE_MAX_ORDER
-Message-Id: <20230323092156.2545741-13-rppt@kernel.org>
+From: Baoquan He <bhe@redhat.com>
+Date: Wed, 01 Mar 2023 03:42:38 +0000
+Subject: [PATCH v5 08/17] ia64: mm: Convert to GENERIC_IOREMAP
+Message-Id: <20230301034247.136007-9-bhe@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230323092156.2545741-1-rppt@kernel.org>
-In-Reply-To: <20230323092156.2545741-1-rppt@kernel.org>
+References: <20230301034247.136007-1-bhe@redhat.com>
+In-Reply-To: <20230301034247.136007-1-bhe@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, "David S. Miller" <davem@davemloft.net>, Dinh Nguyen <dinguyen@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Guo Ren <guoren@kernel.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Max Filippov <jcmvbkbc@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Mike Rapoport <rppt@kernel.org>, Rich Felker <dalias@libc.org>, Russell King <linux@armlinux.org.uk>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Zi Yan <ziy@nvidia.com>, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mm@kvack.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: linux-arch@vger.kernel.org, linux-mm@kvack.org, arnd@arndb.de, christophe.leroy@csgroup.eu, hch@infradead.org, agordeev@linux.ibm.com, wangkefeng.wang@huawei.com, schnelle@linux.ibm.com, David.Laight@ACULAB.COM, shorne@gmail.com, willy@infradead.org, Baoquan He <bhe@redhat.com>, linux-ia64@vger.kernel.org
 
-From: "Mike Rapoport (IBM)" <rppt@kernel.org>
+By taking GENERIC_IOREMAP method, the generic generic_ioremap_prot(),
+generic_iounmap(), and their generic wrapper ioremap_prot(), ioremap()
+and iounmap() are all visible and available to arch. Arch needs to
+provide wrapper functions to override the generic versions if there's
+arch specific handling in its ioremap_prot(), ioremap() or iounmap().
+This change will simplify implementation by removing duplicated codes
+with generic_ioremap_prot() and generic_iounmap(), and has the equivalent
+functioality as before.
 
-sh defines insane ranges for ARCH_FORCE_MAX_ORDER allowing MAX_ORDER
-up to 63, which implies maximal contiguous allocation size of 2^63
-pages.
+Here, add wrapper functions ioremap_prot() and iounmap() for ia64's
+special operation when ioremap() and iounmap().
 
-Drop bogus definitions of ranges for ARCH_FORCE_MAX_ORDER and leave it a
-simple integer with sensible defaults.
-
-Users that *really* need to change the value of ARCH_FORCE_MAX_ORDER
-will be able to do so but they won't be mislead by the bogus ranges.
-
-Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
+Signed-off-by: Baoquan He <bhe@redhat.com>
+Cc: linux-ia64@vger.kernel.org
 ---
- arch/sh/mm/Kconfig | 2 --
- 1 file changed, 2 deletions(-)
+ arch/ia64/Kconfig          |  1 +
+ arch/ia64/include/asm/io.h | 13 +++++-------
+ arch/ia64/mm/ioremap.c     | 41 ++++++--------------------------------
+ 3 files changed, 12 insertions(+), 43 deletions(-)
 
-diff --git a/arch/sh/mm/Kconfig b/arch/sh/mm/Kconfig
-index fb15ba1052ba..511c17aede4a 100644
---- a/arch/sh/mm/Kconfig
-+++ b/arch/sh/mm/Kconfig
-@@ -21,9 +21,7 @@ config PAGE_OFFSET
- config ARCH_FORCE_MAX_ORDER
- 	int "Order of maximal physically contiguous allocations"
- 	default "8" if PAGE_SIZE_16KB
--	range 6 63 if PAGE_SIZE_64KB
- 	default "6" if PAGE_SIZE_64KB
--	range 10 63
- 	default "13" if !MMU
- 	default "10"
- 	help
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index d7e4a24e8644..74568cb73d87 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -45,6 +45,7 @@ config IA64
+ 	select GENERIC_IRQ_LEGACY
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+ 	select GENERIC_IOMAP
++	select GENERIC_IOREMAP
+ 	select GENERIC_SMP_IDLE_THREAD
+ 	select ARCH_TASK_STRUCT_ON_STACK
+ 	select ARCH_TASK_STRUCT_ALLOCATOR
+diff --git a/arch/ia64/include/asm/io.h b/arch/ia64/include/asm/io.h
+index 83a492c8d298..eedc0afa8cad 100644
+--- a/arch/ia64/include/asm/io.h
++++ b/arch/ia64/include/asm/io.h
+@@ -243,15 +243,12 @@ static inline void outsl(unsigned long port, const void *src,
+ 
+ # ifdef __KERNEL__
+ 
+-extern void __iomem * ioremap(unsigned long offset, unsigned long size);
++#define _PAGE_IOREMAP pgprot_val(PAGE_KERNEL)
++
+ extern void __iomem * ioremap_uc(unsigned long offset, unsigned long size);
+-extern void iounmap (volatile void __iomem *addr);
+-static inline void __iomem * ioremap_cache (unsigned long phys_addr, unsigned long size)
+-{
+-	return ioremap(phys_addr, size);
+-}
+-#define ioremap ioremap
+-#define ioremap_cache ioremap_cache
++
++#define ioremap_prot ioremap_prot
++#define ioremap_cache ioremap
+ #define ioremap_uc ioremap_uc
+ #define iounmap iounmap
+ 
+diff --git a/arch/ia64/mm/ioremap.c b/arch/ia64/mm/ioremap.c
+index 55fd3eb753ff..35e75e9c878b 100644
+--- a/arch/ia64/mm/ioremap.c
++++ b/arch/ia64/mm/ioremap.c
+@@ -29,13 +29,9 @@ early_ioremap (unsigned long phys_addr, unsigned long size)
+ 	return __ioremap_uc(phys_addr);
+ }
+ 
+-void __iomem *
+-ioremap (unsigned long phys_addr, unsigned long size)
++void __iomem *ioremap_prot(phys_addr_t phys_addr, size_t size,
++			   unsigned long flags)
+ {
+-	void __iomem *addr;
+-	struct vm_struct *area;
+-	unsigned long offset;
+-	pgprot_t prot;
+ 	u64 attr;
+ 	unsigned long gran_base, gran_size;
+ 	unsigned long page_base;
+@@ -68,36 +64,12 @@ ioremap (unsigned long phys_addr, unsigned long size)
+ 	 */
+ 	page_base = phys_addr & PAGE_MASK;
+ 	size = PAGE_ALIGN(phys_addr + size) - page_base;
+-	if (efi_mem_attribute(page_base, size) & EFI_MEMORY_WB) {
+-		prot = PAGE_KERNEL;
+-
+-		/*
+-		 * Mappings have to be page-aligned
+-		 */
+-		offset = phys_addr & ~PAGE_MASK;
+-		phys_addr &= PAGE_MASK;
+-
+-		/*
+-		 * Ok, go for it..
+-		 */
+-		area = get_vm_area(size, VM_IOREMAP);
+-		if (!area)
+-			return NULL;
+-
+-		area->phys_addr = phys_addr;
+-		addr = (void __iomem *) area->addr;
+-		if (ioremap_page_range((unsigned long) addr,
+-				(unsigned long) addr + size, phys_addr, prot)) {
+-			vunmap((void __force *) addr);
+-			return NULL;
+-		}
+-
+-		return (void __iomem *) (offset + (char __iomem *)addr);
+-	}
++	if (efi_mem_attribute(page_base, size) & EFI_MEMORY_WB)
++		return generic_ioremap_prot(phys_addr, size, __pgprot(flags));
+ 
+ 	return __ioremap_uc(phys_addr);
+ }
+-EXPORT_SYMBOL(ioremap);
++EXPORT_SYMBOL(ioremap_prot);
+ 
+ void __iomem *
+ ioremap_uc(unsigned long phys_addr, unsigned long size)
+@@ -114,8 +86,7 @@ early_iounmap (volatile void __iomem *addr, unsigned long size)
+ {
+ }
+ 
+-void
+-iounmap (volatile void __iomem *addr)
++void iounmap(volatile void __iomem *addr)
+ {
+ 	if (REGION_NUMBER(addr) = RGN_GATE)
+ 		vunmap((void *) ((unsigned long) addr & PAGE_MASK));
 -- 
-2.35.1
+2.34.1
