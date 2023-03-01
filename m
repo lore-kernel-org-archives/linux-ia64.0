@@ -1,54 +1,65 @@
-From: Palmer Dabbelt <palmer@dabbelt.com>
-Date: Tue, 07 Mar 2023 21:41:57 +0000
-Subject: Re: [PATCH v5 12/26] riscv: Remove COMMAND_LINE_SIZE from uapi
-Message-Id: <mhng-d4be5bb5-f0ad-4e76-9b11-83732d233a45@palmer-ri-x1c9a>
+From: Deepak Gupta <debug@rivosinc.com>
+Date: Wed, 01 Mar 2023 15:41:30 +0000
+Subject: Re: [PATCH v6 13/41] mm: Make pte_mkwrite() take a VMA
+Message-Id: <20230301154130.GB3505369@debug.ba.rivosinc.com>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <20230306100508.1171812-13-alexghiti@rivosinc.com>
-References: <20230306100508.1171812-13-alexghiti@rivosinc.com>
-In-Reply-To: <20230306100508.1171812-13-alexghiti@rivosinc.com>
+References: <20230218211433.26859-1-rick.p.edgecombe@intel.com>
+ <20230218211433.26859-14-rick.p.edgecombe@intel.com>
+In-Reply-To: <20230218211433.26859-14-rick.p.edgecombe@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: alexghiti@rivosinc.com
-Cc: Greg KH <gregkh@linuxfoundation.org>, corbet@lwn.net, Richard Henderson <richard.henderson@linaro.org>, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@kernel.org, linux@armlinux.org.uk, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, chenhuacai@kernel.org, kernel@xen0n.name, geert@linux-m68k.org, monstr@monstr.eu, tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, Paul Walmsley <paul.walmsley@sifive.com>, aou@eecs.berkeley.edu, hca@linux.ibm.com, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, jcmvbkbc@gmail.com, Arnd Bergmann <arnd@arndb.de>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org
+To: Rick Edgecombe <rick.p.edgecombe@intel.com>
+Cc: x86@kernel.org, "H . Peter Anvin" <hpa@zytor.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org, linux-mm@kvack.org, linux-arch@vger.kernel.org, linux-api@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>, Andy Lutomirski <luto@kernel.org>, Balbir Singh <bsingharora@gmail.com>, Borislav Petkov <bp@alien8.de>, Cyrill Gorcunov <gorcunov@gmail.com>, Dave Hansen <dave.hansen@linux.intel.com>, Eugene Syromiatnikov <esyr@redhat.com>, Florian Weimer <fweimer@redhat.com>, "H . J . Lu" <hjl.tools@gmail.com>, Jann Horn <jannh@google.com>, Jonathan Corbet <corbet@lwn.net>, Kees Cook <keescook@chromium.org>, Mike Kravetz <mike.kravetz@oracle.com>, Nadav Amit <nadav.amit@gmail.com>, Oleg Nesterov <oleg@redhat.com>, Pavel Machek <pavel@ucw.cz>, Peter Zijlstra <peterz@infradead.org>, Randy Dunlap <rdunlap@infradead.org>, Weijiang Yang <weijiang.yang@intel.com>, "Kirill A . Shutemov" <kirill.shutemov@linux.intel.com>, John Allen <john.allen@amd.com>, kcc@google.com, eranian@google.com, rppt@kernel.org, jamorris@linux.microsoft.com, dethoma@microsoft.com, akpm@linux-foundation.org, Andrew.Cooper3@citrix.com, christina.schimpe@intel.com, david@redhat.com, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, Michal Simek <monstr@monstr.eu>, Dinh Nguyen <dinguyen@kernel.org>, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, xen-devel@lists.xenproject.org
 
-On Mon, 06 Mar 2023 02:04:54 PST (-0800), alexghiti@rivosinc.com wrote:
-> As far as I can tell this is not used by userspace and thus should not
-> be part of the user-visible API.
+On Sat, Feb 18, 2023 at 01:14:05PM -0800, Rick Edgecombe wrote:
+>The x86 Control-flow Enforcement Technology (CET) feature includes a new
+>type of memory called shadow stack. This shadow stack memory has some
+>unusual properties, which requires some core mm changes to function
+>properly.
 >
-> Signed-off-by: Alexandre Ghiti <alexghiti@rivosinc.com>
-> ---
->  arch/riscv/include/asm/setup.h      | 7 +++++++
->  arch/riscv/include/uapi/asm/setup.h | 2 --
->  2 files changed, 7 insertions(+), 2 deletions(-)
->  create mode 100644 arch/riscv/include/asm/setup.h
+>One of these unusual properties is that shadow stack memory is writable,
+>but only in limited ways. These limits are applied via a specific PTE
+>bit combination. Nevertheless, the memory is writable, and core mm code
+>will need to apply the writable permissions in the typical paths that
+>call pte_mkwrite().
 >
-> diff --git a/arch/riscv/include/asm/setup.h b/arch/riscv/include/asm/setup.h
-> new file mode 100644
-> index 000000000000..f165a14344e2
-> --- /dev/null
-> +++ b/arch/riscv/include/asm/setup.h
-> @@ -0,0 +1,7 @@
-> +/* SPDX-License-Identifier: GPL-2.0-only */
-> +#ifndef _ASM_RISCV_SETUP_H
-> +#define _ASM_RISCV_SETUP_H
-> +
-> +#define COMMAND_LINE_SIZE       1024
-> +
-> +#endif /* _ASM_RISCV_SETUP_H */
-> diff --git a/arch/riscv/include/uapi/asm/setup.h b/arch/riscv/include/uapi/asm/setup.h
-> index 66b13a522880..17fcecd4a2f8 100644
-> --- a/arch/riscv/include/uapi/asm/setup.h
-> +++ b/arch/riscv/include/uapi/asm/setup.h
-> @@ -3,6 +3,4 @@
->  #ifndef _UAPI_ASM_RISCV_SETUP_H
->  #define _UAPI_ASM_RISCV_SETUP_H
+>In addition to VM_WRITE, the shadow stack VMA's will have a flag denoting
+>that they are special shadow stack flavor of writable memory. So make
+>pte_mkwrite() take a VMA, so that the x86 implementation of it can know to
+>create regular writable memory or shadow stack memory.
 >
-> -#define COMMAND_LINE_SIZE	1024
-> -
->  #endif /* _UAPI_ASM_RISCV_SETUP_H */
+>Apply the same changes for pmd_mkwrite() and huge_pte_mkwrite().
+>
+>No functional change.
+>
+>Cc: linux-doc@vger.kernel.org
+>Cc: linux-kernel@vger.kernel.org
+>Cc: linux-alpha@vger.kernel.org
+>Cc: linux-snps-arc@lists.infradead.org
+>Cc: linux-arm-kernel@lists.infradead.org
+>Cc: linux-csky@vger.kernel.org
+>Cc: linux-hexagon@vger.kernel.org
+>Cc: linux-ia64@vger.kernel.org
+>Cc: loongarch@lists.linux.dev
+>Cc: linux-m68k@lists.linux-m68k.org
+>Cc: Michal Simek <monstr@monstr.eu>
+>Cc: Dinh Nguyen <dinguyen@kernel.org>
+>Cc: linux-mips@vger.kernel.org
+>Cc: openrisc@lists.librecores.org
+>Cc: linux-parisc@vger.kernel.org
+>Cc: linuxppc-dev@lists.ozlabs.org
+>Cc: linux-riscv@lists.infradead.org
+>Cc: linux-s390@vger.kernel.org
+>Cc: linux-sh@vger.kernel.org
+>Cc: sparclinux@vger.kernel.org
+>Cc: linux-um@lists.infradead.org
+>Cc: xen-devel@lists.xenproject.org
+>Cc: linux-arch@vger.kernel.org
+>Cc: linux-mm@kvack.org
+>Tested-by: Pengfei Xu <pengfei.xu@intel.com>
+>Suggested-by: David Hildenbrand <david@redhat.com>
+>Signed-off-by: Rick Edgecombe <rick.p.edgecombe@intel.com>
+>
 
-Reviewed-by: Palmer Dabbelt <palmer@rivosinc.com>
-Acked-by: Palmer Dabbelt <palmer@rivosinc.com>
-
-Thanks!
+Acked-by: Deepak Gupta <debug@rivosinc.com>
