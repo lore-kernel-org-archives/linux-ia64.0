@@ -1,85 +1,68 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Fri, 24 Mar 2023 16:48:50 +0000
-Subject: Re: [PATCH v2 00/14] arch,mm: cleanup Kconfig entries for ARCH_FORCE_MAX_ORDER
-Message-Id: <ZB3Uci7kjTOyOEiy@kernel.org>
+From: Palmer Dabbelt <palmer@dabbelt.com>
+Date: Thu, 02 Mar 2023 03:17:18 +0000
+Subject: Re: [PATCH v3 00/24] Remove COMMAND_LINE_SIZE from uapi
+Message-Id: <mhng-e8b09772-24e5-4729-a0bf-01a9e4c76636@palmer-ri-x1c9a>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230324052233.2654090-1-rppt@kernel.org>
- <F98008AC-F79C-4712-A262-4EC85BBC0B29@nvidia.com>
-In-Reply-To: <F98008AC-F79C-4712-A262-4EC85BBC0B29@nvidia.com>
+In-Reply-To: <Y+tSBlSsQBQF/Ro2@osiris>
+References: <20230214074925.228106-1-alexghiti@rivosinc.com>
+In-Reply-To: <20230214074925.228106-1-alexghiti@rivosinc.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Zi Yan <ziy@nvidia.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, "David S. Miller" <davem@davemloft.net>, Dinh Nguyen <dinguyen@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Guo Ren <guoren@kernel.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Max Filippov <jcmvbkbc@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Rich Felker <dalias@libc.org>, Russell King <linux@armlinux.org.uk>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mm@kvack.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
+To: hca@linux.ibm.com
+Cc: geert@linux-m68k.org, alexghiti@rivosinc.com, corbet@lwn.net, Richard Henderson <richard.henderson@linaro.org>, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@kernel.org, linux@armlinux.org.uk, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, chenhuacai@kernel.org, kernel@xen0n.name, monstr@monstr.eu, tsbogend@alpha.franken.de, James.Bottomley@hansenpartnership.com, deller@gmx.de, mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu, Paul Walmsley <paul.walmsley@sifive.com>, aou@eecs.berkeley.edu, gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, svens@linux.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org, hpa@zytor.com, chris@zankel.net, jcmvbkbc@gmail.com, Arnd Bergmann <arnd@arndb.de>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org
 
-On Fri, Mar 24, 2023 at 10:30:07AM -0400, Zi Yan wrote:
-> On 24 Mar 2023, at 1:22, Mike Rapoport wrote:
-> 
-> > From: "Mike Rapoport (IBM)" <rppt@kernel.org>
-> >
-> > Hi,
-> >
-> > Several architectures have ARCH_FORCE_MAX_ORDER in their Kconfig and
-> > they all have wrong and misleading prompt and help text for this option.
-> >
-> > Besides, some define insane limits for possible values of
-> > ARCH_FORCE_MAX_ORDER, some carefully define ranges only for a subset of
-> > possible configurations, some make this option configurable by users for no
-> > good reason.
-> >
-> > This set updates the prompt and help text everywhere and does its best to
-> > update actual definitions of ranges where applicable.
-> >
-> > kbuild generated a bunch of false positives because it assigns -1 to
-> > ARCH_FORCE_MAX_ORDER, hopefully this will be fixed soon.
-> >
-> > v2:
-> > * arm64: show prompt for ARCH_FORCE_MAX_ORDER only if EXPERT (Catalin)
-> > * Add Acked- and Reviewed-by tags (thanks Geert, Kirill and Max)
-> >
-> > v1: https://lore.kernel.org/all/20230323092156.2545741-1-rppt@kernel.org
-> >
-> > Mike Rapoport (IBM) (14):
-> >   arm: reword ARCH_FORCE_MAX_ORDER prompt and help text
-> >   arm64: drop ranges in definition of ARCH_FORCE_MAX_ORDER
-> >   arm64: reword ARCH_FORCE_MAX_ORDER prompt and help text
-> >   csky: drop ARCH_FORCE_MAX_ORDER
-> >   ia64: don't allow users to override ARCH_FORCE_MAX_ORDER
-> >   m68k: reword ARCH_FORCE_MAX_ORDER prompt and help text
-> >   nios2: reword ARCH_FORCE_MAX_ORDER prompt and help text
-> >   nios2: drop ranges for definition of ARCH_FORCE_MAX_ORDER
-> >   powerpc: reword ARCH_FORCE_MAX_ORDER prompt and help text
-> >   powerpc: drop ranges for definition of ARCH_FORCE_MAX_ORDER
-> >   sh: reword ARCH_FORCE_MAX_ORDER prompt and help text
-> >   sh: drop ranges for definition of ARCH_FORCE_MAX_ORDER
-> >   sparc: reword ARCH_FORCE_MAX_ORDER prompt and help text
-> >   xtensa: reword ARCH_FORCE_MAX_ORDER prompt and help text
-> >
-> >  arch/arm/Kconfig      | 16 +++++++++-------
-> >  arch/arm64/Kconfig    | 27 ++++++++++++---------------
-> >  arch/csky/Kconfig     |  4 ----
-> >  arch/ia64/Kconfig     |  3 +--
-> >  arch/m68k/Kconfig.cpu | 16 +++++++++-------
-> >  arch/nios2/Kconfig    | 17 +++++++++--------
-> >  arch/powerpc/Kconfig  | 22 +++++++++-------------
-> >  arch/sh/mm/Kconfig    | 19 +++++++++----------
-> >  arch/sparc/Kconfig    | 16 +++++++++-------
-> >  arch/xtensa/Kconfig   | 16 +++++++++-------
-> >  10 files changed, 76 insertions(+), 80 deletions(-)
-> >
-> >
-> > base-commit: 51551d71edbc998fd8c8afa7312db3d270f5998e
-> 
-> LGTM, thanks. Reviewed-by: Zi Yan <ziy@nvidia.com>
+On Tue, 14 Feb 2023 01:19:02 PST (-0800), hca@linux.ibm.com wrote:
+> On Tue, Feb 14, 2023 at 09:58:17AM +0100, Geert Uytterhoeven wrote:
+>> Hi Heiko,
+>>
+>> On Tue, Feb 14, 2023 at 9:39 AM Heiko Carstens <hca@linux.ibm.com> wrote:
+>> > On Tue, Feb 14, 2023 at 08:49:01AM +0100, Alexandre Ghiti wrote:
+>> > > This all came up in the context of increasing COMMAND_LINE_SIZE in the
+>> > > RISC-V port.  In theory that's a UABI break, as COMMAND_LINE_SIZE is the
+>> > > maximum length of /proc/cmdline and userspace could staticly rely on
+>> > > that to be correct.
+>> > >
+>> > > Usually I wouldn't mess around with changing this sort of thing, but
+>> > > PowerPC increased it with a5980d064fe2 ("powerpc: Bump COMMAND_LINE_SIZE
+>> > > to 2048").  There are also a handful of examples of COMMAND_LINE_SIZE
+>> > > increasing, but they're from before the UAPI split so I'm not quite sure
+>> > > what that means: e5a6a1c90948 ("powerpc: derive COMMAND_LINE_SIZE from
+>> > > asm-generic"), 684d2fd48e71 ("[S390] kernel: Append scpdata to kernel
+>> > > boot command line"), 22242681cff5 ("MIPS: Extend COMMAND_LINE_SIZE"),
+>> > > and 2b74b85693c7 ("sh: Derive COMMAND_LINE_SIZE from
+>> > > asm-generic/setup.h.").
+>> > >
+>> > > It seems to me like COMMAND_LINE_SIZE really just shouldn't have been
+>> > > part of the uapi to begin with, and userspace should be able to handle
+>> > > /proc/cmdline of whatever length it turns out to be.  I don't see any
+>> > > references to COMMAND_LINE_SIZE anywhere but Linux via a quick Google
+>> > > search, but that's not really enough to consider it unused on my end.
+>> > >
+>> > > The feedback on the v1 seemed to indicate that COMMAND_LINE_SIZE really
+>> > > shouldn't be part of uapi, so this now touches all the ports.  I've
+>> > > tried to split this all out and leave it bisectable, but I haven't
+>> > > tested it all that aggressively.
+>> >
+>> > Just to confirm this assumption a bit more: that's actually the same
+>> > conclusion that we ended up with when commit 3da0243f906a ("s390: make
+>> > command line configurable") went upstream.
 
-Thanks!
+Thanks, I guess I'd missed that one.  At some point I think there was 
+some discussion of making this a Kconfig for everyone, which seems 
+reasonable to me -- our use case for this being extended is syzkaller, 
+but we're sort of just picking a value that's big enough for now and 
+running with it.
 
-And thanks for spotting the mistakes in arm64 and sh patches.
- 
-> --
-> Best Regards,
-> Yan, Zi
+Probably best to get it out of uapi first, though, as that way at least 
+it's clear that it's not uABI.
 
--- 
-Sincerely yours,
-Mike.
+>> Commit 622021cd6c560ce7 ("s390: make command line configurable"),
+>> I assume?
+>
+> Yes, sorry for that. I got distracted while writing and used the wrong
+> branch to look this up.
+
+Alex: Probably worth adding that to the list in the cover letter as it 
+looks like you were planning on a v4 anyway (which I guess you now have 
+to do, given that I just added the issue to RISC-V).
