@@ -1,7 +1,7 @@
 From: Alexandre Ghiti <alexghiti@rivosinc.com>
-Date: Thu, 02 Mar 2023 09:35:33 +0000
-Subject: [PATCH v4 18/24] sparc: Remove empty <uapi/asm/setup.h>
-Message-Id: <20230302093539.372962-19-alexghiti@rivosinc.com>
+Date: Thu, 02 Mar 2023 09:35:37 +0000
+Subject: [PATCH v4 22/24] powerpc: Remove empty <uapi/asm/setup.h>
+Message-Id: <20230302093539.372962-23-alexghiti@rivosinc.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20230302093539.372962-1-alexghiti@rivosinc.com>
 In-Reply-To: <20230302093539.372962-1-alexghiti@rivosinc.com>
@@ -15,24 +15,20 @@ From: Palmer Dabbelt <palmer@rivosinc.com>
 
 Signed-off-by: Palmer Dabbelt <palmer@rivosinc.com>
 ---
- arch/sparc/include/uapi/asm/setup.h | 9 ---------
- 1 file changed, 9 deletions(-)
- delete mode 100644 arch/sparc/include/uapi/asm/setup.h
+ arch/powerpc/include/uapi/asm/setup.h | 5 -----
+ 1 file changed, 5 deletions(-)
+ delete mode 100644 arch/powerpc/include/uapi/asm/setup.h
 
-diff --git a/arch/sparc/include/uapi/asm/setup.h b/arch/sparc/include/uapi/asm/setup.h
+diff --git a/arch/powerpc/include/uapi/asm/setup.h b/arch/powerpc/include/uapi/asm/setup.h
 deleted file mode 100644
-index c3cf1b0d30b3..000000000000
---- a/arch/sparc/include/uapi/asm/setup.h
+index f2ca747aa45b..000000000000
+--- a/arch/powerpc/include/uapi/asm/setup.h
 +++ /dev/null
-@@ -1,9 +0,0 @@
+@@ -1,5 +0,0 @@
 -/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
--/*
-- *	Just a place holder. 
-- */
+-#ifndef _UAPI_ASM_POWERPC_SETUP_H
+-#define _UAPI_ASM_POWERPC_SETUP_H
 -
--#ifndef _UAPI_SPARC_SETUP_H
--#define _UAPI_SPARC_SETUP_H
--
--#endif /* _UAPI_SPARC_SETUP_H */
+-#endif /* _UAPI_ASM_POWERPC_SETUP_H */
 -- 
 2.37.2
