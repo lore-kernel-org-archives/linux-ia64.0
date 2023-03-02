@@ -1,7 +1,7 @@
 From: Alexandre Ghiti <alexghiti@rivosinc.com>
-Date: Thu, 02 Mar 2023 09:35:26 +0000
-Subject: [PATCH v4 11/24] xtensa: Remove COMMAND_LINE_SIZE from uapi
-Message-Id: <20230302093539.372962-12-alexghiti@rivosinc.com>
+Date: Thu, 02 Mar 2023 09:35:24 +0000
+Subject: [PATCH v4 09/24] powerpc: Remove COMMAND_LINE_SIZE from uapi
+Message-Id: <20230302093539.372962-10-alexghiti@rivosinc.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20230302093539.372962-1-alexghiti@rivosinc.com>
 In-Reply-To: <20230302093539.372962-1-alexghiti@rivosinc.com>
@@ -17,46 +17,35 @@ As far as I can tell this is not used by userspace and thus should not
 be part of the user-visible API.
 
 Signed-off-by: Palmer Dabbelt <palmer@rivosinc.com>
-Acked-by: Max Filippov <jcmvbkbc@gmail.com>
+Acked-by: Michael Ellerman <mpe@ellerman.id.au>
 ---
- arch/xtensa/include/asm/setup.h      | 17 +++++++++++++++++
- arch/xtensa/include/uapi/asm/setup.h |  2 --
- 2 files changed, 17 insertions(+), 2 deletions(-)
- create mode 100644 arch/xtensa/include/asm/setup.h
+ arch/powerpc/include/asm/setup.h      | 2 +-
+ arch/powerpc/include/uapi/asm/setup.h | 2 --
+ 2 files changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/arch/xtensa/include/asm/setup.h b/arch/xtensa/include/asm/setup.h
-new file mode 100644
-index 000000000000..5356a5fd4d17
---- /dev/null
-+++ b/arch/xtensa/include/asm/setup.h
-@@ -0,0 +1,17 @@
-+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
-+/*
-+ * include/asm-xtensa/setup.h
-+ *
-+ * This file is subject to the terms and conditions of the GNU General Public
-+ * License.  See the file "COPYING" in the main directory of this archive
-+ * for more details.
-+ *
-+ * Copyright (C) 2001 - 2005 Tensilica Inc.
-+ */
-+
-+#ifndef _XTENSA_SETUP_H
-+#define _XTENSA_SETUP_H
-+
-+#define COMMAND_LINE_SIZE	256
-+
-+#endif
-diff --git a/arch/xtensa/include/uapi/asm/setup.h b/arch/xtensa/include/uapi/asm/setup.h
-index 5356a5fd4d17..6f982394684a 100644
---- a/arch/xtensa/include/uapi/asm/setup.h
-+++ b/arch/xtensa/include/uapi/asm/setup.h
-@@ -12,6 +12,4 @@
- #ifndef _XTENSA_SETUP_H
- #define _XTENSA_SETUP_H
+diff --git a/arch/powerpc/include/asm/setup.h b/arch/powerpc/include/asm/setup.h
+index e29e83f8a89c..31786d1db2ef 100644
+--- a/arch/powerpc/include/asm/setup.h
++++ b/arch/powerpc/include/asm/setup.h
+@@ -2,7 +2,7 @@
+ #ifndef _ASM_POWERPC_SETUP_H
+ #define _ASM_POWERPC_SETUP_H
  
--#define COMMAND_LINE_SIZE	256
+-#include <uapi/asm/setup.h>
++#define COMMAND_LINE_SIZE	2048
+ 
+ #ifndef __ASSEMBLY__
+ extern void ppc_printk_progress(char *s, unsigned short hex);
+diff --git a/arch/powerpc/include/uapi/asm/setup.h b/arch/powerpc/include/uapi/asm/setup.h
+index c54940b09d06..f2ca747aa45b 100644
+--- a/arch/powerpc/include/uapi/asm/setup.h
++++ b/arch/powerpc/include/uapi/asm/setup.h
+@@ -2,6 +2,4 @@
+ #ifndef _UAPI_ASM_POWERPC_SETUP_H
+ #define _UAPI_ASM_POWERPC_SETUP_H
+ 
+-#define COMMAND_LINE_SIZE	2048
 -
- #endif
+ #endif /* _UAPI_ASM_POWERPC_SETUP_H */
 -- 
 2.37.2
