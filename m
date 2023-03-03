@@ -1,10 +1,10 @@
-From: "Adam Charachuta" <adam.charachuta@lokoho.com>
-Date: Mon, 27 Mar 2023 07:50:50 +0000
-Subject: =?UTF-8?Q?S=C5=82owa_kluczowe_do_wypozycjonowania?=
-Message-Id: <20230327074501-0.1.4w.1mgrg.0.xueym81pvf@lokoho.com>
+From: =?UTF-8?Q? "Szczepan_Kie=C5=82basa" ?=  <szczepan.kielbasa@corrib.pl>
+Date: Fri, 03 Mar 2023 09:00:32 +0000
+Subject: Faktoring
+Message-Id: <20230303074501-0.1.5u.gg8i.0.f4fs3074t4@corrib.pl>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20221213074501-0.1.2s.95qp.0.a03w3p9pzm@lokoho.com>
-In-Reply-To: <20221213074501-0.1.2s.95qp.0.a03w3p9pzm@lokoho.com>
+References: <20230209074500-0.1.5e.gg8i.0.hmil12m6h8@corrib.pl>
+In-Reply-To: <20230209074500-0.1.5e.gg8i.0.hmil12m6h8@corrib.pl>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
@@ -12,12 +12,11 @@ To: linux-ia64@vger.kernel.org
 
 Dzień dobry,
 
-zapoznałem się z Państwa ofertą i z przyjemnością przyznaję, że przyciąga uwagę i zachęca do dalszych rozmów. 
+rozważali Państwo wybór finansowania, które spełni potrzeby firmy, zapewniając natychmiastowy dostęp do gotówki, bez zbędnych przestojów? 
 
-Pomyślałem, że może mógłbym mieć swój wkład w Państwa rozwój i pomóc dotrzeć z tą ofertą do większego grona odbiorców. Pozycjonuję strony www, dzięki czemu generują świetny ruch w sieci.
-
-Możemy porozmawiać w najbliższym czasie?
+Przygotowaliśmy rozwiązania faktoringowe dopasowane do Państwa branży i wielkości firmy, dzięki którym, nie muszą Państwo martwić się o niewypłacalność kontrahentów, ponieważ transakcje są zabezpieczone i posiadają gwarancję spłaty. 
+Chcą Państwo przeanalizować dostępne opcje?
 
 
 Pozdrawiam
-Adam Charachuta
+Szczepan Kiełbasa
