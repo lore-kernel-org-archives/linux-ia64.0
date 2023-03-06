@@ -1,7 +1,7 @@
 From: Alexandre Ghiti <alexghiti@rivosinc.com>
-Date: Mon, 06 Mar 2023 10:05:01 +0000
-Subject: [PATCH v5 19/26] sparc: Remove empty <uapi/asm/setup.h>
-Message-Id: <20230306100508.1171812-20-alexghiti@rivosinc.com>
+Date: Mon, 06 Mar 2023 10:04:45 +0000
+Subject: [PATCH v5 03/26] arm: Remove COMMAND_LINE_SIZE from uapi
+Message-Id: <20230306100508.1171812-4-alexghiti@rivosinc.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20230306100508.1171812-1-alexghiti@rivosinc.com>
 In-Reply-To: <20230306100508.1171812-1-alexghiti@rivosinc.com>
@@ -13,27 +13,41 @@ Cc: Palmer Dabbelt <palmer@rivosinc.com>, Alexandre Ghiti <alexghiti@rivosinc.co
 
 From: Palmer Dabbelt <palmer@rivosinc.com>
 
+As far as I can tell this is not used by userspace and thus should not
+be part of the user-visible API.
+
 Signed-off-by: Palmer Dabbelt <palmer@rivosinc.com>
 Signed-off-by: Alexandre Ghiti <alexghiti@rivosinc.com>
+Reviewed-by: Russell King (Oracle) <linux@armlinux.org.uk>
 ---
- arch/sparc/include/uapi/asm/setup.h | 9 ---------
- 1 file changed, 9 deletions(-)
- delete mode 100644 arch/sparc/include/uapi/asm/setup.h
+ arch/arm/include/asm/setup.h      | 1 +
+ arch/arm/include/uapi/asm/setup.h | 2 --
+ 2 files changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/arch/sparc/include/uapi/asm/setup.h b/arch/sparc/include/uapi/asm/setup.h
-deleted file mode 100644
-index c3cf1b0d30b3..000000000000
---- a/arch/sparc/include/uapi/asm/setup.h
-+++ /dev/null
-@@ -1,9 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
--/*
-- *	Just a place holder. 
-- */
+diff --git a/arch/arm/include/asm/setup.h b/arch/arm/include/asm/setup.h
+index ba0872a8dcda..8a1e4f804d1b 100644
+--- a/arch/arm/include/asm/setup.h
++++ b/arch/arm/include/asm/setup.h
+@@ -13,6 +13,7 @@
+ 
+ #include <uapi/asm/setup.h>
+ 
++#define COMMAND_LINE_SIZE 1024
+ 
+ #define __tag __used __section(".taglist.init")
+ #define __tagtable(tag, fn) \
+diff --git a/arch/arm/include/uapi/asm/setup.h b/arch/arm/include/uapi/asm/setup.h
+index 25ceda63b284..87a4f4af28e1 100644
+--- a/arch/arm/include/uapi/asm/setup.h
++++ b/arch/arm/include/uapi/asm/setup.h
+@@ -17,8 +17,6 @@
+ 
+ #include <linux/types.h>
+ 
+-#define COMMAND_LINE_SIZE 1024
 -
--#ifndef _UAPI_SPARC_SETUP_H
--#define _UAPI_SPARC_SETUP_H
--
--#endif /* _UAPI_SPARC_SETUP_H */
+ /* The list ends with an ATAG_NONE node. */
+ #define ATAG_NONE	0x00000000
+ 
 -- 
 2.37.2
