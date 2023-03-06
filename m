@@ -1,128 +1,45 @@
-From: Alexandre Ghiti <alexghiti@rivosinc.com>
-Date: Mon, 06 Mar 2023 10:04:42 +0000
-Subject: [PATCH v5 00/26] Remove COMMAND_LINE_SIZE from uapi
-Message-Id: <20230306100508.1171812-1-alexghiti@rivosinc.com>
+From: =?UTF-8?Q?Philippe_Mathieu-Daud=c3=a9?= <philmd@linaro.org>
+Date: Mon, 06 Mar 2023 13:19:15 +0000
+Subject: Re: [PATCH v5 00/26] Remove COMMAND_LINE_SIZE from uapi
+Message-Id: <e1fa23ff-951e-176b-1a84-cbaab34ed44d@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20230306100508.1171812-1-alexghiti@rivosinc.com>
+In-Reply-To: <20230306100508.1171812-1-alexghiti@rivosinc.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: Greg KH <gregkh@linuxfoundation.org>, Jonathan Corbet <corbet@lwn.net>, Richard Henderson <richard.henderson@linaro.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Vineet Gupta <vgupta@kernel.org>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E . J . Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Nicholas Piggin <npiggin@gmail.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S . Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H . Peter Anvin" <hpa@zytor.com>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, Arnd Bergmann <arnd@arndb.de>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org
-Cc: Alexandre Ghiti <alexghiti@rivosinc.com>
+Content-Type: text/plain; charset="iso-8859-9"
+Content-Transfer-Encoding: quoted-printable
+To: Alexandre Ghiti <alexghiti@rivosinc.com>, Greg KH <gregkh@linuxfoundation.org>, Jonathan Corbet <corbet@lwn.net>, Richard Henderson <richard.henderson@linaro.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Vineet Gupta <vgupta@kernel.org>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E . J . Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Nicholas Piggin <npiggin@gmail.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S . Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H . Peter Anvin" <hpa@zytor.com>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, Arnd Bergmann <arnd@arndb.de>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org
 
-VGhpcyBhbGwgY2FtZSB1cCBpbiB0aGUgY29udGV4dCBvZiBpbmNyZWFzaW5nIENPTU1BTkRfTElO
-RV9TSVpFIGluIHRoZQpSSVNDLVYgcG9ydC4gIEluIHRoZW9yeSB0aGF0J3MgYSBVQUJJIGJyZWFr
-LCBhcyBDT01NQU5EX0xJTkVfU0laRSBpcyB0aGUKbWF4aW11bSBsZW5ndGggb2YgL3Byb2MvY21k
-bGluZSBhbmQgdXNlcnNwYWNlIGNvdWxkIHN0YXRpY2x5IHJlbHkgb24KdGhhdCB0byBiZSBjb3Jy
-ZWN0LgoKVXN1YWxseSBJIHdvdWxkbid0IG1lc3MgYXJvdW5kIHdpdGggY2hhbmdpbmcgdGhpcyBz
-b3J0IG9mIHRoaW5nLCBidXQKUG93ZXJQQyBpbmNyZWFzZWQgaXQgd2l0aCBhNTk4MGQwNjRmZTIg
-KCJwb3dlcnBjOiBCdW1wIENPTU1BTkRfTElORV9TSVpFCnRvIDIwNDgiKS4gIFRoZXJlIGFyZSBh
-bHNvIGEgaGFuZGZ1bCBvZiBleGFtcGxlcyBvZiBDT01NQU5EX0xJTkVfU0laRQppbmNyZWFzaW5n
-LCBidXQgdGhleSdyZSBmcm9tIGJlZm9yZSB0aGUgVUFQSSBzcGxpdCBzbyBJJ20gbm90IHF1aXRl
-IHN1cmUKd2hhdCB0aGF0IG1lYW5zOiBlNWE2YTFjOTA5NDggKCJwb3dlcnBjOiBkZXJpdmUgQ09N
-TUFORF9MSU5FX1NJWkUgZnJvbQphc20tZ2VuZXJpYyIpLCA2ODRkMmZkNDhlNzEgKCJbUzM5MF0g
-a2VybmVsOiBBcHBlbmQgc2NwZGF0YSB0byBrZXJuZWwKYm9vdCBjb21tYW5kIGxpbmUiKSwgMjIy
-NDI2ODFjZmY1ICgiTUlQUzogRXh0ZW5kIENPTU1BTkRfTElORV9TSVpFIiksCmFuZCAyYjc0Yjg1
-NjkzYzcgKCJzaDogRGVyaXZlIENPTU1BTkRfTElORV9TSVpFIGZyb20KYXNtLWdlbmVyaWMvc2V0
-dXAuaC4iKS4KCkl0IHNlZW1zIHRvIG1lIGxpa2UgQ09NTUFORF9MSU5FX1NJWkUgcmVhbGx5IGp1
-c3Qgc2hvdWxkbid0IGhhdmUgYmVlbgpwYXJ0IG9mIHRoZSB1YXBpIHRvIGJlZ2luIHdpdGgsIGFu
-ZCB1c2Vyc3BhY2Ugc2hvdWxkIGJlIGFibGUgdG8gaGFuZGxlCi9wcm9jL2NtZGxpbmUgb2Ygd2hh
-dGV2ZXIgbGVuZ3RoIGl0IHR1cm5zIG91dCB0byBiZS4gIEkgZG9uJ3Qgc2VlIGFueQpyZWZlcmVu
-Y2VzIHRvIENPTU1BTkRfTElORV9TSVpFIGFueXdoZXJlIGJ1dCBMaW51eCB2aWEgYSBxdWljayBH
-b29nbGUKc2VhcmNoLCBidXQgdGhhdCdzIG5vdCByZWFsbHkgZW5vdWdoIHRvIGNvbnNpZGVyIGl0
-IHVudXNlZCBvbiBteSBlbmQuCgpUaGlzIGlzc3VlIHdhcyBhbHJlYWR5IGNvbnNpZGVyZWQgaW4g
-czM5MCBhbmQgdGhleSByZWFjaGVkIHRoZSBzYW1lCmNvbmNsdXNpb24gaW4gY29tbWl0IDYyMjAy
-MWNkNmM1NiAoInMzOTA6IG1ha2UgY29tbWFuZCBsaW5lCmNvbmZpZ3VyYWJsZSIpLgoKVGhlIGZl
-ZWRiYWNrIG9uIHRoZSB2MSBzZWVtZWQgdG8gaW5kaWNhdGUgdGhhdCBDT01NQU5EX0xJTkVfU0la
-RSByZWFsbHkKc2hvdWxkbid0IGJlIHBhcnQgb2YgdWFwaSwgc28gdGhpcyBub3cgdG91Y2hlcyBh
-bGwgdGhlIHBvcnRzLiAgSSd2ZQp0cmllZCB0byBzcGxpdCB0aGlzIGFsbCBvdXQgYW5kIGxlYXZl
-IGl0IGJpc2VjdGFibGUsIGJ1dCBJIGhhdmVuJ3QKdGVzdGVkIGl0IGFsbCB0aGF0IGFnZ3Jlc3Np
-dmVseS4KCkNoYW5nZXMgc2luY2UgdjQgPGh0dHBzOi8vbG9yZS5rZXJuZWwub3JnL2FsbC8yMDIz
-MDMwMjA5MzUzOS4zNzI5NjItMS1hbGV4Z2hpdGlAcml2b3NpbmMuY29tLz46CiogQWRkIG15IG93
-biBTb0IgYXMgc3VnZ2VzdGVkIGJ5IEdlZXJ0CiogQWRkIHJpc2N2IHBhdGNoZXMgYXMgc3VnZ2Vz
-dGVkIGJ5IEJqw7ZybgoqIFJlbW92ZSAiV0lUSCBMaW51eC1zeXNjYWxsLW5vdGUiIGZyb20gbmV3
-IHNldHVwLmggbm90IGluIHVhcGkvLCBhcwogIHN1Z2dlc3RlZCBieSBHcmVnIEtILCBoaXMgcXVv
-dGVkIGFuc3dlciBiZWxvdzoKCiJUaGUgInN5c2NhbGwgbm90ZSIgbWFrZXMgbm8gc2Vuc2UgYXQg
-YWxsIGZvciBhbnkgZmlsZXMgbm90IGluIHRoZSB1YXBpLwpkaXJlY3RvcnksIHNvIHlvdSBjYW4g
-cmVtb3ZlIGl0IGp1c3QgZmluZSBhcyB0aGF0IFdJVEggZG9lc24ndCBtZWFuCmFueXRoaW5nIF9V
-TkxFU1NfIHRoZSBmaWxlIGlzIGluIHRoZSB1YXBpIGRpcmVjdG9yeS4iCgpDaGFuZ2VzIHNpbmNl
-IHYzIDxodHRwczovL2xvcmUua2VybmVsLm9yZy9hbGwvMjAyMzAyMTQwNzQ5MjUuMjI4MTA2LTEt
-YWxleGdoaXRpQHJpdm9zaW5jLmNvbS8+OgoqIEFkZGVkIFJCL0FCCiogQWRkZWQgYSBtZW50aW9u
-IHRvIGNvbW1pdCA2MjIwMjFjZDZjNTYgKCJzMzkwOiBtYWtlIGNvbW1hbmQgbGluZQogIGNvbmZp
-Z3VyYWJsZSIpIGluIHRoZSBjb3ZlciBsZXR0ZXIKCkNoYW5nZXMgc2luY2UgdjIgPGh0dHBzOi8v
-bG9yZS5rZXJuZWwub3JnL2FsbC8yMDIyMTIxMTA2MTM1OC4yODAzNS0xLXBhbG1lckByaXZvc2lu
-Yy5jb20vPjoKKiBGaXggc2gsIGNza3kgYW5kIGlhNjQgYnVpbGRzLCBhcyByZXBvcnRlZCBieSBr
-ZXJuZWwgdGVzdCByb2JvdAoKQ2hhbmdlcyBzaW5jZSB2MSA8aHR0cHM6Ly9sb3JlLmtlcm5lbC5v
-cmcvYWxsLzIwMjEwNDIzMDI1NTQ1LjMxMzk2NS0xLXBhbG1lckBkYWJiZWx0LmNvbS8+OgoqIFRv
-dWNoZXMgZXZlcnkgYXJjaC4KCmJhc2UtY29tbWl0LXRhZzogbmV4dC0yMDIzMDIwNwoKQWxleGFu
-ZHJlIEdoaXRpICgyKToKICByaXNjdjogUmVtb3ZlIENPTU1BTkRfTElORV9TSVpFIGZyb20gdWFw
-aQogIHJpc2N2OiBSZW1vdmUgZW1wdHkgPHVhcGkvYXNtL3NldHVwLmg+CgpQYWxtZXIgRGFiYmVs
-dCAoMjQpOgogIGFscGhhOiBSZW1vdmUgQ09NTUFORF9MSU5FX1NJWkUgZnJvbSB1YXBpCiAgYXJt
-NjQ6IFJlbW92ZSBDT01NQU5EX0xJTkVfU0laRSBmcm9tIHVhcGkKICBhcm06IFJlbW92ZSBDT01N
-QU5EX0xJTkVfU0laRSBmcm9tIHVhcGkKICBpYTY0OiBSZW1vdmUgQ09NTUFORF9MSU5FX1NJWkUg
-ZnJvbSB1YXBpCiAgbTY4azogUmVtb3ZlIENPTU1BTkRfTElORV9TSVpFIGZyb20gdWFwaQogIG1p
-Y3JvYmxhemU6IFJlbW92ZSBDT01NQU5EX0xJTkVfU0laRSBmcm9tIHVhcGkKICBtaXBzOiBSZW1v
-dmUgQ09NTUFORF9MSU5FX1NJWkUgZnJvbSB1YXBpCiAgcGFyaXNjOiBSZW1vdmUgQ09NTUFORF9M
-SU5FX1NJWkUgZnJvbSB1YXBpCiAgcG93ZXJwYzogUmVtb3ZlIENPTU1BTkRfTElORV9TSVpFIGZy
-b20gdWFwaQogIHNwYXJjOiBSZW1vdmUgQ09NTUFORF9MSU5FX1NJWkUgZnJvbSB1YXBpCiAgeHRl
-bnNhOiBSZW1vdmUgQ09NTUFORF9MSU5FX1NJWkUgZnJvbSB1YXBpCiAgYXNtLWdlbmVyaWM6IFJl
-bW92ZSBDT01NQU5EX0xJTkVfU0laRSBmcm9tIHVhcGkKICBhbHBoYTogUmVtb3ZlIGVtcHR5IDx1
-YXBpL2FzbS9zZXR1cC5oPgogIGFyYzogUmVtb3ZlIGVtcHR5IDx1YXBpL2FzbS9zZXR1cC5oPgog
-IG02OGs6IFJlbW92ZSBlbXB0eSA8dWFwaS9hc20vc2V0dXAuaD4KICBhcm02NDogUmVtb3ZlIGVt
-cHR5IDx1YXBpL2FzbS9zZXR1cC5oPgogIG1pY3JvYmxhemU6IFJlbW92ZSBlbXB0eSA8dWFwaS9h
-c20vc2V0dXAuaD4KICBzcGFyYzogUmVtb3ZlIGVtcHR5IDx1YXBpL2FzbS9zZXR1cC5oPgogIHBh
-cmlzYzogUmVtb3ZlIGVtcHR5IDx1YXBpL2FzbS9zZXR1cC5oPgogIHg4NjogUmVtb3ZlIGVtcHR5
-IDx1YXBpL2FzbS9zZXR1cC5oPgogIHh0ZW5zYTogUmVtb3ZlIGVtcHR5IDx1YXBpL2FzbS9zZXR1
-cC5oPgogIHBvd2VycGM6IFJlbW92ZSBlbXB0eSA8dWFwaS9hc20vc2V0dXAuaD4KICBtaXBzOiBS
-ZW1vdmUgZW1wdHkgPHVhcGkvYXNtL3NldHVwLmg+CiAgczM5MDogUmVtb3ZlIGVtcHR5IDx1YXBp
-L2FzbS9zZXR1cC5oPgoKIC4uLi9hZG1pbi1ndWlkZS9rZXJuZWwtcGFyYW1ldGVycy5yc3QgICAg
-ICAgICB8ICAyICstCiBhcmNoL2FscGhhL2luY2x1ZGUvYXNtL3NldHVwLmggICAgICAgICAgICAg
-ICAgfCAgNCArLS0KIGFyY2gvYWxwaGEvaW5jbHVkZS91YXBpL2FzbS9zZXR1cC5oICAgICAgICAg
-ICB8ICA3IC0tLS0tCiBhcmNoL2FyYy9pbmNsdWRlL2FzbS9zZXR1cC5oICAgICAgICAgICAgICAg
-ICAgfCAgMSAtCiBhcmNoL2FyYy9pbmNsdWRlL3VhcGkvYXNtL3NldHVwLmggICAgICAgICAgICAg
-fCAgNiAtLS0tLQogYXJjaC9hcm0vaW5jbHVkZS9hc20vc2V0dXAuaCAgICAgICAgICAgICAgICAg
-IHwgIDEgKwogYXJjaC9hcm0vaW5jbHVkZS91YXBpL2FzbS9zZXR1cC5oICAgICAgICAgICAgIHwg
-IDIgLS0KIGFyY2gvYXJtNjQvaW5jbHVkZS9hc20vc2V0dXAuaCAgICAgICAgICAgICAgICB8ICAz
-ICsrLQogYXJjaC9hcm02NC9pbmNsdWRlL3VhcGkvYXNtL3NldHVwLmggICAgICAgICAgIHwgMjcg
-LS0tLS0tLS0tLS0tLS0tLS0tLQogYXJjaC9pYTY0L2luY2x1ZGUvYXNtL3NldHVwLmggICAgICAg
-ICAgICAgICAgIHwgMTAgKysrKysrKwogYXJjaC9pYTY0L2luY2x1ZGUvdWFwaS9hc20vc2V0dXAu
-aCAgICAgICAgICAgIHwgIDYgKystLS0KIGFyY2gvbG9vbmdhcmNoL2luY2x1ZGUvYXNtL3NldHVw
-LmggICAgICAgICAgICB8ICAyICstCiBhcmNoL202OGsvaW5jbHVkZS9hc20vc2V0dXAuaCAgICAg
-ICAgICAgICAgICAgfCAgMyArLS0KIGFyY2gvbTY4ay9pbmNsdWRlL3VhcGkvYXNtL3NldHVwLmgg
-ICAgICAgICAgICB8IDE3IC0tLS0tLS0tLS0tLQogYXJjaC9taWNyb2JsYXplL2luY2x1ZGUvYXNt
-L3NldHVwLmggICAgICAgICAgIHwgIDIgKy0KIGFyY2gvbWljcm9ibGF6ZS9pbmNsdWRlL3VhcGkv
-YXNtL3NldHVwLmggICAgICB8IDIwIC0tLS0tLS0tLS0tLS0tCiBhcmNoL21pcHMvaW5jbHVkZS9h
-c20vc2V0dXAuaCAgICAgICAgICAgICAgICAgfCAgMyArKy0KIGFyY2gvbWlwcy9pbmNsdWRlL3Vh
-cGkvYXNtL3NldHVwLmggICAgICAgICAgICB8ICA4IC0tLS0tLQogYXJjaC9wYXJpc2MvaW5jbHVk
-ZS97dWFwaSA9PiB9L2FzbS9zZXR1cC5oICAgIHwgIDIgKy0KIGFyY2gvcG93ZXJwYy9pbmNsdWRl
-L2FzbS9zZXR1cC5oICAgICAgICAgICAgICB8ICAyICstCiBhcmNoL3Bvd2VycGMvaW5jbHVkZS91
-YXBpL2FzbS9zZXR1cC5oICAgICAgICAgfCAgNyAtLS0tLQogYXJjaC9yaXNjdi9pbmNsdWRlL2Fz
-bS9zZXR1cC5oICAgICAgICAgICAgICAgIHwgIDcgKysrKysKIGFyY2gvcmlzY3YvaW5jbHVkZS91
-YXBpL2FzbS9zZXR1cC5oICAgICAgICAgICB8ICA4IC0tLS0tLQogYXJjaC9zMzkwL2luY2x1ZGUv
-YXNtL3NldHVwLmggICAgICAgICAgICAgICAgIHwgIDEgLQogYXJjaC9zMzkwL2luY2x1ZGUvdWFw
-aS9hc20vc2V0dXAuaCAgICAgICAgICAgIHwgIDEgLQogYXJjaC9zaC9pbmNsdWRlL2FzbS9zZXR1
-cC5oICAgICAgICAgICAgICAgICAgIHwgIDIgKy0KIGFyY2gvc3BhcmMvaW5jbHVkZS9hc20vc2V0
-dXAuaCAgICAgICAgICAgICAgICB8ICA2ICsrKystCiBhcmNoL3NwYXJjL2luY2x1ZGUvdWFwaS9h
-c20vc2V0dXAuaCAgICAgICAgICAgfCAxNiAtLS0tLS0tLS0tLQogYXJjaC94ODYvaW5jbHVkZS9h
-c20vc2V0dXAuaCAgICAgICAgICAgICAgICAgIHwgIDIgLS0KIGFyY2gveDg2L2luY2x1ZGUvdWFw
-aS9hc20vc2V0dXAuaCAgICAgICAgICAgICB8ICAxIC0KIGFyY2gveHRlbnNhL2luY2x1ZGUve3Vh
-cGkgPT4gfS9hc20vc2V0dXAuaCAgICB8ICAyICstCiBpbmNsdWRlL2FzbS1nZW5lcmljL0tidWls
-ZCAgICAgICAgICAgICAgICAgICAgfCAgMSArCiBpbmNsdWRlL3t1YXBpID0+IH0vYXNtLWdlbmVy
-aWMvc2V0dXAuaCAgICAgICAgfCAgMAogaW5jbHVkZS91YXBpL2FzbS1nZW5lcmljL0tidWlsZCAg
-ICAgICAgICAgICAgIHwgIDEgLQogMzQgZmlsZXMgY2hhbmdlZCwgNDAgaW5zZXJ0aW9ucygrKSwg
-MTQzIGRlbGV0aW9ucygtKQogZGVsZXRlIG1vZGUgMTAwNjQ0IGFyY2gvYWxwaGEvaW5jbHVkZS91
-YXBpL2FzbS9zZXR1cC5oCiBkZWxldGUgbW9kZSAxMDA2NDQgYXJjaC9hcmMvaW5jbHVkZS91YXBp
-L2FzbS9zZXR1cC5oCiBkZWxldGUgbW9kZSAxMDA2NDQgYXJjaC9hcm02NC9pbmNsdWRlL3VhcGkv
-YXNtL3NldHVwLmgKIGNyZWF0ZSBtb2RlIDEwMDY0NCBhcmNoL2lhNjQvaW5jbHVkZS9hc20vc2V0
-dXAuaAogZGVsZXRlIG1vZGUgMTAwNjQ0IGFyY2gvbTY4ay9pbmNsdWRlL3VhcGkvYXNtL3NldHVw
-LmgKIGRlbGV0ZSBtb2RlIDEwMDY0NCBhcmNoL21pY3JvYmxhemUvaW5jbHVkZS91YXBpL2FzbS9z
-ZXR1cC5oCiBkZWxldGUgbW9kZSAxMDA2NDQgYXJjaC9taXBzL2luY2x1ZGUvdWFwaS9hc20vc2V0
-dXAuaAogcmVuYW1lIGFyY2gvcGFyaXNjL2luY2x1ZGUve3VhcGkgPT4gfS9hc20vc2V0dXAuaCAo
-NjMlKQogZGVsZXRlIG1vZGUgMTAwNjQ0IGFyY2gvcG93ZXJwYy9pbmNsdWRlL3VhcGkvYXNtL3Nl
-dHVwLmgKIGNyZWF0ZSBtb2RlIDEwMDY0NCBhcmNoL3Jpc2N2L2luY2x1ZGUvYXNtL3NldHVwLmgK
-IGRlbGV0ZSBtb2RlIDEwMDY0NCBhcmNoL3Jpc2N2L2luY2x1ZGUvdWFwaS9hc20vc2V0dXAuaAog
-ZGVsZXRlIG1vZGUgMTAwNjQ0IGFyY2gvczM5MC9pbmNsdWRlL3VhcGkvYXNtL3NldHVwLmgKIGRl
-bGV0ZSBtb2RlIDEwMDY0NCBhcmNoL3NwYXJjL2luY2x1ZGUvdWFwaS9hc20vc2V0dXAuaAogZGVs
-ZXRlIG1vZGUgMTAwNjQ0IGFyY2gveDg2L2luY2x1ZGUvdWFwaS9hc20vc2V0dXAuaAogcmVuYW1l
-IGFyY2gveHRlbnNhL2luY2x1ZGUve3VhcGkgPT4gfS9hc20vc2V0dXAuaCAoODQlKQogcmVuYW1l
-IGluY2x1ZGUve3VhcGkgPT4gfS9hc20tZ2VuZXJpYy9zZXR1cC5oICgxMDAlKQoKLS0gCjIuMzcu
-Mgo=
+On 6/3/23 11:04, Alexandre Ghiti wrote:
+> This all came up in the context of increasing COMMAND_LINE_SIZE in the
+> RISC-V port.  In theory that's a UABI break, as COMMAND_LINE_SIZE is the
+> maximum length of /proc/cmdline and userspace could staticly rely on
+> that to be correct.
+>=20
+> Usually I wouldn't mess around with changing this sort of thing, but
+> PowerPC increased it with a5980d064fe2 ("powerpc: Bump COMMAND_LINE_SIZE
+> to 2048").  There are also a handful of examples of COMMAND_LINE_SIZE
+> increasing, but they're from before the UAPI split so I'm not quite sure
+> what that means: e5a6a1c90948 ("powerpc: derive COMMAND_LINE_SIZE from
+> asm-generic"), 684d2fd48e71 ("[S390] kernel: Append scpdata to kernel
+> boot command line"), 22242681cff5 ("MIPS: Extend COMMAND_LINE_SIZE"),
+> and 2b74b85693c7 ("sh: Derive COMMAND_LINE_SIZE from
+> asm-generic/setup.h.").
+>=20
+> It seems to me like COMMAND_LINE_SIZE really just shouldn't have been
+> part of the uapi to begin with, and userspace should be able to handle
+> /proc/cmdline of whatever length it turns out to be.  I don't see any
+> references to COMMAND_LINE_SIZE anywhere but Linux via a quick Google
+> search, but that's not really enough to consider it unused on my end.
+>=20
+> This issue was already considered in s390 and they reached the same
+> conclusion in commit 622021cd6c56 ("s390: make command line
+> configurable").
+>=20
+> The feedback on the v1 seemed to indicate that COMMAND_LINE_SIZE really
+> shouldn't be part of uapi, so this now touches all the ports.  I've
+> tried to split this all out and leave it bisectable, but I haven't
+> tested it all that aggressively.
+
+Series:
+Reviewed-by: Philippe Mathieu-Daud=C3=A9 <philmd@linaro.org>
