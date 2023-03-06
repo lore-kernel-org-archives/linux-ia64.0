@@ -1,7 +1,7 @@
 From: Alexandre Ghiti <alexghiti@rivosinc.com>
-Date: Mon, 06 Mar 2023 10:04:46 +0000
-Subject: [PATCH v5 04/26] ia64: Remove COMMAND_LINE_SIZE from uapi
-Message-Id: <20230306100508.1171812-5-alexghiti@rivosinc.com>
+Date: Mon, 06 Mar 2023 10:04:44 +0000
+Subject: [PATCH v5 02/26] arm64: Remove COMMAND_LINE_SIZE from uapi
+Message-Id: <20230306100508.1171812-3-alexghiti@rivosinc.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20230306100508.1171812-1-alexghiti@rivosinc.com>
 In-Reply-To: <20230306100508.1171812-1-alexghiti@rivosinc.com>
@@ -18,42 +18,37 @@ be part of the user-visible API.
 
 Signed-off-by: Palmer Dabbelt <palmer@rivosinc.com>
 Signed-off-by: Alexandre Ghiti <alexghiti@rivosinc.com>
+Acked-by: Catalin Marinas <catalin.marinas@arm.com>
 ---
- arch/ia64/include/asm/setup.h      | 10 ++++++++++
- arch/ia64/include/uapi/asm/setup.h |  6 ++----
- 2 files changed, 12 insertions(+), 4 deletions(-)
- create mode 100644 arch/ia64/include/asm/setup.h
+ arch/arm64/include/asm/setup.h      | 3 ++-
+ arch/arm64/include/uapi/asm/setup.h | 2 --
+ 2 files changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/arch/ia64/include/asm/setup.h b/arch/ia64/include/asm/setup.h
-new file mode 100644
-index 000000000000..ba57909cad4c
---- /dev/null
-+++ b/arch/ia64/include/asm/setup.h
-@@ -0,0 +1,10 @@
-+/* SPDX-License-Identifier: GPL-2.0 */
-+
-+#ifndef __IA64_SETUP_H
-+#define __IA64_SETUP_H
-+
-+#include <uapi/asm/setup.h>
-+
-+#define COMMAND_LINE_SIZE	2048
-+
-+#endif
-diff --git a/arch/ia64/include/uapi/asm/setup.h b/arch/ia64/include/uapi/asm/setup.h
-index 8d13ce8fb03a..bcbb2b242ded 100644
---- a/arch/ia64/include/uapi/asm/setup.h
-+++ b/arch/ia64/include/uapi/asm/setup.h
-@@ -1,8 +1,6 @@
- /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
--#ifndef __IA64_SETUP_H
--#define __IA64_SETUP_H
--
--#define COMMAND_LINE_SIZE	2048
-+#ifndef __UAPI_IA64_SETUP_H
-+#define __UAPI_IA64_SETUP_H
+diff --git a/arch/arm64/include/asm/setup.h b/arch/arm64/include/asm/setup.h
+index f4af547ef54c..7ca70f883cee 100644
+--- a/arch/arm64/include/asm/setup.h
++++ b/arch/arm64/include/asm/setup.h
+@@ -4,8 +4,9 @@
+ #define __ARM64_ASM_SETUP_H
  
- extern struct ia64_boot_param {
- 	__u64 command_line;		/* physical address of command line arguments */
+ #include <linux/string.h>
++#include <linux/types.h>
+ 
+-#include <uapi/asm/setup.h>
++#define COMMAND_LINE_SIZE	2048
+ 
+ void *get_early_fdt_ptr(void);
+ void early_fdt_map(u64 dt_phys);
+diff --git a/arch/arm64/include/uapi/asm/setup.h b/arch/arm64/include/uapi/asm/setup.h
+index 5d703888f351..f9f51e5925aa 100644
+--- a/arch/arm64/include/uapi/asm/setup.h
++++ b/arch/arm64/include/uapi/asm/setup.h
+@@ -22,6 +22,4 @@
+ 
+ #include <linux/types.h>
+ 
+-#define COMMAND_LINE_SIZE	2048
+-
+ #endif
 -- 
 2.37.2
