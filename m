@@ -1,142 +1,60 @@
-From: Baoquan He <bhe@redhat.com>
-Date: Wed, 01 Mar 2023 03:42:38 +0000
-Subject: [PATCH v5 08/17] ia64: mm: Convert to GENERIC_IOREMAP
-Message-Id: <20230301034247.136007-9-bhe@redhat.com>
+From: Alexandre Ghiti <alexghiti@rivosinc.com>
+Date: Mon, 06 Mar 2023 10:04:52 +0000
+Subject: [PATCH v5 10/26] sparc: Remove COMMAND_LINE_SIZE from uapi
+Message-Id: <20230306100508.1171812-11-alexghiti@rivosinc.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230301034247.136007-1-bhe@redhat.com>
-In-Reply-To: <20230301034247.136007-1-bhe@redhat.com>
+References: <20230306100508.1171812-1-alexghiti@rivosinc.com>
+In-Reply-To: <20230306100508.1171812-1-alexghiti@rivosinc.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-arch@vger.kernel.org, linux-mm@kvack.org, arnd@arndb.de, christophe.leroy@csgroup.eu, hch@infradead.org, agordeev@linux.ibm.com, wangkefeng.wang@huawei.com, schnelle@linux.ibm.com, David.Laight@ACULAB.COM, shorne@gmail.com, willy@infradead.org, Baoquan He <bhe@redhat.com>, linux-ia64@vger.kernel.org
+To: Greg KH <gregkh@linuxfoundation.org>, Jonathan Corbet <corbet@lwn.net>, Richard Henderson <richard.henderson@linaro.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Vineet Gupta <vgupta@kernel.org>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E . J . Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Nicholas Piggin <npiggin@gmail.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S . Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H . Peter Anvin" <hpa@zytor.com>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, Arnd Bergmann <arnd@arndb.de>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org
+Cc: Palmer Dabbelt <palmer@rivosinc.com>, Alexandre Ghiti <alexghiti@rivosinc.com>
 
-By taking GENERIC_IOREMAP method, the generic generic_ioremap_prot(),
-generic_iounmap(), and their generic wrapper ioremap_prot(), ioremap()
-and iounmap() are all visible and available to arch. Arch needs to
-provide wrapper functions to override the generic versions if there's
-arch specific handling in its ioremap_prot(), ioremap() or iounmap().
-This change will simplify implementation by removing duplicated codes
-with generic_ioremap_prot() and generic_iounmap(), and has the equivalent
-functioality as before.
+From: Palmer Dabbelt <palmer@rivosinc.com>
 
-Here, add wrapper functions ioremap_prot() and iounmap() for ia64's
-special operation when ioremap() and iounmap().
+As far as I can tell this is not used by userspace and thus should not
+be part of the user-visible API.
 
-Signed-off-by: Baoquan He <bhe@redhat.com>
-Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Palmer Dabbelt <palmer@rivosinc.com>
+Signed-off-by: Alexandre Ghiti <alexghiti@rivosinc.com>
 ---
- arch/ia64/Kconfig          |  1 +
- arch/ia64/include/asm/io.h | 13 +++++-------
- arch/ia64/mm/ioremap.c     | 41 ++++++--------------------------------
- 3 files changed, 12 insertions(+), 43 deletions(-)
+ arch/sparc/include/asm/setup.h      | 6 +++++-
+ arch/sparc/include/uapi/asm/setup.h | 7 -------
+ 2 files changed, 5 insertions(+), 8 deletions(-)
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index d7e4a24e8644..74568cb73d87 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -45,6 +45,7 @@ config IA64
- 	select GENERIC_IRQ_LEGACY
- 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
- 	select GENERIC_IOMAP
-+	select GENERIC_IOREMAP
- 	select GENERIC_SMP_IDLE_THREAD
- 	select ARCH_TASK_STRUCT_ON_STACK
- 	select ARCH_TASK_STRUCT_ALLOCATOR
-diff --git a/arch/ia64/include/asm/io.h b/arch/ia64/include/asm/io.h
-index 83a492c8d298..eedc0afa8cad 100644
---- a/arch/ia64/include/asm/io.h
-+++ b/arch/ia64/include/asm/io.h
-@@ -243,15 +243,12 @@ static inline void outsl(unsigned long port, const void *src,
+diff --git a/arch/sparc/include/asm/setup.h b/arch/sparc/include/asm/setup.h
+index 72205684e51e..d1384ed92547 100644
+--- a/arch/sparc/include/asm/setup.h
++++ b/arch/sparc/include/asm/setup.h
+@@ -7,7 +7,11 @@
  
- # ifdef __KERNEL__
+ #include <linux/interrupt.h>
  
--extern void __iomem * ioremap(unsigned long offset, unsigned long size);
-+#define _PAGE_IOREMAP pgprot_val(PAGE_KERNEL)
-+
- extern void __iomem * ioremap_uc(unsigned long offset, unsigned long size);
--extern void iounmap (volatile void __iomem *addr);
--static inline void __iomem * ioremap_cache (unsigned long phys_addr, unsigned long size)
--{
--	return ioremap(phys_addr, size);
--}
--#define ioremap ioremap
--#define ioremap_cache ioremap_cache
-+
-+#define ioremap_prot ioremap_prot
-+#define ioremap_cache ioremap
- #define ioremap_uc ioremap_uc
- #define iounmap iounmap
+-#include <uapi/asm/setup.h>
++#if defined(__sparc__) && defined(__arch64__)
++# define COMMAND_LINE_SIZE 2048
++#else
++# define COMMAND_LINE_SIZE 256
++#endif
  
-diff --git a/arch/ia64/mm/ioremap.c b/arch/ia64/mm/ioremap.c
-index 55fd3eb753ff..35e75e9c878b 100644
---- a/arch/ia64/mm/ioremap.c
-+++ b/arch/ia64/mm/ioremap.c
-@@ -29,13 +29,9 @@ early_ioremap (unsigned long phys_addr, unsigned long size)
- 	return __ioremap_uc(phys_addr);
- }
+ extern char reboot_command[];
  
--void __iomem *
--ioremap (unsigned long phys_addr, unsigned long size)
-+void __iomem *ioremap_prot(phys_addr_t phys_addr, size_t size,
-+			   unsigned long flags)
- {
--	void __iomem *addr;
--	struct vm_struct *area;
--	unsigned long offset;
--	pgprot_t prot;
- 	u64 attr;
- 	unsigned long gran_base, gran_size;
- 	unsigned long page_base;
-@@ -68,36 +64,12 @@ ioremap (unsigned long phys_addr, unsigned long size)
- 	 */
- 	page_base = phys_addr & PAGE_MASK;
- 	size = PAGE_ALIGN(phys_addr + size) - page_base;
--	if (efi_mem_attribute(page_base, size) & EFI_MEMORY_WB) {
--		prot = PAGE_KERNEL;
+diff --git a/arch/sparc/include/uapi/asm/setup.h b/arch/sparc/include/uapi/asm/setup.h
+index 3c208a4dd464..c3cf1b0d30b3 100644
+--- a/arch/sparc/include/uapi/asm/setup.h
++++ b/arch/sparc/include/uapi/asm/setup.h
+@@ -6,11 +6,4 @@
+ #ifndef _UAPI_SPARC_SETUP_H
+ #define _UAPI_SPARC_SETUP_H
+ 
+-#if defined(__sparc__) && defined(__arch64__)
+-# define COMMAND_LINE_SIZE 2048
+-#else
+-# define COMMAND_LINE_SIZE 256
+-#endif
 -
--		/*
--		 * Mappings have to be page-aligned
--		 */
--		offset = phys_addr & ~PAGE_MASK;
--		phys_addr &= PAGE_MASK;
 -
--		/*
--		 * Ok, go for it..
--		 */
--		area = get_vm_area(size, VM_IOREMAP);
--		if (!area)
--			return NULL;
--
--		area->phys_addr = phys_addr;
--		addr = (void __iomem *) area->addr;
--		if (ioremap_page_range((unsigned long) addr,
--				(unsigned long) addr + size, phys_addr, prot)) {
--			vunmap((void __force *) addr);
--			return NULL;
--		}
--
--		return (void __iomem *) (offset + (char __iomem *)addr);
--	}
-+	if (efi_mem_attribute(page_base, size) & EFI_MEMORY_WB)
-+		return generic_ioremap_prot(phys_addr, size, __pgprot(flags));
- 
- 	return __ioremap_uc(phys_addr);
- }
--EXPORT_SYMBOL(ioremap);
-+EXPORT_SYMBOL(ioremap_prot);
- 
- void __iomem *
- ioremap_uc(unsigned long phys_addr, unsigned long size)
-@@ -114,8 +86,7 @@ early_iounmap (volatile void __iomem *addr, unsigned long size)
- {
- }
- 
--void
--iounmap (volatile void __iomem *addr)
-+void iounmap(volatile void __iomem *addr)
- {
- 	if (REGION_NUMBER(addr) = RGN_GATE)
- 		vunmap((void *) ((unsigned long) addr & PAGE_MASK));
+ #endif /* _UAPI_SPARC_SETUP_H */
 -- 
-2.34.1
+2.37.2
