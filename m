@@ -1,100 +1,53 @@
-From: Valentin Schneider <vschneid@redhat.com>
-Date: Tue, 07 Mar 2023 14:35:53 +0000
-Subject: [PATCH v5 2/7] sched, smp: Trace IPIs sent via send_call_function_single_ipi()
-Message-Id: <20230307143558.294354-3-vschneid@redhat.com>
+From: Alexandre Ghiti <alexghiti@rivosinc.com>
+Date: Mon, 06 Mar 2023 10:04:48 +0000
+Subject: [PATCH v5 06/26] microblaze: Remove COMMAND_LINE_SIZE from uapi
+Message-Id: <20230306100508.1171812-7-alexghiti@rivosinc.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230307143558.294354-1-vschneid@redhat.com>
-In-Reply-To: <20230307143558.294354-1-vschneid@redhat.com>
+References: <20230306100508.1171812-1-alexghiti@rivosinc.com>
+In-Reply-To: <20230306100508.1171812-1-alexghiti@rivosinc.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org
-Cc: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>, "Paul E. McKenney" <paulmck@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Juri Lelli <juri.lelli@redhat.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Marcelo Tosatti <mtosatti@redhat.com>, Frederic Weisbecker <frederic@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "H. Peter Anvin" <hpa@zytor.com>, Marc Zyngier <maz@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Russell King <linux@armlinux.org.uk>, Nicholas Piggin <npiggin@gmail.com>, Guo Ren <guoren@kernel.org>, "David S. Miller" <davem@davemloft.net>
+To: Greg KH <gregkh@linuxfoundation.org>, Jonathan Corbet <corbet@lwn.net>, Richard Henderson <richard.henderson@linaro.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Vineet Gupta <vgupta@kernel.org>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E . J . Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Nicholas Piggin <npiggin@gmail.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S . Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H . Peter Anvin" <hpa@zytor.com>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, Arnd Bergmann <arnd@arndb.de>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org
+Cc: Palmer Dabbelt <palmer@rivosinc.com>, Alexandre Ghiti <alexghiti@rivosinc.com>
 
-send_call_function_single_ipi() is the thing that sends IPIs at the bottom
-of smp_call_function*() via either generic_exec_single() or
-smp_call_function_many_cond(). Give it an IPI-related tracepoint.
+From: Palmer Dabbelt <palmer@rivosinc.com>
 
-Note that this ends up tracing any IPI sent via __smp_call_single_queue(),
-which covers __ttwu_queue_wakelist() and irq_work_queue_on() "for free".
+As far as I can tell this is not used by userspace and thus should not
+be part of the user-visible API.
 
-Signed-off-by: Valentin Schneider <vschneid@redhat.com>
-Reviewed-by: Steven Rostedt (Google) <rostedt@goodmis.org>
-Acked-by: Ingo Molnar <mingo@kernel.org>
+Signed-off-by: Palmer Dabbelt <palmer@rivosinc.com>
+Signed-off-by: Alexandre Ghiti <alexghiti@rivosinc.com>
 ---
- arch/arm/kernel/smp.c   | 3 ---
- arch/arm64/kernel/smp.c | 1 -
- kernel/sched/core.c     | 7 +++++--
- kernel/smp.c            | 4 ++++
- 4 files changed, 9 insertions(+), 6 deletions(-)
+ arch/microblaze/include/asm/setup.h      | 2 +-
+ arch/microblaze/include/uapi/asm/setup.h | 2 --
+ 2 files changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/arch/arm/kernel/smp.c b/arch/arm/kernel/smp.c
-index 0b8c25763adc3..b6c832e195427 100644
---- a/arch/arm/kernel/smp.c
-+++ b/arch/arm/kernel/smp.c
-@@ -48,9 +48,6 @@
- #include <asm/mach/arch.h>
- #include <asm/mpu.h>
+diff --git a/arch/microblaze/include/asm/setup.h b/arch/microblaze/include/asm/setup.h
+index a06cc1f97aa9..2becbf3b8baf 100644
+--- a/arch/microblaze/include/asm/setup.h
++++ b/arch/microblaze/include/asm/setup.h
+@@ -7,7 +7,7 @@
+ #ifndef _ASM_MICROBLAZE_SETUP_H
+ #define _ASM_MICROBLAZE_SETUP_H
  
--#define CREATE_TRACE_POINTS
--#include <trace/events/ipi.h>
+-#include <uapi/asm/setup.h>
++#define COMMAND_LINE_SIZE	256
+ 
+ # ifndef __ASSEMBLY__
+ extern char cmd_line[COMMAND_LINE_SIZE];
+diff --git a/arch/microblaze/include/uapi/asm/setup.h b/arch/microblaze/include/uapi/asm/setup.h
+index 6831794e6f2c..51aed65880e7 100644
+--- a/arch/microblaze/include/uapi/asm/setup.h
++++ b/arch/microblaze/include/uapi/asm/setup.h
+@@ -12,8 +12,6 @@
+ #ifndef _UAPI_ASM_MICROBLAZE_SETUP_H
+ #define _UAPI_ASM_MICROBLAZE_SETUP_H
+ 
+-#define COMMAND_LINE_SIZE	256
 -
- /*
-  * as from 2.5, kernels no longer have an init_tasks structure
-  * so we need some other way of telling a new secondary core
-diff --git a/arch/arm64/kernel/smp.c b/arch/arm64/kernel/smp.c
-index 4e83272642552..438c16fc44633 100644
---- a/arch/arm64/kernel/smp.c
-+++ b/arch/arm64/kernel/smp.c
-@@ -51,7 +51,6 @@
- #include <asm/ptrace.h>
- #include <asm/virt.h>
+ # ifndef __ASSEMBLY__
  
--#define CREATE_TRACE_POINTS
- #include <trace/events/ipi.h>
- 
- DEFINE_PER_CPU_READ_MOSTLY(int, cpu_number);
-diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index af017e038b482..85114f75f1c9c 100644
---- a/kernel/sched/core.c
-+++ b/kernel/sched/core.c
-@@ -81,6 +81,7 @@
- #include <linux/sched/rseq_api.h>
- #include <trace/events/sched.h>
- #undef CREATE_TRACE_POINTS
-+#include <trace/events/ipi.h>
- 
- #include "sched.h"
- #include "stats.h"
-@@ -3830,10 +3831,12 @@ void send_call_function_single_ipi(int cpu)
- {
- 	struct rq *rq = cpu_rq(cpu);
- 
--	if (!set_nr_if_polling(rq->idle))
-+	if (!set_nr_if_polling(rq->idle)) {
-+		trace_ipi_send_cpumask(cpumask_of(cpu), _RET_IP_, NULL);
- 		arch_send_call_function_single_ipi(cpu);
--	else
-+	} else {
- 		trace_sched_wake_idle_without_ipi(cpu);
-+	}
- }
- 
- /*
-diff --git a/kernel/smp.c b/kernel/smp.c
-index 06a413987a14a..e2ca1e2f31274 100644
---- a/kernel/smp.c
-+++ b/kernel/smp.c
-@@ -26,6 +26,10 @@
- #include <linux/sched/debug.h>
- #include <linux/jump_label.h>
- 
-+#define CREATE_TRACE_POINTS
-+#include <trace/events/ipi.h>
-+#undef CREATE_TRACE_POINTS
-+
- #include "smpboot.h"
- #include "sched/smp.h"
- 
+ # endif /* __ASSEMBLY__ */
 -- 
-2.31.1
+2.37.2
