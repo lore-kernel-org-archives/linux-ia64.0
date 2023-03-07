@@ -1,57 +1,64 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Thu, 23 Mar 2023 09:21:49 +0000
-Subject: [PATCH 07/14] nios2: reword ARCH_FORCE_MAX_ORDER prompt and help text
-Message-Id: <20230323092156.2545741-8-rppt@kernel.org>
+From: Valentin Schneider <vschneid@redhat.com>
+Date: Tue, 07 Mar 2023 14:35:55 +0000
+Subject: [PATCH v5 4/7] irq_work: Trace self-IPIs sent via arch_irq_work_raise()
+Message-Id: <20230307143558.294354-5-vschneid@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230323092156.2545741-1-rppt@kernel.org>
-In-Reply-To: <20230323092156.2545741-1-rppt@kernel.org>
+References: <20230307143558.294354-1-vschneid@redhat.com>
+In-Reply-To: <20230307143558.294354-1-vschneid@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, "David S. Miller" <davem@davemloft.net>, Dinh Nguyen <dinguyen@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Guo Ren <guoren@kernel.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Max Filippov <jcmvbkbc@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Mike Rapoport <rppt@kernel.org>, Rich Felker <dalias@libc.org>, Russell King <linux@armlinux.org.uk>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Zi Yan <ziy@nvidia.com>, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mm@kvack.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
+To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org
+Cc: Steven Rostedt <rostedt@goodmis.org>, "Paul E. McKenney" <paulmck@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Juri Lelli <juri.lelli@redhat.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Marcelo Tosatti <mtosatti@redhat.com>, Frederic Weisbecker <frederic@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "H. Peter Anvin" <hpa@zytor.com>, Marc Zyngier <maz@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Russell King <linux@armlinux.org.uk>, Nicholas Piggin <npiggin@gmail.com>, Guo Ren <guoren@kernel.org>, "David S. Miller" <davem@davemloft.net>
 
-From: "Mike Rapoport (IBM)" <rppt@kernel.org>
+IPIs sent to remote CPUs via irq_work_queue_on() are now covered by
+trace_ipi_send_cpumask(), add another instance of the tracepoint to cover
+self-IPIs.
 
-The prompt and help text of ARCH_FORCE_MAX_ORDER are not even close to
-describe this configuration option.
-
-Update both to actually describe what this option does.
-
-Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
+Signed-off-by: Valentin Schneider <vschneid@redhat.com>
+Reviewed-by: Steven Rostedt (Google) <rostedt@goodmis.org>
 ---
- arch/nios2/Kconfig | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+ kernel/irq_work.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/arch/nios2/Kconfig b/arch/nios2/Kconfig
-index 89708b95978c..fcaa6bbda3fc 100644
---- a/arch/nios2/Kconfig
-+++ b/arch/nios2/Kconfig
-@@ -45,16 +45,18 @@ menu "Kernel features"
- source "kernel/Kconfig.hz"
+diff --git a/kernel/irq_work.c b/kernel/irq_work.c
+index 7afa40fe5cc43..c33e88e32a67a 100644
+--- a/kernel/irq_work.c
++++ b/kernel/irq_work.c
+@@ -22,6 +22,8 @@
+ #include <asm/processor.h>
+ #include <linux/kasan.h>
  
- config ARCH_FORCE_MAX_ORDER
--	int "Maximum zone order"
-+	int "Order of maximal physically contiguous allocations"
- 	range 8 19
- 	default "10"
- 	help
--	  The kernel memory allocator divides physically contiguous memory
--	  blocks into "zones", where each zone is a power of two number of
--	  pages.  This option selects the largest power of two that the kernel
--	  keeps in the memory allocator.  If you need to allocate very large
--	  blocks of physically contiguous memory, then you may need to
--	  increase this value.
-+	  The kernel page allocator limits the size of maximal physically
-+	  contiguous allocations. The limit is called MAX_ORDER and it
-+	  defines the maximal power of two of number of pages that can be
-+	  allocated as a single contiguous block. This option allows
-+	  overriding the default setting when ability to allocate very
-+	  large blocks of physically contiguous memory is required.
++#include <trace/events/ipi.h>
 +
-+	  Don't change if unsure.
+ static DEFINE_PER_CPU(struct llist_head, raised_list);
+ static DEFINE_PER_CPU(struct llist_head, lazy_list);
+ static DEFINE_PER_CPU(struct task_struct *, irq_workd);
+@@ -74,6 +76,16 @@ void __weak arch_irq_work_raise(void)
+ 	 */
+ }
  
- endmenu
++static __always_inline void irq_work_raise(struct irq_work *work)
++{
++	if (trace_ipi_send_cpumask_enabled() && arch_irq_work_has_interrupt())
++		trace_ipi_send_cpumask(cpumask_of(smp_processor_id()),
++				       _RET_IP_,
++				       work->func);
++
++	arch_irq_work_raise();
++}
++
+ /* Enqueue on current CPU, work must already be claimed and preempt disabled */
+ static void __irq_work_queue_local(struct irq_work *work)
+ {
+@@ -99,7 +111,7 @@ static void __irq_work_queue_local(struct irq_work *work)
  
+ 	/* If the work is "lazy", handle it from next tick if any */
+ 	if (!lazy_work || tick_nohz_tick_stopped())
+-		arch_irq_work_raise();
++		irq_work_raise(work);
+ }
+ 
+ /* Enqueue the irq work @work on the current CPU */
 -- 
-2.35.1
+2.31.1
