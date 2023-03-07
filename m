@@ -1,58 +1,45 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Thu, 23 Mar 2023 09:21:43 +0000
-Subject: [PATCH 01/14] arm: reword ARCH_FORCE_MAX_ORDER prompt and help text
-Message-Id: <20230323092156.2545741-2-rppt@kernel.org>
+From: Valentin Schneider <vschneid@redhat.com>
+Date: Tue, 07 Mar 2023 14:35:57 +0000
+Subject: [PATCH v5 6/7] smp: reword smp call IPI comment
+Message-Id: <20230307143558.294354-7-vschneid@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230323092156.2545741-1-rppt@kernel.org>
-In-Reply-To: <20230323092156.2545741-1-rppt@kernel.org>
+References: <20230307143558.294354-1-vschneid@redhat.com>
+In-Reply-To: <20230307143558.294354-1-vschneid@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, "David S. Miller" <davem@davemloft.net>, Dinh Nguyen <dinguyen@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Guo Ren <guoren@kernel.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Max Filippov <jcmvbkbc@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Mike Rapoport <rppt@kernel.org>, Rich Felker <dalias@libc.org>, Russell King <linux@armlinux.org.uk>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Zi Yan <ziy@nvidia.com>, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mm@kvack.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
+To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org
+Cc: "Paul E. McKenney" <paulmck@kernel.org>, Steven Rostedt <rostedt@goodmis.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Juri Lelli <juri.lelli@redhat.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Marcelo Tosatti <mtosatti@redhat.com>, Frederic Weisbecker <frederic@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "H. Peter Anvin" <hpa@zytor.com>, Marc Zyngier <maz@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Russell King <linux@armlinux.org.uk>, Nicholas Piggin <npiggin@gmail.com>, Guo Ren <guoren@kernel.org>, "David S. Miller" <davem@davemloft.net>
 
-From: "Mike Rapoport (IBM)" <rppt@kernel.org>
+Accessing the call_single_queue hasn't involved a spinlock since 2014:
 
-The prompt and help text of ARCH_FORCE_MAX_ORDER are not even close to
-describe this configuration option.
+  6897fc22ea01 ("kernel: use lockless list for smp_call_function_single")
 
-Update both to actually describe what this option does.
+The llist operations (namely cmpxchg() and xchg()) provide similar ordering
+guarantees, update the comment to lessen confusion.
 
-Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
+Signed-off-by: Valentin Schneider <vschneid@redhat.com>
 ---
- arch/arm/Kconfig | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+ kernel/smp.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
-index 929e646e84b9..0b15384c62e6 100644
---- a/arch/arm/Kconfig
-+++ b/arch/arm/Kconfig
-@@ -1354,17 +1354,19 @@ config ARM_MODULE_PLTS
- 	  configurations. If unsure, say y.
+diff --git a/kernel/smp.c b/kernel/smp.c
+index 93b4386cd3096..821b5986721ac 100644
+--- a/kernel/smp.c
++++ b/kernel/smp.c
+@@ -495,9 +495,10 @@ void __smp_call_single_queue(int cpu, struct llist_node *node)
+ #endif
  
- config ARCH_FORCE_MAX_ORDER
--	int "Maximum zone order"
-+	int "Order of maximal physically contiguous allocations"
- 	default "11" if SOC_AM33XX
- 	default "8" if SA1111
- 	default "10"
- 	help
--	  The kernel memory allocator divides physically contiguous memory
--	  blocks into "zones", where each zone is a power of two number of
--	  pages.  This option selects the largest power of two that the kernel
--	  keeps in the memory allocator.  If you need to allocate very large
--	  blocks of physically contiguous memory, then you may need to
--	  increase this value.
-+	  The kernel page allocator limits the size of maximal physically
-+	  contiguous allocations. The limit is called MAX_ORDER and it
-+	  defines the maximal power of two of number of pages that can be
-+	  allocated as a single contiguous block. This option allows
-+	  overriding the default setting when ability to allocate very
-+	  large blocks of physically contiguous memory is required.
-+
-+	  Don't change if unsure.
- 
- config ALIGNMENT_TRAP
- 	def_bool CPU_CP15_MMU
+ 	/*
+-	 * The list addition should be visible before sending the IPI
+-	 * handler locks the list to pull the entry off it because of
+-	 * normal cache coherency rules implied by spinlocks.
++	 * The list addition should be visible to the target CPU when it pops
++	 * the head of the list to pull the entry off it in the IPI handler
++	 * because of normal cache coherency rules implied by the underlying
++	 * llist ops.
+ 	 *
+ 	 * If IPIs can go out of order to the cache coherency protocol
+ 	 * in an architecture, sufficient synchronisation should be added
 -- 
-2.35.1
+2.31.1
