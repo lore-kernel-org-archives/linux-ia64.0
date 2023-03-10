@@ -1,56 +1,56 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Thu, 23 Mar 2023 09:21:55 +0000
-Subject: [PATCH 13/14] sparc: reword ARCH_FORCE_MAX_ORDER prompt and help text
-Message-Id: <20230323092156.2545741-14-rppt@kernel.org>
+From: Luis Chamberlain <mcgrof@kernel.org>
+Date: Fri, 10 Mar 2023 23:24:16 +0000
+Subject: [PATCH] ia64: simplify one-level sysctl registration for kdump_ctl_table
+Message-Id: <20230310232416.3958751-1-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230323092156.2545741-1-rppt@kernel.org>
-In-Reply-To: <20230323092156.2545741-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, "David S. Miller" <davem@davemloft.net>, Dinh Nguyen <dinguyen@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Guo Ren <guoren@kernel.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Max Filippov <jcmvbkbc@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Mike Rapoport <rppt@kernel.org>, Rich Felker <dalias@libc.org>, Russell King <linux@armlinux.org.uk>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Zi Yan <ziy@nvidia.com>, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mm@kvack.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
+To: linux-ia64@vger.kernel.org
+Cc: ebiederm@xmission.com, keescook@chromium.org, yzaikin@google.com, j.granados@samsung.com, patches@lists.linux.dev, linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org, Luis Chamberlain <mcgrof@kernel.org>
 
-From: "Mike Rapoport (IBM)" <rppt@kernel.org>
+There is no need to declare an extra tables to just create directory,
+this can be easily be done with a prefix path with register_sysctl().
 
-The prompt and help text of ARCH_FORCE_MAX_ORDER are not even close to
-describe this configuration option.
+Simplify this registration.
 
-Update both to actually describe what this option does.
-
-Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
+Signed-off-by: Luis Chamberlain <mcgrof@kernel.org>
 ---
- arch/sparc/Kconfig | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
 
-diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
-index e3242bf5a8df..959e43a1aaca 100644
---- a/arch/sparc/Kconfig
-+++ b/arch/sparc/Kconfig
-@@ -270,15 +270,17 @@ config ARCH_SPARSEMEM_DEFAULT
- 	def_bool y if SPARC64
+If ia64 is not removed from the kernel feel free to take this or I can
+take it through sysctl-next.
+
+ arch/ia64/kernel/crash.c | 11 +----------
+ 1 file changed, 1 insertion(+), 10 deletions(-)
+
+diff --git a/arch/ia64/kernel/crash.c b/arch/ia64/kernel/crash.c
+index 76730f34685c..88b3ce3e66cd 100644
+--- a/arch/ia64/kernel/crash.c
++++ b/arch/ia64/kernel/crash.c
+@@ -234,15 +234,6 @@ static struct ctl_table kdump_ctl_table[] = {
+ 	},
+ 	{ }
+ };
+-
+-static struct ctl_table sys_table[] = {
+-	{
+-	  .procname = "kernel",
+-	  .mode = 0555,
+-	  .child = kdump_ctl_table,
+-	},
+-	{ }
+-};
+ #endif
  
- config ARCH_FORCE_MAX_ORDER
--	int "Maximum zone order"
-+	int "Order of maximal physically contiguous allocations"
- 	default "12"
- 	help
--	  The kernel memory allocator divides physically contiguous memory
--	  blocks into "zones", where each zone is a power of two number of
--	  pages.  This option selects the largest power of two that the kernel
--	  keeps in the memory allocator.  If you need to allocate very large
--	  blocks of physically contiguous memory, then you may need to
--	  increase this value.
-+	  The kernel page allocator limits the size of maximal physically
-+	  contiguous allocations. The limit is called MAX_ORDER and it
-+	  defines the maximal power of two of number of pages that can be
-+	  allocated as a single contiguous block. This option allows
-+	  overriding the default setting when ability to allocate very
-+	  large blocks of physically contiguous memory is required.
-+
-+	  Don't change if unsure.
- 
- if SPARC64 || COMPILE_TEST
- source "kernel/power/Kconfig"
+ static int
+@@ -257,7 +248,7 @@ machine_crash_setup(void)
+ 	if((ret = register_die_notifier(&kdump_init_notifier_nb)) != 0)
+ 		return ret;
+ #ifdef CONFIG_SYSCTL
+-	register_sysctl_table(sys_table);
++	register_sysctl("kernel", kdump_ctl_table);
+ #endif
+ 	return 0;
+ }
 -- 
-2.35.1
+2.39.1
