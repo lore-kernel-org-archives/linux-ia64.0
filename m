@@ -1,7 +1,7 @@
 From: =?UTF-8?Q? "Szczepan_Kie=C5=82basa" ?=  <szczepan.kielbasa@corrib.pl>
-Date: Fri, 03 Mar 2023 09:00:32 +0000
+Date: Wed, 15 Mar 2023 08:55:32 +0000
 Subject: Faktoring
-Message-Id: <20230303074501-0.1.5u.gg8i.0.f4fs3074t4@corrib.pl>
+Message-Id: <20230315074501-0.1.62.ivqd.0.ilgi91tf95@corrib.pl>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20230209074500-0.1.5e.gg8i.0.hmil12m6h8@corrib.pl>
 In-Reply-To: <20230209074500-0.1.5e.gg8i.0.hmil12m6h8@corrib.pl>
