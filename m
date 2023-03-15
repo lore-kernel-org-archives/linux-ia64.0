@@ -1,65 +1,179 @@
-From: Deepak Gupta <debug@rivosinc.com>
-Date: Wed, 01 Mar 2023 15:41:30 +0000
-Subject: Re: [PATCH v6 13/41] mm: Make pte_mkwrite() take a VMA
-Message-Id: <20230301154130.GB3505369@debug.ba.rivosinc.com>
+From: "Matthew Wilcox (Oracle)" <willy@infradead.org>
+Date: Wed, 15 Mar 2023 05:14:20 +0000
+Subject: [PATCH v4 12/36] ia64: Implement the new page table range API
+Message-Id: <20230315051444.3229621-13-willy@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230218211433.26859-1-rick.p.edgecombe@intel.com>
- <20230218211433.26859-14-rick.p.edgecombe@intel.com>
-In-Reply-To: <20230218211433.26859-14-rick.p.edgecombe@intel.com>
+References: <20230315051444.3229621-1-willy@infradead.org>
+In-Reply-To: <20230315051444.3229621-1-willy@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Rick Edgecombe <rick.p.edgecombe@intel.com>
-Cc: x86@kernel.org, "H . Peter Anvin" <hpa@zytor.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org, linux-mm@kvack.org, linux-arch@vger.kernel.org, linux-api@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>, Andy Lutomirski <luto@kernel.org>, Balbir Singh <bsingharora@gmail.com>, Borislav Petkov <bp@alien8.de>, Cyrill Gorcunov <gorcunov@gmail.com>, Dave Hansen <dave.hansen@linux.intel.com>, Eugene Syromiatnikov <esyr@redhat.com>, Florian Weimer <fweimer@redhat.com>, "H . J . Lu" <hjl.tools@gmail.com>, Jann Horn <jannh@google.com>, Jonathan Corbet <corbet@lwn.net>, Kees Cook <keescook@chromium.org>, Mike Kravetz <mike.kravetz@oracle.com>, Nadav Amit <nadav.amit@gmail.com>, Oleg Nesterov <oleg@redhat.com>, Pavel Machek <pavel@ucw.cz>, Peter Zijlstra <peterz@infradead.org>, Randy Dunlap <rdunlap@infradead.org>, Weijiang Yang <weijiang.yang@intel.com>, "Kirill A . Shutemov" <kirill.shutemov@linux.intel.com>, John Allen <john.allen@amd.com>, kcc@google.com, eranian@google.com, rppt@kernel.org, jamorris@linux.microsoft.com, dethoma@microsoft.com, akpm@linux-foundation.org, Andrew.Cooper3@citrix.com, christina.schimpe@intel.com, david@redhat.com, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, Michal Simek <monstr@monstr.eu>, Dinh Nguyen <dinguyen@kernel.org>, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, xen-devel@lists.xenproject.org
+To: linux-arch@vger.kernel.org
+Cc: "Matthew Wilcox (Oracle)" <willy@infradead.org>, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Sat, Feb 18, 2023 at 01:14:05PM -0800, Rick Edgecombe wrote:
->The x86 Control-flow Enforcement Technology (CET) feature includes a new
->type of memory called shadow stack. This shadow stack memory has some
->unusual properties, which requires some core mm changes to function
->properly.
->
->One of these unusual properties is that shadow stack memory is writable,
->but only in limited ways. These limits are applied via a specific PTE
->bit combination. Nevertheless, the memory is writable, and core mm code
->will need to apply the writable permissions in the typical paths that
->call pte_mkwrite().
->
->In addition to VM_WRITE, the shadow stack VMA's will have a flag denoting
->that they are special shadow stack flavor of writable memory. So make
->pte_mkwrite() take a VMA, so that the x86 implementation of it can know to
->create regular writable memory or shadow stack memory.
->
->Apply the same changes for pmd_mkwrite() and huge_pte_mkwrite().
->
->No functional change.
->
->Cc: linux-doc@vger.kernel.org
->Cc: linux-kernel@vger.kernel.org
->Cc: linux-alpha@vger.kernel.org
->Cc: linux-snps-arc@lists.infradead.org
->Cc: linux-arm-kernel@lists.infradead.org
->Cc: linux-csky@vger.kernel.org
->Cc: linux-hexagon@vger.kernel.org
->Cc: linux-ia64@vger.kernel.org
->Cc: loongarch@lists.linux.dev
->Cc: linux-m68k@lists.linux-m68k.org
->Cc: Michal Simek <monstr@monstr.eu>
->Cc: Dinh Nguyen <dinguyen@kernel.org>
->Cc: linux-mips@vger.kernel.org
->Cc: openrisc@lists.librecores.org
->Cc: linux-parisc@vger.kernel.org
->Cc: linuxppc-dev@lists.ozlabs.org
->Cc: linux-riscv@lists.infradead.org
->Cc: linux-s390@vger.kernel.org
->Cc: linux-sh@vger.kernel.org
->Cc: sparclinux@vger.kernel.org
->Cc: linux-um@lists.infradead.org
->Cc: xen-devel@lists.xenproject.org
->Cc: linux-arch@vger.kernel.org
->Cc: linux-mm@kvack.org
->Tested-by: Pengfei Xu <pengfei.xu@intel.com>
->Suggested-by: David Hildenbrand <david@redhat.com>
->Signed-off-by: Rick Edgecombe <rick.p.edgecombe@intel.com>
->
+Add PFN_PTE_SHIFT, update_mmu_cache_range() and flush_dcache_folio().
+Change the PG_arch_1 (aka PG_dcache_clean) flag from being per-page to
+per-folio, which makes arch_dma_mark_clean() and mark_clean() a little
+more exciting.
 
-Acked-by: Deepak Gupta <debug@rivosinc.com>
+Signed-off-by: Matthew Wilcox (Oracle) <willy@infradead.org>
+Cc: linux-ia64@vger.kernel.org
+---
+ arch/ia64/hp/common/sba_iommu.c    | 26 +++++++++++++++-----------
+ arch/ia64/include/asm/cacheflush.h | 14 ++++++++++----
+ arch/ia64/include/asm/pgtable.h    |  4 ++--
+ arch/ia64/mm/init.c                | 28 +++++++++++++++++++---------
+ 4 files changed, 46 insertions(+), 26 deletions(-)
+
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index 8ad6946521d8..48d475f10003 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -798,22 +798,26 @@ sba_io_pdir_entry(u64 *pdir_ptr, unsigned long vba)
+ #endif
+ 
+ #ifdef ENABLE_MARK_CLEAN
+-/**
++/*
+  * Since DMA is i-cache coherent, any (complete) pages that were written via
+  * DMA can be marked as "clean" so that lazy_mmu_prot_update() doesn't have to
+  * flush them when they get mapped into an executable vm-area.
+  */
+-static void
+-mark_clean (void *addr, size_t size)
++static void mark_clean(void *addr, size_t size)
+ {
+-	unsigned long pg_addr, end;
+-
+-	pg_addr = PAGE_ALIGN((unsigned long) addr);
+-	end = (unsigned long) addr + size;
+-	while (pg_addr + PAGE_SIZE <= end) {
+-		struct page *page = virt_to_page((void *)pg_addr);
+-		set_bit(PG_arch_1, &page->flags);
+-		pg_addr += PAGE_SIZE;
++	struct folio *folio = virt_to_folio(addr);
++	ssize_t left = size;
++	size_t offset = offset_in_folio(folio, addr);
++
++	if (offset) {
++		left -= folio_size(folio) - offset;
++		folio = folio_next(folio);
++	}
++
++	while (left >= folio_size(folio)) {
++		set_bit(PG_arch_1, &folio->flags);
++		left -= folio_size(folio);
++		folio = folio_next(folio);
+ 	}
+ }
+ #endif
+diff --git a/arch/ia64/include/asm/cacheflush.h b/arch/ia64/include/asm/cacheflush.h
+index 708c0fa5d975..eac493fa9e0d 100644
+--- a/arch/ia64/include/asm/cacheflush.h
++++ b/arch/ia64/include/asm/cacheflush.h
+@@ -13,10 +13,16 @@
+ #include <asm/page.h>
+ 
+ #define ARCH_IMPLEMENTS_FLUSH_DCACHE_PAGE 1
+-#define flush_dcache_page(page)			\
+-do {						\
+-	clear_bit(PG_arch_1, &(page)->flags);	\
+-} while (0)
++static inline void flush_dcache_folio(struct folio *folio)
++{
++	clear_bit(PG_arch_1, &folio->flags);
++}
++#define flush_dcache_folio flush_dcache_folio
++
++static inline void flush_dcache_page(struct page *page)
++{
++	flush_dcache_folio(page_folio(page));
++}
+ 
+ extern void flush_icache_range(unsigned long start, unsigned long end);
+ #define flush_icache_range flush_icache_range
+diff --git a/arch/ia64/include/asm/pgtable.h b/arch/ia64/include/asm/pgtable.h
+index 21c97e31a28a..5450d59e4fb9 100644
+--- a/arch/ia64/include/asm/pgtable.h
++++ b/arch/ia64/include/asm/pgtable.h
+@@ -206,6 +206,7 @@ ia64_phys_addr_valid (unsigned long addr)
+ #define RGN_MAP_SHIFT (PGDIR_SHIFT + PTRS_PER_PGD_SHIFT - 3)
+ #define RGN_MAP_LIMIT	((1UL << RGN_MAP_SHIFT) - PAGE_SIZE)	/* per region addr limit */
+ 
++#define PFN_PTE_SHIFT	PAGE_SHIFT
+ /*
+  * Conversion functions: convert page frame number (pfn) and a protection value to a page
+  * table entry (pte).
+@@ -303,8 +304,6 @@ static inline void set_pte(pte_t *ptep, pte_t pteval)
+ 	*ptep = pteval;
+ }
+ 
+-#define set_pte_at(mm,addr,ptep,pteval) set_pte(ptep,pteval)
+-
+ /*
+  * Make page protection values cacheable, uncacheable, or write-
+  * combining.  Note that "protection" is really a misnomer here as the
+@@ -396,6 +395,7 @@ pte_same (pte_t a, pte_t b)
+ 	return pte_val(a) = pte_val(b);
+ }
+ 
++#define update_mmu_cache_range(vma, address, ptep, nr) do { } while (0)
+ #define update_mmu_cache(vma, address, ptep) do { } while (0)
+ 
+ extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index 7f5353e28516..b95debabdc2a 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -50,30 +50,40 @@ void
+ __ia64_sync_icache_dcache (pte_t pte)
+ {
+ 	unsigned long addr;
+-	struct page *page;
++	struct folio *folio;
+ 
+-	page = pte_page(pte);
+-	addr = (unsigned long) page_address(page);
++	folio = page_folio(pte_page(pte));
++	addr = (unsigned long)folio_address(folio);
+ 
+-	if (test_bit(PG_arch_1, &page->flags))
++	if (test_bit(PG_arch_1, &folio->flags))
+ 		return;				/* i-cache is already coherent with d-cache */
+ 
+-	flush_icache_range(addr, addr + page_size(page));
+-	set_bit(PG_arch_1, &page->flags);	/* mark page as clean */
++	flush_icache_range(addr, addr + folio_size(folio));
++	set_bit(PG_arch_1, &folio->flags);	/* mark page as clean */
+ }
+ 
+ /*
+- * Since DMA is i-cache coherent, any (complete) pages that were written via
++ * Since DMA is i-cache coherent, any (complete) folios that were written via
+  * DMA can be marked as "clean" so that lazy_mmu_prot_update() doesn't have to
+  * flush them when they get mapped into an executable vm-area.
+  */
+ void arch_dma_mark_clean(phys_addr_t paddr, size_t size)
+ {
+ 	unsigned long pfn = PHYS_PFN(paddr);
++	struct folio *folio = page_folio(pfn_to_page(pfn));
++	ssize_t left = size;
++	size_t offset = offset_in_folio(folio, paddr);
+ 
+-	do {
++	if (offset) {
++		left -= folio_size(folio) - offset;
++		folio = folio_next(folio);
++	}
++
++	while (left >= (ssize_t)folio_size(folio)) {
+ 		set_bit(PG_arch_1, &pfn_to_page(pfn)->flags);
+-	} while (++pfn <= PHYS_PFN(paddr + size - 1));
++		left -= folio_size(folio);
++		folio = folio_next(folio);
++	}
+ }
+ 
+ inline void
+-- 
+2.39.2
