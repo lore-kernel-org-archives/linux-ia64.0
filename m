@@ -1,55 +1,57 @@
-From: patchwork-bot+linux-riscv@kernel.org
-Date: Tue, 07 Mar 2023 00:48:58 +0000
-Subject: Re: [PATCH 01/10] alpha: fix livelock in uaccess
-Message-Id: <167815013840.19612.4686188583677266510.git-patchwork-notify@kernel.org>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Thu, 23 Mar 2023 09:21:49 +0000
+Subject: [PATCH 07/14] nios2: reword ARCH_FORCE_MAX_ORDER prompt and help text
+Message-Id: <20230323092156.2545741-8-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Y9l0EDRr9DpNb5Pb@ZenIV>
-In-Reply-To: <Y9l0EDRr9DpNb5Pb@ZenIV>
+References: <20230323092156.2545741-1-rppt@kernel.org>
+In-Reply-To: <20230323092156.2545741-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Cc: linux-riscv@lists.infradead.org, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-m68k@lists.linux-m68k.org, monstr@monstr.eu, dinguyen@kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, sparclinux@vger.kernel.org, torvalds@linux-foundation.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, "David S. Miller" <davem@davemloft.net>, Dinh Nguyen <dinguyen@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Guo Ren <guoren@kernel.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Max Filippov <jcmvbkbc@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Mike Rapoport <rppt@kernel.org>, Rich Felker <dalias@libc.org>, Russell King <linux@armlinux.org.uk>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Zi Yan <ziy@nvidia.com>, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mm@kvack.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
 
-Hello:
+From: "Mike Rapoport (IBM)" <rppt@kernel.org>
 
-This series was applied to riscv/linux.git (fixes)
-by Al Viro <viro@zeniv.linux.org.uk>:
+The prompt and help text of ARCH_FORCE_MAX_ORDER are not even close to
+describe this configuration option.
 
-On Tue, 31 Jan 2023 20:03:28 +0000 you wrote:
-> alpha equivalent of 26178ec11ef3 "x86: mm: consolidate VM_FAULT_RETRY handling"
-> If e.g. get_user() triggers a page fault and a fatal signal is caught, we might
-> end up with handle_mm_fault() returning VM_FAULT_RETRY and not doing anything
-> to page tables.  In such case we must *not* return to the faulting insn -
-> that would repeat the entire thing without making any progress; what we need
-> instead is to treat that as failed (user) memory access.
-> 
-> [...]
+Update both to actually describe what this option does.
 
-Here is the summary with links:
-  - [01/10] alpha: fix livelock in uaccess
-    (no matching commit)
-  - [02/10] hexagon: fix livelock in uaccess
-    (no matching commit)
-  - [03/10] ia64: fix livelock in uaccess
-    (no matching commit)
-  - [04/10] m68k: fix livelock in uaccess
-    (no matching commit)
-  - [05/10] microblaze: fix livelock in uaccess
-    (no matching commit)
-  - [06/10] nios2: fix livelock in uaccess
-    (no matching commit)
-  - [07/10] openrisc: fix livelock in uaccess
-    (no matching commit)
-  - [08/10] parisc: fix livelock in uaccess
-    (no matching commit)
-  - [09/10] riscv: fix livelock in uaccess
-    https://git.kernel.org/riscv/c/d835eb3a57de
-  - [10/10] sparc: fix livelock in uaccess
-    (no matching commit)
+Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
+---
+ arch/nios2/Kconfig | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
 
-You are awesome, thank you!
+diff --git a/arch/nios2/Kconfig b/arch/nios2/Kconfig
+index 89708b95978c..fcaa6bbda3fc 100644
+--- a/arch/nios2/Kconfig
++++ b/arch/nios2/Kconfig
+@@ -45,16 +45,18 @@ menu "Kernel features"
+ source "kernel/Kconfig.hz"
+ 
+ config ARCH_FORCE_MAX_ORDER
+-	int "Maximum zone order"
++	int "Order of maximal physically contiguous allocations"
+ 	range 8 19
+ 	default "10"
+ 	help
+-	  The kernel memory allocator divides physically contiguous memory
+-	  blocks into "zones", where each zone is a power of two number of
+-	  pages.  This option selects the largest power of two that the kernel
+-	  keeps in the memory allocator.  If you need to allocate very large
+-	  blocks of physically contiguous memory, then you may need to
+-	  increase this value.
++	  The kernel page allocator limits the size of maximal physically
++	  contiguous allocations. The limit is called MAX_ORDER and it
++	  defines the maximal power of two of number of pages that can be
++	  allocated as a single contiguous block. This option allows
++	  overriding the default setting when ability to allocate very
++	  large blocks of physically contiguous memory is required.
++
++	  Don't change if unsure.
+ 
+ endmenu
+ 
 -- 
-Deet-doot-dot, I am a bot.
-https://korg.docs.kernel.org/patchwork/pwbot.html
-
+2.35.1
