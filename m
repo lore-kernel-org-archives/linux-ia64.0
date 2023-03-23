@@ -1,10 +1,10 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Sat, 25 Mar 2023 06:08:20 +0000
-Subject: [PATCH v3 06/14] m68k: reword ARCH_FORCE_MAX_ORDER prompt and help text
-Message-Id: <20230325060828.2662773-7-rppt@kernel.org>
+Date: Thu, 23 Mar 2023 09:21:53 +0000
+Subject: [PATCH 11/14] sh: reword ARCH_FORCE_MAX_ORDER prompt and help text
+Message-Id: <20230323092156.2545741-12-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230325060828.2662773-1-rppt@kernel.org>
-In-Reply-To: <20230325060828.2662773-1-rppt@kernel.org>
+References: <20230323092156.2545741-1-rppt@kernel.org>
+In-Reply-To: <20230323092156.2545741-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -18,25 +18,27 @@ describe this configuration option.
 
 Update both to actually describe what this option does.
 
-Acked-by: Kirill A. Shutemov <kirill.shutemov@linux.intel.com>
-Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Reviewed-by: Zi Yan <ziy@nvidia.com>
 Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
 ---
- arch/m68k/Kconfig.cpu | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+ arch/sh/mm/Kconfig | 17 +++++++++--------
+ 1 file changed, 9 insertions(+), 8 deletions(-)
 
-diff --git a/arch/m68k/Kconfig.cpu b/arch/m68k/Kconfig.cpu
-index c9df6572133f..e530bc8f240f 100644
---- a/arch/m68k/Kconfig.cpu
-+++ b/arch/m68k/Kconfig.cpu
-@@ -398,21 +398,23 @@ config SINGLE_MEMORY_CHUNK
- 	  Say N if not sure.
+diff --git a/arch/sh/mm/Kconfig b/arch/sh/mm/Kconfig
+index 40271090bd7d..fb15ba1052ba 100644
+--- a/arch/sh/mm/Kconfig
++++ b/arch/sh/mm/Kconfig
+@@ -19,8 +19,7 @@ config PAGE_OFFSET
+ 	default "0x00000000"
  
  config ARCH_FORCE_MAX_ORDER
--	int "Maximum zone order" if ADVANCED
-+	int "Order of maximal physically contiguous allocations" if ADVANCED
- 	depends on !SINGLE_MEMORY_CHUNK
+-	int "Maximum zone order"
+-	range 8 63 if PAGE_SIZE_16KB
++	int "Order of maximal physically contiguous allocations"
+ 	default "8" if PAGE_SIZE_16KB
+ 	range 6 63 if PAGE_SIZE_64KB
+ 	default "6" if PAGE_SIZE_64KB
+@@ -28,16 +27,18 @@ config ARCH_FORCE_MAX_ORDER
+ 	default "13" if !MMU
  	default "10"
  	help
 -	  The kernel memory allocator divides physically contiguous memory
@@ -52,14 +54,13 @@ index c9df6572133f..e530bc8f240f 100644
 +	  overriding the default setting when ability to allocate very
 +	  large blocks of physically contiguous memory is required.
  
- 	  For systems that have holes in their physical address space this
- 	  value also defines the minimal size of the hole that allows
- 	  freeing unused memory map.
+ 	  The page size is not necessarily 4KB. Keep this in mind when
+ 	  choosing a value for this option.
  
 +	  Don't change if unsure.
 +
- config 060_WRITETHROUGH
- 	bool "Use write-through caching for 68060 supervisor accesses"
- 	depends on ADVANCED && M68060
+ config MEMORY_START
+ 	hex "Physical memory start address"
+ 	default "0x08000000"
 -- 
 2.35.1
