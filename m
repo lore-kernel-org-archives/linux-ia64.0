@@ -1,7 +1,7 @@
 From: kernel test robot <lkp@intel.com>
-Date: Thu, 23 Mar 2023 13:46:13 +0000
+Date: Thu, 23 Mar 2023 17:11:39 +0000
 Subject: Re: [PATCH 02/14] arm64: drop ranges in definition of ARCH_FORCE_MAX_ORDER
-Message-Id: <202303232149.Chh6KhiI-lkp@intel.com>
+Message-Id: <202303240155.01y6T6Fj-lkp@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20230323092156.2545741-3-rppt@kernel.org>
 In-Reply-To: <20230323092156.2545741-3-rppt@kernel.org>
@@ -9,7 +9,7 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Mike Rapoport <rppt@kernel.org>, Andrew Morton <akpm@linux-foundation.org>
-Cc: oe-kbuild-all@lists.linux.dev, Linux Memory Management List <linux-mm@kvack.org>, Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, Dinh Nguyen <dinguyen@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Guo Ren <guoren@kernel.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Max Filippov <jcmvbkbc@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Mike Rapoport <rppt@kernel.org>, Rich Felker <dalias@libc.org>, Russell King <linux@armlinux.org.uk>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Zi Yan <ziy@nvidia.com>, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
+Cc: llvm@lists.linux.dev, oe-kbuild-all@lists.linux.dev, Linux Memory Management List <linux-mm@kvack.org>, Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, Dinh Nguyen <dinguyen@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Guo Ren <guoren@kernel.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Max Filippov <jcmvbkbc@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Mike Rapoport <rppt@kernel.org>, Rich Felker <dalias@libc.org>, Russell King <linux@armlinux.org.uk>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Zi Yan <ziy@nvidia.com>, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
 
 Hi Mike,
 
@@ -21,430 +21,204 @@ url:    https://github.com/intel-lab-lkp/linux/commits/Mike-Rapoport/arm-reword-
 base:   51551d71edbc998fd8c8afa7312db3d270f5998e
 patch link:    https://lore.kernel.org/r/20230323092156.2545741-3-rppt%40kernel.org
 patch subject: [PATCH 02/14] arm64: drop ranges in definition of ARCH_FORCE_MAX_ORDER
-config: arm64-randconfig-r022-20230322 (https://download.01.org/0day-ci/archive/20230323/202303232149.Chh6KhiI-lkp@intel.com/config)
-compiler: aarch64-linux-gcc (GCC) 12.1.0
+config: arm64-randconfig-r031-20230322 (https://download.01.org/0day-ci/archive/20230324/202303240155.01y6T6Fj-lkp@intel.com/config)
+compiler: clang version 17.0.0 (https://github.com/llvm/llvm-project 67409911353323ca5edf2049ef0df54132fa1ca7)
 reproduce (this is a W=1 build):
         wget https://raw.githubusercontent.com/intel/lkp-tests/master/sbin/make.cross -O ~/bin/make.cross
         chmod +x ~/bin/make.cross
+        # install arm64 cross compiling tool for clang build
+        # apt-get install binutils-aarch64-linux-gnu
         # https://github.com/intel-lab-lkp/linux/commit/0522f943c071abf1610651ea40405b7489c50987
         git remote add linux-review https://github.com/intel-lab-lkp/linux
         git fetch --no-tags linux-review Mike-Rapoport/arm-reword-ARCH_FORCE_MAX_ORDER-prompt-and-help-text/20230323-172512
         git checkout 0522f943c071abf1610651ea40405b7489c50987
         # save the config file
         mkdir build_dir && cp config build_dir/.config
-        COMPILER_INSTALL_PATH=$HOME/0day COMPILER=gcc-12.1.0 make.cross W=1 O=build_dir ARCH=arm64 olddefconfig
-        COMPILER_INSTALL_PATH=$HOME/0day COMPILER=gcc-12.1.0 make.cross W=1 O=build_dir ARCH=arm64 SHELL=/bin/bash drivers/base/regmap/ drivers/iommu/ fs/proc/ mm/
+        COMPILER_INSTALL_PATH=$HOME/0day COMPILER=clang make.cross W=1 O=build_dir ARCH=arm64 olddefconfig
+        COMPILER_INSTALL_PATH=$HOME/0day COMPILER=clang make.cross W=1 O=build_dir ARCH=arm64 SHELL=/bin/bash drivers/iommu/ kernel/dma/ mm/
 
 If you fix the issue, kindly add following tag where applicable
 | Reported-by: kernel test robot <lkp@intel.com>
-| Link: https://lore.kernel.org/oe-kbuild-all/202303232149.Chh6KhiI-lkp@intel.com/
+| Link: https://lore.kernel.org/oe-kbuild-all/202303240155.01y6T6Fj-lkp@intel.com/
 
 All error/warnings (new ones prefixed by >>):
 
-   In file included from include/linux/kernel.h:25,
-                    from mm/mm_init.c:9:
-   mm/mm_init.c: In function 'find_zone_movable_pfns_for_nodes':
->> include/linux/mmzone.h:33:31: warning: left shift count is negative [-Wshift-count-negative]
-      33 | #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
-         |                               ^~
-   include/linux/math.h:61:25: note: in definition of macro 'roundup'
-      61 |         typeof(y) __y = y;                              \
-         |                         ^
-   mm/mm_init.c:429:55: note: in expansion of macro 'MAX_ORDER_NR_PAGES'
-     429 |                         roundup(required_movablecore, MAX_ORDER_NR_PAGES);
-         |                                                       ^~~~~~~~~~~~~~~~~~
->> include/linux/mmzone.h:33:31: warning: left shift count is negative [-Wshift-count-negative]
-      33 | #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
-         |                               ^~
-   include/linux/math.h:61:25: note: in definition of macro 'roundup'
-      61 |         typeof(y) __y = y;                              \
-         |                         ^
-   mm/mm_init.c:540:56: note: in expansion of macro 'MAX_ORDER_NR_PAGES'
-     540 |                         roundup(zone_movable_pfn[nid], MAX_ORDER_NR_PAGES);
-         |                                                        ^~~~~~~~~~~~~~~~~~
+>> mm/memory.c:5791:37: warning: shift count is negative [-Wshift-count-negative]
+           if (unlikely(pages_per_huge_page > MAX_ORDER_NR_PAGES)) {
+                                              ^~~~~~~~~~~~~~~~~~
+   include/linux/mmzone.h:33:31: note: expanded from macro 'MAX_ORDER_NR_PAGES'
+   #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
+                                 ^  ~~~~~~~~~
+   include/linux/compiler.h:48:41: note: expanded from macro 'unlikely'
+   #  define unlikely(x)   (__branch_check__(x, 0, __builtin_constant_p(x)))
+                                             ^
+   include/linux/compiler.h:33:34: note: expanded from macro '__branch_check__'
+                           ______r = __builtin_expect(!!(x), expect);      \
+                                                         ^
+>> mm/memory.c:5791:37: warning: shift count is negative [-Wshift-count-negative]
+           if (unlikely(pages_per_huge_page > MAX_ORDER_NR_PAGES)) {
+                                              ^~~~~~~~~~~~~~~~~~
+   include/linux/mmzone.h:33:31: note: expanded from macro 'MAX_ORDER_NR_PAGES'
+   #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
+                                 ^  ~~~~~~~~~
+   include/linux/compiler.h:48:68: note: expanded from macro 'unlikely'
+   #  define unlikely(x)   (__branch_check__(x, 0, __builtin_constant_p(x)))
+                                                                        ^
+   include/linux/compiler.h:35:19: note: expanded from macro '__branch_check__'
+                                                expect, is_constant);      \
+                                                        ^~~~~~~~~~~
+   mm/memory.c:5843:37: warning: shift count is negative [-Wshift-count-negative]
+           if (unlikely(pages_per_huge_page > MAX_ORDER_NR_PAGES)) {
+                                              ^~~~~~~~~~~~~~~~~~
+   include/linux/mmzone.h:33:31: note: expanded from macro 'MAX_ORDER_NR_PAGES'
+   #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
+                                 ^  ~~~~~~~~~
+   include/linux/compiler.h:48:41: note: expanded from macro 'unlikely'
+   #  define unlikely(x)   (__branch_check__(x, 0, __builtin_constant_p(x)))
+                                             ^
+   include/linux/compiler.h:33:34: note: expanded from macro '__branch_check__'
+                           ______r = __builtin_expect(!!(x), expect);      \
+                                                         ^
+   mm/memory.c:5843:37: warning: shift count is negative [-Wshift-count-negative]
+           if (unlikely(pages_per_huge_page > MAX_ORDER_NR_PAGES)) {
+                                              ^~~~~~~~~~~~~~~~~~
+   include/linux/mmzone.h:33:31: note: expanded from macro 'MAX_ORDER_NR_PAGES'
+   #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
+                                 ^  ~~~~~~~~~
+   include/linux/compiler.h:48:68: note: expanded from macro 'unlikely'
+   #  define unlikely(x)   (__branch_check__(x, 0, __builtin_constant_p(x)))
+                                                                        ^
+   include/linux/compiler.h:35:19: note: expanded from macro '__branch_check__'
+                                                expect, is_constant);      \
+                                                        ^~~~~~~~~~~
+   4 warnings generated.
 --
-   In file included from include/linux/gfp.h:7,
-                    from include/linux/mm.h:7,
-                    from mm/debug.c:10:
-   mm/debug.c: In function '__dump_page':
->> include/linux/mmzone.h:33:31: warning: left shift count is negative [-Wshift-count-negative]
-      33 | #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
-         |                               ^~
-   mm/debug.c:70:44: note: in expansion of macro 'MAX_ORDER_NR_PAGES'
-      70 |         if (page < head || (page >= head + MAX_ORDER_NR_PAGES)) {
-         |                                            ^~~~~~~~~~~~~~~~~~
+>> drivers/iommu/dma-iommu.c:739:16: error: anonymous bit-field has negative width (-1)
+           order_mask &= GENMASK(MAX_ORDER, 0);
+                         ^
+   include/linux/bits.h:37:3: note: expanded from macro 'GENMASK'
+           (GENMASK_INPUT_CHECK(h, l) + __GENMASK(h, l))
+            ^
+   include/linux/bits.h:23:3: note: expanded from macro 'GENMASK_INPUT_CHECK'
+           (BUILD_BUG_ON_ZERO(__builtin_choose_expr( \
+            ^
+   include/linux/build_bug.h:16:53: note: expanded from macro 'BUILD_BUG_ON_ZERO'
+   #define BUILD_BUG_ON_ZERO(e) ((int)(sizeof(struct { int:(-!!(e)); })))
+                                                       ^
+>> drivers/iommu/dma-iommu.c:739:16: warning: shift count >= width of type [-Wshift-count-overflow]
+           order_mask &= GENMASK(MAX_ORDER, 0);
+                         ^~~~~~~~~~~~~~~~~~~~~
+   include/linux/bits.h:37:31: note: expanded from macro 'GENMASK'
+           (GENMASK_INPUT_CHECK(h, l) + __GENMASK(h, l))
+                                        ^~~~~~~~~~~~~~~
+   include/linux/bits.h:35:11: note: expanded from macro '__GENMASK'
+            (~UL(0) >> (BITS_PER_LONG - 1 - (h))))
+                    ^  ~~~~~~~~~~~~~~~~~~~~~~~~~
+   1 warning and 1 error generated.
 --
-   In file included from include/linux/build_bug.h:5,
-                    from include/linux/container_of.h:5,
-                    from include/linux/list.h:5,
-                    from include/linux/smp.h:12,
-                    from include/linux/kernel_stat.h:5,
-                    from mm/memory.c:42:
-   mm/memory.c: In function 'clear_huge_page':
->> include/linux/mmzone.h:33:31: warning: left shift count is negative [-Wshift-count-negative]
-      33 | #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
-         |                               ^~
-   include/linux/compiler.h:78:45: note: in definition of macro 'unlikely'
-      78 | # define unlikely(x)    __builtin_expect(!!(x), 0)
-         |                                             ^
-   mm/memory.c:5791:44: note: in expansion of macro 'MAX_ORDER_NR_PAGES'
-    5791 |         if (unlikely(pages_per_huge_page > MAX_ORDER_NR_PAGES)) {
-         |                                            ^~~~~~~~~~~~~~~~~~
-   mm/memory.c: In function 'copy_user_huge_page':
->> include/linux/mmzone.h:33:31: warning: left shift count is negative [-Wshift-count-negative]
-      33 | #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
-         |                               ^~
-   include/linux/compiler.h:78:45: note: in definition of macro 'unlikely'
-      78 | # define unlikely(x)    __builtin_expect(!!(x), 0)
-         |                                             ^
-   mm/memory.c:5843:44: note: in expansion of macro 'MAX_ORDER_NR_PAGES'
-    5843 |         if (unlikely(pages_per_huge_page > MAX_ORDER_NR_PAGES)) {
-         |                                            ^~~~~~~~~~~~~~~~~~
---
-   mm/shuffle.c: In function '__shuffle_zone':
->> mm/shuffle.c:86:35: warning: left shift count is negative [-Wshift-count-negative]
-      86 |         const int order_pages = 1 << order;
-         |                                 ~~^~~~~~~~
---
-   In file included from include/vdso/const.h:5,
-                    from include/linux/const.h:4,
-                    from include/linux/list.h:9,
-                    from include/linux/wait.h:7,
-                    from include/linux/wait_bit.h:8,
-                    from include/linux/fs.h:6,
-                    from include/linux/debugfs.h:15,
-                    from mm/page_owner.c:2:
-   mm/page_owner.c: In function 'pagetypeinfo_showmixedcount_print':
->> include/linux/mmzone.h:33:31: warning: left shift count is negative [-Wshift-count-negative]
-      33 | #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
-         |                               ^~
-   include/uapi/linux/const.h:32:50: note: in definition of macro '__ALIGN_KERNEL_MASK'
-      32 | #define __ALIGN_KERNEL_MASK(x, mask)    (((x) + (mask)) & ~(mask))
-         |                                                  ^~~~
-   include/linux/align.h:8:33: note: in expansion of macro '__ALIGN_KERNEL'
-       8 | #define ALIGN(x, a)             __ALIGN_KERNEL((x), (a))
-         |                                 ^~~~~~~~~~~~~~
-   mm/page_owner.c:298:31: note: in expansion of macro 'ALIGN'
-     298 |                         pfn = ALIGN(pfn + 1, MAX_ORDER_NR_PAGES);
-         |                               ^~~~~
-   mm/page_owner.c:298:46: note: in expansion of macro 'MAX_ORDER_NR_PAGES'
-     298 |                         pfn = ALIGN(pfn + 1, MAX_ORDER_NR_PAGES);
-         |                                              ^~~~~~~~~~~~~~~~~~
->> include/linux/mmzone.h:33:31: warning: left shift count is negative [-Wshift-count-negative]
-      33 | #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
-         |                               ^~
-   include/uapi/linux/const.h:32:61: note: in definition of macro '__ALIGN_KERNEL_MASK'
-      32 | #define __ALIGN_KERNEL_MASK(x, mask)    (((x) + (mask)) & ~(mask))
-         |                                                             ^~~~
-   include/linux/align.h:8:33: note: in expansion of macro '__ALIGN_KERNEL'
-       8 | #define ALIGN(x, a)             __ALIGN_KERNEL((x), (a))
-         |                                 ^~~~~~~~~~~~~~
-   mm/page_owner.c:298:31: note: in expansion of macro 'ALIGN'
-     298 |                         pfn = ALIGN(pfn + 1, MAX_ORDER_NR_PAGES);
-         |                               ^~~~~
-   mm/page_owner.c:298:46: note: in expansion of macro 'MAX_ORDER_NR_PAGES'
-     298 |                         pfn = ALIGN(pfn + 1, MAX_ORDER_NR_PAGES);
-         |                                              ^~~~~~~~~~~~~~~~~~
-   In file included from include/linux/gfp.h:7,
-                    from include/linux/xarray.h:15,
-                    from include/linux/list_lru.h:14,
-                    from include/linux/fs.h:13:
-   mm/page_owner.c: In function 'read_page_owner':
->> include/linux/mmzone.h:33:31: warning: left shift count is negative [-Wshift-count-negative]
-      33 | #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
-         |                               ^~
-   mm/page_owner.c:526:43: note: in expansion of macro 'MAX_ORDER_NR_PAGES'
-     526 |         while (!pfn_valid(pfn) && (pfn & (MAX_ORDER_NR_PAGES - 1)) != 0)
-         |                                           ^~~~~~~~~~~~~~~~~~
->> include/linux/mmzone.h:33:31: warning: left shift count is negative [-Wshift-count-negative]
-      33 | #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
-         |                               ^~
-   mm/page_owner.c:543:29: note: in expansion of macro 'MAX_ORDER_NR_PAGES'
-     543 |                 if ((pfn & (MAX_ORDER_NR_PAGES - 1)) = 0 && !pfn_valid(pfn)) {
-         |                             ^~~~~~~~~~~~~~~~~~
->> include/linux/mmzone.h:33:31: warning: left shift count is negative [-Wshift-count-negative]
-      33 | #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
-         |                               ^~
-   mm/page_owner.c:544:32: note: in expansion of macro 'MAX_ORDER_NR_PAGES'
-     544 |                         pfn += MAX_ORDER_NR_PAGES - 1;
-         |                                ^~~~~~~~~~~~~~~~~~
-   mm/page_owner.c: In function 'init_pages_in_zone':
->> include/linux/mmzone.h:33:31: warning: left shift count is negative [-Wshift-count-negative]
-      33 | #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
-         |                               ^~
-   include/uapi/linux/const.h:32:50: note: in definition of macro '__ALIGN_KERNEL_MASK'
-      32 | #define __ALIGN_KERNEL_MASK(x, mask)    (((x) + (mask)) & ~(mask))
-         |                                                  ^~~~
-   include/linux/align.h:8:33: note: in expansion of macro '__ALIGN_KERNEL'
-       8 | #define ALIGN(x, a)             __ALIGN_KERNEL((x), (a))
-         |                                 ^~~~~~~~~~~~~~
-   mm/page_owner.c:636:31: note: in expansion of macro 'ALIGN'
-     636 |                         pfn = ALIGN(pfn + 1, MAX_ORDER_NR_PAGES);
-         |                               ^~~~~
-   mm/page_owner.c:636:46: note: in expansion of macro 'MAX_ORDER_NR_PAGES'
-     636 |                         pfn = ALIGN(pfn + 1, MAX_ORDER_NR_PAGES);
-         |                                              ^~~~~~~~~~~~~~~~~~
->> include/linux/mmzone.h:33:31: warning: left shift count is negative [-Wshift-count-negative]
-      33 | #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
-         |                               ^~
-   include/uapi/linux/const.h:32:61: note: in definition of macro '__ALIGN_KERNEL_MASK'
-      32 | #define __ALIGN_KERNEL_MASK(x, mask)    (((x) + (mask)) & ~(mask))
-         |                                                             ^~~~
-   include/linux/align.h:8:33: note: in expansion of macro '__ALIGN_KERNEL'
-       8 | #define ALIGN(x, a)             __ALIGN_KERNEL((x), (a))
-         |                                 ^~~~~~~~~~~~~~
-   mm/page_owner.c:636:31: note: in expansion of macro 'ALIGN'
-     636 |                         pfn = ALIGN(pfn + 1, MAX_ORDER_NR_PAGES);
-         |                               ^~~~~
-   mm/page_owner.c:636:46: note: in expansion of macro 'MAX_ORDER_NR_PAGES'
-     636 |                         pfn = ALIGN(pfn + 1, MAX_ORDER_NR_PAGES);
-         |                                              ^~~~~~~~~~~~~~~~~~
---
-   In file included from include/linux/kernel.h:26,
-                    from arch/arm64/include/asm/cpufeature.h:22,
-                    from arch/arm64/include/asm/ptrace.h:11,
-                    from arch/arm64/include/asm/irqflags.h:10,
-                    from include/linux/irqflags.h:16,
-                    from include/linux/spinlock.h:59,
-                    from include/linux/mmzone.h:8,
-                    from include/linux/gfp.h:7,
-                    from include/linux/mm.h:7,
-                    from mm/page_isolation.c:6:
-   mm/page_isolation.c: In function 'isolate_single_pageblock':
->> include/linux/mmzone.h:33:31: warning: left shift count is negative [-Wshift-count-negative]
-      33 | #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
-         |                               ^~
-   include/linux/minmax.h:28:27: note: in definition of macro '__cmp'
-      28 | #define __cmp(x, y, op) ((x) op (y) ? (x) : (y))
-         |                           ^
-   include/linux/minmax.h:74:25: note: in expansion of macro '__careful_cmp'
-      74 | #define max(x, y)       __careful_cmp(x, y, >)
-         |                         ^~~~~~~~~~~~~
-   mm/page_isolation.c:329:22: note: in expansion of macro 'max'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                      ^~~
-   include/uapi/linux/const.h:31:41: note: in expansion of macro '__ALIGN_KERNEL_MASK'
-      31 | #define __ALIGN_KERNEL(x, a)            __ALIGN_KERNEL_MASK(x, (typeof(x))(a) - 1)
-         |                                         ^~~~~~~~~~~~~~~~~~~
-   include/linux/align.h:9:33: note: in expansion of macro '__ALIGN_KERNEL'
-       9 | #define ALIGN_DOWN(x, a)        __ALIGN_KERNEL((x) - ((a) - 1), (a))
-         |                                 ^~~~~~~~~~~~~~
-   mm/page_isolation.c:329:26: note: in expansion of macro 'ALIGN_DOWN'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                          ^~~~~~~~~~
-   mm/page_isolation.c:329:56: note: in expansion of macro 'MAX_ORDER_NR_PAGES'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                                                        ^~~~~~~~~~~~~~~~~~
->> include/linux/mmzone.h:33:31: warning: left shift count is negative [-Wshift-count-negative]
-      33 | #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
-         |                               ^~
-   include/linux/minmax.h:28:27: note: in definition of macro '__cmp'
-      28 | #define __cmp(x, y, op) ((x) op (y) ? (x) : (y))
-         |                           ^
-   include/linux/minmax.h:74:25: note: in expansion of macro '__careful_cmp'
-      74 | #define max(x, y)       __careful_cmp(x, y, >)
-         |                         ^~~~~~~~~~~~~
-   mm/page_isolation.c:329:22: note: in expansion of macro 'max'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                      ^~~
-   include/uapi/linux/const.h:31:41: note: in expansion of macro '__ALIGN_KERNEL_MASK'
-      31 | #define __ALIGN_KERNEL(x, a)            __ALIGN_KERNEL_MASK(x, (typeof(x))(a) - 1)
-         |                                         ^~~~~~~~~~~~~~~~~~~
-   include/linux/align.h:9:33: note: in expansion of macro '__ALIGN_KERNEL'
-       9 | #define ALIGN_DOWN(x, a)        __ALIGN_KERNEL((x) - ((a) - 1), (a))
-         |                                 ^~~~~~~~~~~~~~
-   mm/page_isolation.c:329:26: note: in expansion of macro 'ALIGN_DOWN'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                          ^~~~~~~~~~
-   mm/page_isolation.c:329:56: note: in expansion of macro 'MAX_ORDER_NR_PAGES'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                                                        ^~~~~~~~~~~~~~~~~~
->> include/linux/mmzone.h:33:31: warning: left shift count is negative [-Wshift-count-negative]
-      33 | #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
-         |                               ^~
-   include/linux/minmax.h:28:27: note: in definition of macro '__cmp'
-      28 | #define __cmp(x, y, op) ((x) op (y) ? (x) : (y))
-         |                           ^
-   include/linux/minmax.h:74:25: note: in expansion of macro '__careful_cmp'
-      74 | #define max(x, y)       __careful_cmp(x, y, >)
-         |                         ^~~~~~~~~~~~~
-   mm/page_isolation.c:329:22: note: in expansion of macro 'max'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                      ^~~
-   include/uapi/linux/const.h:31:41: note: in expansion of macro '__ALIGN_KERNEL_MASK'
-      31 | #define __ALIGN_KERNEL(x, a)            __ALIGN_KERNEL_MASK(x, (typeof(x))(a) - 1)
-         |                                         ^~~~~~~~~~~~~~~~~~~
-   include/linux/align.h:9:33: note: in expansion of macro '__ALIGN_KERNEL'
-       9 | #define ALIGN_DOWN(x, a)        __ALIGN_KERNEL((x) - ((a) - 1), (a))
-         |                                 ^~~~~~~~~~~~~~
-   mm/page_isolation.c:329:26: note: in expansion of macro 'ALIGN_DOWN'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                          ^~~~~~~~~~
-   mm/page_isolation.c:329:56: note: in expansion of macro 'MAX_ORDER_NR_PAGES'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                                                        ^~~~~~~~~~~~~~~~~~
->> include/linux/mmzone.h:33:31: warning: left shift count is negative [-Wshift-count-negative]
-      33 | #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
-         |                               ^~
-   include/linux/minmax.h:28:40: note: in definition of macro '__cmp'
-      28 | #define __cmp(x, y, op) ((x) op (y) ? (x) : (y))
-         |                                        ^
-   include/linux/minmax.h:74:25: note: in expansion of macro '__careful_cmp'
-      74 | #define max(x, y)       __careful_cmp(x, y, >)
-         |                         ^~~~~~~~~~~~~
-   mm/page_isolation.c:329:22: note: in expansion of macro 'max'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                      ^~~
-   include/uapi/linux/const.h:31:41: note: in expansion of macro '__ALIGN_KERNEL_MASK'
-      31 | #define __ALIGN_KERNEL(x, a)            __ALIGN_KERNEL_MASK(x, (typeof(x))(a) - 1)
-         |                                         ^~~~~~~~~~~~~~~~~~~
-   include/linux/align.h:9:33: note: in expansion of macro '__ALIGN_KERNEL'
-       9 | #define ALIGN_DOWN(x, a)        __ALIGN_KERNEL((x) - ((a) - 1), (a))
-         |                                 ^~~~~~~~~~~~~~
-   mm/page_isolation.c:329:26: note: in expansion of macro 'ALIGN_DOWN'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                          ^~~~~~~~~~
-   mm/page_isolation.c:329:56: note: in expansion of macro 'MAX_ORDER_NR_PAGES'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                                                        ^~~~~~~~~~~~~~~~~~
->> include/linux/mmzone.h:33:31: warning: left shift count is negative [-Wshift-count-negative]
-      33 | #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
-         |                               ^~
-   include/linux/minmax.h:28:40: note: in definition of macro '__cmp'
-      28 | #define __cmp(x, y, op) ((x) op (y) ? (x) : (y))
-         |                                        ^
-   include/linux/minmax.h:74:25: note: in expansion of macro '__careful_cmp'
-      74 | #define max(x, y)       __careful_cmp(x, y, >)
-         |                         ^~~~~~~~~~~~~
-   mm/page_isolation.c:329:22: note: in expansion of macro 'max'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                      ^~~
-   include/uapi/linux/const.h:31:41: note: in expansion of macro '__ALIGN_KERNEL_MASK'
-      31 | #define __ALIGN_KERNEL(x, a)            __ALIGN_KERNEL_MASK(x, (typeof(x))(a) - 1)
-         |                                         ^~~~~~~~~~~~~~~~~~~
-   include/linux/align.h:9:33: note: in expansion of macro '__ALIGN_KERNEL'
-       9 | #define ALIGN_DOWN(x, a)        __ALIGN_KERNEL((x) - ((a) - 1), (a))
-         |                                 ^~~~~~~~~~~~~~
-   mm/page_isolation.c:329:26: note: in expansion of macro 'ALIGN_DOWN'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                          ^~~~~~~~~~
-   mm/page_isolation.c:329:56: note: in expansion of macro 'MAX_ORDER_NR_PAGES'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                                                        ^~~~~~~~~~~~~~~~~~
->> include/linux/mmzone.h:33:31: warning: left shift count is negative [-Wshift-count-negative]
-      33 | #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
-         |                               ^~
-   include/linux/minmax.h:28:40: note: in definition of macro '__cmp'
-      28 | #define __cmp(x, y, op) ((x) op (y) ? (x) : (y))
-         |                                        ^
-   include/linux/minmax.h:74:25: note: in expansion of macro '__careful_cmp'
-      74 | #define max(x, y)       __careful_cmp(x, y, >)
-         |                         ^~~~~~~~~~~~~
-   mm/page_isolation.c:329:22: note: in expansion of macro 'max'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                      ^~~
-   include/uapi/linux/const.h:31:41: note: in expansion of macro '__ALIGN_KERNEL_MASK'
-      31 | #define __ALIGN_KERNEL(x, a)            __ALIGN_KERNEL_MASK(x, (typeof(x))(a) - 1)
-         |                                         ^~~~~~~~~~~~~~~~~~~
-   include/linux/align.h:9:33: note: in expansion of macro '__ALIGN_KERNEL'
-       9 | #define ALIGN_DOWN(x, a)        __ALIGN_KERNEL((x) - ((a) - 1), (a))
-         |                                 ^~~~~~~~~~~~~~
-   mm/page_isolation.c:329:26: note: in expansion of macro 'ALIGN_DOWN'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                          ^~~~~~~~~~
-   mm/page_isolation.c:329:56: note: in expansion of macro 'MAX_ORDER_NR_PAGES'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                                                        ^~~~~~~~~~~~~~~~~~
->> include/linux/mmzone.h:33:31: warning: left shift count is negative [-Wshift-count-negative]
-      33 | #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
-         |                               ^~
-   include/linux/minmax.h:31:39: note: in definition of macro '__cmp_once'
-      31 |                 typeof(x) unique_x = (x);               \
-         |                                       ^
-   include/linux/minmax.h:74:25: note: in expansion of macro '__careful_cmp'
-      74 | #define max(x, y)       __careful_cmp(x, y, >)
-         |                         ^~~~~~~~~~~~~
-   mm/page_isolation.c:329:22: note: in expansion of macro 'max'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                      ^~~
-   include/uapi/linux/const.h:31:41: note: in expansion of macro '__ALIGN_KERNEL_MASK'
-      31 | #define __ALIGN_KERNEL(x, a)            __ALIGN_KERNEL_MASK(x, (typeof(x))(a) - 1)
-         |                                         ^~~~~~~~~~~~~~~~~~~
-   include/linux/align.h:9:33: note: in expansion of macro '__ALIGN_KERNEL'
-       9 | #define ALIGN_DOWN(x, a)        __ALIGN_KERNEL((x) - ((a) - 1), (a))
-         |                                 ^~~~~~~~~~~~~~
-   mm/page_isolation.c:329:26: note: in expansion of macro 'ALIGN_DOWN'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                          ^~~~~~~~~~
-   mm/page_isolation.c:329:56: note: in expansion of macro 'MAX_ORDER_NR_PAGES'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                                                        ^~~~~~~~~~~~~~~~~~
->> include/linux/mmzone.h:33:31: warning: left shift count is negative [-Wshift-count-negative]
-      33 | #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
-         |                               ^~
-   include/linux/minmax.h:31:39: note: in definition of macro '__cmp_once'
-      31 |                 typeof(x) unique_x = (x);               \
-         |                                       ^
-   include/linux/minmax.h:74:25: note: in expansion of macro '__careful_cmp'
-      74 | #define max(x, y)       __careful_cmp(x, y, >)
-         |                         ^~~~~~~~~~~~~
-   mm/page_isolation.c:329:22: note: in expansion of macro 'max'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                      ^~~
-   include/uapi/linux/const.h:31:41: note: in expansion of macro '__ALIGN_KERNEL_MASK'
-      31 | #define __ALIGN_KERNEL(x, a)            __ALIGN_KERNEL_MASK(x, (typeof(x))(a) - 1)
-         |                                         ^~~~~~~~~~~~~~~~~~~
-   include/linux/align.h:9:33: note: in expansion of macro '__ALIGN_KERNEL'
-       9 | #define ALIGN_DOWN(x, a)        __ALIGN_KERNEL((x) - ((a) - 1), (a))
-         |                                 ^~~~~~~~~~~~~~
-   mm/page_isolation.c:329:26: note: in expansion of macro 'ALIGN_DOWN'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                          ^~~~~~~~~~
-   mm/page_isolation.c:329:56: note: in expansion of macro 'MAX_ORDER_NR_PAGES'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                                                        ^~~~~~~~~~~~~~~~~~
->> include/linux/mmzone.h:33:31: warning: left shift count is negative [-Wshift-count-negative]
-      33 | #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
-         |                               ^~
-   include/linux/minmax.h:31:39: note: in definition of macro '__cmp_once'
-      31 |                 typeof(x) unique_x = (x);               \
-         |                                       ^
-   include/linux/minmax.h:74:25: note: in expansion of macro '__careful_cmp'
-      74 | #define max(x, y)       __careful_cmp(x, y, >)
-         |                         ^~~~~~~~~~~~~
-   mm/page_isolation.c:329:22: note: in expansion of macro 'max'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                      ^~~
-   include/uapi/linux/const.h:31:41: note: in expansion of macro '__ALIGN_KERNEL_MASK'
-      31 | #define __ALIGN_KERNEL(x, a)            __ALIGN_KERNEL_MASK(x, (typeof(x))(a) - 1)
-         |                                         ^~~~~~~~~~~~~~~~~~~
-   include/linux/align.h:9:33: note: in expansion of macro '__ALIGN_KERNEL'
-       9 | #define ALIGN_DOWN(x, a)        __ALIGN_KERNEL((x) - ((a) - 1), (a))
-         |                                 ^~~~~~~~~~~~~~
-   mm/page_isolation.c:329:26: note: in expansion of macro 'ALIGN_DOWN'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                          ^~~~~~~~~~
-   mm/page_isolation.c:329:56: note: in expansion of macro 'MAX_ORDER_NR_PAGES'
-     329 |         start_pfn  = max(ALIGN_DOWN(isolate_pageblock, MAX_ORDER_NR_PAGES),
-         |                                                        ^~~~~~~~~~~~~~~~~~
-..
+>> kernel/dma/pool.c:197:39: warning: shift count is negative [-Wshift-count-negative]
+                   pages = min_t(unsigned long, pages, MAX_ORDER_NR_PAGES);
+                                                       ^~~~~~~~~~~~~~~~~~
+   include/linux/mmzone.h:33:31: note: expanded from macro 'MAX_ORDER_NR_PAGES'
+   #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
+                                 ^  ~~~~~~~~~
+   include/linux/minmax.h:126:59: note: expanded from macro 'min_t'
+   #define min_t(type, x, y)       __careful_cmp((type)(x), (type)(y), <)
+                                                                   ^
+   include/linux/minmax.h:37:12: note: expanded from macro '__careful_cmp'
+                   __cmp(x, y, op), \
+                            ^
+   include/linux/minmax.h:28:34: note: expanded from macro '__cmp'
+   #define __cmp(x, y, op) ((x) op (y) ? (x) : (y))
+                                    ^
+>> kernel/dma/pool.c:197:39: warning: shift count is negative [-Wshift-count-negative]
+                   pages = min_t(unsigned long, pages, MAX_ORDER_NR_PAGES);
+                                                       ^~~~~~~~~~~~~~~~~~
+   include/linux/mmzone.h:33:31: note: expanded from macro 'MAX_ORDER_NR_PAGES'
+   #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
+                                 ^  ~~~~~~~~~
+   include/linux/minmax.h:126:59: note: expanded from macro 'min_t'
+   #define min_t(type, x, y)       __careful_cmp((type)(x), (type)(y), <)
+                                                                   ^
+   include/linux/minmax.h:37:12: note: expanded from macro '__careful_cmp'
+                   __cmp(x, y, op), \
+                            ^
+   include/linux/minmax.h:28:46: note: expanded from macro '__cmp'
+   #define __cmp(x, y, op) ((x) op (y) ? (x) : (y))
+                                                ^
+>> kernel/dma/pool.c:197:39: warning: shift count is negative [-Wshift-count-negative]
+                   pages = min_t(unsigned long, pages, MAX_ORDER_NR_PAGES);
+                                                       ^~~~~~~~~~~~~~~~~~
+   include/linux/mmzone.h:33:31: note: expanded from macro 'MAX_ORDER_NR_PAGES'
+   #define MAX_ORDER_NR_PAGES (1 << MAX_ORDER)
+                                 ^  ~~~~~~~~~
+   include/linux/minmax.h:126:59: note: expanded from macro 'min_t'
+   #define min_t(type, x, y)       __careful_cmp((type)(x), (type)(y), <)
+                                                                   ^
+   include/linux/minmax.h:38:17: note: expanded from macro '__careful_cmp'
+                   __cmp_once(x, y, __UNIQUE_ID(__x), __UNIQUE_ID(__y), op))
+                                 ^
+   include/linux/minmax.h:32:25: note: expanded from macro '__cmp_once'
+                   typeof(y) unique_y = (y);               \
+                                         ^
+   3 warnings generated.
 
 
-vim +16 include/linux/build_bug.h
+vim +739 drivers/iommu/dma-iommu.c
 
-bc6245e5efd70c Ian Abbott       2017-07-10   6  
-bc6245e5efd70c Ian Abbott       2017-07-10   7  #ifdef __CHECKER__
-bc6245e5efd70c Ian Abbott       2017-07-10   8  #define BUILD_BUG_ON_ZERO(e) (0)
-bc6245e5efd70c Ian Abbott       2017-07-10   9  #else /* __CHECKER__ */
-bc6245e5efd70c Ian Abbott       2017-07-10  10  /*
-bc6245e5efd70c Ian Abbott       2017-07-10  11   * Force a compilation error if condition is true, but also produce a
-8788994376d84d Rikard Falkeborn 2019-12-04  12   * result (of value 0 and type int), so the expression can be used
-bc6245e5efd70c Ian Abbott       2017-07-10  13   * e.g. in a structure initializer (or where-ever else comma expressions
-bc6245e5efd70c Ian Abbott       2017-07-10  14   * aren't permitted).
-bc6245e5efd70c Ian Abbott       2017-07-10  15   */
-8788994376d84d Rikard Falkeborn 2019-12-04 @16  #define BUILD_BUG_ON_ZERO(e) ((int)(sizeof(struct { int:(-!!(e)); })))
-527edbc18a70e7 Masahiro Yamada  2019-01-03  17  #endif /* __CHECKER__ */
-527edbc18a70e7 Masahiro Yamada  2019-01-03  18  
+0db2e5d18f76a6 Robin Murphy        2015-10-01  732  
+c4b17afb0a4e8d Ganapatrao Kulkarni 2018-11-30  733  static struct page **__iommu_dma_alloc_pages(struct device *dev,
+c4b17afb0a4e8d Ganapatrao Kulkarni 2018-11-30  734  		unsigned int count, unsigned long order_mask, gfp_t gfp)
+0db2e5d18f76a6 Robin Murphy        2015-10-01  735  {
+0db2e5d18f76a6 Robin Murphy        2015-10-01  736  	struct page **pages;
+c4b17afb0a4e8d Ganapatrao Kulkarni 2018-11-30  737  	unsigned int i = 0, nid = dev_to_node(dev);
+3b6b7e19e31a81 Robin Murphy        2016-04-13  738  
+98d56389a5e38b Kirill A. Shutemov  2023-03-15 @739  	order_mask &= GENMASK(MAX_ORDER, 0);
+3b6b7e19e31a81 Robin Murphy        2016-04-13  740  	if (!order_mask)
+3b6b7e19e31a81 Robin Murphy        2016-04-13  741  		return NULL;
+0db2e5d18f76a6 Robin Murphy        2015-10-01  742  
+ab6f4b001c8c72 Gustavo A. R. Silva 2021-09-28  743  	pages = kvcalloc(count, sizeof(*pages), GFP_KERNEL);
+0db2e5d18f76a6 Robin Murphy        2015-10-01  744  	if (!pages)
+0db2e5d18f76a6 Robin Murphy        2015-10-01  745  		return NULL;
+0db2e5d18f76a6 Robin Murphy        2015-10-01  746  
+0db2e5d18f76a6 Robin Murphy        2015-10-01  747  	/* IOMMU can map any pages, so himem can also be used here */
+0db2e5d18f76a6 Robin Murphy        2015-10-01  748  	gfp |= __GFP_NOWARN | __GFP_HIGHMEM;
+0db2e5d18f76a6 Robin Murphy        2015-10-01  749  
+0db2e5d18f76a6 Robin Murphy        2015-10-01  750  	while (count) {
+0db2e5d18f76a6 Robin Murphy        2015-10-01  751  		struct page *page = NULL;
+3b6b7e19e31a81 Robin Murphy        2016-04-13  752  		unsigned int order_size;
+0db2e5d18f76a6 Robin Murphy        2015-10-01  753  
+0db2e5d18f76a6 Robin Murphy        2015-10-01  754  		/*
+0db2e5d18f76a6 Robin Murphy        2015-10-01  755  		 * Higher-order allocations are a convenience rather
+0db2e5d18f76a6 Robin Murphy        2015-10-01  756  		 * than a necessity, hence using __GFP_NORETRY until
+3b6b7e19e31a81 Robin Murphy        2016-04-13  757  		 * falling back to minimum-order allocations.
+0db2e5d18f76a6 Robin Murphy        2015-10-01  758  		 */
+a706e6e10225fb Kirill A. Shutemov  2023-03-15  759  		for (order_mask &= GENMASK(__fls(count), 0);
+3b6b7e19e31a81 Robin Murphy        2016-04-13  760  		     order_mask; order_mask &= ~order_size) {
+3b6b7e19e31a81 Robin Murphy        2016-04-13  761  			unsigned int order = __fls(order_mask);
+c4b17afb0a4e8d Ganapatrao Kulkarni 2018-11-30  762  			gfp_t alloc_flags = gfp;
+3b6b7e19e31a81 Robin Murphy        2016-04-13  763  
+3b6b7e19e31a81 Robin Murphy        2016-04-13  764  			order_size = 1U << order;
+c4b17afb0a4e8d Ganapatrao Kulkarni 2018-11-30  765  			if (order_mask > order_size)
+c4b17afb0a4e8d Ganapatrao Kulkarni 2018-11-30  766  				alloc_flags |= __GFP_NORETRY;
+c4b17afb0a4e8d Ganapatrao Kulkarni 2018-11-30  767  			page = alloc_pages_node(nid, alloc_flags, order);
+0db2e5d18f76a6 Robin Murphy        2015-10-01  768  			if (!page)
+0db2e5d18f76a6 Robin Murphy        2015-10-01  769  				continue;
+4604393ca0c6e4 Robin Murphy        2020-09-03  770  			if (order)
+0db2e5d18f76a6 Robin Murphy        2015-10-01  771  				split_page(page, order);
+0db2e5d18f76a6 Robin Murphy        2015-10-01  772  			break;
+0db2e5d18f76a6 Robin Murphy        2015-10-01  773  		}
+0db2e5d18f76a6 Robin Murphy        2015-10-01  774  		if (!page) {
+0db2e5d18f76a6 Robin Murphy        2015-10-01  775  			__iommu_dma_free_pages(pages, i);
+0db2e5d18f76a6 Robin Murphy        2015-10-01  776  			return NULL;
+0db2e5d18f76a6 Robin Murphy        2015-10-01  777  		}
+3b6b7e19e31a81 Robin Murphy        2016-04-13  778  		count -= order_size;
+3b6b7e19e31a81 Robin Murphy        2016-04-13  779  		while (order_size--)
+0db2e5d18f76a6 Robin Murphy        2015-10-01  780  			pages[i++] = page++;
+0db2e5d18f76a6 Robin Murphy        2015-10-01  781  	}
+0db2e5d18f76a6 Robin Murphy        2015-10-01  782  	return pages;
+0db2e5d18f76a6 Robin Murphy        2015-10-01  783  }
+0db2e5d18f76a6 Robin Murphy        2015-10-01  784  
 
 -- 
 0-DAY CI Kernel Test Service
