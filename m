@@ -1,59 +1,46 @@
-From: Alexandre Ghiti <alexghiti@rivosinc.com>
-Date: Thu, 02 Mar 2023 09:35:25 +0000
-Subject: [PATCH v4 10/24] sparc: Remove COMMAND_LINE_SIZE from uapi
-Message-Id: <20230302093539.372962-11-alexghiti@rivosinc.com>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Thu, 23 Mar 2023 09:21:54 +0000
+Subject: [PATCH 12/14] sh: drop ranges for definition of ARCH_FORCE_MAX_ORDER
+Message-Id: <20230323092156.2545741-13-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230302093539.372962-1-alexghiti@rivosinc.com>
-In-Reply-To: <20230302093539.372962-1-alexghiti@rivosinc.com>
+References: <20230323092156.2545741-1-rppt@kernel.org>
+In-Reply-To: <20230323092156.2545741-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jonathan Corbet <corbet@lwn.net>, Richard Henderson <richard.henderson@linaro.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Vineet Gupta <vgupta@kernel.org>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E . J . Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Nicholas Piggin <npiggin@gmail.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S . Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H . Peter Anvin" <hpa@zytor.com>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, Arnd Bergmann <arnd@arndb.de>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org
-Cc: Palmer Dabbelt <palmer@rivosinc.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, "David S. Miller" <davem@davemloft.net>, Dinh Nguyen <dinguyen@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Guo Ren <guoren@kernel.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Max Filippov <jcmvbkbc@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Mike Rapoport <rppt@kernel.org>, Rich Felker <dalias@libc.org>, Russell King <linux@armlinux.org.uk>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Zi Yan <ziy@nvidia.com>, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mm@kvack.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
 
-From: Palmer Dabbelt <palmer@rivosinc.com>
+From: "Mike Rapoport (IBM)" <rppt@kernel.org>
 
-As far as I can tell this is not used by userspace and thus should not
-be part of the user-visible API.
+sh defines insane ranges for ARCH_FORCE_MAX_ORDER allowing MAX_ORDER
+up to 63, which implies maximal contiguous allocation size of 2^63
+pages.
 
-Signed-off-by: Palmer Dabbelt <palmer@rivosinc.com>
+Drop bogus definitions of ranges for ARCH_FORCE_MAX_ORDER and leave it a
+simple integer with sensible defaults.
+
+Users that *really* need to change the value of ARCH_FORCE_MAX_ORDER
+will be able to do so but they won't be mislead by the bogus ranges.
+
+Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
 ---
- arch/sparc/include/asm/setup.h      | 6 +++++-
- arch/sparc/include/uapi/asm/setup.h | 7 -------
- 2 files changed, 5 insertions(+), 8 deletions(-)
+ arch/sh/mm/Kconfig | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/arch/sparc/include/asm/setup.h b/arch/sparc/include/asm/setup.h
-index 72205684e51e..d1384ed92547 100644
---- a/arch/sparc/include/asm/setup.h
-+++ b/arch/sparc/include/asm/setup.h
-@@ -7,7 +7,11 @@
- 
- #include <linux/interrupt.h>
- 
--#include <uapi/asm/setup.h>
-+#if defined(__sparc__) && defined(__arch64__)
-+# define COMMAND_LINE_SIZE 2048
-+#else
-+# define COMMAND_LINE_SIZE 256
-+#endif
- 
- extern char reboot_command[];
- 
-diff --git a/arch/sparc/include/uapi/asm/setup.h b/arch/sparc/include/uapi/asm/setup.h
-index 3c208a4dd464..c3cf1b0d30b3 100644
---- a/arch/sparc/include/uapi/asm/setup.h
-+++ b/arch/sparc/include/uapi/asm/setup.h
-@@ -6,11 +6,4 @@
- #ifndef _UAPI_SPARC_SETUP_H
- #define _UAPI_SPARC_SETUP_H
- 
--#if defined(__sparc__) && defined(__arch64__)
--# define COMMAND_LINE_SIZE 2048
--#else
--# define COMMAND_LINE_SIZE 256
--#endif
--
--
- #endif /* _UAPI_SPARC_SETUP_H */
+diff --git a/arch/sh/mm/Kconfig b/arch/sh/mm/Kconfig
+index fb15ba1052ba..511c17aede4a 100644
+--- a/arch/sh/mm/Kconfig
++++ b/arch/sh/mm/Kconfig
+@@ -21,9 +21,7 @@ config PAGE_OFFSET
+ config ARCH_FORCE_MAX_ORDER
+ 	int "Order of maximal physically contiguous allocations"
+ 	default "8" if PAGE_SIZE_16KB
+-	range 6 63 if PAGE_SIZE_64KB
+ 	default "6" if PAGE_SIZE_64KB
+-	range 10 63
+ 	default "13" if !MMU
+ 	default "10"
+ 	help
 -- 
-2.37.2
+2.35.1
