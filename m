@@ -1,45 +1,44 @@
-From: Valentin Schneider <vschneid@redhat.com>
-Date: Tue, 07 Mar 2023 14:35:57 +0000
-Subject: [PATCH v5 6/7] smp: reword smp call IPI comment
-Message-Id: <20230307143558.294354-7-vschneid@redhat.com>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Thu, 23 Mar 2023 09:21:50 +0000
+Subject: [PATCH 08/14] nios2: drop ranges for definition of ARCH_FORCE_MAX_ORDER
+Message-Id: <20230323092156.2545741-9-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230307143558.294354-1-vschneid@redhat.com>
-In-Reply-To: <20230307143558.294354-1-vschneid@redhat.com>
+References: <20230323092156.2545741-1-rppt@kernel.org>
+In-Reply-To: <20230323092156.2545741-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org
-Cc: "Paul E. McKenney" <paulmck@kernel.org>, Steven Rostedt <rostedt@goodmis.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Juri Lelli <juri.lelli@redhat.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Marcelo Tosatti <mtosatti@redhat.com>, Frederic Weisbecker <frederic@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "H. Peter Anvin" <hpa@zytor.com>, Marc Zyngier <maz@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Russell King <linux@armlinux.org.uk>, Nicholas Piggin <npiggin@gmail.com>, Guo Ren <guoren@kernel.org>, "David S. Miller" <davem@davemloft.net>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, "David S. Miller" <davem@davemloft.net>, Dinh Nguyen <dinguyen@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Guo Ren <guoren@kernel.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Max Filippov <jcmvbkbc@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Mike Rapoport <rppt@kernel.org>, Rich Felker <dalias@libc.org>, Russell King <linux@armlinux.org.uk>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Zi Yan <ziy@nvidia.com>, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mm@kvack.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
 
-Accessing the call_single_queue hasn't involved a spinlock since 2014:
+From: "Mike Rapoport (IBM)" <rppt@kernel.org>
 
-  6897fc22ea01 ("kernel: use lockless list for smp_call_function_single")
+nios2 defines range for ARCH_FORCE_MAX_ORDER allowing MAX_ORDER
+up to 19, which implies maximal contiguous allocation size of 2^19
+pages or 2GiB.
 
-The llist operations (namely cmpxchg() and xchg()) provide similar ordering
-guarantees, update the comment to lessen confusion.
+Drop bogus definition of ranges for ARCH_FORCE_MAX_ORDER and leave it a
+simple integer with sensible default.
 
-Signed-off-by: Valentin Schneider <vschneid@redhat.com>
+Users that *really* need to change the value of ARCH_FORCE_MAX_ORDER
+will be able to do so but they won't be mislead by the bogus ranges.
+
+Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
 ---
- kernel/smp.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ arch/nios2/Kconfig | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/kernel/smp.c b/kernel/smp.c
-index 93b4386cd3096..821b5986721ac 100644
---- a/kernel/smp.c
-+++ b/kernel/smp.c
-@@ -495,9 +495,10 @@ void __smp_call_single_queue(int cpu, struct llist_node *node)
- #endif
+diff --git a/arch/nios2/Kconfig b/arch/nios2/Kconfig
+index fcaa6bbda3fc..e5936417d3cd 100644
+--- a/arch/nios2/Kconfig
++++ b/arch/nios2/Kconfig
+@@ -46,7 +46,6 @@ source "kernel/Kconfig.hz"
  
- 	/*
--	 * The list addition should be visible before sending the IPI
--	 * handler locks the list to pull the entry off it because of
--	 * normal cache coherency rules implied by spinlocks.
-+	 * The list addition should be visible to the target CPU when it pops
-+	 * the head of the list to pull the entry off it in the IPI handler
-+	 * because of normal cache coherency rules implied by the underlying
-+	 * llist ops.
- 	 *
- 	 * If IPIs can go out of order to the cache coherency protocol
- 	 * in an architecture, sufficient synchronisation should be added
+ config ARCH_FORCE_MAX_ORDER
+ 	int "Order of maximal physically contiguous allocations"
+-	range 8 19
+ 	default "10"
+ 	help
+ 	  The kernel page allocator limits the size of maximal physically
 -- 
-2.31.1
+2.35.1
