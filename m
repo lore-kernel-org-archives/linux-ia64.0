@@ -1,54 +1,59 @@
-From: Alexandre Ghiti <alexghiti@rivosinc.com>
-Date: Thu, 02 Mar 2023 09:35:31 +0000
-Subject: [PATCH v4 16/24] arm64: Remove empty <uapi/asm/setup.h>
-Message-Id: <20230302093539.372962-17-alexghiti@rivosinc.com>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Fri, 24 Mar 2023 05:22:20 +0000
+Subject: [PATCH v2 01/14] arm: reword ARCH_FORCE_MAX_ORDER prompt and help text
+Message-Id: <20230324052233.2654090-2-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230302093539.372962-1-alexghiti@rivosinc.com>
-In-Reply-To: <20230302093539.372962-1-alexghiti@rivosinc.com>
+References: <20230324052233.2654090-1-rppt@kernel.org>
+In-Reply-To: <20230324052233.2654090-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jonathan Corbet <corbet@lwn.net>, Richard Henderson <richard.henderson@linaro.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Vineet Gupta <vgupta@kernel.org>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E . J . Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Nicholas Piggin <npiggin@gmail.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Alexander Gordeev <agordeev@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Sven Schnelle <svens@linux.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S . Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, "H . Peter Anvin" <hpa@zytor.com>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, Arnd Bergmann <arnd@arndb.de>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org
-Cc: Palmer Dabbelt <palmer@rivosinc.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, "David S. Miller" <davem@davemloft.net>, Dinh Nguyen <dinguyen@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Guo Ren <guoren@kernel.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Max Filippov <jcmvbkbc@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Mike Rapoport <rppt@kernel.org>, Rich Felker <dalias@libc.org>, Russell King <linux@armlinux.org.uk>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Zi Yan <ziy@nvidia.com>, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mm@kvack.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
 
-From: Palmer Dabbelt <palmer@rivosinc.com>
+From: "Mike Rapoport (IBM)" <rppt@kernel.org>
 
-Signed-off-by: Palmer Dabbelt <palmer@rivosinc.com>
+The prompt and help text of ARCH_FORCE_MAX_ORDER are not even close to
+describe this configuration option.
+
+Update both to actually describe what this option does.
+
+Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
+Acked-by: Kirill A. Shutemov <kirill.shutemov@linux.intel.com>
 ---
- arch/arm64/include/uapi/asm/setup.h | 25 -------------------------
- 1 file changed, 25 deletions(-)
- delete mode 100644 arch/arm64/include/uapi/asm/setup.h
+ arch/arm/Kconfig | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
 
-diff --git a/arch/arm64/include/uapi/asm/setup.h b/arch/arm64/include/uapi/asm/setup.h
-deleted file mode 100644
-index f9f51e5925aa..000000000000
---- a/arch/arm64/include/uapi/asm/setup.h
-+++ /dev/null
-@@ -1,25 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
--/*
-- * Based on arch/arm/include/asm/setup.h
-- *
-- * Copyright (C) 1997-1999 Russell King
-- * Copyright (C) 2012 ARM Ltd.
-- *
-- * This program is free software; you can redistribute it and/or modify
-- * it under the terms of the GNU General Public License version 2 as
-- * published by the Free Software Foundation.
-- *
-- * This program is distributed in the hope that it will be useful,
-- * but WITHOUT ANY WARRANTY; without even the implied warranty of
-- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-- * GNU General Public License for more details.
-- *
-- * You should have received a copy of the GNU General Public License
-- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
-- */
--#ifndef __ASM_SETUP_H
--#define __ASM_SETUP_H
--
--#include <linux/types.h>
--
--#endif
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index 929e646e84b9..0b15384c62e6 100644
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -1354,17 +1354,19 @@ config ARM_MODULE_PLTS
+ 	  configurations. If unsure, say y.
+ 
+ config ARCH_FORCE_MAX_ORDER
+-	int "Maximum zone order"
++	int "Order of maximal physically contiguous allocations"
+ 	default "11" if SOC_AM33XX
+ 	default "8" if SA1111
+ 	default "10"
+ 	help
+-	  The kernel memory allocator divides physically contiguous memory
+-	  blocks into "zones", where each zone is a power of two number of
+-	  pages.  This option selects the largest power of two that the kernel
+-	  keeps in the memory allocator.  If you need to allocate very large
+-	  blocks of physically contiguous memory, then you may need to
+-	  increase this value.
++	  The kernel page allocator limits the size of maximal physically
++	  contiguous allocations. The limit is called MAX_ORDER and it
++	  defines the maximal power of two of number of pages that can be
++	  allocated as a single contiguous block. This option allows
++	  overriding the default setting when ability to allocate very
++	  large blocks of physically contiguous memory is required.
++
++	  Don't change if unsure.
+ 
+ config ALIGNMENT_TRAP
+ 	def_bool CPU_CP15_MMU
 -- 
-2.37.2
+2.35.1
