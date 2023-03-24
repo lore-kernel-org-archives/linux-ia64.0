@@ -1,8 +1,10 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Sat, 25 Mar 2023 06:08:14 +0000
-Subject: [PATCH v3 00/14] arch,mm: cleanup Kconfig entries for ARCH_FORCE_MAX_ORDER
-Message-Id: <20230325060828.2662773-1-rppt@kernel.org>
+Date: Fri, 24 Mar 2023 05:22:33 +0000
+Subject: [PATCH v2 14/14] xtensa: reword ARCH_FORCE_MAX_ORDER prompt and help text
+Message-Id: <20230324052233.2654090-15-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20230324052233.2654090-1-rppt@kernel.org>
+In-Reply-To: <20230324052233.2654090-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,95 +13,46 @@ Cc: Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, Ch
 
 From: "Mike Rapoport (IBM)" <rppt@kernel.org>
 
-Hi,
+The prompt and help text of ARCH_FORCE_MAX_ORDER are not even close to
+describe this configuration option.
 
-Several architectures have ARCH_FORCE_MAX_ORDER in their Kconfig and
-they all have wrong and misleading prompt and help text for this option.
+Update both to actually describe what this option does.
 
-Besides, some define insane limits for possible values of
-ARCH_FORCE_MAX_ORDER, some carefully define ranges only for a subset of
-possible configurations, some make this option configurable by users for no
-good reason.
+Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
+Reviewed-by: Max Filippov <jcmvbkbc@gmail.com>
+Acked-by: Kirill A. Shutemov <kirill.shutemov@linux.intel.com>
+---
+ arch/xtensa/Kconfig | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
 
-This set updates the prompt and help text everywhere and does its best to
-update actual definitions of ranges where applicable.
-
-kbuild generated a bunch of false positives because it assigns -1 to
-ARCH_FORCE_MAX_ORDER, hopefully this will be fixed soon.
-
-v3:
-* fix rebase fallouts (Zi Yan)
-
-v2: https://lore.kernel.org/all/20230324052233.2654090-1-rppt@kernel.org
-* arm64: show prompt for ARCH_FORCE_MAX_ORDER only if EXPERT (Catalin)
-* Add Acked- and Reviewed-by tags (thanks Geert, Kirill and Max)
-
-v1: https://lore.kernel.org/all/20230323092156.2545741-1-rppt@kernel.org
-
-Mike Rapoport (IBM) (14):
-  arm: reword ARCH_FORCE_MAX_ORDER prompt and help text
-  arm64: drop ranges in definition of ARCH_FORCE_MAX_ORDER
-  arm64: reword ARCH_FORCE_MAX_ORDER prompt and help text
-  csky: drop ARCH_FORCE_MAX_ORDER
-  ia64: don't allow users to override ARCH_FORCE_MAX_ORDER
-  m68k: reword ARCH_FORCE_MAX_ORDER prompt and help text
-  nios2: reword ARCH_FORCE_MAX_ORDER prompt and help text
-  nios2: drop ranges for definition of ARCH_FORCE_MAX_ORDER
-  powerpc: reword ARCH_FORCE_MAX_ORDER prompt and help text
-  powerpc: drop ranges for definition of ARCH_FORCE_MAX_ORDER
-  sh: reword ARCH_FORCE_MAX_ORDER prompt and help text
-  sh: drop ranges for definition of ARCH_FORCE_MAX_ORDER
-  sparc: reword ARCH_FORCE_MAX_ORDER prompt and help text
-  xtensa: reword ARCH_FORCE_MAX_ORDER prompt and help text
-
- arch/arm/Kconfig      | 16 +++++++++-------
- arch/arm64/Kconfig    | 26 ++++++++++++--------------
- arch/csky/Kconfig     |  4 ----
- arch/ia64/Kconfig     |  3 +--
- arch/m68k/Kconfig.cpu | 16 +++++++++-------
- arch/nios2/Kconfig    | 17 +++++++++--------
- arch/powerpc/Kconfig  | 22 +++++++++-------------
- arch/sh/mm/Kconfig    | 19 +++++++++----------
- arch/sparc/Kconfig    | 16 +++++++++-------
- arch/xtensa/Kconfig   | 16 +++++++++-------
- 10 files changed, 76 insertions(+), 79 deletions(-)
-
-
-base-commit: 51551d71edbc998fd8c8afa7312db3d270f5998e
--- 
-2.35.1
-
-*** BLURB HERE ***
-
-Mike Rapoport (IBM) (14):
-  arm: reword ARCH_FORCE_MAX_ORDER prompt and help text
-  arm64: drop ranges in definition of ARCH_FORCE_MAX_ORDER
-  arm64: reword ARCH_FORCE_MAX_ORDER prompt and help text
-  csky: drop ARCH_FORCE_MAX_ORDER
-  ia64: don't allow users to override ARCH_FORCE_MAX_ORDER
-  m68k: reword ARCH_FORCE_MAX_ORDER prompt and help text
-  nios2: reword ARCH_FORCE_MAX_ORDER prompt and help text
-  nios2: drop ranges for definition of ARCH_FORCE_MAX_ORDER
-  powerpc: reword ARCH_FORCE_MAX_ORDER prompt and help text
-  powerpc: drop ranges for definition of ARCH_FORCE_MAX_ORDER
-  sh: reword ARCH_FORCE_MAX_ORDER prompt and help text
-  sh: drop ranges for definition of ARCH_FORCE_MAX_ORDER
-  sparc: reword ARCH_FORCE_MAX_ORDER prompt and help text
-  xtensa: reword ARCH_FORCE_MAX_ORDER prompt and help text
-
- arch/arm/Kconfig      | 16 +++++++++-------
- arch/arm64/Kconfig    | 26 ++++++++++++--------------
- arch/csky/Kconfig     |  4 ----
- arch/ia64/Kconfig     |  3 +--
- arch/m68k/Kconfig.cpu | 16 +++++++++-------
- arch/nios2/Kconfig    | 17 +++++++++--------
- arch/powerpc/Kconfig  | 22 +++++++++-------------
- arch/sh/mm/Kconfig    | 19 +++++++++----------
- arch/sparc/Kconfig    | 16 +++++++++-------
- arch/xtensa/Kconfig   | 16 +++++++++-------
- 10 files changed, 76 insertions(+), 79 deletions(-)
-
-
-base-commit: 51551d71edbc998fd8c8afa7312db3d270f5998e
+diff --git a/arch/xtensa/Kconfig b/arch/xtensa/Kconfig
+index 3eee334ba873..3c6e5471f025 100644
+--- a/arch/xtensa/Kconfig
++++ b/arch/xtensa/Kconfig
+@@ -772,15 +772,17 @@ config HIGHMEM
+ 	  If unsure, say Y.
+ 
+ config ARCH_FORCE_MAX_ORDER
+-	int "Maximum zone order"
++	int "Order of maximal physically contiguous allocations"
+ 	default "10"
+ 	help
+-	  The kernel memory allocator divides physically contiguous memory
+-	  blocks into "zones", where each zone is a power of two number of
+-	  pages.  This option selects the largest power of two that the kernel
+-	  keeps in the memory allocator.  If you need to allocate very large
+-	  blocks of physically contiguous memory, then you may need to
+-	  increase this value.
++	  The kernel page allocator limits the size of maximal physically
++	  contiguous allocations. The limit is called MAX_ORDER and it
++	  defines the maximal power of two of number of pages that can be
++	  allocated as a single contiguous block. This option allows
++	  overriding the default setting when ability to allocate very
++	  large blocks of physically contiguous memory is required.
++
++	  Don't change if unsure.
+ 
+ endmenu
+ 
 -- 
 2.35.1
