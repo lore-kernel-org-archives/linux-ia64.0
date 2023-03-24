@@ -1,96 +1,102 @@
-From: Valentin Schneider <vschneid@redhat.com>
-Date: Wed, 22 Mar 2023 11:24:53 +0000
-Subject: Re: [PATCH v5 1/7] trace: Add trace_ipi_send_cpumask()
-Message-Id: <xhsmhpm91c9kq.mognet@vschneid.remote.csb>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Fri, 24 Mar 2023 05:22:19 +0000
+Subject: [PATCH v2 00/14] arch,mm: cleanup Kconfig entries for ARCH_FORCE_MAX_ORDER
+Message-Id: <20230324052233.2654090-1-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230307143558.294354-1-vschneid@redhat.com>
- <20230307143558.294354-2-vschneid@redhat.com>
- <20230322093955.GR2017917@hirez.programming.kicks-ass.net>
- <20230322103004.GA571242@hirez.programming.kicks-ass.net>
-In-Reply-To: <20230322103004.GA571242@hirez.programming.kicks-ass.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>
-Cc: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, Steven Rostedt <rostedt@goodmis.org>, "Paul E. McKenney" <paulmck@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Juri Lelli <juri.lelli@redhat.com>, Daniel Bristot de Oliveira <bristot@redhat.com>, Marcelo Tosatti <mtosatti@redhat.com>, Frederic Weisbecker <frederic@kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "H. Peter Anvin" <hpa@zytor.com>, Marc Zyngier <maz@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Russell King <linux@armlinux.org.uk>, Nicholas Piggin <npiggin@gmail.com>, Guo Ren <guoren@kernel.org>, "David S. Miller" <davem@davemloft.net>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, "David S. Miller" <davem@davemloft.net>, Dinh Nguyen <dinguyen@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Guo Ren <guoren@kernel.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Max Filippov <jcmvbkbc@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Mike Rapoport <rppt@kernel.org>, Rich Felker <dalias@libc.org>, Russell King <linux@armlinux.org.uk>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Zi Yan <ziy@nvidia.com>, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mm@kvack.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
 
-On 22/03/23 11:30, Peter Zijlstra wrote:
-> On Wed, Mar 22, 2023 at 10:39:55AM +0100, Peter Zijlstra wrote:
->> On Tue, Mar 07, 2023 at 02:35:52PM +0000, Valentin Schneider wrote:
->> > +TRACE_EVENT(ipi_send_cpumask,
->> > +
->> > +	TP_PROTO(const struct cpumask *cpumask, unsigned long callsite, void *callback),
->> > +
->> > +	TP_ARGS(cpumask, callsite, callback),
->> > +
->> > +	TP_STRUCT__entry(
->> > +		__cpumask(cpumask)
->> > +		__field(void *, callsite)
->> > +		__field(void *, callback)
->> > +	),
->> > +
->> > +	TP_fast_assign(
->> > +		__assign_cpumask(cpumask, cpumask_bits(cpumask));
->> > +		__entry->callsite = (void *)callsite;
->> > +		__entry->callback = callback;
->> > +	),
->> > +
->> > +	TP_printk("cpumask=%s callsite=%pS callback=%pS",
->> > +		  __get_cpumask(cpumask), __entry->callsite, __entry->callback)
->> > +);
->>
->> Would it make sense to add a variant like: ipi_send_cpu() that records a
->> single cpu instead of a cpumask. A lot of sites seems to do:
->> cpumask_of(cpu) for that first argument, and it seems to me it is quite
->> daft to have to memcpy a full multi-word cpumask in those cases.
->>
->> Remember, nr_possible_cpus > 64 is quite common these days.
->
-> Something we litte bit like so...
->
+From: "Mike Rapoport (IBM)" <rppt@kernel.org>
 
-I was wondering whether we could stick with a single trace event, but let
-ftrace be aware of weight=1 vs weight>1 cpumasks.
+Hi,
 
-For weight>1, it would memcpy() as usual, for weight=1, it could write a
-pointer to a cpu_bit_bitmap[] equivalent embedded in the trace itself.
+Several architectures have ARCH_FORCE_MAX_ORDER in their Kconfig and
+they all have wrong and misleading prompt and help text for this option.
 
-Unfortunately, Ftrace bitmasks are represented as a u32 made of two 16 bit
-values: [offset in event record, size], so there isn't a straightforward
-way to point to a "reusable" cpumask. AFAICT the only alternative would be
-to do that via a different trace event, but then we should just go with a
-plain old uint - i.e. do what you're doing here, so:
+Besides, some define insane limits for possible values of
+ARCH_FORCE_MAX_ORDER, some carefully define ranges only for a subset of
+possible configurations, some make this option configurable by users for no
+good reason.
 
-Tested-and-reviewed-by: Valentin Schneider <vschneid@redhat.com>
+This set updates the prompt and help text everywhere and does its best to
+update actual definitions of ranges where applicable.
 
-(with the tiny typo fix below)
+kbuild generated a bunch of false positives because it assigns -1 to
+ARCH_FORCE_MAX_ORDER, hopefully this will be fixed soon.
 
-> @@ -35,6 +35,28 @@ TRACE_EVENT(ipi_raise,
->       TP_printk("target_mask=%s (%s)", __get_bitmask(target_cpus), __entry->reason)
->  );
->
-> +TRACE_EVENT(ipi_send_cpu,
-> +
-> +	TP_PROTO(const unsigned int cpu, unsigned long callsite, void *callback),
-> +
-> +	TP_ARGS(cpu, callsite, callback),
-> +
-> +	TP_STRUCT__entry(
-> +		__field(unsigned int, cpu)
-> +		__field(void *, callsite)
-> +		__field(void *, callback)
-> +	),
-> +
-> +	TP_fast_assign(
-> +		__entry->cpu = cpu;
-> +		__entry->callsite = (void *)callsite;
-> +		__entry->callback = callback;
-> +	),
-> +
-> +	TP_printk("cpu=%s callsite=%pS callback=%pS",
-                        ^
-                      s/s/u/
+v2:
+* arm64: show prompt for ARCH_FORCE_MAX_ORDER only if EXPERT (Catalin)
+* Add Acked- and Reviewed-by tags (thanks Geert, Kirill and Max)
 
-> +		  __entry->cpu, __entry->callsite, __entry->callback)
-> +);
-> +
+v1: https://lore.kernel.org/all/20230323092156.2545741-1-rppt@kernel.org
+
+Mike Rapoport (IBM) (14):
+  arm: reword ARCH_FORCE_MAX_ORDER prompt and help text
+  arm64: drop ranges in definition of ARCH_FORCE_MAX_ORDER
+  arm64: reword ARCH_FORCE_MAX_ORDER prompt and help text
+  csky: drop ARCH_FORCE_MAX_ORDER
+  ia64: don't allow users to override ARCH_FORCE_MAX_ORDER
+  m68k: reword ARCH_FORCE_MAX_ORDER prompt and help text
+  nios2: reword ARCH_FORCE_MAX_ORDER prompt and help text
+  nios2: drop ranges for definition of ARCH_FORCE_MAX_ORDER
+  powerpc: reword ARCH_FORCE_MAX_ORDER prompt and help text
+  powerpc: drop ranges for definition of ARCH_FORCE_MAX_ORDER
+  sh: reword ARCH_FORCE_MAX_ORDER prompt and help text
+  sh: drop ranges for definition of ARCH_FORCE_MAX_ORDER
+  sparc: reword ARCH_FORCE_MAX_ORDER prompt and help text
+  xtensa: reword ARCH_FORCE_MAX_ORDER prompt and help text
+
+ arch/arm/Kconfig      | 16 +++++++++-------
+ arch/arm64/Kconfig    | 27 ++++++++++++---------------
+ arch/csky/Kconfig     |  4 ----
+ arch/ia64/Kconfig     |  3 +--
+ arch/m68k/Kconfig.cpu | 16 +++++++++-------
+ arch/nios2/Kconfig    | 17 +++++++++--------
+ arch/powerpc/Kconfig  | 22 +++++++++-------------
+ arch/sh/mm/Kconfig    | 19 +++++++++----------
+ arch/sparc/Kconfig    | 16 +++++++++-------
+ arch/xtensa/Kconfig   | 16 +++++++++-------
+ 10 files changed, 76 insertions(+), 80 deletions(-)
+
+
+base-commit: 51551d71edbc998fd8c8afa7312db3d270f5998e
+-- 
+2.35.1
+
+*** BLURB HERE ***
+
+Mike Rapoport (IBM) (14):
+  arm: reword ARCH_FORCE_MAX_ORDER prompt and help text
+  arm64: drop ranges in definition of ARCH_FORCE_MAX_ORDER
+  arm64: reword ARCH_FORCE_MAX_ORDER prompt and help text
+  csky: drop ARCH_FORCE_MAX_ORDER
+  ia64: don't allow users to override ARCH_FORCE_MAX_ORDER
+  m68k: reword ARCH_FORCE_MAX_ORDER prompt and help text
+  nios2: reword ARCH_FORCE_MAX_ORDER prompt and help text
+  nios2: drop ranges for definition of ARCH_FORCE_MAX_ORDER
+  powerpc: reword ARCH_FORCE_MAX_ORDER prompt and help text
+  powerpc: drop ranges for definition of ARCH_FORCE_MAX_ORDER
+  sh: reword ARCH_FORCE_MAX_ORDER prompt and help text
+  sh: drop ranges for definition of ARCH_FORCE_MAX_ORDER
+  sparc: reword ARCH_FORCE_MAX_ORDER prompt and help text
+  xtensa: reword ARCH_FORCE_MAX_ORDER prompt and help text
+
+ arch/arm/Kconfig      | 16 +++++++++-------
+ arch/arm64/Kconfig    | 26 ++++++++++++--------------
+ arch/csky/Kconfig     |  4 ----
+ arch/ia64/Kconfig     |  3 +--
+ arch/m68k/Kconfig.cpu | 16 +++++++++-------
+ arch/nios2/Kconfig    | 17 +++++++++--------
+ arch/powerpc/Kconfig  | 22 +++++++++-------------
+ arch/sh/mm/Kconfig    | 19 +++++++++----------
+ arch/sparc/Kconfig    | 16 +++++++++-------
+ arch/xtensa/Kconfig   | 16 +++++++++-------
+ 10 files changed, 76 insertions(+), 79 deletions(-)
+
+
+base-commit: 51551d71edbc998fd8c8afa7312db3d270f5998e
+-- 
+2.35.1
