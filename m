@@ -1,7 +1,7 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Sat, 25 Mar 2023 06:08:24 +0000
-Subject: [PATCH v3 10/14] powerpc: drop ranges for definition of ARCH_FORCE_MAX_ORDER
-Message-Id: <20230325060828.2662773-11-rppt@kernel.org>
+Date: Sat, 25 Mar 2023 06:08:15 +0000
+Subject: [PATCH v3 01/14] arm: reword ARCH_FORCE_MAX_ORDER prompt and help text
+Message-Id: <20230325060828.2662773-2-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20230325060828.2662773-1-rppt@kernel.org>
 In-Reply-To: <20230325060828.2662773-1-rppt@kernel.org>
@@ -13,44 +13,48 @@ Cc: Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, Ch
 
 From: "Mike Rapoport (IBM)" <rppt@kernel.org>
 
-PowerPC defines ranges for ARCH_FORCE_MAX_ORDER some of which are
-insanely allowing MAX_ORDER up to 63, which implies maximal contiguous
-allocation size of 2^63 pages.
+The prompt and help text of ARCH_FORCE_MAX_ORDER are not even close to
+describe this configuration option.
 
-Drop bogus definitions of ranges for ARCH_FORCE_MAX_ORDER and leave it a
-simple integer with sensible defaults.
-
-Users that *really* need to change the value of ARCH_FORCE_MAX_ORDER
-will be able to do so but they won't be mislead by the bogus ranges.
+Update both to actually describe what this option does.
 
 Acked-by: Kirill A. Shutemov <kirill.shutemov@linux.intel.com>
 Reviewed-by: Zi Yan <ziy@nvidia.com>
 Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
 ---
- arch/powerpc/Kconfig | 6 ------
- 1 file changed, 6 deletions(-)
+ arch/arm/Kconfig | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
 
-diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
-index c0095bf795ca..419be4a71004 100644
---- a/arch/powerpc/Kconfig
-+++ b/arch/powerpc/Kconfig
-@@ -897,17 +897,11 @@ config DATA_SHIFT
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index 929e646e84b9..0b15384c62e6 100644
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -1354,17 +1354,19 @@ config ARM_MODULE_PLTS
+ 	  configurations. If unsure, say y.
  
  config ARCH_FORCE_MAX_ORDER
- 	int "Order of maximal physically contiguous allocations"
--	range 7 8 if PPC64 && PPC_64K_PAGES
- 	default "8" if PPC64 && PPC_64K_PAGES
--	range 12 12 if PPC64 && !PPC_64K_PAGES
- 	default "12" if PPC64 && !PPC_64K_PAGES
--	range 8 63 if PPC32 && PPC_16K_PAGES
- 	default "8" if PPC32 && PPC_16K_PAGES
--	range 6 63 if PPC32 && PPC_64K_PAGES
- 	default "6" if PPC32 && PPC_64K_PAGES
--	range 4 63 if PPC32 && PPC_256K_PAGES
- 	default "4" if PPC32 && PPC_256K_PAGES
--	range 10 63
+-	int "Maximum zone order"
++	int "Order of maximal physically contiguous allocations"
+ 	default "11" if SOC_AM33XX
+ 	default "8" if SA1111
  	default "10"
  	help
- 	  The kernel page allocator limits the size of maximal physically
+-	  The kernel memory allocator divides physically contiguous memory
+-	  blocks into "zones", where each zone is a power of two number of
+-	  pages.  This option selects the largest power of two that the kernel
+-	  keeps in the memory allocator.  If you need to allocate very large
+-	  blocks of physically contiguous memory, then you may need to
+-	  increase this value.
++	  The kernel page allocator limits the size of maximal physically
++	  contiguous allocations. The limit is called MAX_ORDER and it
++	  defines the maximal power of two of number of pages that can be
++	  allocated as a single contiguous block. This option allows
++	  overriding the default setting when ability to allocate very
++	  large blocks of physically contiguous memory is required.
++
++	  Don't change if unsure.
+ 
+ config ALIGNMENT_TRAP
+ 	def_bool CPU_CP15_MMU
 -- 
 2.35.1
