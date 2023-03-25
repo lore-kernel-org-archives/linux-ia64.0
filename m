@@ -1,7 +1,7 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Sat, 25 Mar 2023 06:08:18 +0000
-Subject: [PATCH v3 04/14] csky: drop ARCH_FORCE_MAX_ORDER
-Message-Id: <20230325060828.2662773-5-rppt@kernel.org>
+Date: Sat, 25 Mar 2023 06:08:28 +0000
+Subject: [PATCH v3 14/14] xtensa: reword ARCH_FORCE_MAX_ORDER prompt and help text
+Message-Id: <20230325060828.2662773-15-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20230325060828.2662773-1-rppt@kernel.org>
 In-Reply-To: <20230325060828.2662773-1-rppt@kernel.org>
@@ -13,33 +13,47 @@ Cc: Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, Ch
 
 From: "Mike Rapoport (IBM)" <rppt@kernel.org>
 
-The default value of ARCH_FORCE_MAX_ORDER matches the generic default
-defined in the MM code, the architecture does not support huge pages, so
-there is no need to keep ARCH_FORCE_MAX_ORDER option available.
+The prompt and help text of ARCH_FORCE_MAX_ORDER are not even close to
+describe this configuration option.
 
-Drop it.
+Update both to actually describe what this option does.
 
+Reviewed-by: Max Filippov <jcmvbkbc@gmail.com>
 Acked-by: Kirill A. Shutemov <kirill.shutemov@linux.intel.com>
 Reviewed-by: Zi Yan <ziy@nvidia.com>
 Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
 ---
- arch/csky/Kconfig | 4 ----
- 1 file changed, 4 deletions(-)
+ arch/xtensa/Kconfig | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
 
-diff --git a/arch/csky/Kconfig b/arch/csky/Kconfig
-index c694fac43bed..00379a843c37 100644
---- a/arch/csky/Kconfig
-+++ b/arch/csky/Kconfig
-@@ -332,10 +332,6 @@ config HIGHMEM
- 	select KMAP_LOCAL
- 	default y
+diff --git a/arch/xtensa/Kconfig b/arch/xtensa/Kconfig
+index 3eee334ba873..3c6e5471f025 100644
+--- a/arch/xtensa/Kconfig
++++ b/arch/xtensa/Kconfig
+@@ -772,15 +772,17 @@ config HIGHMEM
+ 	  If unsure, say Y.
  
--config ARCH_FORCE_MAX_ORDER
+ config ARCH_FORCE_MAX_ORDER
 -	int "Maximum zone order"
--	default "10"
--
- config DRAM_BASE
- 	hex "DRAM start addr (the same with memory-section in dts)"
- 	default 0x0
++	int "Order of maximal physically contiguous allocations"
+ 	default "10"
+ 	help
+-	  The kernel memory allocator divides physically contiguous memory
+-	  blocks into "zones", where each zone is a power of two number of
+-	  pages.  This option selects the largest power of two that the kernel
+-	  keeps in the memory allocator.  If you need to allocate very large
+-	  blocks of physically contiguous memory, then you may need to
+-	  increase this value.
++	  The kernel page allocator limits the size of maximal physically
++	  contiguous allocations. The limit is called MAX_ORDER and it
++	  defines the maximal power of two of number of pages that can be
++	  allocated as a single contiguous block. This option allows
++	  overriding the default setting when ability to allocate very
++	  large blocks of physically contiguous memory is required.
++
++	  Don't change if unsure.
+ 
+ endmenu
+ 
 -- 
 2.35.1
