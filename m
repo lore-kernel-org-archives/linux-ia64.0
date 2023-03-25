@@ -1,10 +1,10 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Thu, 23 Mar 2023 09:21:47 +0000
-Subject: [PATCH 05/14] ia64: don't allow users to override ARCH_FORCE_MAX_ORDER
-Message-Id: <20230323092156.2545741-6-rppt@kernel.org>
+Date: Sat, 25 Mar 2023 06:08:18 +0000
+Subject: [PATCH v3 04/14] csky: drop ARCH_FORCE_MAX_ORDER
+Message-Id: <20230325060828.2662773-5-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230323092156.2545741-1-rppt@kernel.org>
-In-Reply-To: <20230323092156.2545741-1-rppt@kernel.org>
+References: <20230325060828.2662773-1-rppt@kernel.org>
+In-Reply-To: <20230325060828.2662773-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -13,29 +13,33 @@ Cc: Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, Ch
 
 From: "Mike Rapoport (IBM)" <rppt@kernel.org>
 
-It is enough to keep default values for base and huge pages without
-letting users to override ARCH_FORCE_MAX_ORDER.
+The default value of ARCH_FORCE_MAX_ORDER matches the generic default
+defined in the MM code, the architecture does not support huge pages, so
+there is no need to keep ARCH_FORCE_MAX_ORDER option available.
 
-Drop the prompt to make the option unvisible in *config.
+Drop it.
 
+Acked-by: Kirill A. Shutemov <kirill.shutemov@linux.intel.com>
+Reviewed-by: Zi Yan <ziy@nvidia.com>
 Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
 ---
- arch/ia64/Kconfig | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ arch/csky/Kconfig | 4 ----
+ 1 file changed, 4 deletions(-)
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 0d2f41fa56ee..b61437cae162 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -202,8 +202,7 @@ config IA64_CYCLONE
- 	  If you're unsure, answer N.
+diff --git a/arch/csky/Kconfig b/arch/csky/Kconfig
+index c694fac43bed..00379a843c37 100644
+--- a/arch/csky/Kconfig
++++ b/arch/csky/Kconfig
+@@ -332,10 +332,6 @@ config HIGHMEM
+ 	select KMAP_LOCAL
+ 	default y
  
- config ARCH_FORCE_MAX_ORDER
--	int "MAX_ORDER (10 - 16)"  if !HUGETLB_PAGE
--	range 10 16  if !HUGETLB_PAGE
-+	int
- 	default "16" if HUGETLB_PAGE
- 	default "10"
- 
+-config ARCH_FORCE_MAX_ORDER
+-	int "Maximum zone order"
+-	default "10"
+-
+ config DRAM_BASE
+ 	hex "DRAM start addr (the same with memory-section in dts)"
+ 	default 0x0
 -- 
 2.35.1
