@@ -1,10 +1,10 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Fri, 24 Mar 2023 05:22:33 +0000
-Subject: [PATCH v2 14/14] xtensa: reword ARCH_FORCE_MAX_ORDER prompt and help text
-Message-Id: <20230324052233.2654090-15-rppt@kernel.org>
+Date: Sat, 25 Mar 2023 06:08:23 +0000
+Subject: [PATCH v3 09/14] powerpc: reword ARCH_FORCE_MAX_ORDER prompt and help text
+Message-Id: <20230325060828.2662773-10-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230324052233.2654090-1-rppt@kernel.org>
-In-Reply-To: <20230324052233.2654090-1-rppt@kernel.org>
+References: <20230325060828.2662773-1-rppt@kernel.org>
+In-Reply-To: <20230325060828.2662773-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -18,23 +18,28 @@ describe this configuration option.
 
 Update both to actually describe what this option does.
 
-Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
-Reviewed-by: Max Filippov <jcmvbkbc@gmail.com>
 Acked-by: Kirill A. Shutemov <kirill.shutemov@linux.intel.com>
+Reviewed-by: Zi Yan <ziy@nvidia.com>
+Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
 ---
- arch/xtensa/Kconfig | 16 +++++++++-------
+ arch/powerpc/Kconfig | 16 +++++++++-------
  1 file changed, 9 insertions(+), 7 deletions(-)
 
-diff --git a/arch/xtensa/Kconfig b/arch/xtensa/Kconfig
-index 3eee334ba873..3c6e5471f025 100644
---- a/arch/xtensa/Kconfig
-+++ b/arch/xtensa/Kconfig
-@@ -772,15 +772,17 @@ config HIGHMEM
- 	  If unsure, say Y.
+diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
+index 24d56536b269..c0095bf795ca 100644
+--- a/arch/powerpc/Kconfig
++++ b/arch/powerpc/Kconfig
+@@ -896,7 +896,7 @@ config DATA_SHIFT
+ 	  8M pages will be pinned.
  
  config ARCH_FORCE_MAX_ORDER
 -	int "Maximum zone order"
 +	int "Order of maximal physically contiguous allocations"
+ 	range 7 8 if PPC64 && PPC_64K_PAGES
+ 	default "8" if PPC64 && PPC_64K_PAGES
+ 	range 12 12 if PPC64 && !PPC_64K_PAGES
+@@ -910,17 +910,19 @@ config ARCH_FORCE_MAX_ORDER
+ 	range 10 63
  	default "10"
  	help
 -	  The kernel memory allocator divides physically contiguous memory
@@ -49,10 +54,15 @@ index 3eee334ba873..3c6e5471f025 100644
 +	  allocated as a single contiguous block. This option allows
 +	  overriding the default setting when ability to allocate very
 +	  large blocks of physically contiguous memory is required.
-+
+ 
+ 	  The page size is not necessarily 4KB.  For example, on 64-bit
+ 	  systems, 64KB pages can be enabled via CONFIG_PPC_64K_PAGES.  Keep
+ 	  this in mind when choosing a value for this option.
+ 
 +	  Don't change if unsure.
- 
- endmenu
- 
++
+ config PPC_SUBPAGE_PROT
+ 	bool "Support setting protections for 4k subpages (subpage_prot syscall)"
+ 	default n
 -- 
 2.35.1
