@@ -1,10 +1,10 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Fri, 24 Mar 2023 05:22:24 +0000
-Subject: [PATCH v2 05/14] ia64: don't allow users to override ARCH_FORCE_MAX_ORDER
-Message-Id: <20230324052233.2654090-6-rppt@kernel.org>
+Date: Sat, 25 Mar 2023 06:08:21 +0000
+Subject: [PATCH v3 07/14] nios2: reword ARCH_FORCE_MAX_ORDER prompt and help text
+Message-Id: <20230325060828.2662773-8-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230324052233.2654090-1-rppt@kernel.org>
-In-Reply-To: <20230324052233.2654090-1-rppt@kernel.org>
+References: <20230325060828.2662773-1-rppt@kernel.org>
+In-Reply-To: <20230325060828.2662773-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -13,30 +13,47 @@ Cc: Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, Ch
 
 From: "Mike Rapoport (IBM)" <rppt@kernel.org>
 
-It is enough to keep default values for base and huge pages without
-letting users to override ARCH_FORCE_MAX_ORDER.
+The prompt and help text of ARCH_FORCE_MAX_ORDER are not even close to
+describe this configuration option.
 
-Drop the prompt to make the option unvisible in *config.
+Update both to actually describe what this option does.
 
-Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
 Acked-by: Kirill A. Shutemov <kirill.shutemov@linux.intel.com>
+Reviewed-by: Zi Yan <ziy@nvidia.com>
+Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
 ---
- arch/ia64/Kconfig | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ arch/nios2/Kconfig | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 0d2f41fa56ee..b61437cae162 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -202,8 +202,7 @@ config IA64_CYCLONE
- 	  If you're unsure, answer N.
+diff --git a/arch/nios2/Kconfig b/arch/nios2/Kconfig
+index 89708b95978c..fcaa6bbda3fc 100644
+--- a/arch/nios2/Kconfig
++++ b/arch/nios2/Kconfig
+@@ -45,16 +45,18 @@ menu "Kernel features"
+ source "kernel/Kconfig.hz"
  
  config ARCH_FORCE_MAX_ORDER
--	int "MAX_ORDER (10 - 16)"  if !HUGETLB_PAGE
--	range 10 16  if !HUGETLB_PAGE
-+	int
- 	default "16" if HUGETLB_PAGE
+-	int "Maximum zone order"
++	int "Order of maximal physically contiguous allocations"
+ 	range 8 19
  	default "10"
+ 	help
+-	  The kernel memory allocator divides physically contiguous memory
+-	  blocks into "zones", where each zone is a power of two number of
+-	  pages.  This option selects the largest power of two that the kernel
+-	  keeps in the memory allocator.  If you need to allocate very large
+-	  blocks of physically contiguous memory, then you may need to
+-	  increase this value.
++	  The kernel page allocator limits the size of maximal physically
++	  contiguous allocations. The limit is called MAX_ORDER and it
++	  defines the maximal power of two of number of pages that can be
++	  allocated as a single contiguous block. This option allows
++	  overriding the default setting when ability to allocate very
++	  large blocks of physically contiguous memory is required.
++
++	  Don't change if unsure.
+ 
+ endmenu
  
 -- 
 2.35.1
