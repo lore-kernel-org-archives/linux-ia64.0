@@ -1,109 +1,82 @@
-From: Thomas Zimmermann <tzimmermann@suse.de>
-Date: Thu, 06 Apr 2023 14:06:35 +0000
-Subject: Re: [PATCH 01/18] fbdev: Prepare generic architecture helpers
-Message-Id: <71e5450f-aad2-1f7c-a961-c0b0fce62eea@suse.de>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------5BePbc0zJRAG34NMI313OlgI"
+From: Gavin Shan <gshan@redhat.com>
+Date: Mon, 03 Apr 2023 06:25:36 +0000
+Subject: Re: [RFC PATCH 00/32] ACPI/arm64: add support for virtual cpuhotplug
+Message-Id: <972ed7df-78cd-e02a-7376-78c806181b5f@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230405150554.30540-1-tzimmermann@suse.de>
- <20230405150554.30540-2-tzimmermann@suse.de>
- <92fe3838-41f0-4e27-8467-161553ff724f@app.fastmail.com>
-In-Reply-To: <92fe3838-41f0-4e27-8467-161553ff724f@app.fastmail.com>
-To: Arnd Bergmann <arnd@arndb.de>, Daniel Vetter <daniel.vetter@ffwll.ch>, Helge Deller <deller@gmx.de>, Javier Martinez Canillas <javierm@redhat.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Linux-Arch <linux-arch@vger.kernel.org>, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org
+References: <20230203135043.409192-1-james.morse@arm.com>
+ <e17627fb-283e-dd42-94c1-f89dea167577@redhat.com>
+In-Reply-To: <e17627fb-283e-dd42-94c1-f89dea167577@redhat.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Shaoqin Huang <shahuang@redhat.com>, James Morse <james.morse@arm.com>, linux-pm@vger.kernel.org, loongarch@lists.linux.dev, kvmarm@lists.linux.dev, kvm@vger.kernel.org, linux-acpi@vger.kernel.org, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
+Cc: Marc Zyngier <maz@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Lorenzo Pieralisi <lpieralisi@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Sudeep Holla <sudeep.holla@arm.com>, Borislav Petkov <bp@alien8.de>, H Peter Anvin <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will@kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, Huacai Chen <chenhuacai@kernel.org>, Suzuki K Poulose <suzuki.poulose@arm.com>, Oliver Upton <oliver.upton@linux.dev>, Len Brown <lenb@kernel.org>, Rafael Wysocki <rafael@kernel.org>, WANG Xuerui <kernel@xen0n.name>, Salil Mehta <salil.mehta@huawei.com>, Russell King <linux@armlinux.org.uk>, Jean-Philippe Brucker <jean-philippe@linaro.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---------------5BePbc0zJRAG34NMI313OlgI
-Content-Type: multipart/mixed; boundary="------------MODvgaz0WeNglR1dVG2UtKLY";
- protected-headers="v1"
-From: Thomas Zimmermann <tzimmermann@suse.de>
-To: Arnd Bergmann <arnd@arndb.de>, Daniel Vetter <daniel.vetter@ffwll.ch>,
- Helge Deller <deller@gmx.de>, Javier Martinez Canillas <javierm@redhat.com>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Linux-Arch <linux-arch@vger.kernel.org>, linux-fbdev@vger.kernel.org,
- dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- linux-ia64@vger.kernel.org, loongarch@lists.linux.dev,
- linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org,
- linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
- linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org
-Message-ID: <71e5450f-aad2-1f7c-a961-c0b0fce62eea@suse.de>
-Subject: Re: [PATCH 01/18] fbdev: Prepare generic architecture helpers
-References: <20230405150554.30540-1-tzimmermann@suse.de>
- <20230405150554.30540-2-tzimmermann@suse.de>
- <92fe3838-41f0-4e27-8467-161553ff724f@app.fastmail.com>
-In-Reply-To: <92fe3838-41f0-4e27-8467-161553ff724f@app.fastmail.com>
+Hi Shaoqin,
 
---------------MODvgaz0WeNglR1dVG2UtKLY
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: base64
+On 3/29/23 1:52 PM, Shaoqin Huang wrote:
+> On 2/3/23 21:50, James Morse wrote:
 
-SGkNCg0KQW0gMDUuMDQuMjMgdW0gMTc6NTMgc2NocmllYiBBcm5kIEJlcmdtYW5uOg0KPiBP
-biBXZWQsIEFwciA1LCAyMDIzLCBhdCAxNzowNSwgVGhvbWFzIFppbW1lcm1hbm4gd3JvdGU6
-DQo+PiBHZW5lcmljIGltcGxlbWVudGF0aW9ucyBvZiBmYl9wZ3Byb3RlY3QoKSBhbmQgZmJf
-aXNfcHJpbWFyeV9kZXZpY2UoKQ0KPj4gaGF2ZSBiZWVuIGluIHRoZSBzb3VyY2UgY29kZSBm
-b3IgYSBsb25nIHRpbWUuIFByZXBhcmUgdGhlIGhlYWRlciBmaWxlDQo+PiB0byBtYWtlIHVz
-ZSBvZiB0aGVtLg0KPj4NCj4+IEltcHJvdmUgdGhlIGNvZGUgYnkgdXNpbmcgYW4gaW5saW5l
-IGZ1bmN0aW9uIGZvciBmYl9wZ3Byb3RlY3QoKSBhbmQNCj4+IGJ5IHJlbW92aW5nIGluY2x1
-ZGUgc3RhdGVtZW50cy4NCj4+DQo+PiBTeW1ib2xzIGFyZSBwcm90ZWN0ZWQgYnkgcHJlcHJv
-Y2Vzc29yIGd1YXJkcy4gQXJjaGl0ZWN0dXJlcyB0aGF0DQo+PiBwcm92aWRlIGEgc3ltYm9s
-IG5lZWQgdG8gZGVmaW5lIGEgcHJlcHJvY2Vzc29yIHRva2VuIG9mIHRoZSBzYW1lDQo+PiBu
-YW1lIGFuZCB2YWx1ZS4gT3RoZXJ3aXNlIHRoZSBoZWFkZXIgZmlsZSB3aWxsIHByb3ZpZGUg
-YSBnZW5lcmljDQo+PiBpbXBsZW1lbnRhdGlvbi4gVGhpcyBwYXR0ZXJuIGhhcyBiZWVuIHRh
-a2VuIGZyb20gPGFzbS9pby5oPi4NCj4+DQo+PiBTaWduZWQtb2ZmLWJ5OiBUaG9tYXMgWmlt
-bWVybWFubiA8dHppbW1lcm1hbm5Ac3VzZS5kZT4NCj4gDQo+IE1vdmluZyB0aGlzIGludG8g
-Z2VuZXJpYyBjb2RlIGlzIGdvb2QsIGJ1dCBJJ20gbm90IHN1cmUNCj4gYWJvdXQgdGhlIGRl
-ZmF1bHQgZm9yIGZiX3BncHJvdGVjdCgpOg0KPiANCj4+ICsNCj4+ICsjaWZuZGVmIGZiX3Bn
-cHJvdGVjdA0KPj4gKyNkZWZpbmUgZmJfcGdwcm90ZWN0IGZiX3BncHJvdGVjdA0KPj4gK3N0
-YXRpYyBpbmxpbmUgdm9pZCBmYl9wZ3Byb3RlY3Qoc3RydWN0IGZpbGUgKmZpbGUsIHN0cnVj
-dCB2bV9hcmVhX3N0cnVjdCAqdm1hLA0KPj4gKwkJCQl1bnNpZ25lZCBsb25nIG9mZikNCj4+
-ICt7IH0NCj4+ICsjZW5kaWYNCj4gDQo+IEkgdGhpbmsgbW9zdCBhcmNoaXRlY3R1cmVzIHdp
-bGwgd2FudCB0aGUgdmVyc2lvbiB3ZSBoYXZlIG9uDQo+IGFyYywgYXJtLCBhcm02NCwgbG9v
-bmdhcmNoLCBhbmQgc2ggYWxyZWFkeToNCj4gDQo+IHN0YXRpYyBpbmxpbmUgdm9pZCBmYl9w
-Z3Byb3RlY3Qoc3RydWN0IGZpbGUgKmZpbGUsIHN0cnVjdCB2bV9hcmVhX3N0cnVjdCAqdm1h
-LA0KPiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB1bnNpZ25lZCBsb25nIG9m
-ZikNCj4gew0KPiAgICAgICAgIHZtYS0+dm1fcGFnZV9wcm90ID0gcGdwcm90X3dyaXRlY29t
-YmluZSh2bWEtPnZtX3BhZ2VfcHJvdCk7DQo+IH0NCj4gDQo+IHNvIEknZCBzdWdnZXN0IG1h
-a2luZyB0aGF0IHZlcnNpb24gdGhlIGRlZmF1bHQsIGFuZCB0cmVhdGluZyB0aGUNCj4gZW1w
-dHkgb25lcyAobTY4a25vbW11LCBzcGFyYzMyKSBhcyBhcmNoaXRlY3R1cmUgc3BlY2lmaWMN
-Cj4gd29ya2Fyb3VuZHMuDQo+IA0KPiBJIHNlZSB0aGF0IHNwYXJjNjQgYW5kIHBhcmlzYyB1
-c2UgcGdwcm90X3VuY2FjaGVkIGhlcmUsIGJ1dCBhcw0KPiB0aGV5IGRvbid0IGRlZmluZSBh
-IGN1c3RvbSBwZ3Byb3Rfd3JpdGVjb21iaW5lLCB0aGlzIGVuZHMgdXAgYmVpbmcNCj4gdGhl
-IHNhbWUsIGFuZCB0aGV5IGNhbiB1c2UgdGhlIGFib3ZlIGRlZmluaXRpb24gYXMgd2VsbC4N
-Cj4gDQo+IG1pcHMgZGVmaW5lcyBwZ3Byb3Rfd3JpdGVjb21iaW5lIGJ1dCB1c2VzIHBncHJv
-dF9ub25jYWNoZWQNCj4gaW4gZmJfcGdwcm90ZWN0KCksIHdoaWNoIGlzIHByb2JhYmx5IGEg
-bWlzdGFrZSBhbmQgc2hvdWxkIGhhdmUNCj4gYmVlbiB1cGRhdGVkIGFzIHBhcnQgb2YgY29t
-bWl0IDRiMDUwYmE3YTY2YyAoIk1JUFM6IHBndGFibGUuaDoNCj4gSW1wbGVtZW50IHRoZSBw
-Z3Byb3Rfd3JpdGVjb21iaW5lIGZ1bmN0aW9uIGZvciBNSVBTIikuDQoNCkkgd291bGQgbm90
-IHdhbnQgdG8gY2hhbmdlIGFueSBvZiB0aGUgb3RoZXIgcGxhdGZvcm0ncyBmdW5jdGlvbnMg
-dW5sZXNzIA0KdGhlIHJzcCBwbGF0Zm9ybSBtYWludGFpbmVycyBhc2sgbWUgdG8uDQoNCkJl
-c3QgcmVnYXJkcw0KVGhvbWFzDQoNCj4gDQo+ICAgICAgQXJuZA0KDQotLSANClRob21hcyBa
-aW1tZXJtYW5uDQpHcmFwaGljcyBEcml2ZXIgRGV2ZWxvcGVyDQpTVVNFIFNvZnR3YXJlIFNv
-bHV0aW9ucyBHZXJtYW55IEdtYkgNCk1heGZlbGRzdHIuIDUsIDkwNDA5IE7DvHJuYmVyZywg
-R2VybWFueQ0KKEhSQiAzNjgwOSwgQUcgTsO8cm5iZXJnKQ0KR2VzY2jDpGZ0c2bDvGhyZXI6
-IEl2byBUb3Rldg0K
+[...]
 
---------------MODvgaz0WeNglR1dVG2UtKLY--
+>>
+>> The first patch has already been posted as a fix here:
+>> https://www.spinics.net/lists/linux-ia64/msg21920.html
+>> I've only build tested Loongarch and ia64.
+>>
+>>
+>> If folk want to play along at home, you'll need a copy of Qemu that supports this.
+>> https://github.com/salil-mehta/qemu.git salil/virt-cpuhp-armv8/rfc-v1-port29092022.psci.present
+>>
+>> You'll need to fix the numbers of KVM_CAP_ARM_HVC_TO_USER and KVM_CAP_ARM_PSCI_TO_USER
+>> to match your host kernel. Replace your '-smp' argument with something like:
+>> | -smp cpus=1,maxcpus=3,cores=3,threads=1,sockets=1
+>>
+>> then feed the following to the Qemu montior;
+>> | (qemu) device_add driver=host-arm-cpu,core-id=1,id=cpu1
+>> | (qemu) device_del cpu1
+>>
+>>
+>> This series is based on v6.2-rc3, and can be retrieved from:
+>> https://git.kernel.org/pub/scm/linux/kernel/git/morse/linux.git/ virtual_cpu_hotplug/rfc/v1
+> 
+> I applied this patch series on v6.2-rc3 and using the QEMU cloned from the salil-mehta/qemu.git repo. But when I try to run the QEMU, it shows:
+> 
+> $ qemu-system-aarch64: -accel kvm: Failed to enable KVM_CAP_ARM_PSCI_TO_USER cap.
+> 
+> Here is the command I use:
+> 
+> $ qemu-system-aarch64
+> -machine virt
+> -bios /usr/share/qemu-efi-aarch64/QEMU_EFI.fd
+> -accel kvm
+> -m 4096
+> -smp cpus=1,maxcpus=3,cores=3,threads=1,sockets=1
+> -cpu host
+> -qmp unix:./src.socket,server,nowait
+> -hda ./XXX.qcow2
+> -serial unix:./src.serial,server,nowait
+> -monitor stdio
+> 
+> It seems something related to your notice: You'll need to fix the numbers of KVM_CAP_ARM_HVC_TO_USER and KVM_CAP_ARM_PSCI_TO_USER
+> to match your host kernel.
+> 
+> But I'm not actually understand what should I fix, since I haven't review the patch series. Could you give me some more information? Maybe I'm doing something wrong.
+> 
 
---------------5BePbc0zJRAG34NMI313OlgI
-Content-Type: application/pgp-signature; name="OpenPGP_signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="OpenPGP_signature"
+When the kernel is rebased to v6.2.rc3, the two capabilities are conflictsing
+between QEMU and host kernel. Please adjust them like below and have a try:
 
------BEGIN PGP SIGNATURE-----
+In qemu/linux-headers/linux/kvm.h
 
-wsF5BAABCAAjFiEExndm/fpuMUdwYFFolh/E3EQov+AFAmQu0esFAwAAAAAACgkQlh/E3EQov+A3
-+Q//XOh61SSsVY48Py2Qalvs1ZdXTTRJozsv2OV7IZPGNx2cNXvMk7k0wZz2OwgpV4+lWxgq+yvD
-An33+eafJLUSvtNpjYl5omC4MaOfnHk5CdOFw+exisXyQs+mN4fFeZRfaG8pEloJPbr5hz1Ecl9G
-D0eey1O1uv8TDN/grrY6+6TyOnYQGFmpYYRrE4gKaL5EdRKy1Zs0BQSWXe0sV/4iaAEpJzPuhcfA
-S2EHgrw1S024RFR0tpttyy8RilJa2qahDL8iWrhLIfo3S0ufRvtGLm2QW2K+/x7lOufPlQsw/X16
-c50C6N4UFCtWwlyyJGX5jbN/ewELBAVVLgA6/APMVAnKfg1742JNBSRQ/e19LFrNgiFbk9DD2X47
-z9K7LklM8KoW0GYV7Oihqdeov9mVkbK+kr4euXPEOSvuGLvlW3mm56zvTgDJnKy4szqXr9Z4tJt2
-Eo5QfO2VIAjjji9HdAfc55ygnPfjLikSWUwktYEPsrFv3dYg8BYa6W4uaAzbBwwu1RR+xjfXic40
-Jr+a1a/Bd3HI+zPXW2PF6Fbi9XYn/6DTPy+0UZnuV6NPG9v51ekpdxJFFL6hOGrQBGBP0VOhWKYO
-7c5sc8Bbosxe7TtLw0DnQJRNwIkAkzlKfptXIGasPvIuXrUE4VvceO5fTc1H2IexRQpdBK72wSJ1
-VWE=
-=wP7T
------END PGP SIGNATURE-----
+#define KVM_CAP_ARM_HVC_TO_USER 250 /* TODO: as per linux 6.1-rc2 */
+#define KVM_CAP_ARM_PSCI_TO_USER 251 /* TODO: as per linux 6.1-rc2 */
 
---------------5BePbc0zJRAG34NMI313OlgI--
+In linux/include/uapi/linux/kvm.h
+
+#define KVM_CAP_ARM_HVC_TO_USER 250
+#define KVM_CAP_ARM_PSCI_TO_USER 251
+
+Thanks,
+Gavin
+
