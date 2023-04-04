@@ -1,48 +1,89 @@
-From: "Arnd Bergmann" <arnd@arndb.de>
-Date: Mon, 17 Apr 2023 09:22:24 +0000
-Subject: Re: [PATCH v2 01/19] fbdev: Prepare generic architecture helpers
-Message-Id: <55abd7af-acb8-47ce-89db-1722bcf0cb9c@app.fastmail.com>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Tue, 04 Apr 2023 07:22:00 +0000
+Subject: Re: [PATCH v3 02/14] arm64: drop ranges in definition of ARCH_FORCE_MAX_ORDER
+Message-Id: <ZCvQGJzdED+An8an@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230406143019.6709-1-tzimmermann@suse.de>
- <20230406143019.6709-2-tzimmermann@suse.de>
- <CAMuHMdUfViWzPbB+GcGUwxmGNxAohfq71Jed3DzS=Cb+gBzotg@mail.gmail.com>
- <2b4f75b8-aa83-8e41-7c99-7c8d573c0f31@suse.de>
-In-Reply-To: <2b4f75b8-aa83-8e41-7c99-7c8d573c0f31@suse.de>
+References: <20230325060828.2662773-1-rppt@kernel.org>
+ <20230325060828.2662773-3-rppt@kernel.org>
+ <CAFxkdAr5C7ggZ+WdvDbsfmwuXujT_z_x3qcUnhnCn-WrAurvgA@mail.gmail.com>
+In-Reply-To: <CAFxkdAr5C7ggZ+WdvDbsfmwuXujT_z_x3qcUnhnCn-WrAurvgA@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: quoted-printable
-To: Thomas Zimmermann <tzimmermann@suse.de>, Geert Uytterhoeven <geert@linux-m68k.org>
-Cc: Daniel Vetter <daniel.vetter@ffwll.ch>, Helge Deller <deller@gmx.de>, Javier Martinez Canillas <javierm@redhat.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Linux-Arch <linux-arch@vger.kernel.org>, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org
+To: Justin Forbes <jforbes@fedoraproject.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, "David S. Miller" <davem@davemloft.net>, Dinh Nguyen <dinguyen@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Guo Ren <guoren@kernel.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Max Filippov <jcmvbkbc@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Rich Felker <dalias@libc.org>, Russell King <linux@armlinux.org.uk>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Zi Yan <ziy@nvidia.com>, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mm@kvack.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
 
-On Mon, Apr 17, 2023, at 11:03, Thomas Zimmermann wrote:
-> Am 11.04.23 um 10:08 schrieb Geert Uytterhoeven:
->> On Thu, Apr 6, 2023 at 4:30=E2=80=AFPM Thomas Zimmermann <tzimmermann@su=
-se.de> wrote:
+On Wed, Mar 29, 2023 at 10:55:37AM -0500, Justin Forbes wrote:
+> On Sat, Mar 25, 2023 at 1:09=E2=80=AFAM Mike Rapoport <rppt@kernel.org> w=
+rote:
+> >
+> > From: "Mike Rapoport (IBM)" <rppt@kernel.org>
+> >
+> > It is not a good idea to change fundamental parameters of core memory
+> > management. Having predefined ranges suggests that the values within
+> > those ranges are sensible, but one has to *really* understand
+> > implications of changing MAX_ORDER before actually amending it and
+> > ranges don't help here.
+> >
+> > Drop ranges in definition of ARCH_FORCE_MAX_ORDER and make its prompt
+> > visible only if EXPERT=3Dy
+>=20
+> I do not like suddenly hiding this behind EXPERT for a couple of
+> reasons.  Most importantly, it will silently change the config for
+> users building with an old kernel config.  If a user has for instance
+> "13" set and building with 4K pages, as is the current configuration
+> for Fedora and RHEL aarch64 builds, an oldconfig build will now set it
+> to 10 with no indication that it is doing so.  And while I think that
+> 10 is a fine default for many aarch64 users, there are valid reasons
+> for choosing other values. Putting this behind expert makes it much
+> less obvious that this is an option.
 
->>> +#ifndef fb_pgprotect
->>> +#define fb_pgprotect fb_pgprotect
->>> +static inline void fb_pgprotect(struct file *file, struct vm_area_stru=
-ct *vma,
->>> +                               unsigned long off)
->>=20
->> Does this affect any noMMU platforms that relied on fb_pgprotect()
->> doing nothing before?
->> Perhaps the body below should be protected by "#ifdef CONFIG_MMU"?
->
-> I cannot conclusively answer this question, but I did some grep'ing=20
-> ('git grep ndef | grep CONFIG_MMU'):
->
-> Only the architectures in this patchset provide <asm/fb.h> but nothing=20
-> anywhere uses <asm-generic/fb.h> yet. And of those architectures, only=20
-> arm and m68k have !CONFIG_MMU cases. Those are handled in the rsp=20
-> patches. I think we're good.
+That's the idea of EXPERT, no?
 
-Agreed. The generic version is just a more elaborate way to do
-nothing here, as the=20
+This option was intended to allow allocation of huge pages for
+architectures that had PMD_ORDER > MAX_ORDER and not to allow user to
+select size of maximal physically contiguous allocation.
 
-     vma->vm_page_prot =3D pgprot_writecombine(vma->vm_page_prot);
+Changes to MAX_ORDER fundamentally change the behaviour of core mm and
+unless users *really* know what they are doing there is no reason to choose
+non-default values so hiding this option behind EXPERT seems totally
+appropriate to me.
+=20
+> Justin
+>=20
+> > Acked-by: Kirill A. Shutemov <kirill.shutemov@linux.intel.com>
+> > Reviewed-by: Zi Yan <ziy@nvidia.com>
+> > Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
+> > ---
+> >  arch/arm64/Kconfig | 4 +---
+> >  1 file changed, 1 insertion(+), 3 deletions(-)
+> >
+> > diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+> > index e60baf7859d1..7324032af859 100644
+> > --- a/arch/arm64/Kconfig
+> > +++ b/arch/arm64/Kconfig
+> > @@ -1487,11 +1487,9 @@ config XEN
+> >  # 16K |       27          |      14      |       13        |         1=
+1         |
+> >  # 64K |       29          |      16      |       13        |         1=
+3         |
+> >  config ARCH_FORCE_MAX_ORDER
+> > -       int "Maximum zone order" if ARM64_4K_PAGES || ARM64_16K_PAGES
+> > +       int "Maximum zone order" if EXPERT && (ARM64_4K_PAGES || ARM64_=
+16K_PAGES)
+> >         default "13" if ARM64_64K_PAGES
+> > -       range 11 13 if ARM64_16K_PAGES
+> >         default "11" if ARM64_16K_PAGES
+> > -       range 10 15 if ARM64_4K_PAGES
+> >         default "10"
+> >         help
+> >           The kernel memory allocator divides physically contiguous mem=
+ory
+> > --
+> > 2.35.1
+> >
+> >
 
-line on nommu just turns into a self-assignment of the same member
-that was set the line before.
-
-     Arnd
+--=20
+Sincerely yours,
+Mike.
