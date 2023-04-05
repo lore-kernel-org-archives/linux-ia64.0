@@ -1,64 +1,55 @@
 From: Thomas Zimmermann <tzimmermann@suse.de>
-Date: Mon, 17 Apr 2023 12:56:39 +0000
-Subject: [PATCH v3 07/19] arch/m68k: Merge variants of fb_pgprotect() into single function
-Message-Id: <20230417125651.25126-8-tzimmermann@suse.de>
+Date: Wed, 05 Apr 2023 15:05:41 +0000
+Subject: [PATCH 05/18] arch/ia64: Implement <asm/fb.h> with generic helpers
+Message-Id: <20230405150554.30540-6-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230417125651.25126-1-tzimmermann@suse.de>
-In-Reply-To: <20230417125651.25126-1-tzimmermann@suse.de>
+References: <20230405150554.30540-1-tzimmermann@suse.de>
+In-Reply-To: <20230405150554.30540-1-tzimmermann@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: arnd@arndb.de, daniel.vetter@ffwll.ch, deller@gmx.de, javierm@redhat.com, gregkh@linuxfoundation.org
-Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, Thomas Zimmermann <tzimmermann@suse.de>, Geert Uytterhoeven <geert@linux-m68k.org>
+Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
 
-Merge all variants of fb_pgprotect() into a single function body.
-There are two different cases for MMU systems. For non-MMU systems,
-the function body will be empty. No functional changes, but this
-will help with the switch to <asm-generic/fb.h>.
+Replace the architecture's fb_is_primary_device() with the generic
+one from <asm-generic/fb.h>. No functional changes.
 
 Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
-Reviewed-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
 ---
- arch/m68k/include/asm/fb.h | 12 +++---------
- 1 file changed, 3 insertions(+), 9 deletions(-)
+ arch/ia64/include/asm/fb.h | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
 
-diff --git a/arch/m68k/include/asm/fb.h b/arch/m68k/include/asm/fb.h
-index b86c6e2e26dd..4f96989922af 100644
---- a/arch/m68k/include/asm/fb.h
-+++ b/arch/m68k/include/asm/fb.h
-@@ -7,17 +7,13 @@
- #include <asm/page.h>
- #include <asm/setup.h>
+diff --git a/arch/ia64/include/asm/fb.h b/arch/ia64/include/asm/fb.h
+index 5f95782bfa46..0208f64a0da0 100644
+--- a/arch/ia64/include/asm/fb.h
++++ b/arch/ia64/include/asm/fb.h
+@@ -2,11 +2,12 @@
+ #ifndef _ASM_FB_H_
+ #define _ASM_FB_H_
  
--#ifdef CONFIG_MMU
--#ifdef CONFIG_SUN3
+-#include <linux/fb.h>
+-#include <linux/fs.h>
+ #include <linux/efi.h>
++
+ #include <asm/page.h>
+ 
++struct file;
++
  static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
  				unsigned long off)
  {
-+#ifdef CONFIG_MMU
-+#ifdef CONFIG_SUN3
- 	pgprot_val(vma->vm_page_prot) |= SUN3_PAGE_NOCACHE;
--}
- #else
--static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
--				unsigned long off)
--{
- 	if (CPU_IS_020_OR_030)
- 		pgprot_val(vma->vm_page_prot) |= _PAGE_NOCACHE030;
- 	if (CPU_IS_040_OR_060) {
-@@ -25,11 +21,9 @@ static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
- 		/* Use no-cache mode, serialized */
- 		pgprot_val(vma->vm_page_prot) |= _PAGE_NOCACHE_S;
- 	}
--}
- #endif /* CONFIG_SUN3 */
--#else
--#define fb_pgprotect(...) do {} while (0)
- #endif /* CONFIG_MMU */
-+}
+@@ -15,10 +16,8 @@ static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+ 	else
+ 		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+ }
++#define fb_pgprotect fb_pgprotect
  
- static inline int fb_is_primary_device(struct fb_info *info)
- {
+-static inline int fb_is_primary_device(struct fb_info *info)
+-{
+-	return 0;
+-}
++#include <asm-generic/fb.h>
+ 
+ #endif /* _ASM_FB_H_ */
 -- 
 2.40.0
