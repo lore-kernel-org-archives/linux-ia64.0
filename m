@@ -1,62 +1,152 @@
-From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Date: Mon, 17 Apr 2023 14:21:34 +0000
-Subject: Re: [PATCH v3 16/19] arch/sh: Implement <asm/fb.h> with generic helpers
-Message-Id: <3522e1a2957f20a01bd5bc61b0f78d4d38e43b68.camel@physik.fu-berlin.de>
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Wed, 05 Apr 2023 15:05:48 +0000
+Subject: [PATCH 12/18] arch/parisc: Implement fb_is_primary_device() under arch/parisc
+Message-Id: <20230405150554.30540-13-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230417125651.25126-1-tzimmermann@suse.de>
-	 <20230417125651.25126-17-tzimmermann@suse.de>
-In-Reply-To: <20230417125651.25126-17-tzimmermann@suse.de>
+References: <20230405150554.30540-1-tzimmermann@suse.de>
+In-Reply-To: <20230405150554.30540-1-tzimmermann@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Zimmermann <tzimmermann@suse.de>, arnd@arndb.de, daniel.vetter@ffwll.ch, deller@gmx.de, javierm@redhat.com, gregkh@linuxfoundation.org
-Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>
+To: arnd@arndb.de, daniel.vetter@ffwll.ch, deller@gmx.de, javierm@redhat.com, gregkh@linuxfoundation.org
+Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, Thomas Zimmermann <tzimmermann@suse.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>
 
-On Mon, 2023-04-17 at 14:56 +0200, Thomas Zimmermann wrote:
-> Replace the architecture's fbdev helpers with the generic
-> ones from <asm-generic/fb.h>. No functional changes.
-> 
-> v2:
-> 	* use default implementation for fb_pgprotect() (Arnd)
-> 
-> Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
-> Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
-> Cc: Rich Felker <dalias@libc.org>
-> Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-> ---
->  arch/sh/include/asm/fb.h | 15 +--------------
->  1 file changed, 1 insertion(+), 14 deletions(-)
-> 
-> diff --git a/arch/sh/include/asm/fb.h b/arch/sh/include/asm/fb.h
-> index 9a0bca2686fd..19df13ee9ca7 100644
-> --- a/arch/sh/include/asm/fb.h
-> +++ b/arch/sh/include/asm/fb.h
-> @@ -2,19 +2,6 @@
->  #ifndef _ASM_FB_H_
->  #define _ASM_FB_H_
->  
-> -#include <linux/fb.h>
-> -#include <linux/fs.h>
-> -#include <asm/page.h>
-> -
-> -static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
-> -				unsigned long off)
-> -{
-> -	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
-> -}
-> -
-> -static inline int fb_is_primary_device(struct fb_info *info)
-> -{
-> -	return 0;
-> -}
-> +#include <asm-generic/fb.h>
->  
->  #endif /* _ASM_FB_H_ */
+Move PARISC's implementation of fb_is_primary_device() into the
+architecture directory. This the place of the declaration and
+where other architectures implement this function. No functional
+changes.
 
-Acked-by: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+Cc: "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>
+Cc: Helge Deller <deller@gmx.de>
+---
+ arch/parisc/Makefile         |  2 ++
+ arch/parisc/include/asm/fb.h |  2 +-
+ arch/parisc/video/Makefile   |  3 +++
+ arch/parisc/video/fbdev.c    | 27 +++++++++++++++++++++++++++
+ drivers/video/sticore.c      | 19 -------------------
+ include/video/sticore.h      |  2 ++
+ 6 files changed, 35 insertions(+), 20 deletions(-)
+ create mode 100644 arch/parisc/video/Makefile
+ create mode 100644 arch/parisc/video/fbdev.c
 
+diff --git a/arch/parisc/Makefile b/arch/parisc/Makefile
+index 0d049a6f6a60..968ebe17494c 100644
+--- a/arch/parisc/Makefile
++++ b/arch/parisc/Makefile
+@@ -119,6 +119,8 @@ export LIBGCC
+ 
+ libs-y	+= arch/parisc/lib/ $(LIBGCC)
+ 
++drivers-y += arch/parisc/video/
++
+ boot	:= arch/parisc/boot
+ 
+ PALO := $(shell if (which palo 2>&1); then : ; \
+diff --git a/arch/parisc/include/asm/fb.h b/arch/parisc/include/asm/fb.h
+index 55d29c4f716e..0b9a38ced5c8 100644
+--- a/arch/parisc/include/asm/fb.h
++++ b/arch/parisc/include/asm/fb.h
+@@ -12,7 +12,7 @@ static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+ 	pgprot_val(vma->vm_page_prot) |= _PAGE_NO_CACHE;
+ }
+ 
+-#if defined(CONFIG_FB_STI)
++#if defined(CONFIG_STI_CORE)
+ int fb_is_primary_device(struct fb_info *info);
+ #else
+ static inline int fb_is_primary_device(struct fb_info *info)
+diff --git a/arch/parisc/video/Makefile b/arch/parisc/video/Makefile
+new file mode 100644
+index 000000000000..16a73cce4661
+--- /dev/null
++++ b/arch/parisc/video/Makefile
+@@ -0,0 +1,3 @@
++# SPDX-License-Identifier: GPL-2.0-only
++
++obj-$(CONFIG_STI_CORE) += fbdev.o
+diff --git a/arch/parisc/video/fbdev.c b/arch/parisc/video/fbdev.c
+new file mode 100644
+index 000000000000..4a0ae08fc75b
+--- /dev/null
++++ b/arch/parisc/video/fbdev.c
+@@ -0,0 +1,27 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (C) 2000 Philipp Rumpf <prumpf@tux.org>
++ * Copyright (C) 2001-2020 Helge Deller <deller@gmx.de>
++ * Copyright (C) 2001-2002 Thomas Bogendoerfer <tsbogend@alpha.franken.de>
++ */
++
++#include <linux/module.h>
++
++#include <asm/fb.h>
++
++#include <video/sticore.h>
++
++int fb_is_primary_device(struct fb_info *info)
++{
++	struct sti_struct *sti;
++
++	sti = sti_get_rom(0);
++
++	/* if no built-in graphics card found, allow any fb driver as default */
++	if (!sti)
++		return true;
++
++	/* return true if it's the default built-in framebuffer driver */
++	return (sti->info = info);
++}
++EXPORT_SYMBOL(fb_is_primary_device);
+diff --git a/drivers/video/sticore.c b/drivers/video/sticore.c
+index f8aaedea437d..7eb925f2ba9c 100644
+--- a/drivers/video/sticore.c
++++ b/drivers/video/sticore.c
+@@ -30,7 +30,6 @@
+ #include <asm/pdc.h>
+ #include <asm/cacheflush.h>
+ #include <asm/grfioctl.h>
+-#include <asm/fb.h>
+ 
+ #include <video/sticore.h>
+ 
+@@ -1148,24 +1147,6 @@ int sti_call(const struct sti_struct *sti, unsigned long func,
+ 	return ret;
+ }
+ 
+-#if defined(CONFIG_FB_STI)
+-/* check if given fb_info is the primary device */
+-int fb_is_primary_device(struct fb_info *info)
+-{
+-	struct sti_struct *sti;
+-
+-	sti = sti_get_rom(0);
+-
+-	/* if no built-in graphics card found, allow any fb driver as default */
+-	if (!sti)
+-		return true;
+-
+-	/* return true if it's the default built-in framebuffer driver */
+-	return (sti->info = info);
+-}
+-EXPORT_SYMBOL(fb_is_primary_device);
+-#endif
+-
+ MODULE_AUTHOR("Philipp Rumpf, Helge Deller, Thomas Bogendoerfer");
+ MODULE_DESCRIPTION("Core STI driver for HP's NGLE series graphics cards in HP PARISC machines");
+ MODULE_LICENSE("GPL v2");
+diff --git a/include/video/sticore.h b/include/video/sticore.h
+index c0879352cde4..fbb78d7e7565 100644
+--- a/include/video/sticore.h
++++ b/include/video/sticore.h
+@@ -2,6 +2,8 @@
+ #ifndef STICORE_H
+ #define STICORE_H
+ 
++struct fb_info;
++
+ /* generic STI structures & functions */
+ 
+ #define MAX_STI_ROMS 4		/* max no. of ROMs which this driver handles */
 -- 
- .''`.  John Paul Adrian Glaubitz
-: :' :  Debian Developer
-`. `'   Physicist
-  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
+2.40.0
