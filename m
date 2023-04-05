@@ -1,95 +1,53 @@
-From: Thomas Huth <thuth@redhat.com>
-Date: Wed, 26 Apr 2023 06:50:32 +0000
-Subject: [PATCH] arch/ia64/include: Remove CONFIG_IA64_DEBUG_CMPXCHG from uapi header
-Message-Id: <20230426065032.517693-1-thuth@redhat.com>
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Wed, 05 Apr 2023 15:05:40 +0000
+Subject: [PATCH 04/18] arch/arm64: Implement <asm/fb.h> with generic helpers
+Message-Id: <20230405150554.30540-5-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20230405150554.30540-1-tzimmermann@suse.de>
+In-Reply-To: <20230405150554.30540-1-tzimmermann@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>
-Cc: linux-ia64@vger.kernel.org
+To: arnd@arndb.de, daniel.vetter@ffwll.ch, deller@gmx.de, javierm@redhat.com, gregkh@linuxfoundation.org
+Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, Thomas Zimmermann <tzimmermann@suse.de>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>
 
-CONFIG_* switches should not be exposed in uapi headers.
-The macros that are defined here are also only useful for the
-kernel code, so let's move them to asm/cmpxchg.h instead.
+Replace the architecture's fb_is_primary_device() with the generic
+one from <asm-generic/fb.h>. No functional changes.
 
-The only two files that are using these macros are the headers
-arch/ia64/include/asm/bitops.h and arch/ia64/include/asm/atomic.h
-and these include asm/cmpxchg.h via asm/intrinsics.h, so this
-movement should not cause any trouble.
-
-Signed-off-by: Thomas Huth <thuth@redhat.com>
+Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+Cc: Catalin Marinas <catalin.marinas@arm.com>
+Cc: Will Deacon <will@kernel.org>
 ---
- arch/ia64/include/asm/cmpxchg.h      | 17 +++++++++++++++++
- arch/ia64/include/uapi/asm/cmpxchg.h | 17 -----------------
- scripts/headers_install.sh           |  1 -
- 3 files changed, 17 insertions(+), 18 deletions(-)
+ arch/arm64/include/asm/fb.h | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/arch/ia64/include/asm/cmpxchg.h b/arch/ia64/include/asm/cmpxchg.h
-index 94ef84429843..d9f01ede9768 100644
---- a/arch/ia64/include/asm/cmpxchg.h
-+++ b/arch/ia64/include/asm/cmpxchg.h
-@@ -13,4 +13,21 @@
- #define arch_cmpxchg_local		arch_cmpxchg
- #define arch_cmpxchg64_local		arch_cmpxchg64
+diff --git a/arch/arm64/include/asm/fb.h b/arch/arm64/include/asm/fb.h
+index bdc735ee1f67..fc31a5d1f48a 100644
+--- a/arch/arm64/include/asm/fb.h
++++ b/arch/arm64/include/asm/fb.h
+@@ -5,19 +5,17 @@
+ #ifndef __ASM_FB_H_
+ #define __ASM_FB_H_
  
-+#ifdef CONFIG_IA64_DEBUG_CMPXCHG
-+# define CMPXCHG_BUGCHECK_DECL	int _cmpxchg_bugcheck_count = 128;
-+# define CMPXCHG_BUGCHECK(v)						\
-+do {									\
-+	if (_cmpxchg_bugcheck_count-- <= 0) {				\
-+		void *ip;						\
-+		extern int _printk(const char *fmt, ...);		\
-+		ip = (void *) ia64_getreg(_IA64_REG_IP);		\
-+		_printk("CMPXCHG_BUGCHECK: stuck at %p on word %p\n", ip, (v));\
-+		break;							\
-+	}								\
-+} while (0)
-+#else /* !CONFIG_IA64_DEBUG_CMPXCHG */
-+# define CMPXCHG_BUGCHECK_DECL
-+# define CMPXCHG_BUGCHECK(v)
-+#endif /* !CONFIG_IA64_DEBUG_CMPXCHG */
+-#include <linux/fb.h>
+-#include <linux/fs.h>
+ #include <asm/page.h>
+ 
++struct file;
 +
- #endif /* _ASM_IA64_CMPXCHG_H */
-diff --git a/arch/ia64/include/uapi/asm/cmpxchg.h b/arch/ia64/include/uapi/asm/cmpxchg.h
-index 259ae57570bf..986dbe01d883 100644
---- a/arch/ia64/include/uapi/asm/cmpxchg.h
-+++ b/arch/ia64/include/uapi/asm/cmpxchg.h
-@@ -133,23 +133,6 @@ extern long ia64_cmpxchg_called_with_bad_pointer(void);
- #define cmpxchg64_local		cmpxchg64
- #endif
+ static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+ 				unsigned long off)
+ {
+ 	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+ }
++#define fb_pgprotect fb_pgprotect
  
--#ifdef CONFIG_IA64_DEBUG_CMPXCHG
--# define CMPXCHG_BUGCHECK_DECL	int _cmpxchg_bugcheck_count = 128;
--# define CMPXCHG_BUGCHECK(v)						\
--do {									\
--	if (_cmpxchg_bugcheck_count-- <= 0) {				\
--		void *ip;						\
--		extern int _printk(const char *fmt, ...);		\
--		ip = (void *) ia64_getreg(_IA64_REG_IP);		\
--		_printk("CMPXCHG_BUGCHECK: stuck at %p on word %p\n", ip, (v));\
--		break;							\
--	}								\
--} while (0)
--#else /* !CONFIG_IA64_DEBUG_CMPXCHG */
--# define CMPXCHG_BUGCHECK_DECL
--# define CMPXCHG_BUGCHECK(v)
--#endif /* !CONFIG_IA64_DEBUG_CMPXCHG */
--
- #endif /* !__ASSEMBLY__ */
+-static inline int fb_is_primary_device(struct fb_info *info)
+-{
+-	return 0;
+-}
++#include <asm-generic/fb.h>
  
- #endif /* _UAPI_ASM_IA64_CMPXCHG_H */
-diff --git a/scripts/headers_install.sh b/scripts/headers_install.sh
-index 36b56b746fce..afdddc82f02b 100755
---- a/scripts/headers_install.sh
-+++ b/scripts/headers_install.sh
-@@ -76,7 +76,6 @@ arch/arc/include/uapi/asm/swab.h:CONFIG_ARC_HAS_SWAPE
- arch/arm/include/uapi/asm/ptrace.h:CONFIG_CPU_ENDIAN_BE8
- arch/hexagon/include/uapi/asm/ptrace.h:CONFIG_HEXAGON_ARCH_VERSION
- arch/hexagon/include/uapi/asm/user.h:CONFIG_HEXAGON_ARCH_VERSION
--arch/ia64/include/uapi/asm/cmpxchg.h:CONFIG_IA64_DEBUG_CMPXCHG
- arch/m68k/include/uapi/asm/ptrace.h:CONFIG_COLDFIRE
- arch/nios2/include/uapi/asm/swab.h:CONFIG_NIOS2_CI_SWAB_NO
- arch/nios2/include/uapi/asm/swab.h:CONFIG_NIOS2_CI_SWAB_SUPPORT
+ #endif /* __ASM_FB_H_ */
 -- 
-2.31.1
+2.40.0
