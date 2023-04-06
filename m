@@ -1,69 +1,52 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Date: Fri, 28 Apr 2023 13:01:36 +0000
-Subject: Re: [PATCH v2 3/5] fbdev: Include <linux/io.h> in various drivers
-Message-Id: <20230428130136.GC3995435@ravnborg.org>
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Thu, 06 Apr 2023 14:30:09 +0000
+Subject: [PATCH v2 09/19] arch/mips: Implement <asm/fb.h> with generic helpers
+Message-Id: <20230406143019.6709-10-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230428092711.406-1-tzimmermann@suse.de>
- <20230428092711.406-4-tzimmermann@suse.de>
-In-Reply-To: <20230428092711.406-4-tzimmermann@suse.de>
+References: <20230406143019.6709-1-tzimmermann@suse.de>
+In-Reply-To: <20230406143019.6709-1-tzimmermann@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Zimmermann <tzimmermann@suse.de>
-Cc: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@hansenpartnership.com, arnd@arndb.de, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org
+To: arnd@arndb.de, daniel.vetter@ffwll.ch, deller@gmx.de, javierm@redhat.com, gregkh@linuxfoundation.org
+Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, Thomas Zimmermann <tzimmermann@suse.de>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 
-On Fri, Apr 28, 2023 at 11:27:09AM +0200, Thomas Zimmermann wrote:
-> The code uses writel() and similar I/O-memory helpers. Include
-> the header file to get the declarations.
-> 
-> Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
-Reviewed-by: Sam Ravnborg <sam@ravnborg.org>
-> ---
->  drivers/video/fbdev/arcfb.c       | 1 +
->  drivers/video/fbdev/aty/atyfb.h   | 2 ++
->  drivers/video/fbdev/wmt_ge_rops.c | 2 ++
->  3 files changed, 5 insertions(+)
-> 
-> diff --git a/drivers/video/fbdev/arcfb.c b/drivers/video/fbdev/arcfb.c
-> index 45e64016db32..d631d53f42ad 100644
-> --- a/drivers/video/fbdev/arcfb.c
-> +++ b/drivers/video/fbdev/arcfb.c
-> @@ -41,6 +41,7 @@
->  #include <linux/vmalloc.h>
->  #include <linux/delay.h>
->  #include <linux/interrupt.h>
-> +#include <linux/io.h>
->  #include <linux/fb.h>
->  #include <linux/init.h>
->  #include <linux/arcfb.h>
-> diff --git a/drivers/video/fbdev/aty/atyfb.h b/drivers/video/fbdev/aty/atyfb.h
-> index 465f55beb97f..30da3e82ed3c 100644
-> --- a/drivers/video/fbdev/aty/atyfb.h
-> +++ b/drivers/video/fbdev/aty/atyfb.h
-> @@ -3,8 +3,10 @@
->   *  ATI Frame Buffer Device Driver Core Definitions
->   */
->  
-> +#include <linux/io.h>
->  #include <linux/spinlock.h>
->  #include <linux/wait.h>
-> +
->      /*
->       *  Elements of the hardware specific atyfb_par structure
->       */
-> diff --git a/drivers/video/fbdev/wmt_ge_rops.c b/drivers/video/fbdev/wmt_ge_rops.c
-> index 42255d27a1db..99c7b0aea615 100644
-> --- a/drivers/video/fbdev/wmt_ge_rops.c
-> +++ b/drivers/video/fbdev/wmt_ge_rops.c
-> @@ -9,7 +9,9 @@
->  
->  #include <linux/module.h>
->  #include <linux/fb.h>
-> +#include <linux/io.h>
->  #include <linux/platform_device.h>
-> +
->  #include "core/fb_draw.h"
->  #include "wmt_ge_rops.h"
->  
-> -- 
-> 2.40.0
+Replace the architecture's fb_is_primary_device() with the generic
+one from <asm-generic/fb.h>. No functional changes.
+
+Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+---
+ arch/mips/include/asm/fb.h | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/arch/mips/include/asm/fb.h b/arch/mips/include/asm/fb.h
+index bd3f68c9ddfc..6bda0a81d8ca 100644
+--- a/arch/mips/include/asm/fb.h
++++ b/arch/mips/include/asm/fb.h
+@@ -1,19 +1,17 @@
+ #ifndef _ASM_FB_H_
+ #define _ASM_FB_H_
+ 
+-#include <linux/fb.h>
+-#include <linux/fs.h>
+ #include <asm/page.h>
+ 
++struct file;
++
+ static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+ 				unsigned long off)
+ {
+ 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+ }
++#define fb_pgprotect fb_pgprotect
+ 
+-static inline int fb_is_primary_device(struct fb_info *info)
+-{
+-	return 0;
+-}
++#include <asm-generic/fb.h>
+ 
+ #endif /* _ASM_FB_H_ */
+-- 
+2.40.0
