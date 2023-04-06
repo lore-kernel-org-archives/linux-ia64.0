@@ -1,58 +1,58 @@
-From: "Arnd Bergmann" <arnd@arndb.de>
-Date: Sat, 29 Apr 2023 14:11:13 +0000
-Subject: Re: [PATCH v2 5/5] fbdev: Define framebuffer I/O from Linux' I/O functions
-Message-Id: <260ee591-a71b-4c83-a775-5591d4222cec@app.fastmail.com>
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Thu, 06 Apr 2023 14:30:08 +0000
+Subject: [PATCH v2 08/19] arch/m68k: Implement <asm/fb.h> with generic helpers
+Message-Id: <20230406143019.6709-9-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230428092711.406-1-tzimmermann@suse.de>
- <20230428092711.406-6-tzimmermann@suse.de>
- <430c73f0-45f4-f81e-6506-bc8cc955d936@arm.com>
- <CAMuHMdUGjtiAR37L4_e0_p8ee2=gxoUj7+e7rqMLTBK+vpV4yw@mail.gmail.com>
- <f612c682-5767-4a58-82f6-f4a4d1b592a1@app.fastmail.com>
- <df6fa134-3a62-0872-e008-393e4a29a5ab@suse.de>
-In-Reply-To: <df6fa134-3a62-0872-e008-393e4a29a5ab@suse.de>
+References: <20230406143019.6709-1-tzimmermann@suse.de>
+In-Reply-To: <20230406143019.6709-1-tzimmermann@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Zimmermann <tzimmermann@suse.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Robin Murphy <robin.murphy@arm.com>
-Cc: Helge Deller <deller@gmx.de>, Javier Martinez Canillas <javierm@redhat.com>, Daniel Vetter <daniel@ffwll.ch>, Vineet Gupta <vgupta@kernel.org>, Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>, "David S . Miller" <davem@davemloft.net>, "James E . J . Bottomley" <James.Bottomley@hansenpartnership.com>, Sam Ravnborg <sam@ravnborg.org>, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, Linux-Arch <linux-arch@vger.kernel.org>, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org
+To: arnd@arndb.de, daniel.vetter@ffwll.ch, deller@gmx.de, javierm@redhat.com, gregkh@linuxfoundation.org
+Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, Thomas Zimmermann <tzimmermann@suse.de>, Geert Uytterhoeven <geert@linux-m68k.org>
 
-On Sat, Apr 29, 2023, at 14:26, Thomas Zimmermann wrote:
-> Am 28.04.23 um 15:17 schrieb Arnd Bergmann:
->> The only implementations in fbdev are
->> 
->>   1) sparc sbus
->>   2) __raw_writel
->>   3) direct pointer dereference
->> 
->> But none use the byte-swapping writel() implementations, and
->> the only ones that use the direct pointer dereference or sbus
->> are the ones on which these are defined the same as __raw_writel
->
-> After thinking a bit more about the requirements, I'd like to got back 
-> to v1, but with a different spin. We want to avoid ordering guarantees, 
-> so I looked at the _relaxed() helpers, but they seem to swap bytes to 
-> little endian.
+Replace the architecture's fb_is_primary_device() with the generic
+one from <asm-generic/fb.h>. No functional changes.
 
-Right, the _relaxed() oens are clearly wrong, aside from
-the byteswap they also include barriers on some architectures
-where the __raw_* version is more relaxed than the required
-semantics for relaxed.
+v2:
+	* provide empty fb_pgprotect() on non-MMU systems
 
-> I guess we can remove the fb_mem*() functions entirely. They are the 
-> same as the non-fb_ counterparts.
+Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+ arch/m68k/include/asm/fb.h | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-These might actually be different in some cases, or sub-optimal
-at the moment. memcpy()/memset() don't take __iomem pointers, so they
-cause sparse warnings, while the memset_io()/memcpy_fromio()/
-memcpy_toio() sometimes fall back to bytewise access that is slower
-than word-sized copy. I only looked at the readl/writel style 
-functions earlier, no idea what we want here.
-
-> For the fb read/write helpers, I'd 
-> like to add them to <asm-generic/fb.h> in a platform-neutral way. They'd 
-> be wrappers around __raw_(), as I wouldn't want invocations of  __raw_() 
-> functions in the fbdev drivers.
-
-That sounds good to me.
-
-     Arnd
+diff --git a/arch/m68k/include/asm/fb.h b/arch/m68k/include/asm/fb.h
+index 4f96989922af..24273fc7ad91 100644
+--- a/arch/m68k/include/asm/fb.h
++++ b/arch/m68k/include/asm/fb.h
+@@ -2,11 +2,11 @@
+ #ifndef _ASM_FB_H_
+ #define _ASM_FB_H_
+ 
+-#include <linux/fb.h>
+-#include <linux/fs.h>
+ #include <asm/page.h>
+ #include <asm/setup.h>
+ 
++struct file;
++
+ static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+ 				unsigned long off)
+ {
+@@ -24,10 +24,8 @@ static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+ #endif /* CONFIG_SUN3 */
+ #endif /* CONFIG_MMU */
+ }
++#define fb_pgprotect fb_pgprotect
+ 
+-static inline int fb_is_primary_device(struct fb_info *info)
+-{
+-	return 0;
+-}
++#include <asm-generic/fb.h>
+ 
+ #endif /* _ASM_FB_H_ */
+-- 
+2.40.0
