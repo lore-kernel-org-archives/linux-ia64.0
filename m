@@ -1,23 +1,53 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Mon, 24 Apr 2023 17:36:15 +0000
-Subject: Re: [PATCH] scripts: Remove ICC-related dead code
-Message-Id: <CAHk-=whDAYoWVEPSn2cD5YMjPN+nNYbHw3t8_=UiRi5V7WKgaA@mail.gmail.com>
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Thu, 06 Apr 2023 14:30:15 +0000
+Subject: [PATCH v2 15/19] arch/powerpc: Implement <asm/fb.h> with generic helpers
+Message-Id: <20230406143019.6709-16-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20221016182349.49308-1-masahiroy@kernel.org> <20230424162110.11082-1-lrh2000@pku.edu.cn>
- <CANiq72=Kb6ckhU8Ss9=Dg4Zn11Us+DLbKnNWAVaTb-nv7Y=ARA@mail.gmail.com>
-In-Reply-To: <CANiq72=Kb6ckhU8Ss9=Dg4Zn11Us+DLbKnNWAVaTb-nv7Y=ARA@mail.gmail.com>
+References: <20230406143019.6709-1-tzimmermann@suse.de>
+In-Reply-To: <20230406143019.6709-1-tzimmermann@suse.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-To: Miguel Ojeda <miguel.ojeda.sandonis@gmail.com>
-Cc: Ruihan Li <lrh2000@pku.edu.cn>, masahiroy@kernel.org, arnd@arndb.de, bp@alien8.de, dave.hansen@linux.intel.com, devel@acpica.org, lenb@kernel.org, linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, llvm@lists.linux.dev, mingo@redhat.com, nathan@kernel.org, ndesaulniers@google.com, ojeda@kernel.org, rafael@kernel.org, robert.moore@intel.com, terrelln@fb.com, tglx@linutronix.de, trix@redhat.com, x86@kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: arnd@arndb.de, daniel.vetter@ffwll.ch, deller@gmx.de, javierm@redhat.com, gregkh@linuxfoundation.org
+Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, Thomas Zimmermann <tzimmermann@suse.de>, Michael Ellerman <mpe@ellerman.id.au>, Nicholas Piggin <npiggin@gmail.com>, Christophe Leroy <christophe.leroy@csgroup.eu>
 
-On Mon, Apr 24, 2023 at 10:27=E2=80=AFAM Miguel Ojeda
-<miguel.ojeda.sandonis@gmail.com> wrote:
->
-> Reviewed-by: Miguel Ojeda <ojeda@kernel.org>
+Replace the architecture's fb_is_primary_device() with the generic
+one from <asm-generic/fb.h>. No functional changes.
 
-I took that patch before this email came in, so that reviewed-by will
-be missing in the tree, I'm afraid.
+Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Nicholas Piggin <npiggin@gmail.com>
+Cc: Christophe Leroy <christophe.leroy@csgroup.eu>
+---
+ arch/powerpc/include/asm/fb.h | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
-                     Linus
+diff --git a/arch/powerpc/include/asm/fb.h b/arch/powerpc/include/asm/fb.h
+index 6541ab77c5b9..5f1a2e5f7654 100644
+--- a/arch/powerpc/include/asm/fb.h
++++ b/arch/powerpc/include/asm/fb.h
+@@ -2,8 +2,8 @@
+ #ifndef _ASM_FB_H_
+ #define _ASM_FB_H_
+ 
+-#include <linux/fb.h>
+ #include <linux/fs.h>
++
+ #include <asm/page.h>
+ 
+ static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+@@ -13,10 +13,8 @@ static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+ 						 vma->vm_end - vma->vm_start,
+ 						 vma->vm_page_prot);
+ }
++#define fb_pgprotect fb_pgprotect
+ 
+-static inline int fb_is_primary_device(struct fb_info *info)
+-{
+-	return 0;
+-}
++#include <asm-generic/fb.h>
+ 
+ #endif /* _ASM_FB_H_ */
+-- 
+2.40.0
