@@ -1,40 +1,40 @@
 From: Thomas Zimmermann <tzimmermann@suse.de>
-Date: Wed, 05 Apr 2023 18:33:50 +0000
+Date: Thu, 06 Apr 2023 14:06:35 +0000
 Subject: Re: [PATCH 01/18] fbdev: Prepare generic architecture helpers
-Message-Id: <769a46bd-0c35-f61f-6d68-b982fc25cb55@suse.de>
+Message-Id: <71e5450f-aad2-1f7c-a961-c0b0fce62eea@suse.de>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------PH6RE0bdaBjJFU6C368NRApK"
+Content-Type: multipart/mixed; boundary="------------5BePbc0zJRAG34NMI313OlgI"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20230405150554.30540-1-tzimmermann@suse.de>
  <20230405150554.30540-2-tzimmermann@suse.de>
  <92fe3838-41f0-4e27-8467-161553ff724f@app.fastmail.com>
 In-Reply-To: <92fe3838-41f0-4e27-8467-161553ff724f@app.fastmail.com>
 To: Arnd Bergmann <arnd@arndb.de>, Daniel Vetter <daniel.vetter@ffwll.ch>, Helge Deller <deller@gmx.de>, Javier Martinez Canillas <javierm@redhat.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Linux-Arch <linux-arch@vger.kernel.org>, linux-fbdev@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, x86@kernel.org, linux-kernel@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, loongarch@lists.linux.dev, sparclinux@vger.kernel.org, linux-snps-arc@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org
+Cc: Linux-Arch <linux-arch@vger.kernel.org>, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org
 
 This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---------------PH6RE0bdaBjJFU6C368NRApK
-Content-Type: multipart/mixed; boundary="------------PnZlrreMxn0zLzAk4t4Das5u";
+--------------5BePbc0zJRAG34NMI313OlgI
+Content-Type: multipart/mixed; boundary="------------MODvgaz0WeNglR1dVG2UtKLY";
  protected-headers="v1"
 From: Thomas Zimmermann <tzimmermann@suse.de>
 To: Arnd Bergmann <arnd@arndb.de>, Daniel Vetter <daniel.vetter@ffwll.ch>,
  Helge Deller <deller@gmx.de>, Javier Martinez Canillas <javierm@redhat.com>,
  Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Cc: Linux-Arch <linux-arch@vger.kernel.org>, linux-fbdev@vger.kernel.org,
- linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org,
- linux-sh@vger.kernel.org, x86@kernel.org, linux-kernel@vger.kernel.org,
- dri-devel@lists.freedesktop.org, linux-mips@vger.kernel.org,
- linux-m68k@lists.linux-m68k.org, loongarch@lists.linux.dev,
- sparclinux@vger.kernel.org, linux-snps-arc@lists.infradead.org,
- linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org
-Message-ID: <769a46bd-0c35-f61f-6d68-b982fc25cb55@suse.de>
+ dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ linux-ia64@vger.kernel.org, loongarch@lists.linux.dev,
+ linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org,
+ linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+ linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org
+Message-ID: <71e5450f-aad2-1f7c-a961-c0b0fce62eea@suse.de>
 Subject: Re: [PATCH 01/18] fbdev: Prepare generic architecture helpers
 References: <20230405150554.30540-1-tzimmermann@suse.de>
  <20230405150554.30540-2-tzimmermann@suse.de>
  <92fe3838-41f0-4e27-8467-161553ff724f@app.fastmail.com>
 In-Reply-To: <92fe3838-41f0-4e27-8467-161553ff724f@app.fastmail.com>
 
---------------PnZlrreMxn0zLzAk4t4Das5u
+--------------MODvgaz0WeNglR1dVG2UtKLY
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: base64
 
@@ -66,43 +66,44 @@ ZikNCj4gew0KPiAgICAgICAgIHZtYS0+dm1fcGFnZV9wcm90ID0gcGdwcm90X3dyaXRlY29t
 YmluZSh2bWEtPnZtX3BhZ2VfcHJvdCk7DQo+IH0NCj4gDQo+IHNvIEknZCBzdWdnZXN0IG1h
 a2luZyB0aGF0IHZlcnNpb24gdGhlIGRlZmF1bHQsIGFuZCB0cmVhdGluZyB0aGUNCj4gZW1w
 dHkgb25lcyAobTY4a25vbW11LCBzcGFyYzMyKSBhcyBhcmNoaXRlY3R1cmUgc3BlY2lmaWMN
-Cj4gd29ya2Fyb3VuZHMuDQoNCk1ha2Ugc2Vuc2UsIHRoYW5rcyBmb3IgdGhlIGZlZWRiYWNr
-LiBJJ2xsIHNlbmQgb3V0IGFuIHVwZGF0ZSBzb29uLg0KDQpCZXN0IHJlZ2FyZHMNClRob21h
-cw0KDQo+IA0KPiBJIHNlZSB0aGF0IHNwYXJjNjQgYW5kIHBhcmlzYyB1c2UgcGdwcm90X3Vu
-Y2FjaGVkIGhlcmUsIGJ1dCBhcw0KPiB0aGV5IGRvbid0IGRlZmluZSBhIGN1c3RvbSBwZ3By
-b3Rfd3JpdGVjb21iaW5lLCB0aGlzIGVuZHMgdXAgYmVpbmcNCj4gdGhlIHNhbWUsIGFuZCB0
-aGV5IGNhbiB1c2UgdGhlIGFib3ZlIGRlZmluaXRpb24gYXMgd2VsbC4NCj4gDQo+IG1pcHMg
-ZGVmaW5lcyBwZ3Byb3Rfd3JpdGVjb21iaW5lIGJ1dCB1c2VzIHBncHJvdF9ub25jYWNoZWQN
-Cj4gaW4gZmJfcGdwcm90ZWN0KCksIHdoaWNoIGlzIHByb2JhYmx5IGEgbWlzdGFrZSBhbmQg
-c2hvdWxkIGhhdmUNCj4gYmVlbiB1cGRhdGVkIGFzIHBhcnQgb2YgY29tbWl0IDRiMDUwYmE3
-YTY2YyAoIk1JUFM6IHBndGFibGUuaDoNCj4gSW1wbGVtZW50IHRoZSBwZ3Byb3Rfd3JpdGVj
-b21iaW5lIGZ1bmN0aW9uIGZvciBNSVBTIikuDQo+IA0KPiAgICAgIEFybmQNCg0KLS0gDQpU
-aG9tYXMgWmltbWVybWFubg0KR3JhcGhpY3MgRHJpdmVyIERldmVsb3Blcg0KU1VTRSBTb2Z0
-d2FyZSBTb2x1dGlvbnMgR2VybWFueSBHbWJIDQpNYXhmZWxkc3RyLiA1LCA5MDQwOSBOw7xy
-bmJlcmcsIEdlcm1hbnkNCihIUkIgMzY4MDksIEFHIE7DvHJuYmVyZykNCkdlc2Now6RmdHNm
-w7xocmVyOiBJdm8gVG90ZXYNCg==
+Cj4gd29ya2Fyb3VuZHMuDQo+IA0KPiBJIHNlZSB0aGF0IHNwYXJjNjQgYW5kIHBhcmlzYyB1
+c2UgcGdwcm90X3VuY2FjaGVkIGhlcmUsIGJ1dCBhcw0KPiB0aGV5IGRvbid0IGRlZmluZSBh
+IGN1c3RvbSBwZ3Byb3Rfd3JpdGVjb21iaW5lLCB0aGlzIGVuZHMgdXAgYmVpbmcNCj4gdGhl
+IHNhbWUsIGFuZCB0aGV5IGNhbiB1c2UgdGhlIGFib3ZlIGRlZmluaXRpb24gYXMgd2VsbC4N
+Cj4gDQo+IG1pcHMgZGVmaW5lcyBwZ3Byb3Rfd3JpdGVjb21iaW5lIGJ1dCB1c2VzIHBncHJv
+dF9ub25jYWNoZWQNCj4gaW4gZmJfcGdwcm90ZWN0KCksIHdoaWNoIGlzIHByb2JhYmx5IGEg
+bWlzdGFrZSBhbmQgc2hvdWxkIGhhdmUNCj4gYmVlbiB1cGRhdGVkIGFzIHBhcnQgb2YgY29t
+bWl0IDRiMDUwYmE3YTY2YyAoIk1JUFM6IHBndGFibGUuaDoNCj4gSW1wbGVtZW50IHRoZSBw
+Z3Byb3Rfd3JpdGVjb21iaW5lIGZ1bmN0aW9uIGZvciBNSVBTIikuDQoNCkkgd291bGQgbm90
+IHdhbnQgdG8gY2hhbmdlIGFueSBvZiB0aGUgb3RoZXIgcGxhdGZvcm0ncyBmdW5jdGlvbnMg
+dW5sZXNzIA0KdGhlIHJzcCBwbGF0Zm9ybSBtYWludGFpbmVycyBhc2sgbWUgdG8uDQoNCkJl
+c3QgcmVnYXJkcw0KVGhvbWFzDQoNCj4gDQo+ICAgICAgQXJuZA0KDQotLSANClRob21hcyBa
+aW1tZXJtYW5uDQpHcmFwaGljcyBEcml2ZXIgRGV2ZWxvcGVyDQpTVVNFIFNvZnR3YXJlIFNv
+bHV0aW9ucyBHZXJtYW55IEdtYkgNCk1heGZlbGRzdHIuIDUsIDkwNDA5IE7DvHJuYmVyZywg
+R2VybWFueQ0KKEhSQiAzNjgwOSwgQUcgTsO8cm5iZXJnKQ0KR2VzY2jDpGZ0c2bDvGhyZXI6
+IEl2byBUb3Rldg0K
 
---------------PnZlrreMxn0zLzAk4t4Das5u--
+--------------MODvgaz0WeNglR1dVG2UtKLY--
 
---------------PH6RE0bdaBjJFU6C368NRApK
+--------------5BePbc0zJRAG34NMI313OlgI
 Content-Type: application/pgp-signature; name="OpenPGP_signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="OpenPGP_signature"
 
 -----BEGIN PGP SIGNATURE-----
 
-wsF5BAABCAAjFiEExndm/fpuMUdwYFFolh/E3EQov+AFAmQtvw4FAwAAAAAACgkQlh/E3EQov+B8
-SA//S9QvzhCGuS3p6cljiL3iXZKRa6QAzsmTs3qxsBZJVBbAx2oX35juNiYn+llSA4KM2AWgFRYq
-Chdjg/0Vxe5/Nl4HGfHpvKLVmZIg1kHtRRwixJ04p4ws8EPfiZN87MeLecWlQo5x9ewt0yCmBeoA
-j0eLKDz3kN88NbEuFuTqP3y/H5VaDJUZeqCX2OXBVFPCttZjWgkJ77r5CFvMexzh6fMQ+QP/EKbh
-EDDsfHUqq0YKCQobH2KcnEEX+CKJeVR+45+SwdaolfgGzBQ9TFKWnagaJahppLWfzFtg1Tj12NAE
-A+Lcrd395eNy1L4TVf3rVDNiWaUGudPY/iAhQ4ivmvj1Rb3esoRkjN4zmSek590XUZ8jZShkgTig
-dSgkdgKIWTi/lDCB5NgCZgPpsk6TDcc6Kyj99h6UqYzZiYN3GAaXfP1qgPCPI5el9PphHxaXhOH0
-e6PhctJWfsuRVWseHjFXi5M+svclBMYk6bOBvo5K9DYF8PTb5pCSRjk3+P9xqW2DeJfoBQClb5HF
-JBrMpw8SyQYttizA3bYrXaib4c+t6gvbtaV1bbSzpzZx8vueBtvFY9RB7V5k9sThNULfdsnNc4Ke
-CERFDV8vqaQmPTxLxiFvMGuxGysMG8sljev95fD3tcAQIuWY/QA8bnPq3b1pueBR7t7lp+IQ/e26
-RHI=
-=NHDz
+wsF5BAABCAAjFiEExndm/fpuMUdwYFFolh/E3EQov+AFAmQu0esFAwAAAAAACgkQlh/E3EQov+A3
++Q//XOh61SSsVY48Py2Qalvs1ZdXTTRJozsv2OV7IZPGNx2cNXvMk7k0wZz2OwgpV4+lWxgq+yvD
+An33+eafJLUSvtNpjYl5omC4MaOfnHk5CdOFw+exisXyQs+mN4fFeZRfaG8pEloJPbr5hz1Ecl9G
+D0eey1O1uv8TDN/grrY6+6TyOnYQGFmpYYRrE4gKaL5EdRKy1Zs0BQSWXe0sV/4iaAEpJzPuhcfA
+S2EHgrw1S024RFR0tpttyy8RilJa2qahDL8iWrhLIfo3S0ufRvtGLm2QW2K+/x7lOufPlQsw/X16
+c50C6N4UFCtWwlyyJGX5jbN/ewELBAVVLgA6/APMVAnKfg1742JNBSRQ/e19LFrNgiFbk9DD2X47
+z9K7LklM8KoW0GYV7Oihqdeov9mVkbK+kr4euXPEOSvuGLvlW3mm56zvTgDJnKy4szqXr9Z4tJt2
+Eo5QfO2VIAjjji9HdAfc55ygnPfjLikSWUwktYEPsrFv3dYg8BYa6W4uaAzbBwwu1RR+xjfXic40
+Jr+a1a/Bd3HI+zPXW2PF6Fbi9XYn/6DTPy+0UZnuV6NPG9v51ekpdxJFFL6hOGrQBGBP0VOhWKYO
+7c5sc8Bbosxe7TtLw0DnQJRNwIkAkzlKfptXIGasPvIuXrUE4VvceO5fTc1H2IexRQpdBK72wSJ1
+VWE=
+=wP7T
 -----END PGP SIGNATURE-----
 
---------------PH6RE0bdaBjJFU6C368NRApK--
+--------------5BePbc0zJRAG34NMI313OlgI--
