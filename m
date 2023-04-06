@@ -1,30 +1,76 @@
-From: "Arnd Bergmann" <arnd@arndb.de>
-Date: Fri, 28 Apr 2023 07:40:51 +0000
-Subject: Re: [PATCH 0/7] Expect immutable pointer in virt_to_phys/isa_virt_to_bus prototypes
-Message-Id: <52dd950a-e714-4ebe-a663-4e0ec6463d03@app.fastmail.com>
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Thu, 06 Apr 2023 14:30:01 +0000
+Subject: [PATCH v2 01/19] fbdev: Prepare generic architecture helpers
+Message-Id: <20230406143019.6709-2-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <168155718437.13678.714141668943813263.stgit@skinsburskii.localdomain>
-In-Reply-To: <168155718437.13678.714141668943813263.stgit@skinsburskii.localdomain>
+References: <20230406143019.6709-1-tzimmermann@suse.de>
+In-Reply-To: <20230406143019.6709-1-tzimmermann@suse.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Stanislav Kinsburskii <skinsburskii@linux.microsoft.com>
-Cc: linux-ia64@vger.kernel.org, Linus Walleij <linus.walleij@linaro.org>, Dave Hansen <dave.hansen@linux.intel.com>, Jiaxun Yang <jiaxun.yang@flygoat.com>, linux-mips@vger.kernel.org, "H. Peter Anvin" <hpa@zytor.com>, linux-hexagon@vger.kernel.org, Omar Sandoval <osandov@fb.com>, Linux-Arch <linux-arch@vger.kernel.org>, Florian Fainelli <f.fainelli@gmail.com>, Helge Deller <deller@gmx.de>, x86@kernel.org, Stanislav Kinsburskii <stanislav.kinsburskii@gmail.com>, Ingo Molnar <mingo@redhat.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Matt Turner <mattst88@gmail.com>, Richard Henderson <richard.henderson@linaro.org>, Nicholas Piggin <npiggin@gmail.com>, Mark Brown <broonie@kernel.org>, Borislav Petkov <bp@alien8.de>, Bjorn Helgaas <bhelgaas@google.com>, Thomas Gleixner <tglx@linutronix.de>, Brian Cain <bcain@quicinc.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Chris Down <chris@chrisdown.name>, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: arnd@arndb.de, daniel.vetter@ffwll.ch, deller@gmx.de, javierm@redhat.com, gregkh@linuxfoundation.org
+Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
 
-On Sat, Apr 15, 2023, at 12:17, Stanislav Kinsburskii wrote:
-> This series is aimed to address compilation warnings when a constant pointer
-> is passed to virt_to_phys and isa_virt_to_bus functions:
->
->   warning: passing argument 1 of ‘virt_to_phys’ discards ‘const’ 
-> qualifier from pointer target type
->   warning: passing argument 1 of ‘isa_virt_to_bus’ discards ‘const’ 
-> qualifier from pointer target type
->
-> The change(s) is the same for all architectures, but it's split into a series on
-> per-arch basis to simplify applying and testing on the maintainers side.
->
+Generic implementations of fb_pgprotect() and fb_is_primary_device()
+have been in the source code for a long time. Prepare the header file
+to make use of them.
 
-Looks all good to me. If everyone is happy with it, I'll queue it up
-after in the asm-generic tree for 6.5, once rc1 is out.
+Improve the code by using an inline function for fb_pgprotect()
+and by removing include statements. The default mode set by
+fb_pgprotect() is now writecombine, which is what most platforms
+want.
 
- Arnd
+Symbols are protected by preprocessor guards. Architectures that
+provide a symbol need to define a preprocessor token of the same
+name and value. Otherwise the header file will provide a generic
+implementation. This pattern has been taken from <asm/io.h>.
+
+v2:
+	*  use writecombine mappings by default (Arnd)
+
+Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+---
+ include/asm-generic/fb.h | 23 +++++++++++++++++++++--
+ 1 file changed, 21 insertions(+), 2 deletions(-)
+
+diff --git a/include/asm-generic/fb.h b/include/asm-generic/fb.h
+index f9f18101ed36..631d97c507ca 100644
+--- a/include/asm-generic/fb.h
++++ b/include/asm-generic/fb.h
+@@ -1,13 +1,32 @@
+ /* SPDX-License-Identifier: GPL-2.0 */
++
+ #ifndef __ASM_GENERIC_FB_H_
+ #define __ASM_GENERIC_FB_H_
+-#include <linux/fb.h>
+ 
+-#define fb_pgprotect(...) do {} while (0)
++/*
++ * Only include this header file from your architecture's <asm/fb.h>.
++ */
++
++#include <asm/page.h>
++
++struct fb_info;
++struct file;
++
++#ifndef fb_pgprotect
++#define fb_pgprotect fb_pgprotect
++static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
++				unsigned long off)
++{
++	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
++}
++#endif
+ 
++#ifndef fb_is_primary_device
++#define fb_is_primary_device fb_is_primary_device
+ static inline int fb_is_primary_device(struct fb_info *info)
+ {
+ 	return 0;
+ }
++#endif
+ 
+ #endif /* __ASM_GENERIC_FB_H_ */
+-- 
+2.40.0
