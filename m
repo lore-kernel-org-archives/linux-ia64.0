@@ -1,42 +1,43 @@
-From: Rolf Eike Beer <eike-kernel@sf-tec.de>
-Date: Thu, 06 Apr 2023 19:06:57 +0000
-Subject: Re: [PATCH 00/18] arch: Consolidate <asm/fb.h>
-Message-Id: <2675533.mvXUDI8C0e@eto.sf-tec.de>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="nextPart12183111.O9o76ZdvQC"
+From: Stanislav Kinsburskii <skinsburskii@linux.microsoft.com>
+Date: Sat, 15 Apr 2023 11:17:19 +0000
+Subject: [PATCH 0/7] Expect immutable pointer in virt_to_phys/isa_virt_to_bus prototypes
+Message-Id: <168155718437.13678.714141668943813263.stgit@skinsburskii.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230405150554.30540-1-tzimmermann@suse.de>
-In-Reply-To: <20230405150554.30540-1-tzimmermann@suse.de>
-To: arnd@arndb.de, daniel.vetter@ffwll.ch, deller@gmx.de, javierm@redhat.com, gregkh@linuxfoundation.org, Thomas Zimmermann <tzimmermann@suse.de>
-Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: 
+Cc: Matt Turner <mattst88@gmail.com>, x86@kernel.org, Stanislav Kinsburskii <stanislav.kinsburskii@gmail.com>, Borislav Petkov <bp@alien8.de>, linux-ia64@vger.kernel.org, Mark Brown <broonie@kernel.org>, Richard Henderson <richard.henderson@linaro.org>, linux-kernel@vger.kernel.org, Brian Cain <bcain@quicinc.com>, linux-mips@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, Linus Walleij <linus.walleij@linaro.org>, Jiaxun Yang <jiaxun.yang@flygoat.com>, Bjorn Helgaas <bhelgaas@google.com>, Andrew Morton <akpm@linux-foundation.org>, Dave Hansen <dave.hansen@linux.intel.com>, Omar Sandoval <osandov@fb.com>, Helge Deller <deller@gmx.de>, linuxppc-dev@lists.ozlabs.org, linux-hexagon@vger.kernel.org, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Ingo Molnar <mingo@redhat.com>, Arnd Bergmann <arnd@arndb.de>, Florian Fainelli <f.fainelli@gmail.com>, Chris Down <chris@chrisdown.name>, Nicholas Piggin <npiggin@gmail.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, "H. Peter Anvin" <hpa@zytor.com>, Thomas Gleixner <tglx@linutronix.de>
 
---nextPart12183111.O9o76ZdvQC
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"; protected-headers="v1"
-From: Rolf Eike Beer <eike-kernel@sf-tec.de>
-Subject: Re: [PATCH 00/18] arch: Consolidate <asm/fb.h>
-Date: Thu, 06 Apr 2023 21:06:57 +0200
-Message-ID: <2675533.mvXUDI8C0e@eto.sf-tec.de>
-In-Reply-To: <20230405150554.30540-1-tzimmermann@suse.de>
-References: <20230405150554.30540-1-tzimmermann@suse.de>
+This series is aimed to address compilation warnings when a constant pointer
+is passed to virt_to_phys and isa_virt_to_bus functions:
 
-Am Mittwoch, 5. April 2023, 17:05:36 CEST schrieb Thomas Zimmermann:
-> Various architectures provide <arm/fb.h> with helpers for fbdev
-                                  ^ *lol*
+  warning: passing argument 1 of ‘virt_to_phys’ discards ‘const’ qualifier from pointer target type
+  warning: passing argument 1 of ‘isa_virt_to_bus’ discards ‘const’ qualifier from pointer target type
 
-Eike
---nextPart12183111.O9o76ZdvQC
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
+The change(s) is the same for all architectures, but it's split into a series on
+per-arch basis to simplify applying and testing on the maintainers side.
 
------BEGIN PGP SIGNATURE-----
+The following series implements...
 
-iF0EABECAB0WIQSaYVDeqwKa3fTXNeNcpIk+abn8TgUCZC8YUQAKCRBcpIk+abn8
-Tg14AJ9zd7fmAHjabsNv4XQ0wrtRdP3wSACcCiALyhR78u5AwNndFsBEhTvFQg8=
-=2czj
------END PGP SIGNATURE-----
+---
 
---nextPart12183111.O9o76ZdvQC--
+Stanislav Kinsburskii (7):
+      x86: asm/io.h: Expect immutable pointer in virt_to_phys/isa_virt_to_bus prototypes
+      alpha: asm/io.h: Expect immutable pointer in virt_to_phys/isa_virt_to_bus prototypes
+      mips: asm/io.h: Expect immutable pointer in isa_virt_to_bus prototype
+      hexagon: asm/io.h: Expect immutable pointer in virt_to_phys prototype
+      ia64: asm/io.h: Expect immutable pointer in virt_to_phys prototype
+      powerpc: asm/io.h: Expect immutable pointer in virt_to_phys prototype
+      asm-generic/io.h: Expect immutable pointer in virt_to_phys
 
+
+ arch/alpha/include/asm/io.h   |    6 +++---
+ arch/hexagon/include/asm/io.h |    2 +-
+ arch/ia64/include/asm/io.h    |    2 +-
+ arch/mips/include/asm/io.h    |    2 +-
+ arch/powerpc/include/asm/io.h |    2 +-
+ arch/x86/include/asm/io.h     |    4 ++--
+ include/asm-generic/io.h      |    2 +-
+ 7 files changed, 10 insertions(+), 10 deletions(-)
 
