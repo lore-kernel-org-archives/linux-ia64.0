@@ -1,52 +1,26 @@
-From: Thomas Zimmermann <tzimmermann@suse.de>
-Date: Wed, 05 Apr 2023 15:05:44 +0000
-Subject: [PATCH 08/18] arch/mips: Implement <asm/fb.h> with generic helpers
-Message-Id: <20230405150554.30540-9-tzimmermann@suse.de>
+From: FASTWAYBASE.US94@consultant.com
+Date: Mon, 17 Apr 2023 16:28:11 +0000
+Subject: Re: new order
+Message-Id: <20230417182811.882DDE43CCF22907@consultant.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----=_NextPart_000_0012_32E6CDF8.94AD4782"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230405150554.30540-1-tzimmermann@suse.de>
-In-Reply-To: <20230405150554.30540-1-tzimmermann@suse.de>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: arnd@arndb.de, daniel.vetter@ffwll.ch, deller@gmx.de, javierm@redhat.com, gregkh@linuxfoundation.org
-Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, Thomas Zimmermann <tzimmermann@suse.de>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+To: linux-ia64@vger.kernel.org
 
-Replace the architecture's fb_is_primary_device() with the generic
-one from <asm-generic/fb.h>. No functional changes.
+This is a multi-part message in MIME format.
 
-Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
-Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
----
- arch/mips/include/asm/fb.h | 10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+------=_NextPart_000_0012_32E6CDF8.94AD4782
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/arch/mips/include/asm/fb.h b/arch/mips/include/asm/fb.h
-index bd3f68c9ddfc..6bda0a81d8ca 100644
---- a/arch/mips/include/asm/fb.h
-+++ b/arch/mips/include/asm/fb.h
-@@ -1,19 +1,17 @@
- #ifndef _ASM_FB_H_
- #define _ASM_FB_H_
- 
--#include <linux/fb.h>
--#include <linux/fs.h>
- #include <asm/page.h>
- 
-+struct file;
-+
- static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
- 				unsigned long off)
- {
- 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
- }
-+#define fb_pgprotect fb_pgprotect
- 
--static inline int fb_is_primary_device(struct fb_info *info)
--{
--	return 0;
--}
-+#include <asm-generic/fb.h>
- 
- #endif /* _ASM_FB_H_ */
--- 
-2.40.0
+Dea Sir.
+
+Please see attached new order and revert to us the delivery date/
+FOB
+also inform us payment terms.
+
+Best Regards=20
+Susan
+Purchase Manager.
+------=_NextPart_000_0012_32E6CDF8.94AD4782--
