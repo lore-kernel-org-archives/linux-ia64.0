@@ -1,50 +1,53 @@
-From: Stanislav Kinsburskii <skinsburskii@linux.microsoft.com>
-Date: Sat, 15 Apr 2023 11:17:48 +0000
-Subject: [PATCH 5/7] ia64: asm/io.h: Expect immutable pointer in virt_to_phys prototype
-Message-Id: <168155746830.13678.8071954787135972276.stgit@skinsburskii.localdomain>
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Mon, 17 Apr 2023 12:56:38 +0000
+Subject: [PATCH v3 06/19] arch/loongarch: Implement <asm/fb.h> with generic helpers
+Message-Id: <20230417125651.25126-7-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <168155718437.13678.714141668943813263.stgit@skinsburskii.localdomain>
-In-Reply-To: <168155718437.13678.714141668943813263.stgit@skinsburskii.localdomain>
+References: <20230417125651.25126-1-tzimmermann@suse.de>
+In-Reply-To: <20230417125651.25126-1-tzimmermann@suse.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: 
-Cc: Stanislav Kinsburskii <stanislav.kinsburskii@gmail.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Helge Deller <deller@gmx.de>, Arnd Bergmann <arnd@arndb.de>, Andrew Morton <akpm@linux-foundation.org>, Bjorn Helgaas <bhelgaas@google.com>, Stanislav Kinsburskii <stanislav.kinsburskii@gmail.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: arnd@arndb.de, daniel.vetter@ffwll.ch, deller@gmx.de, javierm@redhat.com, gregkh@linuxfoundation.org
+Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, Thomas Zimmermann <tzimmermann@suse.de>, Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>
 
-From: Stanislav Kinsburskii <stanislav.kinsburskii@gmail.com>
+Replace the architecture's fbdev helpers with the generic
+ones from <asm-generic/fb.h>. No functional changes.
 
-These helper function - virt_to_phys - doesn't need the address pointer to
-be mutable.
+v2:
+	* use default implementation for fb_pgprotect() (Arnd)
 
-In the same time expecting it to be mutable leads to the following build
-warning for constant pointers:
-
-  warning: passing argument 1 of ‘virt_to_phys’ discards ‘const’ qualifier from pointer target type
-
-Signed-off-by: Stanislav Kinsburskii <stanislav.kinsburskii@gmail.com>
-CC: Geert Uytterhoeven <geert@linux-m68k.org>
-CC: Helge Deller <deller@gmx.de>
-CC: Arnd Bergmann <arnd@arndb.de>
-CC: Andrew Morton <akpm@linux-foundation.org>
-CC: Bjorn Helgaas <bhelgaas@google.com>
-CC: Stanislav Kinsburskii <stanislav.kinsburskii@gmail.com>
-CC: linux-ia64@vger.kernel.org
-CC: linux-kernel@vger.kernel.org
+Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+Cc: Huacai Chen <chenhuacai@kernel.org>
+Cc: WANG Xuerui <kernel@xen0n.name>
 ---
- arch/ia64/include/asm/io.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/loongarch/include/asm/fb.h | 15 +--------------
+ 1 file changed, 1 insertion(+), 14 deletions(-)
 
-diff --git a/arch/ia64/include/asm/io.h b/arch/ia64/include/asm/io.h
-index 83a492c8d298..c56ad21ba1e9 100644
---- a/arch/ia64/include/asm/io.h
-+++ b/arch/ia64/include/asm/io.h
-@@ -74,7 +74,7 @@ extern unsigned int num_io_spaces;
-  * Change virtual addresses to physical addresses and vv.
-  */
- static inline unsigned long
--virt_to_phys (volatile void *address)
-+virt_to_phys (const volatile void *address)
- {
- 	return (unsigned long) address - PAGE_OFFSET;
- }
-
+diff --git a/arch/loongarch/include/asm/fb.h b/arch/loongarch/include/asm/fb.h
+index 3116bde8772d..ff82f20685c8 100644
+--- a/arch/loongarch/include/asm/fb.h
++++ b/arch/loongarch/include/asm/fb.h
+@@ -5,19 +5,6 @@
+ #ifndef _ASM_FB_H_
+ #define _ASM_FB_H_
+ 
+-#include <linux/fb.h>
+-#include <linux/fs.h>
+-#include <asm/page.h>
+-
+-static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+-				unsigned long off)
+-{
+-	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+-}
+-
+-static inline int fb_is_primary_device(struct fb_info *info)
+-{
+-	return 0;
+-}
++#include <asm-generic/fb.h>
+ 
+ #endif /* _ASM_FB_H_ */
+-- 
+2.40.0
