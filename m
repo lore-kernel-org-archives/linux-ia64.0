@@ -1,69 +1,104 @@
-From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Date: Mon, 17 Apr 2023 13:02:11 +0000
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Mon, 17 Apr 2023 14:06:00 +0000
 Subject: Re: [PATCH v3 16/19] arch/sh: Implement <asm/fb.h> with generic helpers
-Message-Id: <3c188e948506dc97112dcc070cf16e36209c6cc5.camel@physik.fu-berlin.de>
+Message-Id: <132f1185-d61f-b8c7-8d6e-4e4280a1a4ad@suse.de>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------GRLvBPfqMPOps21m0NeYuHxf"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20230417125651.25126-1-tzimmermann@suse.de>
-	 <20230417125651.25126-17-tzimmermann@suse.de>
-In-Reply-To: <20230417125651.25126-17-tzimmermann@suse.de>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Thomas Zimmermann <tzimmermann@suse.de>, arnd@arndb.de, daniel.vetter@ffwll.ch, deller@gmx.de, javierm@redhat.com, gregkh@linuxfoundation.org
+ <20230417125651.25126-17-tzimmermann@suse.de>
+ <3c188e948506dc97112dcc070cf16e36209c6cc5.camel@physik.fu-berlin.de>
+In-Reply-To: <3c188e948506dc97112dcc070cf16e36209c6cc5.camel@physik.fu-berlin.de>
+To: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, arnd@arndb.de, daniel.vetter@ffwll.ch, deller@gmx.de, javierm@redhat.com, gregkh@linuxfoundation.org
 Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>
 
-Hi Thomas!
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--------------GRLvBPfqMPOps21m0NeYuHxf
+Content-Type: multipart/mixed; boundary="------------jOsx0SUaezXHVt7ObFmVoIUH";
+ protected-headers="v1"
+From: Thomas Zimmermann <tzimmermann@suse.de>
+To: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, arnd@arndb.de,
+ daniel.vetter@ffwll.ch, deller@gmx.de, javierm@redhat.com,
+ gregkh@linuxfoundation.org
+Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org,
+ dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ linux-ia64@vger.kernel.org, loongarch@lists.linux.dev,
+ linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org,
+ linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+ linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org,
+ Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>
+Message-ID: <132f1185-d61f-b8c7-8d6e-4e4280a1a4ad@suse.de>
+Subject: Re: [PATCH v3 16/19] arch/sh: Implement <asm/fb.h> with generic
+ helpers
+References: <20230417125651.25126-1-tzimmermann@suse.de>
+ <20230417125651.25126-17-tzimmermann@suse.de>
+ <3c188e948506dc97112dcc070cf16e36209c6cc5.camel@physik.fu-berlin.de>
+In-Reply-To: <3c188e948506dc97112dcc070cf16e36209c6cc5.camel@physik.fu-berlin.de>
 
-On Mon, 2023-04-17 at 14:56 +0200, Thomas Zimmermann wrote:
-> Replace the architecture's fbdev helpers with the generic
-> ones from <asm-generic/fb.h>. No functional changes.
-> 
-> v2:
-> 	* use default implementation for fb_pgprotect() (Arnd)
-> 
-> Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
-> Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
-> Cc: Rich Felker <dalias@libc.org>
-> Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-> ---
->  arch/sh/include/asm/fb.h | 15 +--------------
->  1 file changed, 1 insertion(+), 14 deletions(-)
-> 
-> diff --git a/arch/sh/include/asm/fb.h b/arch/sh/include/asm/fb.h
-> index 9a0bca2686fd..19df13ee9ca7 100644
-> --- a/arch/sh/include/asm/fb.h
-> +++ b/arch/sh/include/asm/fb.h
-> @@ -2,19 +2,6 @@
->  #ifndef _ASM_FB_H_
->  #define _ASM_FB_H_
->  
-> -#include <linux/fb.h>
-> -#include <linux/fs.h>
-> -#include <asm/page.h>
-> -
-> -static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
-> -				unsigned long off)
-> -{
-> -	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
-> -}
+--------------jOsx0SUaezXHVt7ObFmVoIUH
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: base64
 
-Looking at the macro in asm-generic/fb.h, fb_pgprotect() is being replaced with
-a no-op function. Is that intentional? Can you briefly explain the background
-for this change?
+SGkNCg0KQW0gMTcuMDQuMjMgdW0gMTU6MDIgc2NocmllYiBKb2huIFBhdWwgQWRyaWFuIEds
+YXViaXR6Og0KPiBIaSBUaG9tYXMhDQo+IA0KPiBPbiBNb24sIDIwMjMtMDQtMTcgYXQgMTQ6
+NTYgKzAyMDAsIFRob21hcyBaaW1tZXJtYW5uIHdyb3RlOg0KPj4gUmVwbGFjZSB0aGUgYXJj
+aGl0ZWN0dXJlJ3MgZmJkZXYgaGVscGVycyB3aXRoIHRoZSBnZW5lcmljDQo+PiBvbmVzIGZy
+b20gPGFzbS1nZW5lcmljL2ZiLmg+LiBObyBmdW5jdGlvbmFsIGNoYW5nZXMuDQo+Pg0KPj4g
+djI6DQo+PiAJKiB1c2UgZGVmYXVsdCBpbXBsZW1lbnRhdGlvbiBmb3IgZmJfcGdwcm90ZWN0
+KCkgKEFybmQpDQo+Pg0KPj4gU2lnbmVkLW9mZi1ieTogVGhvbWFzIFppbW1lcm1hbm4gPHR6
+aW1tZXJtYW5uQHN1c2UuZGU+DQo+PiBDYzogWW9zaGlub3JpIFNhdG8gPHlzYXRvQHVzZXJz
+LnNvdXJjZWZvcmdlLmpwPg0KPj4gQ2M6IFJpY2ggRmVsa2VyIDxkYWxpYXNAbGliYy5vcmc+
+DQo+PiBDYzogSm9obiBQYXVsIEFkcmlhbiBHbGF1Yml0eiA8Z2xhdWJpdHpAcGh5c2lrLmZ1
+LWJlcmxpbi5kZT4NCj4+IC0tLQ0KPj4gICBhcmNoL3NoL2luY2x1ZGUvYXNtL2ZiLmggfCAx
+NSArLS0tLS0tLS0tLS0tLS0NCj4+ICAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCsp
+LCAxNCBkZWxldGlvbnMoLSkNCj4+DQo+PiBkaWZmIC0tZ2l0IGEvYXJjaC9zaC9pbmNsdWRl
+L2FzbS9mYi5oIGIvYXJjaC9zaC9pbmNsdWRlL2FzbS9mYi5oDQo+PiBpbmRleCA5YTBiY2Ey
+Njg2ZmQuLjE5ZGYxM2VlOWNhNyAxMDA2NDQNCj4+IC0tLSBhL2FyY2gvc2gvaW5jbHVkZS9h
+c20vZmIuaA0KPj4gKysrIGIvYXJjaC9zaC9pbmNsdWRlL2FzbS9mYi5oDQo+PiBAQCAtMiwx
+OSArMiw2IEBADQo+PiAgICNpZm5kZWYgX0FTTV9GQl9IXw0KPj4gICAjZGVmaW5lIF9BU01f
+RkJfSF8NCj4+ICAgDQo+PiAtI2luY2x1ZGUgPGxpbnV4L2ZiLmg+DQo+PiAtI2luY2x1ZGUg
+PGxpbnV4L2ZzLmg+DQo+PiAtI2luY2x1ZGUgPGFzbS9wYWdlLmg+DQo+PiAtDQo+PiAtc3Rh
+dGljIGlubGluZSB2b2lkIGZiX3BncHJvdGVjdChzdHJ1Y3QgZmlsZSAqZmlsZSwgc3RydWN0
+IHZtX2FyZWFfc3RydWN0ICp2bWEsDQo+PiAtCQkJCXVuc2lnbmVkIGxvbmcgb2ZmKQ0KPj4g
+LXsNCj4+IC0Jdm1hLT52bV9wYWdlX3Byb3QgPSBwZ3Byb3Rfd3JpdGVjb21iaW5lKHZtYS0+
+dm1fcGFnZV9wcm90KTsNCj4+IC19DQo+IA0KPiBMb29raW5nIGF0IHRoZSBtYWNybyBpbiBh
+c20tZ2VuZXJpYy9mYi5oLCBmYl9wZ3Byb3RlY3QoKSBpcyBiZWluZyByZXBsYWNlZCB3aXRo
+DQo+IGEgbm8tb3AgZnVuY3Rpb24uIElzIHRoYXQgaW50ZW50aW9uYWw/IENhbiB5b3UgYnJp
+ZWZseSBleHBsYWluIHRoZSBiYWNrZ3JvdW5kDQo+IGZvciB0aGlzIGNoYW5nZT8NCg0KUGF0
+Y2ggMDEgb2YgdGhpcyBwYXRjaHNldCBjaGFuZ2VzIHRoZSBnZW5lcmljIGZiX3BncHJvdGVj
+dCgpIHRvIHNldCANCnBncHJvdF93cml0ZWNvbWJpbmUoKS4gU28gb24gU0gsIHRoZXJlIHNo
+b3VsZCBiZSBubyBjaGFuZ2UgYXQgYWxsLg0KDQpCZXN0IHJlZ2FyZHMNClRob21hcw0KDQo+
+IA0KPj4gLXN0YXRpYyBpbmxpbmUgaW50IGZiX2lzX3ByaW1hcnlfZGV2aWNlKHN0cnVjdCBm
+Yl9pbmZvICppbmZvKQ0KPj4gLXsNCj4+IC0JcmV0dXJuIDA7DQo+PiAtfQ0KPj4gKyNpbmNs
+dWRlIDxhc20tZ2VuZXJpYy9mYi5oPg0KPj4gICANCj4+ICAgI2VuZGlmIC8qIF9BU01fRkJf
+SF8gKi8NCj4gDQo+IFRoYW5rcywNCj4gQWRyaWFuDQo+IA0KDQotLSANClRob21hcyBaaW1t
+ZXJtYW5uDQpHcmFwaGljcyBEcml2ZXIgRGV2ZWxvcGVyDQpTVVNFIFNvZnR3YXJlIFNvbHV0
+aW9ucyBHZXJtYW55IEdtYkgNCk1heGZlbGRzdHIuIDUsIDkwNDA5IE7DvHJuYmVyZywgR2Vy
+bWFueQ0KKEhSQiAzNjgwOSwgQUcgTsO8cm5iZXJnKQ0KR2VzY2jDpGZ0c2bDvGhyZXI6IEl2
+byBUb3Rldg0K
 
-> -static inline int fb_is_primary_device(struct fb_info *info)
-> -{
-> -	return 0;
-> -}
-> +#include <asm-generic/fb.h>
->  
->  #endif /* _ASM_FB_H_ */
+--------------jOsx0SUaezXHVt7ObFmVoIUH--
 
-Thanks,
-Adrian
+--------------GRLvBPfqMPOps21m0NeYuHxf
+Content-Type: application/pgp-signature; name="OpenPGP_signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="OpenPGP_signature"
 
--- 
- .''`.  John Paul Adrian Glaubitz
-: :' :  Debian Developer
-`. `'   Physicist
-  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
+-----BEGIN PGP SIGNATURE-----
+
+wsF5BAABCAAjFiEExndm/fpuMUdwYFFolh/E3EQov+AFAmQ9UkgFAwAAAAAACgkQlh/E3EQov+CT
+dxAAlaeZyea9oxbjHET7y9S9z07PiGslCvB1B9EMC4ni/lgz7L6gx7STXzzpd5ONJWiY7auM2WAN
+t3hqR7Dzuw6zSaOSaI8cC2ea0BqmRqB9Kp5PsHVHfeDd+ttE3hfeeLb+UDY0tbe0RZQfOL0elv34
+caKqb0i3LzJ+6khaquE0KFN8zvATCMTtsKourTtuC6g7r+ZmSLRM3j1NT5kAahgAelYHHuFXPakP
+k1cXqj1GgFzFh61UACffWRXCEhxGkN837BkWsB2JDolMRXCnU6v1+hjopS+Q+feiYpFKdI7/92qy
+mwkMLfHZx6vruJaZYOPyGP7eqA+kXZ62Qrs5quhoG1/gtJhjCnMYdlgcH/oCUpWL3SloQQHlq3BG
+bzaOYloNOGEEGrFroFyE0aMYMIKipcKiYCCdHK0mDn3om+hBaGQnCbcl2Ee+RtfjM7IsJjz8R82F
+xkdAvmr99dYQdvJq6BvElO6D2k4M6XPucghD8jW9+kiZKdTz4p8q5Y7iY/b5eXbozEhrcAj8zsM2
+2Cfv8zmqbUCfOiasUAXCtsHeZ0rC49nLHlF4UdJF9N6KIVCxwwLhKeojr0Y8fd/tSL26bxFH209G
+hUHBENKZ4zwpXWSHyhLDzs5fIWo4wAAM13/2OVhgT8W1anIX0riForyhNb4EO+FVbdBZIIMyj+8u
+sMs=
+=sWM8
+-----END PGP SIGNATURE-----
+
+--------------GRLvBPfqMPOps21m0NeYuHxf--
