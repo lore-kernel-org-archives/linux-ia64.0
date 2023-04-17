@@ -1,35 +1,59 @@
 From: Thomas Zimmermann <tzimmermann@suse.de>
-Date: Wed, 26 Apr 2023 13:04:17 +0000
-Subject: [PATCH 2/5] ipu-v3: Include <linux/io.h>
-Message-Id: <20230426130420.19942-3-tzimmermann@suse.de>
+Date: Mon, 17 Apr 2023 12:56:40 +0000
+Subject: [PATCH v3 08/19] arch/m68k: Implement <asm/fb.h> with generic helpers
+Message-Id: <20230417125651.25126-9-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230426130420.19942-1-tzimmermann@suse.de>
-In-Reply-To: <20230426130420.19942-1-tzimmermann@suse.de>
+References: <20230417125651.25126-1-tzimmermann@suse.de>
+In-Reply-To: <20230417125651.25126-1-tzimmermann@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de
-Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
+To: arnd@arndb.de, daniel.vetter@ffwll.ch, deller@gmx.de, javierm@redhat.com, gregkh@linuxfoundation.org
+Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, Thomas Zimmermann <tzimmermann@suse.de>, Geert Uytterhoeven <geert@linux-m68k.org>
 
-The code uses readl() and writel(). Include the header file to
-get the declarations.
+Replace the architecture's fb_is_primary_device() with the generic
+one from <asm-generic/fb.h>. No functional changes.
+
+v2:
+	* provide empty fb_pgprotect() on non-MMU systems
 
 Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
 ---
- drivers/gpu/ipu-v3/ipu-prv.h | 1 +
- 1 file changed, 1 insertion(+)
+ arch/m68k/include/asm/fb.h | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/gpu/ipu-v3/ipu-prv.h b/drivers/gpu/ipu-v3/ipu-prv.h
-index 291ac1bab66d..d4621b1ea7f1 100644
---- a/drivers/gpu/ipu-v3/ipu-prv.h
-+++ b/drivers/gpu/ipu-v3/ipu-prv.h
-@@ -8,6 +8,7 @@
+diff --git a/arch/m68k/include/asm/fb.h b/arch/m68k/include/asm/fb.h
+index 4f96989922af..24273fc7ad91 100644
+--- a/arch/m68k/include/asm/fb.h
++++ b/arch/m68k/include/asm/fb.h
+@@ -2,11 +2,11 @@
+ #ifndef _ASM_FB_H_
+ #define _ASM_FB_H_
  
- struct ipu_soc;
+-#include <linux/fb.h>
+-#include <linux/fs.h>
+ #include <asm/page.h>
+ #include <asm/setup.h>
  
-+#include <linux/io.h>
- #include <linux/types.h>
- #include <linux/device.h>
- #include <linux/clk.h>
++struct file;
++
+ static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+ 				unsigned long off)
+ {
+@@ -24,10 +24,8 @@ static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+ #endif /* CONFIG_SUN3 */
+ #endif /* CONFIG_MMU */
+ }
++#define fb_pgprotect fb_pgprotect
+ 
+-static inline int fb_is_primary_device(struct fb_info *info)
+-{
+-	return 0;
+-}
++#include <asm-generic/fb.h>
+ 
+ #endif /* _ASM_FB_H_ */
 -- 
 2.40.0
