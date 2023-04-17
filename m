@@ -1,37 +1,62 @@
 From: Thomas Zimmermann <tzimmermann@suse.de>
-Date: Wed, 05 Apr 2023 15:05:47 +0000
-Subject: [PATCH 11/18] arch/parisc: Remove trailing whitespaces
-Message-Id: <20230405150554.30540-12-tzimmermann@suse.de>
+Date: Mon, 17 Apr 2023 12:56:51 +0000
+Subject: [PATCH v3 19/19] arch/x86: Implement <asm/fb.h> with generic helpers
+Message-Id: <20230417125651.25126-20-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230405150554.30540-1-tzimmermann@suse.de>
-In-Reply-To: <20230405150554.30540-1-tzimmermann@suse.de>
+References: <20230417125651.25126-1-tzimmermann@suse.de>
+In-Reply-To: <20230417125651.25126-1-tzimmermann@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: arnd@arndb.de, daniel.vetter@ffwll.ch, deller@gmx.de, javierm@redhat.com, gregkh@linuxfoundation.org
-Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, Thomas Zimmermann <tzimmermann@suse.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>
+Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, Dave Hansen <dave.hansen@linux.intel.com>, linux-ia64@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, x86@kernel.org, linux-kernel@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, loongarch@lists.linux.dev, "H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, linux-snps-arc@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org
 
-Fix trailing whitespaces. No functional changes.
+Include <asm-generic/fb.h> and set the required preprocessor tokens
+correctly. x86 now implements its own set of fb helpers, but still
+follows the overall pattern of the other <asm/fb.h> files.
+
+v3:
+	* clarified commit message
 
 Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
-Cc: "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>
-Cc: Helge Deller <deller@gmx.de>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: Dave Hansen <dave.hansen@linux.intel.com>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
 ---
- arch/parisc/Makefile | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/x86/include/asm/fb.h | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
 
-diff --git a/arch/parisc/Makefile b/arch/parisc/Makefile
-index a2d8600521f9..0d049a6f6a60 100644
---- a/arch/parisc/Makefile
-+++ b/arch/parisc/Makefile
-@@ -11,7 +11,7 @@
- # Copyright (C) 1994 by Linus Torvalds
- # Portions Copyright (C) 1999 The Puffin Group
- #
--# Modified for PA-RISC Linux by Paul Lahaie, Alex deVries, 
-+# Modified for PA-RISC Linux by Paul Lahaie, Alex deVries,
- # Mike Shaver, Helge Deller and Martin K. Petersen
- #
+diff --git a/arch/x86/include/asm/fb.h b/arch/x86/include/asm/fb.h
+index ab4c960146e3..a3fb801f12f1 100644
+--- a/arch/x86/include/asm/fb.h
++++ b/arch/x86/include/asm/fb.h
+@@ -2,10 +2,11 @@
+ #ifndef _ASM_X86_FB_H
+ #define _ASM_X86_FB_H
  
+-#include <linux/fb.h>
+-#include <linux/fs.h>
+ #include <asm/page.h>
+ 
++struct fb_info;
++struct file;
++
+ static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+ 				unsigned long off)
+ {
+@@ -16,7 +17,11 @@ static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+ 		pgprot_val(vma->vm_page_prot)  			prot | cachemode2protval(_PAGE_CACHE_MODE_UC_MINUS);
+ }
++#define fb_pgprotect fb_pgprotect
++
++int fb_is_primary_device(struct fb_info *info);
++#define fb_is_primary_device fb_is_primary_device
+ 
+-extern int fb_is_primary_device(struct fb_info *info);
++#include <asm-generic/fb.h>
+ 
+ #endif /* _ASM_X86_FB_H */
 -- 
 2.40.0
