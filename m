@@ -1,23 +1,35 @@
-From: "Adam Charachuta" <adam.charachuta@lokoho.com>
-Date: Tue, 25 Apr 2023 09:42:51 +0000
-Subject: =?UTF-8?Q?S=C5=82owa_kluczowe_do_wypozycjonowania?=
-Message-Id: <20230425102243-0.1.5k.201t0.0.ji57dmo2dh@lokoho.com>
+From: Hugh Dickins <hughd@google.com>
+Date: Mon, 17 Apr 2023 05:17:05 +0000
+Subject: [PATCH] ia64: fix an addr to taddr in huge_pte_offset()
+Message-Id: <732eae88-3beb-246-2c72-281de786740@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20221213074501-0.1.2s.95qp.0.a03w3p9pzm@lokoho.com>
-In-Reply-To: <20221213074501-0.1.2s.95qp.0.a03w3p9pzm@lokoho.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Mike Rapoport <rppt@linux.ibm.com>, Mike Kravetz <mike.kravetz@oracle.com>, Ard Biesheuvel <ardb@kernel.org>, linux-ia64@vger.kernel.org, linux-mm@kvack.org
 
-Dzień dobry,
+I know nothing of ia64 htlbpage_to_page(), but guess that the p4d
+line should be using taddr rather than addr, like everywhere else.
 
-zapoznałem się z Państwa ofertą i z przyjemnością przyznaję, że przyciąga uwagę i zachęca do dalszych rozmów. 
+Fixes: c03ab9e32a2c ("ia64: add support for folded p4d page tables")
+Signed-off-by: Hugh Dickins <hughd@google.com
+---
+Just something noticed when visiting recently in the source:
+thought we might fix it before ia64 is consigned to history;
+I'm unable to say anything about the user-visible effects!
 
-Pomyślałem, że może mógłbym mieć swój wkład w Państwa rozwój i pomóc dotrzeć z tą ofertą do większego grona odbiorców. Pozycjonuję strony www, dzięki czemu generują świetny ruch w sieci.
+ arch/ia64/mm/hugetlbpage.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Możemy porozmawiać w najbliższym czasie?
-
-
-Pozdrawiam
-Adam Charachuta
+--- 6.3-rc7/arch/ia64/mm/hugetlbpage.c
++++ linux/arch/ia64/mm/hugetlbpage.c
+@@ -58,7 +58,7 @@ huge_pte_offset (struct mm_struct *mm, unsigned long addr, unsigned long sz)
+ 
+ 	pgd = pgd_offset(mm, taddr);
+ 	if (pgd_present(*pgd)) {
+-		p4d = p4d_offset(pgd, addr);
++		p4d = p4d_offset(pgd, taddr);
+ 		if (p4d_present(*p4d)) {
+ 			pud = pud_offset(p4d, taddr);
+ 			if (pud_present(*pud)) {
