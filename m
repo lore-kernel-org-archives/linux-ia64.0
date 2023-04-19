@@ -1,45 +1,71 @@
-From: Helge Deller <deller@gmx.de>
-Date: Wed, 19 Apr 2023 17:22:50 +0000
-Subject: Re: [PATCH v3 00/19] arch: Consolidate <asm/fb.h>
-Message-Id: <b1f90fa4-85c7-e785-ba14-f32962f87d5e@gmx.de>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Wed, 19 Apr 2023 08:56:22 +0000
+Subject: Re: [PATCH v3 05/14] ia64: don't allow users to override ARCH_FORCE_MAX_ORDER
+Message-Id: <ZD+stlzr83s6qkJr@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230417125651.25126-1-tzimmermann@suse.de>
- <1641007d-7953-426a-a3de-ca9c90f6c5a9@app.fastmail.com>
- <5fa98536-a4b0-7b71-7342-9ba05158062f@suse.de>
-In-Reply-To: <5fa98536-a4b0-7b71-7342-9ba05158062f@suse.de>
+References: <20230325060828.2662773-1-rppt@kernel.org>
+ <20230325060828.2662773-6-rppt@kernel.org>
+ <02dd2437-32fa-31aa-4ff3-b33a058f2363@huawei.com>
+In-Reply-To: <02dd2437-32fa-31aa-4ff3-b33a058f2363@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Zimmermann <tzimmermann@suse.de>, Arnd Bergmann <arnd@arndb.de>, Daniel Vetter <daniel.vetter@ffwll.ch>, Javier Martinez Canillas <javierm@redhat.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Linux-Arch <linux-arch@vger.kernel.org>, linux-fbdev@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, x86@kernel.org, linux-kernel@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, loongarch@lists.linux.dev, sparclinux@vger.kernel.org, linux-snps-arc@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org
+To: Kefeng Wang <wangkefeng.wang@huawei.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, Christophe Leroy <christophe.leroy@csgroup.eu>, "David S. Miller" <davem@davemloft.net>, Dinh Nguyen <dinguyen@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Guo Ren <guoren@kernel.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Max Filippov <jcmvbkbc@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Rich Felker <dalias@libc.org>, Russell King <linux@armlinux.org.uk>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Zi Yan <ziy@nvidia.com>, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mm@kvack.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
 
-Hi Thomas,
+On Sat, Mar 25, 2023 at 02:38:15PM +0800, Kefeng Wang wrote:
+> 
+> 
+> On 2023/3/25 14:08, Mike Rapoport wrote:
+> > From: "Mike Rapoport (IBM)" <rppt@kernel.org>
+> > 
+> > It is enough to keep default values for base and huge pages without
+> > letting users to override ARCH_FORCE_MAX_ORDER.
+> > 
+> > Drop the prompt to make the option unvisible in *config.
+> > 
+> > Acked-by: Kirill A. Shutemov <kirill.shutemov@linux.intel.com>
+> > Reviewed-by: Zi Yan <ziy@nvidia.com>
+> > Signed-off-by: Mike Rapoport (IBM) <rppt@kernel.org>
+> > ---
+> >   arch/ia64/Kconfig | 3 +--
+> >   1 file changed, 1 insertion(+), 2 deletions(-)
+> > 
+> > diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+> > index 0d2f41fa56ee..b61437cae162 100644
+> > --- a/arch/ia64/Kconfig
+> > +++ b/arch/ia64/Kconfig
+> > @@ -202,8 +202,7 @@ config IA64_CYCLONE
+> >   	  If you're unsure, answer N.
+> >   config ARCH_FORCE_MAX_ORDER
+> > -	int "MAX_ORDER (10 - 16)"  if !HUGETLB_PAGE
+> > -	range 10 16  if !HUGETLB_PAGE
+> > +	int
+> >   	default "16" if HUGETLB_PAGE
+> >   	default "10"
+> 
+> It seems that we could drop the following part?
 
-> Am 17.04.23 um 16:12 schrieb Arnd Bergmann:>> On Mon, Apr 17, 2023, at 14:56, Thomas Zimmermann wrote:
->>> Various architectures provide <asm/fb.h> with helpers for fbdev
->>> framebuffer devices. Share the contained code where possible. There
->>> is already <asm-generic/fb.h>, which implements generic (as in
->>> 'empty') functions of the fbdev helpers. The header was added in
->>> commit aafe4dbed0bf ("asm-generic: add generic versions of common
->>> headers"), but never used.
->>>
->>> Each per-architecture header file declares and/or implements fbdev
->>> helpers and defines a preprocessor token for each. The generic
->>> header then provides the remaining helpers. It works like the I/O
->>> helpers in <asm/io.h>.
->>
->> Looks all good to me,
->>
->> Acked-by: Arnd Bergmann <arnd@arndb.de>
->
-> Thanks a lot. I know that Helge wants to test the PARISC changes, so
-> I'll keep this series pending for a bit longer. I'd like to merge the
-> patches through the DRM tree, if no one objects.
+ia64 can have 64k pages, so with MAX_ORDER=16 we'd need at least 32 bits
+for section size
+ 
+> diff --git a/arch/ia64/include/asm/sparsemem.h
+> b/arch/ia64/include/asm/sparsemem.h
+> index a58f8b466d96..18187551b183 100644
+> --- a/arch/ia64/include/asm/sparsemem.h
+> +++ b/arch/ia64/include/asm/sparsemem.h
+> @@ -11,11 +11,6 @@
+> 
+>  #define SECTION_SIZE_BITS      (30)
+>  #define MAX_PHYSMEM_BITS       (50)
+> -#ifdef CONFIG_ARCH_FORCE_MAX_ORDER
+> -#if (CONFIG_ARCH_FORCE_MAX_ORDER + PAGE_SHIFT > SECTION_SIZE_BITS)
+> -#undef SECTION_SIZE_BITS
+> -#define SECTION_SIZE_BITS (CONFIG_ARCH_FORCE_MAX_ORDER + PAGE_SHIFT)
+> -#endif
+>  #endif
+> 
 
-Yes, patch is good and I've tested it on parisc. Thanks!
-
-You may add:
-Acked-by: Helge Deller <deller@gmx.de>
-to the series and take it through the drm tree.
-
-Helge
+-- 
+Sincerely yours,
+Mike.
