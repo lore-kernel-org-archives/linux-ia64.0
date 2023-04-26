@@ -1,55 +1,66 @@
 From: Thomas Zimmermann <tzimmermann@suse.de>
-Date: Thu, 06 Apr 2023 14:30:05 +0000
-Subject: [PATCH v2 05/19] arch/ia64: Implement <asm/fb.h> with generic helpers
-Message-Id: <20230406143019.6709-6-tzimmermann@suse.de>
+Date: Wed, 26 Apr 2023 13:04:18 +0000
+Subject: [PATCH 3/5] fbdev: Include <linux/io.h> in various drivers
+Message-Id: <20230426130420.19942-4-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230406143019.6709-1-tzimmermann@suse.de>
-In-Reply-To: <20230406143019.6709-1-tzimmermann@suse.de>
+References: <20230426130420.19942-1-tzimmermann@suse.de>
+In-Reply-To: <20230426130420.19942-1-tzimmermann@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: arnd@arndb.de, daniel.vetter@ffwll.ch, deller@gmx.de, javierm@redhat.com, gregkh@linuxfoundation.org
-Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
+To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de
+Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
 
-Replace the architecture's fb_is_primary_device() with the generic
-one from <asm-generic/fb.h>. No functional changes.
+The code uses writel() and similar I/O-memory helpers. Include
+the header file to get the declarations.
 
 Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
 ---
- arch/ia64/include/asm/fb.h | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+ drivers/video/fbdev/arcfb.c       | 1 +
+ drivers/video/fbdev/aty/atyfb.h   | 2 ++
+ drivers/video/fbdev/wmt_ge_rops.c | 2 ++
+ 3 files changed, 5 insertions(+)
 
-diff --git a/arch/ia64/include/asm/fb.h b/arch/ia64/include/asm/fb.h
-index 5f95782bfa46..0208f64a0da0 100644
---- a/arch/ia64/include/asm/fb.h
-+++ b/arch/ia64/include/asm/fb.h
-@@ -2,11 +2,12 @@
- #ifndef _ASM_FB_H_
- #define _ASM_FB_H_
+diff --git a/drivers/video/fbdev/arcfb.c b/drivers/video/fbdev/arcfb.c
+index 45e64016db32..d631d53f42ad 100644
+--- a/drivers/video/fbdev/arcfb.c
++++ b/drivers/video/fbdev/arcfb.c
+@@ -41,6 +41,7 @@
+ #include <linux/vmalloc.h>
+ #include <linux/delay.h>
+ #include <linux/interrupt.h>
++#include <linux/io.h>
+ #include <linux/fb.h>
+ #include <linux/init.h>
+ #include <linux/arcfb.h>
+diff --git a/drivers/video/fbdev/aty/atyfb.h b/drivers/video/fbdev/aty/atyfb.h
+index 465f55beb97f..30da3e82ed3c 100644
+--- a/drivers/video/fbdev/aty/atyfb.h
++++ b/drivers/video/fbdev/aty/atyfb.h
+@@ -3,8 +3,10 @@
+  *  ATI Frame Buffer Device Driver Core Definitions
+  */
  
--#include <linux/fb.h>
--#include <linux/fs.h>
- #include <linux/efi.h>
++#include <linux/io.h>
+ #include <linux/spinlock.h>
+ #include <linux/wait.h>
 +
- #include <asm/page.h>
+     /*
+      *  Elements of the hardware specific atyfb_par structure
+      */
+diff --git a/drivers/video/fbdev/wmt_ge_rops.c b/drivers/video/fbdev/wmt_ge_rops.c
+index 42255d27a1db..99c7b0aea615 100644
+--- a/drivers/video/fbdev/wmt_ge_rops.c
++++ b/drivers/video/fbdev/wmt_ge_rops.c
+@@ -9,7 +9,9 @@
  
-+struct file;
+ #include <linux/module.h>
+ #include <linux/fb.h>
++#include <linux/io.h>
+ #include <linux/platform_device.h>
 +
- static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
- 				unsigned long off)
- {
-@@ -15,10 +16,8 @@ static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
- 	else
- 		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
- }
-+#define fb_pgprotect fb_pgprotect
+ #include "core/fb_draw.h"
+ #include "wmt_ge_rops.h"
  
--static inline int fb_is_primary_device(struct fb_info *info)
--{
--	return 0;
--}
-+#include <asm-generic/fb.h>
- 
- #endif /* _ASM_FB_H_ */
 -- 
 2.40.0
