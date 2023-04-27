@@ -1,95 +1,53 @@
-From: Thomas Zimmermann <tzimmermann@suse.de>
-Date: Thu, 27 Apr 2023 07:22:47 +0000
+From: "Arnd Bergmann" <arnd@arndb.de>
+Date: Thu, 27 Apr 2023 10:20:32 +0000
 Subject: Re: [PATCH 0/5] fbdev: Move framebuffer I/O helpers to <asm/fb.h>
-Message-Id: <3e33ab1d-b478-fdf5-6fbe-6580000182d1@suse.de>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------7Tnoo09B1y1bqPUqHSpN4Mqn"
+Message-Id: <173a9a6c-d47d-487c-b61a-66d021548f5a@app.fastmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20230426130420.19942-1-tzimmermann@suse.de>
  <20230426192110.GA3791243@ravnborg.org>
-In-Reply-To: <20230426192110.GA3791243@ravnborg.org>
-To: Sam Ravnborg <sam@ravnborg.org>
-Cc: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@hansenpartnership.com, arnd@arndb.de, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org
+ <3e33ab1d-b478-fdf5-6fbe-6580000182d1@suse.de>
+In-Reply-To: <3e33ab1d-b478-fdf5-6fbe-6580000182d1@suse.de>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Thomas Zimmermann <tzimmermann@suse.de>, Sam Ravnborg <sam@ravnborg.org>
+Cc: Helge Deller <deller@gmx.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Javier Martinez Canillas <javierm@redhat.com>, Daniel Vetter <daniel@ffwll.ch>, Vineet Gupta <vgupta@kernel.org>, Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>, "David S . Miller" <davem@davemloft.net>, "James E . J . Bottomley" <James.Bottomley@hansenpartnership.com>, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, Linux-Arch <linux-arch@vger.kernel.org>, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---------------7Tnoo09B1y1bqPUqHSpN4Mqn
-Content-Type: multipart/mixed; boundary="------------0BnAEdd7ws0JRInwI0tlF7W0";
- protected-headers="v1"
-From: Thomas Zimmermann <tzimmermann@suse.de>
-To: Sam Ravnborg <sam@ravnborg.org>
-Cc: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch,
- vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name,
- davem@davemloft.net, James.Bottomley@hansenpartnership.com, arnd@arndb.de,
- linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org,
- linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org,
- linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org,
- loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org,
- sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- linux-parisc@vger.kernel.org
-Message-ID: <3e33ab1d-b478-fdf5-6fbe-6580000182d1@suse.de>
-Subject: Re: [PATCH 0/5] fbdev: Move framebuffer I/O helpers to <asm/fb.h>
-References: <20230426130420.19942-1-tzimmermann@suse.de>
- <20230426192110.GA3791243@ravnborg.org>
-In-Reply-To: <20230426192110.GA3791243@ravnborg.org>
+On Thu, Apr 27, 2023, at 08:22, Thomas Zimmermann wrote:
+> Am 26.04.23 um 21:21 schrieb Sam Ravnborg:
+>> On Wed, Apr 26, 2023 at 03:04:15PM +0200, Thomas Zimmermann wrote:
+>>> Fbdev provides helpers for framebuffer I/O, such as fb_readl(),
+>>> fb_writel() or fb_memcpy_to_fb(). The implementation of each helper
+>>> depends on the architecture. It's still all located in fbdev's main
+>>> header file <linux/fb.h>. Move all of it into each archtecture's
+>>> <asm/fb.h>, with shared code in <asm-generic/fb.h>.
+>> 
+>> For once I think this cleanup is moving things in the wrong direction.
+>> 
+>> The fb_* helpers predates the generic io.h support and try to
+>> add a generic layer for read read / write operations.
+>> 
+>> The right fix would be to migrate fb_* to use the io helpers
+>> we have today - so we use the existing way to handle the architecture
+>> specific details.
+>
+> I looked through the existing versions of the fb_() I/O helpers. They 
+> can apparently be implemented with the regular helpers of similar names.
+>
+> I'm not sure, but even Sparc looks compatible. At least these sbus_ 
+> functions seem to be equivalent to the __raw_() I/O helpers of similar 
+> names. Do you still have that Sparc emulator?
 
---------------0BnAEdd7ws0JRInwI0tlF7W0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: base64
+I looked at the current code and came to the same conclusion: all
+architectures we support today do the same thing in __raw_readl()
+and fb_readl() etc, so we can completely remove the latter without
+changing semantics.
 
-SGkgU2FtDQoNCkFtIDI2LjA0LjIzIHVtIDIxOjIxIHNjaHJpZWIgU2FtIFJhdm5ib3JnOg0K
-PiBIaSBUaG9tYXMuDQo+IA0KPiBPbiBXZWQsIEFwciAyNiwgMjAyMyBhdCAwMzowNDoxNVBN
-ICswMjAwLCBUaG9tYXMgWmltbWVybWFubiB3cm90ZToNCj4+IEZiZGV2IHByb3ZpZGVzIGhl
-bHBlcnMgZm9yIGZyYW1lYnVmZmVyIEkvTywgc3VjaCBhcyBmYl9yZWFkbCgpLA0KPj4gZmJf
-d3JpdGVsKCkgb3IgZmJfbWVtY3B5X3RvX2ZiKCkuIFRoZSBpbXBsZW1lbnRhdGlvbiBvZiBl
-YWNoIGhlbHBlcg0KPj4gZGVwZW5kcyBvbiB0aGUgYXJjaGl0ZWN0dXJlLiBJdCdzIHN0aWxs
-IGFsbCBsb2NhdGVkIGluIGZiZGV2J3MgbWFpbg0KPj4gaGVhZGVyIGZpbGUgPGxpbnV4L2Zi
-Lmg+LiBNb3ZlIGFsbCBvZiBpdCBpbnRvIGVhY2ggYXJjaHRlY3R1cmUncw0KPj4gPGFzbS9m
-Yi5oPiwgd2l0aCBzaGFyZWQgY29kZSBpbiA8YXNtLWdlbmVyaWMvZmIuaD4uDQo+IA0KPiBG
-b3Igb25jZSBJIHRoaW5rIHRoaXMgY2xlYW51cCBpcyBtb3ZpbmcgdGhpbmdzIGluIHRoZSB3
-cm9uZyBkaXJlY3Rpb24uDQo+IA0KPiBUaGUgZmJfKiBoZWxwZXJzIHByZWRhdGVzIHRoZSBn
-ZW5lcmljIGlvLmggc3VwcG9ydCBhbmQgdHJ5IHRvDQo+IGFkZCBhIGdlbmVyaWMgbGF5ZXIg
-Zm9yIHJlYWQgcmVhZCAvIHdyaXRlIG9wZXJhdGlvbnMuDQo+IA0KPiBUaGUgcmlnaHQgZml4
-IHdvdWxkIGJlIHRvIG1pZ3JhdGUgZmJfKiB0byB1c2UgdGhlIGlvIGhlbHBlcnMNCj4gd2Ug
-aGF2ZSB0b2RheSAtIHNvIHdlIHVzZSB0aGUgZXhpc3Rpbmcgd2F5IHRvIGhhbmRsZSB0aGUg
-YXJjaGl0ZWN0dXJlDQo+IHNwZWNpZmljIGRldGFpbHMuDQoNCkkgbG9va2VkIHRocm91Z2gg
-dGhlIGV4aXN0aW5nIHZlcnNpb25zIG9mIHRoZSBmYl8oKSBJL08gaGVscGVycy4gVGhleSAN
-CmNhbiBhcHBhcmVudGx5IGJlIGltcGxlbWVudGVkIHdpdGggdGhlIHJlZ3VsYXIgaGVscGVy
-cyBvZiBzaW1pbGFyIG5hbWVzLg0KDQpJJ20gbm90IHN1cmUsIGJ1dCBldmVuIFNwYXJjIGxv
-b2tzIGNvbXBhdGlibGUuIEF0IGxlYXN0IHRoZXNlIHNidXNfIA0KZnVuY3Rpb25zIHNlZW0g
-dG8gYmUgZXF1aXZhbGVudCB0byB0aGUgX19yYXdfKCkgSS9PIGhlbHBlcnMgb2Ygc2ltaWxh
-ciANCm5hbWVzLiBEbyB5b3Ugc3RpbGwgaGF2ZSB0aGF0IFNwYXJjIGVtdWxhdG9yPw0KDQo+
-IA0KPiAgRnJvbSBhIHF1aWNrIGxvb2sgdGhlcmUgc2VlbXMgdG8gYmUgc29tZSBjaGFsbGVu
-Z2VzIGJ1dCB0aGUgY3VycmVudA0KPiBoZWxwZXJzIHRoYXQgcmUtZG8gcGFydCBvZiBpby5o
-IGlzIG5vdCB0aGUgd2F5IGZvcndhcmQgYW5kIGhpZGluZyB0aGVtDQo+IGluIGFyY2gvaW5j
-bHVkZS9hc20vZmIuaCBzZWVtcyBjb3VudGVyIHByb2R1Y3RpdmUuDQoNCldoaWNoIGNoYWxs
-ZW5nZXMgZGlkIHlvdSBzZWU/DQoNCkJlc3QgcmVnYXJkcw0KVGhvbWFzDQoNCj4gDQo+IAlT
-YW0NCg0KLS0gDQpUaG9tYXMgWmltbWVybWFubg0KR3JhcGhpY3MgRHJpdmVyIERldmVsb3Bl
-cg0KU1VTRSBTb2Z0d2FyZSBTb2x1dGlvbnMgR2VybWFueSBHbWJIDQpGcmFua2Vuc3RyYXNz
-ZSAxNDYsIDkwNDYxIE51ZXJuYmVyZywgR2VybWFueQ0KR0Y6IEl2byBUb3RldiwgQW5kcmV3
-IE15ZXJzLCBBbmRyZXcgTWNEb25hbGQsIEJvdWRpZW4gTW9lcm1hbg0KSFJCIDM2ODA5IChB
-RyBOdWVybmJlcmcpDQo=
+I think the original list was necessary since not all architectures
+supported the __raw_ accessors in the past, so they were open-coded
+here for the rest. I thought there were also architectures on which
+__raw_readl() does a byteswap to reverse the swap done in a PCI
+host bridge, but it apears that none of those remain now, if we ever
+had them.
 
---------------0BnAEdd7ws0JRInwI0tlF7W0--
-
---------------7Tnoo09B1y1bqPUqHSpN4Mqn
-Content-Type: application/pgp-signature; name="OpenPGP_signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="OpenPGP_signature"
-
------BEGIN PGP SIGNATURE-----
-
-wsF5BAABCAAjFiEExndm/fpuMUdwYFFolh/E3EQov+AFAmRKIscFAwAAAAAACgkQlh/E3EQov+CT
-oBAA0joPCJExKZHc0py1Nmn46HLD2xkGXPqvlDNyOfv9K2WAzSvDzx5KShE1DzyUEcLTvhQfPm/D
-5nQOnQrSn7HQkCIR4umRPp+nXP2coyxCHOnBIowCq2R5+j9pCCLIke3VDkTBCjo1S2FXNaWQ7akF
-bWxfDg2rsatU/OkSba1nBa3LGj5JxZRa7DPQm4/HBXeL3WIuFiFEvklKelWui99NyANYaoXx7yoW
-enEpmf+18GQR9FDziRZjTgETxW+/HXBqLC8vF6nuig1uqQ5TuuiT6/UomLXEdARPKkDKwq4Qg7Cq
-CkIq8jsFYW3Caq7xfMmVfaz1zjSHoZ9Mc2hWnqzjSEbOgRRUpiwVVp0YmcHvr5ZkRma96jeAqXZx
-YLGHYr6u7/jyNAKDs7rqsVHSwLHrrqNvIStQ0pZTt0yVI5f52dk2FhPeKqC3n3gjEVf5BwAk1gRx
-lLlMhkoWTQBfkYZFtor/haDOuPrjOfKSgtU+mYD+SZVeRocMYVVqkRfvUyrZEH1yvOTYFZoK64aJ
-aiKd4shbSRUdRhYx6kmwsKR35X4Ww+uXrVqOtdjMhMx0uZ7rzQCEVQ312EYW1a15koHLyAWNon2n
-+UfEZE1yEvYWAqdUTcveIJ2B9Hv6jVjx1YO+vppl2GNVWBf8+ms8MW6DrPtR4AYx95gK46rcTnGM
-IJY=
-=bpnU
------END PGP SIGNATURE-----
-
---------------7Tnoo09B1y1bqPUqHSpN4Mqn--
+     Arnd
