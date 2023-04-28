@@ -1,61 +1,70 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Date: Wed, 12 Apr 2023 06:17:59 +0000
-Subject: Re: [PATCH v2 15/19] arch/powerpc: Implement <asm/fb.h> with generic helpers
-Message-Id: <87r0spipyg.fsf@mpe.ellerman.id.au>
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Fri, 28 Apr 2023 09:27:07 +0000
+Subject: [PATCH v2 1/5] fbdev/matrox: Remove trailing whitespaces
+Message-Id: <20230428092711.406-2-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230406143019.6709-1-tzimmermann@suse.de>
- <20230406143019.6709-16-tzimmermann@suse.de>
-In-Reply-To: <20230406143019.6709-16-tzimmermann@suse.de>
+References: <20230428092711.406-1-tzimmermann@suse.de>
+In-Reply-To: <20230428092711.406-1-tzimmermann@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Zimmermann <tzimmermann@suse.de>, arnd@arndb.de, daniel.vetter@ffwll.ch, deller@gmx.de, javierm@redhat.com, gregkh@linuxfoundation.org
-Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, Thomas Zimmermann <tzimmermann@suse.de>, Nicholas Piggin <npiggin@gmail.com>, Christophe Leroy <christophe.leroy@csgroup.eu>
+To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org
+Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
 
-Thomas Zimmermann <tzimmermann@suse.de> writes:
-> Replace the architecture's fb_is_primary_device() with the generic
-> one from <asm-generic/fb.h>. No functional changes.
->
-> Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
-> Cc: Michael Ellerman <mpe@ellerman.id.au>
-> Cc: Nicholas Piggin <npiggin@gmail.com>
-> Cc: Christophe Leroy <christophe.leroy@csgroup.eu>
-> ---
->  arch/powerpc/include/asm/fb.h | 8 +++-----
->  1 file changed, 3 insertions(+), 5 deletions(-)
+Fix coding style. No functional changes.
 
-Looks fine.
+Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+---
+ drivers/video/fbdev/matrox/matroxfb_accel.c | 6 +++---
+ drivers/video/fbdev/matrox/matroxfb_base.h  | 4 ++--
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
-Acked-by: Michael Ellerman <mpe@ellerman.id.au> (powerpc)
-
-cheers
-
-> diff --git a/arch/powerpc/include/asm/fb.h b/arch/powerpc/include/asm/fb.h
-> index 6541ab77c5b9..5f1a2e5f7654 100644
-> --- a/arch/powerpc/include/asm/fb.h
-> +++ b/arch/powerpc/include/asm/fb.h
-> @@ -2,8 +2,8 @@
->  #ifndef _ASM_FB_H_
->  #define _ASM_FB_H_
->  
-> -#include <linux/fb.h>
->  #include <linux/fs.h>
-> +
->  #include <asm/page.h>
->  
->  static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
-> @@ -13,10 +13,8 @@ static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
->  						 vma->vm_end - vma->vm_start,
->  						 vma->vm_page_prot);
->  }
-> +#define fb_pgprotect fb_pgprotect
->  
-> -static inline int fb_is_primary_device(struct fb_info *info)
-> -{
-> -	return 0;
-> -}
-> +#include <asm-generic/fb.h>
->  
->  #endif /* _ASM_FB_H_ */
-> -- 
-> 2.40.0
+diff --git a/drivers/video/fbdev/matrox/matroxfb_accel.c b/drivers/video/fbdev/matrox/matroxfb_accel.c
+index 9cb0685feddd..ce51227798a1 100644
+--- a/drivers/video/fbdev/matrox/matroxfb_accel.c
++++ b/drivers/video/fbdev/matrox/matroxfb_accel.c
+@@ -88,7 +88,7 @@
+ 
+ static inline void matrox_cfb4_pal(u_int32_t* pal) {
+ 	unsigned int i;
+-	
++
+ 	for (i = 0; i < 16; i++) {
+ 		pal[i] = i * 0x11111111U;
+ 	}
+@@ -96,7 +96,7 @@ static inline void matrox_cfb4_pal(u_int32_t* pal) {
+ 
+ static inline void matrox_cfb8_pal(u_int32_t* pal) {
+ 	unsigned int i;
+-	
++
+ 	for (i = 0; i < 16; i++) {
+ 		pal[i] = i * 0x01010101U;
+ 	}
+@@ -482,7 +482,7 @@ static void matroxfb_1bpp_imageblit(struct matrox_fb_info *minfo, u_int32_t fgx,
+ 			/* Tell... well, why bother... */
+ 			while (height--) {
+ 				size_t i;
+-				
++
+ 				for (i = 0; i < step; i += 4) {
+ 					/* Hope that there are at least three readable bytes beyond the end of bitmap */
+ 					fb_writel(get_unaligned((u_int32_t*)(chardata + i)),mmio.vaddr);
+diff --git a/drivers/video/fbdev/matrox/matroxfb_base.h b/drivers/video/fbdev/matrox/matroxfb_base.h
+index 958be6805f87..c93c69bbcd57 100644
+--- a/drivers/video/fbdev/matrox/matroxfb_base.h
++++ b/drivers/video/fbdev/matrox/matroxfb_base.h
+@@ -301,9 +301,9 @@ struct matrox_altout {
+ 	int		(*verifymode)(void* altout_dev, u_int32_t mode);
+ 	int		(*getqueryctrl)(void* altout_dev,
+ 					struct v4l2_queryctrl* ctrl);
+-	int		(*getctrl)(void* altout_dev, 
++	int		(*getctrl)(void *altout_dev,
+ 				   struct v4l2_control* ctrl);
+-	int		(*setctrl)(void* altout_dev, 
++	int		(*setctrl)(void *altout_dev,
+ 				   struct v4l2_control* ctrl);
+ };
+ 
+-- 
+2.40.0
