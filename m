@@ -1,67 +1,66 @@
-From: Rolf Eike Beer <eike-kernel@sf-tec.de>
-Date: Thu, 06 Apr 2023 19:08:33 +0000
-Subject: Re: [PATCH 12/18] arch/parisc: Implement fb_is_primary_device() under arch/parisc
-Message-Id: <5921681.lOV4Wx5bFT@eto.sf-tec.de>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="nextPart4819412.31r3eYUQgx"
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Fri, 28 Apr 2023 09:27:09 +0000
+Subject: [PATCH v2 3/5] fbdev: Include <linux/io.h> in various drivers
+Message-Id: <20230428092711.406-4-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230405150554.30540-1-tzimmermann@suse.de> <20230405150554.30540-13-tzimmermann@suse.de>
-In-Reply-To: <20230405150554.30540-13-tzimmermann@suse.de>
-To: arnd@arndb.de, daniel.vetter@ffwll.ch, deller@gmx.de, javierm@redhat.com, gregkh@linuxfoundation.org, Thomas Zimmermann <tzimmermann@suse.de>
-Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, Thomas Zimmermann <tzimmermann@suse.de>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>
+References: <20230428092711.406-1-tzimmermann@suse.de>
+In-Reply-To: <20230428092711.406-1-tzimmermann@suse.de>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org
+Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
 
---nextPart4819412.31r3eYUQgx
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"; protected-headers="v1"
-From: Rolf Eike Beer <eike-kernel@sf-tec.de>
-Date: Thu, 06 Apr 2023 21:08:33 +0200
-Message-ID: <5921681.lOV4Wx5bFT@eto.sf-tec.de>
-In-Reply-To: <20230405150554.30540-13-tzimmermann@suse.de>
+The code uses writel() and similar I/O-memory helpers. Include
+the header file to get the declarations.
 
-Am Mittwoch, 5. April 2023, 17:05:48 CEST schrieb Thomas Zimmermann:
-> Move PARISC's implementation of fb_is_primary_device() into the
-> architecture directory. This the place of the declaration and
-> where other architectures implement this function. No functional
-> changes.
+Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+---
+ drivers/video/fbdev/arcfb.c       | 1 +
+ drivers/video/fbdev/aty/atyfb.h   | 2 ++
+ drivers/video/fbdev/wmt_ge_rops.c | 2 ++
+ 3 files changed, 5 insertions(+)
 
-> diff --git a/arch/parisc/video/fbdev.c b/arch/parisc/video/fbdev.c
-> new file mode 100644
-> index 000000000000..4a0ae08fc75b
-> --- /dev/null
-> +++ b/arch/parisc/video/fbdev.c
-> @@ -0,0 +1,27 @@
-> +// SPDX-License-Identifier: GPL-2.0-only
-> +/*
-> + * Copyright (C) 2000 Philipp Rumpf <prumpf@tux.org>
-> + * Copyright (C) 2001-2020 Helge Deller <deller@gmx.de>
-> + * Copyright (C) 2001-2002 Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-> + */
-> +
-> +#include <linux/module.h>
-> +
-> +#include <asm/fb.h>
-> +
-> +#include <video/sticore.h>
-> +
-> +int fb_is_primary_device(struct fb_info *info)
-> +{
-
-Looking at this makes me wonder why the argument to all of these functions 
-isn't const? Not your fault, but could be a candidate for patch #19?
-
-Eike
---nextPart4819412.31r3eYUQgx
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
-
------BEGIN PGP SIGNATURE-----
-
-iF0EABECAB0WIQSaYVDeqwKa3fTXNeNcpIk+abn8TgUCZC8YsQAKCRBcpIk+abn8
-TroxAKCInC1+nDFT2zUZ2BABKO6rWJJXygCfXz1dtt8vvCEpTBZxHF+hSbDdIVk=
-=5z1v
------END PGP SIGNATURE-----
-
---nextPart4819412.31r3eYUQgx--
-
-
+diff --git a/drivers/video/fbdev/arcfb.c b/drivers/video/fbdev/arcfb.c
+index 45e64016db32..d631d53f42ad 100644
+--- a/drivers/video/fbdev/arcfb.c
++++ b/drivers/video/fbdev/arcfb.c
+@@ -41,6 +41,7 @@
+ #include <linux/vmalloc.h>
+ #include <linux/delay.h>
+ #include <linux/interrupt.h>
++#include <linux/io.h>
+ #include <linux/fb.h>
+ #include <linux/init.h>
+ #include <linux/arcfb.h>
+diff --git a/drivers/video/fbdev/aty/atyfb.h b/drivers/video/fbdev/aty/atyfb.h
+index 465f55beb97f..30da3e82ed3c 100644
+--- a/drivers/video/fbdev/aty/atyfb.h
++++ b/drivers/video/fbdev/aty/atyfb.h
+@@ -3,8 +3,10 @@
+  *  ATI Frame Buffer Device Driver Core Definitions
+  */
+ 
++#include <linux/io.h>
+ #include <linux/spinlock.h>
+ #include <linux/wait.h>
++
+     /*
+      *  Elements of the hardware specific atyfb_par structure
+      */
+diff --git a/drivers/video/fbdev/wmt_ge_rops.c b/drivers/video/fbdev/wmt_ge_rops.c
+index 42255d27a1db..99c7b0aea615 100644
+--- a/drivers/video/fbdev/wmt_ge_rops.c
++++ b/drivers/video/fbdev/wmt_ge_rops.c
+@@ -9,7 +9,9 @@
+ 
+ #include <linux/module.h>
+ #include <linux/fb.h>
++#include <linux/io.h>
+ #include <linux/platform_device.h>
++
+ #include "core/fb_draw.h"
+ #include "wmt_ge_rops.h"
+ 
+-- 
+2.40.0
