@@ -1,25 +1,36 @@
-From: pr-tracker-bot@kernel.org
-Date: Tue, 30 May 2023 21:19:31 +0000
-Subject: Re: [GIT PULL] Modules changes for v6.4-rc5
-Message-Id: <168548157162.4416.3202071710934741568.pr-tracker-bot@kernel.org>
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Tue, 02 May 2023 13:02:19 +0000
+Subject: [PATCH v3 2/6] ipu-v3: Include <linux/io.h>
+Message-Id: <20230502130223.14719-3-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <ZHYlj7jks1GIxNSn@bombadil.infradead.org>
-In-Reply-To: <ZHYlj7jks1GIxNSn@bombadil.infradead.org>
+References: <20230502130223.14719-1-tzimmermann@suse.de>
+In-Reply-To: <20230502130223.14719-1-tzimmermann@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Luis Chamberlain <mcgrof@kernel.org>
-Cc: Linus Torvalds <torvalds@linux-foundation.org>, linux-modules@vger.kernel.org, linux-ia64@vger.kernel.org, debian-ia64@lists.debian.org, glaubitz@physik.fu-berlin.de, Frank Scheiner <frank.scheiner@web.de>, Song Liu <song@kernel.org>, mcgrof@kernel.org
+To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org
+Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
 
-The pull request you sent on Tue, 30 May 2023 09:34:23 -0700:
+The code uses readl() and writel(). Include the header file to
+get the declarations.
 
-> git://git.kernel.org/pub/scm/linux/kernel/git/mcgrof/linux.git/ tags/modules-6.4-rc5
+Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+Reviewed-by: Sam Ravnborg <sam@ravnborg.org>
+---
+ drivers/gpu/ipu-v3/ipu-prv.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-has been merged into torvalds/linux.git:
-https://git.kernel.org/torvalds/c/6d86b56f54533025d94df25d77ed324344e02337
-
-Thank you!
-
+diff --git a/drivers/gpu/ipu-v3/ipu-prv.h b/drivers/gpu/ipu-v3/ipu-prv.h
+index 291ac1bab66d..d4621b1ea7f1 100644
+--- a/drivers/gpu/ipu-v3/ipu-prv.h
++++ b/drivers/gpu/ipu-v3/ipu-prv.h
+@@ -8,6 +8,7 @@
+ 
+ struct ipu_soc;
+ 
++#include <linux/io.h>
+ #include <linux/types.h>
+ #include <linux/device.h>
+ #include <linux/clk.h>
 -- 
-Deet-doot-dot, I am a bot.
-https://korg.docs.kernel.org/prtracker.html
+2.40.1
