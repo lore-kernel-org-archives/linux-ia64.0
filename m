@@ -1,109 +1,420 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Thu, 11 May 2023 06:53:07 +0000
-Subject: Re: [PATCH 05/23] m68k: allow pte_offset_map[_lock]() to fail
-Message-Id: <CAMuHMdXMhQ_DyNC-4yJRRHKYcKCrwRdxvBwGDv2FzhLSNw4Bmw@mail.gmail.com>
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Tue, 02 May 2023 13:02:21 +0000
+Subject: [PATCH v3 4/6] fbdev: Include <linux/io.h> via <asm/fb.h>
+Message-Id: <20230502130223.14719-5-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com>
- <237c8410-ce61-94c-4260-7318ad6a4f3@google.com> <CAMuHMdWb0SrEs=cDzKW1Ai2UywnnpZip4pk9mOkiVGivPpj8sg@mail.gmail.com>
- <b4a5f11-68ee-7bba-b362-10ef7c9b956@google.com>
-In-Reply-To: <b4a5f11-68ee-7bba-b362-10ef7c9b956@google.com>
+References: <20230502130223.14719-1-tzimmermann@suse.de>
+In-Reply-To: <20230502130223.14719-1-tzimmermann@suse.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Hugh Dickins <hughd@google.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>, Mike Kravetz <mike.kravetz@oracle.com>, Mike Rapoport <rppt@kernel.org>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Matthew Wilcox <willy@infradead.org>, David Hildenbrand <david@redhat.com>, Suren Baghdasaryan <surenb@google.com>, Qi Zheng <zhengqi.arch@bytedance.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Greg Ungerer <gerg@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Helge Deller <deller@gmx.de>, John David Anglin <dave.anglin@bell.net>, "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Alexandre Ghiti <alexghiti@rivosinc.com>, Palmer Dabbelt <palmer@dabbelt.com>, Heiko Carstens <hca@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Claudio Imbrenda <imbrenda@linux.ibm.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "David S. Miller" <davem@davemloft.net>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org
+Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
 
-Hi Hugh,
+Fbdev's main header file, <linux/fb.h>, includes <asm/io.h> to get
+declarations for I/O helper functions. From these declarations, it
+later defines framebuffer I/O helpers, such as fb_{read,write}[bwlq]()
+or fb_memset().
 
-On Thu, May 11, 2023 at 4:58 AM Hugh Dickins <hughd@google.com> wrote:
-> On Wed, 10 May 2023, Geert Uytterhoeven wrote:
-> > On Wed, May 10, 2023 at 6:48 AM Hugh Dickins <hughd@google.com> wrote:
-> > > In rare transient cases, not yet made possible, pte_offset_map() and
-> > > pte_offset_map_lock() may not find a page table: handle appropriately.
-> > >
-> > > Restructure cf_tlb_miss() with a pte_unmap() (previously omitted)
-> > > at label out, followed by one local_irq_restore() for all.
-> >
-> > That's a bug fix, which should be a separate patch?
->
-> No, that's not a bug fix for the current tree, since m68k does not
-> offer CONFIG_HIGHPTE, so pte_unmap() is never anything but a no-op
-> for m68k (see include/linux/pgtable.h).
->
-> But I want to change pte_unmap() to do something even without
-> CONFIG_HIGHPTE, so have to fix up any such previously harmless
-> omissions in this series first.
+The framebuffer I/O helpers depend on the system architecture and
+will therefore be moved into <asm/fb.h>. Prepare this change by first
+adding an include statement for <linux/io.h> to <asm-generic/fb.h>.
+Include <asm/fb.h> in all source files that use the framebuffer I/O
+helpers, so that they still get the necessary I/O functions.
 
-OK.
+v3:
+	* fix grammar in commit message
 
-> > > --- a/arch/m68k/include/asm/mmu_context.h
-> > > +++ b/arch/m68k/include/asm/mmu_context.h
-> > > @@ -99,7 +99,7 @@ static inline void load_ksp_mmu(struct task_struct *task)
-> > >         p4d_t *p4d;
-> > >         pud_t *pud;
-> > >         pmd_t *pmd;
-> > > -       pte_t *pte;
-> > > +       pte_t *pte = NULL;
-> > >         unsigned long mmuar;
-> > >
-> > >         local_irq_save(flags);
-> > > @@ -139,7 +139,7 @@ static inline void load_ksp_mmu(struct task_struct *task)
-> > >
-> > >         pte = (mmuar >= PAGE_OFFSET) ? pte_offset_kernel(pmd, mmuar)
-> > >                                      : pte_offset_map(pmd, mmuar);
-> > > -       if (pte_none(*pte) || !pte_present(*pte))
-> > > +       if (!pte || pte_none(*pte) || !pte_present(*pte))
-> > >                 goto bug;
-> >
-> > If the absence of a pte is to become a non-abnormal case, it should
-> > probably jump to "end" instead, to avoid spamming the kernel log.
->
-> I don't think so (but of course it's hard for you to tell, without
-> seeing all completed series of series).  If pmd_none(*pmd) can safely
-> goto bug just above, and pte_none(*pte) goto bug here, well, the !pte
-> case is going to be stranger than either of those.
->
-> My understanding of this function, load_ksp_mmu(), is that it's dealing
-> at context switch with a part of userspace which very much needs to be
-> present: whatever keeps that from being swapped out or migrated at
-> present, will be sure to keep the !pte case away - we cannot steal its
-> page table just at random (and a THP on m68k would be surprising too).
->
-> Though there is one case I can think of which will cause !pte here,
-> and so goto bug: if the pmd entry has got corrupted, and counts as
-> pmd_bad(), which will be tested (and cleared) in pte_offset_map().
-> But it is okay to report a bug in that case.
->
-> I can certainly change this to goto end instead if you still prefer,
-> no problem; but I'd rather keep it as is, if only for me to be proved
-> wrong by you actually seeing spam there.
+Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+---
+ drivers/video/fbdev/arkfb.c                 | 2 ++
+ drivers/video/fbdev/aty/mach64_cursor.c     | 2 +-
+ drivers/video/fbdev/chipsfb.c               | 1 +
+ drivers/video/fbdev/cirrusfb.c              | 2 ++
+ drivers/video/fbdev/core/cfbcopyarea.c      | 2 +-
+ drivers/video/fbdev/core/cfbfillrect.c      | 1 +
+ drivers/video/fbdev/core/cfbimgblt.c        | 1 +
+ drivers/video/fbdev/core/svgalib.c          | 3 +--
+ drivers/video/fbdev/cyber2000fb.c           | 2 ++
+ drivers/video/fbdev/ep93xx-fb.c             | 2 ++
+ drivers/video/fbdev/hgafb.c                 | 3 ++-
+ drivers/video/fbdev/hitfb.c                 | 2 +-
+ drivers/video/fbdev/kyro/fbdev.c            | 3 ++-
+ drivers/video/fbdev/matrox/matroxfb_accel.c | 2 ++
+ drivers/video/fbdev/matrox/matroxfb_base.h  | 2 +-
+ drivers/video/fbdev/pm2fb.c                 | 3 +++
+ drivers/video/fbdev/pm3fb.c                 | 2 ++
+ drivers/video/fbdev/pvr2fb.c                | 2 ++
+ drivers/video/fbdev/s3fb.c                  | 2 ++
+ drivers/video/fbdev/sm712fb.c               | 2 ++
+ drivers/video/fbdev/sstfb.c                 | 2 +-
+ drivers/video/fbdev/stifb.c                 | 2 ++
+ drivers/video/fbdev/tdfxfb.c                | 3 ++-
+ drivers/video/fbdev/tridentfb.c             | 2 ++
+ drivers/video/fbdev/vga16fb.c               | 3 ++-
+ drivers/video/fbdev/vt8623fb.c              | 2 ++
+ include/asm-generic/fb.h                    | 1 +
+ 27 files changed, 45 insertions(+), 11 deletions(-)
 
-OK, makes sense.
-
-> > > @@ -161,6 +161,8 @@ static inline void load_ksp_mmu(struct task_struct *task)
-> > >  bug:
-> > >         pr_info("ksp load failed: mm=0x%p ksp=0x08%lx\n", mm, mmuar);
-> > >  end:
-> > > +       if (pte && mmuar < PAGE_OFFSET)
-> > > +               pte_unmap(pte);
-> >
-> > Is this also a bugfix, not mentioned in the patch description?
->
-> I'm not sure whether you're referring to the pte_unmap() which we
-> already discussed above, or you're seeing something else in addition;
-> but I don't think there's a bugfix here, just a rearrangement because
-> we now want lots of cases to do the pte_unmap() and local_irq_restore().
-
-I was referring to the addition of pte_unmap().
-As per your explanation above, this is not a bugfix.
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
+diff --git a/drivers/video/fbdev/arkfb.c b/drivers/video/fbdev/arkfb.c
+index 60a96fdb5dd8..fd38e8a073b8 100644
+--- a/drivers/video/fbdev/arkfb.c
++++ b/drivers/video/fbdev/arkfb.c
+@@ -27,6 +27,8 @@
+ #include <linux/console.h> /* Why should fb driver call console functions? because console_lock() */
+ #include <video/vga.h>
+ 
++#include <asm/fb.h>
++
+ struct arkfb_info {
+ 	int mclk_freq;
+ 	int wc_cookie;
+diff --git a/drivers/video/fbdev/aty/mach64_cursor.c b/drivers/video/fbdev/aty/mach64_cursor.c
+index 4ad0331a8c57..a848aaff510c 100644
+--- a/drivers/video/fbdev/aty/mach64_cursor.c
++++ b/drivers/video/fbdev/aty/mach64_cursor.c
+@@ -8,7 +8,7 @@
+ #include <linux/string.h>
+ #include "../core/fb_draw.h"
+ 
+-#include <asm/io.h>
++#include <asm/fb.h>
+ 
+ #ifdef __sparc__
+ #include <asm/fbio.h>
+diff --git a/drivers/video/fbdev/chipsfb.c b/drivers/video/fbdev/chipsfb.c
+index 7799d52a651f..9f9ee13ba2be 100644
+--- a/drivers/video/fbdev/chipsfb.c
++++ b/drivers/video/fbdev/chipsfb.c
+@@ -32,6 +32,7 @@
+ #ifdef CONFIG_PMAC_BACKLIGHT
+ #include <asm/backlight.h>
+ #endif
++#include <asm/fb.h>
+ 
+ /*
+  * Since we access the display with inb/outb to fixed port numbers,
+diff --git a/drivers/video/fbdev/cirrusfb.c b/drivers/video/fbdev/cirrusfb.c
+index ba45e2147c52..cc306b3733e2 100644
+--- a/drivers/video/fbdev/cirrusfb.c
++++ b/drivers/video/fbdev/cirrusfb.c
+@@ -57,6 +57,8 @@
+ #include <video/vga.h>
+ #include <video/cirrus.h>
+ 
++#include <asm/fb.h>
++
+ /*****************************************************************
+  *
+  * debugging and utility macros
+diff --git a/drivers/video/fbdev/core/cfbcopyarea.c b/drivers/video/fbdev/core/cfbcopyarea.c
+index 6d4bfeecee35..128fdd0cdcdc 100644
+--- a/drivers/video/fbdev/core/cfbcopyarea.c
++++ b/drivers/video/fbdev/core/cfbcopyarea.c
+@@ -26,8 +26,8 @@
+ #include <linux/kernel.h>
+ #include <linux/string.h>
+ #include <linux/fb.h>
++#include <asm/fb.h>
+ #include <asm/types.h>
+-#include <asm/io.h>
+ #include "fb_draw.h"
+ 
+ #if BITS_PER_LONG = 32
+diff --git a/drivers/video/fbdev/core/cfbfillrect.c b/drivers/video/fbdev/core/cfbfillrect.c
+index ba9f58b2a5e8..2c6aac987786 100644
+--- a/drivers/video/fbdev/core/cfbfillrect.c
++++ b/drivers/video/fbdev/core/cfbfillrect.c
+@@ -16,6 +16,7 @@
+ #include <linux/module.h>
+ #include <linux/string.h>
+ #include <linux/fb.h>
++#include <asm/fb.h>
+ #include <asm/types.h>
+ #include "fb_draw.h"
+ 
+diff --git a/drivers/video/fbdev/core/cfbimgblt.c b/drivers/video/fbdev/core/cfbimgblt.c
+index 9ebda4e0dc7a..d1e071148a4b 100644
+--- a/drivers/video/fbdev/core/cfbimgblt.c
++++ b/drivers/video/fbdev/core/cfbimgblt.c
+@@ -32,6 +32,7 @@
+ #include <linux/module.h>
+ #include <linux/string.h>
+ #include <linux/fb.h>
++#include <asm/fb.h>
+ #include <asm/types.h>
+ #include "fb_draw.h"
+ 
+diff --git a/drivers/video/fbdev/core/svgalib.c b/drivers/video/fbdev/core/svgalib.c
+index 9e01322fabe3..5ddd498024a8 100644
+--- a/drivers/video/fbdev/core/svgalib.c
++++ b/drivers/video/fbdev/core/svgalib.c
+@@ -15,9 +15,8 @@
+ #include <linux/string.h>
+ #include <linux/fb.h>
+ #include <linux/svga.h>
++#include <asm/fb.h>
+ #include <asm/types.h>
+-#include <asm/io.h>
+-
+ 
+ /* Write a CRT register value spread across multiple registers */
+ void svga_wcrt_multi(void __iomem *regbase, const struct vga_regset *regset, u32 value)
+diff --git a/drivers/video/fbdev/cyber2000fb.c b/drivers/video/fbdev/cyber2000fb.c
+index 38c0a6866d76..9fbc0994b3ae 100644
+--- a/drivers/video/fbdev/cyber2000fb.c
++++ b/drivers/video/fbdev/cyber2000fb.c
+@@ -48,6 +48,8 @@
+ #include <linux/i2c.h>
+ #include <linux/i2c-algo-bit.h>
+ 
++#include <asm/fb.h>
++
+ #ifdef __arm__
+ #include <asm/mach-types.h>
+ #endif
+diff --git a/drivers/video/fbdev/ep93xx-fb.c b/drivers/video/fbdev/ep93xx-fb.c
+index 305f1587bd89..5dce00500f0a 100644
+--- a/drivers/video/fbdev/ep93xx-fb.c
++++ b/drivers/video/fbdev/ep93xx-fb.c
+@@ -23,6 +23,8 @@
+ 
+ #include <linux/platform_data/video-ep93xx.h>
+ 
++#include <asm/fb.h>
++
+ /* Vertical Frame Timing Registers */
+ #define EP93XXFB_VLINES_TOTAL			0x0000	/* SW locked */
+ #define EP93XXFB_VSYNC				0x0004	/* SW locked */
+diff --git a/drivers/video/fbdev/hgafb.c b/drivers/video/fbdev/hgafb.c
+index 40879d9facdf..b15271c52d05 100644
+--- a/drivers/video/fbdev/hgafb.c
++++ b/drivers/video/fbdev/hgafb.c
+@@ -41,7 +41,8 @@
+ #include <linux/init.h>
+ #include <linux/ioport.h>
+ #include <linux/platform_device.h>
+-#include <asm/io.h>
++
++#include <asm/fb.h>
+ #include <asm/vga.h>
+ 
+ #if 0
+diff --git a/drivers/video/fbdev/hitfb.c b/drivers/video/fbdev/hitfb.c
+index bbb0f1d953cc..a2b5c58f7b7c 100644
+--- a/drivers/video/fbdev/hitfb.c
++++ b/drivers/video/fbdev/hitfb.c
+@@ -23,7 +23,7 @@
+ 
+ #include <asm/machvec.h>
+ #include <linux/uaccess.h>
+-#include <asm/io.h>
++#include <asm/fb.h>
+ #include <asm/hd64461.h>
+ #include <cpu/dac.h>
+ 
+diff --git a/drivers/video/fbdev/kyro/fbdev.c b/drivers/video/fbdev/kyro/fbdev.c
+index 0596573ef140..8b6c3318bf8c 100644
+--- a/drivers/video/fbdev/kyro/fbdev.c
++++ b/drivers/video/fbdev/kyro/fbdev.c
+@@ -21,9 +21,10 @@
+ #include <linux/ioctl.h>
+ #include <linux/init.h>
+ #include <linux/pci.h>
+-#include <asm/io.h>
+ #include <linux/uaccess.h>
+ 
++#include <asm/fb.h>
++
+ #include <video/kyro.h>
+ 
+ #include "STG4000Reg.h"
+diff --git a/drivers/video/fbdev/matrox/matroxfb_accel.c b/drivers/video/fbdev/matrox/matroxfb_accel.c
+index ce51227798a1..c982cfe68ab8 100644
+--- a/drivers/video/fbdev/matrox/matroxfb_accel.c
++++ b/drivers/video/fbdev/matrox/matroxfb_accel.c
+@@ -82,6 +82,8 @@
+ #include "matroxfb_Ti3026.h"
+ #include "matroxfb_misc.h"
+ 
++#include <asm/fb.h>
++
+ #define curr_ydstorg(x)	((x)->curr.ydstorg.pixels)
+ 
+ #define mga_ydstlen(y,l) mga_outl(M_YDSTLEN | M_EXEC, ((y) << 16) | (l))
+diff --git a/drivers/video/fbdev/matrox/matroxfb_base.h b/drivers/video/fbdev/matrox/matroxfb_base.h
+index c93c69bbcd57..184a6d733b93 100644
+--- a/drivers/video/fbdev/matrox/matroxfb_base.h
++++ b/drivers/video/fbdev/matrox/matroxfb_base.h
+@@ -43,7 +43,7 @@
+ #include <linux/spinlock.h>
+ #include <linux/kd.h>
+ 
+-#include <asm/io.h>
++#include <asm/fb.h>
+ #include <asm/unaligned.h>
+ 
+ #if defined(CONFIG_PPC_PMAC)
+diff --git a/drivers/video/fbdev/pm2fb.c b/drivers/video/fbdev/pm2fb.c
+index 47d212944f30..b6a37aff057e 100644
+--- a/drivers/video/fbdev/pm2fb.c
++++ b/drivers/video/fbdev/pm2fb.c
+@@ -39,6 +39,9 @@
+ #include <linux/fb.h>
+ #include <linux/init.h>
+ #include <linux/pci.h>
++
++#include <asm/fb.h>
++
+ #include <video/permedia2.h>
+ #include <video/cvisionppc.h>
+ 
+diff --git a/drivers/video/fbdev/pm3fb.c b/drivers/video/fbdev/pm3fb.c
+index b46a471df9ae..95e152969d30 100644
+--- a/drivers/video/fbdev/pm3fb.c
++++ b/drivers/video/fbdev/pm3fb.c
+@@ -34,6 +34,8 @@
+ #include <linux/init.h>
+ #include <linux/pci.h>
+ 
++#include <asm/fb.h>
++
+ #include <video/pm3fb.h>
+ 
+ #if !defined(CONFIG_PCI)
+diff --git a/drivers/video/fbdev/pvr2fb.c b/drivers/video/fbdev/pvr2fb.c
+index 6888127a5eb8..1dfb75b15eea 100644
+--- a/drivers/video/fbdev/pvr2fb.c
++++ b/drivers/video/fbdev/pvr2fb.c
+@@ -74,6 +74,8 @@
+ #include <cpu/sq.h>
+ #endif
+ 
++#include <asm/fb.h>
++
+ #ifndef PCI_DEVICE_ID_NEC_NEON250
+ #  define PCI_DEVICE_ID_NEC_NEON250	0x0067
+ #endif
+diff --git a/drivers/video/fbdev/s3fb.c b/drivers/video/fbdev/s3fb.c
+index 7d257489edcc..eb16beba10c5 100644
+--- a/drivers/video/fbdev/s3fb.c
++++ b/drivers/video/fbdev/s3fb.c
+@@ -29,6 +29,8 @@
+ #include <linux/i2c.h>
+ #include <linux/i2c-algo-bit.h>
+ 
++#include <asm/fb.h>
++
+ struct s3fb_info {
+ 	int chip, rev, mclk_freq;
+ 	int wc_cookie;
+diff --git a/drivers/video/fbdev/sm712fb.c b/drivers/video/fbdev/sm712fb.c
+index b528776c7612..ca15938ce603 100644
+--- a/drivers/video/fbdev/sm712fb.c
++++ b/drivers/video/fbdev/sm712fb.c
+@@ -31,6 +31,8 @@
+ 
+ #include <linux/pm.h>
+ 
++#include <asm/fb.h>
++
+ #include "sm712.h"
+ 
+ /*
+diff --git a/drivers/video/fbdev/sstfb.c b/drivers/video/fbdev/sstfb.c
+index da296b2ab54a..1ee4bea467b4 100644
+--- a/drivers/video/fbdev/sstfb.c
++++ b/drivers/video/fbdev/sstfb.c
+@@ -88,10 +88,10 @@
+ #include <linux/pci.h>
+ #include <linux/delay.h>
+ #include <linux/init.h>
+-#include <asm/io.h>
+ #include <linux/uaccess.h>
+ #include <video/sstfb.h>
+ 
++#include <asm/fb.h>
+ 
+ /* initialized by setup */
+ 
+diff --git a/drivers/video/fbdev/stifb.c b/drivers/video/fbdev/stifb.c
+index baca6974e288..a3b837a5fb81 100644
+--- a/drivers/video/fbdev/stifb.c
++++ b/drivers/video/fbdev/stifb.c
+@@ -69,6 +69,8 @@
+ #include <asm/grfioctl.h>	/* for HP-UX compatibility */
+ #include <linux/uaccess.h>
+ 
++#include <asm/fb.h>
++
+ #include <video/sticore.h>
+ 
+ /* REGION_BASE(fb_info, index) returns the virtual address for region <index> */
+diff --git a/drivers/video/fbdev/tdfxfb.c b/drivers/video/fbdev/tdfxfb.c
+index d17e5e1472aa..5ed8f670f51c 100644
+--- a/drivers/video/fbdev/tdfxfb.c
++++ b/drivers/video/fbdev/tdfxfb.c
+@@ -74,7 +74,8 @@
+ #include <linux/fb.h>
+ #include <linux/init.h>
+ #include <linux/pci.h>
+-#include <asm/io.h>
++
++#include <asm/fb.h>
+ 
+ #include <video/tdfx.h>
+ 
+diff --git a/drivers/video/fbdev/tridentfb.c b/drivers/video/fbdev/tridentfb.c
+index 6099b9768ba1..1bd12606c9e0 100644
+--- a/drivers/video/fbdev/tridentfb.c
++++ b/drivers/video/fbdev/tridentfb.c
+@@ -30,6 +30,8 @@
+ #include <linux/i2c.h>
+ #include <linux/i2c-algo-bit.h>
+ 
++#include <asm/fb.h>
++
+ struct tridentfb_par {
+ 	void __iomem *io_virt;	/* iospace virtual memory address */
+ 	u32 pseudo_pal[16];
+diff --git a/drivers/video/fbdev/vga16fb.c b/drivers/video/fbdev/vga16fb.c
+index 1a8ffdb2be26..2899d4ce0f6f 100644
+--- a/drivers/video/fbdev/vga16fb.c
++++ b/drivers/video/fbdev/vga16fb.c
+@@ -23,7 +23,8 @@
+ #include <linux/platform_device.h>
+ #include <linux/screen_info.h>
+ 
+-#include <asm/io.h>
++#include <asm/fb.h>
++
+ #include <video/vga.h>
+ 
+ #define MODE_SKIP4	1
+diff --git a/drivers/video/fbdev/vt8623fb.c b/drivers/video/fbdev/vt8623fb.c
+index 034333ee6e45..bc345d4fee9e 100644
+--- a/drivers/video/fbdev/vt8623fb.c
++++ b/drivers/video/fbdev/vt8623fb.c
+@@ -27,6 +27,8 @@
+ #include <linux/console.h> /* Why should fb driver call console functions? because console_lock() */
+ #include <video/vga.h>
+ 
++#include <asm/fb.h>
++
+ struct vt8623fb_info {
+ 	char __iomem *mmio_base;
+ 	int wc_cookie;
+diff --git a/include/asm-generic/fb.h b/include/asm-generic/fb.h
+index c8af99f5a535..6922dd248c51 100644
+--- a/include/asm-generic/fb.h
++++ b/include/asm-generic/fb.h
+@@ -7,6 +7,7 @@
+  * Only include this header file from your architecture's <asm/fb.h>.
+  */
+ 
++#include <linux/io.h>
+ #include <linux/mm_types.h>
+ #include <linux/pgtable.h>
+ 
 -- 
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+2.40.1
