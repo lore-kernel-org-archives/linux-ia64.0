@@ -1,83 +1,218 @@
 From: Thomas Zimmermann <tzimmermann@suse.de>
-Date: Fri, 05 May 2023 07:02:50 +0000
-Subject: Re: [PATCH v4 4/6] fbdev: Include <linux/fb.h> instead of <asm/fb.h>
-Message-Id: <54679884-9307-f828-dca4-34cb781dc463@suse.de>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------OVNAYynKUsk0MtSxKZ0ZybeJ"
+Date: Tue, 02 May 2023 13:02:22 +0000
+Subject: [PATCH v3 5/6] fbdev: Move framebuffer I/O helpers into <asm/fb.h>
+Message-Id: <20230502130223.14719-6-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230504074539.8181-1-tzimmermann@suse.de>
- <20230504074539.8181-5-tzimmermann@suse.de>
- <20230504153710.GA518522@ravnborg.org>
-In-Reply-To: <20230504153710.GA518522@ravnborg.org>
-To: Sam Ravnborg <sam@ravnborg.org>
-Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, arnd@arndb.de, deller@gmx.de, chenhuacai@kernel.org, javierm@redhat.com, dri-devel@lists.freedesktop.org, linux-kernel@vger.kernel.org, James.Bottomley@hansenpartnership.com, linux-m68k@lists.linux-m68k.org, geert@linux-m68k.org, linux-parisc@vger.kernel.org, vgupta@kernel.org, sparclinux@vger.kernel.org, kernel@xen0n.name, linux-snps-arc@lists.infradead.org, davem@davemloft.net, linux-arm-kernel@lists.infradead.org
+References: <20230502130223.14719-1-tzimmermann@suse.de>
+In-Reply-To: <20230502130223.14719-1-tzimmermann@suse.de>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org
+Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---------------OVNAYynKUsk0MtSxKZ0ZybeJ
-Content-Type: multipart/mixed; boundary="------------w56d0we4Beh0uPurMRS337ha";
- protected-headers="v1"
-From: Thomas Zimmermann <tzimmermann@suse.de>
-To: Sam Ravnborg <sam@ravnborg.org>
-Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org,
- linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, arnd@arndb.de,
- deller@gmx.de, chenhuacai@kernel.org, javierm@redhat.com,
- dri-devel@lists.freedesktop.org, linux-kernel@vger.kernel.org,
- James.Bottomley@hansenpartnership.com, linux-m68k@lists.linux-m68k.org,
- geert@linux-m68k.org, linux-parisc@vger.kernel.org, vgupta@kernel.org,
- sparclinux@vger.kernel.org, kernel@xen0n.name,
- linux-snps-arc@lists.infradead.org, davem@davemloft.net,
- linux-arm-kernel@lists.infradead.org
-Message-ID: <54679884-9307-f828-dca4-34cb781dc463@suse.de>
-Subject: Re: [PATCH v4 4/6] fbdev: Include <linux/fb.h> instead of <asm/fb.h>
-References: <20230504074539.8181-1-tzimmermann@suse.de>
- <20230504074539.8181-5-tzimmermann@suse.de>
- <20230504153710.GA518522@ravnborg.org>
-In-Reply-To: <20230504153710.GA518522@ravnborg.org>
+Implement framebuffer I/O helpers, such as fb_read*() and fb_write*(),
+in the architecture's <asm/fb.h> header file or the generic one.
 
---------------w56d0we4Beh0uPurMRS337ha
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: base64
+The common case has been the use of regular I/O functions, such as
+__raw_readb() or memset_io(). A few architectures used plain system-
+memory reads and writes. Sparc used helpers for its SBus.
 
-SGkNCg0KQW0gMDQuMDUuMjMgdW0gMTc6Mzcgc2NocmllYiBTYW0gUmF2bmJvcmc6DQo+IEhp
-IFRob21hcywNCj4gDQo+IE9uIFRodSwgTWF5IDA0LCAyMDIzIGF0IDA5OjQ1OjM3QU0gKzAy
-MDAsIFRob21hcyBaaW1tZXJtYW5uIHdyb3RlOg0KPj4gUmVwbGFjZSBpbmNsdWRlIHN0YXRl
-bWVudHMgZm9yIDxhc20vZmIuaD4gd2l0aCA8bGludXgvZmIuaD4uIEZpeGVzDQo+PiB0aGUg
-Y29kaW5nIHN0eWxlOiBpZiBhIGhlYWRlciBpcyBhdmFpbGFibGUgaW4gYXNtLyBhbmQgbGlu
-dXgvLCBpdA0KPj4gaXMgcHJlZmVyYWJsZSB0byBpbmNsdWRlIHRoZSBoZWFkZXIgZnJvbSBs
-aW51eC8uIFRoaXMgb25seSBhZmZlY3RzDQo+PiBhIGZldyBzb3VyY2UgZmlsZXMsIG1vc3Qg
-b2Ygd2hpY2ggYWxyZWFkeSBpbmNsdWRlIDxsaW51eC9mYi5oPi4NCj4+DQo+PiBTdWdnZXN0
-ZWQtYnk6IFNhbSBSYXZuYm9yZyA8c2FtQHJhdm5ib3JnLm9yZz4NCj4+IFNpZ25lZC1vZmYt
-Ynk6IFRob21hcyBaaW1tZXJtYW5uIDx0emltbWVybWFubkBzdXNlLmRlPg0KPiANCj4gVGhh
-bmtzLA0KPiBSZXZpZXdlZC1ieTogU2FtIFJhdm5ib3JnIDxzYW1AcmF2bmJvcmcub3JnPg0K
-DQpUaGFua3MgZm9yIHJldmlld2luZy4gSSBpbnRlbnQgdG8gbWVyZ2UgdGhpcyBlYXJseSBu
-ZXh0IHdlZWsgYWZ0ZXIgdGhlIA0KdXBjb21pbmcgLXJjMSBoYXMgbGFuZGVkIGluIHRoZSBE
-Uk0gbWlzYyB0cmVlcy4NCg0KQmVzdCByZWdhcmRzDQpUaG9tYXMNCg0KLS0gDQpUaG9tYXMg
-WmltbWVybWFubg0KR3JhcGhpY3MgRHJpdmVyIERldmVsb3Blcg0KU1VTRSBTb2Z0d2FyZSBT
-b2x1dGlvbnMgR2VybWFueSBHbWJIDQpGcmFua2Vuc3RyYXNzZSAxNDYsIDkwNDYxIE51ZXJu
-YmVyZywgR2VybWFueQ0KR0Y6IEl2byBUb3RldiwgQW5kcmV3IE15ZXJzLCBBbmRyZXcgTWNE
-b25hbGQsIEJvdWRpZW4gTW9lcm1hbg0KSFJCIDM2ODA5IChBRyBOdWVybmJlcmcpDQo=
+The architectures that used special cases provide the same code in
+their __raw_*() I/O helpers. So the patch replaces this code with the
+__raw_*() functions and moves it to <asm-generic/fb.h> for all
+architectures.
 
---------------w56d0we4Beh0uPurMRS337ha--
+v3:
+	* implement all architectures with generic helpers
+	* support reordering and native byte order (Geert, Arnd)
 
---------------OVNAYynKUsk0MtSxKZ0ZybeJ
-Content-Type: application/pgp-signature; name="OpenPGP_signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="OpenPGP_signature"
+Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+---
+ include/asm-generic/fb.h | 101 +++++++++++++++++++++++++++++++++++++++
+ include/linux/fb.h       |  53 --------------------
+ 2 files changed, 101 insertions(+), 53 deletions(-)
 
------BEGIN PGP SIGNATURE-----
-
-wsF5BAABCAAjFiEExndm/fpuMUdwYFFolh/E3EQov+AFAmRUqhoFAwAAAAAACgkQlh/E3EQov+BS
-ExAAk6joIh9cdDj+QXWNzSZK8ZvX7kdroXQJShSXL0qeH/0/Enm5utlSP6lnNpxO8utZSygCPx49
-5is8IZ12TOOMwPuoe7jmbepPlRg9oI33B/ch5GRPT6JBRu4YkQgnMrI2xD8m/ENCIRkDcQsXl5b8
-xzdrSxUySEZxtFHABCXVVNffMqzDpeC7FdfplfsCtPKk2DS3XxAOEw6hvG9f6zdasELsMFGL+5wO
-yYdOKyV7FPkZoHmMXxLdAgUjDd0oLshyzmDnPcPSQbrdsdh9Sj/jJpUAPHtohndBXzCHd+69zNIV
-s0Z5ScYl03jlO1Tue7ggA9GDMb6vTEG7mmc70m1bROeLrzxjChbzEJFqDZKxPKPrCRtIeRTWgIcM
-HdEX9R75aaLlikt+eAyc2eL4LRUPKOMDmJqiPp7r/RzLbFbxcDLjeTkzBvWOBM4OWfI+5K9ad/xL
-L7/vFBoXsfGl96dULvEzu5wPX9KESYeEu4u5hby2jwtN5FpUH5JewvTkdZNjk35Ad0awpDC2qt4h
-aZtYGMplwRguhc06s7GEAehycRuhld/IQdlOEQgOEoM8OT8qSnVKj+uBEG6Hkzda0eEGY+xlzUTA
-Dh7H8V6PqhvFIj1FA+DRzw/XE9xWO0uBFv/mLu5DWE7hRph1xfBkDPExqayoPjQqBXRVoFAx+ZSe
-QdM=
-=z1Er
------END PGP SIGNATURE-----
-
---------------OVNAYynKUsk0MtSxKZ0ZybeJ--
+diff --git a/include/asm-generic/fb.h b/include/asm-generic/fb.h
+index 6922dd248c51..0540eccdbeca 100644
+--- a/include/asm-generic/fb.h
++++ b/include/asm-generic/fb.h
+@@ -31,4 +31,105 @@ static inline int fb_is_primary_device(struct fb_info *info)
+ }
+ #endif
+ 
++/*
++ * I/O helpers for the framebuffer. Prefer these functions over their
++ * regular counterparts. The regular I/O functions provide in-order
++ * access and swap bytes to/from little-endian ordering. Neither is
++ * required for framebuffers. Instead, the helpers read and write
++ * raw framebuffer data. Independent operations can be reordered for
++ * improved performance.
++ */
++
++#ifndef fb_readb
++static inline u8 fb_readb(const volatile void __iomem *addr)
++{
++	return __raw_readb(addr);
++}
++#define fb_readb fb_readb
++#endif
++
++#ifndef fb_readw
++static inline u16 fb_readw(const volatile void __iomem *addr)
++{
++	return __raw_readw(addr);
++}
++#define fb_readw fb_readw
++#endif
++
++#ifndef fb_readl
++static inline u32 fb_readl(const volatile void __iomem *addr)
++{
++	return __raw_readl(addr);
++}
++#define fb_readl fb_readl
++#endif
++
++#ifndef fb_readq
++#if defined(__raw_readq)
++static inline u64 fb_readq(const volatile void __iomem *addr)
++{
++	return __raw_readq(addr);
++}
++#define fb_readq fb_readq
++#endif
++#endif
++
++#ifndef fb_writeb
++static inline void fb_writeb(u8 b, volatile void __iomem *addr)
++{
++	__raw_writeb(b, addr);
++}
++#define fb_writeb fb_writeb
++#endif
++
++#ifndef fb_writew
++static inline void fb_writew(u16 b, volatile void __iomem *addr)
++{
++	__raw_writew(b, addr);
++}
++#define fb_writew fb_writew
++#endif
++
++#ifndef fb_writel
++static inline void fb_writel(u32 b, volatile void __iomem *addr)
++{
++	__raw_writel(b, addr);
++}
++#define fb_writel fb_writel
++#endif
++
++#ifndef fb_writeq
++#if defined(__raw_writeq)
++static inline void fb_writeq(u64 b, volatile void __iomem *addr)
++{
++	__raw_writeq(b, addr);
++}
++#define fb_writeq fb_writeq
++#endif
++#endif
++
++#ifndef fb_memcpy_fromfb
++static inline void fb_memcpy_fromfb(void *to, const volatile void __iomem *from, size_t n)
++{
++	memcpy_fromio(to, from, n);
++}
++#define fb_memcpy_fromfb fb_memcpy_fromfb
++#endif
++
++#ifndef fb_memcpy_tofb
++static inline void fb_memcpy_tofb(volatile void __iomem *to, const void *from, size_t n)
++{
++	memcpy_toio(to, from, n);
++}
++#define fb_memcpy_tofb fb_memcpy_tofb
++#endif
++
++#ifndef fb_memset
++static inline void fb_memset(volatile void __iomem *addr, int c, size_t n)
++{
++	memset_io(addr, c, n);
++}
++#define fb_memset fb_memset
++#endif
++
+ #endif /* __ASM_GENERIC_FB_H_ */
+diff --git a/include/linux/fb.h b/include/linux/fb.h
+index 08cb47da71f8..7d80ee62a9d5 100644
+--- a/include/linux/fb.h
++++ b/include/linux/fb.h
+@@ -15,7 +15,6 @@
+ #include <linux/list.h>
+ #include <linux/backlight.h>
+ #include <linux/slab.h>
+-#include <asm/io.h>
+ 
+ struct vm_area_struct;
+ struct fb_info;
+@@ -511,58 +510,6 @@ struct fb_info {
+  */
+ #define STUPID_ACCELF_TEXT_SHIT
+ 
+-// This will go away
+-#if defined(__sparc__)
+-
+-/* We map all of our framebuffers such that big-endian accesses
+- * are what we want, so the following is sufficient.
+- */
+-
+-// This will go away
+-#define fb_readb sbus_readb
+-#define fb_readw sbus_readw
+-#define fb_readl sbus_readl
+-#define fb_readq sbus_readq
+-#define fb_writeb sbus_writeb
+-#define fb_writew sbus_writew
+-#define fb_writel sbus_writel
+-#define fb_writeq sbus_writeq
+-#define fb_memset sbus_memset_io
+-#define fb_memcpy_fromfb sbus_memcpy_fromio
+-#define fb_memcpy_tofb sbus_memcpy_toio
+-
+-#elif defined(__i386__) || defined(__alpha__) || defined(__x86_64__) ||	\
+-	defined(__hppa__) || defined(__sh__) || defined(__powerpc__) ||	\
+-	defined(__arm__) || defined(__aarch64__) || defined(__mips__)
+-
+-#define fb_readb __raw_readb
+-#define fb_readw __raw_readw
+-#define fb_readl __raw_readl
+-#define fb_readq __raw_readq
+-#define fb_writeb __raw_writeb
+-#define fb_writew __raw_writew
+-#define fb_writel __raw_writel
+-#define fb_writeq __raw_writeq
+-#define fb_memset memset_io
+-#define fb_memcpy_fromfb memcpy_fromio
+-#define fb_memcpy_tofb memcpy_toio
+-
+-#else
+-
+-#define fb_readb(addr) (*(volatile u8 *) (addr))
+-#define fb_readw(addr) (*(volatile u16 *) (addr))
+-#define fb_readl(addr) (*(volatile u32 *) (addr))
+-#define fb_readq(addr) (*(volatile u64 *) (addr))
+-#define fb_writeb(b,addr) (*(volatile u8 *) (addr) = (b))
+-#define fb_writew(b,addr) (*(volatile u16 *) (addr) = (b))
+-#define fb_writel(b,addr) (*(volatile u32 *) (addr) = (b))
+-#define fb_writeq(b,addr) (*(volatile u64 *) (addr) = (b))
+-#define fb_memset memset
+-#define fb_memcpy_fromfb memcpy
+-#define fb_memcpy_tofb memcpy
+-
+-#endif
+-
+ #define FB_LEFT_POS(p, bpp)          (fb_be_math(p) ? (32 - (bpp)) : 0)
+ #define FB_SHIFT_HIGH(p, val, bits)  (fb_be_math(p) ? (val) >> (bits) : \
+ 						      (val) << (bits))
+-- 
+2.40.1
