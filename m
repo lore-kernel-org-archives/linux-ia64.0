@@ -1,32 +1,43 @@
-From: "Arnd Bergmann" <arnd@arndb.de>
-Date: Wed, 03 May 2023 15:06:36 +0000
+From: Sam Ravnborg <sam@ravnborg.org>
+Date: Wed, 03 May 2023 19:03:17 +0000
 Subject: Re: [PATCH v3 5/6] fbdev: Move framebuffer I/O helpers into <asm/fb.h>
-Message-Id: <2054ae6a-dcf9-42a3-9850-dd2587d40c58@app.fastmail.com>
+Message-Id: <20230503190317.GA422961@ravnborg.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20230502130223.14719-1-tzimmermann@suse.de>
  <20230502130223.14719-6-tzimmermann@suse.de>
- <67d6a188-041f-4604-99a3-548c41af0693@app.fastmail.com>
- <dd921bae-0145-09e2-24b1-f08d89a78eba@suse.de>
-In-Reply-To: <dd921bae-0145-09e2-24b1-f08d89a78eba@suse.de>
+ <20230502200300.GB319489@ravnborg.org>
+ <df767237-2bae-f299-9cbb-1543f76c9c3a@suse.de>
+In-Reply-To: <df767237-2bae-f299-9cbb-1543f76c9c3a@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Zimmermann <tzimmermann@suse.de>, Helge Deller <deller@gmx.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Javier Martinez Canillas <javierm@redhat.com>, Daniel Vetter <daniel@ffwll.ch>, Vineet Gupta <vgupta@kernel.org>, Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>, "David S . Miller" <davem@davemloft.net>, "James E . J . Bottomley" <James.Bottomley@HansenPartnership.com>, Sam Ravnborg <sam@ravnborg.org>
-Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, Linux-Arch <linux-arch@vger.kernel.org>, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org
+To: Thomas Zimmermann <tzimmermann@suse.de>
+Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, arnd@arndb.de, deller@gmx.de, chenhuacai@kernel.org, javierm@redhat.com, dri-devel@lists.freedesktop.org, linux-kernel@vger.kernel.org, James.Bottomley@hansenpartnership.com, linux-m68k@lists.linux-m68k.org, geert@linux-m68k.org, linux-parisc@vger.kernel.org, vgupta@kernel.org, sparclinux@vger.kernel.org, kernel@xen0n.name, linux-snps-arc@lists.infradead.org, davem@davemloft.net, linux-arm-kernel@lists.infradead.org
 
-On Wed, May 3, 2023, at 16:55, Thomas Zimmermann wrote:
-> Am 02.05.23 um 22:06 schrieb Arnd Bergmann:
+Hi Thomas,
 
->> It's probably safe to deal with all the above by either adding
->> architecture specific overrides to the current version, or
->> by doing the semantic changes before the move to asm/fb.h, but
->> one way or the other I'd prefer this to be separate from the
->> consolidation patch that should not have any changes in behavior.
->
-> I think I'll add architecture overrides that contain the current code, 
-> even if they contain some force-casting wrt __iomem. If anyone wants to 
-> fix the issues, they can then address them easily.
+> > But I am missing something somewhere as I cannot see how this builds.
+> > asm-generic now provide the fb_read/fb_write helpers.
+> > But for example sparc has an architecture specifc fb.h so it will not
+> > use the asm-generic variant. So I wonder how sparc get hold of the
+> > asm-generic fb.h file?
+> 
+> All architecture's <asm/fb.h> files include <asm-generic/fb.h>, so that they
+> all get the interfaces which they don't define themselves. For Sparc, this
+> is at [1].
+> 
+> Best regards
+> Thomas
+> 
+> 
+> [1]
+> https://cgit.freedesktop.org/drm/drm-tip/tree/arch/sparc/include/asm/fb.h#n19
+> 
+> > 
+> > Maybe it is obvious, but I miss it.
 
-Ok, sounds good,
+OK, it was obvious and I missed it.
+I looked at the mainline kernel, and not the drm-tip variant.
+Sorry for the noise.
 
-     Arnd
+	Sam
