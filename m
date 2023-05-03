@@ -1,67 +1,111 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Date: Tue, 02 May 2023 20:08:13 +0000
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Wed, 03 May 2023 08:15:46 +0000
 Subject: Re: [PATCH v3 6/6] fbdev: Rename fb_mem*() helpers
-Message-Id: <20230502200813.GC319489@ravnborg.org>
+Message-Id: <828664d0-3562-56cc-019d-1bb8a55826b5@suse.de>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------Yg2pS7gKZkskFTz8vk2lKAPH"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20230502130223.14719-1-tzimmermann@suse.de>
  <20230502130223.14719-7-tzimmermann@suse.de>
-In-Reply-To: <20230502130223.14719-7-tzimmermann@suse.de>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Thomas Zimmermann <tzimmermann@suse.de>
+ <20230502200813.GC319489@ravnborg.org>
+In-Reply-To: <20230502200813.GC319489@ravnborg.org>
+To: Sam Ravnborg <sam@ravnborg.org>
 Cc: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@hansenpartnership.com, arnd@arndb.de, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org
 
-Hi Thomas.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--------------Yg2pS7gKZkskFTz8vk2lKAPH
+Content-Type: multipart/mixed; boundary="------------v700H0v7Hs7IzDa1ExtAP020";
+ protected-headers="v1"
+From: Thomas Zimmermann <tzimmermann@suse.de>
+To: Sam Ravnborg <sam@ravnborg.org>
+Cc: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch,
+ vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name,
+ davem@davemloft.net, James.Bottomley@hansenpartnership.com, arnd@arndb.de,
+ linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org,
+ linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org,
+ linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org,
+ loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org,
+ sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ linux-parisc@vger.kernel.org
+Message-ID: <828664d0-3562-56cc-019d-1bb8a55826b5@suse.de>
+Subject: Re: [PATCH v3 6/6] fbdev: Rename fb_mem*() helpers
+References: <20230502130223.14719-1-tzimmermann@suse.de>
+ <20230502130223.14719-7-tzimmermann@suse.de>
+ <20230502200813.GC319489@ravnborg.org>
+In-Reply-To: <20230502200813.GC319489@ravnborg.org>
 
-On Tue, May 02, 2023 at 03:02:23PM +0200, Thomas Zimmermann wrote:
-> Update the names of the fb_mem*() helpers to be consistent with their
-> regular counterparts. Hence, fb_memset() now becomes fb_memset_io(),
-> fb_memcpy_fromfb() now becomes fb_memcpy_fromio() and fb_memcpy_tofb()
-> becomes fb_memcpy_toio(). No functional changes.
-> 
-> Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
-> ---
-...
->  
-> -#ifndef fb_memcpy_fromfb
-> -static inline void fb_memcpy_fromfb(void *to, const volatile void __iomem *from, size_t n)
-> +#ifndef fb_memcpy_fromio
-> +static inline void fb_memcpy_fromio(void *to, const volatile void __iomem *from, size_t n)
->  {
->  	memcpy_fromio(to, from, n);
->  }
-> -#define fb_memcpy_fromfb fb_memcpy_fromfb
-> +#define fb_memcpy_fromio fb_memcpy_fromio
->  #endif
->  
-> -#ifndef fb_memcpy_tofb
-> -static inline void fb_memcpy_tofb(volatile void __iomem *to, const void *from, size_t n)
-> +#ifndef fb_memcpy_toio
-> +static inline void fb_memcpy_toio(volatile void __iomem *to, const void *from, size_t n)
->  {
->  	memcpy_toio(to, from, n);
->  }
-> -#define fb_memcpy_tofb fb_memcpy_tofb
-> +#define fb_memcpy_toio fb_memcpy_toio
->  #endif
->  
->  #ifndef fb_memset
-> -static inline void fb_memset(volatile void __iomem *addr, int c, size_t n)
-> +static inline void fb_memset_io(volatile void __iomem *addr, int c, size_t n)
->  {
->  	memset_io(addr, c, n);
->  }
-> -#define fb_memset fb_memset
-> +#define fb_memset fb_memset_io
+--------------v700H0v7Hs7IzDa1ExtAP020
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: base64
 
-The static inlines wrappers does not provide any value, and could be replaced by
-direct calls to memcpy_fromio(), memcpy_toio(), memset_io().
+SGkNCg0KQW0gMDIuMDUuMjMgdW0gMjI6MDggc2NocmllYiBTYW0gUmF2bmJvcmc6DQo+IEhp
+IFRob21hcy4NCj4gDQo+IE9uIFR1ZSwgTWF5IDAyLCAyMDIzIGF0IDAzOjAyOjIzUE0gKzAy
+MDAsIFRob21hcyBaaW1tZXJtYW5uIHdyb3RlOg0KPj4gVXBkYXRlIHRoZSBuYW1lcyBvZiB0
+aGUgZmJfbWVtKigpIGhlbHBlcnMgdG8gYmUgY29uc2lzdGVudCB3aXRoIHRoZWlyDQo+PiBy
+ZWd1bGFyIGNvdW50ZXJwYXJ0cy4gSGVuY2UsIGZiX21lbXNldCgpIG5vdyBiZWNvbWVzIGZi
+X21lbXNldF9pbygpLA0KPj4gZmJfbWVtY3B5X2Zyb21mYigpIG5vdyBiZWNvbWVzIGZiX21l
+bWNweV9mcm9taW8oKSBhbmQgZmJfbWVtY3B5X3RvZmIoKQ0KPj4gYmVjb21lcyBmYl9tZW1j
+cHlfdG9pbygpLiBObyBmdW5jdGlvbmFsIGNoYW5nZXMuDQo+Pg0KPj4gU2lnbmVkLW9mZi1i
+eTogVGhvbWFzIFppbW1lcm1hbm4gPHR6aW1tZXJtYW5uQHN1c2UuZGU+DQo+PiAtLS0NCj4g
+Li4uDQo+PiAgIA0KPj4gLSNpZm5kZWYgZmJfbWVtY3B5X2Zyb21mYg0KPj4gLXN0YXRpYyBp
+bmxpbmUgdm9pZCBmYl9tZW1jcHlfZnJvbWZiKHZvaWQgKnRvLCBjb25zdCB2b2xhdGlsZSB2
+b2lkIF9faW9tZW0gKmZyb20sIHNpemVfdCBuKQ0KPj4gKyNpZm5kZWYgZmJfbWVtY3B5X2Zy
+b21pbw0KPj4gK3N0YXRpYyBpbmxpbmUgdm9pZCBmYl9tZW1jcHlfZnJvbWlvKHZvaWQgKnRv
+LCBjb25zdCB2b2xhdGlsZSB2b2lkIF9faW9tZW0gKmZyb20sIHNpemVfdCBuKQ0KPj4gICB7
+DQo+PiAgIAltZW1jcHlfZnJvbWlvKHRvLCBmcm9tLCBuKTsNCj4+ICAgfQ0KPj4gLSNkZWZp
+bmUgZmJfbWVtY3B5X2Zyb21mYiBmYl9tZW1jcHlfZnJvbWZiDQo+PiArI2RlZmluZSBmYl9t
+ZW1jcHlfZnJvbWlvIGZiX21lbWNweV9mcm9taW8NCj4+ICAgI2VuZGlmDQo+PiAgIA0KPj4g
+LSNpZm5kZWYgZmJfbWVtY3B5X3RvZmINCj4+IC1zdGF0aWMgaW5saW5lIHZvaWQgZmJfbWVt
+Y3B5X3RvZmIodm9sYXRpbGUgdm9pZCBfX2lvbWVtICp0bywgY29uc3Qgdm9pZCAqZnJvbSwg
+c2l6ZV90IG4pDQo+PiArI2lmbmRlZiBmYl9tZW1jcHlfdG9pbw0KPj4gK3N0YXRpYyBpbmxp
+bmUgdm9pZCBmYl9tZW1jcHlfdG9pbyh2b2xhdGlsZSB2b2lkIF9faW9tZW0gKnRvLCBjb25z
+dCB2b2lkICpmcm9tLCBzaXplX3QgbikNCj4+ICAgew0KPj4gICAJbWVtY3B5X3RvaW8odG8s
+IGZyb20sIG4pOw0KPj4gICB9DQo+PiAtI2RlZmluZSBmYl9tZW1jcHlfdG9mYiBmYl9tZW1j
+cHlfdG9mYg0KPj4gKyNkZWZpbmUgZmJfbWVtY3B5X3RvaW8gZmJfbWVtY3B5X3RvaW8NCj4+
+ICAgI2VuZGlmDQo+PiAgIA0KPj4gICAjaWZuZGVmIGZiX21lbXNldA0KPj4gLXN0YXRpYyBp
+bmxpbmUgdm9pZCBmYl9tZW1zZXQodm9sYXRpbGUgdm9pZCBfX2lvbWVtICphZGRyLCBpbnQg
+Yywgc2l6ZV90IG4pDQo+PiArc3RhdGljIGlubGluZSB2b2lkIGZiX21lbXNldF9pbyh2b2xh
+dGlsZSB2b2lkIF9faW9tZW0gKmFkZHIsIGludCBjLCBzaXplX3QgbikNCj4+ICAgew0KPj4g
+ICAJbWVtc2V0X2lvKGFkZHIsIGMsIG4pOw0KPj4gICB9DQo+PiAtI2RlZmluZSBmYl9tZW1z
+ZXQgZmJfbWVtc2V0DQo+PiArI2RlZmluZSBmYl9tZW1zZXQgZmJfbWVtc2V0X2lvDQo+IA0K
+PiBUaGUgc3RhdGljIGlubGluZXMgd3JhcHBlcnMgZG9lcyBub3QgcHJvdmlkZSBhbnkgdmFs
+dWUsIGFuZCBjb3VsZCBiZSByZXBsYWNlZCBieQ0KPiBkaXJlY3QgY2FsbHMgdG8gbWVtY3B5
+X2Zyb21pbygpLCBtZW1jcHlfdG9pbygpLCBtZW1zZXRfaW8oKS4NCj4gDQo+IElmIHlvdSBk
+ZWNpZGUgdG8ga2VlcCB0aGUgd3JhcHBlcnMgSSB3aWxsIG5vdCBob2xkIHlvdSBiYWNrLCBz
+byB0aGUNCj4gcGF0Y2ggaGFzIG15Og0KPiBSZXZpZXdlZC1ieTogU2FtIFJhdm5ib3JnIDxz
+YW1AcmF2bmJvcmcub3JnPg0KPiANCj4gQnV0IEkgcHJlZmVyIHRoZSBkaXJlY3QgY2FsbHMg
+d2l0aG91dCB0aGUgd3JhcHBlcnMuLi4uDQoNCkF0IGZpcnN0IEkgd2FzIGFsc28gc2tlcHRp
+Y2FsIGlmIHRob3NlIGZiX21lbSooKSB3cmFwcGVycyBhcmUgbmVlZGVkLiANCkJ1dCBBcm5k
+IG1lbnRpb25lZCB0aGF0IHRoZXJlIGFyZSBzdWJ0bGUgZGlmZmVyZW5jZXMgYmV0d2VlbiB0
+aGUgY3VycmVudCANCmNvZGUgYW5kIExpbnV4JyBtZW0qX2lvKCkgZnVuY3Rpb25zLiBLZWVw
+aW5nIHRoZSB3cmFwcGVycyBtaWdodCBiZSBuZWVkZWQuDQoNCkJlc3QgcmVnYXJkcw0KVGhv
+bWFzDQoNCj4gDQo+IAlTYW0NCg0KLS0gDQpUaG9tYXMgWmltbWVybWFubg0KR3JhcGhpY3Mg
+RHJpdmVyIERldmVsb3Blcg0KU1VTRSBTb2Z0d2FyZSBTb2x1dGlvbnMgR2VybWFueSBHbWJI
+DQpGcmFua2Vuc3RyYXNzZSAxNDYsIDkwNDYxIE51ZXJuYmVyZywgR2VybWFueQ0KR0Y6IEl2
+byBUb3RldiwgQW5kcmV3IE15ZXJzLCBBbmRyZXcgTWNEb25hbGQsIEJvdWRpZW4gTW9lcm1h
+bg0KSFJCIDM2ODA5IChBRyBOdWVybmJlcmcpDQo=
 
-If you decide to keep the wrappers I will not hold you back, so the
-patch has my:
-Reviewed-by: Sam Ravnborg <sam@ravnborg.org>
+--------------v700H0v7Hs7IzDa1ExtAP020--
 
-But I prefer the direct calls without the wrappers....
+--------------Yg2pS7gKZkskFTz8vk2lKAPH
+Content-Type: application/pgp-signature; name="OpenPGP_signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="OpenPGP_signature"
 
-	Sam
+-----BEGIN PGP SIGNATURE-----
+
+wsF5BAABCAAjFiEExndm/fpuMUdwYFFolh/E3EQov+AFAmRSGDIFAwAAAAAACgkQlh/E3EQov+DQ
+UxAAyalpNZAKb+SrH+ZBEi1COJSY+VhSOQs2gPTxEyeIhMZ0BQ9iD4lt7OQZS8FeatCbVejmWfb1
+/4M6l90NWRpBa5fqGNqjh0dysWlKrAbogUPoA9yp3TAh3pmOEj0zlqMD3QngLS6HvcQt71O5fjSB
+dM3nUOXtaLEMc7wPPXigGONwageohdTlo4qQd0XRzp/XhMVCfdLlI/xKPMnTpUbsrQQec4CzdIiq
+zHRQfUJBh4NZmh6JhywwduXSyr2FyA+i8DGLCLCosfVes3lbNm3lPDMfXH8kR/auMzC/x4WnZ7gG
+WoEKOCGTmgPvi2YCfhbEDyW/l4+2Dm66KDdYEPNR+XCGJ61g//44HJy2DcrDthjPN/LnxJPMyJMm
+DYKyTdGWT7xOXyn/hTDEweo12E75EX6BoQuhEDpZ905S13BoKwKYuyHii6Sa6Ht8wBNtScDQzGFW
+E9Oa7tjJZSQJAWP2RyeG2LGu9P0K+uEMu15hGlo3gJUUxevTITb9QWoBns1Ij9JPSGU/Vse/l6Ho
+8ncA2bhhIC18Yl4tOilWtsckgmDCInIrgwlMrfEEiWJ00HU989oGKLzbPGb4xxKTKreJOrbDHuRb
+ooiLu0shYcBWKEG9B9cwiF4+nHb8BEWEFMpu0X1sOpoIvBs2WGQPIGsIX1gy1+WkDa6+ZpCu3MMx
+fqo=
+=YD1+
+-----END PGP SIGNATURE-----
+
+--------------Yg2pS7gKZkskFTz8vk2lKAPH--
