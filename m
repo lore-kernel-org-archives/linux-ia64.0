@@ -1,51 +1,70 @@
-From: Nadav Amit <nadav.amit@gmail.com>
-Date: Thu, 25 May 2023 21:00:37 +0000
-Subject: [PATCH v2 0/3] kprobes: notrace enhancements
-Message-Id: <20230525210040.3637-1-namit@vmware.com>
+From: Sui Jingfeng <15330273260@189.cn>
+Date: Thu, 04 May 2023 11:31:24 +0000
+Subject: Re: [v4,3/6] fbdev: Include <linux/io.h> in various drivers
+Message-Id: <58d2bd17-3b51-bd24-2f30-d849d3f72b0e@189.cn>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20230504074539.8181-4-tzimmermann@suse.de>
+In-Reply-To: <20230504074539.8181-4-tzimmermann@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>
-Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-um@lists.infradead.org, Linux-Arch <linux-arch@vger.kernel.org>, linux-mm@kvack.org, Andy Lutomirski <luto@kernel.org>, Ingo Molnar <mingo@redhat.com>, Dave Hansen <dave.hansen@linux.intel.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, Peter Zijlstra <peterz@infradead.org>, Nadav Amit <namit@vmware.com>
-
-From: Nadav Amit <namit@vmware.com>
-
-There are inconsistencies and some issues in marking functions as
-notrace. On one hand, all inline functions are marked as "notrace" and
-some libraries cannot be traced. As more users and tools try to make use
-of the tracing functionality, it is beneficial to allow their tracing as
-possible.
-
-At the same time, some functions should not be traced but are not marked
-as notrace.
-
-These patch address issues that I encountered during work on an
-automatic tracing tool.
-
----
-
-v1->v2:
-* Add find_bit to tracable libraries
-* Improve the change log to explain the reasons for inline->notrace
-* Switch the order of patch 2 and patch 3
+To: Thomas Zimmermann <tzimmermann@suse.de>, deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org
+Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-kernel@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-m68k@lists.linux-m68k.org, loongarch@lists.linux.dev, sparclinux@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org
 
 
-Nadav Amit (3):
-  kprobes: Mark descendents of core_kernel_text as notrace
-  compiler: inline does not imply notrace
-  lib: Allow traceing of usercopy, xarray, iov_iter, find_bit
+Reviewed-by: Sui Jingfeng <suijingfeng@loongson.cn>
 
- arch/arm/kernel/process.c             | 2 +-
- arch/ia64/mm/init.c                   | 2 +-
- arch/x86/entry/vsyscall/vsyscall_64.c | 2 +-
- arch/x86/um/mem_32.c                  | 2 +-
- include/asm-generic/sections.h        | 6 +++---
- include/linux/compiler_types.h        | 2 +-
- include/linux/kallsyms.h              | 6 +++---
- include/linux/mm.h                    | 2 +-
- lib/Makefile                          | 5 +++++
- 9 files changed, 17 insertions(+), 12 deletions(-)
 
--- 
-2.25.1
+On 2023/5/4 15:45, Thomas Zimmermann wrote:
+> The code uses writel() and similar I/O-memory helpers. Include
+> the header file to get the declarations.
+>
+> Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+> Reviewed-by: Sam Ravnborg <sam@ravnborg.org>
+> ---
+>   drivers/video/fbdev/arcfb.c       | 1 +
+>   drivers/video/fbdev/aty/atyfb.h   | 2 ++
+>   drivers/video/fbdev/wmt_ge_rops.c | 2 ++
+>   3 files changed, 5 insertions(+)
+>
+> diff --git a/drivers/video/fbdev/arcfb.c b/drivers/video/fbdev/arcfb.c
+> index 45e64016db32..d631d53f42ad 100644
+> --- a/drivers/video/fbdev/arcfb.c
+> +++ b/drivers/video/fbdev/arcfb.c
+> @@ -41,6 +41,7 @@
+>   #include <linux/vmalloc.h>
+>   #include <linux/delay.h>
+>   #include <linux/interrupt.h>
+> +#include <linux/io.h>
+>   #include <linux/fb.h>
+>   #include <linux/init.h>
+>   #include <linux/arcfb.h>
+> diff --git a/drivers/video/fbdev/aty/atyfb.h b/drivers/video/fbdev/aty/atyfb.h
+> index 465f55beb97f..30da3e82ed3c 100644
+> --- a/drivers/video/fbdev/aty/atyfb.h
+> +++ b/drivers/video/fbdev/aty/atyfb.h
+> @@ -3,8 +3,10 @@
+>    *  ATI Frame Buffer Device Driver Core Definitions
+>    */
+>   
+> +#include <linux/io.h>
+>   #include <linux/spinlock.h>
+>   #include <linux/wait.h>
+> +
+>       /*
+>        *  Elements of the hardware specific atyfb_par structure
+>        */
+> diff --git a/drivers/video/fbdev/wmt_ge_rops.c b/drivers/video/fbdev/wmt_ge_rops.c
+> index 42255d27a1db..99c7b0aea615 100644
+> --- a/drivers/video/fbdev/wmt_ge_rops.c
+> +++ b/drivers/video/fbdev/wmt_ge_rops.c
+> @@ -9,7 +9,9 @@
+>   
+>   #include <linux/module.h>
+>   #include <linux/fb.h>
+> +#include <linux/io.h>
+>   #include <linux/platform_device.h>
+> +
+>   #include "core/fb_draw.h"
+>   #include "wmt_ge_rops.h"
+>   
