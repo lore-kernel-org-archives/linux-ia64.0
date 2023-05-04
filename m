@@ -1,40 +1,124 @@
-From: "Arnd Bergmann" <arnd@arndb.de>
-Date: Wed, 03 May 2023 08:52:34 +0000
-Subject: Re: [PATCH v3 4/6] fbdev: Include <linux/io.h> via <asm/fb.h>
-Message-Id: <0ecbc92c-7e42-4958-988b-abc265f039bf@app.fastmail.com>
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Thu, 04 May 2023 07:45:37 +0000
+Subject: [PATCH v4 4/6] fbdev: Include <linux/fb.h> instead of <asm/fb.h>
+Message-Id: <20230504074539.8181-5-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230502130223.14719-1-tzimmermann@suse.de>
- <20230502130223.14719-5-tzimmermann@suse.de>
- <20230502195429.GA319489@ravnborg.org>
- <563673c0-799d-e353-974c-91b1ab881a22@suse.de>
- <87354dyj9i.fsf@minerva.mail-host-address-is-not-set>
- <97bbdb2f-6245-caf2-c0f6-d628873bd6db@suse.de>
-In-Reply-To: <97bbdb2f-6245-caf2-c0f6-d628873bd6db@suse.de>
+References: <20230504074539.8181-1-tzimmermann@suse.de>
+In-Reply-To: <20230504074539.8181-1-tzimmermann@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Zimmermann <tzimmermann@suse.de>, Javier Martinez Canillas <javierm@redhat.com>, Sam Ravnborg <sam@ravnborg.org>
-Cc: Linux-Arch <linux-arch@vger.kernel.org>, linux-fbdev@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, Helge Deller <deller@gmx.de>, Huacai Chen <chenhuacai@kernel.org>, linux-kernel@vger.kernel.org, dri-devel@lists.freedesktop.org, "James E . J . Bottomley" <James.Bottomley@hansenpartnership.com>, linux-m68k@lists.linux-m68k.org, Geert Uytterhoeven <geert@linux-m68k.org>, loongarch@lists.linux.dev, Vineet Gupta <vgupta@kernel.org>, sparclinux@vger.kernel.org, WANG Xuerui <kernel@xen0n.name>, linux-snps-arc@lists.infradead.org, "David S . Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
+To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org
+Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
 
-On Wed, May 3, 2023, at 10:12, Thomas Zimmermann wrote:
-> Am 03.05.23 um 09:19 schrieb Javier Martinez Canillas:
->> Thomas Zimmermann <tzimmermann@suse.de> writes:
->>>>
->>>> There are countless examples where the above are not followed,
->>>> but to my best understanding the above it the preferred way to do it.
->>>
->>> Where did youher this? I only know about this in the case of asm/io.h
->>> vs. linux/io.h.
->>>
->> 
->> I understand that's the case too. I believe even checkpatch.pl complains
->> about it? (not that the script always get right, but just as an example).
->
-> Do you know if that's the general rule? If so, we might want to 
-> repurpose <asm/fbio.h> for the framebuffer I/O functions.
+Replace include statements for <asm/fb.h> with <linux/fb.h>. Fixes
+the coding style: if a header is available in asm/ and linux/, it
+is preferable to include the header from linux/. This only affects
+a few source files, most of which already include <linux/fb.h>.
 
-It's certainly the general trend across all of the kernel to have
-drivers prefer including linux/*.h, and to move stuff from asm/*.h
-to linux/*.h as it gets generalized across architectures.
+Suggested-by: Sam Ravnborg <sam@ravnborg.org>
+Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+---
+ arch/parisc/video/fbdev.c        | 3 +--
+ arch/sparc/video/fbdev.c         | 1 -
+ arch/x86/video/fbdev.c           | 2 --
+ drivers/staging/sm750fb/sm750.c  | 2 +-
+ drivers/video/fbdev/core/fbcon.c | 1 -
+ drivers/video/fbdev/core/fbmem.c | 2 --
+ include/linux/fb.h               | 2 ++
+ 7 files changed, 4 insertions(+), 9 deletions(-)
 
-     Arnd
+diff --git a/arch/parisc/video/fbdev.c b/arch/parisc/video/fbdev.c
+index 4a0ae08fc75b..137561d98246 100644
+--- a/arch/parisc/video/fbdev.c
++++ b/arch/parisc/video/fbdev.c
+@@ -5,10 +5,9 @@
+  * Copyright (C) 2001-2002 Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+  */
+ 
++#include <linux/fb.h>
+ #include <linux/module.h>
+ 
+-#include <asm/fb.h>
+-
+ #include <video/sticore.h>
+ 
+ int fb_is_primary_device(struct fb_info *info)
+diff --git a/arch/sparc/video/fbdev.c b/arch/sparc/video/fbdev.c
+index dadd5799fbb3..25837f128132 100644
+--- a/arch/sparc/video/fbdev.c
++++ b/arch/sparc/video/fbdev.c
+@@ -4,7 +4,6 @@
+ #include <linux/fb.h>
+ #include <linux/module.h>
+ 
+-#include <asm/fb.h>
+ #include <asm/prom.h>
+ 
+ int fb_is_primary_device(struct fb_info *info)
+diff --git a/arch/x86/video/fbdev.c b/arch/x86/video/fbdev.c
+index 57ee3c158f97..f41a17ebac48 100644
+--- a/arch/x86/video/fbdev.c
++++ b/arch/x86/video/fbdev.c
+@@ -7,8 +7,6 @@
+  *
+  */
+ 
+-#include <asm/fb.h>
+-
+ #include <linux/fb.h>
+ #include <linux/module.h>
+ #include <linux/pci.h>
+diff --git a/drivers/staging/sm750fb/sm750.c b/drivers/staging/sm750fb/sm750.c
+index 22ace3168723..55e302a27847 100644
+--- a/drivers/staging/sm750fb/sm750.c
++++ b/drivers/staging/sm750fb/sm750.c
+@@ -16,7 +16,7 @@
+ #include <linux/pagemap.h>
+ #include <linux/screen_info.h>
+ #include <linux/console.h>
+-#include <asm/fb.h>
++
+ #include "sm750.h"
+ #include "sm750_accel.h"
+ #include "sm750_cursor.h"
+diff --git a/drivers/video/fbdev/core/fbcon.c b/drivers/video/fbdev/core/fbcon.c
+index eb565a10e5cd..c6c9d040bdec 100644
+--- a/drivers/video/fbdev/core/fbcon.c
++++ b/drivers/video/fbdev/core/fbcon.c
+@@ -75,7 +75,6 @@
+ #include <linux/interrupt.h>
+ #include <linux/crc32.h> /* For counting font checksums */
+ #include <linux/uaccess.h>
+-#include <asm/fb.h>
+ #include <asm/irq.h>
+ 
+ #include "fbcon.h"
+diff --git a/drivers/video/fbdev/core/fbmem.c b/drivers/video/fbdev/core/fbmem.c
+index 3fd95a79e4c3..38f7e83fa6e3 100644
+--- a/drivers/video/fbdev/core/fbmem.c
++++ b/drivers/video/fbdev/core/fbmem.c
+@@ -37,8 +37,6 @@
+ #include <linux/mem_encrypt.h>
+ #include <linux/pci.h>
+ 
+-#include <asm/fb.h>
+-
+ #include <video/nomodeset.h>
+ #include <video/vga.h>
+ 
+diff --git a/include/linux/fb.h b/include/linux/fb.h
+index 08cb47da71f8..c0f97160ebbf 100644
+--- a/include/linux/fb.h
++++ b/include/linux/fb.h
+@@ -15,6 +15,8 @@
+ #include <linux/list.h>
+ #include <linux/backlight.h>
+ #include <linux/slab.h>
++
++#include <asm/fb.h>
+ #include <asm/io.h>
+ 
+ struct vm_area_struct;
+-- 
+2.40.1
