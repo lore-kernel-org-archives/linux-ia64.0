@@ -1,76 +1,79 @@
-From: Hugh Dickins <hughd@google.com>
-Date: Sun, 14 May 2023 18:20:16 +0000
-Subject: Re: [PATCH 08/23] parisc: add pte_unmap() to balance get_ptep()
-Message-Id: <6de39db5-d9aa-b35a-1652-8bdf90e7df72@google.com>
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Thu, 04 May 2023 07:45:33 +0000
+Subject: [PATCH v4 0/6] fbdev: Move framebuffer I/O helpers to <asm/fb.h>
+Message-Id: <20230504074539.8181-1-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com> <44ebbf90-5fbb-2815-17c7-fcfe3c87d78e@google.com> <ca4ac780-42b0-4818-bd84-e1a4acbb28dd@gmx.de>
-In-Reply-To: <ca4ac780-42b0-4818-bd84-e1a4acbb28dd@gmx.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Helge Deller <deller@gmx.de>
-Cc: Hugh Dickins <hughd@google.com>, Andrew Morton <akpm@linux-foundation.org>, Mike Kravetz <mike.kravetz@oracle.com>, Mike Rapoport <rppt@kernel.org>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Matthew Wilcox <willy@infradead.org>, David Hildenbrand <david@redhat.com>, Suren Baghdasaryan <surenb@google.com>, Qi Zheng <zhengqi.arch@bytedance.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, John David Anglin <dave.anglin@bell.net>, "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Alexandre Ghiti <alexghiti@rivosinc.com>, Palmer Dabbelt <palmer@dabbelt.com>, Heiko Carstens <hca@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Claudio Imbrenda <imbrenda@linux.ibm.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "David S. Miller" <davem@davemloft.net>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
+To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org
+Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
 
-On Sat, 13 May 2023, Helge Deller wrote:
+Fbdev provides helpers for framebuffer I/O, such as fb_readl(),
+fb_writel() or fb_memcpy_to_fb(). The implementation of each helper
+depends on the architecture, but they are all equivalent to regular
+I/O functions of similar names. So use regular functions instead and
+move all helpers into <asm-generic/fb.h>
 
-> Hi Hugh,
-> 
-> On 5/10/23 06:52, Hugh Dickins wrote:
-> > To keep balance in future, remember to pte_unmap() after a successful
-> > get_ptep().  And (we might as well) pretend that flush_cache_pages()
-> > really needed a map there, to read the pfn before "unmapping".
-> >
-> > Signed-off-by: Hugh Dickins <hughd@google.com>
-> > ---
-> >   arch/parisc/kernel/cache.c | 26 +++++++++++++++++++++-----
-> >   1 file changed, 21 insertions(+), 5 deletions(-)
-> >
-> > diff --git a/arch/parisc/kernel/cache.c b/arch/parisc/kernel/cache.c
-> > index 1d3b8bc8a623..b0c969b3a300 100644
-> > --- a/arch/parisc/kernel/cache.c
-> > +++ b/arch/parisc/kernel/cache.c
-> > @@ -425,10 +425,15 @@ void flush_dcache_page(struct page *page)
-> >     offset = (pgoff - mpnt->vm_pgoff) << PAGE_SHIFT;
-> >     addr = mpnt->vm_start + offset;
-> >     if (parisc_requires_coherency()) {
-> > +			bool needs_flush = false;
-> >      pte_t *ptep;
-> >
-> >   			ptep = get_ptep(mpnt->vm_mm, addr);
-> > -			if (ptep && pte_needs_flush(*ptep))
-> > +			if (ptep) {
-> > +				needs_flush = pte_needs_flush(*ptep);
-> > +				pte_unmap(ptep);
-> > +			}
-> > +			if (needs_flush)
-> >     		flush_user_cache_page(mpnt, addr);
-> >     } else {
-> >   			/*
-> > @@ -560,14 +565,20 @@ EXPORT_SYMBOL(flush_kernel_dcache_page_addr);
-> >   static void flush_cache_page_if_present(struct vm_area_struct *vma,
-> >   	unsigned long vmaddr, unsigned long pfn)
-> >   {
-> > -	pte_t *ptep = get_ptep(vma->vm_mm, vmaddr);
-> > +	bool needs_flush = false;
-> > +	pte_t *ptep;
-> >
-> >    /*
-> >     * The pte check is racy and sometimes the flush will trigger
-> >     * a non-access TLB miss. Hopefully, the page has already been
-> >     * flushed.
-> >     */
-> > -	if (ptep && pte_needs_flush(*ptep))
-> > +	ptep = get_ptep(vma->vm_mm, vmaddr);
-> > +	if (ptep) {
-> > +		needs_flush = pte_needs_flush(*ptep))
-> 
-> ^^^^^
-> One ")" too much and lacks a trailing ";"
-> Should be:
-> 		needs_flush = pte_needs_flush(*ptep);
-> 
-> With that fixed the kernel compiles and boots sucessfully on parisc.
+The first patch a simple whitespace cleanup.
 
-Urgh! Indeed, thanks a lot Helge: I'll fold that in.
+Until now, <linux/fb.h> contained an include of <asm/io.h>. As this
+will go away, patches 2 to 4 prepare include statements in the various
+drivers. Source files that use regular I/O helpers, such as readl(),
+now include <linux/io.h>. Source files that use framebuffer I/O
+helpers, such as fb_readl(), now include <linux/fb.h>.
 
-Hugh
+Patch 5 replaces the architecture-based if-else branching in 
+<linux/fb.h> by helpers in <asm-generic/fb.h>. All helpers use Linux'
+existing I/O functions.
+
+Patch 6 harmonizes naming among fbdev and existing I/O functions.
+
+The patchset has been built for a variety of platforms, such as x86-64,
+arm, aarch64, ppc64, parisc, m64k, mips and sparc.
+
+v4:
+	* keep fb_mem*() as-is on ia64, loongarch, sparc64 (Arnd)
+	* don't include <asm/fb.h> (Sam)
+v3:
+	* add the new helpers in <asm-generic/fb.h>
+	* support reordering and native byte order (Geert, Arnd)
+v2:
+	* use Linux I/O helpers (Sam, Arnd)
+
+Thomas Zimmermann (6):
+  fbdev/matrox: Remove trailing whitespaces
+  ipu-v3: Include <linux/io.h>
+  fbdev: Include <linux/io.h> in various drivers
+  fbdev: Include <linux/fb.h> instead of <asm/fb.h>
+  fbdev: Move framebuffer I/O helpers into <asm/fb.h>
+  fbdev: Rename fb_mem*() helpers
+
+ arch/ia64/include/asm/fb.h                  |  20 ++++
+ arch/loongarch/include/asm/fb.h             |  21 ++++
+ arch/parisc/video/fbdev.c                   |   3 +-
+ arch/sparc/include/asm/fb.h                 |  20 ++++
+ arch/sparc/video/fbdev.c                    |   1 -
+ arch/x86/video/fbdev.c                      |   2 -
+ drivers/gpu/ipu-v3/ipu-prv.h                |   1 +
+ drivers/staging/sm750fb/sm750.c             |   2 +-
+ drivers/video/fbdev/arcfb.c                 |   1 +
+ drivers/video/fbdev/aty/atyfb.h             |   2 +
+ drivers/video/fbdev/aty/mach64_cursor.c     |   2 +-
+ drivers/video/fbdev/chipsfb.c               |   2 +-
+ drivers/video/fbdev/core/fbcon.c            |   1 -
+ drivers/video/fbdev/core/fbmem.c            |   6 +-
+ drivers/video/fbdev/kyro/fbdev.c            |   2 +-
+ drivers/video/fbdev/matrox/matroxfb_accel.c |   6 +-
+ drivers/video/fbdev/matrox/matroxfb_base.h  |   4 +-
+ drivers/video/fbdev/pvr2fb.c                |   2 +-
+ drivers/video/fbdev/sstfb.c                 |   2 +-
+ drivers/video/fbdev/stifb.c                 |   4 +-
+ drivers/video/fbdev/tdfxfb.c                |   2 +-
+ drivers/video/fbdev/wmt_ge_rops.c           |   2 +
+ include/asm-generic/fb.h                    | 101 ++++++++++++++++++++
+ include/linux/fb.h                          |  55 +----------
+ 24 files changed, 187 insertions(+), 77 deletions(-)
+
+-- 
+2.40.1
