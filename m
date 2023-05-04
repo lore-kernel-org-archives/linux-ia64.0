@@ -1,184 +1,247 @@
-From: Amir Goldstein <amir73il@gmail.com>
-Date: Mon, 15 May 2023 14:20:46 +0000
-Subject: Re: [RFC PATCH v2] fs/xattr: add *at family syscalls
-Message-Id: <CAOQ4uxgLT8aae7zo3vNRTO+XKr4Xm5j=yUYPS0L1Fm751RS00A@mail.gmail.com>
+From: Costa Shulyupin <costa.shul@redhat.com>
+Date: Thu, 04 May 2023 18:01:52 +0000
+Subject: [PATCH v3] docs: directive `alias` for redirects
+Message-Id: <20230504180210.727364-1-costa.shul@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230511150802.737477-1-cgzones@googlemail.com>
- <20230515-kopfgeld-umkurven-f27be4b68a26@brauner> <CAOQ4uxgtxLLfBuVUAT7+N7cox+03wJA3ACGEu76dZd5RqGWXTQ@mail.gmail.com>
- <20230515-banal-vergab-a7abb53169b5@brauner>
-In-Reply-To: <20230515-banal-vergab-a7abb53169b5@brauner>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Christian Brauner <brauner@kernel.org>
-Cc: =?UTF-8?Q?Christian_G=C3=B6ttsche?= <cgzones@googlemail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-fsdevel@vger.kernel.org, audit@vger.kernel.org, linux-arch@vger.kernel.org, linux-api@vger.kernel.org, linux-security-module@vger.kernel.org, selinux@vger.kernel.org, Jan Kara <jack@suse.cz>, jlayton@kernel.org, cyphar@cyphar.com, Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Jonathan Corbet <corbet@lwn.net>, Mauro Carvalho Chehab <mchehab@kernel.org>, linux-doc@vger.kernel.org
+Cc: Costa Shulyupin <costa.shul@redhat.com>, Vineet Gupta <vgupta@kernel.org>, Jonas Bonn <jonas@southpole.se>, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, Stafford Horne <shorne@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, "maintainer:X86 ARCHITECTURE 32-BIT AND 64-BIT" <x86@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Yanteng Si <siyanteng@loongson.cn>, Geert Uytterhoeven <geert@linux-m68k.org>, Max Filippov <jcmvbkbc@gmail.com>, "open list:SYNOPSYS ARC ARCHITECTURE" <linux-snps-arc@lists.infradead.org>, open list <linux-kernel@vger.kernel.org>, "open list:IA64 Itanium PLATFORM" <linux-ia64@vger.kernel.org>, "open list:OPENRISC ARCHITECTURE" <linux-openrisc@vger.kernel.org>, "open list:PARISC ARCHITECTURE" <linux-parisc@vger.kernel.org>, "open list:SUPERH" <linux-sh@vger.kernel.org>
 
-On Mon, May 15, 2023 at 4:52 PM Christian Brauner <brauner@kernel.org> wrote:
->
-> On Mon, May 15, 2023 at 04:04:21PM +0300, Amir Goldstein wrote:
-> > On Mon, May 15, 2023 at 1:33 PM Christian Brauner <brauner@kernel.org> wrote:
-> > >
-> > > On Thu, May 11, 2023 at 05:08:02PM +0200, Christian Göttsche wrote:
-> > > > Add the four syscalls setxattrat(), getxattrat(), listxattrat() and
-> > > > removexattrat().  Those can be used to operate on extended attributes,
-> > > > especially security related ones, either relative to a pinned directory
-> > > > or on a file descriptor without read access, avoiding a
-> > > > /proc/<pid>/fd/<fd> detour, requiring a mounted procfs.
-> > > >
-> > > > One use case will be setfiles(8) setting SELinux file contexts
-> > > > ("security.selinux") without race conditions.
-> > > >
-> > > > Add XATTR flags to the private namespace of AT_* flags.
-> > > >
-> > > > Use the do_{name}at() pattern from fs/open.c.
-> > > >
-> > > > Use a single flag parameter for extended attribute flags (currently
-> > > > XATTR_CREATE and XATTR_REPLACE) and *at() flags to not exceed six
-> > > > syscall arguments in setxattrat().
-> > > >
-> > > > Previous approach ("f*xattr: allow O_PATH descriptors"): https://lore.kernel.org/all/20220607153139.35588-1-cgzones@googlemail.com/
-> > > > v1 discussion: https://lore.kernel.org/all/20220830152858.14866-2-cgzones@googlemail.com/
-> > > >
-> > > > Signed-off-by: Christian Göttsche <cgzones@googlemail.com>
-> > > > CC: x86@kernel.org
-> > > > CC: linux-alpha@vger.kernel.org
-> > > > CC: linux-kernel@vger.kernel.org
-> > > > CC: linux-arm-kernel@lists.infradead.org
-> > > > CC: linux-ia64@vger.kernel.org
-> > > > CC: linux-m68k@lists.linux-m68k.org
-> > > > CC: linux-mips@vger.kernel.org
-> > > > CC: linux-parisc@vger.kernel.org
-> > > > CC: linuxppc-dev@lists.ozlabs.org
-> > > > CC: linux-s390@vger.kernel.org
-> > > > CC: linux-sh@vger.kernel.org
-> > > > CC: sparclinux@vger.kernel.org
-> > > > CC: linux-fsdevel@vger.kernel.org
-> > > > CC: audit@vger.kernel.org
-> > > > CC: linux-arch@vger.kernel.org
-> > > > CC: linux-api@vger.kernel.org
-> > > > CC: linux-security-module@vger.kernel.org
-> > > > CC: selinux@vger.kernel.org
-> > > > ---
-> > >
-> > > Fwiw, your header doesn't let me see who the mail was directly sent to
-> > > so I'm only able to reply to lists which is a bit pointless...
-> > >
-> > > > v2:
-> > > >   - squash syscall introduction and wire up commits
-> > > >   - add AT_XATTR_CREATE and AT_XATTR_REPLACE constants
-> > >
-> > > > +#define AT_XATTR_CREATE              0x1     /* setxattrat(2): set value, fail if attr already exists */
-> > > > +#define AT_XATTR_REPLACE     0x2     /* setxattrat(2): set value, fail if attr does not exist */
-> > >
-> > > We really shouldn't waste any AT_* flags for this. Otherwise we'll run
-> > > out of them rather quickly. Two weeks ago we added another AT_* flag
-> > > which is up for merging for v6.5 iirc and I've glimpsed another AT_*
-> > > flag proposal in one of the talks at last weeks Vancouver conference
-> > > extravaganza.
-> > >
-> > > Even if we reuse 0x200 for AT_XATTR_CREATE (like we did for AT_EACCESS
-> > > and AT_REMOVEDIR) we still need another bit for AT_XATTR_REPLACE.
-> > >
-> > > Plus, this is really ugly since AT_XATTR_{CREATE,REPLACE} really isn't
-> > > in any way related to lookup and we're mixing it in with lookup
-> > > modifying flags.
-> > >
-> > > So my proposal for {g,s}etxattrat() would be:
-> > >
-> > > struct xattr_args {
-> > >         __aligned_u64 value;
-> > >         __u32 size;
-> > >         __u32 cmd;
-> > > };
-> > >
-> > > So everything's nicely 64bit aligned in the struct. Use the @cmd member
-> > > to set either XATTR_REPLACE or XATTR_CREATE and treat it as a proper
-> > > enum and not as a flag argument like the old calls did.
-> > >
-> > > So then we'd have:
-> > >
-> > > setxattrat(int dfd, const char *path, const char __user *name,
-> > >            struct xattr_args __user *args, size_t size, unsigned int flags)
-> > > getxattrat(int dfd, const char *path, const char __user *name,
-> > >            struct xattr_args __user *args, size_t size, unsigned int flags)
-> > >
-> > > The current in-kernel struct xattr_ctx would be renamed to struct
-> > > kernel_xattr_args and then we do the usual copy_struct_from_user()
-> > > dance:
-> > >
-> > > struct xattr_args args;
-> > > err = copy_struct_from_user(&args, sizeof(args), uargs, usize);
-> > >
-> > > and then go on to handle value/size for setxattrat()/getxattrat()
-> > > accordingly.
-> > >
-> > > getxattr()/setxattr() aren't meaningfully filterable by seccomp already
-> > > so there's not point in not using a struct.
-> > >
-> > > If that isn't very appealing then another option is to add a new flag
-> > > namespace just for setxattrat() similar to fspick() and move_mount()
-> > > duplicating the needed lookup modifying flags.
-> > > Thoughts?
-> >
-> > Here is a thought: I am not sure if I am sorry we did not discuss this API
-> > issue in LSFMM or happy that we did not waste our time on this... :-/
-> >
-> > I must say that I dislike redefined flag namespace like FSPICK_*
-> > just as much as I dislike overloading the AT_* namespace and TBH,
-> > I am not crazy about avoiding this problem with xattr_args either.
-> >
-> > A more sane solution IMO could have been:
-> > - Use lower word of flags for generic AT_ flags
-> > - Use the upper word of flags for syscall specific flags
->
-> We'd have 16 lower bits for AT_* flags and upper 16 bits for non-AT_*
-> flags. That might be ok but it isn't great because if we ever extend
-> AT_* flags into the upper 16 bits that are generally useful for all
-> AT_* flag taking system calls we'd not be able to use them. And at the
-> rate people keep suggesting new AT_* flags that issue might arise
-> quicker than we might think.
->
-> And we really don't want 64 bit flag arguments because of 32 bit
-> architectures as that gets really ugly to handle cleanly (Arnd has
-> talked a lot about issues in this area before).
->
-> >
-> > So if it were up to me, I would vote starting this practice:
-> >
-> > + /* Start of syscall specific range */
-> > + #define AT_XATTR_CREATE       0x10000     /* setxattrat(2): set
-> > value, fail if attr already exists */
-> > + #define AT_XATTR_REPLACE     0x20000     /* setxattrat(2): set
-> > value, fail if attr does not exist */
-> >
-> > Which coincidentally happens to be inline with my AT_HANDLE_FID patch...
->
-> This is different though. The reason AT_HANDLE_FID is acceptable is
-> because we need the ability to extend an existing system call and we're
-> reusing a bit that is already used in two other system calls. So we
-> avoid adding a new system call just to add another flag argument and
-> we're also not using up an additional AT_* bit. This makes it bearable
-> imho. But here we're talking about new system calls where we can avoid
-> this problem arising in the first place.
->
-> >
-> > Sure, we will have some special cases like MOVE_MOUNT_* and
-> > legacy pollution to the lower AT_ flags word, but as a generic solution
-> > for syscalls that need the common AT_ lookup flags and just a few
-> > private flags, that seems like the lesser evil to me.
->
-> It is fine to do this in some cases but we shouldn't encourage mixing
-> distinct flag namespaces let alone advertising this as a generic
-> solution imho. The AT_XATTR_* flags aren't even flags they behave like
-> an enum.
+and several redirects for moved main arch pages
 
-OK. I see your point.
-Also, wrt struct xattr_args, there is sort of a precedent with
-XFS_IOC_ATTRMULTI_BY_HANDLE ioctl, struct xfs_attr_multiop
-and flags XFS_IOC_ATTR_{CREATE,REPLACE}.
+Problems:
+- The documentation lacks hierarchy
+- Relocating pages disrupts external links to
+  the documentation and causes confusion for users
 
-Just a nit, I would use xattr_args field names that are the
-same as setxattr() arg names, so s/cmd/flags.
+Benefits:
+- Users can easily access relocated pages from external resources
+- Using redirects frees up options for reorganizing the documentation
 
-Thanks,
-Amir.
+The solution:
+- Introduced directive `alias` which declares previous path of
+  a moved document as the argument.
+- Redirects are implemented with Sphinx extension rediraffe_redirects.
+
+Signed-off-by: Costa Shulyupin <costa.shul@redhat.com>
+
+---
+
+Changes:
+- complete new implementation
+---
+ Documentation/arch/arc/index.rst        |  2 ++
+ Documentation/arch/ia64/index.rst       |  2 ++
+ Documentation/arch/index.rst            |  2 ++
+ Documentation/arch/m68k/index.rst       |  2 ++
+ Documentation/arch/nios2/index.rst      |  2 ++
+ Documentation/arch/openrisc/index.rst   |  2 ++
+ Documentation/arch/parisc/index.rst     |  2 ++
+ Documentation/arch/sh/index.rst         |  2 ++
+ Documentation/arch/sparc/index.rst      |  2 ++
+ Documentation/arch/x86/index.rst        |  2 ++
+ Documentation/arch/x86/x86_64/index.rst |  2 ++
+ Documentation/arch/xtensa/index.rst     |  2 ++
+ Documentation/conf.py                   |  9 +++++++
+ Documentation/sphinx/alias.py           | 35 +++++++++++++++++++++++++
+ Documentation/sphinx/requirements.txt   |  1 +
+ 15 files changed, 69 insertions(+)
+ create mode 100644 Documentation/sphinx/alias.py
+
+diff --git a/Documentation/arch/arc/index.rst b/Documentation/arch/arc/index.rst
+index 7b098d4a5e3e..c2be040f04c3 100644
+--- a/Documentation/arch/arc/index.rst
++++ b/Documentation/arch/arc/index.rst
+@@ -15,3 +15,5 @@ ARC architecture
+    === 
+    * :ref:`genindex`
++
++.. alias:: arc/index
+diff --git a/Documentation/arch/ia64/index.rst b/Documentation/arch/ia64/index.rst
+index 761f2154dfa2..c4f973f17af2 100644
+--- a/Documentation/arch/ia64/index.rst
++++ b/Documentation/arch/ia64/index.rst
+@@ -17,3 +17,5 @@ IA-64 Architecture
+    serial
+ 
+    features
++
++.. alias:: ia64/index
+diff --git a/Documentation/arch/index.rst b/Documentation/arch/index.rst
+index 80ee31016584..11be66e23de4 100644
+--- a/Documentation/arch/index.rst
++++ b/Documentation/arch/index.rst
+@@ -26,3 +26,5 @@ implementation.
+    sparc/index
+    x86/index
+    xtensa/index
++
++.. alias:: arch
+diff --git a/Documentation/arch/m68k/index.rst b/Documentation/arch/m68k/index.rst
+index 0f890dbb5fe2..9b5c34510fb7 100644
+--- a/Documentation/arch/m68k/index.rst
++++ b/Documentation/arch/m68k/index.rst
+@@ -18,3 +18,5 @@ m68k Architecture
+    === 
+    * :ref:`genindex`
++
++.. alias:: m68k/index
+diff --git a/Documentation/arch/nios2/index.rst b/Documentation/arch/nios2/index.rst
+index 4468fe1a1037..bfaf0e963db3 100644
+--- a/Documentation/arch/nios2/index.rst
++++ b/Documentation/arch/nios2/index.rst
+@@ -10,3 +10,5 @@ Nios II Specific Documentation
+ 
+    nios2
+    features
++
++.. alias:: nios2/index
+diff --git a/Documentation/arch/openrisc/index.rst b/Documentation/arch/openrisc/index.rst
+index 6879f998b87a..b59d97d6f8b7 100644
+--- a/Documentation/arch/openrisc/index.rst
++++ b/Documentation/arch/openrisc/index.rst
+@@ -18,3 +18,5 @@ OpenRISC Architecture
+    === 
+    * :ref:`genindex`
++
++.. alias:: openrisc/index
+diff --git a/Documentation/arch/parisc/index.rst b/Documentation/arch/parisc/index.rst
+index 240685751825..aaa708c7f98d 100644
+--- a/Documentation/arch/parisc/index.rst
++++ b/Documentation/arch/parisc/index.rst
+@@ -18,3 +18,5 @@ PA-RISC Architecture
+    === 
+    * :ref:`genindex`
++
++.. alias:: parisc/index
+diff --git a/Documentation/arch/sh/index.rst b/Documentation/arch/sh/index.rst
+index c64776738cf6..5a12d76abec4 100644
+--- a/Documentation/arch/sh/index.rst
++++ b/Documentation/arch/sh/index.rst
+@@ -54,3 +54,5 @@ Maple
+ 
+ .. kernel-doc:: drivers/sh/maple/maple.c
+    :export:
++
++.. alias:: sh/index
+diff --git a/Documentation/arch/sparc/index.rst b/Documentation/arch/sparc/index.rst
+index ae884224eec2..f2731a4925c3 100644
+--- a/Documentation/arch/sparc/index.rst
++++ b/Documentation/arch/sparc/index.rst
+@@ -11,3 +11,5 @@ Sparc Architecture
+    oradax/oracle-dax
+ 
+    features
++
++.. alias:: sparc/index
+diff --git a/Documentation/arch/x86/index.rst b/Documentation/arch/x86/index.rst
+index c73d133fd37c..2154bfe2b6ca 100644
+--- a/Documentation/arch/x86/index.rst
++++ b/Documentation/arch/x86/index.rst
+@@ -42,3 +42,5 @@ x86-specific Documentation
+    features
+    elf_auxvec
+    xstate
++
++.. alias:: x86/index
+diff --git a/Documentation/arch/x86/x86_64/index.rst b/Documentation/arch/x86/x86_64/index.rst
+index a56070fc8e77..d4eb610b0080 100644
+--- a/Documentation/arch/x86/x86_64/index.rst
++++ b/Documentation/arch/x86/x86_64/index.rst
+@@ -15,3 +15,5 @@ x86_64 Support
+    cpu-hotplug-spec
+    machinecheck
+    fsgs
++
++.. alias:: x86/x86_64/index
+diff --git a/Documentation/arch/xtensa/index.rst b/Documentation/arch/xtensa/index.rst
+index 69952446a9be..a794bddddad4 100644
+--- a/Documentation/arch/xtensa/index.rst
++++ b/Documentation/arch/xtensa/index.rst
+@@ -12,3 +12,5 @@ Xtensa Architecture
+    mmu
+ 
+    features
++
++.. alias:: xtensa/index
+diff --git a/Documentation/conf.py b/Documentation/conf.py
+index 37314afd1ac8..068f85e5dd1f 100644
+--- a/Documentation/conf.py
++++ b/Documentation/conf.py
+@@ -16,6 +16,7 @@ import sys
+ import os
+ import sphinx
+ import shutil
++from importlib.util import find_spec
+ 
+ # helper
+ # ------
+@@ -57,6 +58,14 @@ extensions = ['kerneldoc', 'rstFlatTable', 'kernel_include',
+               'maintainers_include', 'sphinx.ext.autosectionlabel',
+               'kernel_abi', 'kernel_feat']
+ 
++extensions += ['alias'] # uses rediraffe
++
++if find_spec('sphinxext.rediraffe'):
++    extensions += ['sphinxext.rediraffe']
++    rediraffe_redirects = { }
++else:
++    print("Skipping redirects because sphinxext.rediraffe is not installed")
++
+ if major >= 3:
+     if (major > 3) or (minor > 0 or patch >= 2):
+         # Sphinx c function parser is more pedantic with regards to type
+diff --git a/Documentation/sphinx/alias.py b/Documentation/sphinx/alias.py
+new file mode 100644
+index 000000000000..e00605d07dbd
+--- /dev/null
++++ b/Documentation/sphinx/alias.py
+@@ -0,0 +1,35 @@
++# SPDX-License-Identifier: GPL-2.0
++
++u"""
++    Directive `alias`
++    ~~~~~~~~~~~~~~~
++    Provides browser redirects for moved pages.
++
++    The directive declares previous path of a moved document as the argument.
++    Redirects are implemented with Sphinx extension rediraffe_redirects.
++
++    :copyright: Copyright 2023 Costa Shulyupin <costa.shul@redhat.com>
++    :license:   GPL Version 2, June 1991 see linux/COPYING for details.
++
++"""
++
++from docutils.parsers.rst import Directive
++import os
++
++
++class AliasDirective(Directive):
++    required_arguments = 1
++
++    def run(self):
++        env = self.state.document.settings.env
++        if 'rediraffe_redirects' not in env.config:
++            return []
++        env.config.rediraffe_redirects[self.arguments[0]] \
++            = os.path.relpath(self.state.document.current_source,
++                              env.srcdir)
++        return []
++
++
++def setup(app):
++    app.add_directive('alias', AliasDirective)
++    return { 'parallel_read_safe': False, 'parallel_write_safe': False }
+diff --git a/Documentation/sphinx/requirements.txt b/Documentation/sphinx/requirements.txt
+index 335b53df35e2..9ff99beb5ed3 100644
+--- a/Documentation/sphinx/requirements.txt
++++ b/Documentation/sphinx/requirements.txt
+@@ -1,3 +1,4 @@
+ # jinja2>=3.1 is not compatible with Sphinx<4.0
+ jinja2<3.1
+ Sphinx=2.4.4
++rediraffe_redirects
+-- 
+2.40.0
