@@ -1,38 +1,127 @@
-From: Hugh Dickins <hughd@google.com>
-Date: Wed, 10 May 2023 04:58:48 +0000
-Subject: [PATCH 13/23] powerpc/hugetlb: pte_alloc_huge()
-Message-Id: <1a3ee4d4-a829-35d4-d94e-885d5d4d6a8a@google.com>
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Wed, 10 May 2023 11:05:55 +0000
+Subject: [PATCH v6 4/6] fbdev: Include <linux/fb.h> instead of <asm/fb.h>
+Message-Id: <20230510110557.14343-5-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com>
-In-Reply-To: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com>
+References: <20230510110557.14343-1-tzimmermann@suse.de>
+In-Reply-To: <20230510110557.14343-1-tzimmermann@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Mike Kravetz <mike.kravetz@oracle.com>, Mike Rapoport <rppt@kernel.org>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Matthew Wilcox <willy@infradead.org>, David Hildenbrand <david@redhat.com>, Suren Baghdasaryan <surenb@google.com>, Qi Zheng <zhengqi.arch@bytedance.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Helge Deller <deller@gmx.de>, John David Anglin <dave.anglin@bell.net>, "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Alexandre Ghiti <alexghiti@rivosinc.com>, Palmer Dabbelt <palmer@dabbelt.com>, Heiko Carstens <hca@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Claudio Imbrenda <imbrenda@linux.ibm.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "David S. Miller" <davem@davemloft.net>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
+To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org, suijingfeng@loongson.cn
+Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
 
-pte_alloc_map() expects to be followed by pte_unmap(), but hugetlb omits
-that: to keep balance in future, use the recently added pte_alloc_huge()
-instead.  huge_pte_offset() is using __find_linux_pte(), which is using
-pte_offset_kernel() - don't rename that to _huge, it's more complicated.
+Replace include statements for <asm/fb.h> with <linux/fb.h>. Fixes
+the coding style: if a header is available in asm/ and linux/, it
+is preferable to include the header from linux/. This only affects
+a few source files, most of which already include <linux/fb.h>.
 
-Signed-off-by: Hugh Dickins <hughd@google.com>
+Suggested-by: Sam Ravnborg <sam@ravnborg.org>
+Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+Reviewed-by: Sui Jingfeng <suijingfeng@loongson.cn>
+Reviewed-by: Sam Ravnborg <sam@ravnborg.org>
 ---
- arch/powerpc/mm/hugetlbpage.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/parisc/video/fbdev.c        | 3 +--
+ arch/sparc/video/fbdev.c         | 1 -
+ arch/x86/video/fbdev.c           | 2 --
+ drivers/staging/sm750fb/sm750.c  | 2 +-
+ drivers/video/fbdev/core/fbcon.c | 1 -
+ drivers/video/fbdev/core/fbmem.c | 2 --
+ include/linux/fb.h               | 2 ++
+ 7 files changed, 4 insertions(+), 9 deletions(-)
 
-diff --git a/arch/powerpc/mm/hugetlbpage.c b/arch/powerpc/mm/hugetlbpage.c
-index b900933507da..f7c683b672c1 100644
---- a/arch/powerpc/mm/hugetlbpage.c
-+++ b/arch/powerpc/mm/hugetlbpage.c
-@@ -183,7 +183,7 @@ pte_t *huge_pte_alloc(struct mm_struct *mm, struct vm_area_struct *vma,
- 		return NULL;
+diff --git a/arch/parisc/video/fbdev.c b/arch/parisc/video/fbdev.c
+index 4a0ae08fc75b..137561d98246 100644
+--- a/arch/parisc/video/fbdev.c
++++ b/arch/parisc/video/fbdev.c
+@@ -5,10 +5,9 @@
+  * Copyright (C) 2001-2002 Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+  */
  
- 	if (IS_ENABLED(CONFIG_PPC_8xx) && pshift < PMD_SHIFT)
--		return pte_alloc_map(mm, (pmd_t *)hpdp, addr);
-+		return pte_alloc_huge(mm, (pmd_t *)hpdp, addr);
++#include <linux/fb.h>
+ #include <linux/module.h>
  
- 	BUG_ON(!hugepd_none(*hpdp) && !hugepd_ok(*hpdp));
+-#include <asm/fb.h>
+-
+ #include <video/sticore.h>
  
+ int fb_is_primary_device(struct fb_info *info)
+diff --git a/arch/sparc/video/fbdev.c b/arch/sparc/video/fbdev.c
+index dadd5799fbb3..25837f128132 100644
+--- a/arch/sparc/video/fbdev.c
++++ b/arch/sparc/video/fbdev.c
+@@ -4,7 +4,6 @@
+ #include <linux/fb.h>
+ #include <linux/module.h>
+ 
+-#include <asm/fb.h>
+ #include <asm/prom.h>
+ 
+ int fb_is_primary_device(struct fb_info *info)
+diff --git a/arch/x86/video/fbdev.c b/arch/x86/video/fbdev.c
+index 57ee3c158f97..f41a17ebac48 100644
+--- a/arch/x86/video/fbdev.c
++++ b/arch/x86/video/fbdev.c
+@@ -7,8 +7,6 @@
+  *
+  */
+ 
+-#include <asm/fb.h>
+-
+ #include <linux/fb.h>
+ #include <linux/module.h>
+ #include <linux/pci.h>
+diff --git a/drivers/staging/sm750fb/sm750.c b/drivers/staging/sm750fb/sm750.c
+index 22ace3168723..55e302a27847 100644
+--- a/drivers/staging/sm750fb/sm750.c
++++ b/drivers/staging/sm750fb/sm750.c
+@@ -16,7 +16,7 @@
+ #include <linux/pagemap.h>
+ #include <linux/screen_info.h>
+ #include <linux/console.h>
+-#include <asm/fb.h>
++
+ #include "sm750.h"
+ #include "sm750_accel.h"
+ #include "sm750_cursor.h"
+diff --git a/drivers/video/fbdev/core/fbcon.c b/drivers/video/fbdev/core/fbcon.c
+index eb565a10e5cd..c6c9d040bdec 100644
+--- a/drivers/video/fbdev/core/fbcon.c
++++ b/drivers/video/fbdev/core/fbcon.c
+@@ -75,7 +75,6 @@
+ #include <linux/interrupt.h>
+ #include <linux/crc32.h> /* For counting font checksums */
+ #include <linux/uaccess.h>
+-#include <asm/fb.h>
+ #include <asm/irq.h>
+ 
+ #include "fbcon.h"
+diff --git a/drivers/video/fbdev/core/fbmem.c b/drivers/video/fbdev/core/fbmem.c
+index 4035a57df116..41b0706be635 100644
+--- a/drivers/video/fbdev/core/fbmem.c
++++ b/drivers/video/fbdev/core/fbmem.c
+@@ -37,8 +37,6 @@
+ #include <linux/mem_encrypt.h>
+ #include <linux/pci.h>
+ 
+-#include <asm/fb.h>
+-
+ #include <video/nomodeset.h>
+ #include <video/vga.h>
+ 
+diff --git a/include/linux/fb.h b/include/linux/fb.h
+index ec978a4969a9..4b4d9a5d200a 100644
+--- a/include/linux/fb.h
++++ b/include/linux/fb.h
+@@ -15,6 +15,8 @@
+ #include <linux/list.h>
+ #include <linux/backlight.h>
+ #include <linux/slab.h>
++
++#include <asm/fb.h>
+ #include <asm/io.h>
+ 
+ struct vm_area_struct;
 -- 
-2.35.3
+2.40.1
