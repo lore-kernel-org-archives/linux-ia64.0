@@ -1,74 +1,46 @@
-From: Thomas Zimmermann <tzimmermann@suse.de>
-Date: Mon, 08 May 2023 11:48:25 +0000
-Subject: [PATCH v5 1/6] fbdev/matrox: Remove trailing whitespaces
-Message-Id: <20230508114830.28182-2-tzimmermann@suse.de>
+From: Hugh Dickins <hughd@google.com>
+Date: Wed, 10 May 2023 04:47:11 +0000
+Subject: [PATCH 04/23] ia64/hugetlb: pte_alloc_huge() pte_offset_huge()
+Message-Id: <baef2acf-7368-79a-a27-a87c2f2dfcb@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230508114830.28182-1-tzimmermann@suse.de>
-In-Reply-To: <20230508114830.28182-1-tzimmermann@suse.de>
+References: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com>
+In-Reply-To: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org, suijingfeng@loongson.cn
-Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Mike Kravetz <mike.kravetz@oracle.com>, Mike Rapoport <rppt@kernel.org>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Matthew Wilcox <willy@infradead.org>, David Hildenbrand <david@redhat.com>, Suren Baghdasaryan <surenb@google.com>, Qi Zheng <zhengqi.arch@bytedance.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Helge Deller <deller@gmx.de>, John David Anglin <dave.anglin@bell.net>, "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Alexandre Ghiti <alexghiti@rivosinc.com>, Palmer Dabbelt <palmer@dabbelt.com>, Heiko Carstens <hca@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Claudio Imbrenda <imbrenda@linux.ibm.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "David S. Miller" <davem@davemloft.net>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
 
-Fix coding style. No functional changes.
+pte_alloc_map() expects to be followed by pte_unmap(), but hugetlb omits
+that: to keep balance in future, use the recently added pte_alloc_huge()
+instead; with pte_offset_huge() a better name for pte_offset_kernel().
 
-Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
-Reviewed-by: Arnd Bergmann <arnd@arndb.de>
-Reviewed-by: Sam Ravnborg <sam@ravnborg.org>
-Reviewed-by: Sui Jingfeng <suijingfeng@loongson.cn>
-Tested-by: Sui Jingfeng <suijingfeng@loongson.cn>
+Signed-off-by: Hugh Dickins <hughd@google.com>
 ---
- drivers/video/fbdev/matrox/matroxfb_accel.c | 6 +++---
- drivers/video/fbdev/matrox/matroxfb_base.h  | 4 ++--
- 2 files changed, 5 insertions(+), 5 deletions(-)
+ arch/ia64/mm/hugetlbpage.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/video/fbdev/matrox/matroxfb_accel.c b/drivers/video/fbdev/matrox/matroxfb_accel.c
-index 9cb0685feddd..ce51227798a1 100644
---- a/drivers/video/fbdev/matrox/matroxfb_accel.c
-+++ b/drivers/video/fbdev/matrox/matroxfb_accel.c
-@@ -88,7 +88,7 @@
- 
- static inline void matrox_cfb4_pal(u_int32_t* pal) {
- 	unsigned int i;
--	
-+
- 	for (i = 0; i < 16; i++) {
- 		pal[i] = i * 0x11111111U;
+diff --git a/arch/ia64/mm/hugetlbpage.c b/arch/ia64/mm/hugetlbpage.c
+index 78a02e026164..adc49f2d22e8 100644
+--- a/arch/ia64/mm/hugetlbpage.c
++++ b/arch/ia64/mm/hugetlbpage.c
+@@ -41,7 +41,7 @@ huge_pte_alloc(struct mm_struct *mm, struct vm_area_struct *vma,
+ 	if (pud) {
+ 		pmd = pmd_alloc(mm, pud, taddr);
+ 		if (pmd)
+-			pte = pte_alloc_map(mm, pmd, taddr);
++			pte = pte_alloc_huge(mm, pmd, taddr);
  	}
-@@ -96,7 +96,7 @@ static inline void matrox_cfb4_pal(u_int32_t* pal) {
- 
- static inline void matrox_cfb8_pal(u_int32_t* pal) {
- 	unsigned int i;
--	
-+
- 	for (i = 0; i < 16; i++) {
- 		pal[i] = i * 0x01010101U;
+ 	return pte;
+ }
+@@ -64,7 +64,7 @@ huge_pte_offset (struct mm_struct *mm, unsigned long addr, unsigned long sz)
+ 			if (pud_present(*pud)) {
+ 				pmd = pmd_offset(pud, taddr);
+ 				if (pmd_present(*pmd))
+-					pte = pte_offset_map(pmd, taddr);
++					pte = pte_offset_huge(pmd, taddr);
+ 			}
+ 		}
  	}
-@@ -482,7 +482,7 @@ static void matroxfb_1bpp_imageblit(struct matrox_fb_info *minfo, u_int32_t fgx,
- 			/* Tell... well, why bother... */
- 			while (height--) {
- 				size_t i;
--				
-+
- 				for (i = 0; i < step; i += 4) {
- 					/* Hope that there are at least three readable bytes beyond the end of bitmap */
- 					fb_writel(get_unaligned((u_int32_t*)(chardata + i)),mmio.vaddr);
-diff --git a/drivers/video/fbdev/matrox/matroxfb_base.h b/drivers/video/fbdev/matrox/matroxfb_base.h
-index 958be6805f87..c93c69bbcd57 100644
---- a/drivers/video/fbdev/matrox/matroxfb_base.h
-+++ b/drivers/video/fbdev/matrox/matroxfb_base.h
-@@ -301,9 +301,9 @@ struct matrox_altout {
- 	int		(*verifymode)(void* altout_dev, u_int32_t mode);
- 	int		(*getqueryctrl)(void* altout_dev,
- 					struct v4l2_queryctrl* ctrl);
--	int		(*getctrl)(void* altout_dev, 
-+	int		(*getctrl)(void *altout_dev,
- 				   struct v4l2_control* ctrl);
--	int		(*setctrl)(void* altout_dev, 
-+	int		(*setctrl)(void *altout_dev,
- 				   struct v4l2_control* ctrl);
- };
- 
 -- 
-2.40.1
+2.35.3
