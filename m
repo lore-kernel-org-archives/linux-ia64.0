@@ -1,48 +1,109 @@
-From: Palmer Dabbelt <palmer@dabbelt.com>
-Date: Wed, 10 May 2023 14:01:54 +0000
-Subject: Re: [PATCH 14/23] riscv/hugetlb: pte_alloc_huge() pte_offset_huge()
-Message-Id: <mhng-fa58638c-1b42-4264-8bf1-55d4bc42a5e2@palmer-ri-x1c9>
+From: Hugh Dickins <hughd@google.com>
+Date: Wed, 10 May 2023 05:01:16 +0000
+Subject: [PATCH 15/23] s390: allow pte_offset_map_lock() to fail
+Message-Id: <94aec8fe-383f-892-dcbf-d4c14e460a7@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <d1e54510-9ea2-edf-3851-fa7635ce1e5e@google.com>
-References: <d1e54510-9ea2-edf-3851-fa7635ce1e5e@google.com>
-In-Reply-To: <d1e54510-9ea2-edf-3851-fa7635ce1e5e@google.com>
+References: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com>
+In-Reply-To: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: hughd@google.com
-Cc: akpm@linux-foundation.org, mike.kravetz@oracle.com, rppt@kernel.org, kirill.shutemov@linux.intel.com, willy@infradead.org, david@redhat.com, surenb@google.com, zhengqi.arch@bytedance.com, linux@armlinux.org.uk, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, geert@linux-m68k.org, gerg@linux-m68k.org, monstr@monstr.eu, tsbogend@alpha.franken.de, deller@gmx.de, dave.anglin@bell.net, aneesh.kumar@linux.ibm.com, mpe@ellerman.id.au, alexghiti@rivosinc.com, hca@linux.ibm.com, borntraeger@linux.ibm.com, imbrenda@linux.ibm.com, glaubitz@physik.fu-berlin.de, davem@davemloft.net, chris@zankel.net, jcmvbkbc@gmail.com, x86@kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Mike Kravetz <mike.kravetz@oracle.com>, Mike Rapoport <rppt@kernel.org>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Matthew Wilcox <willy@infradead.org>, David Hildenbrand <david@redhat.com>, Suren Baghdasaryan <surenb@google.com>, Qi Zheng <zhengqi.arch@bytedance.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Helge Deller <deller@gmx.de>, John David Anglin <dave.anglin@bell.net>, "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Alexandre Ghiti <alexghiti@rivosinc.com>, Palmer Dabbelt <palmer@dabbelt.com>, Heiko Carstens <hca@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Claudio Imbrenda <imbrenda@linux.ibm.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "David S. Miller" <davem@davemloft.net>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
 
-On Tue, 09 May 2023 21:59:57 PDT (-0700), hughd@google.com wrote:
-> pte_alloc_map() expects to be followed by pte_unmap(), but hugetlb omits
-> that: to keep balance in future, use the recently added pte_alloc_huge()
-> instead; with pte_offset_huge() a better name for pte_offset_kernel().
->
-> Signed-off-by: Hugh Dickins <hughd@google.com>
-> ---
->  arch/riscv/mm/hugetlbpage.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/arch/riscv/mm/hugetlbpage.c b/arch/riscv/mm/hugetlbpage.c
-> index a163a3e0f0d4..80926946759f 100644
-> --- a/arch/riscv/mm/hugetlbpage.c
-> +++ b/arch/riscv/mm/hugetlbpage.c
-> @@ -43,7 +43,7 @@ pte_t *huge_pte_alloc(struct mm_struct *mm,
->
->  	for_each_napot_order(order) {
->  		if (napot_cont_size(order) = sz) {
-> -			pte = pte_alloc_map(mm, pmd, addr & napot_cont_mask(order));
-> +			pte = pte_alloc_huge(mm, pmd, addr & napot_cont_mask(order));
->  			break;
->  		}
->  	}
-> @@ -90,7 +90,7 @@ pte_t *huge_pte_offset(struct mm_struct *mm,
->
->  	for_each_napot_order(order) {
->  		if (napot_cont_size(order) = sz) {
-> -			pte = pte_offset_kernel(pmd, addr & napot_cont_mask(order));
-> +			pte = pte_offset_huge(pmd, addr & napot_cont_mask(order));
->  			break;
->  		}
->  	}
+In rare transient cases, not yet made possible, pte_offset_map() and
+pte_offset_map_lock() may not find a page table: handle appropriately.
 
-Acked-by: Palmer Dabbelt <palmer@rivosinc.com>
+Signed-off-by: Hugh Dickins <hughd@google.com>
+---
+ arch/s390/kernel/uv.c  |  2 ++
+ arch/s390/mm/gmap.c    |  2 ++
+ arch/s390/mm/pgtable.c | 12 +++++++++---
+ 3 files changed, 13 insertions(+), 3 deletions(-)
+
+diff --git a/arch/s390/kernel/uv.c b/arch/s390/kernel/uv.c
+index cb2ee06df286..3c62d1b218b1 100644
+--- a/arch/s390/kernel/uv.c
++++ b/arch/s390/kernel/uv.c
+@@ -294,6 +294,8 @@ int gmap_make_secure(struct gmap *gmap, unsigned long gaddr, void *uvcb)
+ 
+ 	rc = -ENXIO;
+ 	ptep = get_locked_pte(gmap->mm, uaddr, &ptelock);
++	if (!ptep)
++		goto out;
+ 	if (pte_present(*ptep) && !(pte_val(*ptep) & _PAGE_INVALID) && pte_write(*ptep)) {
+ 		page = pte_page(*ptep);
+ 		rc = -EAGAIN;
+diff --git a/arch/s390/mm/gmap.c b/arch/s390/mm/gmap.c
+index dc90d1eb0d55..d198fc9475a2 100644
+--- a/arch/s390/mm/gmap.c
++++ b/arch/s390/mm/gmap.c
+@@ -2549,6 +2549,8 @@ static int __zap_zero_pages(pmd_t *pmd, unsigned long start,
+ 		spinlock_t *ptl;
+ 
+ 		ptep = pte_offset_map_lock(walk->mm, pmd, addr, &ptl);
++		if (!ptep)
++			break;
+ 		if (is_zero_pfn(pte_pfn(*ptep)))
+ 			ptep_xchg_direct(walk->mm, addr, ptep, __pte(_PAGE_INVALID));
+ 		pte_unmap_unlock(ptep, ptl);
+diff --git a/arch/s390/mm/pgtable.c b/arch/s390/mm/pgtable.c
+index 6effb24de6d9..3bd2ab2a9a34 100644
+--- a/arch/s390/mm/pgtable.c
++++ b/arch/s390/mm/pgtable.c
+@@ -829,7 +829,7 @@ int set_guest_storage_key(struct mm_struct *mm, unsigned long addr,
+ 	default:
+ 		return -EFAULT;
+ 	}
+-
++again:
+ 	ptl = pmd_lock(mm, pmdp);
+ 	if (!pmd_present(*pmdp)) {
+ 		spin_unlock(ptl);
+@@ -850,6 +850,8 @@ int set_guest_storage_key(struct mm_struct *mm, unsigned long addr,
+ 	spin_unlock(ptl);
+ 
+ 	ptep = pte_offset_map_lock(mm, pmdp, addr, &ptl);
++	if (!ptep)
++		goto again;
+ 	new = old = pgste_get_lock(ptep);
+ 	pgste_val(new) &= ~(PGSTE_GR_BIT | PGSTE_GC_BIT |
+ 			    PGSTE_ACC_BITS | PGSTE_FP_BIT);
+@@ -938,7 +940,7 @@ int reset_guest_reference_bit(struct mm_struct *mm, unsigned long addr)
+ 	default:
+ 		return -EFAULT;
+ 	}
+-
++again:
+ 	ptl = pmd_lock(mm, pmdp);
+ 	if (!pmd_present(*pmdp)) {
+ 		spin_unlock(ptl);
+@@ -955,6 +957,8 @@ int reset_guest_reference_bit(struct mm_struct *mm, unsigned long addr)
+ 	spin_unlock(ptl);
+ 
+ 	ptep = pte_offset_map_lock(mm, pmdp, addr, &ptl);
++	if (!ptep)
++		goto again;
+ 	new = old = pgste_get_lock(ptep);
+ 	/* Reset guest reference bit only */
+ 	pgste_val(new) &= ~PGSTE_GR_BIT;
+@@ -1000,7 +1004,7 @@ int get_guest_storage_key(struct mm_struct *mm, unsigned long addr,
+ 	default:
+ 		return -EFAULT;
+ 	}
+-
++again:
+ 	ptl = pmd_lock(mm, pmdp);
+ 	if (!pmd_present(*pmdp)) {
+ 		spin_unlock(ptl);
+@@ -1017,6 +1021,8 @@ int get_guest_storage_key(struct mm_struct *mm, unsigned long addr,
+ 	spin_unlock(ptl);
+ 
+ 	ptep = pte_offset_map_lock(mm, pmdp, addr, &ptl);
++	if (!ptep)
++		goto again;
+ 	pgste = pgste_get_lock(ptep);
+ 	*key = (pgste_val(pgste) & (PGSTE_ACC_BITS | PGSTE_FP_BIT)) >> 56;
+ 	paddr = pte_val(*ptep) & PAGE_MASK;
+-- 
+2.35.3
