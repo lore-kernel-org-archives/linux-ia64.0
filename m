@@ -1,74 +1,69 @@
 From: Thomas Zimmermann <tzimmermann@suse.de>
-Date: Fri, 12 May 2023 10:24:39 +0000
-Subject: [PATCH v7 2/7] fbdev/matrox: Remove trailing whitespaces
-Message-Id: <20230512102444.5438-3-tzimmermann@suse.de>
+Date: Wed, 10 May 2023 11:05:54 +0000
+Subject: [PATCH v6 3/6] fbdev: Include <linux/io.h> in various drivers
+Message-Id: <20230510110557.14343-4-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230512102444.5438-1-tzimmermann@suse.de>
-In-Reply-To: <20230512102444.5438-1-tzimmermann@suse.de>
+References: <20230510110557.14343-1-tzimmermann@suse.de>
+In-Reply-To: <20230510110557.14343-1-tzimmermann@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org, suijingfeng@loongson.cn
 Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
 
-Fix coding style. No functional changes.
+The code uses writel() and similar I/O-memory helpers. Include
+the header file to get the declarations.
 
 Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
 Reviewed-by: Arnd Bergmann <arnd@arndb.de>
 Reviewed-by: Sam Ravnborg <sam@ravnborg.org>
 Reviewed-by: Sui Jingfeng <suijingfeng@loongson.cn>
-Tested-by: Sui Jingfeng <suijingfeng@loongson.cn>
 ---
- drivers/video/fbdev/matrox/matroxfb_accel.c | 6 +++---
- drivers/video/fbdev/matrox/matroxfb_base.h  | 4 ++--
- 2 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/video/fbdev/arcfb.c       | 1 +
+ drivers/video/fbdev/aty/atyfb.h   | 2 ++
+ drivers/video/fbdev/wmt_ge_rops.c | 2 ++
+ 3 files changed, 5 insertions(+)
 
-diff --git a/drivers/video/fbdev/matrox/matroxfb_accel.c b/drivers/video/fbdev/matrox/matroxfb_accel.c
-index 9cb0685feddd..ce51227798a1 100644
---- a/drivers/video/fbdev/matrox/matroxfb_accel.c
-+++ b/drivers/video/fbdev/matrox/matroxfb_accel.c
-@@ -88,7 +88,7 @@
+diff --git a/drivers/video/fbdev/arcfb.c b/drivers/video/fbdev/arcfb.c
+index 7750e020839e..ace104850e50 100644
+--- a/drivers/video/fbdev/arcfb.c
++++ b/drivers/video/fbdev/arcfb.c
+@@ -41,6 +41,7 @@
+ #include <linux/vmalloc.h>
+ #include <linux/delay.h>
+ #include <linux/interrupt.h>
++#include <linux/io.h>
+ #include <linux/fb.h>
+ #include <linux/init.h>
+ #include <linux/arcfb.h>
+diff --git a/drivers/video/fbdev/aty/atyfb.h b/drivers/video/fbdev/aty/atyfb.h
+index 465f55beb97f..30da3e82ed3c 100644
+--- a/drivers/video/fbdev/aty/atyfb.h
++++ b/drivers/video/fbdev/aty/atyfb.h
+@@ -3,8 +3,10 @@
+  *  ATI Frame Buffer Device Driver Core Definitions
+  */
  
- static inline void matrox_cfb4_pal(u_int32_t* pal) {
- 	unsigned int i;
--	
++#include <linux/io.h>
+ #include <linux/spinlock.h>
+ #include <linux/wait.h>
 +
- 	for (i = 0; i < 16; i++) {
- 		pal[i] = i * 0x11111111U;
- 	}
-@@ -96,7 +96,7 @@ static inline void matrox_cfb4_pal(u_int32_t* pal) {
+     /*
+      *  Elements of the hardware specific atyfb_par structure
+      */
+diff --git a/drivers/video/fbdev/wmt_ge_rops.c b/drivers/video/fbdev/wmt_ge_rops.c
+index 42255d27a1db..99c7b0aea615 100644
+--- a/drivers/video/fbdev/wmt_ge_rops.c
++++ b/drivers/video/fbdev/wmt_ge_rops.c
+@@ -9,7 +9,9 @@
  
- static inline void matrox_cfb8_pal(u_int32_t* pal) {
- 	unsigned int i;
--	
+ #include <linux/module.h>
+ #include <linux/fb.h>
++#include <linux/io.h>
+ #include <linux/platform_device.h>
 +
- 	for (i = 0; i < 16; i++) {
- 		pal[i] = i * 0x01010101U;
- 	}
-@@ -482,7 +482,7 @@ static void matroxfb_1bpp_imageblit(struct matrox_fb_info *minfo, u_int32_t fgx,
- 			/* Tell... well, why bother... */
- 			while (height--) {
- 				size_t i;
--				
-+
- 				for (i = 0; i < step; i += 4) {
- 					/* Hope that there are at least three readable bytes beyond the end of bitmap */
- 					fb_writel(get_unaligned((u_int32_t*)(chardata + i)),mmio.vaddr);
-diff --git a/drivers/video/fbdev/matrox/matroxfb_base.h b/drivers/video/fbdev/matrox/matroxfb_base.h
-index 958be6805f87..c93c69bbcd57 100644
---- a/drivers/video/fbdev/matrox/matroxfb_base.h
-+++ b/drivers/video/fbdev/matrox/matroxfb_base.h
-@@ -301,9 +301,9 @@ struct matrox_altout {
- 	int		(*verifymode)(void* altout_dev, u_int32_t mode);
- 	int		(*getqueryctrl)(void* altout_dev,
- 					struct v4l2_queryctrl* ctrl);
--	int		(*getctrl)(void* altout_dev, 
-+	int		(*getctrl)(void *altout_dev,
- 				   struct v4l2_control* ctrl);
--	int		(*setctrl)(void* altout_dev, 
-+	int		(*setctrl)(void *altout_dev,
- 				   struct v4l2_control* ctrl);
- };
+ #include "core/fb_draw.h"
+ #include "wmt_ge_rops.h"
  
 -- 
 2.40.1
