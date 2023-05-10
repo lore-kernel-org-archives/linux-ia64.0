@@ -1,63 +1,53 @@
-From: "Arnd Bergmann" <arnd@arndb.de>
-Date: Thu, 11 May 2023 13:40:28 +0000
-Subject: Re: [PATCH v6 5/6] fbdev: Move framebuffer I/O helpers into <asm/fb.h>
-Message-Id: <d27e359c-1ea3-4d08-b124-e794fd372b28@app.fastmail.com>
+From: Hugh Dickins <hughd@google.com>
+Date: Wed, 10 May 2023 04:45:57 +0000
+Subject: [PATCH 03/23] arm64/hugetlb: pte_alloc_huge() pte_offset_huge()
+Message-Id: <dda2885-929b-c278-14e-5f447e9eec52@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230510110557.14343-6-tzimmermann@suse.de>
- <202305102136.eMjTSPwH-lkp@intel.com>
- <f6b2d541-d235-4e98-afcc-9137fb8afa35@app.fastmail.com>
- <49684d58-c19d-b147-5e9f-2ac526dd50f0@suse.de>
- <743d2b1e-c843-4fb2-b252-0006be2e2bd8@app.fastmail.com>
- <CAMuHMdVvR1jdbZS8KoMf4R3zhLRWKv9XbG61iBGOGGZPHB+taA@mail.gmail.com>
- <9c4be198444e9987c826c87b592e9dc6@artur-rojek.eu>
-In-Reply-To: <9c4be198444e9987c826c87b592e9dc6@artur-rojek.eu>
+References: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com>
+In-Reply-To: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Artur Rojek <contact@artur-rojek.eu>, Geert Uytterhoeven <geert@linux-m68k.org>
-Cc: linux-fbdev@vger.kernel.org, linux-ia64@vger.kernel.org, dri-devel@lists.freedesktop.org, "James E . J . Bottomley" <James.Bottomley@hansenpartnership.com>, sparclinux@vger.kernel.org, WANG Xuerui <kernel@xen0n.name>, Sam Ravnborg <sam@ravnborg.org>, Linux-Arch <linux-arch@vger.kernel.org>, kernel test robot <lkp@intel.com>, Helge Deller <deller@gmx.de>, Huacai Chen <chenhuacai@kernel.org>, Javier Martinez Canillas <javierm@redhat.com>, Vineet Gupta <vgupta@kernel.org>, linux-snps-arc@lists.infradead.org, suijingfeng@loongson.cn, linux-m68k@lists.linux-m68k.org, loongarch@lists.linux.dev, oe-kbuild-all@lists.linux.dev, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, linux-kernel@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>, "David S . Miller" <davem@davemloft.net>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Mike Kravetz <mike.kravetz@oracle.com>, Mike Rapoport <rppt@kernel.org>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Matthew Wilcox <willy@infradead.org>, David Hildenbrand <david@redhat.com>, Suren Baghdasaryan <surenb@google.com>, Qi Zheng <zhengqi.arch@bytedance.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Helge Deller <deller@gmx.de>, John David Anglin <dave.anglin@bell.net>, "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Alexandre Ghiti <alexghiti@rivosinc.com>, Palmer Dabbelt <palmer@dabbelt.com>, Heiko Carstens <hca@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Claudio Imbrenda <imbrenda@linux.ibm.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "David S. Miller" <davem@davemloft.net>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
 
-On Thu, May 11, 2023, at 15:22, Artur Rojek wrote:
-> On 2023-05-11 14:35, Geert Uytterhoeven wrote:
->> 
->> CC Artur, who's working on HP Jornada 680.
-> Thanks for CC'ing me - I faced this exact issue while working on my
-> (still not upstreamed) hd6446x PCMCIA controller driver. The PCMCIA
-> subsystem uses `inb/outb`, which expect the `sh_io_port_base` to be set
-> to something else than the default `-1`. At first I tried to set it to
-> `0xa0000000`, so that all I/O goes through the fixed, non-cacheable P2
-> area. That however broke some other driver code (I had no time to debug
-> which one). Eventually I ended up taking a suggestion from a MIPS PCMCIA
-> driver [1] and simply substract the broken `sh_io_port_base` address
-> from `HD64461_IOBASE`, as the base for `socket.io_offset`. This way all
-> the PCMCIA `inb/outb` accesses are absolute, no matter what the
-> `sh_io_port_base` is set to. This of course is a very ugly solution and
-> we should instead fix the root cause of this mess. I will have a better
-> look at this patch set and the problem at hand at a later date.
->
-> Cheers,
-> Artur
->
-> [1] 
-> https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/pcmcia/db1xxx_ss.c?h=v6.4-rc1#n527
+pte_alloc_map() expects to be followed by pte_unmap(), but hugetlb omits
+that: to keep balance in future, use the recently added pte_alloc_huge()
+instead; with pte_offset_huge() a better name for pte_offset_kernel().
 
-I think the best fix would be to change all those drivers away
-from using inb/outb to readb/writeb, except when they access the
-actual PCMCIA I/O space behind the bridge.
+Signed-off-by: Hugh Dickins <hughd@google.com>
+---
+ arch/arm64/mm/hugetlbpage.c | 11 ++---------
+ 1 file changed, 2 insertions(+), 9 deletions(-)
 
-On most of the modern architectures, inb(addr) now turns into
-approximately readb(PCI_IOBASE + addr), with a bit of extra
-logic to deal with endianess and barrier semantics.
-
-PCI_IOBASE in turn tends to be a hardcoded virtual address
-to which the physical I/O space window gets mapped during
-early boot, though you can also #define it to sh_io_port_base
-if you want to allocate the virtual address dynamically and
-leave the existing logic unchanged.
-
-Setting sh_io_port_base to zero however is a problem for any
-driver that passes a small port number into it -- this then
-turns into a user space pointer dereference, which is trivially
-exploitable.
-
-     Arnd
+diff --git a/arch/arm64/mm/hugetlbpage.c b/arch/arm64/mm/hugetlbpage.c
+index 95364e8bdc19..21716c940682 100644
+--- a/arch/arm64/mm/hugetlbpage.c
++++ b/arch/arm64/mm/hugetlbpage.c
+@@ -307,14 +307,7 @@ pte_t *huge_pte_alloc(struct mm_struct *mm, struct vm_area_struct *vma,
+ 			return NULL;
+ 
+ 		WARN_ON(addr & (sz - 1));
+-		/*
+-		 * Note that if this code were ever ported to the
+-		 * 32-bit arm platform then it will cause trouble in
+-		 * the case where CONFIG_HIGHPTE is set, since there
+-		 * will be no pte_unmap() to correspond with this
+-		 * pte_alloc_map().
+-		 */
+-		ptep = pte_alloc_map(mm, pmdp, addr);
++		ptep = pte_alloc_huge(mm, pmdp, addr);
+ 	} else if (sz = PMD_SIZE) {
+ 		if (want_pmd_share(vma, addr) && pud_none(READ_ONCE(*pudp)))
+ 			ptep = huge_pmd_share(mm, vma, addr, pudp);
+@@ -366,7 +359,7 @@ pte_t *huge_pte_offset(struct mm_struct *mm,
+ 		return (pte_t *)pmdp;
+ 
+ 	if (sz = CONT_PTE_SIZE)
+-		return pte_offset_kernel(pmdp, (addr & CONT_PTE_MASK));
++		return pte_offset_huge(pmdp, (addr & CONT_PTE_MASK));
+ 
+ 	return NULL;
+ }
+-- 
+2.35.3
