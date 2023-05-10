@@ -1,38 +1,46 @@
-From: Thomas Zimmermann <tzimmermann@suse.de>
-Date: Mon, 08 May 2023 11:48:26 +0000
-Subject: [PATCH v5 2/6] ipu-v3: Include <linux/io.h>
-Message-Id: <20230508114830.28182-3-tzimmermann@suse.de>
+From: Hugh Dickins <hughd@google.com>
+Date: Wed, 10 May 2023 05:03:39 +0000
+Subject: [PATCH 17/23] sh/hugetlb: pte_alloc_huge() pte_offset_huge()
+Message-Id: <85eeffe5-95f2-2574-365e-c9af663c8672@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230508114830.28182-1-tzimmermann@suse.de>
-In-Reply-To: <20230508114830.28182-1-tzimmermann@suse.de>
+References: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com>
+In-Reply-To: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org, suijingfeng@loongson.cn
-Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Mike Kravetz <mike.kravetz@oracle.com>, Mike Rapoport <rppt@kernel.org>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Matthew Wilcox <willy@infradead.org>, David Hildenbrand <david@redhat.com>, Suren Baghdasaryan <surenb@google.com>, Qi Zheng <zhengqi.arch@bytedance.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Helge Deller <deller@gmx.de>, John David Anglin <dave.anglin@bell.net>, "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Alexandre Ghiti <alexghiti@rivosinc.com>, Palmer Dabbelt <palmer@dabbelt.com>, Heiko Carstens <hca@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Claudio Imbrenda <imbrenda@linux.ibm.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "David S. Miller" <davem@davemloft.net>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
 
-The code uses readl() and writel(). Include the header file to
-get the declarations.
+pte_alloc_map() expects to be followed by pte_unmap(), but hugetlb omits
+that: to keep balance in future, use the recently added pte_alloc_huge()
+instead; with pte_offset_huge() a better name for pte_offset_kernel().
 
-Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
-Reviewed-by: Arnd Bergmann <arnd@arndb.de>
-Reviewed-by: Sam Ravnborg <sam@ravnborg.org>
-Reviewed-by: Sui Jingfeng <suijingfeng@loongson.cn>
+Signed-off-by: Hugh Dickins <hughd@google.com>
 ---
- drivers/gpu/ipu-v3/ipu-prv.h | 1 +
- 1 file changed, 1 insertion(+)
+ arch/sh/mm/hugetlbpage.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/gpu/ipu-v3/ipu-prv.h b/drivers/gpu/ipu-v3/ipu-prv.h
-index 291ac1bab66d..d4621b1ea7f1 100644
---- a/drivers/gpu/ipu-v3/ipu-prv.h
-+++ b/drivers/gpu/ipu-v3/ipu-prv.h
-@@ -8,6 +8,7 @@
- 
- struct ipu_soc;
- 
-+#include <linux/io.h>
- #include <linux/types.h>
- #include <linux/device.h>
- #include <linux/clk.h>
+diff --git a/arch/sh/mm/hugetlbpage.c b/arch/sh/mm/hugetlbpage.c
+index 999ab5916e69..6cb0ad73dbb9 100644
+--- a/arch/sh/mm/hugetlbpage.c
++++ b/arch/sh/mm/hugetlbpage.c
+@@ -38,7 +38,7 @@ pte_t *huge_pte_alloc(struct mm_struct *mm, struct vm_area_struct *vma,
+ 			if (pud) {
+ 				pmd = pmd_alloc(mm, pud, addr);
+ 				if (pmd)
+-					pte = pte_alloc_map(mm, pmd, addr);
++					pte = pte_alloc_huge(mm, pmd, addr);
+ 			}
+ 		}
+ 	}
+@@ -63,7 +63,7 @@ pte_t *huge_pte_offset(struct mm_struct *mm,
+ 			if (pud) {
+ 				pmd = pmd_offset(pud, addr);
+ 				if (pmd)
+-					pte = pte_offset_map(pmd, addr);
++					pte = pte_offset_huge(pmd, addr);
+ 			}
+ 		}
+ 	}
 -- 
-2.40.1
+2.35.3
