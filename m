@@ -1,320 +1,46 @@
-From: Helge Deller <deller@gmx.de>
-Date: Tue, 16 May 2023 17:44:09 +0000
-Subject: Re: [PATCH v7 1/7] fbdev/hitfb: Cast I/O offset to address
-Message-Id: <df527e53-3148-02f0-241b-fbc5e28b1618@gmx.de>
+From: Hugh Dickins <hughd@google.com>
+Date: Wed, 10 May 2023 04:59:57 +0000
+Subject: [PATCH 14/23] riscv/hugetlb: pte_alloc_huge() pte_offset_huge()
+Message-Id: <d1e54510-9ea2-edf-3851-fa7635ce1e5e@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230512102444.5438-1-tzimmermann@suse.de>
- <20230512102444.5438-2-tzimmermann@suse.de>
-In-Reply-To: <20230512102444.5438-2-tzimmermann@suse.de>
+References: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com>
+In-Reply-To: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Zimmermann <tzimmermann@suse.de>, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org, suijingfeng@loongson.cn
-Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, kernel test robot <lkp@intel.com>, Artur Rojek <contact@artur-rojek.eu>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Mike Kravetz <mike.kravetz@oracle.com>, Mike Rapoport <rppt@kernel.org>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Matthew Wilcox <willy@infradead.org>, David Hildenbrand <david@redhat.com>, Suren Baghdasaryan <surenb@google.com>, Qi Zheng <zhengqi.arch@bytedance.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Helge Deller <deller@gmx.de>, John David Anglin <dave.anglin@bell.net>, "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Alexandre Ghiti <alexghiti@rivosinc.com>, Palmer Dabbelt <palmer@dabbelt.com>, Heiko Carstens <hca@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Claudio Imbrenda <imbrenda@linux.ibm.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "David S. Miller" <davem@davemloft.net>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
 
-On 5/12/23 12:24, Thomas Zimmermann wrote:
-> Cast I/O offsets to pointers to use them with I/O functions. The I/O
-> functions expect pointers of type 'volatile void __iomem *', but the
-> offsets are plain integers. Build warnings are
->
->    ../drivers/video/fbdev/hitfb.c: In function 'hitfb_accel_wait':
->    ../arch/x86/include/asm/hd64461.h:18:33: warning: passing argument 1 of 'fb_readw' makes pointer from integer without a cast [-Wint-conversion]
->     18 | #define HD64461_IO_OFFSET(x)    (HD64461_IOBASE + (x))
->        |                                 ^~~~~~~~~~~~~~~~~~~~~~
->        |                                 |
->        |                                 unsigned int
->    ../arch/x86/include/asm/hd64461.h:93:33: note: in expansion of macro 'HD64461_IO_OFFSET'
->     93 | #define HD64461_GRCFGR          HD64461_IO_OFFSET(0x1044)       /* Accelerator Configuration Register */
->        |                                 ^~~~~~~~~~~~~~~~~
->    ../drivers/video/fbdev/hitfb.c:47:25: note: in expansion of macro 'HD64461_GRCFGR'
->     47 |         while (fb_readw(HD64461_GRCFGR) & HD64461_GRCFGR_ACCSTATUS) ;
->        |                         ^~~~~~~~~~~~~~
->    In file included from ../arch/x86/include/asm/fb.h:15,
->    from ../include/linux/fb.h:19,
->    from ../drivers/video/fbdev/hitfb.c:22:
->    ../include/asm-generic/fb.h:52:57: note: expected 'const volatile void *' but argument is of type 'unsigned int'
->     52 | static inline u16 fb_readw(const volatile void __iomem *addr)
->        |                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~
->
-> This patch only fixes the build warnings. It's not clear if the I/O
-> offsets can legally be passed to the I/O helpers. It was apparently
-> broken in 2007 when custom inw()/outw() helpers got removed by
-> commit 34a780a0afeb ("sh: hp6xx pata_platform support."). Fixing the
-> driver would require setting the I/O base address.
+pte_alloc_map() expects to be followed by pte_unmap(), but hugetlb omits
+that: to keep balance in future, use the recently added pte_alloc_huge()
+instead; with pte_offset_huge() a better name for pte_offset_kernel().
 
-I think your patch is the best you can do for now... So...
+Signed-off-by: Hugh Dickins <hughd@google.com>
+---
+ arch/riscv/mm/hugetlbpage.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Acked-by: Helge Deller <deller@gmx.de>
-
-Thanks!
-Helge
-
-
-> Reported-by: kernel test robot <lkp@intel.com>
-> Closes: https://lore.kernel.org/oe-kbuild-all/202305102136.eMjTSPwH-lkp@intel.com/
-> Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
-> Cc: Artur Rojek <contact@artur-rojek.eu>
-> ---
->   drivers/video/fbdev/hitfb.c | 122 ++++++++++++++++++++----------------
->   1 file changed, 69 insertions(+), 53 deletions(-)
->
-> diff --git a/drivers/video/fbdev/hitfb.c b/drivers/video/fbdev/hitfb.c
-> index 3033f5056976..7737923b7a0a 100644
-> --- a/drivers/video/fbdev/hitfb.c
-> +++ b/drivers/video/fbdev/hitfb.c
-> @@ -42,17 +42,33 @@ static struct fb_fix_screeninfo hitfb_fix = {
->   	.accel		= FB_ACCEL_NONE,
->   };
->
-> +static volatile void __iomem *hitfb_offset_to_addr(unsigned int offset)
-> +{
-> +	return (__force volatile void __iomem *)(uintptr_t)offset;
-> +}
-> +
-> +static u16 hitfb_readw(unsigned int offset)
-> +{
-> +	return fb_readw(hitfb_offset_to_addr(offset));
-> +}
-> +
-> +static void hitfb_writew(u16 value, unsigned int offset)
-> +{
-> +	fb_writew(value, hitfb_offset_to_addr(offset));
-> +}
-> +
->   static inline void hitfb_accel_wait(void)
->   {
-> -	while (fb_readw(HD64461_GRCFGR) & HD64461_GRCFGR_ACCSTATUS) ;
-> +	while (hitfb_readw(HD64461_GRCFGR) & HD64461_GRCFGR_ACCSTATUS)
-> +		;
->   }
->
->   static inline void hitfb_accel_start(int truecolor)
->   {
->   	if (truecolor) {
-> -		fb_writew(6, HD64461_GRCFGR);
-> +		hitfb_writew(6, HD64461_GRCFGR);
->   	} else {
-> -		fb_writew(7, HD64461_GRCFGR);
-> +		hitfb_writew(7, HD64461_GRCFGR);
->   	}
->   }
->
-> @@ -63,11 +79,11 @@ static inline void hitfb_accel_set_dest(int truecolor, u16 dx, u16 dy,
->   	if (truecolor)
->   		saddr <<= 1;
->
-> -	fb_writew(width-1, HD64461_BBTDWR);
-> -	fb_writew(height-1, HD64461_BBTDHR);
-> +	hitfb_writew(width-1, HD64461_BBTDWR);
-> +	hitfb_writew(height-1, HD64461_BBTDHR);
->
-> -	fb_writew(saddr & 0xffff, HD64461_BBTDSARL);
-> -	fb_writew(saddr >> 16, HD64461_BBTDSARH);
-> +	hitfb_writew(saddr & 0xffff, HD64461_BBTDSARL);
-> +	hitfb_writew(saddr >> 16, HD64461_BBTDSARH);
->
->   }
->
-> @@ -80,7 +96,7 @@ static inline void hitfb_accel_bitblt(int truecolor, u16 sx, u16 sy, u16 dx,
->
->   	height--;
->   	width--;
-> -	fb_writew(rop, HD64461_BBTROPR);
-> +	hitfb_writew(rop, HD64461_BBTROPR);
->   	if ((sy < dy) || ((sy == dy) && (sx <= dx))) {
->   		saddr = WIDTH * (sy + height) + sx + width;
->   		daddr = WIDTH * (dy + height) + dx + width;
-> @@ -91,32 +107,32 @@ static inline void hitfb_accel_bitblt(int truecolor, u16 sx, u16 sy, u16 dx,
->   				maddr =
->   				    (((width >> 4) + 1) * (height + 1) - 1) * 2;
->
-> -			fb_writew((1 << 5) | 1, HD64461_BBTMDR);
-> +			hitfb_writew((1 << 5) | 1, HD64461_BBTMDR);
->   		} else
-> -			fb_writew(1, HD64461_BBTMDR);
-> +			hitfb_writew(1, HD64461_BBTMDR);
->   	} else {
->   		saddr = WIDTH * sy + sx;
->   		daddr = WIDTH * dy + dx;
->   		if (mask_addr) {
-> -			fb_writew((1 << 5), HD64461_BBTMDR);
-> +			hitfb_writew((1 << 5), HD64461_BBTMDR);
->   		} else {
-> -			fb_writew(0, HD64461_BBTMDR);
-> +			hitfb_writew(0, HD64461_BBTMDR);
->   		}
->   	}
->   	if (truecolor) {
->   		saddr <<= 1;
->   		daddr <<= 1;
->   	}
-> -	fb_writew(width, HD64461_BBTDWR);
-> -	fb_writew(height, HD64461_BBTDHR);
-> -	fb_writew(saddr & 0xffff, HD64461_BBTSSARL);
-> -	fb_writew(saddr >> 16, HD64461_BBTSSARH);
-> -	fb_writew(daddr & 0xffff, HD64461_BBTDSARL);
-> -	fb_writew(daddr >> 16, HD64461_BBTDSARH);
-> +	hitfb_writew(width, HD64461_BBTDWR);
-> +	hitfb_writew(height, HD64461_BBTDHR);
-> +	hitfb_writew(saddr & 0xffff, HD64461_BBTSSARL);
-> +	hitfb_writew(saddr >> 16, HD64461_BBTSSARH);
-> +	hitfb_writew(daddr & 0xffff, HD64461_BBTDSARL);
-> +	hitfb_writew(daddr >> 16, HD64461_BBTDSARH);
->   	if (mask_addr) {
->   		maddr += mask_addr;
-> -		fb_writew(maddr & 0xffff, HD64461_BBTMARL);
-> -		fb_writew(maddr >> 16, HD64461_BBTMARH);
-> +		hitfb_writew(maddr & 0xffff, HD64461_BBTMARL);
-> +		hitfb_writew(maddr >> 16, HD64461_BBTMARH);
->   	}
->   	hitfb_accel_start(truecolor);
->   }
-> @@ -127,17 +143,17 @@ static void hitfb_fillrect(struct fb_info *p, const struct fb_fillrect *rect)
->   		cfb_fillrect(p, rect);
->   	else {
->   		hitfb_accel_wait();
-> -		fb_writew(0x00f0, HD64461_BBTROPR);
-> -		fb_writew(16, HD64461_BBTMDR);
-> +		hitfb_writew(0x00f0, HD64461_BBTROPR);
-> +		hitfb_writew(16, HD64461_BBTMDR);
->
->   		if (p->var.bits_per_pixel == 16) {
-> -			fb_writew(((u32 *) (p->pseudo_palette))[rect->color],
-> +			hitfb_writew(((u32 *) (p->pseudo_palette))[rect->color],
->   				  HD64461_GRSCR);
->   			hitfb_accel_set_dest(1, rect->dx, rect->dy, rect->width,
->   					     rect->height);
->   			hitfb_accel_start(1);
->   		} else {
-> -			fb_writew(rect->color, HD64461_GRSCR);
-> +			hitfb_writew(rect->color, HD64461_GRSCR);
->   			hitfb_accel_set_dest(0, rect->dx, rect->dy, rect->width,
->   					     rect->height);
->   			hitfb_accel_start(0);
-> @@ -162,7 +178,7 @@ static int hitfb_pan_display(struct fb_var_screeninfo *var,
->   	if (xoffset != 0)
->   		return -EINVAL;
->
-> -	fb_writew((yoffset*info->fix.line_length)>>10, HD64461_LCDCBAR);
-> +	hitfb_writew((yoffset*info->fix.line_length)>>10, HD64461_LCDCBAR);
->
->   	return 0;
->   }
-> @@ -172,33 +188,33 @@ int hitfb_blank(int blank_mode, struct fb_info *info)
->   	unsigned short v;
->
->   	if (blank_mode) {
-> -		v = fb_readw(HD64461_LDR1);
-> +		v = hitfb_readw(HD64461_LDR1);
->   		v &= ~HD64461_LDR1_DON;
-> -		fb_writew(v, HD64461_LDR1);
-> +		hitfb_writew(v, HD64461_LDR1);
->
-> -		v = fb_readw(HD64461_LCDCCR);
-> +		v = hitfb_readw(HD64461_LCDCCR);
->   		v |= HD64461_LCDCCR_MOFF;
-> -		fb_writew(v, HD64461_LCDCCR);
-> +		hitfb_writew(v, HD64461_LCDCCR);
->
-> -		v = fb_readw(HD64461_STBCR);
-> +		v = hitfb_readw(HD64461_STBCR);
->   		v |= HD64461_STBCR_SLCDST;
-> -		fb_writew(v, HD64461_STBCR);
-> +		hitfb_writew(v, HD64461_STBCR);
->   	} else {
-> -		v = fb_readw(HD64461_STBCR);
-> +		v = hitfb_readw(HD64461_STBCR);
->   		v &= ~HD64461_STBCR_SLCDST;
-> -		fb_writew(v, HD64461_STBCR);
-> +		hitfb_writew(v, HD64461_STBCR);
->
-> -		v = fb_readw(HD64461_LCDCCR);
-> +		v = hitfb_readw(HD64461_LCDCCR);
->   		v &= ~(HD64461_LCDCCR_MOFF | HD64461_LCDCCR_STREQ);
-> -		fb_writew(v, HD64461_LCDCCR);
-> +		hitfb_writew(v, HD64461_LCDCCR);
->
->   		do {
-> -		    v = fb_readw(HD64461_LCDCCR);
-> +		    v = hitfb_readw(HD64461_LCDCCR);
->   		} while(v&HD64461_LCDCCR_STBACK);
->
-> -		v = fb_readw(HD64461_LDR1);
-> +		v = hitfb_readw(HD64461_LDR1);
->   		v |= HD64461_LDR1_DON;
-> -		fb_writew(v, HD64461_LDR1);
-> +		hitfb_writew(v, HD64461_LDR1);
->   	}
->   	return 0;
->   }
-> @@ -211,10 +227,10 @@ static int hitfb_setcolreg(unsigned regno, unsigned red, unsigned green,
->
->   	switch (info->var.bits_per_pixel) {
->   	case 8:
-> -		fb_writew(regno << 8, HD64461_CPTWAR);
-> -		fb_writew(red >> 10, HD64461_CPTWDR);
-> -		fb_writew(green >> 10, HD64461_CPTWDR);
-> -		fb_writew(blue >> 10, HD64461_CPTWDR);
-> +		hitfb_writew(regno << 8, HD64461_CPTWAR);
-> +		hitfb_writew(red >> 10, HD64461_CPTWDR);
-> +		hitfb_writew(green >> 10, HD64461_CPTWDR);
-> +		hitfb_writew(blue >> 10, HD64461_CPTWDR);
->   		break;
->   	case 16:
->   		if (regno >= 16)
-> @@ -302,11 +318,11 @@ static int hitfb_set_par(struct fb_info *info)
->   		break;
->   	}
->
-> -	fb_writew(info->fix.line_length, HD64461_LCDCLOR);
-> -	ldr3 = fb_readw(HD64461_LDR3);
-> +	hitfb_writew(info->fix.line_length, HD64461_LCDCLOR);
-> +	ldr3 = hitfb_readw(HD64461_LDR3);
->   	ldr3 &= ~15;
->   	ldr3 |= (info->var.bits_per_pixel == 8) ? 4 : 8;
-> -	fb_writew(ldr3, HD64461_LDR3);
-> +	hitfb_writew(ldr3, HD64461_LDR3);
->   	return 0;
->   }
->
-> @@ -337,9 +353,9 @@ static int hitfb_probe(struct platform_device *dev)
->   	hitfb_fix.smem_start = HD64461_IO_OFFSET(0x02000000);
->   	hitfb_fix.smem_len = 512 * 1024;
->
-> -	lcdclor = fb_readw(HD64461_LCDCLOR);
-> -	ldvndr = fb_readw(HD64461_LDVNDR);
-> -	ldr3 = fb_readw(HD64461_LDR3);
-> +	lcdclor = hitfb_readw(HD64461_LCDCLOR);
-> +	ldvndr = hitfb_readw(HD64461_LDVNDR);
-> +	ldr3 = hitfb_readw(HD64461_LDR3);
->
->   	switch (ldr3 & 15) {
->   	default:
-> @@ -429,9 +445,9 @@ static int hitfb_suspend(struct device *dev)
->   	u16 v;
->
->   	hitfb_blank(1,0);
-> -	v = fb_readw(HD64461_STBCR);
-> +	v = hitfb_readw(HD64461_STBCR);
->   	v |= HD64461_STBCR_SLCKE_IST;
-> -	fb_writew(v, HD64461_STBCR);
-> +	hitfb_writew(v, HD64461_STBCR);
->
->   	return 0;
->   }
-> @@ -440,12 +456,12 @@ static int hitfb_resume(struct device *dev)
->   {
->   	u16 v;
->
-> -	v = fb_readw(HD64461_STBCR);
-> +	v = hitfb_readw(HD64461_STBCR);
->   	v &= ~HD64461_STBCR_SLCKE_OST;
->   	msleep(100);
-> -	v = fb_readw(HD64461_STBCR);
-> +	v = hitfb_readw(HD64461_STBCR);
->   	v &= ~HD64461_STBCR_SLCKE_IST;
-> -	fb_writew(v, HD64461_STBCR);
-> +	hitfb_writew(v, HD64461_STBCR);
->   	hitfb_blank(0,0);
->
->   	return 0;
+diff --git a/arch/riscv/mm/hugetlbpage.c b/arch/riscv/mm/hugetlbpage.c
+index a163a3e0f0d4..80926946759f 100644
+--- a/arch/riscv/mm/hugetlbpage.c
++++ b/arch/riscv/mm/hugetlbpage.c
+@@ -43,7 +43,7 @@ pte_t *huge_pte_alloc(struct mm_struct *mm,
+ 
+ 	for_each_napot_order(order) {
+ 		if (napot_cont_size(order) = sz) {
+-			pte = pte_alloc_map(mm, pmd, addr & napot_cont_mask(order));
++			pte = pte_alloc_huge(mm, pmd, addr & napot_cont_mask(order));
+ 			break;
+ 		}
+ 	}
+@@ -90,7 +90,7 @@ pte_t *huge_pte_offset(struct mm_struct *mm,
+ 
+ 	for_each_napot_order(order) {
+ 		if (napot_cont_size(order) = sz) {
+-			pte = pte_offset_kernel(pmd, addr & napot_cont_mask(order));
++			pte = pte_offset_huge(pmd, addr & napot_cont_mask(order));
+ 			break;
+ 		}
+ 	}
+-- 
+2.35.3
