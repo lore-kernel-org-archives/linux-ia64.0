@@ -1,28 +1,93 @@
-From: Konstantin Ryabitsev <konstantin@linuxfoundation.org>
-Date: Tue, 30 May 2023 21:11:06 +0000
-Subject: Re: Boot regression in Linux v6.4-rc3
-Message-Id: <20230530-richly-vowed-cbd6d6@meerkat>
+From: Hugh Dickins <hughd@google.com>
+Date: Wed, 10 May 2023 04:52:31 +0000
+Subject: [PATCH 08/23] parisc: add pte_unmap() to balance get_ptep()
+Message-Id: <44ebbf90-5fbb-2815-17c7-fcfe3c87d78e@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <abb1166d-27a9-fbae-59cd-841480fba78a@web.de>
-In-Reply-To: <abb1166d-27a9-fbae-59cd-841480fba78a@web.de>
+References: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com>
+In-Reply-To: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Mike Kravetz <mike.kravetz@oracle.com>, Mike Rapoport <rppt@kernel.org>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Matthew Wilcox <willy@infradead.org>, David Hildenbrand <david@redhat.com>, Suren Baghdasaryan <surenb@google.com>, Qi Zheng <zhengqi.arch@bytedance.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Helge Deller <deller@gmx.de>, John David Anglin <dave.anglin@bell.net>, "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Alexandre Ghiti <alexghiti@rivosinc.com>, Palmer Dabbelt <palmer@dabbelt.com>, Heiko Carstens <hca@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Claudio Imbrenda <imbrenda@linux.ibm.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "David S. Miller" <davem@davemloft.net>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
 
-On Tue, May 30, 2023 at 05:04:56PM -0400, Linus Torvalds wrote:
-> On Tue, May 30, 2023 at 4:21=E2=80=AFPM Konstantin Ryabitsev
-> <konstantin@linuxfoundation.org> wrote:
-> >
-> > We only add things to lore when someone asks, and nobody's asked. :) I =
-guess
-> > I'll consider this an ask and put it on the radar.
->=20
-> Thanks. It would probably be good to see if there are any other
-> vger.kernel.org lists with any appreciable traffic that aren't on
-> lore.
+To keep balance in future, remember to pte_unmap() after a successful
+get_ptep().  And (we might as well) pretend that flush_cache_pages()
+really needed a map there, to read the pfn before "unmapping".
 
-Yes, that will auto-fix itself as we continue to migrate things over to
-subspace ("new vger").
+Signed-off-by: Hugh Dickins <hughd@google.com>
+---
+ arch/parisc/kernel/cache.c | 26 +++++++++++++++++++++-----
+ 1 file changed, 21 insertions(+), 5 deletions(-)
 
--K
+diff --git a/arch/parisc/kernel/cache.c b/arch/parisc/kernel/cache.c
+index 1d3b8bc8a623..b0c969b3a300 100644
+--- a/arch/parisc/kernel/cache.c
++++ b/arch/parisc/kernel/cache.c
+@@ -425,10 +425,15 @@ void flush_dcache_page(struct page *page)
+ 		offset = (pgoff - mpnt->vm_pgoff) << PAGE_SHIFT;
+ 		addr = mpnt->vm_start + offset;
+ 		if (parisc_requires_coherency()) {
++			bool needs_flush = false;
+ 			pte_t *ptep;
+ 
+ 			ptep = get_ptep(mpnt->vm_mm, addr);
+-			if (ptep && pte_needs_flush(*ptep))
++			if (ptep) {
++				needs_flush = pte_needs_flush(*ptep);
++				pte_unmap(ptep);
++			}
++			if (needs_flush)
+ 				flush_user_cache_page(mpnt, addr);
+ 		} else {
+ 			/*
+@@ -560,14 +565,20 @@ EXPORT_SYMBOL(flush_kernel_dcache_page_addr);
+ static void flush_cache_page_if_present(struct vm_area_struct *vma,
+ 	unsigned long vmaddr, unsigned long pfn)
+ {
+-	pte_t *ptep = get_ptep(vma->vm_mm, vmaddr);
++	bool needs_flush = false;
++	pte_t *ptep;
+ 
+ 	/*
+ 	 * The pte check is racy and sometimes the flush will trigger
+ 	 * a non-access TLB miss. Hopefully, the page has already been
+ 	 * flushed.
+ 	 */
+-	if (ptep && pte_needs_flush(*ptep))
++	ptep = get_ptep(vma->vm_mm, vmaddr);
++	if (ptep) {
++		needs_flush = pte_needs_flush(*ptep))
++		pte_unmap(ptep);
++	}
++	if (needs_flush)
+ 		flush_cache_page(vma, vmaddr, pfn);
+ }
+ 
+@@ -634,17 +645,22 @@ static void flush_cache_pages(struct vm_area_struct *vma, unsigned long start, u
+ 	pte_t *ptep;
+ 
+ 	for (addr = start; addr < end; addr += PAGE_SIZE) {
++		bool needs_flush = false;
+ 		/*
+ 		 * The vma can contain pages that aren't present. Although
+ 		 * the pte search is expensive, we need the pte to find the
+ 		 * page pfn and to check whether the page should be flushed.
+ 		 */
+ 		ptep = get_ptep(vma->vm_mm, addr);
+-		if (ptep && pte_needs_flush(*ptep)) {
++		if (ptep) {
++			needs_flush = pte_needs_flush(*ptep);
++			pfn = pte_pfn(*ptep);
++			pte_unmap(ptep);
++		}
++		if (needs_flush) {
+ 			if (parisc_requires_coherency()) {
+ 				flush_user_cache_page(vma, addr);
+ 			} else {
+-				pfn = pte_pfn(*ptep);
+ 				if (WARN_ON(!pfn_valid(pfn)))
+ 					return;
+ 				__flush_cache_page(vma, addr, PFN_PHYS(pfn));
+-- 
+2.35.3
