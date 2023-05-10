@@ -1,81 +1,42 @@
-From: Thomas Zimmermann <tzimmermann@suse.de>
-Date: Mon, 08 May 2023 11:48:24 +0000
-Subject: [PATCH v5 0/6] fbdev: Move framebuffer I/O helpers to <asm/fb.h>
-Message-Id: <20230508114830.28182-1-tzimmermann@suse.de>
+From: Hugh Dickins <hughd@google.com>
+Date: Wed, 10 May 2023 04:56:44 +0000
+Subject: [PATCH 11/23] powerpc: kvmppc_unmap_free_pmd() pte_offset_kernel()
+Message-Id: <8bc72262-3771-4fbf-8738-44d9a8a1ba6a@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com>
+In-Reply-To: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org, suijingfeng@loongson.cn
-Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Mike Kravetz <mike.kravetz@oracle.com>, Mike Rapoport <rppt@kernel.org>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Matthew Wilcox <willy@infradead.org>, David Hildenbrand <david@redhat.com>, Suren Baghdasaryan <surenb@google.com>, Qi Zheng <zhengqi.arch@bytedance.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Helge Deller <deller@gmx.de>, John David Anglin <dave.anglin@bell.net>, "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Alexandre Ghiti <alexghiti@rivosinc.com>, Palmer Dabbelt <palmer@dabbelt.com>, Heiko Carstens <hca@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Claudio Imbrenda <imbrenda@linux.ibm.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "David S. Miller" <davem@davemloft.net>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
 
-Fbdev provides helpers for framebuffer I/O, such as fb_readl(),
-fb_writel() or fb_memcpy_to_fb(). The implementation of each helper
-depends on the architecture, but they are all equivalent to regular
-I/O functions of similar names. So use regular functions instead and
-move all helpers into <asm-generic/fb.h>
+kvmppc_unmap_free_pmd() use pte_offset_kernel(), like everywhere else
+in book3s_64_mmu_radix.c: instead of pte_offset_map(), which will come
+to need a pte_unmap() to balance it.
 
-The first patch a simple whitespace cleanup.
+But note that this is a more complex case than most: see those -EAGAINs
+in kvmppc_create_pte(), which is coping with kvmppc races beween page
+table and huge entry, of the kind which we are expecting to address
+in pte_offset_map() - this might want to be revisited in future.
 
-Until now, <linux/fb.h> contained an include of <asm/io.h>. As this
-will go away, patches 2 to 4 prepare include statements in the various
-drivers. Source files that use regular I/O helpers, such as readl(),
-now include <linux/io.h>. Source files that use framebuffer I/O
-helpers, such as fb_readl(), now include <linux/fb.h>.
+Signed-off-by: Hugh Dickins <hughd@google.com>
+---
+ arch/powerpc/kvm/book3s_64_mmu_radix.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Patch 5 replaces the architecture-based if-else branching in 
-<linux/fb.h> by helpers in <asm-generic/fb.h>. All helpers use Linux'
-existing I/O functions.
-
-Patch 6 harmonizes naming among fbdev and existing I/O functions.
-
-The patchset has been built for a variety of platforms, such as x86-64,
-arm, aarch64, ppc64, parisc, m64k, mips and sparc.
-
-v5:
-	* fix build on s390
-v4:
-	* keep fb_mem*() as-is on ia64, loongarch, sparc64 (Arnd)
-	* don't include <asm/fb.h> (Sam)
-v3:
-	* add the new helpers in <asm-generic/fb.h>
-	* support reordering and native byte order (Geert, Arnd)
-v2:
-	* use Linux I/O helpers (Sam, Arnd)
-
-Thomas Zimmermann (6):
-  fbdev/matrox: Remove trailing whitespaces
-  ipu-v3: Include <linux/io.h>
-  fbdev: Include <linux/io.h> in various drivers
-  fbdev: Include <linux/fb.h> instead of <asm/fb.h>
-  fbdev: Move framebuffer I/O helpers into <asm/fb.h>
-  fbdev: Rename fb_mem*() helpers
-
- arch/ia64/include/asm/fb.h                  |  20 ++++
- arch/loongarch/include/asm/fb.h             |  21 ++++
- arch/parisc/video/fbdev.c                   |   3 +-
- arch/sparc/include/asm/fb.h                 |  20 ++++
- arch/sparc/video/fbdev.c                    |   1 -
- arch/x86/video/fbdev.c                      |   2 -
- drivers/gpu/ipu-v3/ipu-prv.h                |   1 +
- drivers/staging/sm750fb/sm750.c             |   2 +-
- drivers/video/fbdev/arcfb.c                 |   1 +
- drivers/video/fbdev/aty/atyfb.h             |   2 +
- drivers/video/fbdev/aty/mach64_cursor.c     |   2 +-
- drivers/video/fbdev/chipsfb.c               |   2 +-
- drivers/video/fbdev/core/fbcon.c            |   1 -
- drivers/video/fbdev/core/fbmem.c            |   6 +-
- drivers/video/fbdev/kyro/fbdev.c            |   2 +-
- drivers/video/fbdev/matrox/matroxfb_accel.c |   6 +-
- drivers/video/fbdev/matrox/matroxfb_base.h  |   4 +-
- drivers/video/fbdev/pvr2fb.c                |   2 +-
- drivers/video/fbdev/sstfb.c                 |   2 +-
- drivers/video/fbdev/stifb.c                 |   4 +-
- drivers/video/fbdev/tdfxfb.c                |   2 +-
- drivers/video/fbdev/wmt_ge_rops.c           |   2 +
- include/asm-generic/fb.h                    | 102 ++++++++++++++++++++
- include/linux/fb.h                          |  55 +----------
- 24 files changed, 188 insertions(+), 77 deletions(-)
-
+diff --git a/arch/powerpc/kvm/book3s_64_mmu_radix.c b/arch/powerpc/kvm/book3s_64_mmu_radix.c
+index 461307b89c3a..572707858d65 100644
+--- a/arch/powerpc/kvm/book3s_64_mmu_radix.c
++++ b/arch/powerpc/kvm/book3s_64_mmu_radix.c
+@@ -509,7 +509,7 @@ static void kvmppc_unmap_free_pmd(struct kvm *kvm, pmd_t *pmd, bool full,
+ 		} else {
+ 			pte_t *pte;
+ 
+-			pte = pte_offset_map(p, 0);
++			pte = pte_offset_kernel(p, 0);
+ 			kvmppc_unmap_free_pte(kvm, pte, full, lpid);
+ 			pmd_clear(p);
+ 		}
 -- 
-2.40.1
+2.35.3
