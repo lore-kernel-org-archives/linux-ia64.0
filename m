@@ -1,40 +1,74 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Mon, 22 May 2023 17:38:59 +0000
-Subject: Re: [crosspost] dropping support for ia64
-Message-Id: <2023052202-tuesday-ploy-9156@gregkh>
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Wed, 10 May 2023 11:05:52 +0000
+Subject: [PATCH v6 1/6] fbdev/matrox: Remove trailing whitespaces
+Message-Id: <20230510110557.14343-2-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <CAMj1kXFCMh_578jniKpUtx_j8ByHnt=s7S+yQ+vGbKt9ud7+kQ@mail.gmail.com>
-In-Reply-To: <CAMj1kXFCMh_578jniKpUtx_j8ByHnt=s7S+yQ+vGbKt9ud7+kQ@mail.gmail.com>
+References: <20230510110557.14343-1-tzimmermann@suse.de>
+In-Reply-To: <20230510110557.14343-1-tzimmermann@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org, suijingfeng@loongson.cn
+Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
 
-On Mon, May 22, 2023 at 05:27:23PM +0000, Luck, Tony wrote:
-> >> As far as we have been able to establish, the only people that use
-> >> this arch and code are people that would hate to see it go, but don't
-> >> actually use it for anything other than checking whether it still
-> >> boots, and don't have the skills or bandwidth to step up and maintain
-> >> it upstream.
-> >
-> > Great, then let's drop it today, there is no need to wait until the end
-> > of the year as nothing is going to change then.
-> 
-> I think this also puts the existing stable and LTS trees in some interesting
-> state. After arch/ia64 is removed, there may be some tree-wide change
-> that gets backported to stable & LTS. That may break arch/ia64 in those
-> trees (e.g. because arguments to some common function are changed).
-> 
-> Maybe just deal with that if it happens ... and if anyone notices ... are there
-> automated builds and boot test for ia64 in those trees?
+Fix coding style. No functional changes.
 
-Guenter builds for that, but really, if the tree breaks and no one
-notices, is it really broken?  :)
+Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+Reviewed-by: Sam Ravnborg <sam@ravnborg.org>
+Reviewed-by: Sui Jingfeng <suijingfeng@loongson.cn>
+Tested-by: Sui Jingfeng <suijingfeng@loongson.cn>
+---
+ drivers/video/fbdev/matrox/matroxfb_accel.c | 6 +++---
+ drivers/video/fbdev/matrox/matroxfb_base.h  | 4 ++--
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
-We handle this all the time in other types of removals (drivers,
-subsystems, etc.)  I doubt this tiny amount of arch code will matter
-much in the long run.
-
-thanks,
-
-greg k-h
+diff --git a/drivers/video/fbdev/matrox/matroxfb_accel.c b/drivers/video/fbdev/matrox/matroxfb_accel.c
+index 9cb0685feddd..ce51227798a1 100644
+--- a/drivers/video/fbdev/matrox/matroxfb_accel.c
++++ b/drivers/video/fbdev/matrox/matroxfb_accel.c
+@@ -88,7 +88,7 @@
+ 
+ static inline void matrox_cfb4_pal(u_int32_t* pal) {
+ 	unsigned int i;
+-	
++
+ 	for (i = 0; i < 16; i++) {
+ 		pal[i] = i * 0x11111111U;
+ 	}
+@@ -96,7 +96,7 @@ static inline void matrox_cfb4_pal(u_int32_t* pal) {
+ 
+ static inline void matrox_cfb8_pal(u_int32_t* pal) {
+ 	unsigned int i;
+-	
++
+ 	for (i = 0; i < 16; i++) {
+ 		pal[i] = i * 0x01010101U;
+ 	}
+@@ -482,7 +482,7 @@ static void matroxfb_1bpp_imageblit(struct matrox_fb_info *minfo, u_int32_t fgx,
+ 			/* Tell... well, why bother... */
+ 			while (height--) {
+ 				size_t i;
+-				
++
+ 				for (i = 0; i < step; i += 4) {
+ 					/* Hope that there are at least three readable bytes beyond the end of bitmap */
+ 					fb_writel(get_unaligned((u_int32_t*)(chardata + i)),mmio.vaddr);
+diff --git a/drivers/video/fbdev/matrox/matroxfb_base.h b/drivers/video/fbdev/matrox/matroxfb_base.h
+index 958be6805f87..c93c69bbcd57 100644
+--- a/drivers/video/fbdev/matrox/matroxfb_base.h
++++ b/drivers/video/fbdev/matrox/matroxfb_base.h
+@@ -301,9 +301,9 @@ struct matrox_altout {
+ 	int		(*verifymode)(void* altout_dev, u_int32_t mode);
+ 	int		(*getqueryctrl)(void* altout_dev,
+ 					struct v4l2_queryctrl* ctrl);
+-	int		(*getctrl)(void* altout_dev, 
++	int		(*getctrl)(void *altout_dev,
+ 				   struct v4l2_control* ctrl);
+-	int		(*setctrl)(void* altout_dev, 
++	int		(*setctrl)(void *altout_dev,
+ 				   struct v4l2_control* ctrl);
+ };
+ 
+-- 
+2.40.1
