@@ -1,69 +1,38 @@
-From: Thomas Zimmermann <tzimmermann@suse.de>
-Date: Wed, 10 May 2023 11:05:54 +0000
-Subject: [PATCH v6 3/6] fbdev: Include <linux/io.h> in various drivers
-Message-Id: <20230510110557.14343-4-tzimmermann@suse.de>
+From: Hugh Dickins <hughd@google.com>
+Date: Wed, 10 May 2023 04:58:48 +0000
+Subject: [PATCH 13/23] powerpc/hugetlb: pte_alloc_huge()
+Message-Id: <1a3ee4d4-a829-35d4-d94e-885d5d4d6a8a@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230510110557.14343-1-tzimmermann@suse.de>
-In-Reply-To: <20230510110557.14343-1-tzimmermann@suse.de>
+References: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com>
+In-Reply-To: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org, suijingfeng@loongson.cn
-Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Mike Kravetz <mike.kravetz@oracle.com>, Mike Rapoport <rppt@kernel.org>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Matthew Wilcox <willy@infradead.org>, David Hildenbrand <david@redhat.com>, Suren Baghdasaryan <surenb@google.com>, Qi Zheng <zhengqi.arch@bytedance.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Helge Deller <deller@gmx.de>, John David Anglin <dave.anglin@bell.net>, "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Alexandre Ghiti <alexghiti@rivosinc.com>, Palmer Dabbelt <palmer@dabbelt.com>, Heiko Carstens <hca@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Claudio Imbrenda <imbrenda@linux.ibm.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "David S. Miller" <davem@davemloft.net>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
 
-The code uses writel() and similar I/O-memory helpers. Include
-the header file to get the declarations.
+pte_alloc_map() expects to be followed by pte_unmap(), but hugetlb omits
+that: to keep balance in future, use the recently added pte_alloc_huge()
+instead.  huge_pte_offset() is using __find_linux_pte(), which is using
+pte_offset_kernel() - don't rename that to _huge, it's more complicated.
 
-Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
-Reviewed-by: Arnd Bergmann <arnd@arndb.de>
-Reviewed-by: Sam Ravnborg <sam@ravnborg.org>
-Reviewed-by: Sui Jingfeng <suijingfeng@loongson.cn>
+Signed-off-by: Hugh Dickins <hughd@google.com>
 ---
- drivers/video/fbdev/arcfb.c       | 1 +
- drivers/video/fbdev/aty/atyfb.h   | 2 ++
- drivers/video/fbdev/wmt_ge_rops.c | 2 ++
- 3 files changed, 5 insertions(+)
+ arch/powerpc/mm/hugetlbpage.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/video/fbdev/arcfb.c b/drivers/video/fbdev/arcfb.c
-index 7750e020839e..ace104850e50 100644
---- a/drivers/video/fbdev/arcfb.c
-+++ b/drivers/video/fbdev/arcfb.c
-@@ -41,6 +41,7 @@
- #include <linux/vmalloc.h>
- #include <linux/delay.h>
- #include <linux/interrupt.h>
-+#include <linux/io.h>
- #include <linux/fb.h>
- #include <linux/init.h>
- #include <linux/arcfb.h>
-diff --git a/drivers/video/fbdev/aty/atyfb.h b/drivers/video/fbdev/aty/atyfb.h
-index 465f55beb97f..30da3e82ed3c 100644
---- a/drivers/video/fbdev/aty/atyfb.h
-+++ b/drivers/video/fbdev/aty/atyfb.h
-@@ -3,8 +3,10 @@
-  *  ATI Frame Buffer Device Driver Core Definitions
-  */
+diff --git a/arch/powerpc/mm/hugetlbpage.c b/arch/powerpc/mm/hugetlbpage.c
+index b900933507da..f7c683b672c1 100644
+--- a/arch/powerpc/mm/hugetlbpage.c
++++ b/arch/powerpc/mm/hugetlbpage.c
+@@ -183,7 +183,7 @@ pte_t *huge_pte_alloc(struct mm_struct *mm, struct vm_area_struct *vma,
+ 		return NULL;
  
-+#include <linux/io.h>
- #include <linux/spinlock.h>
- #include <linux/wait.h>
-+
-     /*
-      *  Elements of the hardware specific atyfb_par structure
-      */
-diff --git a/drivers/video/fbdev/wmt_ge_rops.c b/drivers/video/fbdev/wmt_ge_rops.c
-index 42255d27a1db..99c7b0aea615 100644
---- a/drivers/video/fbdev/wmt_ge_rops.c
-+++ b/drivers/video/fbdev/wmt_ge_rops.c
-@@ -9,7 +9,9 @@
+ 	if (IS_ENABLED(CONFIG_PPC_8xx) && pshift < PMD_SHIFT)
+-		return pte_alloc_map(mm, (pmd_t *)hpdp, addr);
++		return pte_alloc_huge(mm, (pmd_t *)hpdp, addr);
  
- #include <linux/module.h>
- #include <linux/fb.h>
-+#include <linux/io.h>
- #include <linux/platform_device.h>
-+
- #include "core/fb_draw.h"
- #include "wmt_ge_rops.h"
+ 	BUG_ON(!hugepd_none(*hpdp) && !hugepd_ok(*hpdp));
  
 -- 
-2.40.1
+2.35.3
