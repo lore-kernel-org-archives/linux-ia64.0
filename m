@@ -1,108 +1,142 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Wed, 10 May 2023 14:34:34 +0000
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Wed, 10 May 2023 15:11:27 +0000
 Subject: Re: [PATCH v6 5/6] fbdev: Move framebuffer I/O helpers into <asm/fb.h>
-Message-Id: <CAMuHMdWQLF6QZi4j5Yg3oiy8dMbuApk+r=5c2tSLvYxvAaudMA@mail.gmail.com>
+Message-Id: <238513df-4a39-75d4-9012-20d7d8526706@suse.de>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------bePUrlBG7J50eUzAHryxDe2t"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230510110557.14343-1-tzimmermann@suse.de> <20230510110557.14343-6-tzimmermann@suse.de>
- <CAMuHMdVV-MQV3C_o6JxPj23h3zo0kMmsn9ZEWJxsrzr6YpKmyg@mail.gmail.com> <487ff03b-d753-972f-7a06-a1d5efda917d@suse.de>
-In-Reply-To: <487ff03b-d753-972f-7a06-a1d5efda917d@suse.de>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Thomas Zimmermann <tzimmermann@suse.de>
+References: <20230510110557.14343-1-tzimmermann@suse.de>
+ <20230510110557.14343-6-tzimmermann@suse.de>
+ <CAMuHMdVV-MQV3C_o6JxPj23h3zo0kMmsn9ZEWJxsrzr6YpKmyg@mail.gmail.com>
+ <487ff03b-d753-972f-7a06-a1d5efda917d@suse.de>
+ <CAMuHMdWQLF6QZi4j5Yg3oiy8dMbuApk+r=5c2tSLvYxvAaudMA@mail.gmail.com>
+In-Reply-To: <CAMuHMdWQLF6QZi4j5Yg3oiy8dMbuApk+r=5c2tSLvYxvAaudMA@mail.gmail.com>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
 Cc: deller@gmx.de, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@hansenpartnership.com, arnd@arndb.de, sam@ravnborg.org, suijingfeng@loongson.cn, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org
 
-Hi Thomas,
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--------------bePUrlBG7J50eUzAHryxDe2t
+Content-Type: multipart/mixed; boundary="------------nmuFXWNHp9OPw0gTQ9dL40wM";
+ protected-headers="v1"
+From: Thomas Zimmermann <tzimmermann@suse.de>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Cc: deller@gmx.de, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org,
+ chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net,
+ James.Bottomley@hansenpartnership.com, arnd@arndb.de, sam@ravnborg.org,
+ suijingfeng@loongson.cn, linux-fbdev@vger.kernel.org,
+ dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org,
+ linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org,
+ linux-ia64@vger.kernel.org, loongarch@lists.linux.dev,
+ linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org
+Message-ID: <238513df-4a39-75d4-9012-20d7d8526706@suse.de>
+Subject: Re: [PATCH v6 5/6] fbdev: Move framebuffer I/O helpers into
+ <asm/fb.h>
+References: <20230510110557.14343-1-tzimmermann@suse.de>
+ <20230510110557.14343-6-tzimmermann@suse.de>
+ <CAMuHMdVV-MQV3C_o6JxPj23h3zo0kMmsn9ZEWJxsrzr6YpKmyg@mail.gmail.com>
+ <487ff03b-d753-972f-7a06-a1d5efda917d@suse.de>
+ <CAMuHMdWQLF6QZi4j5Yg3oiy8dMbuApk+r=5c2tSLvYxvAaudMA@mail.gmail.com>
+In-Reply-To: <CAMuHMdWQLF6QZi4j5Yg3oiy8dMbuApk+r=5c2tSLvYxvAaudMA@mail.gmail.com>
 
-On Wed, May 10, 2023 at 4:20 PM Thomas Zimmermann <tzimmermann@suse.de> wrote:
-> Am 10.05.23 um 14:34 schrieb Geert Uytterhoeven:
-> > On Wed, May 10, 2023 at 1:06 PM Thomas Zimmermann <tzimmermann@suse.de> wrote:
-> >> Implement framebuffer I/O helpers, such as fb_read*() and fb_write*(),
-> >> in the architecture's <asm/fb.h> header file or the generic one.
-> >>
-> >> The common case has been the use of regular I/O functions, such as
-> >> __raw_readb() or memset_io(). A few architectures used plain system-
-> >> memory reads and writes. Sparc used helpers for its SBus.
-> >>
-> >> The architectures that used special cases provide the same code in
-> >> their __raw_*() I/O helpers. So the patch replaces this code with the
-> >> __raw_*() functions and moves it to <asm-generic/fb.h> for all
-> >> architectures.
-> >>
-> >> v6:
-> >>          * fix fb_readq()/fb_writeq() on 64-bit mips (kernel test robot)
-> >> v5:
-> >>          * include <linux/io.h> in <asm-generic/fb>; fix s390 build
-> >> v4:
-> >>          * ia64, loongarch, sparc64: add fb_mem*() to arch headers
-> >>            to keep current semantics (Arnd)
-> >> v3:
-> >>          * implement all architectures with generic helpers
-> >>          * support reordering and native byte order (Geert, Arnd)
-> >>
-> >> Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
-> >> Tested-by: Sui Jingfeng <suijingfeng@loongson.cn>
-> >> Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+--------------nmuFXWNHp9OPw0gTQ9dL40wM
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: base64
 
-> >> --- a/arch/mips/include/asm/fb.h
-> >> +++ b/arch/mips/include/asm/fb.h
-> >> @@ -12,6 +12,28 @@ static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
-> >>   }
-> >>   #define fb_pgprotect fb_pgprotect
-> >>
-> >> +/*
-> >> + * MIPS doesn't define __raw_ I/O macros, so the helpers
-> >> + * in <asm-generic/fb.h> don't generate fb_readq() and
-> >> + * fb_write(). We have to provide them here.
-> >
-> > MIPS does not include <asm-generic/io.h>,  nor define its own
->
-> I know, that's why the TODO says to convert it to generic I/O.
->
-> > __raw_readq() and __raw_writeq()...
->
-> It doesn't define those macros, but it generates function calls of the
-> same names. Follow the macros at
->
->
-> https://elixir.bootlin.com/linux/latest/source/arch/mips/include/asm/io.h#L357
->
-> It expands to a variety of helpers, including __raw_*().
+SGkgR2VlcnQNCg0KQW0gMTAuMDUuMjMgdW0gMTY6MzQgc2NocmllYiBHZWVydCBVeXR0ZXJo
+b2V2ZW46DQo+IEhpIFRob21hcywNCj4gDQo+IE9uIFdlZCwgTWF5IDEwLCAyMDIzIGF0IDQ6
+MjDigK9QTSBUaG9tYXMgWmltbWVybWFubiA8dHppbW1lcm1hbm5Ac3VzZS5kZT4gd3JvdGU6
+DQo+PiBBbSAxMC4wNS4yMyB1bSAxNDozNCBzY2hyaWViIEdlZXJ0IFV5dHRlcmhvZXZlbjoN
+Cj4+PiBPbiBXZWQsIE1heSAxMCwgMjAyMyBhdCAxOjA24oCvUE0gVGhvbWFzIFppbW1lcm1h
+bm4gPHR6aW1tZXJtYW5uQHN1c2UuZGU+IHdyb3RlOg0KPj4+PiBJbXBsZW1lbnQgZnJhbWVi
+dWZmZXIgSS9PIGhlbHBlcnMsIHN1Y2ggYXMgZmJfcmVhZCooKSBhbmQgZmJfd3JpdGUqKCks
+DQo+Pj4+IGluIHRoZSBhcmNoaXRlY3R1cmUncyA8YXNtL2ZiLmg+IGhlYWRlciBmaWxlIG9y
+IHRoZSBnZW5lcmljIG9uZS4NCj4+Pj4NCj4+Pj4gVGhlIGNvbW1vbiBjYXNlIGhhcyBiZWVu
+IHRoZSB1c2Ugb2YgcmVndWxhciBJL08gZnVuY3Rpb25zLCBzdWNoIGFzDQo+Pj4+IF9fcmF3
+X3JlYWRiKCkgb3IgbWVtc2V0X2lvKCkuIEEgZmV3IGFyY2hpdGVjdHVyZXMgdXNlZCBwbGFp
+biBzeXN0ZW0tDQo+Pj4+IG1lbW9yeSByZWFkcyBhbmQgd3JpdGVzLiBTcGFyYyB1c2VkIGhl
+bHBlcnMgZm9yIGl0cyBTQnVzLg0KPj4+Pg0KPj4+PiBUaGUgYXJjaGl0ZWN0dXJlcyB0aGF0
+IHVzZWQgc3BlY2lhbCBjYXNlcyBwcm92aWRlIHRoZSBzYW1lIGNvZGUgaW4NCj4+Pj4gdGhl
+aXIgX19yYXdfKigpIEkvTyBoZWxwZXJzLiBTbyB0aGUgcGF0Y2ggcmVwbGFjZXMgdGhpcyBj
+b2RlIHdpdGggdGhlDQo+Pj4+IF9fcmF3XyooKSBmdW5jdGlvbnMgYW5kIG1vdmVzIGl0IHRv
+IDxhc20tZ2VuZXJpYy9mYi5oPiBmb3IgYWxsDQo+Pj4+IGFyY2hpdGVjdHVyZXMuDQo+Pj4+
+DQo+Pj4+IHY2Og0KPj4+PiAgICAgICAgICAgKiBmaXggZmJfcmVhZHEoKS9mYl93cml0ZXEo
+KSBvbiA2NC1iaXQgbWlwcyAoa2VybmVsIHRlc3Qgcm9ib3QpDQo+Pj4+IHY1Og0KPj4+PiAg
+ICAgICAgICAgKiBpbmNsdWRlIDxsaW51eC9pby5oPiBpbiA8YXNtLWdlbmVyaWMvZmI+OyBm
+aXggczM5MCBidWlsZA0KPj4+PiB2NDoNCj4+Pj4gICAgICAgICAgICogaWE2NCwgbG9vbmdh
+cmNoLCBzcGFyYzY0OiBhZGQgZmJfbWVtKigpIHRvIGFyY2ggaGVhZGVycw0KPj4+PiAgICAg
+ICAgICAgICB0byBrZWVwIGN1cnJlbnQgc2VtYW50aWNzIChBcm5kKQ0KPj4+PiB2MzoNCj4+
+Pj4gICAgICAgICAgICogaW1wbGVtZW50IGFsbCBhcmNoaXRlY3R1cmVzIHdpdGggZ2VuZXJp
+YyBoZWxwZXJzDQo+Pj4+ICAgICAgICAgICAqIHN1cHBvcnQgcmVvcmRlcmluZyBhbmQgbmF0
+aXZlIGJ5dGUgb3JkZXIgKEdlZXJ0LCBBcm5kKQ0KPj4+Pg0KPj4+PiBTaWduZWQtb2ZmLWJ5
+OiBUaG9tYXMgWmltbWVybWFubiA8dHppbW1lcm1hbm5Ac3VzZS5kZT4NCj4+Pj4gVGVzdGVk
+LWJ5OiBTdWkgSmluZ2ZlbmcgPHN1aWppbmdmZW5nQGxvb25nc29uLmNuPg0KPj4+PiBSZXZp
+ZXdlZC1ieTogQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4NCj4gDQo+Pj4+IC0tLSBh
+L2FyY2gvbWlwcy9pbmNsdWRlL2FzbS9mYi5oDQo+Pj4+ICsrKyBiL2FyY2gvbWlwcy9pbmNs
+dWRlL2FzbS9mYi5oDQo+Pj4+IEBAIC0xMiw2ICsxMiwyOCBAQCBzdGF0aWMgaW5saW5lIHZv
+aWQgZmJfcGdwcm90ZWN0KHN0cnVjdCBmaWxlICpmaWxlLCBzdHJ1Y3Qgdm1fYXJlYV9zdHJ1
+Y3QgKnZtYSwNCj4+Pj4gICAgfQ0KPj4+PiAgICAjZGVmaW5lIGZiX3BncHJvdGVjdCBmYl9w
+Z3Byb3RlY3QNCj4+Pj4NCj4+Pj4gKy8qDQo+Pj4+ICsgKiBNSVBTIGRvZXNuJ3QgZGVmaW5l
+IF9fcmF3XyBJL08gbWFjcm9zLCBzbyB0aGUgaGVscGVycw0KPj4+PiArICogaW4gPGFzbS1n
+ZW5lcmljL2ZiLmg+IGRvbid0IGdlbmVyYXRlIGZiX3JlYWRxKCkgYW5kDQo+Pj4+ICsgKiBm
+Yl93cml0ZSgpLiBXZSBoYXZlIHRvIHByb3ZpZGUgdGhlbSBoZXJlLg0KPj4+DQo+Pj4gTUlQ
+UyBkb2VzIG5vdCBpbmNsdWRlIDxhc20tZ2VuZXJpYy9pby5oPiwgIG5vciBkZWZpbmUgaXRz
+IG93bg0KPj4NCj4+IEkga25vdywgdGhhdCdzIHdoeSB0aGUgVE9ETyBzYXlzIHRvIGNvbnZl
+cnQgaXQgdG8gZ2VuZXJpYyBJL08uDQo+Pg0KPj4+IF9fcmF3X3JlYWRxKCkgYW5kIF9fcmF3
+X3dyaXRlcSgpLi4uDQo+Pg0KPj4gSXQgZG9lc24ndCBkZWZpbmUgdGhvc2UgbWFjcm9zLCBi
+dXQgaXQgZ2VuZXJhdGVzIGZ1bmN0aW9uIGNhbGxzIG9mIHRoZQ0KPj4gc2FtZSBuYW1lcy4g
+Rm9sbG93IHRoZSBtYWNyb3MgYXQNCj4+DQo+Pg0KPj4gaHR0cHM6Ly9lbGl4aXIuYm9vdGxp
+bi5jb20vbGludXgvbGF0ZXN0L3NvdXJjZS9hcmNoL21pcHMvaW5jbHVkZS9hc20vaW8uaCNM
+MzU3DQo+Pg0KPj4gSXQgZXhwYW5kcyB0byBhIHZhcmlldHkgb2YgaGVscGVycywgaW5jbHVk
+aW5nIF9fcmF3XyooKS4NCj4gDQo+IFRoYW5rcywgSSBmb3Jnb3QgTUlQUyBpcyB1c2luZyB0
+aGVzZSBncmVwLXVuZnJpZW5kbHkgZmFjdG9yaWVzLi4uDQo+IA0KPj4+PiArICoNCj4+Pj4g
+KyAqIFRPRE86IENvbnZlcnQgTUlQUyB0byBnZW5lcmljIEkvTy4gVGhlIGhlbHBlcnMgYmVs
+b3cgY2FuDQo+Pj4+ICsgKiAgICAgICB0aGVuIGJlIHJlbW92ZWQuDQo+Pj4+ICsgKi8NCj4+
+Pj4gKyNpZmRlZiBDT05GSUdfNjRCSVQNCj4+Pj4gK3N0YXRpYyBpbmxpbmUgdTY0IGZiX3Jl
+YWRxKGNvbnN0IHZvbGF0aWxlIHZvaWQgX19pb21lbSAqYWRkcikNCj4+Pj4gK3sNCj4+Pj4g
+KyAgICAgICByZXR1cm4gX19yYXdfcmVhZHEoYWRkcik7DQo+Pj4NCj4+PiAuLi4gc28gaG93
+IGNhbiB0aGlzIGNhbGwgd29yaz8NCj4+DQo+PiBPbiA2NC1iaXQgYnVpbGRzLCB0aGVyZSdz
+IF9fcmF3X3JlYWRxKCkgYW5kIF9fcmF3X3dyaXRlcSgpLg0KPj4NCj4+IEF0IGZpcnN0LCBJ
+IHRyaWVkIHRvIGRvIHRoZSByaWdodCB0aGluZyBhbmQgY29udmVydCBNSVBTIHRvIHdvcmsg
+d2l0aA0KPj4gPGFzbS1nZW5lcmljL2lvLmg+LiBCdXQgdGhhdCBjcmVhdGVkIGEgdG9uIG9m
+IGZvbGxvdy11cCBlcnJvcnMgaW4gb3RoZXINCj4+IGhlYWRlcnMuIFNvIGZvciBub3csIGl0
+J3MgYmV0dGVyIHRvIGhhbmRsZSB0aGlzIHByb2JsZW0gaW4gYXNtL2ZiLmguDQo+IA0KPiBT
+byBpc24ndCBqdXN0IGFkZGluZw0KPiANCj4gICAgICAjZGVmaW5lIF9fcmF3X3JlYWRxIF9f
+cmF3X3JlYWRxDQo+ICAgICAgI2RlZmluZSBfX3Jhd193cml0ZXEgX19yYXdfd3JpdGVxDQo+
+IA0KPiB0byBhcmNoL21pcHMvaW5jbHVkZS9hc20vaW8uaCBzdWZmaWNpZW50IHRvIG1ha2Ug
+PGFzbS1nZW5lcmljL2ZiLmg+DQo+IGRvIHRoZSByaWdodCB0aGluZz8NCg0KVGhhdCB3b3Jr
+cy4gSSBoYWQgYSBwYXRjaCB0aGF0IGFkZHMgYWxsIG1pc3NpbmcgZGVmaW5lcyB0byBNSVBT
+JyBpby5oLiANClRoZW4gSSB3ZW50IHdpdGggdGhlIGN1cnJlbnQgZml4LCB3aGljaCBpcyBz
+ZWxmLWNvbnRhaW5lZCB3aXRoaW4gZmJkZXYuIA0KQnV0IEknZCBsZWF2ZSBpdCB0byBhcmNo
+IG1haW50YWluZXJzLg0KDQpCZXN0IHJlZ2FyZHMNClRob21hcw0KDQoNCj4gDQo+IEdye29l
+dGplLGVldGluZ31zLA0KPiANCj4gICAgICAgICAgICAgICAgICAgICAgICAgIEdlZXJ0DQo+
+IA0KDQotLSANClRob21hcyBaaW1tZXJtYW5uDQpHcmFwaGljcyBEcml2ZXIgRGV2ZWxvcGVy
+DQpTVVNFIFNvZnR3YXJlIFNvbHV0aW9ucyBHZXJtYW55IEdtYkgNCkZyYW5rZW5zdHJhc3Nl
+IDE0NiwgOTA0NjEgTnVlcm5iZXJnLCBHZXJtYW55DQpHRjogSXZvIFRvdGV2LCBBbmRyZXcg
+TXllcnMsIEFuZHJldyBNY0RvbmFsZCwgQm91ZGllbiBNb2VybWFuDQpIUkIgMzY4MDkgKEFH
+IE51ZXJuYmVyZykNCg==
 
-Thanks, I forgot MIPS is using these grep-unfriendly factories...
+--------------nmuFXWNHp9OPw0gTQ9dL40wM--
 
-> >> + *
-> >> + * TODO: Convert MIPS to generic I/O. The helpers below can
-> >> + *       then be removed.
-> >> + */
-> >> +#ifdef CONFIG_64BIT
-> >> +static inline u64 fb_readq(const volatile void __iomem *addr)
-> >> +{
-> >> +       return __raw_readq(addr);
-> >
-> > ... so how can this call work?
->
-> On 64-bit builds, there's __raw_readq() and __raw_writeq().
->
-> At first, I tried to do the right thing and convert MIPS to work with
-> <asm-generic/io.h>. But that created a ton of follow-up errors in other
-> headers. So for now, it's better to handle this problem in asm/fb.h.
+--------------bePUrlBG7J50eUzAHryxDe2t
+Content-Type: application/pgp-signature; name="OpenPGP_signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="OpenPGP_signature"
 
-So isn't just adding
+-----BEGIN PGP SIGNATURE-----
 
-    #define __raw_readq __raw_readq
-    #define __raw_writeq __raw_writeq
+wsF5BAABCAAjFiEExndm/fpuMUdwYFFolh/E3EQov+AFAmRbtB8FAwAAAAAACgkQlh/E3EQov+DI
+OQ/7Bh2dGdIpUoZFmIzv8q/RW/ZRQu70vozaAGSwIj4W59gjrfbWhlRscy2ihp/+9MgdjDPByjMC
+huW3PLu6r/dG820Z19YD7yaqfiZiXykzvUGNKaJMwUvZnHSPR2EOW5guvhK+wQaSRnAiuGUUly8C
+Qc46ymt6o6SbZX4uFY9+ye3FY/ilEXY4ydngwypgcjsepbop9MVvMv1uyvn055gvbT37j2Cjwa2P
+qDSZbiZEmweX4/rtaF2bYOj64NfVIBAvi1I63kTYPuafn/0meleXyGC1iVjk3cYoDBG9gQ5TMJiV
+PUMNC20LIju+wZphH8Irh1yuqwsa797sIfiTz4cw0fXWzgEqvBTUC2reBS1aGEyj4sW2M+qyZGdG
++efx+P1jAs2j/sm+3fvWXjIqZmxFXAPx3asI/zFJ5GUldFSTFVmcck/+sRN1MDTpOFWu3n3x0fw3
+SlIZP/R0mWQb5IRzn0eGeVs68mfhW2tb9IlRUmP1lZ97bn4faMPzGCHVsb3CLiURBjv9xU1khgtg
+MMlQS5yqmT+cM9Cf6frXdBMFTAmd5TyKiUaXdsz8yJAAj7Q0tdEu0gFubYY1CKRwtswzxjLJC66W
+cNc40si5mk77HnbK6MLfcTF/ZPG6EtbGNAZCODLobe3ivg+xFN3W+wKOxZwXM07dOkIus9vPbvx5
+LQQ=
+=sdVp
+-----END PGP SIGNATURE-----
 
-to arch/mips/include/asm/io.h sufficient to make <asm-generic/fb.h>
-do the right thing?
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
--- 
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+--------------bePUrlBG7J50eUzAHryxDe2t--
