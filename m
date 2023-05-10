@@ -1,21 +1,23 @@
 From: Thomas Zimmermann <tzimmermann@suse.de>
-Date: Tue, 02 May 2023 13:02:19 +0000
-Subject: [PATCH v3 2/6] ipu-v3: Include <linux/io.h>
-Message-Id: <20230502130223.14719-3-tzimmermann@suse.de>
+Date: Wed, 10 May 2023 11:05:53 +0000
+Subject: [PATCH v6 2/6] ipu-v3: Include <linux/io.h>
+Message-Id: <20230510110557.14343-3-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230502130223.14719-1-tzimmermann@suse.de>
-In-Reply-To: <20230502130223.14719-1-tzimmermann@suse.de>
+References: <20230510110557.14343-1-tzimmermann@suse.de>
+In-Reply-To: <20230510110557.14343-1-tzimmermann@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org
+To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org, suijingfeng@loongson.cn
 Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
 
 The code uses readl() and writel(). Include the header file to
 get the declarations.
 
 Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+Reviewed-by: Arnd Bergmann <arnd@arndb.de>
 Reviewed-by: Sam Ravnborg <sam@ravnborg.org>
+Reviewed-by: Sui Jingfeng <suijingfeng@loongson.cn>
 ---
  drivers/gpu/ipu-v3/ipu-prv.h | 1 +
  1 file changed, 1 insertion(+)
