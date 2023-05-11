@@ -1,7 +1,7 @@
-From: Sui Jingfeng <15330273260@189.cn>
-Date: Thu, 11 May 2023 09:24:13 +0000
+From: Helge Deller <deller@gmx.de>
+Date: Thu, 11 May 2023 13:05:03 +0000
 Subject: Re: [PATCH v6 1/6] fbdev/matrox: Remove trailing whitespaces
-Message-Id: <70c03ea4-c863-d3f7-c057-421f31c57238@189.cn>
+Message-Id: <15fe1489-f0fa-bbf6-ec08-a270bd4f1559@gmx.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20230510110557.14343-1-tzimmermann@suse.de>
  <20230510110557.14343-2-tzimmermann@suse.de>
@@ -11,12 +11,10 @@ In-Reply-To: <a2315b9a-0747-1f0f-1f0a-1c6773931db4@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
-To: Thomas Zimmermann <tzimmermann@suse.de>, deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org
+To: Thomas Zimmermann <tzimmermann@suse.de>, Sui Jingfeng <15330273260@189.cn>, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, arnd@arndb.de, sam@ravnborg.org
 Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org
 
-Hi
-
-On 2023/5/11 15:55, Thomas Zimmermann wrote:
+On 5/11/23 09:55, Thomas Zimmermann wrote:
 > Hi
 >
 > Am 10.05.23 um 20:20 schrieb Sui Jingfeng:
@@ -39,8 +37,7 @@ On 2023/5/11 15:55, Thomas Zimmermann wrote:
 >>>   drivers/video/fbdev/matrox/matroxfb_base.h  | 4 ++--
 >>>   2 files changed, 5 insertions(+), 5 deletions(-)
 >>>
->>> diff --git a/drivers/video/fbdev/matrox/matroxfb_accel.c 
->>> b/drivers/video/fbdev/matrox/matroxfb_accel.c
+>>> diff --git a/drivers/video/fbdev/matrox/matroxfb_accel.c b/drivers/video/fbdev/matrox/matroxfb_accel.c
 >>> index 9cb0685feddd..ce51227798a1 100644
 >>> --- a/drivers/video/fbdev/matrox/matroxfb_accel.c
 >>> +++ b/drivers/video/fbdev/matrox/matroxfb_accel.c
@@ -60,19 +57,16 @@ On 2023/5/11 15:55, Thomas Zimmermann wrote:
 >>>       for (i = 0; i < 16; i++) {
 >>>           pal[i] = i * 0x01010101U;
 >>>       }
->>> @@ -482,7 +482,7 @@ static void matroxfb_1bpp_imageblit(struct 
->>> matrox_fb_info *minfo, u_int32_t fgx,
+>>> @@ -482,7 +482,7 @@ static void matroxfb_1bpp_imageblit(struct matrox_fb_info *minfo, u_int32_t fgx,
 >>>               /* Tell... well, why bother... */
 >>>               while (height--) {
 >>>                   size_t i;
 >>> -
 >>> +
 >>>                   for (i = 0; i < step; i += 4) {
->>>                       /* Hope that there are at least three readable 
->>> bytes beyond the end of bitmap */
->>> fb_writel(get_unaligned((u_int32_t*)(chardata + i)),mmio.vaddr);
->>> diff --git a/drivers/video/fbdev/matrox/matroxfb_base.h 
->>> b/drivers/video/fbdev/matrox/matroxfb_base.h
+>>>                       /* Hope that there are at least three readable bytes beyond the end of bitmap */
+>>>                       fb_writel(get_unaligned((u_int32_t*)(chardata + i)),mmio.vaddr);
+>>> diff --git a/drivers/video/fbdev/matrox/matroxfb_base.h b/drivers/video/fbdev/matrox/matroxfb_base.h
 >>> index 958be6805f87..c93c69bbcd57 100644
 >>> --- a/drivers/video/fbdev/matrox/matroxfb_base.h
 >>> +++ b/drivers/video/fbdev/matrox/matroxfb_base.h
@@ -81,51 +75,43 @@ On 2023/5/11 15:55, Thomas Zimmermann wrote:
 >>>       int        (*getqueryctrl)(void* altout_dev,
 >>>                       struct v4l2_queryctrl* ctrl);
 >>
->> Noticed that there are plenty of coding style problems in 
->> matroxfb_base.h,
+>> Noticed that there are plenty of coding style problems in matroxfb_base.h,
 >>
->> why you only fix a few of them?   Take this two line as an example, 
->> shouldn't
+>> why you only fix a few of them?   Take this two line as an example, shouldn't
 >>
 >> they be fixed also as following?
 >
-> I configured my text editor to remove trailing whitespaces 
-> automatically. That keeps my own patches free of them.  But the editor 
-> removes all trailing whitespaces, including those that have been there 
-> before. If I encounter such a case, I split out the whitespace fix and 
-> submit it separately.
+> I configured my text editor to remove trailing whitespaces
+> automatically. That keeps my own patches free of them.  But the
+> editor removes all trailing whitespaces, including those that have
+> been there before. If I encounter such a case, I split out the
+> whitespace fix and submit it separately.
 >
-> But the work I do within fbdev is mostly for improving DRM. For the 
-> other issues in this file, I don't think that matroxfb should even be 
-> around any longer. Fbdev has been deprecated for a long time. But a 
-> small number of drivers are still in use and we still need its 
-> framebuffer console. So someone should either put significant effort 
-> into maintaining fbdev, or it should be phased out. But neither is 
+> But the work I do within fbdev is mostly for improving DRM.
+
+Sure.
+
+> For the
+> other issues in this file, I don't think that matroxfb should even be
+> around any longer. Fbdev has been deprecated for a long time. But a
+> small number of drivers are still in use and we still need its
+> framebuffer console. So someone should either put significant effort
+> into maintaining fbdev, or it should be phased out. But neither is
 > happening.
->
-Ok, no problem, that sound fine and reasonable then.
 
-The lines being modified has trailing whitespaces.
+You're wrong.
 
-And I tested your patch again last night on loongarch and mips platform.
+You don't mention that for most older machines DRM isn't an acceptable
+way to go due to it's limitations, e.g. it's low-speed due to missing
+2D-acceleration for older cards and and it's incapability to change screen
+resolution at runtime (just to name two of the bigger limitations here).
+So, unless we somehow find a good way to move such drivers over to DRM
+(with a set of minimal 2D acceleration), they are still important.
 
-It still works in my testing case.
+Actually, I just did test matroxfb and pm2fb successfully a few days back, and
+they worked. For some smaller issues I've prepared patches, which are on hold
+due conflicts with your latest file-move-around- and whitespace-changes which are partly
+in drm-misc.
+And I do have some upcoming additional patches for console support.
 
-> Best regards
-> Thomas
->
->>
->>
->>       int        (*verifymode)(void *altout_dev, u_int32_t mode);
->>       int        (*getqueryctrl)(void *altout_dev,
->>                       struct v4l2_queryctrl *ctrl);
->>
->>
->>> -    int        (*getctrl)(void* altout_dev,
->>> +    int        (*getctrl)(void *altout_dev,
->>>                      struct v4l2_control* ctrl);
->>> -    int        (*setctrl)(void* altout_dev,
->>> +    int        (*setctrl)(void *altout_dev,
->>>                      struct v4l2_control* ctrl);
->>>   };
->
+Helge
