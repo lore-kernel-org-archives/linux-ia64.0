@@ -1,42 +1,300 @@
-From: Hugh Dickins <hughd@google.com>
-Date: Wed, 10 May 2023 04:56:44 +0000
-Subject: [PATCH 11/23] powerpc: kvmppc_unmap_free_pmd() pte_offset_kernel()
-Message-Id: <8bc72262-3771-4fbf-8738-44d9a8a1ba6a@google.com>
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Fri, 12 May 2023 10:24:44 +0000
+Subject: [PATCH v7 7/7] fbdev: Rename fb_mem*() helpers
+Message-Id: <20230512102444.5438-8-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com>
-In-Reply-To: <77a5d8c-406b-7068-4f17-23b7ac53bc83@google.com>
+References: <20230512102444.5438-1-tzimmermann@suse.de>
+In-Reply-To: <20230512102444.5438-1-tzimmermann@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Mike Kravetz <mike.kravetz@oracle.com>, Mike Rapoport <rppt@kernel.org>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Matthew Wilcox <willy@infradead.org>, David Hildenbrand <david@redhat.com>, Suren Baghdasaryan <surenb@google.com>, Qi Zheng <zhengqi.arch@bytedance.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Helge Deller <deller@gmx.de>, John David Anglin <dave.anglin@bell.net>, "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Alexandre Ghiti <alexghiti@rivosinc.com>, Palmer Dabbelt <palmer@dabbelt.com>, Heiko Carstens <hca@linux.ibm.com>, Christian Borntraeger <borntraeger@linux.ibm.com>, Claudio Imbrenda <imbrenda@linux.ibm.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, "David S. Miller" <davem@davemloft.net>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
+To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org, suijingfeng@loongson.cn
+Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
 
-kvmppc_unmap_free_pmd() use pte_offset_kernel(), like everywhere else
-in book3s_64_mmu_radix.c: instead of pte_offset_map(), which will come
-to need a pte_unmap() to balance it.
+Update the names of the fb_mem*() helpers to be consistent with their
+regular counterparts. Hence, fb_memset() now becomes fb_memset_io(),
+fb_memcpy_fromfb() now becomes fb_memcpy_fromio() and fb_memcpy_tofb()
+becomes fb_memcpy_toio(). No functional changes.
 
-But note that this is a more complex case than most: see those -EAGAINs
-in kvmppc_create_pte(), which is coping with kvmppc races beween page
-table and huge entry, of the kind which we are expecting to address
-in pte_offset_map() - this might want to be revisited in future.
+v6:
+	* update new file fb_io_fops.c
 
-Signed-off-by: Hugh Dickins <hughd@google.com>
+Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+Reviewed-by: Sam Ravnborg <sam@ravnborg.org>
+Reviewed-by: Sui Jingfeng <suijingfeng@loongson.cn>
 ---
- arch/powerpc/kvm/book3s_64_mmu_radix.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/ia64/include/asm/fb.h              | 12 ++++++------
+ arch/loongarch/include/asm/fb.h         | 12 ++++++------
+ arch/sparc/include/asm/fb.h             | 12 ++++++------
+ drivers/video/fbdev/aty/mach64_cursor.c |  2 +-
+ drivers/video/fbdev/chipsfb.c           |  2 +-
+ drivers/video/fbdev/core/fb_io_fops.c   |  4 ++--
+ drivers/video/fbdev/kyro/fbdev.c        |  2 +-
+ drivers/video/fbdev/pvr2fb.c            |  2 +-
+ drivers/video/fbdev/sstfb.c             |  2 +-
+ drivers/video/fbdev/stifb.c             |  4 ++--
+ drivers/video/fbdev/tdfxfb.c            |  2 +-
+ include/asm-generic/fb.h                | 16 ++++++++--------
+ 12 files changed, 36 insertions(+), 36 deletions(-)
 
-diff --git a/arch/powerpc/kvm/book3s_64_mmu_radix.c b/arch/powerpc/kvm/book3s_64_mmu_radix.c
-index 461307b89c3a..572707858d65 100644
---- a/arch/powerpc/kvm/book3s_64_mmu_radix.c
-+++ b/arch/powerpc/kvm/book3s_64_mmu_radix.c
-@@ -509,7 +509,7 @@ static void kvmppc_unmap_free_pmd(struct kvm *kvm, pmd_t *pmd, bool full,
- 		} else {
- 			pte_t *pte;
+diff --git a/arch/ia64/include/asm/fb.h b/arch/ia64/include/asm/fb.h
+index bcf982043a5c..1717b26fd423 100644
+--- a/arch/ia64/include/asm/fb.h
++++ b/arch/ia64/include/asm/fb.h
+@@ -20,23 +20,23 @@ static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+ }
+ #define fb_pgprotect fb_pgprotect
  
--			pte = pte_offset_map(p, 0);
-+			pte = pte_offset_kernel(p, 0);
- 			kvmppc_unmap_free_pte(kvm, pte, full, lpid);
- 			pmd_clear(p);
+-static inline void fb_memcpy_fromfb(void *to, const volatile void __iomem *from, size_t n)
++static inline void fb_memcpy_fromio(void *to, const volatile void __iomem *from, size_t n)
+ {
+ 	memcpy(to, (void __force *)from, n);
+ }
+-#define fb_memcpy_fromfb fb_memcpy_fromfb
++#define fb_memcpy_fromio fb_memcpy_fromio
+ 
+-static inline void fb_memcpy_tofb(volatile void __iomem *to, const void *from, size_t n)
++static inline void fb_memcpy_toio(volatile void __iomem *to, const void *from, size_t n)
+ {
+ 	memcpy((void __force *)to, from, n);
+ }
+-#define fb_memcpy_tofb fb_memcpy_tofb
++#define fb_memcpy_toio fb_memcpy_toio
+ 
+-static inline void fb_memset(volatile void __iomem *addr, int c, size_t n)
++static inline void fb_memset_io(volatile void __iomem *addr, int c, size_t n)
+ {
+ 	memset((void __force *)addr, c, n);
+ }
+-#define fb_memset fb_memset
++#define fb_memset fb_memset_io
+ 
+ #include <asm-generic/fb.h>
+ 
+diff --git a/arch/loongarch/include/asm/fb.h b/arch/loongarch/include/asm/fb.h
+index c6fc7ef374a4..0b218b10a9ec 100644
+--- a/arch/loongarch/include/asm/fb.h
++++ b/arch/loongarch/include/asm/fb.h
+@@ -8,23 +8,23 @@
+ #include <linux/compiler.h>
+ #include <linux/string.h>
+ 
+-static inline void fb_memcpy_fromfb(void *to, const volatile void __iomem *from, size_t n)
++static inline void fb_memcpy_fromio(void *to, const volatile void __iomem *from, size_t n)
+ {
+ 	memcpy(to, (void __force *)from, n);
+ }
+-#define fb_memcpy_fromfb fb_memcpy_fromfb
++#define fb_memcpy_fromio fb_memcpy_fromio
+ 
+-static inline void fb_memcpy_tofb(volatile void __iomem *to, const void *from, size_t n)
++static inline void fb_memcpy_toio(volatile void __iomem *to, const void *from, size_t n)
+ {
+ 	memcpy((void __force *)to, from, n);
+ }
+-#define fb_memcpy_tofb fb_memcpy_tofb
++#define fb_memcpy_toio fb_memcpy_toio
+ 
+-static inline void fb_memset(volatile void __iomem *addr, int c, size_t n)
++static inline void fb_memset_io(volatile void __iomem *addr, int c, size_t n)
+ {
+ 	memset((void __force *)addr, c, n);
+ }
+-#define fb_memset fb_memset
++#define fb_memset fb_memset_io
+ 
+ #include <asm-generic/fb.h>
+ 
+diff --git a/arch/sparc/include/asm/fb.h b/arch/sparc/include/asm/fb.h
+index 077da91aeba1..572ecd3e1cc4 100644
+--- a/arch/sparc/include/asm/fb.h
++++ b/arch/sparc/include/asm/fb.h
+@@ -18,23 +18,23 @@ static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+ int fb_is_primary_device(struct fb_info *info);
+ #define fb_is_primary_device fb_is_primary_device
+ 
+-static inline void fb_memcpy_fromfb(void *to, const volatile void __iomem *from, size_t n)
++static inline void fb_memcpy_fromio(void *to, const volatile void __iomem *from, size_t n)
+ {
+ 	sbus_memcpy_fromio(to, from, n);
+ }
+-#define fb_memcpy_fromfb fb_memcpy_fromfb
++#define fb_memcpy_fromio fb_memcpy_fromio
+ 
+-static inline void fb_memcpy_tofb(volatile void __iomem *to, const void *from, size_t n)
++static inline void fb_memcpy_toio(volatile void __iomem *to, const void *from, size_t n)
+ {
+ 	sbus_memcpy_toio(to, from, n);
+ }
+-#define fb_memcpy_tofb fb_memcpy_tofb
++#define fb_memcpy_toio fb_memcpy_toio
+ 
+-static inline void fb_memset(volatile void __iomem *addr, int c, size_t n)
++static inline void fb_memset_io(volatile void __iomem *addr, int c, size_t n)
+ {
+ 	sbus_memset_io(addr, c, n);
+ }
+-#define fb_memset fb_memset
++#define fb_memset fb_memset_io
+ 
+ #include <asm-generic/fb.h>
+ 
+diff --git a/drivers/video/fbdev/aty/mach64_cursor.c b/drivers/video/fbdev/aty/mach64_cursor.c
+index 4ad0331a8c57..971355c2cd7e 100644
+--- a/drivers/video/fbdev/aty/mach64_cursor.c
++++ b/drivers/video/fbdev/aty/mach64_cursor.c
+@@ -153,7 +153,7 @@ static int atyfb_cursor(struct fb_info *info, struct fb_cursor *cursor)
+ 	    u8 m, b;
+ 
+ 	    // Clear cursor image with 1010101010...
+-	    fb_memset(dst, 0xaa, 1024);
++	    fb_memset_io(dst, 0xaa, 1024);
+ 
+ 	    offset = align - width*2;
+ 
+diff --git a/drivers/video/fbdev/chipsfb.c b/drivers/video/fbdev/chipsfb.c
+index 7799d52a651f..2a27ba94f652 100644
+--- a/drivers/video/fbdev/chipsfb.c
++++ b/drivers/video/fbdev/chipsfb.c
+@@ -332,7 +332,7 @@ static const struct fb_var_screeninfo chipsfb_var = {
+ 
+ static void init_chips(struct fb_info *p, unsigned long addr)
+ {
+-	fb_memset(p->screen_base, 0, 0x100000);
++	fb_memset_io(p->screen_base, 0, 0x100000);
+ 
+ 	p->fix = chipsfb_fix;
+ 	p->fix.smem_start = addr;
+diff --git a/drivers/video/fbdev/core/fb_io_fops.c b/drivers/video/fbdev/core/fb_io_fops.c
+index f5299d50f33b..5985e5e1b040 100644
+--- a/drivers/video/fbdev/core/fb_io_fops.c
++++ b/drivers/video/fbdev/core/fb_io_fops.c
+@@ -42,7 +42,7 @@ ssize_t fb_io_read(struct fb_info *info, char __user *buf, size_t count, loff_t
+ 	while (count) {
+ 		c  = (count > PAGE_SIZE) ? PAGE_SIZE : count;
+ 		dst = buffer;
+-		fb_memcpy_fromfb(dst, src, c);
++		fb_memcpy_fromio(dst, src, c);
+ 		dst += c;
+ 		src += c;
+ 
+@@ -117,7 +117,7 @@ ssize_t fb_io_write(struct fb_info *info, const char __user *buf, size_t count,
  		}
+ 		c -= trailing;
+ 
+-		fb_memcpy_tofb(dst, src, c);
++		fb_memcpy_toio(dst, src, c);
+ 		dst += c;
+ 		src += c;
+ 		*ppos += c;
+diff --git a/drivers/video/fbdev/kyro/fbdev.c b/drivers/video/fbdev/kyro/fbdev.c
+index 0596573ef140..3f277bdb3a32 100644
+--- a/drivers/video/fbdev/kyro/fbdev.c
++++ b/drivers/video/fbdev/kyro/fbdev.c
+@@ -737,7 +737,7 @@ static int kyrofb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 			       info->var.bits_per_pixel);
+ 	size *= info->var.yres_virtual;
+ 
+-	fb_memset(info->screen_base, 0, size);
++	fb_memset_io(info->screen_base, 0, size);
+ 
+ 	if (register_framebuffer(info) < 0)
+ 		goto out_unmap;
+diff --git a/drivers/video/fbdev/pvr2fb.c b/drivers/video/fbdev/pvr2fb.c
+index 550fdb5b4d41..c692cd597ce3 100644
+--- a/drivers/video/fbdev/pvr2fb.c
++++ b/drivers/video/fbdev/pvr2fb.c
+@@ -801,7 +801,7 @@ static int __maybe_unused pvr2fb_common_init(void)
+ 		goto out_err;
+ 	}
+ 
+-	fb_memset(fb_info->screen_base, 0, pvr2_fix.smem_len);
++	fb_memset_io(fb_info->screen_base, 0, pvr2_fix.smem_len);
+ 
+ 	pvr2_fix.ypanstep	= nopan  ? 0 : 1;
+ 	pvr2_fix.ywrapstep	= nowrap ? 0 : 1;
+diff --git a/drivers/video/fbdev/sstfb.c b/drivers/video/fbdev/sstfb.c
+index da296b2ab54a..582324f5d869 100644
+--- a/drivers/video/fbdev/sstfb.c
++++ b/drivers/video/fbdev/sstfb.c
+@@ -335,7 +335,7 @@ static int sst_calc_pll(const int freq, int *freq_out, struct pll_timing *t)
+ static void sstfb_clear_screen(struct fb_info *info)
+ {
+ 	/* clear screen */
+-	fb_memset(info->screen_base, 0, info->fix.smem_len);
++	fb_memset_io(info->screen_base, 0, info->fix.smem_len);
+ }
+ 
+ 
+diff --git a/drivers/video/fbdev/stifb.c b/drivers/video/fbdev/stifb.c
+index baca6974e288..01363dccfdaf 100644
+--- a/drivers/video/fbdev/stifb.c
++++ b/drivers/video/fbdev/stifb.c
+@@ -527,8 +527,8 @@ rattlerSetupPlanes(struct stifb_info *fb)
+ 	fb->id = saved_id;
+ 
+ 	for (y = 0; y < fb->info.var.yres; ++y)
+-		fb_memset(fb->info.screen_base + y * fb->info.fix.line_length,
+-			0xff, fb->info.var.xres * fb->info.var.bits_per_pixel/8);
++		fb_memset_io(fb->info.screen_base + y * fb->info.fix.line_length,
++			     0xff, fb->info.var.xres * fb->info.var.bits_per_pixel/8);
+ 
+ 	CRX24_SET_OVLY_MASK(fb);
+ 	SETUP_FB(fb);
+diff --git a/drivers/video/fbdev/tdfxfb.c b/drivers/video/fbdev/tdfxfb.c
+index d17e5e1472aa..cdf8e9fe9948 100644
+--- a/drivers/video/fbdev/tdfxfb.c
++++ b/drivers/video/fbdev/tdfxfb.c
+@@ -1116,7 +1116,7 @@ static int tdfxfb_cursor(struct fb_info *info, struct fb_cursor *cursor)
+ 		u8 *mask = (u8 *)cursor->mask;
+ 		int i;
+ 
+-		fb_memset(cursorbase, 0, 1024);
++		fb_memset_io(cursorbase, 0, 1024);
+ 
+ 		for (i = 0; i < cursor->image.height; i++) {
+ 			int h = 0;
+diff --git a/include/asm-generic/fb.h b/include/asm-generic/fb.h
+index 0540eccdbeca..bb7ee9c70e60 100644
+--- a/include/asm-generic/fb.h
++++ b/include/asm-generic/fb.h
+@@ -108,28 +108,28 @@ static inline void fb_writeq(u64 b, volatile void __iomem *addr)
+ #endif
+ #endif
+ 
+-#ifndef fb_memcpy_fromfb
+-static inline void fb_memcpy_fromfb(void *to, const volatile void __iomem *from, size_t n)
++#ifndef fb_memcpy_fromio
++static inline void fb_memcpy_fromio(void *to, const volatile void __iomem *from, size_t n)
+ {
+ 	memcpy_fromio(to, from, n);
+ }
+-#define fb_memcpy_fromfb fb_memcpy_fromfb
++#define fb_memcpy_fromio fb_memcpy_fromio
+ #endif
+ 
+-#ifndef fb_memcpy_tofb
+-static inline void fb_memcpy_tofb(volatile void __iomem *to, const void *from, size_t n)
++#ifndef fb_memcpy_toio
++static inline void fb_memcpy_toio(volatile void __iomem *to, const void *from, size_t n)
+ {
+ 	memcpy_toio(to, from, n);
+ }
+-#define fb_memcpy_tofb fb_memcpy_tofb
++#define fb_memcpy_toio fb_memcpy_toio
+ #endif
+ 
+ #ifndef fb_memset
+-static inline void fb_memset(volatile void __iomem *addr, int c, size_t n)
++static inline void fb_memset_io(volatile void __iomem *addr, int c, size_t n)
+ {
+ 	memset_io(addr, c, n);
+ }
+-#define fb_memset fb_memset
++#define fb_memset fb_memset_io
+ #endif
+ 
+ #endif /* __ASM_GENERIC_FB_H_ */
 -- 
-2.35.3
+2.40.1
