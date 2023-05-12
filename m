@@ -1,97 +1,311 @@
-From: kernel test robot <lkp@intel.com>
-Date: Tue, 09 May 2023 07:59:42 +0000
-Subject: Re: [PATCH v5 5/6] fbdev: Move framebuffer I/O helpers into <asm/fb.h>
-Message-Id: <202305091533.3zBlgYkC-lkp@intel.com>
+From: Thomas Zimmermann <tzimmermann@suse.de>
+Date: Fri, 12 May 2023 10:24:38 +0000
+Subject: [PATCH v7 1/7] fbdev/hitfb: Cast I/O offset to address
+Message-Id: <20230512102444.5438-2-tzimmermann@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230508114830.28182-6-tzimmermann@suse.de>
-In-Reply-To: <20230508114830.28182-6-tzimmermann@suse.de>
+References: <20230512102444.5438-1-tzimmermann@suse.de>
+In-Reply-To: <20230512102444.5438-1-tzimmermann@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Zimmermann <tzimmermann@suse.de>, deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@hansenpartnership.com, arnd@arndb.de, sam@ravnborg.org, suijingfeng@loongson.cn
-Cc: oe-kbuild-all@lists.linux.dev, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
+To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org, suijingfeng@loongson.cn
+Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>, kernel test robot <lkp@intel.com>, Artur Rojek <contact@artur-rojek.eu>
 
-Hi Thomas,
+Cast I/O offsets to pointers to use them with I/O functions. The I/O
+functions expect pointers of type 'volatile void __iomem *', but the
+offsets are plain integers. Build warnings are
 
-kernel test robot noticed the following build errors:
+  ../drivers/video/fbdev/hitfb.c: In function 'hitfb_accel_wait':
+  ../arch/x86/include/asm/hd64461.h:18:33: warning: passing argument 1 of 'fb_readw' makes pointer from integer without a cast [-Wint-conversion]
+   18 | #define HD64461_IO_OFFSET(x)    (HD64461_IOBASE + (x))
+      |                                 ^~~~~~~~~~~~~~~~~~~~~~
+      |                                 |
+      |                                 unsigned int
+  ../arch/x86/include/asm/hd64461.h:93:33: note: in expansion of macro 'HD64461_IO_OFFSET'
+   93 | #define HD64461_GRCFGR          HD64461_IO_OFFSET(0x1044)       /* Accelerator Configuration Register */
+      |                                 ^~~~~~~~~~~~~~~~~
+  ../drivers/video/fbdev/hitfb.c:47:25: note: in expansion of macro 'HD64461_GRCFGR'
+   47 |         while (fb_readw(HD64461_GRCFGR) & HD64461_GRCFGR_ACCSTATUS) ;
+      |                         ^~~~~~~~~~~~~~
+  In file included from ../arch/x86/include/asm/fb.h:15,
+  from ../include/linux/fb.h:19,
+  from ../drivers/video/fbdev/hitfb.c:22:
+  ../include/asm-generic/fb.h:52:57: note: expected 'const volatile void *' but argument is of type 'unsigned int'
+   52 | static inline u16 fb_readw(const volatile void __iomem *addr)
+      |                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~
 
-[auto build test ERROR on drm-misc/drm-misc-next]
-[cannot apply to deller-parisc/for-next arnd-asm-generic/master linus/master v6.4-rc1 next-20230509]
-[If your patch is applied to the wrong git tree, kindly drop us a note.
-And when submitting patch, we suggest to use '--base' as documented in
-https://git-scm.com/docs/git-format-patch#_base_tree_information]
+This patch only fixes the build warnings. It's not clear if the I/O
+offsets can legally be passed to the I/O helpers. It was apparently
+broken in 2007 when custom inw()/outw() helpers got removed by
+commit 34a780a0afeb ("sh: hp6xx pata_platform support."). Fixing the
+driver would require setting the I/O base address.
 
-url:    https://github.com/intel-lab-lkp/linux/commits/Thomas-Zimmermann/fbdev-matrox-Remove-trailing-whitespaces/20230508-195052
-base:   git://anongit.freedesktop.org/drm/drm-misc drm-misc-next
-patch link:    https://lore.kernel.org/r/20230508114830.28182-6-tzimmermann%40suse.de
-patch subject: [PATCH v5 5/6] fbdev: Move framebuffer I/O helpers into <asm/fb.h>
-config: mips-randconfig-r016-20230507 (https://download.01.org/0day-ci/archive/20230509/202305091533.3zBlgYkC-lkp@intel.com/config)
-compiler: mips64-linux-gcc (GCC) 12.1.0
-reproduce (this is a W=1 build):
-        wget https://raw.githubusercontent.com/intel/lkp-tests/master/sbin/make.cross -O ~/bin/make.cross
-        chmod +x ~/bin/make.cross
-        # https://github.com/intel-lab-lkp/linux/commit/c64dc7f407b3faa85d4e81ec762407388c5813c1
-        git remote add linux-review https://github.com/intel-lab-lkp/linux
-        git fetch --no-tags linux-review Thomas-Zimmermann/fbdev-matrox-Remove-trailing-whitespaces/20230508-195052
-        git checkout c64dc7f407b3faa85d4e81ec762407388c5813c1
-        # save the config file
-        mkdir build_dir && cp config build_dir/.config
-        COMPILER_INSTALL_PATH=$HOME/0day COMPILER=gcc-12.1.0 make.cross W=1 O=build_dir ARCH=mips olddefconfig
-        COMPILER_INSTALL_PATH=$HOME/0day COMPILER=gcc-12.1.0 make.cross W=1 O=build_dir ARCH=mips SHELL=/bin/bash drivers/video/fbdev/core/
+Reported-by: kernel test robot <lkp@intel.com>
+Closes: https://lore.kernel.org/oe-kbuild-all/202305102136.eMjTSPwH-lkp@intel.com/
+Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+Cc: Artur Rojek <contact@artur-rojek.eu>
+---
+ drivers/video/fbdev/hitfb.c | 122 ++++++++++++++++++++----------------
+ 1 file changed, 69 insertions(+), 53 deletions(-)
 
-If you fix the issue, kindly add following tag where applicable
-| Reported-by: kernel test robot <lkp@intel.com>
-| Link: https://lore.kernel.org/oe-kbuild-all/202305091533.3zBlgYkC-lkp@intel.com/
-
-All errors (new ones prefixed by >>):
-
-   drivers/video/fbdev/core/cfbfillrect.c: In function 'bitfill_aligned':
->> drivers/video/fbdev/core/cfbfillrect.c:26:21: error: implicit declaration of function 'fb_writeq'; did you mean 'fb_writel'? [-Werror=implicit-function-declaration]
-      26 | #  define FB_WRITEL fb_writeq
-         |                     ^~~~~~~~~
-   drivers/video/fbdev/core/cfbfillrect.c:50:17: note: in expansion of macro 'FB_WRITEL'
-      50 |                 FB_WRITEL(comp(pat, FB_READL(dst), first), dst);
-         |                 ^~~~~~~~~
->> drivers/video/fbdev/core/cfbfillrect.c:27:21: error: implicit declaration of function 'fb_readq'; did you mean 'fb_readl'? [-Werror=implicit-function-declaration]
-      27 | #  define FB_READL  fb_readq
-         |                     ^~~~~~~~
-   drivers/video/fbdev/core/cfbfillrect.c:50:37: note: in expansion of macro 'FB_READL'
-      50 |                 FB_WRITEL(comp(pat, FB_READL(dst), first), dst);
-         |                                     ^~~~~~~~
-   cc1: some warnings being treated as errors
---
-   drivers/video/fbdev/core/cfbcopyarea.c: In function 'bitcpy':
->> drivers/video/fbdev/core/cfbcopyarea.c:37:21: error: implicit declaration of function 'fb_writeq'; did you mean 'fb_writel'? [-Werror=implicit-function-declaration]
-      37 | #  define FB_WRITEL fb_writeq
-         |                     ^~~~~~~~~
-   drivers/video/fbdev/core/cfbcopyarea.c:73:25: note: in expansion of macro 'FB_WRITEL'
-      73 |                         FB_WRITEL( comp( FB_READL(src), FB_READL(dst), first), dst);
-         |                         ^~~~~~~~~
->> drivers/video/fbdev/core/cfbcopyarea.c:38:21: error: implicit declaration of function 'fb_readq'; did you mean 'fb_readl'? [-Werror=implicit-function-declaration]
-      38 | #  define FB_READL  fb_readq
-         |                     ^~~~~~~~
-   drivers/video/fbdev/core/cfbcopyarea.c:73:42: note: in expansion of macro 'FB_READL'
-      73 |                         FB_WRITEL( comp( FB_READL(src), FB_READL(dst), first), dst);
-         |                                          ^~~~~~~~
-   cc1: some warnings being treated as errors
-
-
-vim +26 drivers/video/fbdev/core/cfbfillrect.c
-
-^1da177e4c3f41 drivers/video/cfbfillrect.c Linus Torvalds 2005-04-16  21  
-^1da177e4c3f41 drivers/video/cfbfillrect.c Linus Torvalds 2005-04-16  22  #if BITS_PER_LONG = 32
-^1da177e4c3f41 drivers/video/cfbfillrect.c Linus Torvalds 2005-04-16  23  #  define FB_WRITEL fb_writel
-^1da177e4c3f41 drivers/video/cfbfillrect.c Linus Torvalds 2005-04-16  24  #  define FB_READL  fb_readl
-^1da177e4c3f41 drivers/video/cfbfillrect.c Linus Torvalds 2005-04-16  25  #else
-^1da177e4c3f41 drivers/video/cfbfillrect.c Linus Torvalds 2005-04-16 @26  #  define FB_WRITEL fb_writeq
-^1da177e4c3f41 drivers/video/cfbfillrect.c Linus Torvalds 2005-04-16 @27  #  define FB_READL  fb_readq
-^1da177e4c3f41 drivers/video/cfbfillrect.c Linus Torvalds 2005-04-16  28  #endif
-^1da177e4c3f41 drivers/video/cfbfillrect.c Linus Torvalds 2005-04-16  29  
-^1da177e4c3f41 drivers/video/cfbfillrect.c Linus Torvalds 2005-04-16  30      /*
-^1da177e4c3f41 drivers/video/cfbfillrect.c Linus Torvalds 2005-04-16  31       *  Aligned pattern fill using 32/64-bit memory accesses
-^1da177e4c3f41 drivers/video/cfbfillrect.c Linus Torvalds 2005-04-16  32       */
-^1da177e4c3f41 drivers/video/cfbfillrect.c Linus Torvalds 2005-04-16  33  
-
+diff --git a/drivers/video/fbdev/hitfb.c b/drivers/video/fbdev/hitfb.c
+index 3033f5056976..7737923b7a0a 100644
+--- a/drivers/video/fbdev/hitfb.c
++++ b/drivers/video/fbdev/hitfb.c
+@@ -42,17 +42,33 @@ static struct fb_fix_screeninfo hitfb_fix = {
+ 	.accel		= FB_ACCEL_NONE,
+ };
+ 
++static volatile void __iomem *hitfb_offset_to_addr(unsigned int offset)
++{
++	return (__force volatile void __iomem *)(uintptr_t)offset;
++}
++
++static u16 hitfb_readw(unsigned int offset)
++{
++	return fb_readw(hitfb_offset_to_addr(offset));
++}
++
++static void hitfb_writew(u16 value, unsigned int offset)
++{
++	fb_writew(value, hitfb_offset_to_addr(offset));
++}
++
+ static inline void hitfb_accel_wait(void)
+ {
+-	while (fb_readw(HD64461_GRCFGR) & HD64461_GRCFGR_ACCSTATUS) ;
++	while (hitfb_readw(HD64461_GRCFGR) & HD64461_GRCFGR_ACCSTATUS)
++		;
+ }
+ 
+ static inline void hitfb_accel_start(int truecolor)
+ {
+ 	if (truecolor) {
+-		fb_writew(6, HD64461_GRCFGR);
++		hitfb_writew(6, HD64461_GRCFGR);
+ 	} else {
+-		fb_writew(7, HD64461_GRCFGR);
++		hitfb_writew(7, HD64461_GRCFGR);
+ 	}
+ }
+ 
+@@ -63,11 +79,11 @@ static inline void hitfb_accel_set_dest(int truecolor, u16 dx, u16 dy,
+ 	if (truecolor)
+ 		saddr <<= 1;
+ 
+-	fb_writew(width-1, HD64461_BBTDWR);
+-	fb_writew(height-1, HD64461_BBTDHR);
++	hitfb_writew(width-1, HD64461_BBTDWR);
++	hitfb_writew(height-1, HD64461_BBTDHR);
+ 
+-	fb_writew(saddr & 0xffff, HD64461_BBTDSARL);
+-	fb_writew(saddr >> 16, HD64461_BBTDSARH);
++	hitfb_writew(saddr & 0xffff, HD64461_BBTDSARL);
++	hitfb_writew(saddr >> 16, HD64461_BBTDSARH);
+ 
+ }
+ 
+@@ -80,7 +96,7 @@ static inline void hitfb_accel_bitblt(int truecolor, u16 sx, u16 sy, u16 dx,
+ 
+ 	height--;
+ 	width--;
+-	fb_writew(rop, HD64461_BBTROPR);
++	hitfb_writew(rop, HD64461_BBTROPR);
+ 	if ((sy < dy) || ((sy = dy) && (sx <= dx))) {
+ 		saddr = WIDTH * (sy + height) + sx + width;
+ 		daddr = WIDTH * (dy + height) + dx + width;
+@@ -91,32 +107,32 @@ static inline void hitfb_accel_bitblt(int truecolor, u16 sx, u16 sy, u16 dx,
+ 				maddr  				    (((width >> 4) + 1) * (height + 1) - 1) * 2;
+ 
+-			fb_writew((1 << 5) | 1, HD64461_BBTMDR);
++			hitfb_writew((1 << 5) | 1, HD64461_BBTMDR);
+ 		} else
+-			fb_writew(1, HD64461_BBTMDR);
++			hitfb_writew(1, HD64461_BBTMDR);
+ 	} else {
+ 		saddr = WIDTH * sy + sx;
+ 		daddr = WIDTH * dy + dx;
+ 		if (mask_addr) {
+-			fb_writew((1 << 5), HD64461_BBTMDR);
++			hitfb_writew((1 << 5), HD64461_BBTMDR);
+ 		} else {
+-			fb_writew(0, HD64461_BBTMDR);
++			hitfb_writew(0, HD64461_BBTMDR);
+ 		}
+ 	}
+ 	if (truecolor) {
+ 		saddr <<= 1;
+ 		daddr <<= 1;
+ 	}
+-	fb_writew(width, HD64461_BBTDWR);
+-	fb_writew(height, HD64461_BBTDHR);
+-	fb_writew(saddr & 0xffff, HD64461_BBTSSARL);
+-	fb_writew(saddr >> 16, HD64461_BBTSSARH);
+-	fb_writew(daddr & 0xffff, HD64461_BBTDSARL);
+-	fb_writew(daddr >> 16, HD64461_BBTDSARH);
++	hitfb_writew(width, HD64461_BBTDWR);
++	hitfb_writew(height, HD64461_BBTDHR);
++	hitfb_writew(saddr & 0xffff, HD64461_BBTSSARL);
++	hitfb_writew(saddr >> 16, HD64461_BBTSSARH);
++	hitfb_writew(daddr & 0xffff, HD64461_BBTDSARL);
++	hitfb_writew(daddr >> 16, HD64461_BBTDSARH);
+ 	if (mask_addr) {
+ 		maddr += mask_addr;
+-		fb_writew(maddr & 0xffff, HD64461_BBTMARL);
+-		fb_writew(maddr >> 16, HD64461_BBTMARH);
++		hitfb_writew(maddr & 0xffff, HD64461_BBTMARL);
++		hitfb_writew(maddr >> 16, HD64461_BBTMARH);
+ 	}
+ 	hitfb_accel_start(truecolor);
+ }
+@@ -127,17 +143,17 @@ static void hitfb_fillrect(struct fb_info *p, const struct fb_fillrect *rect)
+ 		cfb_fillrect(p, rect);
+ 	else {
+ 		hitfb_accel_wait();
+-		fb_writew(0x00f0, HD64461_BBTROPR);
+-		fb_writew(16, HD64461_BBTMDR);
++		hitfb_writew(0x00f0, HD64461_BBTROPR);
++		hitfb_writew(16, HD64461_BBTMDR);
+ 
+ 		if (p->var.bits_per_pixel = 16) {
+-			fb_writew(((u32 *) (p->pseudo_palette))[rect->color],
++			hitfb_writew(((u32 *) (p->pseudo_palette))[rect->color],
+ 				  HD64461_GRSCR);
+ 			hitfb_accel_set_dest(1, rect->dx, rect->dy, rect->width,
+ 					     rect->height);
+ 			hitfb_accel_start(1);
+ 		} else {
+-			fb_writew(rect->color, HD64461_GRSCR);
++			hitfb_writew(rect->color, HD64461_GRSCR);
+ 			hitfb_accel_set_dest(0, rect->dx, rect->dy, rect->width,
+ 					     rect->height);
+ 			hitfb_accel_start(0);
+@@ -162,7 +178,7 @@ static int hitfb_pan_display(struct fb_var_screeninfo *var,
+ 	if (xoffset != 0)
+ 		return -EINVAL;
+ 
+-	fb_writew((yoffset*info->fix.line_length)>>10, HD64461_LCDCBAR);
++	hitfb_writew((yoffset*info->fix.line_length)>>10, HD64461_LCDCBAR);
+ 
+ 	return 0;
+ }
+@@ -172,33 +188,33 @@ int hitfb_blank(int blank_mode, struct fb_info *info)
+ 	unsigned short v;
+ 
+ 	if (blank_mode) {
+-		v = fb_readw(HD64461_LDR1);
++		v = hitfb_readw(HD64461_LDR1);
+ 		v &= ~HD64461_LDR1_DON;
+-		fb_writew(v, HD64461_LDR1);
++		hitfb_writew(v, HD64461_LDR1);
+ 
+-		v = fb_readw(HD64461_LCDCCR);
++		v = hitfb_readw(HD64461_LCDCCR);
+ 		v |= HD64461_LCDCCR_MOFF;
+-		fb_writew(v, HD64461_LCDCCR);
++		hitfb_writew(v, HD64461_LCDCCR);
+ 
+-		v = fb_readw(HD64461_STBCR);
++		v = hitfb_readw(HD64461_STBCR);
+ 		v |= HD64461_STBCR_SLCDST;
+-		fb_writew(v, HD64461_STBCR);
++		hitfb_writew(v, HD64461_STBCR);
+ 	} else {
+-		v = fb_readw(HD64461_STBCR);
++		v = hitfb_readw(HD64461_STBCR);
+ 		v &= ~HD64461_STBCR_SLCDST;
+-		fb_writew(v, HD64461_STBCR);
++		hitfb_writew(v, HD64461_STBCR);
+ 
+-		v = fb_readw(HD64461_LCDCCR);
++		v = hitfb_readw(HD64461_LCDCCR);
+ 		v &= ~(HD64461_LCDCCR_MOFF | HD64461_LCDCCR_STREQ);
+-		fb_writew(v, HD64461_LCDCCR);
++		hitfb_writew(v, HD64461_LCDCCR);
+ 
+ 		do {
+-		    v = fb_readw(HD64461_LCDCCR);
++		    v = hitfb_readw(HD64461_LCDCCR);
+ 		} while(v&HD64461_LCDCCR_STBACK);
+ 
+-		v = fb_readw(HD64461_LDR1);
++		v = hitfb_readw(HD64461_LDR1);
+ 		v |= HD64461_LDR1_DON;
+-		fb_writew(v, HD64461_LDR1);
++		hitfb_writew(v, HD64461_LDR1);
+ 	}
+ 	return 0;
+ }
+@@ -211,10 +227,10 @@ static int hitfb_setcolreg(unsigned regno, unsigned red, unsigned green,
+ 
+ 	switch (info->var.bits_per_pixel) {
+ 	case 8:
+-		fb_writew(regno << 8, HD64461_CPTWAR);
+-		fb_writew(red >> 10, HD64461_CPTWDR);
+-		fb_writew(green >> 10, HD64461_CPTWDR);
+-		fb_writew(blue >> 10, HD64461_CPTWDR);
++		hitfb_writew(regno << 8, HD64461_CPTWAR);
++		hitfb_writew(red >> 10, HD64461_CPTWDR);
++		hitfb_writew(green >> 10, HD64461_CPTWDR);
++		hitfb_writew(blue >> 10, HD64461_CPTWDR);
+ 		break;
+ 	case 16:
+ 		if (regno >= 16)
+@@ -302,11 +318,11 @@ static int hitfb_set_par(struct fb_info *info)
+ 		break;
+ 	}
+ 
+-	fb_writew(info->fix.line_length, HD64461_LCDCLOR);
+-	ldr3 = fb_readw(HD64461_LDR3);
++	hitfb_writew(info->fix.line_length, HD64461_LCDCLOR);
++	ldr3 = hitfb_readw(HD64461_LDR3);
+ 	ldr3 &= ~15;
+ 	ldr3 |= (info->var.bits_per_pixel = 8) ? 4 : 8;
+-	fb_writew(ldr3, HD64461_LDR3);
++	hitfb_writew(ldr3, HD64461_LDR3);
+ 	return 0;
+ }
+ 
+@@ -337,9 +353,9 @@ static int hitfb_probe(struct platform_device *dev)
+ 	hitfb_fix.smem_start = HD64461_IO_OFFSET(0x02000000);
+ 	hitfb_fix.smem_len = 512 * 1024;
+ 
+-	lcdclor = fb_readw(HD64461_LCDCLOR);
+-	ldvndr = fb_readw(HD64461_LDVNDR);
+-	ldr3 = fb_readw(HD64461_LDR3);
++	lcdclor = hitfb_readw(HD64461_LCDCLOR);
++	ldvndr = hitfb_readw(HD64461_LDVNDR);
++	ldr3 = hitfb_readw(HD64461_LDR3);
+ 
+ 	switch (ldr3 & 15) {
+ 	default:
+@@ -429,9 +445,9 @@ static int hitfb_suspend(struct device *dev)
+ 	u16 v;
+ 
+ 	hitfb_blank(1,0);
+-	v = fb_readw(HD64461_STBCR);
++	v = hitfb_readw(HD64461_STBCR);
+ 	v |= HD64461_STBCR_SLCKE_IST;
+-	fb_writew(v, HD64461_STBCR);
++	hitfb_writew(v, HD64461_STBCR);
+ 
+ 	return 0;
+ }
+@@ -440,12 +456,12 @@ static int hitfb_resume(struct device *dev)
+ {
+ 	u16 v;
+ 
+-	v = fb_readw(HD64461_STBCR);
++	v = hitfb_readw(HD64461_STBCR);
+ 	v &= ~HD64461_STBCR_SLCKE_OST;
+ 	msleep(100);
+-	v = fb_readw(HD64461_STBCR);
++	v = hitfb_readw(HD64461_STBCR);
+ 	v &= ~HD64461_STBCR_SLCKE_IST;
+-	fb_writew(v, HD64461_STBCR);
++	hitfb_writew(v, HD64461_STBCR);
+ 	hitfb_blank(0,0);
+ 
+ 	return 0;
 -- 
-0-DAY CI Kernel Test Service
-https://github.com/intel/lkp-tests
+2.40.1
