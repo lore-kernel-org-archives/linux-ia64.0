@@ -1,164 +1,52 @@
-From: Thomas Zimmermann <tzimmermann@suse.de>
-Date: Fri, 12 May 2023 07:14:06 +0000
+From: Finn Thain <fthain@linux-m68k.org>
+Date: Fri, 12 May 2023 10:04:48 +0000
 Subject: Re: [PATCH v6 1/6] fbdev/matrox: Remove trailing whitespaces
-Message-Id: <226e8c7c-2b61-02e8-c779-1c247b695fc2@suse.de>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------CpjIwvptAxhso7bcVtW45TYd"
+Message-Id: <7c2a6687-9c4e-efed-5e25-774b582e9a27@linux-m68k.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230510110557.14343-1-tzimmermann@suse.de>
- <20230510110557.14343-2-tzimmermann@suse.de>
- <0e13efbf-9a48-6e70-fdf3-8290f28c6dc7@189.cn>
- <a2315b9a-0747-1f0f-1f0a-1c6773931db4@suse.de>
- <15fe1489-f0fa-bbf6-ec08-a270bd4f1559@gmx.de>
+References: <20230510110557.14343-1-tzimmermann@suse.de> <20230510110557.14343-2-tzimmermann@suse.de> <0e13efbf-9a48-6e70-fdf3-8290f28c6dc7@189.cn> <a2315b9a-0747-1f0f-1f0a-1c6773931db4@suse.de> <15fe1489-f0fa-bbf6-ec08-a270bd4f1559@gmx.de>
  <e7bd021c-1a6b-6e47-143a-36ae2fd2fe6b@suse.de>
- <1c7ca6d3-76d7-047b-42ac-716e12946f90@gmx.de>
-In-Reply-To: <1c7ca6d3-76d7-047b-42ac-716e12946f90@gmx.de>
-To: Helge Deller <deller@gmx.de>, Sui Jingfeng <15330273260@189.cn>, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, arnd@arndb.de, sam@ravnborg.org
-Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org
+In-Reply-To: <e7bd021c-1a6b-6e47-143a-36ae2fd2fe6b@suse.de>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Thomas Zimmermann <tzimmermann@suse.de>
+Cc: Helge Deller <deller@gmx.de>, Sui Jingfeng <15330273260@189.cn>, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, arnd@arndb.de, sam@ravnborg.org, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---------------CpjIwvptAxhso7bcVtW45TYd
-Content-Type: multipart/mixed; boundary="------------arN0JqGEEJ97vExxMBPaev5v";
- protected-headers="v1"
-From: Thomas Zimmermann <tzimmermann@suse.de>
-To: Helge Deller <deller@gmx.de>, Sui Jingfeng <15330273260@189.cn>,
- geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch,
- vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name,
- davem@davemloft.net, arnd@arndb.de, sam@ravnborg.org
-Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org,
- linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org,
- linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org,
- loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org,
- sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- linux-parisc@vger.kernel.org
-Message-ID: <226e8c7c-2b61-02e8-c779-1c247b695fc2@suse.de>
-Subject: Re: [PATCH v6 1/6] fbdev/matrox: Remove trailing whitespaces
-References: <20230510110557.14343-1-tzimmermann@suse.de>
- <20230510110557.14343-2-tzimmermann@suse.de>
- <0e13efbf-9a48-6e70-fdf3-8290f28c6dc7@189.cn>
- <a2315b9a-0747-1f0f-1f0a-1c6773931db4@suse.de>
- <15fe1489-f0fa-bbf6-ec08-a270bd4f1559@gmx.de>
- <e7bd021c-1a6b-6e47-143a-36ae2fd2fe6b@suse.de>
- <1c7ca6d3-76d7-047b-42ac-716e12946f90@gmx.de>
-In-Reply-To: <1c7ca6d3-76d7-047b-42ac-716e12946f90@gmx.de>
+On Thu, 11 May 2023, Thomas Zimmermann wrote:
 
---------------arN0JqGEEJ97vExxMBPaev5v
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: base64
+> But I'd really like to see most of these drivers being moved into 
+> staging and deleted soon afterwards. Users will complain about those 
+> drivers that are really still required. Those might be worth to spend 
+> effort on.
+> 
 
-SGkNCg0KQW0gMTEuMDUuMjMgdW0gMTk6MDIgc2NocmllYiBIZWxnZSBEZWxsZXI6DQo+IE9u
-IDUvMTEvMjMgMTY6MjcsIFRob21hcyBaaW1tZXJtYW5uIHdyb3RlOg0KPj4+PiBCdXQgdGhl
-IHdvcmsgSSBkbyB3aXRoaW4gZmJkZXYgaXMgbW9zdGx5IGZvciBpbXByb3ZpbmcgRFJNLg0K
-Pj4+DQo+Pj4gU3VyZS4NCj4+Pg0KPj4+PiBGb3IgdGhlDQo+Pj4+IG90aGVyIGlzc3VlcyBp
-biB0aGlzIGZpbGUsIEkgZG9uJ3QgdGhpbmsgdGhhdCBtYXRyb3hmYiBzaG91bGQgZXZlbiBi
-ZQ0KPj4+PiBhcm91bmQgYW55IGxvbmdlci4gRmJkZXYgaGFzIGJlZW4gZGVwcmVjYXRlZCBm
-b3IgYSBsb25nIHRpbWUuIEJ1dCBhDQo+Pj4+IHNtYWxsIG51bWJlciBvZiBkcml2ZXJzIGFy
-ZSBzdGlsbCBpbiB1c2UgYW5kIHdlIHN0aWxsIG5lZWQgaXRzDQo+Pj4+IGZyYW1lYnVmZmVy
-IGNvbnNvbGUuIFNvIHNvbWVvbmUgc2hvdWxkIGVpdGhlciBwdXQgc2lnbmlmaWNhbnQgZWZm
-b3J0DQo+Pj4+IGludG8gbWFpbnRhaW5pbmcgZmJkZXYsIG9yIGl0IHNob3VsZCBiZSBwaGFz
-ZWQgb3V0LiBCdXQgbmVpdGhlciBpcw0KPj4+PiBoYXBwZW5pbmcuDQo+Pj4NCj4+PiBZb3Un
-cmUgd3JvbmcuDQo+Pg0KPiANCj4+IEknbSBub3QuIEkgZG9uJ3QgY2xhaW0gdGhhdCB0aGVz
-ZSBkcml2ZXJzIGFyZSBhbGwgYnJva2VuLiBCdXQgZmJkZXYNCj4+IGFzIGEgd2hvbGUgaXMg
-Yml0LXJvdHRpbmcgYW5kIG5vIG9uZSBhdHRlbXB0cyB0byBhZGRyZXNzIHRoaXMuIFRoZXJl
-DQo+PiBhcmUgc2V2ZXJhbCByZWNlbnQgZXhhbXBsZXMgb2YgdGhpczoNCj4+DQo+PiAqIEkg
-cmVjZW50bHkgc2VuZCBvdXQgYSAxMDAtcGF0Y2hlcyBzZXJpZXMgdG8gaW1wcm92ZSBwYXJh
-bWV0ZXINCj4+IHBhcnNpbmcgYW5kIGF2b2lkIG1lbW9yeSBsZWFrcy4gVGhhdCBnb3Qgc2hv
-dCBkb3duLiBJIGRpZG4ndCBhdHRlbXB0DQo+PiB0byBzdXBwb3J0IHBhcmFtZXRlciBwYXJz
-aW5nIGZvciBtb2R1bGUgYnVpbGRzLg0KPiANCj4gWW91ciB3b3JrIGlzIGFwcHJlY2lhdGVk
-IGFuZCBpdCB3YXNuJ3Qgc2hvdCBkb3duLCBidXQgaXQgd2Fzbid0IHBlcmZlY3QgDQo+IGVp
-dGhlci4NCj4gDQo+PiAqIFRoZXJlJ3MgYmVlbiBhIDE1LXlycyBvbGQgYnVnIGluIGZiZGV2
-J3MgcmVhZC93cml0ZSB3aGVyZSB0aGV5DQo+PiByZXR1cm4gYW4gaW5jb3JyZWN0IHZhbHVl
-Lg0KPiANCj4gPw0KDQpUaGlzIG9uZToNCg0KaHR0cHM6Ly9wYXRjaHdvcmsuZnJlZWRlc2t0
-b3Aub3JnL3BhdGNoLzUzNDY2OC8/c2VyaWVzPTExNjkzMSZyZXY9Mg0KDQo+IA0KPj4gKiBT
-ZWUgdGhlIG90aGVyIGRpc2N1c3Npb24gb24gdGhpcyBwYXRjaHNldCBvbiB0aGUgc3RhdGUg
-b2YgaGl0ZmIuDQo+Pg0KPj4gKiBUaGUgZmJkZXYgY29kZSBJIHJlY2VudGx5IGNsZWFuZWQg
-dXAgaGFkIGJ1Z3MgaW4gaG93IGl0IHVzZXMgc29tZQ0KPj4gb2YgZmJkZXYncyBiYXNpYyBi
-dWlsZGluZyBibG9ja3MgKHNlZSB0aGUgc2NyZWVuX2Jhc2Uvc2NyZWVuX2J1ZmZlcg0KPj4g
-Y29uZnVzaW9uKS4NCj4gDQo+IEFzIHlvdSBzYWlkLi4uIHNvbWUgKGxpdHRsZS11c2VkL291
-dGRhdGVkKSBkcml2ZXJzIG1heSBoYXZlIGlzc3Vlcw0KPiB3aGljaCBvZiBjb3Vyc2Ugc2hv
-dyB1cCBpZiBvbmUgc3RhcnRzIHRvIGNsZWFuIHVwLCBhcyB5b3UgZG8uDQo+IE9uIGEgcGVy
-LWRyaXZlciBiYXNpcyBpdCBjYW4gbWFrZSBzZW5zZSB0byBkcm9wIGEgc3BlY2lmaWMgZHJp
-dmVyLg0KPiANCj4+ICogPGFzbS1nZW5lcmljL2ZiLmg+IGhhcyBiZWVuIGluIHRoZSB0cmVl
-IHNpbmNlIDIwMDkgYW5kIG5vIG9uZQ0KPj4gYXR0ZW1wdGVkIHRvIGluY2x1ZGUgaXQgdW50
-aWwgbm93Lg0KPj4NCj4+IE5vbmUgb2YgdGhpcyBpcyBhIHNpZ24gb2YgZ29vZCBtYWludGVu
-YW5jZS4NCg0KTGV0IG1lIGFkZCB0aGF0IEknbSBub3QgcG9pbnRpbmcgZmluZ2VycyBhdCBh
-bnlvbmUuIEl0J3MganVzdCB0aGUgDQpjdXJyZW50IHN0YXR1cyBBRkFJQ1QuDQoNCj4+IEFz
-IEkndmUgd29ya2VkIG9uIERSTSdzIGZiZGV2IGVtdWxhdGlvbiBhIGxvdCwgSSB0cnkgdG8g
-YmUgYSBnb29kDQo+PiBrZXJuZWwgY2l0aXplbiBhbmQgY2xlYW4gdXAgaW4gZmJkZXYgYXMg
-d2VsbCB3aGVuIEkgc2VlIGEgcHJvYmxlbS4+IA0KPj4gQnV0IEknZCByZWFsbHkgbGlrZSB0
-byBzZWUgbW9zdCBvZiB0aGVzZSBkcml2ZXJzIGJlaW5nIG1vdmVkIGludG8NCj4+IHN0YWdp
-bmcgYW5kIGRlbGV0ZWQgc29vbiBhZnRlcndhcmRzLiBVc2VycyB3aWxsIGNvbXBsYWluIGFi
-b3V0IHRob3NlDQo+PiBkcml2ZXJzIHRoYXQgYXJlIHJlYWxseSBzdGlsbCByZXF1aXJlZC4g
-VGhvc2UgbWlnaHQgYmUgd29ydGggdG8gc3BlbmQNCj4+IGVmZm9ydCBvbi4NCj4gDQo+IEkn
-ZCByZWFsbHkgbGlrZSB0byBzZWUgYSB3YXkgZm9yd2FyZCBhbmQgZ2V0IHRoZSByZXF1aXJl
-ZCBkcml2ZXJzIG92ZXIgdG8NCj4gRFJNLCBlLmcuIGJhc2VkIG9uIHlvdXIgc2ltcGxlZHJt
-IGRyaXZlci4NCj4gSWYgdGhlcmUgaXMgYSB3YXkgdG8gZ2V0IGJhc2ljIG9uLXNjcmVlbiAy
-RCBiaXRibHQgYW5kIGZpbGxyZWN0IHN1cHBvcnQsDQo+IGl0IHdvdWxkIGRyb3AgdGhlIG5l
-ZWQgZm9yIG1vc3Qgb2YgdGhlIGZiZGV2IGRyaXZlcnMuDQo+IFRoZSBjdXJyZW50IHdheSBv
-ZiBiaXRibHQnaW5nIGZyb20gYSBidWZmZXIgb24gcmVndWxhciBiYXNpcyBpc3RvbyBzbG93
-IA0KPiBmb3Igc3VjaCBvbGRlciBjYXJkcy4gRXZlbiBvbiBuZXcgaGFyZHdhcmUgaW4gZW11
-bGF0b3JzIHRoZXJlDQo+IGlzIGEgYmlnIHNsb3dkb3duIHZpc2libGUuDQoNCkknZCBiZSBo
-YXBweSB0byB0cnkgdG8gZHJvcCB0aGUgdW51c2VkL29ic29sZXRlL2Jyb2tlbiBkcml2ZXJz
-LiBGb3IgdGhlIA0KcmVzdCwgSSdkIGRlc2lnbmF0ZSBmYmRldiBhcyBhIGdyYXBoaWNzIGNv
-bnNvbGUgZm9yIHN5c3RlbXMgd2l0aG91dCB0ZXh0IA0KbW9kZS4gSSB0aGluayB0aGF0IHdh
-cyB0aGUgb3JpZ2luYWwgaW50ZW50aW9uLg0KDQo+IA0KPj4+IFlvdSBkb24ndCBtZW50aW9u
-IHRoYXQgZm9yIG1vc3Qgb2xkZXIgbWFjaGluZXMgRFJNIGlzbid0IGFuDQo+Pj4gYWNjZXB0
-YWJsZSB3YXkgdG8gZ28gZHVlIHRvIGl0J3MgbGltaXRhdGlvbnMsIGUuZy4gaXQncyBsb3ct
-c3BlZWQNCj4+PiBkdWUgdG8gbWlzc2luZyAyRC1hY2NlbGVyYXRpb24gZm9yIG9sZGVyIGNh
-cmRzIGFuZCBhbmQgaXQncw0KPj4+IGluY2FwYWJpbGl0eSB0byBjaGFuZ2Ugc2NyZWVuIHJl
-c29sdXRpb24gYXQgcnVudGltZSAoanVzdCB0byBuYW1lDQo+Pj4gdHdvIG9mIHRoZSBiaWdn
-ZXIgbGltaXRhdGlvbnMgaGVyZSkuDQo+Pg0KPj4gWW91IGNhbiBjaGFuZ2UgcmVzb2x1dGlv
-biBhdCBydW50aW1lOyBqdXN0IG5vdCB0aHJvdWdoIGZiZGV2IGlvY3Rscy4NCj4+IFRoZXJl
-J3Mgbm8gdGVjaG5pY2FsIGxpbWl0YXRpb24gaGVyZS4gTm8gb25lIGZvdW5kIGFueSB1c2Ug
-Zm9yIHRoaXMsDQo+PiBzbyBpdCdzIG5vdCB0aGVyZS4NCj4gDQo+IGZiZGV2IGRyaXZlcnMg
-d291bGQgbmVlZCB0aGF0IHdoZW4gcG9ydGVkIHRvIERSTS4NCg0KV2h5PyBVc2Vyc3BhY2Ug
-d291bGQgdGhlbiBzaW1wbHkgdXNlIERSTSBpb2N0bHMgdG8gc2V0IHRoZSBkaXNwbGF5IG1v
-ZGUuDQoNCj4+PiBTbywgdW5sZXNzIHdlIHNvbWVob3cgZmluZCBhIGdvb2Qgd2F5IHRvIG1v
-dmUgc3VjaCBkcml2ZXJzIG92ZXIgdG8NCj4+PiBEUk0gKHdpdGggYSBzZXQgb2YgbWluaW1h
-bCAyRCBhY2NlbGVyYXRpb24pLCB0aGV5IGFyZSBzdGlsbA0KPj4+IGltcG9ydGFudC4NCj4+
-DQo+PiAyZCBhY2NlbGVyYXRpb24gaXMgbW9zdGx5IHVzZWZ1bCBmb3IgdGhlIGZyYW1lYnVm
-ZmVyIGNvbnNvbGUuDQo+IA0KPiBhbmQgWDExDQo+IA0KPj4gWW91IGNhbg0KPj4gZG8gdGhh
-dCB3aXRoIERSTSBhbmQgZHJpdmVycyBoYXZlIChub3V2ZWF1KS4gSXQganVzdCBkaWRuJ3Qg
-bWFrZSBhDQo+PiBtZWFuaW5nZnVsIGRpZmZlcmVuY2UgaW4gbW9zdCBjYXNlcy4NCj4gDQo+
-IGlmIG5vdXZlYXUgZ290IGl0LCBjYW4ndCBpdCBiZSBkb25lIGZvciBzaW1wbGVkcm0gaW4g
-YSBnZW5lcmljIHdheSB0b28/DQoNClByb2JhYmx5IG5vLCBhcyBpdCBkZXBlbmRzIG9uIHRo
-ZSBoYXJkd2FyZSBmZWF0dXJlcy4gVGhlIERSTSBkcml2ZXIgDQp3b3VsZCBoYXZlIHRvIGlt
-cGxlbWVudCBpdCdzIG93biBmYmRldiBzdXBwb3J0LiBUaGF0J3Mgbm90IHRvbyANCmNvbXBs
-aWNhdGVkLCBidXQgc3RpbGwgbm90IHBvcnRhYmxlIGFtb25nIGRyaXZlcnMuDQoNCj4gDQo+
-Pj4gQWN0dWFsbHksIEkganVzdCBkaWQgdGVzdCBtYXRyb3hmYiBhbmQgcG0yZmIgc3VjY2Vz
-c2Z1bGx5IGEgZmV3DQo+Pj4gZGF5cyBiYWNrLCBhbmQgdGhleSB3b3JrZWQuIEZvciBzb21l
-IHNtYWxsZXIgaXNzdWVzIEkndmUgcHJlcGFyZWQNCj4+PiBwYXRjaGVzLCB3aGljaCBhcmUg
-b24gaG9sZCBkdWUgY29uZmxpY3RzIHdpdGggeW91ciBsYXRlc3QNCj4+PiBmaWxlLW1vdmUt
-YXJvdW5kLSBhbmQgd2hpdGVzcGFjZS1jaGFuZ2VzIHdoaWNoIGFyZSBwYXJ0bHkgaW4NCj4+
-PiBkcm0tbWlzYy4gQW5kIEkgZG8gaGF2ZSBzb21lIHVwY29taW5nIGFkZGl0aW9uYWwgcGF0
-Y2hlcyBmb3INCj4+PiBjb25zb2xlIHN1cHBvcnQuDQo+IA0KPiBIZWxnZQ0KDQotLSANClRo
-b21hcyBaaW1tZXJtYW5uDQpHcmFwaGljcyBEcml2ZXIgRGV2ZWxvcGVyDQpTVVNFIFNvZnR3
-YXJlIFNvbHV0aW9ucyBHZXJtYW55IEdtYkgNCkZyYW5rZW5zdHJhc3NlIDE0NiwgOTA0NjEg
-TnVlcm5iZXJnLCBHZXJtYW55DQpHRjogSXZvIFRvdGV2LCBBbmRyZXcgTXllcnMsIEFuZHJl
-dyBNY0RvbmFsZCwgQm91ZGllbiBNb2VybWFuDQpIUkIgMzY4MDkgKEFHIE51ZXJuYmVyZykN
-Cg==
+That strategy is not going to find out what functionality is required. 
+Instead it will find out which beneficiaries are capable of overcoming all 
+of the hurdles to reverting deletion:
 
---------------arN0JqGEEJ97vExxMBPaev5v--
+ - Find out how to report a regression correctly.
+ - Gather all the necessary information.
+ - Obtain buy-in from a sympathetic developer.
+ - Build a patched kernel, test it and provide the results. (And possibly 
+   repeat the same until neglected code becomes accepted.)
+ - Wait for the relevant distro to release the relevant kernel update. 
 
---------------CpjIwvptAxhso7bcVtW45TYd
-Content-Type: application/pgp-signature; name="OpenPGP_signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="OpenPGP_signature"
+Developers tend to overlook the burden of process because it's ostensibly 
+done to raise code quality. But it seems to me that affected users are 
+more likely to seek a workaround than undertake the process.
 
------BEGIN PGP SIGNATURE-----
+So deletion doesn't discover end-user requirements. What it does is 
+advertise a vacancy for an unpaid adoptive maintainer, somehow presumed to 
+be found amongst a very well remunerated and very small pool of talent.
 
-wsF5BAABCAAjFiEExndm/fpuMUdwYFFolh/E3EQov+AFAmRd5z4FAwAAAAAACgkQlh/E3EQov+B5
-Jw/8DTcD7AgKgsFpdF4cm40Pzgaqzq5MGz7PikuLGkWQAa8s9xMv3R5S9ZqOe34fjGFOkhZLxgFt
-7NamEUbAbjrHOfJ497O2oS3QzIiizOJGGta7gkocMbKpufCliP9TVPsL8QM9LlYQBtpbDQ+R3x9B
-mhxWNzAhg5zhAQmy43QKLGnIKjmf1wCM71p0z1hox/YB2fqNJPGrq/3jqgB1x77fkO6n6ut6iw0j
-OyNFGVMlwHyurrjzZ4VzeXsxkuAe02BVWNxdbH6/Aq/bl+AIF9WqXVyYL2qFiSjbP8TiIpEmeXCI
-+z8xleLPMbxhhDemjoBeEKHmiyKtBCgImDg/k9NdWvFD1KLXk9bhW9NEJWl97Po5hZ8Na46P8gvX
-Y6HMAaoibsfPlw2V/3hE1nko3NtOPcxSAdAvmXWej1N3hQehoL/yy8PBDqBVppAu8syfzdufFJlY
-SCKkKMIdFdQYyr3Bb4SoGVgSfxMXGUJGRk0yIIChiDNiWw+NvnN/Tmsr9xZWA7tosNJzZmmVdFEN
-ZfWzekH5Sq6dHlIJRfTBnIzKfpiW7jlS9G7yXSo0srXgT9OTXfCpfRlEcWTOLeFMD4eo3eRqKtV8
-Cnzzaaqktx4NEHpDBeUDNUt5bguFGClqz3sTPIxMtzvDhVhWfNn+GipP0hJPxAI87DuxDtpAUGfz
-5P4=
-=57wd
------END PGP SIGNATURE-----
+The way I look at it, the maintainence of old code is the price of a 
+so-called "right to repair". But there ain't no free lunch and if we want 
+that right we should seek ways to reduce that price. For example, by 
+making a larger talent pool more effective, by re-using more code and by 
+improving the tooling and automation.
 
---------------CpjIwvptAxhso7bcVtW45TYd--
+The code I'd delete first wouldn't be a small amount of old code in need 
+of sponsorship. Or even the most buggy code. The first to go would be that 
+code which will never find an actual end user because some portion of the 
+code required to actually use certain platforms was never mainlined by the 
+vendor -- and never will be without some push-back.
