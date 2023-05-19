@@ -1,59 +1,88 @@
-From: Frank Scheiner <frank.scheiner@web.de>
-Date: Fri, 19 May 2023 20:17:37 +0000
+From: matoro <matoro_mailinglist_kernel@matoro.tk>
+Date: Fri, 19 May 2023 20:56:36 +0000
 Subject: Re: [crosspost] dropping support for ia64
-Message-Id: <12a3e3c5-9465-c97f-58ab-938e80681fbc@web.de>
+Message-Id: <5e778e16f93f2286fa535597ba5da24b@matoro.tk>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <CAMj1kXFCMh_578jniKpUtx_j8ByHnt=s7S+yQ+vGbKt9ud7+kQ@mail.gmail.com>
 In-Reply-To: <CAMj1kXFCMh_578jniKpUtx_j8ByHnt=s7S+yQ+vGbKt9ud7+kQ@mail.gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
 To: linux-ia64@vger.kernel.org
 
-RGVhciBtYXRvcm8sIEZsb3JpYW4sDQoNCk9uIDE3LjA1LjIzIDIzOjQ3LCBtYXRvcm8gd3Jv
-dGU6DQo+IE9uIDIwMjMtMDUtMTcgMTU6MzksIEZsb3JpYW4gV2VpbWVyIHdyb3RlOg0KPj4g
-KiBGcmFuayBTY2hlaW5lcjoNCj4+DQo+Pj4gT24gMTIuMDUuMjMgMTc6NTcsIEFyZCBCaWVz
-aGV1dmVsIHdyb3RlOg0KPj4+PiBUaGUgYm90dG9tIGxpbmUgaXMgdGhhdCwgd2hpbGUgSSBr
-bm93IG9mIGF0IGxlYXN0IDIgcGVvcGxlIChvbiBjYykNCj4+Pj4gdGhhdCB0ZXN0IHN0dWZm
-IG9uIGl0YW5pdW0sIGFuZCBwYWNrYWdlIHNvZnR3YXJlIGZvciBpdCwgSSBkb24ndCB0aGlu
-aw0KPj4+PiB0aGVyZSBhcmUgYW55IGFjdHVhbCB1c2VycyByZW1haW5pbmcsIGFuZCBzbyBp
-dCBpcyBkb3VidGZ1bCB3aGV0aGVyIGl0DQo+Pj4+IGlzIGp1c3RpZmllZCB0byBhc2sgcGVv
-cGxlIHRvIHNwZW5kIHRpbWUgYW5kIGVmZm9ydCBvbiB0aGlzLg0KPj4+DQo+Pj4gV2hpbGUg
-SSBnZXQgeW91ciBhcmd1bWVudCwgSSBhbHNvIGZpbmQgaXQgaW1wb3J0YW50IHRvIGJlIGFi
-bGUgdG8NCj4+PiBpbm5vdmF0ZSB3aXRob3V0IGRlc3Ryb3lpbmcgdGhlIHBhc3QuIEFuZCB3
-aXRoIHRoZSBhbHJlYWR5IHNldmVybHkNCj4+PiBsaW1pdGVkIGNob2ljZSBvZiBjdXJyZW50
-IGFyY2hpdGVjdHVyZXMgZm9yIHRoZSBtYXNzZXMgKHg4NiwgYXJtKSwgaXQNCj4+PiBiZWNv
-bWVzIGV2ZW4gbW9yZSBpbXBvcnRhbnQgdG8ga2VlcCB3aGF0IHdlIGhhdmUgb3IgaGFkIGlu
-IHRoZSBwYXN0LCB0bw0KPj4+IG5vdCBlbmQgaW4gYSAiSWYgYWxsIHlvdSBoYXZlIGlzIGEg
-aGFtbWVyLCBldmVyeXRoaW5nIGxvb2tzIGxpa2UgYQ0KPj4+IG5haWwuIiB0eXBlIG9mIGZ1
-dHVyZS4NCj4+DQo+PiBUaGUgaGlzdG9yeSBkb2Vzbid0IGdvIGF3YXkuwqAgV2Ugc3RpbGwg
-aGF2ZSBwcmUtYnVpbHQgaWE2NCBzeXN0ZW0NCj4+IGltYWdlcywgdGhlIHNvdXJjZXMsIGFu
-ZCBjdXJyZW50IG1hY2hpbmVzIGNhbiBydW4gaWE2NCBjb2RlIHVuZGVyDQo+PiBRRU1VLsKg
-IFRob3NlIGhvc3Qgc3lzdGVtcyB3aWxsIHJlbWFpbiBhdmFpbGFibGUgKG1heWJlIHVuZGVy
-DQo+PiB2aXJ0dWFsaXphdGlvbikgZm9yIG1hbnksIG1hbnkgeWVhcnMgdG8gY29tZS7CoCBT
-byBpZiBhbnlvbmUgd2FudHMgdG8NCj4+IGV4cGVyaW1lbnQgd2l0aCBhbiBhcmNoaXRlY3R1
-cmUgdGhhdCBoYXMgcmVnaXN0ZXIgdHJhcCBiaXRzIGFuZCB0aGluZ3MNCj4+IGxpa2UgdGhh
-dCwgaXQncyBwb3NzaWJsZS4NCj4+DQo+PiBJIGV4cGVjdCB0aGUgcmVzdCBvZiB0aGUgaGFy
-ZHdhcmUgaXRzZWxmIGlzIG5vdCByZW1hcmthYmxlLCBhbmQNCj4+IGFueXRoaW5nIHVzZWZ1
-bCBoYXMgYmVlbiB0aG9yb3VnaGx5IHJldXNlZCBmb3Igb3RoZXIgc3lzdGVtcyAobGlrZSB3
-ZQ0KPj4gZGlkIGZvciB0aGUgSXRhbml1bSBDKysgQUJJIG9uIHRoZSBzb2Z0d2FyZSBzaWRl
-KS4NCj4+DQo+PiBGcm9tIHRoZSB1c2Vyc3BhY2Ugc2lkZSwgdGhlIGlzc3VlIGlzIG5vdCBz
-byBtdWNoIHRlc3RpbmcgKGlmIHdlDQo+PiBib3RoZXIgdG8gdGVzdCBvdXIgY2hhbmdlcyBh
-dCBhbGwsIHdlIGNhbiB1c2UgZW11bGF0aW9uKSwgYnV0DQo+PiBoYWxmLWNvbXBsZXRlZCBp
-bXBsZW1lbnRhdG9uIHdvcmsgKEkgcmFuIGludG8gbWlzc2luZyByZWxheGF0aW9ucyBpbg0K
-Pj4gdGhlIGxpbmsgZWRpdG9yIGEgd2hpbGUgYmFjaywgZm9yIGV4YW1wbGUpLCBhbmQgdGhv
-c2UgbGltaXRhdGlvbnMgaGF2ZQ0KPj4ga25vY2stb24gZWZmZWN0cyBvbiBnZW5lcmljIGNv
-ZGUgdGhhdCB3ZSBoYXZlIHRvIG1haW50YWluLg0KPiANCj4gRllJLCBRRU1VIGRvZXMgbm90
-IGhhdmUgaWE2NCBob3N0IG9yIHRhcmdldCBzdXBwb3J0LCBub3QgZXZlbiBUQ0cuDQoNCkkg
-YXNzdW1lIEZsb3JpYW4gbWVhbnMgdXNlciBtb2RlIGVtdWxhdGlvbiwgd2hpY2ggZm9yIGV4
-YW1wbGUgY2FuIGJlIA0KdXNlZCB0byBjb21wbGV0ZSBhIGBkZWJvb3RzdHJhcCAtLWZvcmVp
-Z24gWy4uLl1gIHJ1biB3aGVuIHlvdSBkb24ndCBoYXZlIA0KYW4gZXhpc3RpbmcgaWE2NCB1
-c2VybGFuZCBvbiByZWFsIGhhcmR3YXJlIGF0IGhhbmQuDQoNCkkgZG91YnQgdGhhdCBpdCB3
-b3JrcyBpbiB0aGUgZXhhY3Qgc2FtZSB3YXkgdGhhbiB0aGUgcmVhbCB0aGluZywgdGhvdWdo
-LiANClN1Y2ggZGlmZmVyZW5jZXMgYXJlIHBhcnQgb2YgdGhlIHJlYXNvbnMgd2h5IHRoZSBP
-cGVuQlNEIGRldnMgZG9uJ3Qgc2VlbSANCnRvIHVzZSBjcm9zcyBjb21waWxlcnMgb3Igdmly
-dHVhbGl6ZWQgb3IgZW11bGF0ZWQgc3lzdGVtcyB0byBwcm9kdWNlIGFuZCANCnRlc3QgdGhl
-aXIgT1MsIHRob3VnaCB0aGV5IHNlZW0gdG8gdXNlIGNyb3NzIGNvbXBpbGVycyBmb3IgdGhl
-IGJyaW5ndXAgDQpvZiBuZXcgcGxhdGZvcm1zIElJQy4NCg0KQnV0IGlmIGl0J3MgZ29vZCBl
-bm91Z2ggdG8gcnVuIGlhNjQgYmluYXJpZXMgb24gb3RoZXIgYXJjaGVzLCB3aHkgbm90Lg0K
-DQpIYXZlIGEgbmljZSB3ZWVrZW5kLA0KRnJhbmsNCg0K
+On 2023-05-19 16:17, Frank Scheiner wrote:
+> Dear matoro, Florian,
+> 
+> On 17.05.23 23:47, matoro wrote:
+>> On 2023-05-17 15:39, Florian Weimer wrote:
+>>> * Frank Scheiner:
+>>> 
+>>>> On 12.05.23 17:57, Ard Biesheuvel wrote:
+>>>>> The bottom line is that, while I know of at least 2 people (on cc)
+>>>>> that test stuff on itanium, and package software for it, I don't 
+>>>>> think
+>>>>> there are any actual users remaining, and so it is doubtful whether 
+>>>>> it
+>>>>> is justified to ask people to spend time and effort on this.
+>>>> 
+>>>> While I get your argument, I also find it important to be able to
+>>>> innovate without destroying the past. And with the already severly
+>>>> limited choice of current architectures for the masses (x86, arm), 
+>>>> it
+>>>> becomes even more important to keep what we have or had in the past, 
+>>>> to
+>>>> not end in a "If all you have is a hammer, everything looks like a
+>>>> nail." type of future.
+>>> 
+>>> The history doesn't go away.  We still have pre-built ia64 system
+>>> images, the sources, and current machines can run ia64 code under
+>>> QEMU.  Those host systems will remain available (maybe under
+>>> virtualization) for many, many years to come.  So if anyone wants to
+>>> experiment with an architecture that has register trap bits and 
+>>> things
+>>> like that, it's possible.
+>>> 
+>>> I expect the rest of the hardware itself is not remarkable, and
+>>> anything useful has been thoroughly reused for other systems (like we
+>>> did for the Itanium C++ ABI on the software side).
+>>> 
+>>> From the userspace side, the issue is not so much testing (if we
+>>> bother to test our changes at all, we can use emulation), but
+>>> half-completed implementaton work (I ran into missing relaxations in
+>>> the link editor a while back, for example), and those limitations 
+>>> have
+>>> knock-on effects on generic code that we have to maintain.
+>> 
+>> FYI, QEMU does not have ia64 host or target support, not even TCG.
+> 
+> I assume Florian means user mode emulation, which for example can be 
+> used to complete a `debootstrap --foreign [...]` run when you don't 
+> have an existing ia64 userland on real hardware at hand.
+> 
+> I doubt that it works in the exact same way than the real thing, 
+> though. Such differences are part of the reasons why the OpenBSD devs 
+> don't seem to use cross compilers or virtualized or emulated systems to 
+> produce and test their OS, though they seem to use cross compilers for 
+> the bringup of new platforms IIC.
+> 
+> But if it's good enough to run ia64 binaries on other arches, why not.
+> 
+> Have a nice weekend,
+> Frank
+
+There is no user-mode emulation for ia64 in QEMU either.  The only 
+"ongoing" emulation work is Sergei's fork of the old "ski" emulator, but 
+this is far from QEMU quality or even usable yet:  
+https://github.com/trofi/ski
+
+Anyway, to summarize this thread for Ard:  the answer to the question of 
+if anybody is using these machines for anything other than to 
+experimentally see if things run or churn out packages is NO.  Any 
+Itanium machines running useful production workloads are on HP-UX/VMS.  
+Possibly Windows Server 2008 or an old RHEL, but unlikely.
+
+The only argument for continued support is as you described, the 
+argument from the commons, that the ecosystem as a whole benefits from 
+diversity of architectures.  All that matters is whether you find this 
+argument convincing.  There are some like myself who do, but I am not a 
+kernel maintainer.  If you don't, then that should be that.
