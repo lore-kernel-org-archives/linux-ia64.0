@@ -1,7 +1,7 @@
 From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Date: Sat, 20 May 2023 19:27:48 +0000
+Date: Sat, 20 May 2023 19:49:37 +0000
 Subject: Re: [crosspost] dropping support for ia64
-Message-Id: <88cd4f71bba353f47d8823de6dc3d75ca475e457.camel@physik.fu-berlin.de>
+Message-Id: <1e56d42a19ea3a4fdf844ecae54988f93a5e8558.camel@physik.fu-berlin.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <CAMj1kXFCMh_578jniKpUtx_j8ByHnt=s7S+yQ+vGbKt9ud7+kQ@mail.gmail.com>
 In-Reply-To: <CAMj1kXFCMh_578jniKpUtx_j8ByHnt=s7S+yQ+vGbKt9ud7+kQ@mail.gmail.com>
@@ -10,13 +10,19 @@ Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
 To: linux-ia64@vger.kernel.org
 
-On Sat, 2023-05-20 at 21:22 +0200, John Paul Adrian Glaubitz wrote:
-> Other projects such as LLVM, OpenJDK and Ruby already support native code generation
-> support for ia64 although OpenJDK still works using the Zero port.
+On Sat, 2023-05-20 at 12:31 -0700, Joshua Scoggins wrote:
+> LLVM dropped support for ia64 in 3.0.
 
-That should be »already removed native code generation support for ia64«.
+Yes, that's what I meant to say. I just happened to write the word
+»support« twice.
 
-Sorry, I'm already tired today. (-_-) zzz
+I meant to say:
+
+»Other projects such as LLVM, OpenJDK and Ruby already removed native
+ code generation support for ia64 although OpenJDK still works using
+ the Zero port.«
+
+I'm just tired today.
 
 Adrian
 
