@@ -1,33 +1,40 @@
-From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Date: Sat, 20 May 2023 19:49:37 +0000
+From: Ard Biesheuvel <ardb@kernel.org>
+Date: Mon, 22 May 2023 07:08:35 +0000
 Subject: Re: [crosspost] dropping support for ia64
-Message-Id: <1e56d42a19ea3a4fdf844ecae54988f93a5e8558.camel@physik.fu-berlin.de>
+Message-Id: <CAMj1kXGmbtiosH3fwMuduFvjmb2PVsX-tMLTk96jPvmW+oKi-w@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <CAMj1kXFCMh_578jniKpUtx_j8ByHnt=s7S+yQ+vGbKt9ud7+kQ@mail.gmail.com>
 In-Reply-To: <CAMj1kXFCMh_578jniKpUtx_j8ByHnt=s7S+yQ+vGbKt9ud7+kQ@mail.gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sat, 2023-05-20 at 12:31 -0700, Joshua Scoggins wrote:
-> LLVM dropped support for ia64 in 3.0.
+(cc Greg as stable maintainer)
 
-Yes, that's what I meant to say. I just happened to write the word
-»support« twice.
+On Sat, 20 May 2023 at 21:23, John Paul Adrian Glaubitz
+<glaubitz@physik.fu-berlin.de> wrote:
+>
+...
+>
+> I have been thinking about this discussion for a while now and my suggestion
+> would be to drop ia64 support from the kernel, GRUB and gcc/binutils/glibc in
+> this order:
+>
+> - Kernel: After the next LTS release
+> - GRUB: After the 2.12 release
+> - gcc/binutils/glibc: After support was dropped from the kernel
+>
+> This way anyone still using ia64 will be able to use it with a supported codebase
+> for an extended time and upstream projects have target releases for which they
+> can plan the removal.
+>
 
-I meant to say:
+Yeah, I think this is reasonable. Having a clear agreement on where
+the support ends helps both the remaining users and the developers
+eager to move on.
 
-»Other projects such as LLVM, OpenJDK and Ruby already removed native
- code generation support for ia64 although OpenJDK still works using
- the Zero port.«
+My only question is how we would land fixes for ia64 into this Linux
+LTS release if there is no upstream any longer to draw from.
 
-I'm just tired today.
-
-Adrian
-
--- 
- .''`.  John Paul Adrian Glaubitz
-: :' :  Debian Developer
-`. `'   Physicist
-  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
+Greg, could you comment on this?
