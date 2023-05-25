@@ -1,38 +1,48 @@
-From: Thomas Zimmermann <tzimmermann@suse.de>
-Date: Fri, 12 May 2023 10:24:40 +0000
-Subject: [PATCH v7 3/7] ipu-v3: Include <linux/io.h>
-Message-Id: <20230512102444.5438-4-tzimmermann@suse.de>
+From: Nadav Amit <nadav.amit@gmail.com>
+Date: Thu, 25 May 2023 21:00:40 +0000
+Subject: [PATCH v2 3/3] lib: Allow traceing of usercopy, xarray, iov_iter, find_bit
+Message-Id: <20230525210040.3637-4-namit@vmware.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230512102444.5438-1-tzimmermann@suse.de>
-In-Reply-To: <20230512102444.5438-1-tzimmermann@suse.de>
+References: <20230525210040.3637-1-namit@vmware.com>
+In-Reply-To: <20230525210040.3637-1-namit@vmware.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org, suijingfeng@loongson.cn
-Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
+To: Steven Rostedt <rostedt@goodmis.org>, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-um@lists.infradead.org, Linux-Arch <linux-arch@vger.kernel.org>, linux-mm@kvack.org, Andy Lutomirski <luto@kernel.org>, Ingo Molnar <mingo@redhat.com>, Dave Hansen <dave.hansen@linux.intel.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, Peter Zijlstra <peterz@infradead.org>, Nadav Amit <namit@vmware.com>
 
-The code uses readl() and writel(). Include the header file to
-get the declarations.
+From: Nadav Amit <namit@vmware.com>
 
-Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
-Reviewed-by: Arnd Bergmann <arnd@arndb.de>
-Reviewed-by: Sam Ravnborg <sam@ravnborg.org>
-Reviewed-by: Sui Jingfeng <suijingfeng@loongson.cn>
+There is no reason not to allow the use of ftrace for usercopy, xarray
+and iov_iter.  Enable tracing for these compilation unit.
+
+Signed-off-by: Nadav Amit <namit@vmware.com>
 ---
- drivers/gpu/ipu-v3/ipu-prv.h | 1 +
- 1 file changed, 1 insertion(+)
+ lib/Makefile | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/drivers/gpu/ipu-v3/ipu-prv.h b/drivers/gpu/ipu-v3/ipu-prv.h
-index 291ac1bab66d..d4621b1ea7f1 100644
---- a/drivers/gpu/ipu-v3/ipu-prv.h
-+++ b/drivers/gpu/ipu-v3/ipu-prv.h
-@@ -8,6 +8,7 @@
+diff --git a/lib/Makefile b/lib/Makefile
+index 876fcdeae34e..00450e1cc97d 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -27,6 +27,9 @@ KASAN_SANITIZE_string.o := n
+ CFLAGS_string.o += -fno-stack-protector
+ endif
  
- struct ipu_soc;
++CFLAGS_xarray.o += $(CC_FLAGS_FTRACE)
++CFLAGS_iov_iter.o += $(CC_FLAGS_FTRACE)
++
+ lib-y := ctype.o string.o vsprintf.o cmdline.o \
+ 	 rbtree.o radix-tree.o timerqueue.o xarray.o \
+ 	 maple_tree.o idr.o extable.o irq_regs.o argv_split.o \
+@@ -42,6 +45,8 @@ lib-$(CONFIG_SMP) += cpumask.o
+ lib-y	+= kobject.o klist.o
+ obj-y	+= lockref.o
  
-+#include <linux/io.h>
- #include <linux/types.h>
- #include <linux/device.h>
- #include <linux/clk.h>
++CFLAGS_usercopy.o += $(CC_FLAGS_FTRACE)
++CFLAGS_find_bit.o += $(CC_FLAGS_FTRACE)
+ obj-y += bcd.o sort.o parser.o debug_locks.o random32.o \
+ 	 bust_spinlocks.o kasprintf.o bitmap.o scatterlist.o \
+ 	 list_sort.o uuid.o iov_iter.o clz_ctz.o \
 -- 
-2.40.1
+2.25.1
