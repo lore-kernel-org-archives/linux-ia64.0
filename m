@@ -1,71 +1,51 @@
-From: Thomas Zimmermann <tzimmermann@suse.de>
-Date: Tue, 02 May 2023 13:02:18 +0000
-Subject: [PATCH v3 1/6] fbdev/matrox: Remove trailing whitespaces
-Message-Id: <20230502130223.14719-2-tzimmermann@suse.de>
+From: Nadav Amit <nadav.amit@gmail.com>
+Date: Thu, 25 May 2023 21:00:37 +0000
+Subject: [PATCH v2 0/3] kprobes: notrace enhancements
+Message-Id: <20230525210040.3637-1-namit@vmware.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20230502130223.14719-1-tzimmermann@suse.de>
-In-Reply-To: <20230502130223.14719-1-tzimmermann@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: deller@gmx.de, geert@linux-m68k.org, javierm@redhat.com, daniel@ffwll.ch, vgupta@kernel.org, chenhuacai@kernel.org, kernel@xen0n.name, davem@davemloft.net, James.Bottomley@HansenPartnership.com, arnd@arndb.de, sam@ravnborg.org
-Cc: linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, Thomas Zimmermann <tzimmermann@suse.de>
+To: Steven Rostedt <rostedt@goodmis.org>, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-um@lists.infradead.org, Linux-Arch <linux-arch@vger.kernel.org>, linux-mm@kvack.org, Andy Lutomirski <luto@kernel.org>, Ingo Molnar <mingo@redhat.com>, Dave Hansen <dave.hansen@linux.intel.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, Peter Zijlstra <peterz@infradead.org>, Nadav Amit <namit@vmware.com>
 
-Fix coding style. No functional changes.
+From: Nadav Amit <namit@vmware.com>
 
-Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
-Reviewed-by: Sam Ravnborg <sam@ravnborg.org>
+There are inconsistencies and some issues in marking functions as
+notrace. On one hand, all inline functions are marked as "notrace" and
+some libraries cannot be traced. As more users and tools try to make use
+of the tracing functionality, it is beneficial to allow their tracing as
+possible.
+
+At the same time, some functions should not be traced but are not marked
+as notrace.
+
+These patch address issues that I encountered during work on an
+automatic tracing tool.
+
 ---
- drivers/video/fbdev/matrox/matroxfb_accel.c | 6 +++---
- drivers/video/fbdev/matrox/matroxfb_base.h  | 4 ++--
- 2 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/video/fbdev/matrox/matroxfb_accel.c b/drivers/video/fbdev/matrox/matroxfb_accel.c
-index 9cb0685feddd..ce51227798a1 100644
---- a/drivers/video/fbdev/matrox/matroxfb_accel.c
-+++ b/drivers/video/fbdev/matrox/matroxfb_accel.c
-@@ -88,7 +88,7 @@
- 
- static inline void matrox_cfb4_pal(u_int32_t* pal) {
- 	unsigned int i;
--	
-+
- 	for (i = 0; i < 16; i++) {
- 		pal[i] = i * 0x11111111U;
- 	}
-@@ -96,7 +96,7 @@ static inline void matrox_cfb4_pal(u_int32_t* pal) {
- 
- static inline void matrox_cfb8_pal(u_int32_t* pal) {
- 	unsigned int i;
--	
-+
- 	for (i = 0; i < 16; i++) {
- 		pal[i] = i * 0x01010101U;
- 	}
-@@ -482,7 +482,7 @@ static void matroxfb_1bpp_imageblit(struct matrox_fb_info *minfo, u_int32_t fgx,
- 			/* Tell... well, why bother... */
- 			while (height--) {
- 				size_t i;
--				
-+
- 				for (i = 0; i < step; i += 4) {
- 					/* Hope that there are at least three readable bytes beyond the end of bitmap */
- 					fb_writel(get_unaligned((u_int32_t*)(chardata + i)),mmio.vaddr);
-diff --git a/drivers/video/fbdev/matrox/matroxfb_base.h b/drivers/video/fbdev/matrox/matroxfb_base.h
-index 958be6805f87..c93c69bbcd57 100644
---- a/drivers/video/fbdev/matrox/matroxfb_base.h
-+++ b/drivers/video/fbdev/matrox/matroxfb_base.h
-@@ -301,9 +301,9 @@ struct matrox_altout {
- 	int		(*verifymode)(void* altout_dev, u_int32_t mode);
- 	int		(*getqueryctrl)(void* altout_dev,
- 					struct v4l2_queryctrl* ctrl);
--	int		(*getctrl)(void* altout_dev, 
-+	int		(*getctrl)(void *altout_dev,
- 				   struct v4l2_control* ctrl);
--	int		(*setctrl)(void* altout_dev, 
-+	int		(*setctrl)(void *altout_dev,
- 				   struct v4l2_control* ctrl);
- };
- 
+v1->v2:
+* Add find_bit to tracable libraries
+* Improve the change log to explain the reasons for inline->notrace
+* Switch the order of patch 2 and patch 3
+
+
+Nadav Amit (3):
+  kprobes: Mark descendents of core_kernel_text as notrace
+  compiler: inline does not imply notrace
+  lib: Allow traceing of usercopy, xarray, iov_iter, find_bit
+
+ arch/arm/kernel/process.c             | 2 +-
+ arch/ia64/mm/init.c                   | 2 +-
+ arch/x86/entry/vsyscall/vsyscall_64.c | 2 +-
+ arch/x86/um/mem_32.c                  | 2 +-
+ include/asm-generic/sections.h        | 6 +++---
+ include/linux/compiler_types.h        | 2 +-
+ include/linux/kallsyms.h              | 6 +++---
+ include/linux/mm.h                    | 2 +-
+ lib/Makefile                          | 5 +++++
+ 9 files changed, 17 insertions(+), 12 deletions(-)
+
 -- 
-2.40.1
+2.25.1
