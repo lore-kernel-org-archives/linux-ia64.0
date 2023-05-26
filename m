@@ -1,7 +1,7 @@
 From: Steven Rostedt <rostedt@goodmis.org>
-Date: Fri, 26 May 2023 05:35:34 +0000
+Date: Fri, 26 May 2023 05:40:18 +0000
 Subject: Re: [PATCH v2 2/3] compiler: inline does not imply notrace
-Message-Id: <20230526013534.76e5b613@rorschach.local.home>
+Message-Id: <20230526014018.5ebafc55@rorschach.local.home>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20230525210040.3637-1-namit@vmware.com>
         <20230525210040.3637-3-namit@vmware.com>
@@ -17,26 +17,9 @@ Cc: Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, linux-a
 On Thu, 25 May 2023 22:17:33 -0700
 Nadav Amit <nadav.amit@gmail.com> wrote:
 
-
-> > FYI, I have a patch queued (still needs to go through testing) that
-> > already does this ;-)
-> > 
-> > https://lore.kernel.org/all/20230502164102.1a51cdb4@gandalf.local.home/  
-> 
 > Ugh. If you cc’d me, I wouldn’t bother you during your vacation. :)
 
-I'm currently passed the vacation part and now in Taiwan for work.
-
-> 
-> I think you may like the first patch in my series to precede this patch
-> though as some of the function I marked as “notrace" are currently “inline”.
-> 
-> Let me know how you want to proceed, so I would know how to break this
-> series.
-
-Currently there's a nasty bug in v6.4-rc3 I'm fighting where I can't
-proceed on anything until it's resolved. But I could also just pull
-your first and third patch too. I'll let you know when I'm finished
-debugging.
+Oh, and if you are interested in tracing patches, just subscribe to
+linux-trace-kernel@vger.kernel.org.
 
 -- Steve
