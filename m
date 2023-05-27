@@ -1,69 +1,71 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Sat, 27 May 2023 19:34:10 +0000
+From: Frank Scheiner <frank.scheiner@web.de>
+Date: Sat, 27 May 2023 21:13:32 +0000
 Subject: Re: Boot regression in Linux v6.4-rc3
-Message-Id: <CAHk-=wjDQZ8snU__Y8qJ8M5H--1FtAwNq-oHKmY4CJuomWPvDw@mail.gmail.com>
+Message-Id: <218eb812-e0bd-5a1f-ceb7-cfad1c277254@web.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <abb1166d-27a9-fbae-59cd-841480fba78a@web.de>
 In-Reply-To: <abb1166d-27a9-fbae-59cd-841480fba78a@web.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sat, May 27, 2023 at 11:41=E2=80=AFAM Frank Scheiner <frank.scheiner@web=
-.de> wrote:
->
-> Ok, I put the decoded console messages on [2].
->
-> [2]: https://pastebin.com/dLYMijfS
-
-Ugh. Apparently ia64 decoding isn't great. But at least it gives
-multiple line numbers:
-
-   load_module (kernel/module/main.c:2291 kernel/module/main.c:2412
-kernel/module/main.c:2868)
-
-except your kernel obviously has those test-patches, so I still don't
-know exactly where they are.
-
-But it looks like it is in move_module(). Strange. I don't know how it
-gets to "__copy_user" from there...
-
-[ Looks at the ia64 code ]
-
-Oh.
-
-It turns out that it *says* __copy_user(), but the code is actually
-shared with the regular memcpy() function, which does
-
-  GLOBAL_ENTRY(memcpy)
-        and     r28=3D0x7,in0
-        and     r29=3D0x7,in1
-        mov     f6=3Df0
-        mov     retval=3Din0
-        br.cond.sptk .common_code
-        ;;
-
-where that ".common_code" label is - surprise surprise - the common
-copy code, and so when the oops reports that the problem happened in
-__copy_user(), it actually is in this case just a normal memcpy.
-
-Ok, so it's probably the
-
-        memcpy(dest, (void *)shdr->sh_addr, shdr->sh_size);
-
-in move_module() that takes a fault.  And looking at the registers,
-the destination is in r17/r18, and your dump has
-
-    unable to handle kernel paging request at virtual address 1000000000000=
-000
-    ...
-    r17 : 0fffffffffffffff r18 : 1000000000000000
-
-so it's almost certainly that 'dest' that is bad.
-
-Which I guess shouldn't surprise anybody.
-
-But that's where my knowledge of ia64 and the new module loader layout ends.
-
-                Linus
+SGksDQoNCk9uIDI3LjA1LjIzIDIxOjM0LCBMaW51cyBUb3J2YWxkcyB3cm90ZToNCj4gT24g
+U2F0LCBNYXkgMjcsIDIwMjMgYXQgMTE6NDHigK9BTSBGcmFuayBTY2hlaW5lciA8ZnJhbmsu
+c2NoZWluZXJAd2ViLmRlPiB3cm90ZToNCj4+DQo+PiBPaywgSSBwdXQgdGhlIGRlY29kZWQg
+Y29uc29sZSBtZXNzYWdlcyBvbiBbMl0uDQo+Pg0KPj4gWzJdOiBodHRwczovL3Bhc3RlYmlu
+LmNvbS9kTFlNaWpmUw0KPiANCj4gVWdoLiBBcHBhcmVudGx5IGlhNjQgZGVjb2RpbmcgaXNu
+J3QgZ3JlYXQuIEJ1dCBhdCBsZWFzdCBpdCBnaXZlcw0KPiBtdWx0aXBsZSBsaW5lIG51bWJl
+cnM6DQo+IA0KPiAgICAgbG9hZF9tb2R1bGUgKGtlcm5lbC9tb2R1bGUvbWFpbi5jOjIyOTEg
+a2VybmVsL21vZHVsZS9tYWluLmM6MjQxMg0KPiBrZXJuZWwvbW9kdWxlL21haW4uYzoyODY4
+KQ0KPiANCj4gZXhjZXB0IHlvdXIga2VybmVsIG9idmlvdXNseSBoYXMgdGhvc2UgdGVzdC1w
+YXRjaGVzLCBzbyBJIHN0aWxsIGRvbid0DQo+IGtub3cgZXhhY3RseSB3aGVyZSB0aGV5IGFy
+ZS4NCg0KRXJtLCBJIHNlZS4gSSBkaWQgcmVjcmVhdGUgYSB2YW5pbGxhIHY2LjQtcmMzIGFu
+ZCByYW4gdGhhdCwgZGVjb2RlZCANCnJlc3VsdCBpcyBvbiBbMV0gLSBub3Qgc3VyZSBpZiBp
+dCBtYWtlcyBpdCBhIGxpdHRsZSBiZXR0ZXIuDQoNClsxXTogaHR0cHM6Ly9wYXN0ZWJpbi5j
+b20vejVYekVuaHENCg0KSSBkaWQgYWxzbyB0cnkgdG8gYnVpbGQgYW5kIHJ1biBhIFNQIGtl
+cm5lbCB0byBtYXliZSBnZXQgYSBiZXR0ZXIgDQpwaWN0dXJlIGluIHRoZSB0cmFjZXMsIGJ1
+dCB0aGF0IHNlZW1zIHRvIHJlcXVpcmUgRkxBVE1FTSwgd2hpY2ggc2VlbXMgdG8gDQpub3Qg
+d29yayBvbiB0aGF0IG1hY2hpbmUgb3IgZHVlIHRvIHRoZSB3YXkgaXQgaXMgY29uZmlndXJl
+ZCAoYW5kIHllYWgsIA0KaXQgd2FzIGFsc28gdGhlIHdyb25nIGNvbW1pdCBJIHVzZWQgZm9y
+IGl0IGFuZCBpdCB3YXMgcGF0Y2hlZC4uLik6DQoNCmBgYA0KWyAgICAwLjAwMDAwMF0gTGlu
+dXggdmVyc2lvbiANCjYuNC4wLXJjMy05MzMxNzRhZTI4YmE3MmFiOGRlNWIzNWNiN2M5OGZj
+MjExMjM1MDk2LXBhdGNoM19zcCANCihyb290QHg0MjcwKSAoaWE2NC1saW51eC1nY2MgKEdD
+QykgMTIuMi4wLCBHTlUgbGQgKEdOVSBCaW51dGlscykgMi4zOSkgDQojMSBTYXQgTWF5IDI3
+IDIxOjI4OjQ0IENFU1QgMjAyMw0KWy4uLl0NClsgICAgMC4wMDAwMDBdIEFDUEk6IFNTRFQg
+MHgwMDAwMDAwMDNGRTM1QkE4IDAwMDEzQyAodjAxIEhQICAgICByeDI2MjAgDQowMDAwMDAw
+NiBJTlRMIDIwMDUwMzA5KQ0KWyAgICAwLjAwMDAwMF0gQUNQSTogTG9jYWwgQVBJQyBhZGRy
+ZXNzIChfX19fcHRydmFsX19fXykNClsgICAgMC4wMDAwMDBdIDEgQ1BVcyBhdmFpbGFibGUs
+IDEgQ1BVcyB0b3RhbA0KWy4uLl0NClsgICAgMC4wMDAwMDBdIEtlcm5lbCBwYW5pYyAtIG5v
+dCBzeW5jaW5nOiBDYW5ub3QgdXNlIEZMQVRNRU0gd2l0aCANCjI0Njc4NE1CIGhvbGUNClsg
+ICAgMC4wMDAwMDBdIFBsZWFzZSBzd2l0Y2ggb3ZlciB0byBTUEFSU0VNRU0NClsgICAgMC4w
+MDAwMDBdIC0tLVsgZW5kIEtlcm5lbCBwYW5pYyAtIG5vdCBzeW5jaW5nOiBDYW5ub3QgdXNl
+IEZMQVRNRU0gDQp3aXRoIDI0Njc4NE1CIGhvbGUNClsgICAgMC4wMDAwMDBdIFBsZWFzZSBz
+d2l0Y2ggb3ZlciB0byBTUEFSU0VNRU0gXS0tLQ0KYGBgDQoNCj4gQnV0IGl0IGxvb2tzIGxp
+a2UgaXQgaXMgaW4gbW92ZV9tb2R1bGUoKS4gU3RyYW5nZS4gSSBkb24ndCBrbm93IGhvdyBp
+dA0KPiBnZXRzIHRvICJfX2NvcHlfdXNlciIgZnJvbSB0aGVyZS4uLg0KPiANCj4gWyBMb29r
+cyBhdCB0aGUgaWE2NCBjb2RlIF0NCj4gDQo+IE9oLg0KPiANCj4gSXQgdHVybnMgb3V0IHRo
+YXQgaXQgKnNheXMqIF9fY29weV91c2VyKCksIGJ1dCB0aGUgY29kZSBpcyBhY3R1YWxseQ0K
+PiBzaGFyZWQgd2l0aCB0aGUgcmVndWxhciBtZW1jcHkoKSBmdW5jdGlvbiwgd2hpY2ggZG9l
+cw0KPiANCj4gICAgR0xPQkFMX0VOVFJZKG1lbWNweSkNCj4gICAgICAgICAgYW5kICAgICBy
+Mjg9MHg3LGluMA0KPiAgICAgICAgICBhbmQgICAgIHIyOT0weDcsaW4xDQo+ICAgICAgICAg
+IG1vdiAgICAgZjY9ZjANCj4gICAgICAgICAgbW92ICAgICByZXR2YWw9aW4wDQo+ICAgICAg
+ICAgIGJyLmNvbmQuc3B0ayAuY29tbW9uX2NvZGUNCj4gICAgICAgICAgOzsNCj4gDQo+IHdo
+ZXJlIHRoYXQgIi5jb21tb25fY29kZSIgbGFiZWwgaXMgLSBzdXJwcmlzZSBzdXJwcmlzZSAt
+IHRoZSBjb21tb24NCj4gY29weSBjb2RlLCBhbmQgc28gd2hlbiB0aGUgb29wcyByZXBvcnRz
+IHRoYXQgdGhlIHByb2JsZW0gaGFwcGVuZWQgaW4NCj4gX19jb3B5X3VzZXIoKSwgaXQgYWN0
+dWFsbHkgaXMgaW4gdGhpcyBjYXNlIGp1c3QgYSBub3JtYWwgbWVtY3B5Lg0KPiANCj4gT2ss
+IHNvIGl0J3MgcHJvYmFibHkgdGhlDQo+IA0KPiAgICAgICAgICBtZW1jcHkoZGVzdCwgKHZv
+aWQgKilzaGRyLT5zaF9hZGRyLCBzaGRyLT5zaF9zaXplKTsNCj4gDQo+IGluIG1vdmVfbW9k
+dWxlKCkgdGhhdCB0YWtlcyBhIGZhdWx0LiAgQW5kIGxvb2tpbmcgYXQgdGhlIHJlZ2lzdGVy
+cywNCj4gdGhlIGRlc3RpbmF0aW9uIGlzIGluIHIxNy9yMTgsIGFuZCB5b3VyIGR1bXAgaGFz
+DQo+IA0KPiAgICAgIHVuYWJsZSB0byBoYW5kbGUga2VybmVsIHBhZ2luZyByZXF1ZXN0IGF0
+IHZpcnR1YWwgYWRkcmVzcyAxMDAwMDAwMDAwMDAwMDAwDQo+ICAgICAgLi4uDQo+ICAgICAg
+cjE3IDogMGZmZmZmZmZmZmZmZmZmZiByMTggOiAxMDAwMDAwMDAwMDAwMDAwDQo+IA0KPiBz
+byBpdCdzIGFsbW9zdCBjZXJ0YWlubHkgdGhhdCAnZGVzdCcgdGhhdCBpcyBiYWQuDQo+IA0K
+PiBXaGljaCBJIGd1ZXNzIHNob3VsZG4ndCBzdXJwcmlzZSBhbnlib2R5Lg0KPiANCj4gQnV0
+IHRoYXQncyB3aGVyZSBteSBrbm93bGVkZ2Ugb2YgaWE2NCBhbmQgdGhlIG5ldyBtb2R1bGUg
+bG9hZGVyIGxheW91dCBlbmRzLg0KDQpUaGFua3MgZm9yIHlvdXIgaGVscCBhbmQgZ29pbmcg
+YXMgZmFyIGFzIHlvdSBjb3VsZCwgdGhhdCdzIGdyZWF0bHkgDQphcHByZWNpYXRlZC4gUnVu
+bmluZyB0aGF0IHN0dWZmIGlzIHN1cmVseSBlYXNpZXIgdGhhbiBkZWJ1Z2dpbmcgaXQuIDot
+KQ0KDQpDaGVlcnMsDQpGcmFuaw0K
