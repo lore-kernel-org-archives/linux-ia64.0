@@ -1,53 +1,69 @@
-From: Frank Scheiner <frank.scheiner@web.de>
-Date: Sat, 27 May 2023 18:34:50 +0000
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Sat, 27 May 2023 19:34:10 +0000
 Subject: Re: Boot regression in Linux v6.4-rc3
-Message-Id: <b2b47c19-d527-fbd2-1666-801f173b6174@web.de>
+Message-Id: <CAHk-=wjDQZ8snU__Y8qJ8M5H--1FtAwNq-oHKmY4CJuomWPvDw@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <abb1166d-27a9-fbae-59cd-841480fba78a@web.de>
 In-Reply-To: <abb1166d-27a9-fbae-59cd-841480fba78a@web.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Hi,
-
-On 27.05.23 19:08, Linus Torvalds wrote:
-> Anyway, the WARN_ON() is likely related, but the bug is clearly an
-> unexpected page fault in __copy_user() when called by load_module().
+On Sat, May 27, 2023 at 11:41=E2=80=AFAM Frank Scheiner <frank.scheiner@web=
+.de> wrote:
 >
-> The ia64 oops output is nasty, presumably because ia64 aggressively
-> inlines things. It would help a lot if you enabled debug info (maybe
-> you already do?)
-
-I believe it is enabled - I have at least CONFIG_DEBUG_KERNEL=y and
-CONFIG_DEBUG_INFO=y - my kernel config is on [1] for reference.
-
-[1]: https://pastebin.com/HRQtZ9vb
-
-> and then run the oops through
-> ./scripts/decode_stacktrace.sh which will figure out line numbers,
-> inlining etc.
+> Ok, I put the decoded console messages on [2].
 >
-> Because I don't even see why it would call __copy_user() in the first
-> place. This is 'finit_module()' that loads the module data from a
-> file, not user space.
->
-> So I guess it must be the strndup_user() in
->
->          mod->args = strndup_user(uargs, ~0UL >> 1);
->
-> but that doesn't look like it should even care about any module
-> layout. Plus I would have expected to see strndup_user() in the call
-> trace, but whatever.
->
-> End result: that ia64 trace is very hard to read, and _maybe_ running
-> it through the decode script might give more information about what it
-> is that triggers...
+> [2]: https://pastebin.com/dLYMijfS
 
-Ok, I put the decoded console messages on [2].
+Ugh. Apparently ia64 decoding isn't great. But at least it gives
+multiple line numbers:
 
-[2]: https://pastebin.com/dLYMijfS
+   load_module (kernel/module/main.c:2291 kernel/module/main.c:2412
+kernel/module/main.c:2868)
 
-Cheers,
-Frank
+except your kernel obviously has those test-patches, so I still don't
+know exactly where they are.
+
+But it looks like it is in move_module(). Strange. I don't know how it
+gets to "__copy_user" from there...
+
+[ Looks at the ia64 code ]
+
+Oh.
+
+It turns out that it *says* __copy_user(), but the code is actually
+shared with the regular memcpy() function, which does
+
+  GLOBAL_ENTRY(memcpy)
+        and     r28=3D0x7,in0
+        and     r29=3D0x7,in1
+        mov     f6=3Df0
+        mov     retval=3Din0
+        br.cond.sptk .common_code
+        ;;
+
+where that ".common_code" label is - surprise surprise - the common
+copy code, and so when the oops reports that the problem happened in
+__copy_user(), it actually is in this case just a normal memcpy.
+
+Ok, so it's probably the
+
+        memcpy(dest, (void *)shdr->sh_addr, shdr->sh_size);
+
+in move_module() that takes a fault.  And looking at the registers,
+the destination is in r17/r18, and your dump has
+
+    unable to handle kernel paging request at virtual address 1000000000000=
+000
+    ...
+    r17 : 0fffffffffffffff r18 : 1000000000000000
+
+so it's almost certainly that 'dest' that is bad.
+
+Which I guess shouldn't surprise anybody.
+
+But that's where my knowledge of ia64 and the new module loader layout ends.
+
+                Linus
