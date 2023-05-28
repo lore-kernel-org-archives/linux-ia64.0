@@ -1,111 +1,73 @@
-From: Song Liu <song@kernel.org>
-Date: Sun, 28 May 2023 05:24:24 +0000
+From: Frank Scheiner <frank.scheiner@web.de>
+Date: Sun, 28 May 2023 07:30:44 +0000
 Subject: Re: Boot regression in Linux v6.4-rc3
-Message-Id: <CAPhsuW7Gcd7hkrD6RtBdJDMdVnaN8Bv_kVNdpyccUiuD-TqYDw@mail.gmail.com>
+Message-Id: <ea6bb10a-f830-1a9f-19b1-07269a073876@web.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <abb1166d-27a9-fbae-59cd-841480fba78a@web.de>
 In-Reply-To: <abb1166d-27a9-fbae-59cd-841480fba78a@web.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sat, May 27, 2023 at 12:34 PM Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
->
-> On Sat, May 27, 2023 at 11:41 AM Frank Scheiner <frank.scheiner@web.de> wrote:
-> >
-> > Ok, I put the decoded console messages on [2].
-> >
-> > [2]: https://pastebin.com/dLYMijfS
->
-> Ugh. Apparently ia64 decoding isn't great. But at least it gives
-> multiple line numbers:
->
->    load_module (kernel/module/main.c:2291 kernel/module/main.c:2412
-> kernel/module/main.c:2868)
->
-> except your kernel obviously has those test-patches, so I still don't
-> know exactly where they are.
->
-> But it looks like it is in move_module(). Strange. I don't know how it
-> gets to "__copy_user" from there...
->
-> [ Looks at the ia64 code ]
->
-> Oh.
->
-> It turns out that it *says* __copy_user(), but the code is actually
-> shared with the regular memcpy() function, which does
->
->   GLOBAL_ENTRY(memcpy)
->         and     r28=0x7,in0
->         and     r29=0x7,in1
->         mov     f6=f0
->         mov     retval=in0
->         br.cond.sptk .common_code
->         ;;
->
-> where that ".common_code" label is - surprise surprise - the common
-> copy code, and so when the oops reports that the problem happened in
-> __copy_user(), it actually is in this case just a normal memcpy.
->
-> Ok, so it's probably the
->
->         memcpy(dest, (void *)shdr->sh_addr, shdr->sh_size);
->
-> in move_module() that takes a fault.  And looking at the registers,
-> the destination is in r17/r18, and your dump has
->
->     unable to handle kernel paging request at virtual address 1000000000000000
->     ...
->     r17 : 0fffffffffffffff r18 : 1000000000000000
->
-> so it's almost certainly that 'dest' that is bad.
-
-Yeah, it appears we are writing to mod_mem[MOD_INVALID].
-
-From the log, the following sections are assigned to MOD_INVALID:
-
-[ 4.009109] __layout_sections: section .got (sh_flags 10000002)
-matched to MOD_INVALID
-[ 4.009109] __layout_sections: section .sdata (sh_flags 10000003)
-matched to MOD_INVALID
-[ 4.009109] __layout_sections: section .sbss (sh_flags 10000003)
-matched to MOD_INVALID
-
-AFAICT,  .got should go to rodata, while .sdata and .sbss should go
-to (rw)data. However, reading the code before the module_memory
-change, I think they were all copied to (rw)data, which is not ideal but
-most likely OK.
-
-To match the behavior before the module_memory change, I think
-we need something like the following.
-
-Frank, could you please give it a try?
-
-Thanks,
-Song
-
-diff --git i/kernel/module/main.c w/kernel/module/main.c
-index 0f9183f1ca9f..e4e723e1eb21 100644
---- i/kernel/module/main.c
-+++ w/kernel/module/main.c
-@@ -1514,14 +1514,14 @@ static void __layout_sections(struct module
-*mod, struct load_info *info, bool i
-                MOD_RODATA,
-                MOD_RO_AFTER_INIT,
-                MOD_DATA,
--               MOD_INVALID,    /* This is needed to match the masks array */
-+               MOD_DATA,
-        };
-        static const int init_m_to_mem_type[] = {
-                MOD_INIT_TEXT,
-                MOD_INIT_RODATA,
-                MOD_INVALID,
-                MOD_INIT_DATA,
--               MOD_INVALID,    /* This is needed to match the masks array */
-+               MOD_INIT_DATA,
-        };
-
-        for (m = 0; m < ARRAY_SIZE(masks); ++m) {
+SGkgU29uZywgTGludXMsDQoNCk9uIDI4LjA1LjIzIDA3OjI0LCBTb25nIExpdSB3cm90ZToN
+Cj4gQUZBSUNULCAgLmdvdCBzaG91bGQgZ28gdG8gcm9kYXRhLCB3aGlsZSAuc2RhdGEgYW5k
+IC5zYnNzIHNob3VsZCBnbw0KPiB0byAocncpZGF0YS4gSG93ZXZlciwgcmVhZGluZyB0aGUg
+Y29kZSBiZWZvcmUgdGhlIG1vZHVsZV9tZW1vcnkNCj4gY2hhbmdlLCBJIHRoaW5rIHRoZXkg
+d2VyZSBhbGwgY29waWVkIHRvIChydylkYXRhLCB3aGljaCBpcyBub3QgaWRlYWwgYnV0DQo+
+IG1vc3QgbGlrZWx5IE9LLg0KPiANCj4gVG8gbWF0Y2ggdGhlIGJlaGF2aW9yIGJlZm9yZSB0
+aGUgbW9kdWxlX21lbW9yeSBjaGFuZ2UsIEkgdGhpbmsNCj4gd2UgbmVlZCBzb21ldGhpbmcg
+bGlrZSB0aGUgZm9sbG93aW5nLg0KPiANCj4gRnJhbmssIGNvdWxkIHlvdSBwbGVhc2UgZ2l2
+ZSBpdCBhIHRyeT8NCj4gDQo+IFRoYW5rcywNCj4gU29uZw0KPiANCj4gZGlmZiAtLWdpdCBp
+L2tlcm5lbC9tb2R1bGUvbWFpbi5jIHcva2VybmVsL21vZHVsZS9tYWluLmMNCj4gaW5kZXgg
+MGY5MTgzZjFjYTlmLi5lNGU3MjNlMWViMjEgMTAwNjQ0DQo+IC0tLSBpL2tlcm5lbC9tb2R1
+bGUvbWFpbi5jDQo+ICsrKyB3L2tlcm5lbC9tb2R1bGUvbWFpbi5jDQo+IEBAIC0xNTE0LDE0
+ICsxNTE0LDE0IEBAIHN0YXRpYyB2b2lkIF9fbGF5b3V0X3NlY3Rpb25zKHN0cnVjdCBtb2R1
+bGUNCj4gKm1vZCwgc3RydWN0IGxvYWRfaW5mbyAqaW5mbywgYm9vbCBpDQo+ICAgICAgICAg
+ICAgICAgICAgTU9EX1JPREFUQSwNCj4gICAgICAgICAgICAgICAgICBNT0RfUk9fQUZURVJf
+SU5JVCwNCj4gICAgICAgICAgICAgICAgICBNT0RfREFUQSwNCj4gLSAgICAgICAgICAgICAg
+IE1PRF9JTlZBTElELCAgICAvKiBUaGlzIGlzIG5lZWRlZCB0byBtYXRjaCB0aGUgbWFza3Mg
+YXJyYXkgKi8NCj4gKyAgICAgICAgICAgICAgIE1PRF9EQVRBLA0KPiAgICAgICAgICB9Ow0K
+PiAgICAgICAgICBzdGF0aWMgY29uc3QgaW50IGluaXRfbV90b19tZW1fdHlwZVtdID0gew0K
+PiAgICAgICAgICAgICAgICAgIE1PRF9JTklUX1RFWFQsDQo+ICAgICAgICAgICAgICAgICAg
+TU9EX0lOSVRfUk9EQVRBLA0KPiAgICAgICAgICAgICAgICAgIE1PRF9JTlZBTElELA0KPiAg
+ICAgICAgICAgICAgICAgIE1PRF9JTklUX0RBVEEsDQo+IC0gICAgICAgICAgICAgICBNT0Rf
+SU5WQUxJRCwgICAgLyogVGhpcyBpcyBuZWVkZWQgdG8gbWF0Y2ggdGhlIG1hc2tzIGFycmF5
+ICovDQo+ICsgICAgICAgICAgICAgICBNT0RfSU5JVF9EQVRBLA0KPiAgICAgICAgICB9Ow0K
+PiANCj4gICAgICAgICAgZm9yIChtID0gMDsgbSA8IEFSUkFZX1NJWkUobWFza3MpOyArK20p
+IHsNCg0KVGhhbmtzLCB0aGF0IHBhdGNoIChhcyAtcGF0Y2g0IG9uIHRvcCBvZiB2Ni40LXJj
+MykgZml4ZXMgdGhlIGJvb3QgDQpyZWdyZXNzaW9uIGZvciBtZSBvbiB0aGUgcngyNjIwOg0K
+DQpgYGANCkVMSUxPIHYzLjE2IGZvciBFRkkvSUEtNjQNCi4uDQpVbmNvbXByZXNzaW5nIExp
+bnV4Li4uIGRvbmUNCkxvYWRpbmcgZmlsZSBBQzEwMDIyMS5pbml0cmQuaW1nLi4uZG9uZQ0K
+WyAgICAwLjAwMDAwMF0gTGludXggdmVyc2lvbiANCjYuNC4wLXJjMy00NGMwMjZhNzNiZTgw
+MzhmMDNkYmRlZWYwMjhiNjQyODgwY2YxNTExLXBhdGNoNCAocm9vdEB4NDI3MCkgDQooaWE2
+NC1saW51eC1nY2MgKEdDQykgMTIuMi4wLCBHTlUgbGQgKEdOVSBCaW51dGlscykgMi4zOSkg
+IzEgU01QIFN1biBNYXkgDQoyOCAwOTowODo0NCBDRVNUIDIwMjMNClsgICAgMC4wMDAwMDBd
+IGVmaTogRUZJIHYxLjEgYnkgSFANClsgICAgMC4wMDAwMDBdIGVmaTogU0FMc3lzdGFiPTB4
+M2VlN2EwMDAgQUNQSSAyLjA9MHgzZmUyYTAwMCANCkVTST0weDNlZTdiMDAwIFNNQklPUz0w
+eDNlZTdjMDAwIEhDRFA9MHgzZmUyODAwMA0KWyAgICAwLjAwMDAwMF0gUENEUDogdjMgYXQg
+MHgzZmUyODAwMA0KWyAgICAwLjAwMDAwMF0gZWFybHljb246IHVhcnQ4MjUwIGF0IE1NSU8g
+MHgwMDAwMDAwMGY0MDUwMDAwIChvcHRpb25zIA0KJzk2MDBuOCcpDQpbICAgIDAuMDAwMDAw
+XSBwcmludGs6IGJvb3Rjb25zb2xlIFt1YXJ0ODI1MF0gZW5hYmxlZA0KWyAgICAwLjAwMDAw
+MF0gQUNQSTogRWFybHkgdGFibGUgY2hlY2tzdW0gdmVyaWZpY2F0aW9uIGRpc2FibGVkDQpb
+ICAgIDAuMDAwMDAwXSBBQ1BJOiBSU0RQIDB4MDAwMDAwMDAzRkUyQTAwMCAwMDAwMjggKHYw
+MiBIUCAgICApDQpbICAgIDAuMDAwMDAwXSBBQ1BJOiBYU0RUIDB4MDAwMDAwMDAzRkUyQTAy
+QyAwMDAwQ0MgKHYwMSBIUCAgICAgcngyNjIwIA0KMDAwMDAwMDAgSFAgICAwMDAwMDAwMCkN
+ClsuLi5dDQpbICAgIDMuODEwMzQ2XSBSdW4gL2luaXQgYXMgaW5pdCBwcm9jZXNzDQpMb2Fk
+aW5nLCBwbGVhc2Ugd2FpdC4uLg0KU3RhcnRpbmcgc3lzdGVtZC11ZGV2ZCB2ZXJzaW9uIDI1
+Mi42LTENClsgICAgMy45ODUzNzhdIGUxMDAwOiBJbnRlbChSKSBQUk8vMTAwMCBOZXR3b3Jr
+IERyaXZlcg0KWyAgICAzLjk4OTM3OF0gZTEwMDA6IENvcHlyaWdodCAoYykgMTk5OS0yMDA2
+IEludGVsIENvcnBvcmF0aW9uLg0KWyAgICAzLjk5MzM3NV0gR1NJIDI5IChsZXZlbCwgbG93
+KSAtPiBDUFUgNyAoMHgwNzAwKSB2ZWN0b3IgNTMNClsgICAgNC4wMzAzODJdIEFDUEk6IGJ1
+cyB0eXBlIFVTQiByZWdpc3RlcmVkDQpbICAgIDQuMDMwMzgyXSB1c2Jjb3JlOiByZWdpc3Rl
+cmVkIG5ldyBpbnRlcmZhY2UgZHJpdmVyIHVzYmZzDQpbICAgIDQuMDM0MzgyXSB1c2Jjb3Jl
+OiByZWdpc3RlcmVkIG5ldyBpbnRlcmZhY2UgZHJpdmVyIGh1Yg0KWyAgICA0LjAzNDM4Ml0g
+dXNiY29yZTogcmVnaXN0ZXJlZCBuZXcgZGV2aWNlIGRyaXZlciB1c2INClsgICAgNC4wNDA2
+MDldIEdTSSAxOCAobGV2ZWwsIGxvdykgLT4gQ1BVIDAgKDB4MDAwMCkgdmVjdG9yIDU0DQpb
+ICAgIDQuMDQwNjIxXSBlaGNpLXBjaSAwMDAwOjAwOjAxLjI6IEVIQ0kgSG9zdCBDb250cm9s
+bGVyDQpbLi4uXQ0KWyAgT0sgIF0gRmluaXNoZWQgc3lzdGVtZC11cGRhdGUtdXTigKYgLSBS
+ZWNvcmQgUnVubGV2ZWwgQ2hhbmdlIGluIFVUTVAuDQpbICAgMTQuNTY4NjA2XSBpb2MxOiBM
+U0k1M0MxMDMwIEMwOiBDYXBhYmlsaXRpZXM9e0luaXRpYXRvcixUYXJnZXR9DQoNCkRlYmlh
+biBHTlUvTGludXggMTIgcngyNjIwIC0NCg0KcngyNjIwIGxvZ2luOg0KYGBgDQoNCkdyZWF0
+ISBJJ2xsIGdpdmUgaXQgYSB0cnkgb24gbXkgcngyODAwLWkyLCB0b28sIGJ1dCBhc3N1bWUg
+aXQgd2lsIHdvcmsgDQp0aGVyZSwgdG9vLg0KDQpDaGVlcnMsDQpGcmFuaw0K
