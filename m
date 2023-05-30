@@ -2,90 +2,90 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id B726EC7EE23
-	for <linux-ia64@archiver.kernel.org>; Tue, 30 May 2023 21:05:18 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 29DFEC77B7A
+	for <linux-ia64@archiver.kernel.org>; Tue, 30 May 2023 21:11:11 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S231437AbjE3VFS (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Tue, 30 May 2023 17:05:18 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:40798 "EHLO
+        id S230154AbjE3VLK (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Tue, 30 May 2023 17:11:10 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:42048 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S229945AbjE3VFR (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Tue, 30 May 2023 17:05:17 -0400
-Received: from mail-ej1-x62d.google.com (mail-ej1-x62d.google.com [IPv6:2a00:1450:4864:20::62d])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 28F7B99
-        for <linux-ia64@vger.kernel.org>; Tue, 30 May 2023 14:05:16 -0700 (PDT)
-Received: by mail-ej1-x62d.google.com with SMTP id a640c23a62f3a-96f9cfa7eddso865311566b.2
-        for <linux-ia64@vger.kernel.org>; Tue, 30 May 2023 14:05:16 -0700 (PDT)
+        with ESMTP id S233157AbjE3VLK (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Tue, 30 May 2023 17:11:10 -0400
+Received: from mail-qk1-x736.google.com (mail-qk1-x736.google.com [IPv6:2607:f8b0:4864:20::736])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 35730C0
+        for <linux-ia64@vger.kernel.org>; Tue, 30 May 2023 14:11:09 -0700 (PDT)
+Received: by mail-qk1-x736.google.com with SMTP id af79cd13be357-75b17b80834so524292285a.1
+        for <linux-ia64@vger.kernel.org>; Tue, 30 May 2023 14:11:09 -0700 (PDT)
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=linux-foundation.org; s=google; t=1685480714; x=1688072714;
-        h=content-transfer-encoding:cc:to:subject:message-id:date:from
-         :in-reply-to:references:mime-version:from:to:cc:subject:date
-         :message-id:reply-to;
-        bh=zY6UmhhMULE6fnGgyGaQgHHKyvRlJ5+KHuIjScp6VCc=;
-        b=QgoRuVbWdKAVUDTUtGNcVdGkopKLlYxzfKAbUR56A2LJ+qfSEWSDkKvZRlO9+x9iYg
-         koE03okoUhfbHUsmZt4dJB5e2vLKR/Mk9tT7Utxb6oL8nRX2LJYjA51SuC0cYPRsTGdR
-         zkc5B5N0A17BKvGFJUlJNPGxgltt7Eoyw2Q6M=
+        d=linuxfoundation.org; s=google; t=1685481068; x=1688073068;
+        h=in-reply-to:content-transfer-encoding:content-disposition
+         :mime-version:references:message-id:subject:cc:to:from:date:from:to
+         :cc:subject:date:message-id:reply-to;
+        bh=Xa+N49Nm2tVkLvxrUw1Evt8r7Fe+85kqP6q6OfZAaAI=;
+        b=L409Jf3IOoTWO8LAB0cedEcoyFQhlGXJV3dDWBm3DZ5oS9I4A9kSgIYOnaxfc4sLG9
+         CJ0M1DwqvxQQp465Cr9x9NWIEV6fL7lqIU90HbmMEbu9wt7x29HzSaJKvTeruDlvgXSF
+         NfI5SU5ULa4HKktbC8eY0eAMCMXItXQCO5few=
 X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20221208; t=1685480714; x=1688072714;
-        h=content-transfer-encoding:cc:to:subject:message-id:date:from
-         :in-reply-to:references:mime-version:x-gm-message-state:from:to:cc
-         :subject:date:message-id:reply-to;
-        bh=zY6UmhhMULE6fnGgyGaQgHHKyvRlJ5+KHuIjScp6VCc=;
-        b=CLMHuRzC9B6kjDuX4GN0M/GiTWgGrivR6i4rrBiusKhG0ZM/R32RHzd9YI/qjje7yh
-         fykg5OnObEmCNqY3LDIWkLnxKsSvZuEHIYRQ9gxM0gas62RtDyCg2kNht/jAUnzka2GT
-         TG8txPMYmSJ4aw8n+bV440/ii/BTzhIKCshuk+Eii25eftr9ezzqXfYWJWifxPhkFVP7
-         lhivivgM2sGRMdZe5FaURmK5h5pMnwP6p7NvatOTiN//CfAzu5jrxOknZswTTL/zxC5e
-         iIFFdjpTuUvOcaINCb7uAewisLjC0ST1ddjQyB03b7phxMESXY3UPXA5HCUU9lSAtIsK
-         mZeQ==
-X-Gm-Message-State: AC+VfDzNi2FwZCwQ5unuJRSVk+DHE7FjshaMcegFZhQlIhz3Ct8DDyGf
-        Dgst5lGvQ4aqsGIua2VdnYzLuFCs0D6tlQwAtRcwIwOW
-X-Google-Smtp-Source: ACHHUZ7oVCoHTTNZAgagMXJVaYbp79UA91JwBGWZW+daogQoep8JyJwhFIyvnGmS7+I6mNDPziaB7A==
-X-Received: by 2002:a17:907:c0c:b0:93b:5f2:36c with SMTP id ga12-20020a1709070c0c00b0093b05f2036cmr3973309ejc.61.1685480714500;
-        Tue, 30 May 2023 14:05:14 -0700 (PDT)
-Received: from mail-ej1-f44.google.com (mail-ej1-f44.google.com. [209.85.218.44])
-        by smtp.gmail.com with ESMTPSA id lr7-20020a170906fb8700b009659fed3612sm7793977ejb.24.2023.05.30.14.05.13
-        for <linux-ia64@vger.kernel.org>
-        (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);
-        Tue, 30 May 2023 14:05:13 -0700 (PDT)
-Received: by mail-ej1-f44.google.com with SMTP id a640c23a62f3a-96fe2a1db26so867724766b.0
-        for <linux-ia64@vger.kernel.org>; Tue, 30 May 2023 14:05:13 -0700 (PDT)
-X-Received: by 2002:a17:907:6e27:b0:973:e784:1fe with SMTP id
- sd39-20020a1709076e2700b00973e78401femr3636633ejc.24.1685480713354; Tue, 30
- May 2023 14:05:13 -0700 (PDT)
-MIME-Version: 1.0
-References: <abb1166d-27a9-fbae-59cd-841480fba78a@web.de> <ZHErssbUSbSznTVA@bombadil.infradead.org>
- <CAHk-=whuaCqh0RJk1F+SKqdEHPzANoVVP5OU=c9wgogVLCQTVQ@mail.gmail.com>
- <c4ef98ad-cc4e-2949-179d-7edbc3c2a1b5@web.de> <CAHk-=whv0Mr_Gnwbm00vi76oTTw16KviVhC33segbjjZbxOswA@mail.gmail.com>
- <20230530-purchase-amber-fa77ba@meerkat>
-In-Reply-To: <20230530-purchase-amber-fa77ba@meerkat>
-From:   Linus Torvalds <torvalds@linux-foundation.org>
-Date:   Tue, 30 May 2023 17:04:56 -0400
-X-Gmail-Original-Message-ID: <CAHk-=wh=mF941kP0DduTt91V+HSuTqBAU8pXp34wSn6DSMPmrQ@mail.gmail.com>
-Message-ID: <CAHk-=wh=mF941kP0DduTt91V+HSuTqBAU8pXp34wSn6DSMPmrQ@mail.gmail.com>
-Subject: Re: Boot regression in Linux v6.4-rc3
-To:     Konstantin Ryabitsev <konstantin@linuxfoundation.org>
+        d=1e100.net; s=20221208; t=1685481068; x=1688073068;
+        h=in-reply-to:content-transfer-encoding:content-disposition
+         :mime-version:references:message-id:subject:cc:to:from:date
+         :x-gm-message-state:from:to:cc:subject:date:message-id:reply-to;
+        bh=Xa+N49Nm2tVkLvxrUw1Evt8r7Fe+85kqP6q6OfZAaAI=;
+        b=fM2wQwtpRcHivToHlFnBSF0ssi6jEQFr+VuywF5IRXP/4I1rTuH+6TEBuCNsoU7xLp
+         CmRIqwDhux5kEQZozuVdGShuBGLlBXYoWjxaFBC9BIUWAtImRcuE90adDqFfprigVWRe
+         v2es8iUanobpYeYxwE9KNF474JOxv9MgWfQgiU4rpTm3DhyCar2/koCMbCZGzbpwq4BA
+         WU7jcXai3BER1O09oljRRCcN+UVckAmuUmMdoQh3XLkdRZ59x0be3f6pbEi3Ce2ofe0G
+         zFizGyGZZ0C5fj2mi6t25KpZ3slEdj2Nz0Su7P+TB+O5sEQO9SbZReZvl4Ugpa1YXetO
+         92SQ==
+X-Gm-Message-State: AC+VfDxt2vAKcMnzzADYZRQAbhvyJIKP9kXsgiZq1tzHDxg9+9Ha/Q2T
+        B8DI1+GOeHDIQa8F007zec337w==
+X-Google-Smtp-Source: ACHHUZ72ZYjmYa4iLIi/+OuzxDiJ+FjdOVWtwVrUGRS1JzqbqL5Oe0IaZaJfa5k5Cb63yUhBM41Ssw==
+X-Received: by 2002:a37:a810:0:b0:75c:cc95:671 with SMTP id r16-20020a37a810000000b0075ccc950671mr2815275qke.26.1685481068311;
+        Tue, 30 May 2023 14:11:08 -0700 (PDT)
+Received: from meerkat.local (bras-base-mtrlpq5031w-grc-30-209-226-106-132.dsl.bell.ca. [209.226.106.132])
+        by smtp.gmail.com with ESMTPSA id u22-20020a05620a121600b007579ff44f0dsm4403115qkj.124.2023.05.30.14.11.07
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Tue, 30 May 2023 14:11:07 -0700 (PDT)
+Date:   Tue, 30 May 2023 17:11:06 -0400
+From:   Konstantin Ryabitsev <konstantin@linuxfoundation.org>
+To:     Linus Torvalds <torvalds@linux-foundation.org>
 Cc:     Frank Scheiner <frank.scheiner@web.de>,
         Guenter Roeck <linux@roeck-us.net>,
         Arnd Bergmann <arnd@arndb.de>, linux-ia64@vger.kernel.org,
         song@kernel.org, debian-ia64 <debian-ia64@lists.debian.org>,
         John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
         Luis Chamberlain <mcgrof@kernel.org>
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Subject: Re: Boot regression in Linux v6.4-rc3
+Message-ID: <20230530-richly-vowed-cbd6d6@meerkat>
+References: <abb1166d-27a9-fbae-59cd-841480fba78a@web.de>
+ <ZHErssbUSbSznTVA@bombadil.infradead.org>
+ <CAHk-=whuaCqh0RJk1F+SKqdEHPzANoVVP5OU=c9wgogVLCQTVQ@mail.gmail.com>
+ <c4ef98ad-cc4e-2949-179d-7edbc3c2a1b5@web.de>
+ <CAHk-=whv0Mr_Gnwbm00vi76oTTw16KviVhC33segbjjZbxOswA@mail.gmail.com>
+ <20230530-purchase-amber-fa77ba@meerkat>
+ <CAHk-=wh=mF941kP0DduTt91V+HSuTqBAU8pXp34wSn6DSMPmrQ@mail.gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: 8bit
+In-Reply-To: <CAHk-=wh=mF941kP0DduTt91V+HSuTqBAU8pXp34wSn6DSMPmrQ@mail.gmail.com>
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
-Message-ID: <20230530210456.lRkuifwvGppEo_qyEtaxHkoLzpWVdcs_SIZCTTojPD8@z>
+Message-ID: <20230530211106.umcc9MqZWT6XSiZ-Ffn6i3PNMFs-cOO14xjHxH1SgLU@z>
 
-On Tue, May 30, 2023 at 4:21=E2=80=AFPM Konstantin Ryabitsev
-<konstantin@linuxfoundation.org> wrote:
->
-> We only add things to lore when someone asks, and nobody's asked. :) I gu=
-ess
-> I'll consider this an ask and put it on the radar.
+On Tue, May 30, 2023 at 05:04:56PM -0400, Linus Torvalds wrote:
+> On Tue, May 30, 2023 at 4:21 PM Konstantin Ryabitsev
+> <konstantin@linuxfoundation.org> wrote:
+> >
+> > We only add things to lore when someone asks, and nobody's asked. :) I guess
+> > I'll consider this an ask and put it on the radar.
+> 
+> Thanks. It would probably be good to see if there are any other
+> vger.kernel.org lists with any appreciable traffic that aren't on
+> lore.
 
-Thanks. It would probably be good to see if there are any other
-vger.kernel.org lists with any appreciable traffic that aren't on
-lore.
+Yes, that will auto-fix itself as we continue to migrate things over to
+subspace ("new vger").
 
-               Linus
+-K
