@@ -2,37 +2,38 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id E56AAC77B73
-	for <linux-ia64@archiver.kernel.org>; Wed, 31 May 2023 08:37:24 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 4BEB3C77B73
+	for <linux-ia64@archiver.kernel.org>; Sat,  3 Jun 2023 10:24:57 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S234676AbjEaIhV (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Wed, 31 May 2023 04:37:21 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:55612 "EHLO
+        id S230114AbjFCKYz (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Sat, 3 Jun 2023 06:24:55 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:46606 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S234855AbjEaIhR (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Wed, 31 May 2023 04:37:17 -0400
-X-Greylist: delayed 823 seconds by postgrey-1.37 at lindbergh.monkeyblade.net; Wed, 31 May 2023 01:37:16 PDT
-Received: from mail.ettrick.pl (mail.ettrick.pl [141.94.21.111])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 9FD4610B
-        for <linux-ia64@vger.kernel.org>; Wed, 31 May 2023 01:37:16 -0700 (PDT)
-Received: by mail.ettrick.pl (Postfix, from userid 1002)
-        id 32410A970E; Wed, 31 May 2023 08:16:05 +0000 (UTC)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=ettrick.pl; s=mail;
-        t=1685520991; bh=ZOVeXw1jXE9TbyZP9aLdRwM96AORcRfum8b+rry5JMw=;
+        with ESMTP id S229810AbjFCKYx (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Sat, 3 Jun 2023 06:24:53 -0400
+X-Greylist: delayed 4199 seconds by postgrey-1.37 at lindbergh.monkeyblade.net; Sat, 03 Jun 2023 03:24:52 PDT
+Received: from mail.webtopbits.pl (mail.webtopbits.pl [195.231.64.176])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 145961A4
+        for <linux-ia64@vger.kernel.org>; Sat,  3 Jun 2023 03:24:51 -0700 (PDT)
+Received: by mail.webtopbits.pl (Postfix, from userid 1001)
+        id C1544A38D3; Fri,  2 Jun 2023 09:36:01 +0100 (BST)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=webtopbits.pl;
+        s=mail; t=1685694963;
+        bh=Eh8ECMiYd4baGAwPAzhz8mhJACXX7NSRkYjh+plaY18=;
         h=Date:From:To:Subject:From;
-        b=sFZ5D1rgwrO6zLliWvUiXYdTyzjVSxRe2M06BF1gLeKUf7MXmlW5yzcaJ/3BWq2SH
-         B/2WIzhM0EYXKCZB6kcv5lULD7llQGHoHw686DYEwxIgTgcvcon7otF91ImpoD9UwH
-         vqcqlkGkPj9r1alvN/8qJ1RmFI2BvR2PP14dVEjT0pzPewlL5ah1rnGCLiTDbNpSoW
-         eid1EW68Gqkdw/LW9w5XuweG+iyYHsjJcPh7af3k6xUyWIndX6t7K8PNnNv9WdxCfN
-         xmCtS4KU7QotOgZ0JlB0JKAHJtvJyU/AA6gxNNGqWYKPfQXQFhhl29CGxxud91/T14
-         rbVrvv5UIy/0Q==
-Received: by mail.ettrick.pl for <linux-ia64@vger.kernel.org>; Wed, 31 May 2023 08:15:40 GMT
-Message-ID: <20230531064500-0.1.ax.4bm3d.0.pbfp10gqb5@ettrick.pl>
-Date:   Wed, 31 May 2023 08:15:40 GMT
-From:   "Norbert Karecki" <norbert.karecki@ettrick.pl>
+        b=fTP/hUzLx1FLzTqp+svj5F98D7PvCk68hVJm/bbasUN3O/jARTRGcA0ol7eNMd6Lv
+         TPgBEfuw2gVgPTjH3jadqpxgLULkA6uIKKExIQImwLu/T6NHXHfSu4QL39Duvb8VcI
+         3LhEthaKoIjmqYBMGPfzpCwHPBl7mATp41K1uan+5y8bRZ/pB0h9ryGxFRRxyyNsuf
+         AvZes6zLDCb7tMDSzh5ilHLfhAUuDQjn6GISN7wqlqSqU0k4rbZi/rLCSAy5lGh9T8
+         oXrGnhcotUrM5gP9LyIHxtdd+/Nvd62hVD7cwCrRkJD18w28dXkbDj+IDY8cIK0yWP
+         A76PVv+EpFYyQ==
+Received: by mail.webtopbits.pl for <linux-ia64@vger.kernel.org>; Fri,  2 Jun 2023 08:35:59 GMT
+Message-ID: <20230602085530-0.1.8w.5k1g.0.ewjq44w0a4@webtopbits.pl>
+Date:   Fri,  2 Jun 2023 08:35:59 GMT
+From:   "Kamil Durjasz" <kamil.durjasz@webtopbits.pl>
 To:     <linux-ia64@vger.kernel.org>
-Subject: Fotowoltaika- propozycja instalacji
-X-Mailer: mail.ettrick.pl
+Subject: =?UTF-8?Q?Wy=C5=BCsza_konwersja_w_e-sklepie_?=
+X-Mailer: mail.webtopbits.pl
 MIME-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
@@ -41,22 +42,23 @@ List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
 Dzie=C5=84 dobry,
-=20
-Czy rozwa=C5=BCali Pa=C5=84stwo monta=C5=BC systemu fotowoltaicznego?
-=20
-Instalacja fotowoltaiczna jest najlepszym sposobem na obni=C5=BCenie wyso=
-ko=C5=9Bci rachunk=C3=B3w za pr=C4=85d (pozostaj=C4=85 tylko op=C5=82aty =
-sta=C5=82e) i zabezpieczenie si=C4=99 przed rosn=C4=85cymi cenami energii=
- elektrycznej. Jest to w pe=C5=82ni odnawialne i bezemisyjne =C5=BAr=C3=B3=
-d=C5=82o energii, dzi=C4=99ki czemu przyczyniamy si=C4=99 do ochrony =C5=9B=
-rodowiska naturalnego.
-=20
-Dzia=C5=82amy od wielu lat na rynku energetycznym. Przygotujemy projekt, =
-wycen=C4=99 oraz kompleksowo wykonamy i zg=C5=82osimy realizacj=C4=99 do =
-zak=C5=82adu energetycznego.=20
-=20
-Czy chc=C4=85 Pa=C5=84stwo pozna=C4=87 nasz=C4=85 propozycj=C4=99? =20
+
+w jaki spos=C3=B3b docieraj=C4=85 Pa=C5=84stwo do odbiorc=C3=B3w?
+
+Tworzymy pot=C4=99=C5=BCne narz=C4=99dzia sprzeda=C5=BCy, kt=C3=B3re pozw=
+alaj=C4=85 kompleksowo rozwi=C4=85za=C4=87 problemy potencjalnych klient=C3=
+=B3w i skutecznie wp=C5=82yn=C4=85=C4=87 na ich decyzje zakupowe.=20
+
+Skupiamy si=C4=99 na Pa=C5=84stwa potrzebach zwi=C4=85zanych z obs=C5=82u=
+g=C4=85 sklepu, oczekiwaniach i planach sprzeda=C5=BCowych. Szczeg=C3=B3=C5=
+=82owo dopasowujemy grafik=C4=99, funkcjonalno=C5=9Bci, struktur=C4=99 i =
+mikrointerakcje do Pa=C5=84stwa grupy docelowej, co przek=C5=82ada si=C4=99=
+ na oczekiwane rezultaty.
+
+Ch=C4=99tnie przedstawi=C4=99 dotychczasowe realizacje, aby mogli Pa=C5=84=
+stwo przekona=C4=87 si=C4=99 o naszych mo=C5=BCliwo=C5=9Bciach. Mog=C4=99=
+ si=C4=99 skontaktowa=C4=87?
 
 
-Pozdrawiam,
-Norbert Karecki
+Pozdrawiam
+Kamil Durjasz
