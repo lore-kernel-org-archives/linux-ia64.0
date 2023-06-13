@@ -2,34 +2,36 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 0C44FEB64DA
-	for <linux-ia64@archiver.kernel.org>; Tue, 13 Jun 2023 23:39:29 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id AA20FEB64DD
+	for <linux-ia64@archiver.kernel.org>; Tue, 13 Jun 2023 23:39:33 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S231341AbjFMXj2 (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Tue, 13 Jun 2023 19:39:28 -0400
+        id S240551AbjFMXja (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Tue, 13 Jun 2023 19:39:30 -0400
 Received: from lindbergh.monkeyblade.net ([23.128.96.19]:33668 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S238613AbjFMXj0 (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Tue, 13 Jun 2023 19:39:26 -0400
+        with ESMTP id S239940AbjFMXj1 (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Tue, 13 Jun 2023 19:39:27 -0400
 Received: from galois.linutronix.de (Galois.linutronix.de [IPv6:2a0a:51c0:0:12e:550::1])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 1B9D21989;
-        Tue, 13 Jun 2023 16:39:24 -0700 (PDT)
-Message-ID: <20230613223827.532680283@linutronix.de>
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 7027D172A;
+        Tue, 13 Jun 2023 16:39:26 -0700 (PDT)
+Message-ID: <20230613224545.019583869@linutronix.de>
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=linutronix.de;
-        s=2020; t=1686699562;
+        s=2020; t=1686699565;
         h=from:from:reply-to:subject:subject:date:date:message-id:message-id:
-         to:to:cc:cc; bh=zGcwSkjRu8UFPTZ5Hk2Js/azQZ9pUpsGsLPKi5+wHk4=;
-        b=1vl6UXgCAJSEGSzD8t6gUcoJc5169AwVrpA21nUOBZK5joseTFTf4tOCJuSxYeH8jjiG5a
-        jEyyQE8u/hzl94Ysm1rJG2YnzoQg/tcACXTl7p0VwWp1Hg5BBJMua3yUhYob6t9+1w2mee
-        490vMvkq9U3+kLEoOiWcYf6hGufEEl+RY32dXE3KaUMRZAu87C+A2xK5wy++4GlmwK3EZB
-        Z5VXWqjjyIYWILTQXObbl4QE63VzmXuPdS4shWyoeGuVxCCmwUXoumayy+XcSsFxFG+bU7
-        NlI/LWfvrG5jqcCo56KbCsG3Df/lECSRqYeR0pyPUxwGWLhUnEuZlGh+hhMUzg==
+         to:to:cc:cc:mime-version:mime-version:content-type:content-type:
+         references:references; bh=83St4CX9k4r3etM5D/zDLxt583bBYUX8Z2E5c0B+/8o=;
+        b=3viID6EMmGtwT6pty1299Bp4e/YEbbLDSFkQ5FM1xHbDTnnYM2EPjzfoyNvqU9xZQ6si67
+        zDu0E0pfkffv/xVUzayaJiuDWIl2tDbw5bZGTSDfO1w7xkGrr3eAqt4VzVvDNTbMD0+8lQ
+        8P0dqipiyPmmZCa+o48JUXdjTAm9xStwOwtUlihlYgBoCO0LUad9gn10J3MiZ7i3ihy24A
+        5wMJHC5qOSflVMpxvb55/jOd+ZMT3GkmwRxwnBKQWRxPadaRQAuIBxw435ZWWQcdR1tKC+
+        /GW9p44n6J4jU+jta5DEZ7WUcaW8gIjdndf0ueYD7h+qQRtu75mG1qkMpVVVkw==
 DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=linutronix.de;
-        s=2020e; t=1686699562;
+        s=2020e; t=1686699565;
         h=from:from:reply-to:subject:subject:date:date:message-id:message-id:
-         to:to:cc:cc; bh=zGcwSkjRu8UFPTZ5Hk2Js/azQZ9pUpsGsLPKi5+wHk4=;
-        b=c2klUM1ewA5e7Mdg+k2IbCC4Vl2VvLKpWjP1RVCx9kwxZJ2Q99tmqHfyKPV09o7em5evQ2
-        Pbn7SMSiRq5L4VBA==
+         to:to:cc:cc:mime-version:mime-version:content-type:content-type:
+         references:references; bh=83St4CX9k4r3etM5D/zDLxt583bBYUX8Z2E5c0B+/8o=;
+        b=bbIrH1nI96We/t4rw8JUO249OZXCtRabtAP3RSB1RR6S/JhBpaowhlD8A1iE7l22P9oR7a
+        OMsatE9/YbtL6RCA==
 From:   Thomas Gleixner <tglx@linutronix.de>
 To:     LKML <linux-kernel@vger.kernel.org>
 Cc:     x86@kernel.org, Linus Torvalds <torvalds@linux-foundation.org>,
@@ -57,127 +59,222 @@ Cc:     x86@kernel.org, Linus Torvalds <torvalds@linux-foundation.org>,
         Michael Ellerman <mpe@ellerman.id.au>,
         Chris Zankel <chris@zankel.net>,
         Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [patch 00/17] init, treewide, x86: Cleanup check_bugs() and start
- sanitizing the x86 boot process
-Date:   Wed, 14 Jun 2023 01:39:21 +0200 (CEST)
+Subject: [patch 02/17] x86/cpu: Switch to arch_cpu_finalize_init()
+References: <20230613223827.532680283@linutronix.de>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Date:   Wed, 14 Jun 2023 01:39:24 +0200 (CEST)
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-Hi!
+check_bugs() is a dump ground for finalizing the CPU bringup. Only parts of
+it has to do with actual CPU bugs.
 
-My team and myself are working on sanitizing the x86 boot process,
-especially the complete horror show of CPUID evaluation, which is
-constructed with hay-wire circuits, duct tape and superglue.
+Split it apart into arch_cpu_finalize_init() and cpu_select_mitigations().
 
-A related goal is to move the initialization of infrastructure which is not
-required during early boot out into a later phase of the boot process.
-Early boot is fragile and convoluted enough already, so anything which can
-move into a later phase is a win.
+Fixup the bogus 32bit comments while at it.
 
-X86 FPU initialization is one of the obvious parts which has zero
-justification to be done early. The only requirement is that it happens
-before alternative patching. Doing it early also requires custom command
-line parsing which can be obviously avoided when the initialization happens
-later.
+No functional change.
 
-Alternative patching happens from check_bugs() which is invoked late in
-start_kernel(). Moving FPU initialization into that is too late because
-check_bugs() is invoked after fork_init(), but fork_init() requires that
-the FPU is initialized on X86 as on X86 the size of task_struct depends on
-the FPU register buffer size.
-
-In order to avoid another magic function we set out to move check_bugs()
-earlier and inspected all incarnations whether there is any reason to do
-that so late. It turned out there is none (famous last words), but it also
-revealed that check_bugs() is a gross misnomer.
-
-check_bugs() has become a dump ground for finalizing the CPU initialization
-before running the rest of the init code.
-
-Most implementations are empty, a few do actual bug checks, some do
-alternative patching and one cobbles a CPU advertisment string together...
-
-As a consequence we decided to rename it to arch_cpu_finalize_init(). The
-purely mechanical 's/check_bugs/arch_cpu_finalize_init/' would have been
-trivial, but having stared at the actual implementations of check_bugs()
-had triggered the scavenger reflex already. So I got the mop out and
-cleaned it up completely.
-
-The resulting series consists therefore of three parts:
-
- 1) Patches 1-11
-
-    Rename and mop up check_bugs() which removes a solid amount of
-    redundant historical copy & pasta crud:
-
-    39 files changed, 161 insertions(+), 321 deletions(-)
-
-    11 out of the 39 changed files are removed completely.
-
- 2) Patches 12-13
-
-    Move the invocation of arch_cpu_finalize_init() earlier in
-    start_kernel() and move the x86'ism mem_encrypt_init() into the x86
-    space.
-
- 3) Patches 14-17
-
-    Implement the late FPU initialization for X86 on top. Removal of the
-    custom early command line parsing is subject to separate x86 specific
-    changes. This part #3 is to illustrate the use case for #2.
-
-The series applies on Linus tree and is also available from git:
-
-    git://git.kernel.org/pub/scm/linux/kernel/git/tglx/devel.git init
-
-Thanks,
-
-	tglx
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
- a/arch/alpha/include/asm/bugs.h     |   20 ---------
- a/arch/ia64/include/asm/bugs.h      |   20 ---------
- a/arch/loongarch/include/asm/bugs.h |   15 ------
- a/arch/m68k/include/asm/bugs.h      |   21 ---------
- a/arch/parisc/include/asm/bugs.h    |   20 ---------
- a/arch/powerpc/include/asm/bugs.h   |   15 ------
- a/arch/sh/include/asm/bugs.h        |   74 ---------------------------------
- a/arch/sparc/include/asm/bugs.h     |   18 --------
- a/arch/um/include/asm/bugs.h        |    7 ---
- a/arch/xtensa/include/asm/bugs.h    |   18 --------
- a/include/asm-generic/bugs.h        |   11 -----
- arch/Kconfig                        |    3 +
- arch/arm/Kconfig                    |    1 
- arch/arm/include/asm/bugs.h         |    4 -
- arch/arm/kernel/bugs.c              |    3 -
- arch/ia64/Kconfig                   |    1 
- arch/ia64/kernel/setup.c            |    3 -
- arch/loongarch/Kconfig              |    1 
- arch/loongarch/kernel/setup.c       |    4 -
- arch/m68k/Kconfig                   |    1 
- arch/m68k/kernel/setup_mm.c         |    3 -
- arch/mips/Kconfig                   |    1 
- arch/mips/include/asm/bugs.h        |   17 -------
- arch/mips/kernel/setup.c            |   13 +++++
- arch/sh/Kconfig                     |    1 
- arch/sh/include/asm/processor.h     |    2 
- arch/sh/kernel/idle.c               |    1 
- arch/sh/kernel/setup.c              |   55 +++++++++++++++++++++++++
- arch/sparc/Kconfig                  |    1 
- arch/sparc/kernel/setup_32.c        |    7 +++
- arch/um/Kconfig                     |    1 
- arch/um/kernel/um_arch.c            |    3 -
- arch/x86/Kconfig                    |    1 
- arch/x86/include/asm/bugs.h         |    2 
- arch/x86/include/asm/fpu/api.h      |    2 
- arch/x86/include/asm/mem_encrypt.h  |    7 +--
- arch/x86/include/asm/sigframe.h     |    2 
- arch/x86/kernel/cpu/bugs.c          |   51 -----------------------
- arch/x86/kernel/cpu/common.c        |   79 ++++++++++++++++++++++++++++++++----
- arch/x86/kernel/cpu/cpu.h           |    1 
- arch/x86/kernel/fpu/init.c          |    8 +--
- arch/x86/kernel/signal.c            |    4 +
- include/linux/cpu.h                 |    6 ++
- init/main.c                         |   16 -------
- 44 files changed, 192 insertions(+), 352 deletions(-)
+ arch/x86/Kconfig             |    1 
+ arch/x86/include/asm/bugs.h  |    2 -
+ arch/x86/kernel/cpu/bugs.c   |   51 -----------------------------------------
+ arch/x86/kernel/cpu/common.c |   53 +++++++++++++++++++++++++++++++++++++++++++
+ arch/x86/kernel/cpu/cpu.h    |    1 
+ 5 files changed, 56 insertions(+), 52 deletions(-)
+
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -71,6 +71,7 @@ config X86
+ 	select ARCH_HAS_ACPI_TABLE_UPGRADE	if ACPI
+ 	select ARCH_HAS_CACHE_LINE_SIZE
+ 	select ARCH_HAS_CPU_CACHE_INVALIDATE_MEMREGION
++	select ARCH_HAS_CPU_FINALIZE_INIT
+ 	select ARCH_HAS_CURRENT_STACK_POINTER
+ 	select ARCH_HAS_DEBUG_VIRTUAL
+ 	select ARCH_HAS_DEBUG_VM_PGTABLE	if !X86_PAE
+--- a/arch/x86/include/asm/bugs.h
++++ b/arch/x86/include/asm/bugs.h
+@@ -4,8 +4,6 @@
+ 
+ #include <asm/processor.h>
+ 
+-extern void check_bugs(void);
+-
+ #if defined(CONFIG_CPU_SUP_INTEL) && defined(CONFIG_X86_32)
+ int ppro_with_ram_bug(void);
+ #else
+--- a/arch/x86/kernel/cpu/bugs.c
++++ b/arch/x86/kernel/cpu/bugs.c
+@@ -9,7 +9,6 @@
+  *	- Andrew D. Balsa (code cleanup).
+  */
+ #include <linux/init.h>
+-#include <linux/utsname.h>
+ #include <linux/cpu.h>
+ #include <linux/module.h>
+ #include <linux/nospec.h>
+@@ -27,8 +26,6 @@
+ #include <asm/msr.h>
+ #include <asm/vmx.h>
+ #include <asm/paravirt.h>
+-#include <asm/alternative.h>
+-#include <asm/set_memory.h>
+ #include <asm/intel-family.h>
+ #include <asm/e820/api.h>
+ #include <asm/hypervisor.h>
+@@ -125,21 +122,8 @@ DEFINE_STATIC_KEY_FALSE(switch_mm_cond_l
+ DEFINE_STATIC_KEY_FALSE(mmio_stale_data_clear);
+ EXPORT_SYMBOL_GPL(mmio_stale_data_clear);
+ 
+-void __init check_bugs(void)
++void __init cpu_select_mitigations(void)
+ {
+-	identify_boot_cpu();
+-
+-	/*
+-	 * identify_boot_cpu() initialized SMT support information, let the
+-	 * core code know.
+-	 */
+-	cpu_smt_check_topology();
+-
+-	if (!IS_ENABLED(CONFIG_SMP)) {
+-		pr_info("CPU: ");
+-		print_cpu_info(&boot_cpu_data);
+-	}
+-
+ 	/*
+ 	 * Read the SPEC_CTRL MSR to account for reserved bits which may
+ 	 * have unknown values. AMD64_LS_CFG MSR is cached in the early AMD
+@@ -176,39 +160,6 @@ void __init check_bugs(void)
+ 	md_clear_select_mitigation();
+ 	srbds_select_mitigation();
+ 	l1d_flush_select_mitigation();
+-
+-	arch_smt_update();
+-
+-#ifdef CONFIG_X86_32
+-	/*
+-	 * Check whether we are able to run this kernel safely on SMP.
+-	 *
+-	 * - i386 is no longer supported.
+-	 * - In order to run on anything without a TSC, we need to be
+-	 *   compiled for a i486.
+-	 */
+-	if (boot_cpu_data.x86 < 4)
+-		panic("Kernel requires i486+ for 'invlpg' and other features");
+-
+-	init_utsname()->machine[1] =
+-		'0' + (boot_cpu_data.x86 > 6 ? 6 : boot_cpu_data.x86);
+-	alternative_instructions();
+-
+-	fpu__init_check_bugs();
+-#else /* CONFIG_X86_64 */
+-	alternative_instructions();
+-
+-	/*
+-	 * Make sure the first 2MB area is not mapped by huge pages
+-	 * There are typically fixed size MTRRs in there and overlapping
+-	 * MTRRs into large pages causes slow downs.
+-	 *
+-	 * Right now we don't do that with gbpages because there seems
+-	 * very little benefit for that case.
+-	 */
+-	if (!direct_gbpages)
+-		set_memory_4k((unsigned long)__va(0), 1);
+-#endif
+ }
+ 
+ /*
+--- a/arch/x86/kernel/cpu/common.c
++++ b/arch/x86/kernel/cpu/common.c
+@@ -19,11 +19,14 @@
+ #include <linux/kprobes.h>
+ #include <linux/kgdb.h>
+ #include <linux/smp.h>
++#include <linux/cpu.h>
+ #include <linux/io.h>
+ #include <linux/syscore_ops.h>
+ #include <linux/pgtable.h>
+ #include <linux/stackprotector.h>
++#include <linux/utsname.h>
+ 
++#include <asm/alternative.h>
+ #include <asm/cmdline.h>
+ #include <asm/perf_event.h>
+ #include <asm/mmu_context.h>
+@@ -59,6 +62,7 @@
+ #include <asm/intel-family.h>
+ #include <asm/cpu_device_id.h>
+ #include <asm/uv/uv.h>
++#include <asm/set_memory.h>
+ #include <asm/sigframe.h>
+ #include <asm/traps.h>
+ #include <asm/sev.h>
+@@ -2362,3 +2366,52 @@ void arch_smt_update(void)
+ 	/* Check whether IPI broadcasting can be enabled */
+ 	apic_smt_update();
+ }
++
++void __init arch_cpu_finalize_init(void)
++{
++	identify_boot_cpu();
++
++	/*
++	 * identify_boot_cpu() initialized SMT support information, let the
++	 * core code know.
++	 */
++	cpu_smt_check_topology();
++
++	if (!IS_ENABLED(CONFIG_SMP)) {
++		pr_info("CPU: ");
++		print_cpu_info(&boot_cpu_data);
++	}
++
++	arch_smt_update();
++
++	cpu_select_mitigations();
++
++	if (IS_ENABLED(CONFIG_X86_32)) {
++		/*
++		 * Check whether this is a real i386 which is not longer
++		 * supported and fixup the utsname.
++		 */
++		if (boot_cpu_data.x86 < 4)
++			panic("Kernel requires i486+ for 'invlpg' and other features");
++
++		init_utsname()->machine[1] =
++			'0' + (boot_cpu_data.x86 > 6 ? 6 : boot_cpu_data.x86);
++	}
++
++	alternative_instructions();
++
++	if (IS_ENABLED(CONFIG_X86_64)) {
++		/*
++		 * Make sure the first 2MB area is not mapped by huge pages
++		 * There are typically fixed size MTRRs in there and overlapping
++		 * MTRRs into large pages causes slow downs.
++		 *
++		 * Right now we don't do that with gbpages because there seems
++		 * very little benefit for that case.
++		 */
++		if (!direct_gbpages)
++			set_memory_4k((unsigned long)__va(0), 1);
++	} else {
++		fpu__init_check_bugs();
++	}
++}
+--- a/arch/x86/kernel/cpu/cpu.h
++++ b/arch/x86/kernel/cpu/cpu.h
+@@ -79,6 +79,7 @@ extern void detect_ht(struct cpuinfo_x86
+ extern void check_null_seg_clears_base(struct cpuinfo_x86 *c);
+ 
+ unsigned int aperfmperf_get_khz(int cpu);
++void cpu_select_mitigations(void);
+ 
+ extern void x86_spec_ctrl_setup_ap(void);
+ extern void update_srbds_msr(void);
 
