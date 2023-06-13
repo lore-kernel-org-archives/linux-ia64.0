@@ -2,46 +2,46 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id A0561EB64D8
-	for <linux-ia64@archiver.kernel.org>; Tue, 13 Jun 2023 23:40:55 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 15C4DEB64D8
+	for <linux-ia64@archiver.kernel.org>; Tue, 13 Jun 2023 23:41:02 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S240755AbjFMXkx (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Tue, 13 Jun 2023 19:40:53 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:34044 "EHLO
+        id S241762AbjFMXlA (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Tue, 13 Jun 2023 19:41:00 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:34276 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S240820AbjFMXjp (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Tue, 13 Jun 2023 19:39:45 -0400
+        with ESMTP id S241534AbjFMXkE (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Tue, 13 Jun 2023 19:40:04 -0400
 Received: from galois.linutronix.de (Galois.linutronix.de [193.142.43.55])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id CD1341BC5;
-        Tue, 13 Jun 2023 16:39:30 -0700 (PDT)
-Message-ID: <20230613224545.195288218@linutronix.de>
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 6F9F51FFB;
+        Tue, 13 Jun 2023 16:39:41 -0700 (PDT)
+Message-ID: <20230613224545.612182854@linutronix.de>
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=linutronix.de;
-        s=2020; t=1686699569;
+        s=2020; t=1686699580;
         h=from:from:reply-to:subject:subject:date:date:message-id:message-id:
          to:to:cc:cc:mime-version:mime-version:content-type:content-type:
-         references:references; bh=wAbnFBlurd+q5E9YGYWZQzKMTp8tWmNvPLQZMDxb/Z0=;
-        b=Zbd+Ir52V2uzr84SvierPlBHrV4Z647TbDfnQDNmOz8wsBHhI1d0jbx2x2H4r0NktbREbQ
-        28ckft5GWbaeip07ikMsd5MJbYiCi8IatCCi+2EN6HExK2NDajXlsCATRGvKhOVDcKhFmc
-        9a2oImJ57XFcAA8hbs09AAGlr3jBInku7z1q9oOF9a/B7k1J9TPKJ9vYVxqApFK7CI/bd7
-        xdpiBUxUZhxa6ZrUzVTUfs6hhkzmLmoqTMpmvK6zbWMJIBf/5rMs05SKGaoy2hbp/pGnKD
-        ElHvnkYeIgDklS+Flj/Qcy1uzIc+V5Mhxk/nLp4THDyZxVhBIG24cKjKijysqg==
+         references:references; bh=0VnFCDlFg0Z65xUPcTSUW8cd097ZM3tj8m6sSpK3s64=;
+        b=2vIwQPIUp/HJUmCG4BQezI45Q367xKHJYYqLK7G4wdrDSn+cOBFzLkdHYUwzUXc6gDifT9
+        rXY1lpsCnLehM7zAXb6roxx5XLRXYnCJR+grAmVc2dHif25zyPdBFAdRB8oZi5F8oDEYjX
+        LfRMBrXHCi+WgVWwvhW/rD4N9Ur83iWtMYD/8dwxcO3p39WY5cZNs0IUmsHtiYOfpH2mPn
+        zfJVRybOawF0SSzGOD7ZbR8K3/Wde2+WMR35K0mYj4U05gliICM7VVvC+XUr8nRG+osE42
+        Jt6Rw45sBhht2PYfVT0AcDzOMXI7pmmP+pQ2CC66euAz7R6Cd8BF8y04Prxn9g==
 DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=linutronix.de;
-        s=2020e; t=1686699569;
+        s=2020e; t=1686699580;
         h=from:from:reply-to:subject:subject:date:date:message-id:message-id:
          to:to:cc:cc:mime-version:mime-version:content-type:content-type:
-         references:references; bh=wAbnFBlurd+q5E9YGYWZQzKMTp8tWmNvPLQZMDxb/Z0=;
-        b=AcuEE4hQ/G5Km4tkU+ef7uMrfhw8Xn+afVYkhiaEbiCBXOFGTRhMbw4Oh/nc0o3eWyoXw9
-        9/6M+VRLTRLtIOAg==
+         references:references; bh=0VnFCDlFg0Z65xUPcTSUW8cd097ZM3tj8m6sSpK3s64=;
+        b=Xu1aR4gK/TE/PO7y3dM5tqNyYP8UwrzsrU8JCSaOdKEVqSuAOvhIQ2kubFuP8M//eeln2X
+        Z4Xwxgc0BSAFJ1Bg==
 From:   Thomas Gleixner <tglx@linutronix.de>
 To:     LKML <linux-kernel@vger.kernel.org>
 Cc:     x86@kernel.org, Linus Torvalds <torvalds@linux-foundation.org>,
         Nikolay Borisov <nik.borisov@suse.com>,
         "Ahmed S. Darwish" <darwi@linutronix.de>,
         Arnd Bergmann <arnd@arndb.de>,
-        Huacai Chen <chenhuacai@kernel.org>,
-        WANG Xuerui <kernel@xen0n.name>, loongarch@lists.linux.dev,
         Russell King <linux@armlinux.org.uk>,
         linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org,
+        Huacai Chen <chenhuacai@kernel.org>,
+        WANG Xuerui <kernel@xen0n.name>, loongarch@lists.linux.dev,
         Geert Uytterhoeven <geert@linux-m68k.org>,
         linux-m68k@lists.linux-m68k.org,
         Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
@@ -59,83 +59,57 @@ Cc:     x86@kernel.org, Linus Torvalds <torvalds@linux-foundation.org>,
         Michael Ellerman <mpe@ellerman.id.au>,
         Chris Zankel <chris@zankel.net>,
         Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [patch 05/17] loongarch/cpu: Switch to arch_cpu_finalize_init()
+Subject: [patch 12/17] init: Invoke arch_cpu_finalize_init() earlier
 References: <20230613223827.532680283@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Date:   Wed, 14 Jun 2023 01:39:28 +0200 (CEST)
+Date:   Wed, 14 Jun 2023 01:39:39 +0200 (CEST)
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-check_bugs() is about to be phased out. Switch over to the new
-arch_cpu_finalize_init() implementation.
+X86 is reworking the boot process so that initializations which are not
+required during early boot can be moved into the late boot process and out
+of the fragile and restricted initial boot phase.
 
-No functional change.
+arch_cpu_finalize_init() is the obvious place to do such initializations,
+but arch_cpu_finalize_init() is invoked too late in start_kernel() e.g. for
+initializing the FPU completely. fork_init() requires that the FPU is
+initialized as the size of task_struct on X86 depends on the size of the
+required FPU register buffer.
+
+Fortunately none of the init calls between calibrate_delay() and
+arch_cpu_finalize_init() is relevant for the functionality of
+arch_cpu_finalize_init().
+
+Invoke it right after calibrate_delay() where everything which is relevant
+for arch_cpu_finalize_init() has been set up already.
+
+No functional change intended.
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
-Cc: Huacai Chen <chenhuacai@kernel.org>
-Cc: WANG Xuerui <kernel@xen0n.name>
-Cc: loongarch@lists.linux.dev
 ---
- arch/loongarch/Kconfig            |    1 +
- arch/loongarch/include/asm/bugs.h |   15 ---------------
- arch/loongarch/kernel/setup.c     |    4 ++--
- 3 files changed, 3 insertions(+), 17 deletions(-)
+ init/main.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
---- a/arch/loongarch/Kconfig
-+++ b/arch/loongarch/Kconfig
-@@ -10,6 +10,7 @@ config LOONGARCH
- 	select ARCH_ENABLE_MEMORY_HOTPLUG
- 	select ARCH_ENABLE_MEMORY_HOTREMOVE
- 	select ARCH_HAS_ACPI_TABLE_UPGRADE	if ACPI
-+	select ARCH_HAS_CPU_FINALIZE_INIT
- 	select ARCH_HAS_FORTIFY_SOURCE
- 	select ARCH_HAS_NMI_SAFE_THIS_CPU_OPS
- 	select ARCH_HAS_PTE_SPECIAL
---- a/arch/loongarch/include/asm/bugs.h
-+++ /dev/null
-@@ -1,15 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0 */
--/*
-- * This is included by init/main.c to check for architecture-dependent bugs.
-- *
-- * Copyright (C) 2020-2022 Loongson Technology Corporation Limited
-- */
--#ifndef _ASM_BUGS_H
--#define _ASM_BUGS_H
--
--#include <asm/cpu.h>
--#include <asm/cpu-info.h>
--
--extern void check_bugs(void);
--
--#endif /* _ASM_BUGS_H */
---- a/arch/loongarch/kernel/setup.c
-+++ b/arch/loongarch/kernel/setup.c
-@@ -12,6 +12,7 @@
-  */
- #include <linux/init.h>
- #include <linux/acpi.h>
-+#include <linux/cpu.h>
- #include <linux/dmi.h>
- #include <linux/efi.h>
- #include <linux/export.h>
-@@ -37,7 +38,6 @@
- #include <asm/addrspace.h>
- #include <asm/alternative.h>
- #include <asm/bootinfo.h>
--#include <asm/bugs.h>
- #include <asm/cache.h>
- #include <asm/cpu.h>
- #include <asm/dma.h>
-@@ -87,7 +87,7 @@ const char *get_system_type(void)
- 	return "generic-loongson-machine";
- }
+--- a/init/main.c
++++ b/init/main.c
+@@ -1041,6 +1041,8 @@ asmlinkage __visible void __init __no_sa
+ 	sched_clock_init();
+ 	calibrate_delay();
  
--void __init check_bugs(void)
-+void __init arch_cpu_finalize_init(void)
- {
- 	alternative_instructions();
- }
++	arch_cpu_finalize_init();
++
+ 	/*
+ 	 * This needs to be called before any devices perform DMA
+ 	 * operations that might use the SWIOTLB bounce buffers. It will
+@@ -1077,8 +1079,6 @@ asmlinkage __visible void __init __no_sa
+ 	taskstats_init_early();
+ 	delayacct_init();
+ 
+-	arch_cpu_finalize_init();
+-
+ 	acpi_subsystem_init();
+ 	arch_post_acpi_subsys_init();
+ 	kcsan_init();
 
