@@ -2,239 +2,210 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id AAF92C7EE2E
-	for <linux-ia64@archiver.kernel.org>; Tue, 13 Jun 2023 11:47:56 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id D749EC7EE2E
+	for <linux-ia64@archiver.kernel.org>; Tue, 13 Jun 2023 12:28:11 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S240360AbjFMLrz (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Tue, 13 Jun 2023 07:47:55 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:42344 "EHLO
+        id S242409AbjFMM2K (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Tue, 13 Jun 2023 08:28:10 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:35464 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S235301AbjFMLry (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Tue, 13 Jun 2023 07:47:54 -0400
-Received: from mx0b-001b2d01.pphosted.com (mx0b-001b2d01.pphosted.com [148.163.158.5])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 5CE56E47;
-        Tue, 13 Jun 2023 04:47:53 -0700 (PDT)
-Received: from pps.filterd (m0353725.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.17.1.19/8.17.1.19) with ESMTP id 35DBHqbe019547;
-        Tue, 13 Jun 2023 11:46:26 GMT
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=ibm.com; h=date : from : to : cc :
- subject : message-id : in-reply-to : references : mime-version :
- content-type : content-transfer-encoding; s=pp1;
- bh=YW8dFle4FwBo/xSGfxj/YlaloUxuRpkH0geiv0yOSDw=;
- b=T5i9ZjoLCtD5qW5i8NKsB6igZlD7dMJC6lq2OsnNDPy7oI/IJwCWRx4SPn5FJJpROxmM
- XGoOjoVssuM9/IjC8/J3XlUqvCz3C3iOZBKCzWeoF0IhoZ+avSBdbwNZr59eAY+Y/MwT
- m2mG+QlqXNAIO2Pu40I08q6zflwJsJOVsijb4rqfpucHx1YhsAfZE7071II3obN8oK0Q
- NnZiT60lRymQXLae3bIOY+/57zmLGsf/tJ23yvopK4qH2zkFEV55XJ0NU4UIbN/4AKyx
- fHREytSGkFNXaEKXdBvC+qFh/1F0GU1+NwGoF/v4zbQshn2s5Y75imb05ioVeOAk3wU9 uA== 
-Received: from pps.reinject (localhost [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (PPS) with ESMTPS id 3r6qey0j7t-1
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NOT);
-        Tue, 13 Jun 2023 11:46:25 +0000
-Received: from m0353725.ppops.net (m0353725.ppops.net [127.0.0.1])
-        by pps.reinject (8.17.1.5/8.17.1.5) with ESMTP id 35DBbbht032708;
-        Tue, 13 Jun 2023 11:46:24 GMT
-Received: from ppma04ams.nl.ibm.com (63.31.33a9.ip4.static.sl-reverse.com [169.51.49.99])
-        by mx0a-001b2d01.pphosted.com (PPS) with ESMTPS id 3r6qey0j6c-1
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NOT);
-        Tue, 13 Jun 2023 11:46:24 +0000
-Received: from pps.filterd (ppma04ams.nl.ibm.com [127.0.0.1])
-        by ppma04ams.nl.ibm.com (8.17.1.19/8.17.1.19) with ESMTP id 35D3i4Ui022712;
-        Tue, 13 Jun 2023 11:45:14 GMT
-Received: from smtprelay01.fra02v.mail.ibm.com ([9.218.2.227])
-        by ppma04ams.nl.ibm.com (PPS) with ESMTPS id 3r4gt523ws-1
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NOT);
-        Tue, 13 Jun 2023 11:45:14 +0000
-Received: from smtpav05.fra02v.mail.ibm.com (smtpav05.fra02v.mail.ibm.com [10.20.54.104])
-        by smtprelay01.fra02v.mail.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id 35DBjA1w19399178
-        (version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK);
-        Tue, 13 Jun 2023 11:45:11 GMT
-Received: from smtpav05.fra02v.mail.ibm.com (unknown [127.0.0.1])
-        by IMSVA (Postfix) with ESMTP id CC35620043;
-        Tue, 13 Jun 2023 11:45:10 +0000 (GMT)
-Received: from smtpav05.fra02v.mail.ibm.com (unknown [127.0.0.1])
-        by IMSVA (Postfix) with ESMTP id D6D1F20040;
-        Tue, 13 Jun 2023 11:45:09 +0000 (GMT)
-Received: from p-imbrenda (unknown [9.152.224.66])
-        by smtpav05.fra02v.mail.ibm.com (Postfix) with ESMTP;
-        Tue, 13 Jun 2023 11:45:09 +0000 (GMT)
-Date:   Tue, 13 Jun 2023 13:45:08 +0200
-From:   Claudio Imbrenda <imbrenda@linux.ibm.com>
-To:     Hugh Dickins <hughd@google.com>
-Cc:     Andrew Morton <akpm@linux-foundation.org>,
-        Mike Kravetz <mike.kravetz@oracle.com>,
-        Mike Rapoport <rppt@kernel.org>,
-        "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>,
-        Matthew Wilcox <willy@infradead.org>,
-        David Hildenbrand <david@redhat.com>,
-        Suren Baghdasaryan <surenb@google.com>,
-        Qi Zheng <zhengqi.arch@bytedance.com>,
-        Peter Zijlstra <peterz@infradead.org>,
-        Russell King <linux@armlinux.org.uk>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will@kernel.org>,
-        Geert Uytterhoeven <geert@linux-m68k.org>,
-        Greg Ungerer <gerg@linux-m68k.org>,
-        Michal Simek <monstr@monstr.eu>,
-        Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
-        Helge Deller <deller@gmx.de>,
-        John David Anglin <dave.anglin@bell.net>,
-        "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        Alexandre Ghiti <alexghiti@rivosinc.com>,
-        Palmer Dabbelt <palmer@dabbelt.com>,
-        Heiko Carstens <hca@linux.ibm.com>,
-        Christian Borntraeger <borntraeger@linux.ibm.com>,
-        Alexander Gordeev <agordeev@linux.ibm.com>,
-        John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Chris Zankel <chris@zankel.net>,
-        Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org,
-        linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org,
-        linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org,
-        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mm@kvack.org
-Subject: Re: [PATCH v2 15/23] s390: allow pte_offset_map_lock() to fail
-Message-ID: <20230613134508.6018e70c@p-imbrenda>
-In-Reply-To: <3ff29363-336a-9733-12a1-5c31a45c8aeb@google.com>
-References: <a4963be9-7aa6-350-66d0-2ba843e1af44@google.com>
-        <3ff29363-336a-9733-12a1-5c31a45c8aeb@google.com>
-Organization: IBM
-X-Mailer: Claws Mail 4.1.1 (GTK 3.24.38; x86_64-redhat-linux-gnu)
+        with ESMTP id S237979AbjFMM14 (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Tue, 13 Jun 2023 08:27:56 -0400
+Received: from us-smtp-delivery-124.mimecast.com (us-smtp-delivery-124.mimecast.com [170.10.133.124])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id DB9AA1989
+        for <linux-ia64@vger.kernel.org>; Tue, 13 Jun 2023 05:26:59 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=redhat.com;
+        s=mimecast20190719; t=1686659219;
+        h=from:from:reply-to:subject:subject:date:date:message-id:message-id:
+         to:to:cc:cc:mime-version:mime-version:content-type:content-type:
+         content-transfer-encoding:content-transfer-encoding:
+         in-reply-to:in-reply-to:references:references;
+        bh=x4X42epITHEmHx9Rdq7WZvtJt4reSEJsGpXTx4uakPs=;
+        b=XnHIVU90C9TJ+dH5iLKcGln4N+lzVrbOu5uj9N85J15wwf4z10nruD+dGMcniFwEbHmk7J
+        lHqVWWDwwSjfFAlkhuZEh3i956u4PWyXakr9CaL1RFFbLTbOyagldGAbMpSdR0WEY9Ty6Z
+        P0oxgRVuraXBH5frWwz/MY1wNqSs+/s=
+Received: from mail-wr1-f70.google.com (mail-wr1-f70.google.com
+ [209.85.221.70]) by relay.mimecast.com with ESMTP with STARTTLS
+ (version=TLSv1.3, cipher=TLS_AES_256_GCM_SHA384) id
+ us-mta-68-BnKmzFJOM7W0e1H6he3wyg-1; Tue, 13 Jun 2023 08:26:58 -0400
+X-MC-Unique: BnKmzFJOM7W0e1H6he3wyg-1
+Received: by mail-wr1-f70.google.com with SMTP id ffacd0b85a97d-30fc67636a2so779579f8f.0
+        for <linux-ia64@vger.kernel.org>; Tue, 13 Jun 2023 05:26:57 -0700 (PDT)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20221208; t=1686659217; x=1689251217;
+        h=content-transfer-encoding:in-reply-to:organization:from:references
+         :cc:to:content-language:subject:user-agent:mime-version:date
+         :message-id:x-gm-message-state:from:to:cc:subject:date:message-id
+         :reply-to;
+        bh=x4X42epITHEmHx9Rdq7WZvtJt4reSEJsGpXTx4uakPs=;
+        b=Zl1KMdrqc76P+XcRkTdSlFHzP4vbkjmf2YjL4kL80uGffhREoNdJAWduqBUP5dxoZX
+         d76fmkTMxGD/LyLKYDzeSkm+IQBFp1f4nbeLqnKJ1PpiBXSmoEJuO5eNyosh53WakuXs
+         4Lka+4q7Tu3JNyXXtwIAWBFTkbKrkNJeyPokwrj56pS/NAq5NPJlgmC+p/uNGg7RgDC8
+         ZVJaXuzBd65jEODjcYh1excWKNL3EsQ/JoOtRKnrQlHo6t6/l/vNkhXBz3OpxVKNadIW
+         GkJUfz5TuGqumOUT1MkzNpMTNtDHLXUYfIHUQ75eiJrNN3uiRu8vHgRZTPHSax4k1fN6
+         /U3w==
+X-Gm-Message-State: AC+VfDx7UW+N53LUZr5egV3V0G48i/wBq4NRJu6meUp7k8WX56Fr0GXb
+        vQV4ztPag6P/VzFGkbQx1G/GRykn0kQubCug7tlmCNA4rtZJrbc5TVfQbJL4LPQvyu0dujdAsW+
+        9ggWmHZBpmTrWJ5hkd5Rf2g==
+X-Received: by 2002:a5d:6acd:0:b0:30f:b7b4:3e55 with SMTP id u13-20020a5d6acd000000b0030fb7b43e55mr6371743wrw.19.1686659216770;
+        Tue, 13 Jun 2023 05:26:56 -0700 (PDT)
+X-Google-Smtp-Source: ACHHUZ4yteTIZOrnVCopzRkUBsfyPnfoDVYPpW9xv2sO4EBsmO+rg3naLzU0Pz+CwjSuscU8Zw+bFQ==
+X-Received: by 2002:a5d:6acd:0:b0:30f:b7b4:3e55 with SMTP id u13-20020a5d6acd000000b0030fb7b43e55mr6371694wrw.19.1686659216382;
+        Tue, 13 Jun 2023 05:26:56 -0700 (PDT)
+Received: from ?IPV6:2003:cb:c710:ff00:1a06:80f:733a:e8c6? (p200300cbc710ff001a06080f733ae8c6.dip0.t-ipconnect.de. [2003:cb:c710:ff00:1a06:80f:733a:e8c6])
+        by smtp.gmail.com with ESMTPSA id i1-20020adff301000000b002f28de9f73bsm15275419wro.55.2023.06.13.05.26.53
+        (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);
+        Tue, 13 Jun 2023 05:26:55 -0700 (PDT)
+Message-ID: <497e571e-e4de-7634-7da6-683599a4bbba@redhat.com>
+Date:   Tue, 13 Jun 2023 14:26:53 +0200
 MIME-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-X-TM-AS-GCONF: 00
-X-Proofpoint-GUID: NSzf1M38pnx2z8GhXfyd2zkrTyue7I-U
-X-Proofpoint-ORIG-GUID: Jl-BWVCZvUKcympIO9JuW2YKR9vYO4UE
-X-Proofpoint-Virus-Version: vendor=baseguard
- engine=ICAP:2.0.254,Aquarius:18.0.957,Hydra:6.0.573,FMLib:17.11.176.26
- definitions=2023-06-13_04,2023-06-12_02,2023-05-22_02
-X-Proofpoint-Spam-Details: rule=outbound_notspam policy=outbound score=0 phishscore=0 spamscore=0
- clxscore=1011 mlxscore=0 lowpriorityscore=0 priorityscore=1501
- impostorscore=0 adultscore=0 mlxlogscore=999 bulkscore=0 suspectscore=0
- malwarescore=0 classifier=spam adjust=0 reason=mlx scancount=1
- engine=8.12.0-2305260000 definitions=main-2306130102
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
+ Thunderbird/102.12.0
+Subject: Re: [PATCH v9 01/42] mm: Rename arch pte_mkwrite()'s to
+ pte_mkwrite_novma()
+Content-Language: en-US
+To:     Rick Edgecombe <rick.p.edgecombe@intel.com>, x86@kernel.org,
+        "H . Peter Anvin" <hpa@zytor.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Ingo Molnar <mingo@redhat.com>, linux-kernel@vger.kernel.org,
+        linux-doc@vger.kernel.org, linux-mm@kvack.org,
+        linux-arch@vger.kernel.org, linux-api@vger.kernel.org,
+        Arnd Bergmann <arnd@arndb.de>,
+        Andy Lutomirski <luto@kernel.org>,
+        Balbir Singh <bsingharora@gmail.com>,
+        Borislav Petkov <bp@alien8.de>,
+        Cyrill Gorcunov <gorcunov@gmail.com>,
+        Dave Hansen <dave.hansen@linux.intel.com>,
+        Eugene Syromiatnikov <esyr@redhat.com>,
+        Florian Weimer <fweimer@redhat.com>,
+        "H . J . Lu" <hjl.tools@gmail.com>, Jann Horn <jannh@google.com>,
+        Jonathan Corbet <corbet@lwn.net>,
+        Kees Cook <keescook@chromium.org>,
+        Mike Kravetz <mike.kravetz@oracle.com>,
+        Nadav Amit <nadav.amit@gmail.com>,
+        Oleg Nesterov <oleg@redhat.com>, Pavel Machek <pavel@ucw.cz>,
+        Peter Zijlstra <peterz@infradead.org>,
+        Randy Dunlap <rdunlap@infradead.org>,
+        Weijiang Yang <weijiang.yang@intel.com>,
+        "Kirill A . Shutemov" <kirill.shutemov@linux.intel.com>,
+        John Allen <john.allen@amd.com>, kcc@google.com,
+        eranian@google.com, rppt@kernel.org, jamorris@linux.microsoft.com,
+        dethoma@microsoft.com, akpm@linux-foundation.org,
+        Andrew.Cooper3@citrix.com, christina.schimpe@intel.com,
+        debug@rivosinc.com, szabolcs.nagy@arm.com,
+        torvalds@linux-foundation.org, broonie@kernel.org
+Cc:     linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org,
+        linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org,
+        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+        loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org,
+        Michal Simek <monstr@monstr.eu>,
+        Dinh Nguyen <dinguyen@kernel.org>, linux-mips@vger.kernel.org,
+        openrisc@lists.librecores.org, linux-parisc@vger.kernel.org,
+        linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org,
+        linux-s390@vger.kernel.org, linux-sh@vger.kernel.org,
+        sparclinux@vger.kernel.org, linux-um@lists.infradead.org,
+        Linus Torvalds <torvalds@linuxfoundation.org>
+References: <20230613001108.3040476-1-rick.p.edgecombe@intel.com>
+ <20230613001108.3040476-2-rick.p.edgecombe@intel.com>
+From:   David Hildenbrand <david@redhat.com>
+Organization: Red Hat
+In-Reply-To: <20230613001108.3040476-2-rick.p.edgecombe@intel.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On Thu, 8 Jun 2023 12:27:22 -0700 (PDT)
-Hugh Dickins <hughd@google.com> wrote:
-
-> In rare transient cases, not yet made possible, pte_offset_map() and
-> pte_offset_map_lock() may not find a page table: handle appropriately.
+On 13.06.23 02:10, Rick Edgecombe wrote:
+> The x86 Shadow stack feature includes a new type of memory called shadow
+> stack. This shadow stack memory has some unusual properties, which requires
+> some core mm changes to function properly.
 > 
-> Add comment on mm's contract with s390 above __zap_zero_pages(),
-> and fix old comment there: must be called after THP was disabled.
+> One of these unusual properties is that shadow stack memory is writable,
+> but only in limited ways. These limits are applied via a specific PTE
+> bit combination. Nevertheless, the memory is writable, and core mm code
+> will need to apply the writable permissions in the typical paths that
+> call pte_mkwrite(). Future patches will make pte_mkwrite() take a VMA, so
+> that the x86 implementation of it can know whether to create regular
+> writable memory or shadow stack memory.
 > 
-> Signed-off-by: Hugh Dickins <hughd@google.com>
-
-Acked-by: Claudio Imbrenda <imbrenda@linux.ibm.com>
-
+> But there are a couple of challenges to this. Modifying the signatures of
+> each arch pte_mkwrite() implementation would be error prone because some
+> are generated with macros and would need to be re-implemented. Also, some
+> pte_mkwrite() callers operate on kernel memory without a VMA.
+> 
+> So this can be done in a three step process. First pte_mkwrite() can be
+> renamed to pte_mkwrite_novma() in each arch, with a generic pte_mkwrite()
+> added that just calls pte_mkwrite_novma(). Next callers without a VMA can
+> be moved to pte_mkwrite_novma(). And lastly, pte_mkwrite() and all callers
+> can be changed to take/pass a VMA.
+> 
+> Start the process by renaming pte_mkwrite() to pte_mkwrite_novma() and
+> adding the pte_mkwrite() wrapper in linux/pgtable.h. Apply the same
+> pattern for pmd_mkwrite(). Since not all archs have a pmd_mkwrite_novma(),
+> create a new arch config HAS_HUGE_PAGE that can be used to tell if
+> pmd_mkwrite() should be defined. Otherwise in the !HAS_HUGE_PAGE cases the
+> compiler would not be able to find pmd_mkwrite_novma().
+> 
+> No functional change.
+> 
+> Cc: linux-doc@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> Cc: linux-alpha@vger.kernel.org
+> Cc: linux-snps-arc@lists.infradead.org
+> Cc: linux-arm-kernel@lists.infradead.org
+> Cc: linux-csky@vger.kernel.org
+> Cc: linux-hexagon@vger.kernel.org
+> Cc: linux-ia64@vger.kernel.org
+> Cc: loongarch@lists.linux.dev
+> Cc: linux-m68k@lists.linux-m68k.org
+> Cc: Michal Simek <monstr@monstr.eu>
+> Cc: Dinh Nguyen <dinguyen@kernel.org>
+> Cc: linux-mips@vger.kernel.org
+> Cc: openrisc@lists.librecores.org
+> Cc: linux-parisc@vger.kernel.org
+> Cc: linuxppc-dev@lists.ozlabs.org
+> Cc: linux-riscv@lists.infradead.org
+> Cc: linux-s390@vger.kernel.org
+> Cc: linux-sh@vger.kernel.org
+> Cc: sparclinux@vger.kernel.org
+> Cc: linux-um@lists.infradead.org
+> Cc: linux-arch@vger.kernel.org
+> Cc: linux-mm@kvack.org
+> Suggested-by: Linus Torvalds <torvalds@linuxfoundation.org>
+> Signed-off-by: Rick Edgecombe <rick.p.edgecombe@intel.com>
+> Link: https://lore.kernel.org/lkml/CAHk-=wiZjSu7c9sFYZb3q04108stgHff2wfbokGCCgW7riz+8Q@mail.gmail.com/
 > ---
->  arch/s390/kernel/uv.c  |  2 ++
->  arch/s390/mm/gmap.c    |  9 ++++++++-
->  arch/s390/mm/pgtable.c | 12 +++++++++---
->  3 files changed, 19 insertions(+), 4 deletions(-)
+> Hi Non-x86 Arch’s,
 > 
-> diff --git a/arch/s390/kernel/uv.c b/arch/s390/kernel/uv.c
-> index cb2ee06df286..3c62d1b218b1 100644
-> --- a/arch/s390/kernel/uv.c
-> +++ b/arch/s390/kernel/uv.c
-> @@ -294,6 +294,8 @@ int gmap_make_secure(struct gmap *gmap, unsigned long gaddr, void *uvcb)
->  
->  	rc = -ENXIO;
->  	ptep = get_locked_pte(gmap->mm, uaddr, &ptelock);
-> +	if (!ptep)
-> +		goto out;
->  	if (pte_present(*ptep) && !(pte_val(*ptep) & _PAGE_INVALID) && pte_write(*ptep)) {
->  		page = pte_page(*ptep);
->  		rc = -EAGAIN;
-> diff --git a/arch/s390/mm/gmap.c b/arch/s390/mm/gmap.c
-> index dc90d1eb0d55..3a2a31a15ea8 100644
-> --- a/arch/s390/mm/gmap.c
-> +++ b/arch/s390/mm/gmap.c
-> @@ -2537,7 +2537,12 @@ static inline void thp_split_mm(struct mm_struct *mm)
->   * Remove all empty zero pages from the mapping for lazy refaulting
->   * - This must be called after mm->context.has_pgste is set, to avoid
->   *   future creation of zero pages
-> - * - This must be called after THP was enabled
-> + * - This must be called after THP was disabled.
-> + *
-> + * mm contracts with s390, that even if mm were to remove a page table,
-> + * racing with the loop below and so causing pte_offset_map_lock() to fail,
-> + * it will never insert a page table containing empty zero pages once
-> + * mm_forbids_zeropage(mm) i.e. mm->context.has_pgste is set.
->   */
->  static int __zap_zero_pages(pmd_t *pmd, unsigned long start,
->  			   unsigned long end, struct mm_walk *walk)
-> @@ -2549,6 +2554,8 @@ static int __zap_zero_pages(pmd_t *pmd, unsigned long start,
->  		spinlock_t *ptl;
->  
->  		ptep = pte_offset_map_lock(walk->mm, pmd, addr, &ptl);
-> +		if (!ptep)
-> +			break;
->  		if (is_zero_pfn(pte_pfn(*ptep)))
->  			ptep_xchg_direct(walk->mm, addr, ptep, __pte(_PAGE_INVALID));
->  		pte_unmap_unlock(ptep, ptl);
-> diff --git a/arch/s390/mm/pgtable.c b/arch/s390/mm/pgtable.c
-> index 6effb24de6d9..3bd2ab2a9a34 100644
-> --- a/arch/s390/mm/pgtable.c
-> +++ b/arch/s390/mm/pgtable.c
-> @@ -829,7 +829,7 @@ int set_guest_storage_key(struct mm_struct *mm, unsigned long addr,
->  	default:
->  		return -EFAULT;
->  	}
-> -
-> +again:
->  	ptl = pmd_lock(mm, pmdp);
->  	if (!pmd_present(*pmdp)) {
->  		spin_unlock(ptl);
-> @@ -850,6 +850,8 @@ int set_guest_storage_key(struct mm_struct *mm, unsigned long addr,
->  	spin_unlock(ptl);
->  
->  	ptep = pte_offset_map_lock(mm, pmdp, addr, &ptl);
-> +	if (!ptep)
-> +		goto again;
->  	new = old = pgste_get_lock(ptep);
->  	pgste_val(new) &= ~(PGSTE_GR_BIT | PGSTE_GC_BIT |
->  			    PGSTE_ACC_BITS | PGSTE_FP_BIT);
-> @@ -938,7 +940,7 @@ int reset_guest_reference_bit(struct mm_struct *mm, unsigned long addr)
->  	default:
->  		return -EFAULT;
->  	}
-> -
-> +again:
->  	ptl = pmd_lock(mm, pmdp);
->  	if (!pmd_present(*pmdp)) {
->  		spin_unlock(ptl);
-> @@ -955,6 +957,8 @@ int reset_guest_reference_bit(struct mm_struct *mm, unsigned long addr)
->  	spin_unlock(ptl);
->  
->  	ptep = pte_offset_map_lock(mm, pmdp, addr, &ptl);
-> +	if (!ptep)
-> +		goto again;
->  	new = old = pgste_get_lock(ptep);
->  	/* Reset guest reference bit only */
->  	pgste_val(new) &= ~PGSTE_GR_BIT;
-> @@ -1000,7 +1004,7 @@ int get_guest_storage_key(struct mm_struct *mm, unsigned long addr,
->  	default:
->  		return -EFAULT;
->  	}
-> -
-> +again:
->  	ptl = pmd_lock(mm, pmdp);
->  	if (!pmd_present(*pmdp)) {
->  		spin_unlock(ptl);
-> @@ -1017,6 +1021,8 @@ int get_guest_storage_key(struct mm_struct *mm, unsigned long addr,
->  	spin_unlock(ptl);
->  
->  	ptep = pte_offset_map_lock(mm, pmdp, addr, &ptl);
-> +	if (!ptep)
-> +		goto again;
->  	pgste = pgste_get_lock(ptep);
->  	*key = (pgste_val(pgste) & (PGSTE_ACC_BITS | PGSTE_FP_BIT)) >> 56;
->  	paddr = pte_val(*ptep) & PAGE_MASK;
+> x86 has a feature that allows for the creation of a special type of
+> writable memory (shadow stack) that is only writable in limited specific
+> ways. Previously, changes were proposed to core MM code to teach it to
+> decide when to create normally writable memory or the special shadow stack
+> writable memory, but David Hildenbrand suggested[0] to change
+> pXX_mkwrite() to take a VMA, so awareness of shadow stack memory can be
+> moved into x86 code. Later Linus suggested a less error-prone way[1] to go
+> about this after the first attempt had a bug.
+> 
+> Since pXX_mkwrite() is defined in every arch, it requires some tree-wide
+> changes. So that is why you are seeing some patches out of a big x86
+> series pop up in your arch mailing list. There is no functional change.
+> After this refactor, the shadow stack series goes on to use the arch
+> helpers to push arch memory details inside arch/x86 and other arch's
+> with upcoming shadow stack features.
+> 
+> Testing was just 0-day build testing.
+> 
+> Hopefully that is enough context. Thanks!
+> 
+> [0] https://lore.kernel.org/lkml/0e29a2d0-08d8-bcd6-ff26-4bea0e4037b0@redhat.com/
+> [1] https://lore.kernel.org/lkml/CAHk-=wiZjSu7c9sFYZb3q04108stgHff2wfbokGCCgW7riz+8Q@mail.gmail.com/
+> ---
+
+Acked-by: David Hildenbrand <david@redhat.com>
+
+-- 
+Cheers,
+
+David / dhildenb
 
