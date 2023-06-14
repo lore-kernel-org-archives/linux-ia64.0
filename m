@@ -2,60 +2,103 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 0DDD5EB64D9
-	for <linux-ia64@archiver.kernel.org>; Wed, 14 Jun 2023 08:15:56 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 554FCEB64DB
+	for <linux-ia64@archiver.kernel.org>; Wed, 14 Jun 2023 09:28:10 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S235063AbjFNIPz (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Wed, 14 Jun 2023 04:15:55 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:47838 "EHLO
+        id S244026AbjFNJ2H convert rfc822-to-8bit (ORCPT
+        <rfc822;linux-ia64@archiver.kernel.org>);
+        Wed, 14 Jun 2023 05:28:07 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:34570 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S242689AbjFNIPx (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Wed, 14 Jun 2023 04:15:53 -0400
-Received: from mail.ettrick.pl (mail.ettrick.pl [141.94.21.111])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 54F7FC7
-        for <linux-ia64@vger.kernel.org>; Wed, 14 Jun 2023 01:15:52 -0700 (PDT)
-Received: by mail.ettrick.pl (Postfix, from userid 1002)
-        id B353AA861B; Wed, 14 Jun 2023 08:11:23 +0000 (UTC)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=ettrick.pl; s=mail;
-        t=1686730325; bh=ZOVeXw1jXE9TbyZP9aLdRwM96AORcRfum8b+rry5JMw=;
-        h=Date:From:To:Subject:From;
-        b=kLEps+0yBvVRC8R9pvgzwMdfXzcBvbzvGRGYclBEpC2Sf/Hv3BvkMd2/EEXj+V8G8
-         kIj5LBXT9k9JZICEzpcgr/pNBXME4e/D7uCW+3o6dCXIyv0jcMBJYLqNJAiXreM12e
-         MVnOMC6ZDbwbOjFWuzIoLtGH41m9VEMHFK9RLqGmrUF12d4CW0LfjFlGihTcRw2p1f
-         WOCv8oApt/WaHdiRg3ta4SL4z4ReyzHeOsQA7KCc7OAnd5Nh7NhLYU701dzsUndgMZ
-         I6Xa3HN/oTRAMftIO+cg9rmXrFip1/FOdUjig3n2m8WwgwLST/ERcI5UabU2zAfodR
-         P3G4NYLOQyJHA==
-Received: by mail.ettrick.pl for <linux-ia64@vger.kernel.org>; Wed, 14 Jun 2023 08:10:39 GMT
-Message-ID: <20230614064500-0.1.b7.4hji4.0.088maj8plz@ettrick.pl>
-Date:   Wed, 14 Jun 2023 08:10:39 GMT
-From:   "Norbert Karecki" <norbert.karecki@ettrick.pl>
-To:     <linux-ia64@vger.kernel.org>
-Subject: Fotowoltaika- propozycja instalacji
-X-Mailer: mail.ettrick.pl
+        with ESMTP id S243994AbjFNJ2A (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Wed, 14 Jun 2023 05:28:00 -0400
+Received: from mail-qt1-f172.google.com (mail-qt1-f172.google.com [209.85.160.172])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 846131FDC;
+        Wed, 14 Jun 2023 02:27:52 -0700 (PDT)
+Received: by mail-qt1-f172.google.com with SMTP id d75a77b69052e-3f86a7f3a65so17684901cf.0;
+        Wed, 14 Jun 2023 02:27:52 -0700 (PDT)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20221208; t=1686734871; x=1689326871;
+        h=content-transfer-encoding:cc:to:subject:message-id:date:from
+         :in-reply-to:references:mime-version:x-gm-message-state:from:to:cc
+         :subject:date:message-id:reply-to;
+        bh=N0yjIX0KRuOC7G0fcJ6d1AuThz30GREhJw6MsawVV4o=;
+        b=X9kHcttdTeNzWzZigoxXgEXrH2/AZJGAzj6EcnqlZRvBWsqvJ2F/UfoDKYJbAPU5ez
+         2r6l57gTY2i6fuGgC48GiKvLoODNEOdaRCS64ZE+6YWpPTeBGMhM9oUmZE4x/yAdS4hT
+         mtB4vu+zHen8I7n38L9bCeA70A4cgSJ52yQwBQ21YxqV71wAuWO5SV6lsnw2hyCAYhlW
+         72GXqmTYvxO0lt6/QQocJ0acsei7GoGKeIeVeekfLOX6u6ktol/hv36dmghRkXCZeN5x
+         e76bCLVcXNC7kiX17mqWEw1PcEinnLr56ijUarsRonNTjjchT1P7M75k78dkpjbUgVR0
+         mEaQ==
+X-Gm-Message-State: AC+VfDyDk7uiZnpE79mz7H5bOnw9Oac1N5G8M2oYhg/ahn/YOCHpAAYq
+        Ww9WU5VPwkGYxpZ98f5gRIn7mQ3CqP5B5A==
+X-Google-Smtp-Source: ACHHUZ40QLD0r7FQ+oH8qzAaHXlDa7z/eF2K6G4IAvLgfS0JoGJu+LKSt3wT/icBg4DRSiSU9TKWkg==
+X-Received: by 2002:ac8:5994:0:b0:3f3:8819:67ef with SMTP id e20-20020ac85994000000b003f3881967efmr1755786qte.43.1686734871236;
+        Wed, 14 Jun 2023 02:27:51 -0700 (PDT)
+Received: from mail-qv1-f47.google.com (mail-qv1-f47.google.com. [209.85.219.47])
+        by smtp.gmail.com with ESMTPSA id w11-20020ac84d0b000000b003ee2fb84d0dsm4887221qtv.11.2023.06.14.02.27.51
+        (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);
+        Wed, 14 Jun 2023 02:27:51 -0700 (PDT)
+Received: by mail-qv1-f47.google.com with SMTP id 6a1803df08f44-62fe3f0903aso3329516d6.3;
+        Wed, 14 Jun 2023 02:27:51 -0700 (PDT)
+X-Received: by 2002:a25:3249:0:b0:ba8:199b:9ec2 with SMTP id
+ y70-20020a253249000000b00ba8199b9ec2mr1412111yby.31.1686734566067; Wed, 14
+ Jun 2023 02:22:46 -0700 (PDT)
 MIME-Version: 1.0
+References: <20230613223827.532680283@linutronix.de> <20230613224545.254342916@linutronix.de>
+In-Reply-To: <20230613224545.254342916@linutronix.de>
+From:   Geert Uytterhoeven <geert@linux-m68k.org>
+Date:   Wed, 14 Jun 2023 11:22:33 +0200
+X-Gmail-Original-Message-ID: <CAMuHMdUbBs5dE_Yi+gX8MNCqduP87S+w+T4B_JjVynbDyE=Waw@mail.gmail.com>
+Message-ID: <CAMuHMdUbBs5dE_Yi+gX8MNCqduP87S+w+T4B_JjVynbDyE=Waw@mail.gmail.com>
+Subject: Re: [patch 06/17] m68k/cpu: Switch to arch_cpu_finalize_init()
+To:     Thomas Gleixner <tglx@linutronix.de>
+Cc:     LKML <linux-kernel@vger.kernel.org>, x86@kernel.org,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Nikolay Borisov <nik.borisov@suse.com>,
+        "Ahmed S. Darwish" <darwi@linutronix.de>,
+        Arnd Bergmann <arnd@arndb.de>, linux-m68k@lists.linux-m68k.org,
+        Russell King <linux@armlinux.org.uk>,
+        linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org,
+        Huacai Chen <chenhuacai@kernel.org>,
+        WANG Xuerui <kernel@xen0n.name>, loongarch@lists.linux.dev,
+        Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
+        linux-mips@vger.kernel.org,
+        Yoshinori Sato <ysato@users.sourceforge.jp>,
+        Rich Felker <dalias@libc.org>,
+        John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
+        linux-sh@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        sparclinux@vger.kernel.org, Richard Weinberger <richard@nod.at>,
+        Anton Ivanov <anton.ivanov@cambridgegreys.com>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        linux-um@lists.infradead.org,
+        Richard Henderson <richard.henderson@linaro.org>,
+        "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>,
+        Michael Ellerman <mpe@ellerman.id.au>,
+        Chris Zankel <chris@zankel.net>,
+        Tom Lendacky <thomas.lendacky@amd.com>
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: 8BIT
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-Dzie=C5=84 dobry,
-=20
-Czy rozwa=C5=BCali Pa=C5=84stwo monta=C5=BC systemu fotowoltaicznego?
-=20
-Instalacja fotowoltaiczna jest najlepszym sposobem na obni=C5=BCenie wyso=
-ko=C5=9Bci rachunk=C3=B3w za pr=C4=85d (pozostaj=C4=85 tylko op=C5=82aty =
-sta=C5=82e) i zabezpieczenie si=C4=99 przed rosn=C4=85cymi cenami energii=
- elektrycznej. Jest to w pe=C5=82ni odnawialne i bezemisyjne =C5=BAr=C3=B3=
-d=C5=82o energii, dzi=C4=99ki czemu przyczyniamy si=C4=99 do ochrony =C5=9B=
-rodowiska naturalnego.
-=20
-Dzia=C5=82amy od wielu lat na rynku energetycznym. Przygotujemy projekt, =
-wycen=C4=99 oraz kompleksowo wykonamy i zg=C5=82osimy realizacj=C4=99 do =
-zak=C5=82adu energetycznego.=20
-=20
-Czy chc=C4=85 Pa=C5=84stwo pozna=C4=87 nasz=C4=85 propozycj=C4=99? =20
+On Wed, Jun 14, 2023 at 1:39 AM Thomas Gleixner <tglx@linutronix.de> wrote:
+> check_bugs() is about to be phased out. Switch over to the new
+> arch_cpu_finalize_init() implementation.
+>
+> No functional change.
+>
+> Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-Pozdrawiam,
-Norbert Karecki
+Gr{oetje,eeting}s,
+
+                        Geert
+
+-- 
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
