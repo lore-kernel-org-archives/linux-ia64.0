@@ -2,190 +2,390 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 11522EB64DB
-	for <linux-ia64@archiver.kernel.org>; Mon, 19 Jun 2023 03:57:19 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id B95C4EB64DB
+	for <linux-ia64@archiver.kernel.org>; Mon, 19 Jun 2023 14:59:20 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S229538AbjFSD5S (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Sun, 18 Jun 2023 23:57:18 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:38216 "EHLO
+        id S232300AbjFSO7Q (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Mon, 19 Jun 2023 10:59:16 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:49960 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S229481AbjFSD5R (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Sun, 18 Jun 2023 23:57:17 -0400
-Received: from mout.gmx.net (mout.gmx.net [212.227.17.20])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id DF4F5C5;
-        Sun, 18 Jun 2023 20:57:15 -0700 (PDT)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=gmx.de;
- s=s31663417; t=1687146949; x=1687751749; i=deller@gmx.de;
- bh=2fndrLIH+tdYpXaN3a+B2+gpkPc6UJVTkZbYPRfVVB8=;
- h=X-UI-Sender-Class:Date:Subject:To:Cc:References:From:In-Reply-To;
- b=tHEzjmtG0VENHAd2DsNX0VdgvhB3svy7eaGOu9NFOvFGhn1vMbEvw1DJ+6Ro8SfR+zYO8Jk
- oQyuTgSliiEbg8vZLpHgVzlyXTGg39KCzCetFU2QY1sIGcgFZePrwHb9ybGVXL+myxIM7zyFW
- vutzWxYp5k3P7CbcRS0bdRBQ3OV2xelDwHz+H2/Evbu2z8c/2sLPc4ox6wVqaIps6PKmnyug3
- Uh162w8Lsy86g+eUKl1+1tWZwxCjWi6j5hYhUWVVAHRKRfHvDjtn4aElpEf0t4RvU0/z6Fz8/
- PwGLztv0XjhmK7HYbqINh4rNCYiEBBtnOqKRgIMD0/NnASTKw8BA==
-X-UI-Sender-Class: 724b4f7f-cbec-4199-ad4e-598c01a50d3a
-Received: from [192.168.20.60] ([94.134.148.114]) by mail.gmx.net (mrgmx104
- [212.227.17.168]) with ESMTPSA (Nemesis) id 1My36N-1ptYsd3hol-00zXMS; Mon, 19
- Jun 2023 05:55:49 +0200
-Message-ID: <2f5a3805-b7a5-1c45-e5a4-e273ea289ba6@gmx.de>
-Date:   Mon, 19 Jun 2023 05:55:42 +0200
-MIME-Version: 1.0
-User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
- Thunderbird/102.10.0
-Subject: Re: [PATCH v2 08/23] parisc: add pte_unmap() to balance get_ptep()
-Content-Language: en-US
-To:     Hugh Dickins <hughd@google.com>,
-        Andrew Morton <akpm@linux-foundation.org>
-Cc:     Mike Kravetz <mike.kravetz@oracle.com>,
-        Mike Rapoport <rppt@kernel.org>,
-        "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>,
-        Matthew Wilcox <willy@infradead.org>,
-        David Hildenbrand <david@redhat.com>,
-        Suren Baghdasaryan <surenb@google.com>,
-        Qi Zheng <zhengqi.arch@bytedance.com>,
-        Peter Zijlstra <peterz@infradead.org>,
-        Russell King <linux@armlinux.org.uk>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will@kernel.org>,
-        Geert Uytterhoeven <geert@linux-m68k.org>,
-        Greg Ungerer <gerg@linux-m68k.org>,
-        Michal Simek <monstr@monstr.eu>,
-        Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
-        John David Anglin <dave.anglin@bell.net>,
-        "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        Alexandre Ghiti <alexghiti@rivosinc.com>,
-        Palmer Dabbelt <palmer@dabbelt.com>,
-        Heiko Carstens <hca@linux.ibm.com>,
-        Christian Borntraeger <borntraeger@linux.ibm.com>,
-        Claudio Imbrenda <imbrenda@linux.ibm.com>,
-        Alexander Gordeev <agordeev@linux.ibm.com>,
-        John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Chris Zankel <chris@zankel.net>,
-        Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org,
+        with ESMTP id S232277AbjFSO7N (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Mon, 19 Jun 2023 10:59:13 -0400
+Received: from mx0a-00069f02.pphosted.com (mx0a-00069f02.pphosted.com [205.220.165.32])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 5E88C10C7;
+        Mon, 19 Jun 2023 07:58:54 -0700 (PDT)
+Received: from pps.filterd (m0246617.ppops.net [127.0.0.1])
+        by mx0b-00069f02.pphosted.com (8.17.1.19/8.17.1.19) with ESMTP id 35J9nd67030275;
+        Mon, 19 Jun 2023 14:58:31 GMT
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=oracle.com; h=from : to : cc :
+ subject : date : message-id : in-reply-to : references :
+ content-transfer-encoding : content-type : mime-version;
+ s=corp-2023-03-30; bh=Jb1WHDJ5NFGzhYGWXkIj4BLtXsbHmNL3RB67Tz30+Eo=;
+ b=2ko/9cH93e/3XDGl+rOP+R7WciLNShPPLuLVsKcAR86aBsgkrx0e9JW5xItSI+mnh2Ow
+ MFsKEOGso6vFY1tSQd1fRomCPp26n91JpQ3aW/rO1zpnph1E2DuwwvvMc/sCoTm/AFqt
+ rbsIbz+zk2+3jDrhioiNSu4hmf+eRUpYpAGrknYSLrnlWp8VwQ+RUXkuZeFudApXTiIX
+ 982jJf3M2LKXPuabPHUfhcGL6gT9O6ztIRXUKP7LQoe91RpjXsdyeZGe0NLzPL5En+y0
+ PMhMAMSaVwnmmtoHOm8PPGYEMWB+AuhaAFqDpm9htyQ/8Wd6JHI59C+8BFPjDlPBLXnK Ig== 
+Received: from iadpaimrmta03.imrmtpd1.prodappiadaev1.oraclevcn.com (iadpaimrmta03.appoci.oracle.com [130.35.103.27])
+        by mx0b-00069f02.pphosted.com (PPS) with ESMTPS id 3r95cttv1w-1
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK);
+        Mon, 19 Jun 2023 14:58:31 +0000
+Received: from pps.filterd (iadpaimrmta03.imrmtpd1.prodappiadaev1.oraclevcn.com [127.0.0.1])
+        by iadpaimrmta03.imrmtpd1.prodappiadaev1.oraclevcn.com (8.17.1.19/8.17.1.19) with ESMTP id 35JD9md9005929;
+        Mon, 19 Jun 2023 14:58:29 GMT
+Received: from nam04-bn8-obe.outbound.protection.outlook.com (mail-bn8nam04lp2047.outbound.protection.outlook.com [104.47.74.47])
+        by iadpaimrmta03.imrmtpd1.prodappiadaev1.oraclevcn.com (PPS) with ESMTPS id 3r93939jdk-2
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK);
+        Mon, 19 Jun 2023 14:58:29 +0000
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector9901; d=microsoft.com; cv=none;
+ b=NktQOvk1dHwMlr5KV5+6B2EUnp5V/XyyQ5JvyYbv02j3gakAoTQu5QsGqB2DyCN+cbYb2z56PSptJzffRXi4L6lz5Ds0FiPH0SxftGkkeM6exiuOhzvnHNTaoq2JS8uhGhixQJw4bX8m7v9fgkDHN0PE7M3B7qWn0wlZ0h2ScyyacePMTGWubCEY7F2qsZBRIP+rqW2dzDMyZknOs/HSvJvwF5fMw62UIQLHY5QzYSYbryrxChE95TybgkgUk/tndEluAeE0Khv2n8fciEqvSsQtKSiKPCgLT0H1/8m8iKIjRBvsSEDqGC909fO+Kl4dztIUnmDXLgNe8XzMjqQ8Ew==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector9901;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
+ bh=Jb1WHDJ5NFGzhYGWXkIj4BLtXsbHmNL3RB67Tz30+Eo=;
+ b=jssx1ZKN6L3X+0gqzOhtpHZVGWk7g3mXzyA93k4XYem5Ke5c26zZlJyqhvA6OaSBN/X0b0rqPNdUcaum5g4Bb0eb3XPdQgeBAXRFeBm8dnNmi5tYBA6cM5Pp7XhTcR+e45b0IR1ebvYV35YUbfpl8DTpQUhsfYm0R39zWyPWr5cHcaJUAWAaZTCfUDFWTovnfpI98aW+od3ywN+DkSYoheJBFwWWJEOTZpgYp3uY5MoJjIrvl4ePaDyGNj22RIUjHfQ78RUIwTB3HmLUdeaYiKZ1w5wUaa4fYct0VsZR97/5zN9GBFGnTzaRGP4yYC3QnUdI5Xy/Qw4rPOVshZsFxQ==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
+ smtp.mailfrom=oracle.com; dmarc=pass action=none header.from=oracle.com;
+ dkim=pass header.d=oracle.com; arc=none
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=oracle.onmicrosoft.com; s=selector2-oracle-onmicrosoft-com;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=Jb1WHDJ5NFGzhYGWXkIj4BLtXsbHmNL3RB67Tz30+Eo=;
+ b=MOI6mtfgSYfXhqsHzFxHSY4o+iaS99Q3BmAIaoUxQR2EHUkfA9zgGg2dJxcgr4GgDyJjAXLu+ErhPcLybddCDMM9/WAXr2GS8gpfqqYeOXertr89C1JRVXPQS9jK3dQEPj85R+cgi6OjVm2gVq2G9bznqTRvwYaxNNT86s7mbV0=
+Received: from CO1PR10MB4531.namprd10.prod.outlook.com (2603:10b6:303:6c::22)
+ by SA1PR10MB6543.namprd10.prod.outlook.com (2603:10b6:806:2bc::15) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.6500.36; Mon, 19 Jun
+ 2023 14:58:16 +0000
+Received: from CO1PR10MB4531.namprd10.prod.outlook.com
+ ([fe80::8b8f:b4b1:bb78:b048]) by CO1PR10MB4531.namprd10.prod.outlook.com
+ ([fe80::8b8f:b4b1:bb78:b048%5]) with mapi id 15.20.6500.036; Mon, 19 Jun 2023
+ 14:58:13 +0000
+From:   Eric DeVolder <eric.devolder@oracle.com>
+To:     linux@armlinux.org.uk, catalin.marinas@arm.com, will@kernel.org,
+        chenhuacai@kernel.org, geert@linux-m68k.org,
+        tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com,
+        deller@gmx.de, ysato@users.sourceforge.jp, dalias@libc.org,
+        glaubitz@physik.fu-berlin.de, tglx@linutronix.de, mingo@redhat.com,
+        bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org,
+        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-ia64@vger.kernel.org, loongarch@lists.linux.dev,
         linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org,
         linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
         linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org,
-        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mm@kvack.org
-References: <a4963be9-7aa6-350-66d0-2ba843e1af44@google.com>
- <653369-95ef-acd2-d6ea-e95f5a997493@google.com>
-From:   Helge Deller <deller@gmx.de>
-In-Reply-To: <653369-95ef-acd2-d6ea-e95f5a997493@google.com>
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: quoted-printable
-X-Provags-ID: V03:K1:E3xdg5CpQcjOoKW8Y56OwqWPK69wZz6OC3pXUq5sC4koD4vx6TE
- 8yx7mlAVEcBGQCbXtdVKp5UUdnr/61/KwgdLsdsCeafoXWrwMUBr6cWiQIGAUgINT3sBkXj
- YUQ+i02IXhG0ZBE1C7Dv9zl3aVQVXzwfFiVekkVC97MGOBsK+OwPv4gKZzvDYcrI9sx6vlb
- RKMhNKB17Raa0wGb+9IJg==
-UI-OutboundReport: notjunk:1;M01:P0:f2v0q5B++HE=;Da2Hd/q80C0hblRDasa115R7ipH
- ITP+kxg7e8qZRipjLb6CGqyHPdG/Zhb8pEJIpXAWFU3ar1yt+BeqPp25z1tD2fgQoomDBafSI
- T2JI0cHyhX9oBPPhCH37HzO5OqjXai1apVVEetq9P184N6g33p3cSDDZYP4I6GoLDN9DvQEFu
- QGd3zrkWkqEmZ6Vad/7T9wzoz6Iy73Cj+YnQUayxP/WmDRLwi5RNxp1O83PFQIH+w3CKE1EWO
- 23kOMxcrgAD7YqjQU4alZc4K1Phuaj4FBExhBg+66ocbKtD9nfb6PZRuchNLX/Q5VmxOlBfea
- +unhX9xz0F4yej82C9a9Ahzf2WFmqaqduJ4GfxBBVMpA2OodPCXovgqDmB1veKiq8vZA6X5yk
- wU+Jcnh+QmfWXd/xL82C8EjAYdwJcDg+eEk6he/T2BpLkdrJqvUsbwmL1s6vm3h2xfZdv9HjP
- HDqKexAwIHyONgbwbztyEJNTMjILHQtvalYaPHd4cLJWdj/f+xdGeWpPd11qIZv0pNRC6RmzG
- BMRyfjmCQkvWDZio/DHwSQ9i0PRIQ+8+VjmSj1b6Y6CsaT5/J9RXXe4kiJxSG4snZdzRGYY2O
- 4McI1b8tXhq5e63I/ekb0ajHKJ5Bor2QBVqDM68FKmYbJv/bR6oV8WIMMsLewJ2LUtXAfXAbu
- x/EEjEq7JGtus66za+aX5Yazu6PYy0EIzEn+QO1Pnloxqaq1TITSpEEXtzuFrLPYbW8qHKqNl
- aMzyEK7bpqATAUqTeGQYGs5kvHwxHgsW47YV5D9G3+QzisWw4SSUG2zUA0IqSI6i/fK/bZUUg
- 9s7lXJW9HE6ObKs8Fk2cZGz0H9VAEPLoLgBcumMBsPE0yNFDqFiHwKmbJ24rQM7wtujiIH8eg
- Du+92nPxZgAKb8/YuRr6Rozc58x213b7vXjIz4uu3TcvqL6TMGK4B5hLfnDu5CfN3qfqxkdKR
- hKk8rTZjPetTc5al7ev4qbwvKGA=
+        linux-sh@vger.kernel.org
+Cc:     kernel@xen0n.name, mpe@ellerman.id.au, npiggin@gmail.com,
+        christophe.leroy@csgroup.eu, paul.walmsley@sifive.com,
+        palmer@dabbelt.com, aou@eecs.berkeley.edu, hca@linux.ibm.com,
+        gor@linux.ibm.com, agordeev@linux.ibm.com,
+        borntraeger@linux.ibm.com, svens@linux.ibm.com, hpa@zytor.com,
+        keescook@chromium.org, paulmck@kernel.org, peterz@infradead.org,
+        frederic@kernel.org, akpm@linux-foundation.org, ardb@kernel.org,
+        samitolvanen@google.com, juerg.haefliger@canonical.com,
+        arnd@arndb.de, rmk+kernel@armlinux.org.uk,
+        linus.walleij@linaro.org, sebastian.reichel@collabora.com,
+        rppt@kernel.org, kirill.shutemov@linux.intel.com,
+        anshuman.khandual@arm.com, ziy@nvidia.com, masahiroy@kernel.org,
+        ndesaulniers@google.com, mhiramat@kernel.org, ojeda@kernel.org,
+        thunder.leizhen@huawei.com, xin3.li@intel.com, tj@kernel.org,
+        gregkh@linuxfoundation.org, tsi@tuyoix.net, bhe@redhat.com,
+        hbathini@linux.ibm.com, sourabhjain@linux.ibm.com,
+        eric.devolder@oracle.com, boris.ostrovsky@oracle.com,
+        konrad.wilk@oracle.com
+Subject: [PATCH v2 01/13] kexec: consolidate kexec and crash options into kernel/Kconfig.kexec
+Date:   Mon, 19 Jun 2023 10:57:49 -0400
+Message-Id: <20230619145801.1064716-2-eric.devolder@oracle.com>
+X-Mailer: git-send-email 2.31.1
+In-Reply-To: <20230619145801.1064716-1-eric.devolder@oracle.com>
+References: <20230619145801.1064716-1-eric.devolder@oracle.com>
+Content-Transfer-Encoding: 8bit
+Content-Type: text/plain
+X-ClientProxiedBy: DM6PR06CA0085.namprd06.prod.outlook.com
+ (2603:10b6:5:336::18) To CO1PR10MB4531.namprd10.prod.outlook.com
+ (2603:10b6:303:6c::22)
+MIME-Version: 1.0
+X-MS-PublicTrafficType: Email
+X-MS-TrafficTypeDiagnostic: CO1PR10MB4531:EE_|SA1PR10MB6543:EE_
+X-MS-Office365-Filtering-Correlation-Id: a0721874-1b29-4c90-e547-08db70d59af9
+X-MS-Exchange-SenderADCheck: 1
+X-MS-Exchange-AntiSpam-Relay: 0
+X-Microsoft-Antispam: BCL:0;
+X-Microsoft-Antispam-Message-Info: nOTZJgdlls9eZZLHhmYhSGmjQG7dhaLS1uftQAxMauNgMCwNlsTuWkmCu9Q/KHHJB1flu4GJOUE7GD+ZUy+27YjG/vfRPb5f0mgMKxV1lbDFDJKhD3ZpIgEHOjrBbgFgio+v1QfLHck5LDjcoblzkviJvYU68/2XCnltsn74KyPb/snI18MqRayxl30S4AyzK4ed31iqTvA5xSqdeD/gYc2nyYEYNvihNQLo9/BsM+SwZI2KZTeDhTLHSi5jyXj/Mri+7qvCv+Pe3d8OxM/1yvO2HBvQ2lqMJl7k4+yiVmOaupZSI+ed1SVHovMisd2Pq3GMxDX0lCutN9pWVehipmgzw9DN0Jk8Xp5oslz7afiaddszA+hnuMUK+qHb/YgRriF0EYomXLWOEF+x7Zo0IkUc0AMVEloJ8gpF5Izoj7yZUOqoN6v2RLlyzsN62IGj3Hy3Yp87UA6BdwgL9gR7coh2FQgoDeUgpAVJQmk62wIt6oghV29Anaz6dWh5O1WOos2FXr9vTIq8a2x2571pYAj0zqD6sHsK/cbEKLS9MWoKY4sCF97DOVWEX5ruoSz6AyCfl1L2d3j+s3gZJQlozMTIhPmd/OCS+NsATx8hR5I=
+X-Forefront-Antispam-Report: CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:CO1PR10MB4531.namprd10.prod.outlook.com;PTR:;CAT:NONE;SFS:(13230028)(39860400002)(396003)(346002)(366004)(136003)(376002)(451199021)(7416002)(7366002)(66946007)(7406005)(8936002)(8676002)(66556008)(66476007)(107886003)(1076003)(26005)(186003)(6506007)(6512007)(36756003)(83380400001)(41300700001)(38100700002)(5660300002)(4326008)(316002)(2616005)(921005)(6666004)(6486002)(478600001)(2906002)(86362001);DIR:OUT;SFP:1101;
+X-MS-Exchange-AntiSpam-MessageData-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-0: =?us-ascii?Q?WNE2kpkmjVDNO/im1rfUQU3qbaANaUbJRF7M37gDCCF7Q1kSIa639Ozqozis?=
+ =?us-ascii?Q?bm7gLio4T9Ze2E9Ua0rJ8re5gsT7HYRUYVkdeUYI7TswAgz13kZapn7oqxui?=
+ =?us-ascii?Q?IVSmMi9wXCcbJU99bGLy3XY2q2xCylsLXVw3H6UKTL60uXye62Xp78Ggai8H?=
+ =?us-ascii?Q?P+3CTmhhFCPWsDnMZBiRb39B6Ase27N0wuAQoPjHFg4eAagBX7vOKU3nRLeX?=
+ =?us-ascii?Q?vQiMBQc1bqBS8a1PG4lrP9Ay9YH4NAf2Dl1aoC0TYdyGTTmAX0XDhwCU+WuM?=
+ =?us-ascii?Q?KzlqMlIZRStL1swUxG7B62ddBEzl52+OH/WBoODrcRbexHCnZ4uscRbTCwkI?=
+ =?us-ascii?Q?9D6DRjW1M8oPLMHhNcHMEvFWacjfgOkrpC5K3cceWPQfyBzzwqxOicYDWRZw?=
+ =?us-ascii?Q?wdUD/1GWUysiTh7bd/UZM7+lxR+V+DRU3UWhJpCLsdejf5oVKKPm6jpNjGRa?=
+ =?us-ascii?Q?k1y7tmq7lCVfJFo/DAUGjZjEw6tmmWMlpoirvxuKYIPO+SCPGnsqYh68NqZ8?=
+ =?us-ascii?Q?8xyoIVFV21hBZPwVvIg1cf4Blmu6jrXSlDZYRNAx22m72u1O6fkcfVo/A88S?=
+ =?us-ascii?Q?zUVpt1kt4JAxRHsmWojJ8nYnT+2pAmQW/JE8dd1u1DYv7EdgTnhPfRxsPA9V?=
+ =?us-ascii?Q?51DNoTXCk6y2uBzlX04N9s9DqsC8wid0cdmtWZs3HF3sJj/JumzkNVEe6Rz4?=
+ =?us-ascii?Q?yll/Lw7jTrBWZd06hovyJkPXocRMSZa0Gq1vF5WSvCKvbyJCKtxiG7lEmTIn?=
+ =?us-ascii?Q?nxqr2A7yIx5m5loQaP9BqLQTkhE9dGo+9zDW7KHbfj5YSF+fgcJMXC8pIMBS?=
+ =?us-ascii?Q?0iX92LbnM27BVxORbw2mYs0fSQCoCDHDsvT8MdliZFbYp+FdDG2ApoEGxeVs?=
+ =?us-ascii?Q?YQsgcZcMtWj4M1enGYigx0ikhp84zwBAxEa0QVSaaouAsS49sfgX+IsFH1nA?=
+ =?us-ascii?Q?PLUBRTZeZ1FcakWfLfjUwFQ55mrzd1VXuka5awgsBViEaVxeGkQBrDhq70x6?=
+ =?us-ascii?Q?hsE9ioriKF/zl6x8bGNbrodaG6S4JJH/oHBRiKz81rS8l+ssKXm3cpa9wVbs?=
+ =?us-ascii?Q?Yvg4qNT9fusB3abGGkBFC/P5i8sz/XdVtlKCD/5hHvWmyjGShUBH0Qc2V/n8?=
+ =?us-ascii?Q?pvxLcbkpE6utTu/uUWFs+UI3XDSeQWQcTqKw/p8ltigv70T9v7msIKiTO8Cf?=
+ =?us-ascii?Q?0+zzKemmILG2S0crB1iRT9JhrhF8nkTmFVdTVB/GjMjNximOU1loHRs9XQjJ?=
+ =?us-ascii?Q?HdzNsG4lgWUcmlbkida6Sls581sMkygOVAi2m7qiQKBIbk6f1KJroRCf1+eO?=
+ =?us-ascii?Q?AVNFks6bJW2dmR8bM9vATMqZMEbfPA/7W4bGeLCTrSiV9cFTHd/6Bvj/6a8I?=
+ =?us-ascii?Q?RyCWBONfXEULka5oToX9BGbNk3qEtpzwgyYt1tlWBbNxTW1n7wEaiVVLivoM?=
+ =?us-ascii?Q?gERhM6rG/YMCUmcUQ3XOPXFOfIu0PD5wcBlckAoimjPbnOml2vBUG1KJWwyo?=
+ =?us-ascii?Q?0F5s+rq2RGsQavB2yedwcQwZlCYCKiN+8DAyiDgKf45DpuqjFxslUJkLhS3I?=
+ =?us-ascii?Q?bgbHQW+K0qH2QMBlD33CwR+lywIXUkU6ilKJ54n+MxeYKno6U8YvvHpFCp76?=
+ =?us-ascii?Q?ig=3D=3D?=
+X-MS-Exchange-AntiSpam-ExternalHop-MessageData-ChunkCount: 2
+X-MS-Exchange-AntiSpam-ExternalHop-MessageData-0: =?us-ascii?Q?JrpIWkbL7vS4zUlL7WQ29hWg5eFKHd7s4kDpOlkxIwpR8x+Y74rZcVTb44VK?=
+ =?us-ascii?Q?iY8/xIz64ul/+KuELkGjQ0Fs1bXXGCCpQf1k89I0I52yB9s3pMEyM82u+zdp?=
+ =?us-ascii?Q?lByuyC7EjNo165Rw707MKNywpR/bSR/zO68GxBJPuzwIiOm6MmONNzYuMWGj?=
+ =?us-ascii?Q?nKw2n/7j1NaYvpm4IASsEz0zyV3Z7PzkWiQK1+gZsKCp7uAXyjaWzsqD4S7Z?=
+ =?us-ascii?Q?Uoe/YBInFbJPyjilTKSzhwm6/Xzj3A/X1pEUT9GIUxNLJ2Mme+bFtCpl7/hc?=
+ =?us-ascii?Q?167AXv12zWgm/ZmwRxYoqBcyGgsZa+RQ7CTsZGJZY12UY1tdF9ZTCQheHdIY?=
+ =?us-ascii?Q?B7EBVgVMl5abG4JCM97XETAQMPOQaVBS7mHLaSg5BHSswOvHIVHGvL+2yteP?=
+ =?us-ascii?Q?SKaG/pFiWmbhlbmX4TLZtTrPBVjDVUw3EpVhUUM4KJMh632eqVDJDXGOMDj+?=
+ =?us-ascii?Q?IsvgU6wMf1NhWBE4U1BFfmKygLZLFuH/m2V08veise81yy8LQ0Ck8ZDZeomb?=
+ =?us-ascii?Q?eNbBko5WRuI9Lnz0mrxnoBnjFgtIGivXYdYVFXttkT7B6sJszjLI4zJIh0WJ?=
+ =?us-ascii?Q?SBBTipkoJQUCMFrGV5exHamrwDKGIk7w6OfUZBwLKkyOjTgIg82KN0v97j/r?=
+ =?us-ascii?Q?mlCa1scgC5i7Et170pbx0O45yaCg7hAX8oCzxTpHDzv4sYXjpdFXg3MvxSBd?=
+ =?us-ascii?Q?ho00Ae3/5p5iJngieW5AnYmlZrWi1xDZJIJWlVexs5DPuHzXZ4da8j+7jlF0?=
+ =?us-ascii?Q?xA7ehIGqFQrpJAmM42CAGXWPil9zY3haepPBoGuJc/0X1SX5+7TlpD23wxC/?=
+ =?us-ascii?Q?8rlzQ5OaqntRevVB+Z32URM7b3TfuvvNI/hvM91g0wmdK9XxBI+rxG6HOcE7?=
+ =?us-ascii?Q?tRVG/+GTYl4j3Mg1ddEpoVTetFYFoEXNeqzpy3mj9I4xjke912VgfXPhe1wm?=
+ =?us-ascii?Q?qVadokLs3rqZHI7DdiqZ3Tu38XAvNFfBFIF0LLCll9+FFuTKDCm0zcI6Tf7D?=
+ =?us-ascii?Q?eEnosazgkBo0ECCVxZuxYudcfGx2ge0SWUKAULHg+YVoRCPO2bAX8oKCgrw7?=
+ =?us-ascii?Q?W7lcDksZWIYMnEVvu/HEFknEgilgYJ4P6FhRhItkwx8pYB1kkWs4AGz6KjAk?=
+ =?us-ascii?Q?6p7PCJIeaJ6TKuSn7VevtzumOfBjz5ANaCVjPttfCeFLTRIrLxtioxCRn5uh?=
+ =?us-ascii?Q?RJfLdu95JOAUFMQf50isSz3Ohb858yQmiyMNZpM4rqxi3vk7oZ7J4sdZUPOW?=
+ =?us-ascii?Q?yJzH789gj67ke3l5rnCgUfhSDP5Fro4QgNPxFstmNfuLZBOIILvvSxHAWjYb?=
+ =?us-ascii?Q?jicTsbHlY+391aq/oU5YEqFeaIKolalmGmWlfDtgSi2GHyJw7onp2RgVTWiz?=
+ =?us-ascii?Q?uFcasDieNv/EEkUbhFOvEubU5nJXF60ts5yjkJLSMKlRqv+3SPSYpkY2iikF?=
+ =?us-ascii?Q?BDNgr2/eLUa+UmmHSYT2cMcnyQkSsL/2fS4p+4eNhsVtCfFravrv547Xu8Mz?=
+ =?us-ascii?Q?yi79fiKWSRALcpff5nPORVpqFEN84M25tKOyCKC6s17w6o9lSq2iG3lqQZd2?=
+ =?us-ascii?Q?8esfJPgouu+V/8wOWmMpMZKBrMJD43demvn3qBOq0wkKeqV4tc4XB14dc6rS?=
+ =?us-ascii?Q?YU5FZHkXR2mwvdvEelEqx/6rY/kMVK7suI3gEbTrvZ7dq9KjKubrqjutGK/T?=
+ =?us-ascii?Q?8KFpmuNmNqum7NQmg3LFr3sVheQC0/0qw3w1xxwrXoIzrPxPpaaJDKYJGwVM?=
+ =?us-ascii?Q?DSteEfXQYIHl2NfW1au70CYQRce3tHD7mLa2Pz4pP1LuVBXCFAmkfKaa9h6c?=
+X-MS-Exchange-AntiSpam-ExternalHop-MessageData-1: bj3GZE1Qk9qJGO0sfPCNOQASImFx2hasK+uYAWLHKF2kxkj6vV+5XBCm5zzs3tqNGME6XJczbYTzz5VerJpXxtqQPB0LYm/ZOnOqay351lVnUGs5S2kf3eyFMHgDgW7d6XdUxK/5BK5NYBI2L1q2j+P+a8S7RfJ5Qj/tPJ5G1XqLpoaifkutZ8DfZzgyJC27ybWp16m1zNmDMxf31LlYdphA0ousD2Vq3gxbiN/47SM11IAT31q1QvIEyL6jid79mMVtoAShLOPB+hd1bkbnPSR4JqNIavxvFRAy1OuC6bp+l5XqdhwG2h+wtBEQQe9Q/OIBL2gUIn/JOP6vwvIzlnXUZC9NdhfS6uHPqc9BoJsXygLYGpZP0X6GHQTycCZYLoemEz1+04PwgHffKEQZsriheu6oxjCzF0YqtlfzUJVQ3Tt+Hi2J7hwHQ/VIJ/IhzN8LzNmvvWn3rg==
+X-OriginatorOrg: oracle.com
+X-MS-Exchange-CrossTenant-Network-Message-Id: a0721874-1b29-4c90-e547-08db70d59af9
+X-MS-Exchange-CrossTenant-AuthSource: CO1PR10MB4531.namprd10.prod.outlook.com
+X-MS-Exchange-CrossTenant-AuthAs: Internal
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 19 Jun 2023 14:58:13.4842
+ (UTC)
+X-MS-Exchange-CrossTenant-FromEntityHeader: Hosted
+X-MS-Exchange-CrossTenant-Id: 4e2c6054-71cb-48f1-bd6c-3a9705aca71b
+X-MS-Exchange-CrossTenant-MailboxType: HOSTED
+X-MS-Exchange-CrossTenant-UserPrincipalName: mr0aEaQHPPjBPdJXtsL8GVJSL9dTBX1q4MPdonxQ8VAIyASokYn5F1R2HL+bufcaL/1niNzjOxwl7FKy60hKlF0rL8GWfWUN2v+pfoKHDF4=
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: SA1PR10MB6543
+X-Proofpoint-Virus-Version: vendor=baseguard
+ engine=ICAP:2.0.254,Aquarius:18.0.957,Hydra:6.0.591,FMLib:17.11.176.26
+ definitions=2023-06-19_11,2023-06-16_01,2023-05-22_02
+X-Proofpoint-Spam-Details: rule=notspam policy=default score=0 mlxlogscore=999 adultscore=0
+ spamscore=0 bulkscore=0 malwarescore=0 phishscore=0 mlxscore=0
+ suspectscore=0 classifier=spam adjust=0 reason=mlx scancount=1
+ engine=8.12.0-2305260000 definitions=main-2306190137
+X-Proofpoint-GUID: XVcus6t9SsaBSRbxiEba_Q-kMxU2JwX1
+X-Proofpoint-ORIG-GUID: XVcus6t9SsaBSRbxiEba_Q-kMxU2JwX1
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On 6/8/23 21:18, Hugh Dickins wrote:
-> To keep balance in future, remember to pte_unmap() after a successful
-> get_ptep().  And act as if flush_cache_pages() really needs a map there,
-> to read the pfn before "unmapping", to be sure page table is not removed=
-.
->
-> Signed-off-by: Hugh Dickins <hughd@google.com>
+The config options for kexec and crash features are consolidated
+into new file kernel/Kconfig.kexec. Under the "General Setup" submenu
+is a new submenu "Kexec and crash handling" where all the kexec and
+crash options that were once in the arch-dependent submenu "Processor
+type and features" are now consolidated.
 
-For the parisc parts:
+The following options are impacted:
 
-Acked-by: Helge Deller <deller@gmx.de> # parisc
+ - KEXEC
+ - KEXEC_FILE
+ - KEXEC_SIG
+ - KEXEC_SIG_FORCE
+ - KEXEC_BZIMAGE_VERIFY_SIG
+ - KEXEC_JUMP
+ - CRASH_DUMP
 
-Helge
+The three main options are KEXEC, KEXEC_FILE and CRASH_DUMP.
 
+Architectures specify support of certain KEXEC and CRASH features with
+similarly named new ARCH_SUPPORTS_<option> config options.
 
-> ---
->   arch/parisc/kernel/cache.c | 26 +++++++++++++++++++++-----
->   1 file changed, 21 insertions(+), 5 deletions(-)
->
-> diff --git a/arch/parisc/kernel/cache.c b/arch/parisc/kernel/cache.c
-> index ca4a302d4365..501160250bb7 100644
-> --- a/arch/parisc/kernel/cache.c
-> +++ b/arch/parisc/kernel/cache.c
-> @@ -426,10 +426,15 @@ void flush_dcache_page(struct page *page)
->   		offset =3D (pgoff - mpnt->vm_pgoff) << PAGE_SHIFT;
->   		addr =3D mpnt->vm_start + offset;
->   		if (parisc_requires_coherency()) {
-> +			bool needs_flush =3D false;
->   			pte_t *ptep;
->
->   			ptep =3D get_ptep(mpnt->vm_mm, addr);
-> -			if (ptep && pte_needs_flush(*ptep))
-> +			if (ptep) {
-> +				needs_flush =3D pte_needs_flush(*ptep);
-> +				pte_unmap(ptep);
-> +			}
-> +			if (needs_flush)
->   				flush_user_cache_page(mpnt, addr);
->   		} else {
->   			/*
-> @@ -561,14 +566,20 @@ EXPORT_SYMBOL(flush_kernel_dcache_page_addr);
->   static void flush_cache_page_if_present(struct vm_area_struct *vma,
->   	unsigned long vmaddr, unsigned long pfn)
->   {
-> -	pte_t *ptep =3D get_ptep(vma->vm_mm, vmaddr);
-> +	bool needs_flush =3D false;
-> +	pte_t *ptep;
->
->   	/*
->   	 * The pte check is racy and sometimes the flush will trigger
->   	 * a non-access TLB miss. Hopefully, the page has already been
->   	 * flushed.
->   	 */
-> -	if (ptep && pte_needs_flush(*ptep))
-> +	ptep =3D get_ptep(vma->vm_mm, vmaddr);
-> +	if (ptep) {
-> +		needs_flush =3D pte_needs_flush(*ptep);
-> +		pte_unmap(ptep);
-> +	}
-> +	if (needs_flush)
->   		flush_cache_page(vma, vmaddr, pfn);
->   }
->
-> @@ -635,17 +646,22 @@ static void flush_cache_pages(struct vm_area_struc=
-t *vma, unsigned long start, u
->   	pte_t *ptep;
->
->   	for (addr =3D start; addr < end; addr +=3D PAGE_SIZE) {
-> +		bool needs_flush =3D false;
->   		/*
->   		 * The vma can contain pages that aren't present. Although
->   		 * the pte search is expensive, we need the pte to find the
->   		 * page pfn and to check whether the page should be flushed.
->   		 */
->   		ptep =3D get_ptep(vma->vm_mm, addr);
-> -		if (ptep && pte_needs_flush(*ptep)) {
-> +		if (ptep) {
-> +			needs_flush =3D pte_needs_flush(*ptep);
-> +			pfn =3D pte_pfn(*ptep);
-> +			pte_unmap(ptep);
-> +		}
-> +		if (needs_flush) {
->   			if (parisc_requires_coherency()) {
->   				flush_user_cache_page(vma, addr);
->   			} else {
-> -				pfn =3D pte_pfn(*ptep);
->   				if (WARN_ON(!pfn_valid(pfn)))
->   					return;
->   				__flush_cache_page(vma, addr, PFN_PHYS(pfn));
+Architectures can utilize the new ARCH_SELECTS_<option> config
+options to specify additional components when <option> is enabled.
+
+To summarize, the ARCH_SUPPORTS_<option> permits the <option> to be
+enabled, and the ARCH_SELECTS_<option> handles side effects (ie.
+select statements).
+
+Signed-off-by: Eric DeVolder <eric.devolder@oracle.com>
+---
+ arch/Kconfig         |  13 -----
+ init/Kconfig         |   2 +
+ kernel/Kconfig.kexec | 110 +++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 112 insertions(+), 13 deletions(-)
+ create mode 100644 kernel/Kconfig.kexec
+
+diff --git a/arch/Kconfig b/arch/Kconfig
+index 205fd23e0cad..a37730679730 100644
+--- a/arch/Kconfig
++++ b/arch/Kconfig
+@@ -11,19 +11,6 @@ source "arch/$(SRCARCH)/Kconfig"
+ 
+ menu "General architecture-dependent options"
+ 
+-config CRASH_CORE
+-	bool
+-
+-config KEXEC_CORE
+-	select CRASH_CORE
+-	bool
+-
+-config KEXEC_ELF
+-	bool
+-
+-config HAVE_IMA_KEXEC
+-	bool
+-
+ config ARCH_HAS_SUBPAGE_FAULTS
+ 	bool
+ 	help
+diff --git a/init/Kconfig b/init/Kconfig
+index 32c24950c4ce..4424447e23a5 100644
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -1917,6 +1917,8 @@ config BINDGEN_VERSION_TEXT
+ config TRACEPOINTS
+ 	bool
+ 
++source "kernel/Kconfig.kexec"
++
+ endmenu		# General setup
+ 
+ source "arch/Kconfig"
+diff --git a/kernel/Kconfig.kexec b/kernel/Kconfig.kexec
+new file mode 100644
+index 000000000000..5d576ddfd999
+--- /dev/null
++++ b/kernel/Kconfig.kexec
+@@ -0,0 +1,110 @@
++# SPDX-License-Identifier: GPL-2.0-only
++
++menu "Kexec and crash features"
++
++config CRASH_CORE
++	bool
++
++config KEXEC_CORE
++	select CRASH_CORE
++	bool
++
++config KEXEC_ELF
++	bool
++
++config HAVE_IMA_KEXEC
++	bool
++
++config KEXEC
++	bool "Enable kexec system call"
++	default ARCH_DEFAULT_KEXEC
++	depends on ARCH_SUPPORTS_KEXEC
++	select KEXEC_CORE
++	help
++	  kexec is a system call that implements the ability to shutdown your
++	  current kernel, and to start another kernel. It is like a reboot
++	  but it is independent of the system firmware. And like a reboot
++	  you can start any kernel with it, not just Linux.
++
++	  The name comes from the similarity to the exec system call.
++
++	  It is an ongoing process to be certain the hardware in a machine
++	  is properly shutdown, so do not be surprised if this code does not
++	  initially work for you. As of this writing the exact hardware
++	  interface is strongly in flux, so no good recommendation can be
++	  made.
++
++config KEXEC_FILE
++	bool "Enable kexec file based system call"
++	depends on ARCH_SUPPORTS_KEXEC_FILE
++	select KEXEC_CORE
++	help
++	  This is new version of kexec system call. This system call is
++	  file based and takes file descriptors as system call argument
++	  for kernel and initramfs as opposed to list of segments as
++	  accepted by kexec system call.
++
++config KEXEC_SIG
++	bool "Verify kernel signature during kexec_file_load() syscall"
++	depends on KEXEC_FILE
++	help
++	  This option makes the kexec_file_load() syscall check for a valid
++	  signature of the kernel image. The image can still be loaded without
++	  a valid signature unless you also enable KEXEC_SIG_FORCE, though if
++	  there's a signature that we can check, then it must be valid.
++
++	  In addition to this option, you need to enable signature
++	  verification for the corresponding kernel image type being
++	  loaded in order for this to work.
++
++config KEXEC_SIG_FORCE
++	bool "Require a valid signature in kexec_file_load() syscall"
++	depends on KEXEC_SIG
++	help
++	  This option makes kernel signature verification mandatory for
++	  the kexec_file_load() syscall.
++
++config KEXEC_IMAGE_VERIFY_SIG
++	bool "Enable Image signature verification support"
++	default ARCH_DEFAULT_KEXEC_IMAGE_VERIFY_SIG
++	depends on KEXEC_SIG
++	depends on EFI && SIGNED_PE_FILE_VERIFICATION
++	help
++	  Enable Image signature verification support.
++
++config KEXEC_BZIMAGE_VERIFY_SIG
++	bool "Enable bzImage signature verification support"
++	depends on KEXEC_SIG
++	depends on SIGNED_PE_FILE_VERIFICATION
++	select SYSTEM_TRUSTED_KEYRING
++	help
++	  Enable bzImage signature verification support.
++
++config KEXEC_JUMP
++	bool "kexec jump"
++	depends on KEXEC && HIBERNATION
++	depends on ARCH_SUPPORTS_KEXEC_JUMP
++	help
++	  Jump between original kernel and kexeced kernel and invoke
++	  code in physical address mode via KEXEC
++
++config CRASH_DUMP
++	bool "kernel crash dumps"
++	depends on ARCH_SUPPORTS_CRASH_DUMP
++	select KEXEC_CORE
++	select CRASH_CORE
++	help
++	  Generate crash dump after being started by kexec.
++	  This should be normally only set in special crash dump kernels
++	  which are loaded in the main kernel with kexec-tools into
++	  a specially reserved region and then later executed after
++	  a crash by kdump/kexec. The crash dump kernel must be compiled
++	  to a memory address not used by the main kernel or BIOS using
++	  PHYSICAL_START, or it must be built as a relocatable image
++	  (CONFIG_RELOCATABLE=y).
++	  For more details see Documentation/admin-guide/kdump/kdump.rst
++
++	  For s390, this option also enables zfcpdump.
++	  See also <file:Documentation/s390/zfcpdump.rst>
++
++endmenu
+-- 
+2.31.1
 
