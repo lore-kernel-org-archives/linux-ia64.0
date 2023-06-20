@@ -2,47 +2,29 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 54AE6EB64D7
-	for <linux-ia64@archiver.kernel.org>; Tue, 20 Jun 2023 08:22:43 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 9541AC001DB
+	for <linux-ia64@archiver.kernel.org>; Tue, 20 Jun 2023 12:53:03 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S231720AbjFTIWm (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Tue, 20 Jun 2023 04:22:42 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:40358 "EHLO
+        id S232627AbjFTMxC (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Tue, 20 Jun 2023 08:53:02 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:36242 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S229683AbjFTIWk (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Tue, 20 Jun 2023 04:22:40 -0400
-Received: from us-smtp-delivery-124.mimecast.com (us-smtp-delivery-124.mimecast.com [170.10.129.124])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id B531F127
-        for <linux-ia64@vger.kernel.org>; Tue, 20 Jun 2023 01:21:54 -0700 (PDT)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=redhat.com;
-        s=mimecast20190719; t=1687249313;
-        h=from:from:reply-to:subject:subject:date:date:message-id:message-id:
-         to:to:cc:cc:mime-version:mime-version:content-type:content-type:
-         in-reply-to:in-reply-to:references:references;
-        bh=5XHdbMNys0EMjfbiSdwj8lWyGP51R68NotGh4ls9XCg=;
-        b=WRVER/k+Ay0bmEnq/lkWxiAFJLyW1BEfvcdA71dyRfjU7RvGJyo9k2JLTOCp0bx4+cE04x
-        XqAKYZPuO+kke/dXM/e39FFYUEqnwHxSaY5PBCSzXKVy2dboyx3VoHOzyvXl1/C6/Xs8Hp
-        q9mlrIqLDXeQiTNr8cIvXBTumAuyLdA=
-Received: from mimecast-mx02.redhat.com (mx3-rdu2.redhat.com
- [66.187.233.73]) by relay.mimecast.com with ESMTP with STARTTLS
- (version=TLSv1.2, cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id
- us-mta-653-DHNnL6O0PoOX-_3jeDwo5g-1; Tue, 20 Jun 2023 04:21:49 -0400
-X-MC-Unique: DHNnL6O0PoOX-_3jeDwo5g-1
-Received: from smtp.corp.redhat.com (int-mx06.intmail.prod.int.rdu2.redhat.com [10.11.54.6])
-        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        by mimecast-mx02.redhat.com (Postfix) with ESMTPS id 918E73806739;
-        Tue, 20 Jun 2023 08:21:48 +0000 (UTC)
-Received: from localhost (ovpn-12-166.pek2.redhat.com [10.72.12.166])
-        by smtp.corp.redhat.com (Postfix) with ESMTPS id 2B95A2166B26;
-        Tue, 20 Jun 2023 08:21:46 +0000 (UTC)
-Date:   Tue, 20 Jun 2023 16:21:42 +0800
-From:   Baoquan He <bhe@redhat.com>
+        with ESMTP id S230253AbjFTMxB (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Tue, 20 Jun 2023 08:53:01 -0400
+Received: from elvis.franken.de (elvis.franken.de [193.175.24.41])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTP id 75AF110F8;
+        Tue, 20 Jun 2023 05:53:00 -0700 (PDT)
+Received: from uucp by elvis.franken.de with local-rmail (Exim 3.36 #1)
+        id 1qBaqt-000889-00; Tue, 20 Jun 2023 14:52:55 +0200
+Received: by alpha.franken.de (Postfix, from userid 1000)
+        id AD602C03C3; Tue, 20 Jun 2023 14:52:36 +0200 (CEST)
+Date:   Tue, 20 Jun 2023 14:52:36 +0200
+From:   Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 To:     Eric DeVolder <eric.devolder@oracle.com>
 Cc:     linux@armlinux.org.uk, catalin.marinas@arm.com, will@kernel.org,
         chenhuacai@kernel.org, geert@linux-m68k.org,
-        tsbogend@alpha.franken.de, James.Bottomley@hansenpartnership.com,
-        deller@gmx.de, ysato@users.sourceforge.jp, dalias@libc.org,
+        James.Bottomley@HansenPartnership.com, deller@gmx.de,
+        ysato@users.sourceforge.jp, dalias@libc.org,
         glaubitz@physik.fu-berlin.de, tglx@linutronix.de, mingo@redhat.com,
         bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org,
         linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
@@ -65,57 +47,35 @@ Cc:     linux@armlinux.org.uk, catalin.marinas@arm.com, will@kernel.org,
         anshuman.khandual@arm.com, ziy@nvidia.com, masahiroy@kernel.org,
         ndesaulniers@google.com, mhiramat@kernel.org, ojeda@kernel.org,
         thunder.leizhen@huawei.com, xin3.li@intel.com, tj@kernel.org,
-        gregkh@linuxfoundation.org, tsi@tuyoix.net, hbathini@linux.ibm.com,
-        sourabhjain@linux.ibm.com, boris.ostrovsky@oracle.com,
-        konrad.wilk@oracle.com
-Subject: Re: [PATCH v2 02/13] x86/kexec: refactor for kernel/Kconfig.kexec
-Message-ID: <ZJFhlsFN6DxnWsQE@MiWiFi-R3L-srv>
+        gregkh@linuxfoundation.org, tsi@tuyoix.net, bhe@redhat.com,
+        hbathini@linux.ibm.com, sourabhjain@linux.ibm.com,
+        boris.ostrovsky@oracle.com, konrad.wilk@oracle.com
+Subject: Re: [PATCH v2 08/13] mips/kexec: refactor for kernel/Kconfig.kexec
+Message-ID: <20230620125236.GF10520@alpha.franken.de>
 References: <20230619145801.1064716-1-eric.devolder@oracle.com>
- <20230619145801.1064716-3-eric.devolder@oracle.com>
+ <20230619145801.1064716-9-eric.devolder@oracle.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
-In-Reply-To: <20230619145801.1064716-3-eric.devolder@oracle.com>
-X-Scanned-By: MIMEDefang 3.1 on 10.11.54.6
+In-Reply-To: <20230619145801.1064716-9-eric.devolder@oracle.com>
+User-Agent: Mutt/1.10.1 (2018-07-13)
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-Hi Eric,
+On Mon, Jun 19, 2023 at 10:57:56AM -0400, Eric DeVolder wrote:
+> The kexec and crash kernel options are provided in the common
+> kernel/Kconfig.kexec. Utilize the common options and provide
+> the ARCH_SUPPORTS_ and ARCH_SELECTS_ entries to recreate the
+> equivalent set of KEXEC and CRASH options.
+> 
+> Signed-off-by: Eric DeVolder <eric.devolder@oracle.com>
+> ---
+>  arch/mips/Kconfig | 32 +++++---------------------------
+>  1 file changed, 5 insertions(+), 27 deletions(-)
 
-On 06/19/23 at 10:57am, Eric DeVolder wrote:
-......
-> +config ARCH_SUPPORTS_KEXEC
-> +	def_bool y
->  
-> -config ARCH_HAS_KEXEC_PURGATORY
-> -	def_bool KEXEC_FILE
-> +config ARCH_SUPPORTS_KEXEC_FILE
-> +	def_bool X86_64 && CRYPTO && CRYPTO_SHA256
-......  
-> +config ARCH_SELECTS_KEXEC_FILE
-> +	def_bool y
->  	depends on KEXEC_FILE
-> -	help
+Acked-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 
-I am a little confused about this ARCH_SELECTS_XX adding. Wondering what
-limits us defining the ARCH_SUPPORTS_KEXEC_FILE like below? I have limited
-knowledge about Kconfig, please correct me if I am wrong. Thanks in
-advance.
-
- +config ARCH_SUPPORTS_KEXEC_FILE
- +	def_bool y
-  	depends on KEXEC_FILE
-  	depends on X86_64 && CRYPTO && CRYPTO_SHA256
-
-> -
-> -	  This option makes the kexec_file_load() syscall check for a valid
-> -	  signature of the kernel image.  The image can still be loaded without
-> -	  a valid signature unless you also enable KEXEC_SIG_FORCE, though if
-> -	  there's a signature that we can check, then it must be valid.
-> -
-> -	  In addition to this option, you need to enable signature
-> -	  verification for the corresponding kernel image type being
-> -	  loaded in order for this to work.
-> -
-
+-- 
+Crap can work. Given enough thrust pigs will fly, but it's not necessarily a
+good idea.                                                [ RFC1925, 2.3 ]
