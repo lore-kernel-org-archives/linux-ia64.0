@@ -2,24 +2,24 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 4E29DEB64D9
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 7C0BCEB64DC
 	for <linux-ia64@archiver.kernel.org>; Mon, 26 Jun 2023 17:15:29 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S230236AbjFZRPZ (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Mon, 26 Jun 2023 13:15:25 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:51502 "EHLO
+        id S231274AbjFZRP1 (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Mon, 26 Jun 2023 13:15:27 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:51310 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S231314AbjFZRPB (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Mon, 26 Jun 2023 13:15:01 -0400
+        with ESMTP id S231267AbjFZRO5 (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Mon, 26 Jun 2023 13:14:57 -0400
 Received: from foss.arm.com (foss.arm.com [217.140.110.172])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTP id A42F910E0;
-        Mon, 26 Jun 2023 10:14:53 -0700 (PDT)
-Received: from usa-sjc-imap-foss1.foss.arm.com (unknown [10.121.207.14])
-        by usa-sjc-mx-foss1.foss.arm.com (Postfix) with ESMTP id 7835F1480;
-        Mon, 26 Jun 2023 10:15:37 -0700 (PDT)
-Received: from e125769.cambridge.arm.com (e125769.cambridge.arm.com [10.1.196.26])
-        by usa-sjc-imap-foss1.foss.arm.com (Postfix) with ESMTPSA id 8F06B3F663;
+        by lindbergh.monkeyblade.net (Postfix) with ESMTP id 9547010D2;
         Mon, 26 Jun 2023 10:14:50 -0700 (PDT)
+Received: from usa-sjc-imap-foss1.foss.arm.com (unknown [10.121.207.14])
+        by usa-sjc-mx-foss1.foss.arm.com (Postfix) with ESMTP id 6A1EA1474;
+        Mon, 26 Jun 2023 10:15:34 -0700 (PDT)
+Received: from e125769.cambridge.arm.com (e125769.cambridge.arm.com [10.1.196.26])
+        by usa-sjc-imap-foss1.foss.arm.com (Postfix) with ESMTPSA id 80DFE3F663;
+        Mon, 26 Jun 2023 10:14:47 -0700 (PDT)
 From:   Ryan Roberts <ryan.roberts@arm.com>
 To:     Andrew Morton <akpm@linux-foundation.org>,
         "Matthew Wilcox (Oracle)" <willy@infradead.org>,
@@ -40,9 +40,9 @@ Cc:     Ryan Roberts <ryan.roberts@arm.com>, linux-kernel@vger.kernel.org,
         linux-mm@kvack.org, linux-alpha@vger.kernel.org,
         linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org,
         linux-m68k@lists.linux-m68k.org, linux-s390@vger.kernel.org
-Subject: [PATCH v1 04/10] mm: Implement folio_add_new_anon_rmap_range()
-Date:   Mon, 26 Jun 2023 18:14:24 +0100
-Message-Id: <20230626171430.3167004-5-ryan.roberts@arm.com>
+Subject: [PATCH v1 03/10] mm: Introduce try_vma_alloc_movable_folio()
+Date:   Mon, 26 Jun 2023 18:14:23 +0100
+Message-Id: <20230626171430.3167004-4-ryan.roberts@arm.com>
 X-Mailer: git-send-email 2.25.1
 In-Reply-To: <20230626171430.3167004-1-ryan.roberts@arm.com>
 References: <20230626171430.3167004-1-ryan.roberts@arm.com>
@@ -52,83 +52,69 @@ Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-Like folio_add_new_anon_rmap() but batch-rmaps a range of pages
-belonging to a folio, for effciency savings. All pages are accounted as
-small pages.
+Opportunistically attempt to allocate high-order folios in highmem,
+optionally zeroed. Retry with lower orders all the way to order-0, until
+success. Although, of note, order-1 allocations are skipped since a
+large folio must be at least order-2 to work with the THP machinery. The
+user must check what they got with folio_order().
+
+This will be used to oportunistically allocate large folios for
+anonymous memory with a sensible fallback under memory pressure.
+
+For attempts to allocate non-0 orders, we set __GFP_NORETRY to prevent
+high latency due to reclaim, instead preferring to just try for a lower
+order. The same approach is used by the readahead code when allocating
+large folios.
 
 Signed-off-by: Ryan Roberts <ryan.roberts@arm.com>
 ---
- include/linux/rmap.h |  2 ++
- mm/rmap.c            | 43 +++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 45 insertions(+)
+ mm/memory.c | 33 +++++++++++++++++++++++++++++++++
+ 1 file changed, 33 insertions(+)
 
-diff --git a/include/linux/rmap.h b/include/linux/rmap.h
-index a3825ce81102..15433a3d0cbf 100644
---- a/include/linux/rmap.h
-+++ b/include/linux/rmap.h
-@@ -196,6 +196,8 @@ void page_add_new_anon_rmap(struct page *, struct vm_area_struct *,
- 		unsigned long address);
- void folio_add_new_anon_rmap(struct folio *, struct vm_area_struct *,
- 		unsigned long address);
-+void folio_add_new_anon_rmap_range(struct folio *folio, struct page *page,
-+		int nr, struct vm_area_struct *vma, unsigned long address);
- void page_add_file_rmap(struct page *, struct vm_area_struct *,
- 		bool compound);
- void folio_add_file_rmap_range(struct folio *, struct page *, unsigned int nr,
-diff --git a/mm/rmap.c b/mm/rmap.c
-index 1d8369549424..4050bcea7ae7 100644
---- a/mm/rmap.c
-+++ b/mm/rmap.c
-@@ -1305,6 +1305,49 @@ void folio_add_new_anon_rmap(struct folio *folio, struct vm_area_struct *vma,
- 	__page_set_anon_rmap(folio, &folio->page, vma, address, 1);
+diff --git a/mm/memory.c b/mm/memory.c
+index 367bbbb29d91..53896d46e686 100644
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -3001,6 +3001,39 @@ static vm_fault_t fault_dirty_shared_page(struct vm_fault *vmf)
+ 	return 0;
  }
  
-+/**
-+ * folio_add_new_anon_rmap_range - Add mapping to a set of pages within a new
-+ * anonymous potentially large folio.
-+ * @folio:      The folio containing the pages to be mapped
-+ * @page:       First page in the folio to be mapped
-+ * @nr:         Number of pages to be mapped
-+ * @vma:        the vm area in which the mapping is added
-+ * @address:    the user virtual address of the first page to be mapped
-+ *
-+ * Like folio_add_new_anon_rmap() but batch-maps a range of pages within a folio
-+ * using non-THP accounting. Like folio_add_new_anon_rmap(), the inc-and-test is
-+ * bypassed and the folio does not have to be locked. All pages in the folio are
-+ * individually accounted.
-+ *
-+ * As the folio is new, it's assumed to be mapped exclusively by a single
-+ * process.
-+ */
-+void folio_add_new_anon_rmap_range(struct folio *folio, struct page *page,
-+		int nr, struct vm_area_struct *vma, unsigned long address)
++static inline struct folio *vma_alloc_movable_folio(struct vm_area_struct *vma,
++				unsigned long vaddr, int order, bool zeroed)
 +{
-+	int i;
++	gfp_t gfp = order > 0 ? __GFP_NORETRY | __GFP_NOWARN : 0;
 +
-+	VM_BUG_ON_VMA(address < vma->vm_start ||
-+		      address + (nr << PAGE_SHIFT) > vma->vm_end, vma);
-+	__folio_set_swapbacked(folio);
-+
-+	if (folio_test_large(folio)) {
-+		/* increment count (starts at 0) */
-+		atomic_set(&folio->_nr_pages_mapped, nr);
-+	}
-+
-+	for (i = 0; i < nr; i++) {
-+		/* increment count (starts at -1) */
-+		atomic_set(&page->_mapcount, 0);
-+		__page_set_anon_rmap(folio, page, vma, address, 1);
-+		page++;
-+		address += PAGE_SIZE;
-+	}
-+
-+	__lruvec_stat_mod_folio(folio, NR_ANON_MAPPED, nr);
-+
++	if (zeroed)
++		return vma_alloc_zeroed_movable_folio(vma, vaddr, gfp, order);
++	else
++		return vma_alloc_folio(GFP_HIGHUSER_MOVABLE | gfp, order, vma,
++								vaddr, false);
 +}
 +
- /**
-  * folio_add_file_rmap_range - add pte mapping to page range of a folio
-  * @folio:	The folio to add the mapping to
++/*
++ * Opportunistically attempt to allocate high-order folios, retrying with lower
++ * orders all the way to order-0, until success. order-1 allocations are skipped
++ * since a folio must be at least order-2 to work with the THP machinery. The
++ * user must check what they got with folio_order(). vaddr can be any virtual
++ * address that will be mapped by the allocated folio.
++ */
++static struct folio *try_vma_alloc_movable_folio(struct vm_area_struct *vma,
++				unsigned long vaddr, int order, bool zeroed)
++{
++	struct folio *folio;
++
++	for (; order > 1; order--) {
++		folio = vma_alloc_movable_folio(vma, vaddr, order, zeroed);
++		if (folio)
++			return folio;
++	}
++
++	return vma_alloc_movable_folio(vma, vaddr, 0, zeroed);
++}
++
+ /*
+  * Handle write page faults for pages that can be reused in the current vma
+  *
 -- 
 2.25.1
 
