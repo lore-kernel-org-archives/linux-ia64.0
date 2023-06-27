@@ -2,58 +2,31 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 64913EB64DD
-	for <linux-ia64@archiver.kernel.org>; Tue, 27 Jun 2023 07:50:05 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 42FB1C001DF
+	for <linux-ia64@archiver.kernel.org>; Tue, 27 Jun 2023 07:57:06 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S231523AbjF0HuD (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Tue, 27 Jun 2023 03:50:03 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:42754 "EHLO
+        id S230219AbjF0H5E (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Tue, 27 Jun 2023 03:57:04 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:47338 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S231577AbjF0Ht4 (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Tue, 27 Jun 2023 03:49:56 -0400
-Received: from mail-qt1-x82f.google.com (mail-qt1-x82f.google.com [IPv6:2607:f8b0:4864:20::82f])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id A69B910DA
-        for <linux-ia64@vger.kernel.org>; Tue, 27 Jun 2023 00:49:54 -0700 (PDT)
-Received: by mail-qt1-x82f.google.com with SMTP id d75a77b69052e-401f4408955so141961cf.1
-        for <linux-ia64@vger.kernel.org>; Tue, 27 Jun 2023 00:49:54 -0700 (PDT)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=google.com; s=20221208; t=1687852194; x=1690444194;
-        h=content-transfer-encoding:cc:to:subject:message-id:date:from
-         :in-reply-to:references:mime-version:from:to:cc:subject:date
-         :message-id:reply-to;
-        bh=eo3fjt+pdVHwFcUAUU2kV7EYv7OpDGZ269voWMltBrg=;
-        b=lPaiuSe+QrHU/UAvIGj5ZYbZ3Cp+GUm9cg80JCZveFMlflbA5+j7acPoyJ5ZXu1Lut
-         FvOPlQDymVBgnVuR4hmh5Rco8ghw0Rg53DPB/gJFQYhTQnfSG8GRcqsJdpzvenYBbgxO
-         Bi+5qxIiGDf+RzqveF5bTQ7NC1lRm0Od9CVoE1bC8quQqKSsm1IfBZndE2JX0j2xNKaz
-         Bofk6w6z/7YGNhu0EDK+9BZHKwWBWxbdHqZDaCr+FWfJ6huk/DCN3qp5dmlaQNZlxUoB
-         mH+TY6w+jgwSZUPvcKkJsuIZP2Qo4uVMrri0wcbSXHK3rmedhiI2mEkWxD2pnIzjHwJm
-         OQrg==
-X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20221208; t=1687852194; x=1690444194;
-        h=content-transfer-encoding:cc:to:subject:message-id:date:from
-         :in-reply-to:references:mime-version:x-gm-message-state:from:to:cc
-         :subject:date:message-id:reply-to;
-        bh=eo3fjt+pdVHwFcUAUU2kV7EYv7OpDGZ269voWMltBrg=;
-        b=DWWJd7SSpoikupQTOLsKu6tkFi64kFLXr0rc4eI70JtsUeKmDC/1e0ft6hSGbhJ+Ud
-         wop5MwmRd0qPW5TIV4UvNGBJqmxhjiMr3OSbmW0xuBLJ6cYAdilM3PK0RAKtuCM4rnta
-         nAfAo/eJCCRNYshXdDorEEkK6OejuyjEIiXrmD30aVnUxn3sRlqHfhG7axGxBBcTqUhe
-         7gBH8cIdGHqZYV75ruVW2gk0v3nJIDlZ4fIOVyDwcr5/QW5/6qko9HeQHY9kVZq7XWbH
-         9J8q8Vrz8wmoukdndpac2U38ei/1tEFSoYcZpm+tJb+8BHBJRbVunCpHtR1OJF8oIpDY
-         0uTQ==
-X-Gm-Message-State: AC+VfDwDBZygnnkatXnRNmT8ZmsX9JzSFKOBPbyKotwm7VkAobOAIO/I
-        4ann7/iEj9Uy7rJgUl1uyTRVMlLzsaD5DHM9cP0xKg==
-X-Google-Smtp-Source: ACHHUZ5rzyvlEwiwm8ZlPLzXXXFoW47j8ogId6VZIKwnpEI8aX6A+N2v3sluywDVKjd03Lly1yKQPmxRIaEW9WvVzeQ=
-X-Received: by 2002:a05:622a:24a:b0:3f6:97b4:1a4d with SMTP id
- c10-20020a05622a024a00b003f697b41a4dmr430821qtx.23.1687852193576; Tue, 27 Jun
- 2023 00:49:53 -0700 (PDT)
+        with ESMTP id S229524AbjF0H5D (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Tue, 27 Jun 2023 03:57:03 -0400
+Received: from foss.arm.com (foss.arm.com [217.140.110.172])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTP id 41682172A;
+        Tue, 27 Jun 2023 00:57:02 -0700 (PDT)
+Received: from usa-sjc-imap-foss1.foss.arm.com (unknown [10.121.207.14])
+        by usa-sjc-mx-foss1.foss.arm.com (Postfix) with ESMTP id 071BB11FB;
+        Tue, 27 Jun 2023 00:57:46 -0700 (PDT)
+Received: from [10.57.76.16] (unknown [10.57.76.16])
+        by usa-sjc-imap-foss1.foss.arm.com (Postfix) with ESMTPSA id EA0443F663;
+        Tue, 27 Jun 2023 00:56:58 -0700 (PDT)
+Message-ID: <ba282a84-1a0d-4ffd-0b22-ac9510a820ef@arm.com>
+Date:   Tue, 27 Jun 2023 08:56:57 +0100
 MIME-Version: 1.0
-References: <20230626171430.3167004-1-ryan.roberts@arm.com> <CAOUHufaUTbUw9MTzw8D=sVrEB+RP6LSBQVGn93TWk=ozV8XobA@mail.gmail.com>
-In-Reply-To: <CAOUHufaUTbUw9MTzw8D=sVrEB+RP6LSBQVGn93TWk=ozV8XobA@mail.gmail.com>
-From:   Yu Zhao <yuzhao@google.com>
-Date:   Tue, 27 Jun 2023 01:49:17 -0600
-Message-ID: <CAOUHufa0S_ayrys0XzDbH8KJi5HxvbGCh_bSAhDpAgcmSJjFUQ@mail.gmail.com>
-Subject: Re: [PATCH v1 00/10] variable-order, large folios for anonymous memory
-To:     Ryan Roberts <ryan.roberts@arm.com>
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:102.0)
+ Gecko/20100101 Thunderbird/102.12.0
+Subject: Re: [PATCH v1 03/10] mm: Introduce try_vma_alloc_movable_folio()
+To:     Yu Zhao <yuzhao@google.com>
 Cc:     Andrew Morton <akpm@linux-foundation.org>,
         "Matthew Wilcox (Oracle)" <willy@infradead.org>,
         "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>,
@@ -71,134 +44,123 @@ Cc:     Andrew Morton <akpm@linux-foundation.org>,
         linux-mm@kvack.org, linux-alpha@vger.kernel.org,
         linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org,
         linux-m68k@lists.linux-m68k.org, linux-s390@vger.kernel.org
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+References: <20230626171430.3167004-1-ryan.roberts@arm.com>
+ <20230626171430.3167004-4-ryan.roberts@arm.com>
+ <CAOUHufZKM+aS_hYQ5nDUHh74UQwWipJ27Na5Sw4n+RDqnwyWHA@mail.gmail.com>
+ <CAOUHufZeFTjzO6nSFz7Y=5rBGPzY+_eeN3f8W+g0u6AqosdmuQ@mail.gmail.com>
+From:   Ryan Roberts <ryan.roberts@arm.com>
+In-Reply-To: <CAOUHufZeFTjzO6nSFz7Y=5rBGPzY+_eeN3f8W+g0u6AqosdmuQ@mail.gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On Mon, Jun 26, 2023 at 9:30=E2=80=AFPM Yu Zhao <yuzhao@google.com> wrote:
->
-> On Mon, Jun 26, 2023 at 11:14=E2=80=AFAM Ryan Roberts <ryan.roberts@arm.c=
-om> wrote:
-> >
-> > Hi All,
-> >
-> > Following on from the previous RFCv2 [1], this series implements variab=
-le order,
-> > large folios for anonymous memory. The objective of this is to improve
-> > performance by allocating larger chunks of memory during anonymous page=
- faults:
-> >
-> >  - Since SW (the kernel) is dealing with larger chunks of memory than b=
-ase
-> >    pages, there are efficiency savings to be had; fewer page faults, ba=
-tched PTE
-> >    and RMAP manipulation, fewer items on lists, etc. In short, we reduc=
-e kernel
-> >    overhead. This should benefit all architectures.
-> >  - Since we are now mapping physically contiguous chunks of memory, we =
-can take
-> >    advantage of HW TLB compression techniques. A reduction in TLB press=
-ure
-> >    speeds up kernel and user space. arm64 systems have 2 mechanisms to =
-coalesce
-> >    TLB entries; "the contiguous bit" (architectural) and HPA (uarch).
-> >
-> > This patch set deals with the SW side of things only and based on feedb=
-ack from
-> > the RFC, aims to be the most minimal initial change, upon which future
-> > incremental changes can be added. For this reason, the new behaviour is=
- hidden
-> > behind a new Kconfig switch, CONFIG_LARGE_ANON_FOLIO, which is disabled=
- by
-> > default. Although the code has been refactored to parameterize the desi=
-red order
-> > of the allocation, when the feature is disabled (by forcing the order t=
-o be
-> > always 0) my performance tests measure no regression. So I'm hoping thi=
-s will be
-> > a suitable mechanism to allow incremental submissions to the kernel wit=
-hout
-> > affecting the rest of the world.
-> >
-> > The patches are based on top of v6.4 plus Matthew Wilcox's set_ptes() s=
-eries
-> > [2], which is a hard dependency. I'm not sure of Matthew's exact plans =
-for
-> > getting that series into the kernel, but I'm hoping we can start the re=
-view
-> > process on this patch set independently. I have a branch at [3].
-> >
-> > I've posted a separate series concerning the HW part (contpte mapping) =
-for arm64
-> > at [4].
-> >
-> >
-> > Performance
-> > -----------
-> >
-> > Below results show 2 benchmarks; kernel compilation and speedometer 2.0=
- (a
-> > javascript benchmark running in Chromium). Both cases are running on Am=
-pere
-> > Altra with 1 NUMA node enabled, Ubuntu 22.04 and XFS filesystem. Each b=
-enchmark
-> > is repeated 15 times over 5 reboots and averaged.
-> >
-> > All improvements are relative to baseline-4k. 'anonfolio-basic' is this=
- series.
-> > 'anonfolio' is the full patch set similar to the RFC with the additiona=
-l changes
-> > to the extra 3 fault paths. The rest of the configs are described at [4=
-].
-> >
-> > Kernel Compilation (smaller is better):
-> >
-> > | kernel          |   real-time |   kern-time |   user-time |
-> > |:----------------|------------:|------------:|------------:|
-> > | baseline-4k     |        0.0% |        0.0% |        0.0% |
-> > | anonfolio-basic |       -5.3% |      -42.9% |       -0.6% |
-> > | anonfolio       |       -5.4% |      -46.0% |       -0.3% |
-> > | contpte         |       -6.8% |      -45.7% |       -2.1% |
-> > | exefolio        |       -8.4% |      -46.4% |       -3.7% |
-> > | baseline-16k    |       -8.7% |      -49.2% |       -3.7% |
-> > | baseline-64k    |      -10.5% |      -66.0% |       -3.5% |
-> >
-> > Speedometer 2.0 (bigger is better):
-> >
-> > | kernel          |   runs_per_min |
-> > |:----------------|---------------:|
-> > | baseline-4k     |           0.0% |
-> > | anonfolio-basic |           0.7% |
-> > | anonfolio       |           1.2% |
-> > | contpte         |           3.1% |
-> > | exefolio        |           4.2% |
-> > | baseline-16k    |           5.3% |
->
-> Thanks for pushing this forward!
->
-> > Changes since RFCv2
-> > -------------------
-> >
-> >   - Simplified series to bare minimum (on David Hildenbrand's advice)
->
-> My impression is that this series still includes many pieces that can
-> be split out and discussed separately with followup series.
->
-> (I skipped 04/10 and will look at it tomorrow.)
+On 27/06/2023 06:29, Yu Zhao wrote:
+> On Mon, Jun 26, 2023 at 8:34 PM Yu Zhao <yuzhao@google.com> wrote:
+>>
+>> On Mon, Jun 26, 2023 at 11:14 AM Ryan Roberts <ryan.roberts@arm.com> wrote:
+>>>
+>>> Opportunistically attempt to allocate high-order folios in highmem,
+>>> optionally zeroed. Retry with lower orders all the way to order-0, until
+>>> success. Although, of note, order-1 allocations are skipped since a
+>>> large folio must be at least order-2 to work with the THP machinery. The
+>>> user must check what they got with folio_order().
+>>>
+>>> This will be used to oportunistically allocate large folios for
+>>> anonymous memory with a sensible fallback under memory pressure.
+>>>
+>>> For attempts to allocate non-0 orders, we set __GFP_NORETRY to prevent
+>>> high latency due to reclaim, instead preferring to just try for a lower
+>>> order. The same approach is used by the readahead code when allocating
+>>> large folios.
+>>>
+>>> Signed-off-by: Ryan Roberts <ryan.roberts@arm.com>
+>>> ---
+>>>  mm/memory.c | 33 +++++++++++++++++++++++++++++++++
+>>>  1 file changed, 33 insertions(+)
+>>>
+>>> diff --git a/mm/memory.c b/mm/memory.c
+>>> index 367bbbb29d91..53896d46e686 100644
+>>> --- a/mm/memory.c
+>>> +++ b/mm/memory.c
+>>> @@ -3001,6 +3001,39 @@ static vm_fault_t fault_dirty_shared_page(struct vm_fault *vmf)
+>>>         return 0;
+>>>  }
+>>>
+>>> +static inline struct folio *vma_alloc_movable_folio(struct vm_area_struct *vma,
+>>> +                               unsigned long vaddr, int order, bool zeroed)
+>>> +{
+>>> +       gfp_t gfp = order > 0 ? __GFP_NORETRY | __GFP_NOWARN : 0;
+>>> +
+>>> +       if (zeroed)
+>>> +               return vma_alloc_zeroed_movable_folio(vma, vaddr, gfp, order);
+>>> +       else
+>>> +               return vma_alloc_folio(GFP_HIGHUSER_MOVABLE | gfp, order, vma,
+>>> +                                                               vaddr, false);
+>>> +}
+>>> +
+>>> +/*
+>>> + * Opportunistically attempt to allocate high-order folios, retrying with lower
+>>> + * orders all the way to order-0, until success. order-1 allocations are skipped
+>>> + * since a folio must be at least order-2 to work with the THP machinery. The
+>>> + * user must check what they got with folio_order(). vaddr can be any virtual
+>>> + * address that will be mapped by the allocated folio.
+>>> + */
+>>> +static struct folio *try_vma_alloc_movable_folio(struct vm_area_struct *vma,
+>>> +                               unsigned long vaddr, int order, bool zeroed)
+>>> +{
+>>> +       struct folio *folio;
+>>> +
+>>> +       for (; order > 1; order--) {
+>>> +               folio = vma_alloc_movable_folio(vma, vaddr, order, zeroed);
+>>> +               if (folio)
+>>> +                       return folio;
+>>> +       }
+>>> +
+>>> +       return vma_alloc_movable_folio(vma, vaddr, 0, zeroed);
+>>> +}
+>>
+>> I'd drop this patch. Instead, in do_anonymous_page():
+>>
+>>   if (IS_ENABLED(CONFIG_ARCH_WANTS_PTE_ORDER))
+>>     folio = vma_alloc_zeroed_movable_folio(vma, addr,
+>> CONFIG_ARCH_WANTS_PTE_ORDER))
+>>
+>>   if (!folio)
+>>     folio = vma_alloc_zeroed_movable_folio(vma, addr, 0);
+> 
+> I meant a runtime function arch_wants_pte_order() (Its default
+> implementation would return 0.)
 
-I went through the series twice. Here what I think a bare minimum
-series (easier to review/debug/land) would look like:
-1. a new arch specific function providing a prefered order within (0,
-PMD_ORDER).
-2. an extended anon folio alloc API taking that order (02/10, partially).
-3. an updated folio_add_new_anon_rmap() covering the large() &&
-!pmd_mappable() case (similar to 04/10).
-4. s/folio_test_pmd_mappable/folio_test_large/ in page_remove_rmap()
-(06/10, reviewed-by provided).
-5. finally, use the extended anon folio alloc API with the arch
-preferred order in do_anonymous_page() (10/10, partially).
+There are a bunch of things which you are implying here which I'll try to make
+explicit:
 
-The rest can be split out into separate series and move forward in
-parallel with probably a long list of things we need/want to do.
+I think you are implying that we shouldn't retry allocation with intermediate
+orders; but only try the order requested by the arch (arch_wants_pte_order())
+and 0. Correct? For arm64 at least, I would like the VMA's THP hint to be a
+factor in determining the preferred order (see patches 8 and 9). So I would add
+a vma parameter to arch_wants_pte_order() to allow for this.
+
+For the case where the THP hint is present, then the arch will request 2M (if
+the page size is 16K or 64K). If that fails to allocate, there is still value in
+allocating a 64K folio (which is order 2 in the 16K case). Without the retry
+with intermediate orders logic, we would not get this.
+
+We can't just blindly allocate a folio of arch_wants_pte_order() size because it
+might overlap with existing populated PTEs, or cross the bounds of the VMA (or a
+number of other things - see calc_anon_folio_order_alloc() in patch 10). Are you
+implying that if there is any kind of issue like this, then we should go
+directly to order 0? I can kind of see the argument from a minimizing
+fragmentation perspective, but for best possible performance I think we are
+better off "packing the bin" with intermediate orders.
+
+You're also implying that a runtime arch_wants_pte_order() function is better
+than the Kconfig stuff I did in patch 8. On reflection, I agree with you here. I
+think you mentioned that AMD supports coalescing 8 pages on some CPUs - so you
+would probably want runtime logic to determine if you are on an appropriate AMD
+CPU as part of the decision in that function?
+
+The real reason for the existance of try_vma_alloc_movable_folio() is that I'm
+reusing it on the other fault paths (which are no longer part of this series).
+But I guess that's not a good reason to keep this until we get to those patches.
