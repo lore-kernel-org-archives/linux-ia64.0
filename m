@@ -2,30 +2,30 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 42FB1C001DF
-	for <linux-ia64@archiver.kernel.org>; Tue, 27 Jun 2023 07:57:06 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 7C13DEB64DD
+	for <linux-ia64@archiver.kernel.org>; Tue, 27 Jun 2023 08:09:40 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S230219AbjF0H5E (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Tue, 27 Jun 2023 03:57:04 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:47338 "EHLO
+        id S231134AbjF0IJj (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Tue, 27 Jun 2023 04:09:39 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:51916 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S229524AbjF0H5D (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Tue, 27 Jun 2023 03:57:03 -0400
+        with ESMTP id S229740AbjF0IJi (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Tue, 27 Jun 2023 04:09:38 -0400
 Received: from foss.arm.com (foss.arm.com [217.140.110.172])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTP id 41682172A;
-        Tue, 27 Jun 2023 00:57:02 -0700 (PDT)
+        by lindbergh.monkeyblade.net (Postfix) with ESMTP id ACF931FC7;
+        Tue, 27 Jun 2023 01:09:37 -0700 (PDT)
 Received: from usa-sjc-imap-foss1.foss.arm.com (unknown [10.121.207.14])
-        by usa-sjc-mx-foss1.foss.arm.com (Postfix) with ESMTP id 071BB11FB;
-        Tue, 27 Jun 2023 00:57:46 -0700 (PDT)
+        by usa-sjc-mx-foss1.foss.arm.com (Postfix) with ESMTP id 7400B2F4;
+        Tue, 27 Jun 2023 01:10:21 -0700 (PDT)
 Received: from [10.57.76.16] (unknown [10.57.76.16])
-        by usa-sjc-imap-foss1.foss.arm.com (Postfix) with ESMTPSA id EA0443F663;
-        Tue, 27 Jun 2023 00:56:58 -0700 (PDT)
-Message-ID: <ba282a84-1a0d-4ffd-0b22-ac9510a820ef@arm.com>
-Date:   Tue, 27 Jun 2023 08:56:57 +0100
+        by usa-sjc-imap-foss1.foss.arm.com (Postfix) with ESMTPSA id 780303F663;
+        Tue, 27 Jun 2023 01:09:33 -0700 (PDT)
+Message-ID: <b16636b3-b493-39c5-c605-c5701fcbed1f@arm.com>
+Date:   Tue, 27 Jun 2023 09:09:31 +0100
 MIME-Version: 1.0
 User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:102.0)
  Gecko/20100101 Thunderbird/102.12.0
-Subject: Re: [PATCH v1 03/10] mm: Introduce try_vma_alloc_movable_folio()
+Subject: Re: [PATCH v1 04/10] mm: Implement folio_add_new_anon_rmap_range()
 To:     Yu Zhao <yuzhao@google.com>
 Cc:     Andrew Morton <akpm@linux-foundation.org>,
         "Matthew Wilcox (Oracle)" <willy@infradead.org>,
@@ -45,122 +45,100 @@ Cc:     Andrew Morton <akpm@linux-foundation.org>,
         linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org,
         linux-m68k@lists.linux-m68k.org, linux-s390@vger.kernel.org
 References: <20230626171430.3167004-1-ryan.roberts@arm.com>
- <20230626171430.3167004-4-ryan.roberts@arm.com>
- <CAOUHufZKM+aS_hYQ5nDUHh74UQwWipJ27Na5Sw4n+RDqnwyWHA@mail.gmail.com>
- <CAOUHufZeFTjzO6nSFz7Y=5rBGPzY+_eeN3f8W+g0u6AqosdmuQ@mail.gmail.com>
+ <20230626171430.3167004-5-ryan.roberts@arm.com>
+ <CAOUHufZ0ZzHoJXwbzNyZOv74L=XYdZzcxA8SXxLX0MXdykuWRA@mail.gmail.com>
 From:   Ryan Roberts <ryan.roberts@arm.com>
-In-Reply-To: <CAOUHufZeFTjzO6nSFz7Y=5rBGPzY+_eeN3f8W+g0u6AqosdmuQ@mail.gmail.com>
+In-Reply-To: <CAOUHufZ0ZzHoJXwbzNyZOv74L=XYdZzcxA8SXxLX0MXdykuWRA@mail.gmail.com>
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On 27/06/2023 06:29, Yu Zhao wrote:
-> On Mon, Jun 26, 2023 at 8:34 PM Yu Zhao <yuzhao@google.com> wrote:
+On 27/06/2023 08:08, Yu Zhao wrote:
+> On Mon, Jun 26, 2023 at 11:14 AM Ryan Roberts <ryan.roberts@arm.com> wrote:
 >>
->> On Mon, Jun 26, 2023 at 11:14 AM Ryan Roberts <ryan.roberts@arm.com> wrote:
->>>
->>> Opportunistically attempt to allocate high-order folios in highmem,
->>> optionally zeroed. Retry with lower orders all the way to order-0, until
->>> success. Although, of note, order-1 allocations are skipped since a
->>> large folio must be at least order-2 to work with the THP machinery. The
->>> user must check what they got with folio_order().
->>>
->>> This will be used to oportunistically allocate large folios for
->>> anonymous memory with a sensible fallback under memory pressure.
->>>
->>> For attempts to allocate non-0 orders, we set __GFP_NORETRY to prevent
->>> high latency due to reclaim, instead preferring to just try for a lower
->>> order. The same approach is used by the readahead code when allocating
->>> large folios.
->>>
->>> Signed-off-by: Ryan Roberts <ryan.roberts@arm.com>
->>> ---
->>>  mm/memory.c | 33 +++++++++++++++++++++++++++++++++
->>>  1 file changed, 33 insertions(+)
->>>
->>> diff --git a/mm/memory.c b/mm/memory.c
->>> index 367bbbb29d91..53896d46e686 100644
->>> --- a/mm/memory.c
->>> +++ b/mm/memory.c
->>> @@ -3001,6 +3001,39 @@ static vm_fault_t fault_dirty_shared_page(struct vm_fault *vmf)
->>>         return 0;
->>>  }
->>>
->>> +static inline struct folio *vma_alloc_movable_folio(struct vm_area_struct *vma,
->>> +                               unsigned long vaddr, int order, bool zeroed)
->>> +{
->>> +       gfp_t gfp = order > 0 ? __GFP_NORETRY | __GFP_NOWARN : 0;
->>> +
->>> +       if (zeroed)
->>> +               return vma_alloc_zeroed_movable_folio(vma, vaddr, gfp, order);
->>> +       else
->>> +               return vma_alloc_folio(GFP_HIGHUSER_MOVABLE | gfp, order, vma,
->>> +                                                               vaddr, false);
->>> +}
->>> +
->>> +/*
->>> + * Opportunistically attempt to allocate high-order folios, retrying with lower
->>> + * orders all the way to order-0, until success. order-1 allocations are skipped
->>> + * since a folio must be at least order-2 to work with the THP machinery. The
->>> + * user must check what they got with folio_order(). vaddr can be any virtual
->>> + * address that will be mapped by the allocated folio.
->>> + */
->>> +static struct folio *try_vma_alloc_movable_folio(struct vm_area_struct *vma,
->>> +                               unsigned long vaddr, int order, bool zeroed)
->>> +{
->>> +       struct folio *folio;
->>> +
->>> +       for (; order > 1; order--) {
->>> +               folio = vma_alloc_movable_folio(vma, vaddr, order, zeroed);
->>> +               if (folio)
->>> +                       return folio;
->>> +       }
->>> +
->>> +       return vma_alloc_movable_folio(vma, vaddr, 0, zeroed);
->>> +}
+>> Like folio_add_new_anon_rmap() but batch-rmaps a range of pages
+>> belonging to a folio, for effciency savings. All pages are accounted as
+>> small pages.
 >>
->> I'd drop this patch. Instead, in do_anonymous_page():
+>> Signed-off-by: Ryan Roberts <ryan.roberts@arm.com>
+>> ---
+>>  include/linux/rmap.h |  2 ++
+>>  mm/rmap.c            | 43 +++++++++++++++++++++++++++++++++++++++++++
+>>  2 files changed, 45 insertions(+)
 >>
->>   if (IS_ENABLED(CONFIG_ARCH_WANTS_PTE_ORDER))
->>     folio = vma_alloc_zeroed_movable_folio(vma, addr,
->> CONFIG_ARCH_WANTS_PTE_ORDER))
->>
->>   if (!folio)
->>     folio = vma_alloc_zeroed_movable_folio(vma, addr, 0);
+>> diff --git a/include/linux/rmap.h b/include/linux/rmap.h
+>> index a3825ce81102..15433a3d0cbf 100644
+>> --- a/include/linux/rmap.h
+>> +++ b/include/linux/rmap.h
+>> @@ -196,6 +196,8 @@ void page_add_new_anon_rmap(struct page *, struct vm_area_struct *,
+>>                 unsigned long address);
+>>  void folio_add_new_anon_rmap(struct folio *, struct vm_area_struct *,
+>>                 unsigned long address);
+>> +void folio_add_new_anon_rmap_range(struct folio *folio, struct page *page,
+>> +               int nr, struct vm_area_struct *vma, unsigned long address);
 > 
-> I meant a runtime function arch_wants_pte_order() (Its default
-> implementation would return 0.)
+> We should update folio_add_new_anon_rmap() to support large() &&
+> !folio_test_pmd_mappable() folios instead.
+> 
+> I double checked all places currently using folio_add_new_anon_rmap(),
+> and as expected, none actually allocates large() &&
+> !folio_test_pmd_mappable() and maps it one by one, which makes the
+> cases simpler, i.e.,
+>   if (!large())
+>     // the existing basepage case
+>   else if (!folio_test_pmd_mappable())
+>     // our new case
+>   else
+>     // the existing THP case
 
-There are a bunch of things which you are implying here which I'll try to make
-explicit:
+I don't have a strong opinion either way. Happy to go with this suggestion. But
+the reason I did it as a new function was because I was following the pattern in
+[1] which adds a new folio_add_file_rmap_range() function.
 
-I think you are implying that we shouldn't retry allocation with intermediate
-orders; but only try the order requested by the arch (arch_wants_pte_order())
-and 0. Correct? For arm64 at least, I would like the VMA's THP hint to be a
-factor in determining the preferred order (see patches 8 and 9). So I would add
-a vma parameter to arch_wants_pte_order() to allow for this.
+[1] https://lore.kernel.org/linux-mm/20230315051444.3229621-35-willy@infradead.org/
 
-For the case where the THP hint is present, then the arch will request 2M (if
-the page size is 16K or 64K). If that fails to allocate, there is still value in
-allocating a 64K folio (which is order 2 in the 16K case). Without the retry
-with intermediate orders logic, we would not get this.
 
-We can't just blindly allocate a folio of arch_wants_pte_order() size because it
-might overlap with existing populated PTEs, or cross the bounds of the VMA (or a
-number of other things - see calc_anon_folio_order_alloc() in patch 10). Are you
-implying that if there is any kind of issue like this, then we should go
-directly to order 0? I can kind of see the argument from a minimizing
-fragmentation perspective, but for best possible performance I think we are
-better off "packing the bin" with intermediate orders.
+> 
+>>  void page_add_file_rmap(struct page *, struct vm_area_struct *,
+>>                 bool compound);
+>>  void folio_add_file_rmap_range(struct folio *, struct page *, unsigned int nr,
+>> diff --git a/mm/rmap.c b/mm/rmap.c
+>> index 1d8369549424..4050bcea7ae7 100644
+>> --- a/mm/rmap.c
+>> +++ b/mm/rmap.c
+>> @@ -1305,6 +1305,49 @@ void folio_add_new_anon_rmap(struct folio *folio, struct vm_area_struct *vma,
+>>         __page_set_anon_rmap(folio, &folio->page, vma, address, 1);
+>>  }
+>>
+>> +/**
+>> + * folio_add_new_anon_rmap_range - Add mapping to a set of pages within a new
+>> + * anonymous potentially large folio.
+>> + * @folio:      The folio containing the pages to be mapped
+>> + * @page:       First page in the folio to be mapped
+>> + * @nr:         Number of pages to be mapped
+>> + * @vma:        the vm area in which the mapping is added
+>> + * @address:    the user virtual address of the first page to be mapped
+>> + *
+>> + * Like folio_add_new_anon_rmap() but batch-maps a range of pages within a folio
+>> + * using non-THP accounting. Like folio_add_new_anon_rmap(), the inc-and-test is
+>> + * bypassed and the folio does not have to be locked. All pages in the folio are
+>> + * individually accounted.
+>> + *
+>> + * As the folio is new, it's assumed to be mapped exclusively by a single
+>> + * process.
+>> + */
+>> +void folio_add_new_anon_rmap_range(struct folio *folio, struct page *page,
+>> +               int nr, struct vm_area_struct *vma, unsigned long address)
+>> +{
+>> +       int i;
+>> +
+>> +       VM_BUG_ON_VMA(address < vma->vm_start ||
+>> +                     address + (nr << PAGE_SHIFT) > vma->vm_end, vma);
+> 
+> BTW, VM_BUG_ON* shouldn't be used in new code:
+> Documentation/process/coding-style.rst
 
-You're also implying that a runtime arch_wants_pte_order() function is better
-than the Kconfig stuff I did in patch 8. On reflection, I agree with you here. I
-think you mentioned that AMD supports coalescing 8 pages on some CPUs - so you
-would probably want runtime logic to determine if you are on an appropriate AMD
-CPU as part of the decision in that function?
+Thanks, sorry about that. Was copy-pasting from folio_add_new_anon_rmap().
 
-The real reason for the existance of try_vma_alloc_movable_folio() is that I'm
-reusing it on the other fault paths (which are no longer part of this series).
-But I guess that's not a good reason to keep this until we get to those patches.
