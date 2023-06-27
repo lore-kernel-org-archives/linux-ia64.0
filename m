@@ -2,57 +2,58 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id D27DCEB64DC
-	for <linux-ia64@archiver.kernel.org>; Tue, 27 Jun 2023 02:34:58 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 6629FEB64D9
+	for <linux-ia64@archiver.kernel.org>; Tue, 27 Jun 2023 02:47:57 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S230156AbjF0Ce5 (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Mon, 26 Jun 2023 22:34:57 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:53534 "EHLO
+        id S230055AbjF0Cr4 (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Mon, 26 Jun 2023 22:47:56 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:55672 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S229988AbjF0Ce5 (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Mon, 26 Jun 2023 22:34:57 -0400
-Received: from mail-qt1-x830.google.com (mail-qt1-x830.google.com [IPv6:2607:f8b0:4864:20::830])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 8C42C19A1
-        for <linux-ia64@vger.kernel.org>; Mon, 26 Jun 2023 19:34:55 -0700 (PDT)
-Received: by mail-qt1-x830.google.com with SMTP id d75a77b69052e-40079620a83so132501cf.0
-        for <linux-ia64@vger.kernel.org>; Mon, 26 Jun 2023 19:34:55 -0700 (PDT)
+        with ESMTP id S229562AbjF0Crz (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Mon, 26 Jun 2023 22:47:55 -0400
+Received: from mail-qt1-x82a.google.com (mail-qt1-x82a.google.com [IPv6:2607:f8b0:4864:20::82a])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 4626C19A2
+        for <linux-ia64@vger.kernel.org>; Mon, 26 Jun 2023 19:47:54 -0700 (PDT)
+Received: by mail-qt1-x82a.google.com with SMTP id d75a77b69052e-401f4408955so88871cf.1
+        for <linux-ia64@vger.kernel.org>; Mon, 26 Jun 2023 19:47:54 -0700 (PDT)
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=google.com; s=20221208; t=1687833294; x=1690425294;
+        d=google.com; s=20221208; t=1687834073; x=1690426073;
         h=content-transfer-encoding:cc:to:subject:message-id:date:from
          :in-reply-to:references:mime-version:from:to:cc:subject:date
          :message-id:reply-to;
-        bh=xQTOkBN0GiMAgDG6ZOmDj9RulFsjN3i64Kvjq5jchlk=;
-        b=2ONe3v1NzdXE0h5fj2MWjBVQiq6S1GdLr8eEH6r69uFRebt1NiaIjiqToWQ5+oQSIg
-         deN/EOrGfQJTX8/IdlI46HYmmnUjOnsrxEv13aUKomZIkHWSGMAKvqYevb/K3QWcLbR9
-         uYFa99/05449KMzf049eKDYSuN8GMHKbyRc3dA/tpDmhB1dFdyQovn3/8ZOwws6k7JBz
-         eiSy+SaSo4Ndcni6q+aCfD0OlX9EaJRWRRtbkqrZf+yUHqoDEIGNFR2AH3ma4yaceXsd
-         OztHi2s5KfV5Yj8S0MHsmjPInWKZAWUFhMFQytcdDY0Yz3p6nPMmWy44dUIHb/wSpgHH
-         azgw==
+        bh=lOHMGk1IHW9nIXyoyhy6ScxjHGO05nJh9iYXmQJ8lRg=;
+        b=4Hxtqyz9AC5uq4MuNdUiUTytvXCSHBztZ8M76g0ceKIjnz0PJbRxq4j9xf48iqBl8z
+         uOAa0SjGLlNiOmuesNGIjV6ZEtAaql+t7LaLclTsqLdjWGgtUyTYHYxqyoUKW5PZ8+oA
+         CPN8+kFMBzGza8w1PEdpNYj3T/H/D2g1+h2yVb1dOKdEkXl3MW7xWHGuBNIsJuI2dpbL
+         u9j8wwh7+YY8qKVkw+4OZp6+QPdQwuDjHdLCq2f4ovoXXEUt0D33oYlhzfMu86LnMiFd
+         H0aY0bwtPf9reOaOak+4TqM+JB8fShj+0qc6i2vJ8aAkdg1fOGJQnnkCnCjBag5lncQf
+         /4HA==
 X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20221208; t=1687833294; x=1690425294;
+        d=1e100.net; s=20221208; t=1687834073; x=1690426073;
         h=content-transfer-encoding:cc:to:subject:message-id:date:from
          :in-reply-to:references:mime-version:x-gm-message-state:from:to:cc
          :subject:date:message-id:reply-to;
-        bh=xQTOkBN0GiMAgDG6ZOmDj9RulFsjN3i64Kvjq5jchlk=;
-        b=V7S1Hf9SeYuLHeRxF7Y/OXzM/VgZ/NE1zfjgT3wZk+xfDcBoSHqSJ+k+vFyyY16PRg
-         h9X8WMAi5NNODSJXMuKSJ4Tmsu2UGBWoc78iz5+yR6U0g0AX30kvUyxS/RjSx2UvDd0/
-         pcep5vdWVUIkWvhjBrn9YCzAdvvGKJRcd3Eycl0pMeEEAcVpAnaYdmu2XDNfc9oBb9h6
-         YC/02m50CkiN6zqn+7jN0+PbJlrSXI3MFcC2K9RFe87HQcOwPnJmLRgdN1SgSKn81MNY
-         KisIDUooAQ55LH8+LDKkVk0LKpCEUKk3FJ+blO+8L2yjxelFHmKq5/4Rcc3s7REpnjof
-         duYA==
-X-Gm-Message-State: AC+VfDyYuMZNsPhxO40CQuAjrHRUPVnlXuf8pq6t7ndYReMr5KOgHXde
-        Z7eVg/qKK55wxw8N90pxFAtr7/3kzW0Im9LevkDmcw==
-X-Google-Smtp-Source: ACHHUZ5HoW4XPHfg6XbF+Oslzos42MHdia8Ruth5exgz8mKxPN8m+nytOZ3PCELPRviuNzXWfKSV+3UQR1cRdLtaqqk=
+        bh=lOHMGk1IHW9nIXyoyhy6ScxjHGO05nJh9iYXmQJ8lRg=;
+        b=GgQQiKNePSDwfM92NrN1iEiQpbVFqw4pHfL8p1oCYD7Rb3DqcXrCGESdM+kTsTRYTV
+         fXvGJo1QHn7f4C7hyARjMckWaIARO60Ohv5Hhg2MBHSKickxpU+GHtakok9aMizlJMzW
+         r4V7T2+UN0h9YlZURWQJm3M4ZJZ2tT87kvQb9D7ut2y0IdE5XLV2m8luHSL8h/pIQkb0
+         bkceCzv9Xr/Fj3Okg2lGWTy17C125VTKEuDh+nZsyEU0dUfk3WLDAkfxWvyldIEyPO+N
+         DNaCWK/uy0S2Nn1eRwEZD8qMzXbAJ7e3DuVZOTNipp4r8Tt8aESC92DEokQry/cgkBUk
+         H0+A==
+X-Gm-Message-State: AC+VfDzMEuHcNiBJLcXqU5NQWe4QVIH3OP3ysh6y8kLsZLmfNomUBnfv
+        OdBrgko23ueV1j4NNaq6Mh+qGrEUICuS483yH2YyIw==
+X-Google-Smtp-Source: ACHHUZ6c1tU80i2NFgJWtDiNUQ4dKD46I90OznjvJZlr0ZavKr0VLoNsmAzWutpLRTPpKjM4PW0xSA6rqZaKASxRktE=
 X-Received: by 2002:a05:622a:5c8:b0:3ef:3361:75d5 with SMTP id
- d8-20020a05622a05c800b003ef336175d5mr535403qtb.11.1687833294539; Mon, 26 Jun
- 2023 19:34:54 -0700 (PDT)
+ d8-20020a05622a05c800b003ef336175d5mr537286qtb.11.1687834073238; Mon, 26 Jun
+ 2023 19:47:53 -0700 (PDT)
 MIME-Version: 1.0
-References: <20230626171430.3167004-1-ryan.roberts@arm.com> <20230626171430.3167004-4-ryan.roberts@arm.com>
-In-Reply-To: <20230626171430.3167004-4-ryan.roberts@arm.com>
+References: <20230626171430.3167004-1-ryan.roberts@arm.com> <20230626171430.3167004-9-ryan.roberts@arm.com>
+In-Reply-To: <20230626171430.3167004-9-ryan.roberts@arm.com>
 From:   Yu Zhao <yuzhao@google.com>
-Date:   Mon, 26 Jun 2023 20:34:18 -0600
-Message-ID: <CAOUHufZKM+aS_hYQ5nDUHh74UQwWipJ27Na5Sw4n+RDqnwyWHA@mail.gmail.com>
-Subject: Re: [PATCH v1 03/10] mm: Introduce try_vma_alloc_movable_folio()
+Date:   Mon, 26 Jun 2023 20:47:17 -0600
+Message-ID: <CAOUHufZ5pAR=ySs7YyoUpum2_6tJ9jM-H608ZeQucguNGAfKTw@mail.gmail.com>
+Subject: Re: [PATCH v1 08/10] mm: Kconfig hooks to determine max anon folio
+ allocation order
 To:     Ryan Roberts <ryan.roberts@arm.com>
 Cc:     Andrew Morton <akpm@linux-foundation.org>,
         "Matthew Wilcox (Oracle)" <willy@infradead.org>,
@@ -77,87 +78,97 @@ Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On Mon, Jun 26, 2023 at 11:14=E2=80=AFAM Ryan Roberts <ryan.roberts@arm.com=
+On Mon, Jun 26, 2023 at 11:15=E2=80=AFAM Ryan Roberts <ryan.roberts@arm.com=
 > wrote:
 >
-> Opportunistically attempt to allocate high-order folios in highmem,
-> optionally zeroed. Retry with lower orders all the way to order-0, until
-> success. Although, of note, order-1 allocations are skipped since a
-> large folio must be at least order-2 to work with the THP machinery. The
-> user must check what they got with folio_order().
+> For variable-order anonymous folios, we need to determine the order that
+> we will allocate. From a SW perspective, the higher the order we
+> allocate, the less overhead we will have; fewer faults, fewer folios in
+> lists, etc. But of course there will also be more memory wastage as the
+> order increases.
 >
-> This will be used to oportunistically allocate large folios for
-> anonymous memory with a sensible fallback under memory pressure.
+> From a HW perspective, there are memory block sizes that can be
+> beneficial to reducing TLB pressure. arm64, for example, has the ability
+> to map "contpte" sized chunks (64K for a 4K base page, 2M for 16K and
+> 64K base pages) such that one of these chunks only uses a single TLB
+> entry.
 >
-> For attempts to allocate non-0 orders, we set __GFP_NORETRY to prevent
-> high latency due to reclaim, instead preferring to just try for a lower
-> order. The same approach is used by the readahead code when allocating
-> large folios.
+> So we let the architecture specify the order of the maximally beneficial
+> mapping unit when PTE-mapped. Furthermore, because in some cases, this
+> order may be quite big (and therefore potentially wasteful of memory),
+> allow the arch to specify 2 values; One is the max order for a mapping
+> that _would not_ use THP if all size and alignment constraints were met,
+> and the other is the max order for a mapping that _would_ use THP if all
+> those constraints were met.
+>
+> Implement this with Kconfig by introducing some new options to allow the
+> architecture to declare that it supports large anonymous folios along
+> with these 2 preferred max order values. Then introduce a user-facing
+> option, LARGE_ANON_FOLIO, which defaults to disabled and can only be
+> enabled if the architecture has declared its support. When disabled, it
+> forces the max order values, LARGE_ANON_FOLIO_NOTHP_ORDER_MAX and
+> LARGE_ANON_FOLIO_THP_ORDER_MAX to 0, meaning only a single page is ever
+> allocated.
 >
 > Signed-off-by: Ryan Roberts <ryan.roberts@arm.com>
 > ---
->  mm/memory.c | 33 +++++++++++++++++++++++++++++++++
->  1 file changed, 33 insertions(+)
+>  mm/Kconfig  | 39 +++++++++++++++++++++++++++++++++++++++
+>  mm/memory.c |  8 ++++++++
+>  2 files changed, 47 insertions(+)
 >
-> diff --git a/mm/memory.c b/mm/memory.c
-> index 367bbbb29d91..53896d46e686 100644
-> --- a/mm/memory.c
-> +++ b/mm/memory.c
-> @@ -3001,6 +3001,39 @@ static vm_fault_t fault_dirty_shared_page(struct v=
-m_fault *vmf)
->         return 0;
->  }
+> diff --git a/mm/Kconfig b/mm/Kconfig
+> index 7672a22647b4..f4ba48c37b75 100644
+> --- a/mm/Kconfig
+> +++ b/mm/Kconfig
+> @@ -1208,4 +1208,43 @@ config PER_VMA_LOCK
 >
-> +static inline struct folio *vma_alloc_movable_folio(struct vm_area_struc=
-t *vma,
-> +                               unsigned long vaddr, int order, bool zero=
-ed)
-> +{
-> +       gfp_t gfp =3D order > 0 ? __GFP_NORETRY | __GFP_NOWARN : 0;
+>  source "mm/damon/Kconfig"
+>
+> +config ARCH_SUPPORTS_LARGE_ANON_FOLIO
+> +       def_bool n
+> +       help
+> +         An arch should select this symbol if wants to allow LARGE_ANON_=
+FOLIO
+> +         to be enabled. It must also set the following integer values:
+> +         - ARCH_LARGE_ANON_FOLIO_NOTHP_ORDER_MAX
+> +         - ARCH_LARGE_ANON_FOLIO_THP_ORDER_MAX
 > +
-> +       if (zeroed)
-> +               return vma_alloc_zeroed_movable_folio(vma, vaddr, gfp, or=
-der);
-> +       else
-> +               return vma_alloc_folio(GFP_HIGHUSER_MOVABLE | gfp, order,=
- vma,
-> +                                                               vaddr, fa=
-lse);
-> +}
+> +config ARCH_LARGE_ANON_FOLIO_NOTHP_ORDER_MAX
+> +       int
+> +       help
+> +         The maximum size of folio to allocate for an anonymous VMA PTE-=
+mapping
+> +         that does not have the MADV_HUGEPAGE hint set.
 > +
-> +/*
-> + * Opportunistically attempt to allocate high-order folios, retrying wit=
-h lower
-> + * orders all the way to order-0, until success. order-1 allocations are=
- skipped
-> + * since a folio must be at least order-2 to work with the THP machinery=
-. The
-> + * user must check what they got with folio_order(). vaddr can be any vi=
-rtual
-> + * address that will be mapped by the allocated folio.
-> + */
-> +static struct folio *try_vma_alloc_movable_folio(struct vm_area_struct *=
-vma,
-> +                               unsigned long vaddr, int order, bool zero=
-ed)
-> +{
-> +       struct folio *folio;
+> +config ARCH_LARGE_ANON_FOLIO_THP_ORDER_MAX
+> +       int
+> +       help
+> +         The maximum size of folio to allocate for an anonymous VMA PTE-=
+mapping
+> +         that has the MADV_HUGEPAGE hint set.
 > +
-> +       for (; order > 1; order--) {
-> +               folio =3D vma_alloc_movable_folio(vma, vaddr, order, zero=
-ed);
-> +               if (folio)
-> +                       return folio;
-> +       }
+> +config LARGE_ANON_FOLIO
+> +       bool "Allocate large folios for anonymous memory"
+> +       depends on ARCH_SUPPORTS_LARGE_ANON_FOLIO
+> +       default n
+> +       help
+> +         Use large (bigger than order-0) folios to back anonymous memory=
+ where
+> +         possible. This reduces the number of page faults, as well as ot=
+her
+> +         per-page overheads to improve performance for many workloads.
 > +
-> +       return vma_alloc_movable_folio(vma, vaddr, 0, zeroed);
-> +}
+> +config LARGE_ANON_FOLIO_NOTHP_ORDER_MAX
+> +       int
+> +       default 0 if !LARGE_ANON_FOLIO
+> +       default ARCH_LARGE_ANON_FOLIO_NOTHP_ORDER_MAX
+> +
+> +config LARGE_ANON_FOLIO_THP_ORDER_MAX
+> +       int
+> +       default 0 if !LARGE_ANON_FOLIO
+> +       default ARCH_LARGE_ANON_FOLIO_THP_ORDER_MAX
+> +
+>  endmenu
 
-I'd drop this patch. Instead, in do_anonymous_page():
-
-  if (IS_ENABLED(CONFIG_ARCH_WANTS_PTE_ORDER))
-    folio =3D vma_alloc_zeroed_movable_folio(vma, addr,
-CONFIG_ARCH_WANTS_PTE_ORDER))
-
-  if (!folio)
-    folio =3D vma_alloc_zeroed_movable_folio(vma, addr, 0);
+I don't think an MVP should add this many Kconfigs. One Kconfig sounds
+reasonable to me for now.
