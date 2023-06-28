@@ -2,32 +2,31 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 57D47EB64DA
-	for <linux-ia64@archiver.kernel.org>; Wed, 28 Jun 2023 10:57:04 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 26073EB64DD
+	for <linux-ia64@archiver.kernel.org>; Wed, 28 Jun 2023 11:06:51 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S230424AbjF1K5B (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Wed, 28 Jun 2023 06:57:01 -0400
-Received: from foss.arm.com ([217.140.110.172]:53656 "EHLO foss.arm.com"
+        id S231514AbjF1LGt (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Wed, 28 Jun 2023 07:06:49 -0400
+Received: from foss.arm.com ([217.140.110.172]:53768 "EHLO foss.arm.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S230451AbjF1K4z (ORCPT <rfc822;linux-ia64@vger.kernel.org>);
-        Wed, 28 Jun 2023 06:56:55 -0400
+        id S231518AbjF1LGp (ORCPT <rfc822;linux-ia64@vger.kernel.org>);
+        Wed, 28 Jun 2023 07:06:45 -0400
 Received: from usa-sjc-imap-foss1.foss.arm.com (unknown [10.121.207.14])
-        by usa-sjc-mx-foss1.foss.arm.com (Postfix) with ESMTP id 6555AC14;
-        Wed, 28 Jun 2023 03:57:38 -0700 (PDT)
+        by usa-sjc-mx-foss1.foss.arm.com (Postfix) with ESMTP id E52A7C14;
+        Wed, 28 Jun 2023 04:07:27 -0700 (PDT)
 Received: from [10.57.76.180] (unknown [10.57.76.180])
-        by usa-sjc-imap-foss1.foss.arm.com (Postfix) with ESMTPSA id BC1553F663;
-        Wed, 28 Jun 2023 03:56:51 -0700 (PDT)
-Message-ID: <b2c81404-67df-f841-ef02-919e841f49f2@arm.com>
-Date:   Wed, 28 Jun 2023 11:56:50 +0100
+        by usa-sjc-imap-foss1.foss.arm.com (Postfix) with ESMTPSA id BF06E3F663;
+        Wed, 28 Jun 2023 04:06:40 -0700 (PDT)
+Message-ID: <5ad4f4de-1751-0320-5b8e-52bd6bd23d95@arm.com>
+Date:   Wed, 28 Jun 2023 12:06:38 +0100
 MIME-Version: 1.0
 User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:102.0)
  Gecko/20100101 Thunderbird/102.12.0
-Subject: Re: [PATCH v1 01/10] mm: Expose clear_huge_page() unconditionally
-To:     Yu Zhao <yuzhao@google.com>
+Subject: Re: [PATCH v1 03/10] mm: Introduce try_vma_alloc_movable_folio()
+To:     Yin Fengwei <fengwei.yin@intel.com>, Yu Zhao <yuzhao@google.com>
 Cc:     Andrew Morton <akpm@linux-foundation.org>,
         "Matthew Wilcox (Oracle)" <willy@infradead.org>,
         "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>,
-        Yin Fengwei <fengwei.yin@intel.com>,
         David Hildenbrand <david@redhat.com>,
         Catalin Marinas <catalin.marinas@arm.com>,
         Will Deacon <will@kernel.org>,
@@ -42,163 +41,153 @@ Cc:     Andrew Morton <akpm@linux-foundation.org>,
         linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org,
         linux-m68k@lists.linux-m68k.org, linux-s390@vger.kernel.org
 References: <20230626171430.3167004-1-ryan.roberts@arm.com>
- <20230626171430.3167004-2-ryan.roberts@arm.com>
- <CAOUHufacvArJh7NjL_3LT-e3s1X+bazkvbgvEU+KPKGKEoW+dw@mail.gmail.com>
- <2ff8ccf6-bf36-48b2-7dc2-e6c0d962f8b7@arm.com>
- <CAOUHufZoT-maN3kY5eYQmrYV48shmKAAancEvabXzfTDncDa9A@mail.gmail.com>
- <91e3364f-1d1b-f959-636b-4f60bf5a577b@arm.com>
- <CAOUHufaEwY=cm8mBi4HSbxYBvAr_x4_vyZZM2NYHEt-U7KaFhA@mail.gmail.com>
+ <20230626171430.3167004-4-ryan.roberts@arm.com>
+ <CAOUHufZKM+aS_hYQ5nDUHh74UQwWipJ27Na5Sw4n+RDqnwyWHA@mail.gmail.com>
+ <CAOUHufZeFTjzO6nSFz7Y=5rBGPzY+_eeN3f8W+g0u6AqosdmuQ@mail.gmail.com>
+ <ba282a84-1a0d-4ffd-0b22-ac9510a820ef@arm.com>
+ <8ab18141-8091-6691-ddbd-cff834a8d4d0@intel.com>
 From:   Ryan Roberts <ryan.roberts@arm.com>
-In-Reply-To: <CAOUHufaEwY=cm8mBi4HSbxYBvAr_x4_vyZZM2NYHEt-U7KaFhA@mail.gmail.com>
+In-Reply-To: <8ab18141-8091-6691-ddbd-cff834a8d4d0@intel.com>
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On 27/06/2023 19:26, Yu Zhao wrote:
-> On Tue, Jun 27, 2023 at 3:41 AM Ryan Roberts <ryan.roberts@arm.com> wrote:
->>
->> On 27/06/2023 09:29, Yu Zhao wrote:
->>> On Tue, Jun 27, 2023 at 1:21 AM Ryan Roberts <ryan.roberts@arm.com> wrote:
+On 28/06/2023 03:32, Yin Fengwei wrote:
+> 
+> 
+> On 6/27/23 15:56, Ryan Roberts wrote:
+>> On 27/06/2023 06:29, Yu Zhao wrote:
+>>> On Mon, Jun 26, 2023 at 8:34 PM Yu Zhao <yuzhao@google.com> wrote:
 >>>>
->>>> On 27/06/2023 02:55, Yu Zhao wrote:
->>>>> On Mon, Jun 26, 2023 at 11:14 AM Ryan Roberts <ryan.roberts@arm.com> wrote:
->>>>>>
->>>>>> In preparation for extending vma_alloc_zeroed_movable_folio() to
->>>>>> allocate a arbitrary order folio, expose clear_huge_page()
->>>>>> unconditionally, so that it can be used to zero the allocated folio in
->>>>>> the generic implementation of vma_alloc_zeroed_movable_folio().
->>>>>>
->>>>>> Signed-off-by: Ryan Roberts <ryan.roberts@arm.com>
->>>>>> ---
->>>>>>  include/linux/mm.h | 3 ++-
->>>>>>  mm/memory.c        | 2 +-
->>>>>>  2 files changed, 3 insertions(+), 2 deletions(-)
->>>>>>
->>>>>> diff --git a/include/linux/mm.h b/include/linux/mm.h
->>>>>> index 7f1741bd870a..7e3bf45e6491 100644
->>>>>> --- a/include/linux/mm.h
->>>>>> +++ b/include/linux/mm.h
->>>>>> @@ -3684,10 +3684,11 @@ enum mf_action_page_type {
->>>>>>   */
->>>>>>  extern const struct attribute_group memory_failure_attr_group;
->>>>>>
->>>>>> -#if defined(CONFIG_TRANSPARENT_HUGEPAGE) || defined(CONFIG_HUGETLBFS)
->>>>>>  extern void clear_huge_page(struct page *page,
->>>>>>                             unsigned long addr_hint,
->>>>>>                             unsigned int pages_per_huge_page);
->>>>>> +
->>>>>> +#if defined(CONFIG_TRANSPARENT_HUGEPAGE) || defined(CONFIG_HUGETLBFS)
+>>>> On Mon, Jun 26, 2023 at 11:14 AM Ryan Roberts <ryan.roberts@arm.com> wrote:
 >>>>>
->>>>> We might not want to depend on THP eventually. Right now, we still
->>>>> have to, unless splitting is optional, which seems to contradict
->>>>> 06/10. (deferred_split_folio()  is a nop without THP.)
+>>>>> Opportunistically attempt to allocate high-order folios in highmem,
+>>>>> optionally zeroed. Retry with lower orders all the way to order-0, until
+>>>>> success. Although, of note, order-1 allocations are skipped since a
+>>>>> large folio must be at least order-2 to work with the THP machinery. The
+>>>>> user must check what they got with folio_order().
+>>>>>
+>>>>> This will be used to oportunistically allocate large folios for
+>>>>> anonymous memory with a sensible fallback under memory pressure.
+>>>>>
+>>>>> For attempts to allocate non-0 orders, we set __GFP_NORETRY to prevent
+>>>>> high latency due to reclaim, instead preferring to just try for a lower
+>>>>> order. The same approach is used by the readahead code when allocating
+>>>>> large folios.
+>>>>>
+>>>>> Signed-off-by: Ryan Roberts <ryan.roberts@arm.com>
+>>>>> ---
+>>>>>  mm/memory.c | 33 +++++++++++++++++++++++++++++++++
+>>>>>  1 file changed, 33 insertions(+)
+>>>>>
+>>>>> diff --git a/mm/memory.c b/mm/memory.c
+>>>>> index 367bbbb29d91..53896d46e686 100644
+>>>>> --- a/mm/memory.c
+>>>>> +++ b/mm/memory.c
+>>>>> @@ -3001,6 +3001,39 @@ static vm_fault_t fault_dirty_shared_page(struct vm_fault *vmf)
+>>>>>         return 0;
+>>>>>  }
+>>>>>
+>>>>> +static inline struct folio *vma_alloc_movable_folio(struct vm_area_struct *vma,
+>>>>> +                               unsigned long vaddr, int order, bool zeroed)
+>>>>> +{
+>>>>> +       gfp_t gfp = order > 0 ? __GFP_NORETRY | __GFP_NOWARN : 0;
+>>>>> +
+>>>>> +       if (zeroed)
+>>>>> +               return vma_alloc_zeroed_movable_folio(vma, vaddr, gfp, order);
+>>>>> +       else
+>>>>> +               return vma_alloc_folio(GFP_HIGHUSER_MOVABLE | gfp, order, vma,
+>>>>> +                                                               vaddr, false);
+>>>>> +}
+>>>>> +
+>>>>> +/*
+>>>>> + * Opportunistically attempt to allocate high-order folios, retrying with lower
+>>>>> + * orders all the way to order-0, until success. order-1 allocations are skipped
+>>>>> + * since a folio must be at least order-2 to work with the THP machinery. The
+>>>>> + * user must check what they got with folio_order(). vaddr can be any virtual
+>>>>> + * address that will be mapped by the allocated folio.
+>>>>> + */
+>>>>> +static struct folio *try_vma_alloc_movable_folio(struct vm_area_struct *vma,
+>>>>> +                               unsigned long vaddr, int order, bool zeroed)
+>>>>> +{
+>>>>> +       struct folio *folio;
+>>>>> +
+>>>>> +       for (; order > 1; order--) {
+>>>>> +               folio = vma_alloc_movable_folio(vma, vaddr, order, zeroed);
+>>>>> +               if (folio)
+>>>>> +                       return folio;
+>>>>> +       }
+>>>>> +
+>>>>> +       return vma_alloc_movable_folio(vma, vaddr, 0, zeroed);
+>>>>> +}
 >>>>
->>>> Yes, I agree - for large anon folios to work, we depend on THP. But I don't
->>>> think that helps us here.
+>>>> I'd drop this patch. Instead, in do_anonymous_page():
 >>>>
->>>> In the next patch, I give vma_alloc_zeroed_movable_folio() an extra `order`
->>>> parameter. So the generic/default version of the function now needs a way to
->>>> clear a compound page.
+>>>>   if (IS_ENABLED(CONFIG_ARCH_WANTS_PTE_ORDER))
+>>>>     folio = vma_alloc_zeroed_movable_folio(vma, addr,
+>>>> CONFIG_ARCH_WANTS_PTE_ORDER))
 >>>>
->>>> I guess I could do something like:
->>>>
->>>>  static inline
->>>>  struct folio *vma_alloc_zeroed_movable_folio(struct vm_area_struct *vma,
->>>>                                    unsigned long vaddr, gfp_t gfp, int order)
->>>>  {
->>>>         struct folio *folio;
->>>>
->>>>         folio = vma_alloc_folio(GFP_HIGHUSER_MOVABLE | gfp,
->>>>                                         order, vma, vaddr, false);
->>>>         if (folio) {
->>>> #ifdef CONFIG_LARGE_FOLIO
->>>>                 clear_huge_page(&folio->page, vaddr, 1U << order);
->>>> #else
->>>>                 BUG_ON(order != 0);
->>>>                 clear_user_highpage(&folio->page, vaddr);
->>>> #endif
->>>>         }
->>>>
->>>>         return folio;
->>>>  }
->>>>
->>>> But that's pretty messy and there's no reason why other users might come along
->>>> that pass order != 0 and will be surprised by the BUG_ON.
+>>>>   if (!folio)
+>>>>     folio = vma_alloc_zeroed_movable_folio(vma, addr, 0);
 >>>
->>> #ifdef CONFIG_LARGE_ANON_FOLIO // depends on CONFIG_TRANSPARENT_HUGE_PAGE
->>> struct folio *alloc_anon_folio(struct vm_area_struct *vma, unsigned
->>> long vaddr, int order)
->>> {
->>>   // how do_huge_pmd_anonymous_page() allocs and clears
->>>   vma_alloc_folio(..., *true*);
+>>> I meant a runtime function arch_wants_pte_order() (Its default
+>>> implementation would return 0.)
 >>
->> This controls the mem allocation policy (see mempolicy.c::vma_alloc_folio()) not
->> clearing. Clearing is done in __do_huge_pmd_anonymous_page():
+>> There are a bunch of things which you are implying here which I'll try to make
+>> explicit:
 >>
->>   clear_huge_page(page, vmf->address, HPAGE_PMD_NR);
-> 
-> Sorry for rushing this previously. This is what I meant. The #ifdef
-> makes it safe to use clear_huge_page() without 01/10. I highlighted
-> the last parameter to vma_alloc_folio() only because it's different
-> from what you chose (not implying it clears the folio).>
->>> }
->>> #else
->>> #define alloc_anon_folio(vma, addr, order)
->>> vma_alloc_zeroed_movable_folio(vma, addr)
->>> #endif
+>> I think you are implying that we shouldn't retry allocation with intermediate
+>> orders; but only try the order requested by the arch (arch_wants_pte_order())
+>> and 0. Correct? For arm64 at least, I would like the VMA's THP hint to be a
+>> factor in determining the preferred order (see patches 8 and 9). So I would add
+>> a vma parameter to arch_wants_pte_order() to allow for this.
 >>
->> Sorry I don't get this at all... If you are suggesting to bypass
->> vma_alloc_zeroed_movable_folio() entirely for the LARGE_ANON_FOLIO case
-> 
-> Correct.
-> 
->> I don't
->> think that works because the arch code adds its own gfp flags there. For
->> example, arm64 adds __GFP_ZEROTAGS for VM_MTE VMAs.
-> 
-> I think it's the opposite: it should be safer to reuse the THP code because
-> 1. It's an existing case that has been working for PMD_ORDER folios
-> mapped by PTEs, and it's an arch-independent API which would be easier
-> to review.
-> 2. Use vma_alloc_zeroed_movable_folio() for large folios is a *new*
-> case. It's an arch-*dependent* API which I have no idea what VM_MTE
-> does (should do) to large folios and don't plan to answer that for
-> now.
-
-I've done some archaology on this now, and convinced myself that your suggestion
-is a good one - sorry for doubting it!
-
-If you are interested here are the details: Only arm64 and ia64 do something
-non-standard in vma_alloc_zeroed_movable_folio(). ia64 flushes the dcache for
-the folio - but given it does not support THP this is not a problem for the THP
-path. arm64 adds the __GFP_ZEROTAGS flag which means that the MTE tags will be
-zeroed at the same time as the page is zeroed. This is a perf optimization - if
-its not performed then it will be done at set_pte_at(), which is how this works
-for the THP path.
-
-So on that basis, I agree we can use your proposed alloc_anon_folio() approach.
-arm64 will lose the MTE optimization but that can be added back later if needed.
-So no need to unconditionally expose clear_huge_page() and no need to modify all
-the arch vma_alloc_zeroed_movable_folio() implementations.
-
-Thanks,
-Ryan
-
-
-> 
->> Perhaps we can do away with an arch-owned vma_alloc_zeroed_movable_folio() and
->> replace it with a new arch_get_zeroed_movable_gfp_flags() then
->> alloc_anon_folio() add in those flags?
+>> For the case where the THP hint is present, then the arch will request 2M (if
+>> the page size is 16K or 64K). If that fails to allocate, there is still value in
+>> allocating a 64K folio (which is order 2 in the 16K case). Without the retry
+>> with intermediate orders logic, we would not get this.
 >>
->> But I still think the cleanest, simplest change is just to unconditionally
->> expose clear_huge_page() as I've done it.
+>> We can't just blindly allocate a folio of arch_wants_pte_order() size because it
+>> might overlap with existing populated PTEs, or cross the bounds of the VMA (or a
+>> number of other things - see calc_anon_folio_order_alloc() in patch 10). Are you
+>> implying that if there is any kind of issue like this, then we should go
+>> directly to order 0? I can kind of see the argument from a minimizing
+>> fragmentation perspective, but for best possible performance I think we are
+>> better off "packing the bin" with intermediate orders.
 > 
-> The fundamental choice there as I see it is to whether the first step
-> of large anon folios should lean toward the THP code base or the base
-> page code base (I'm a big fan of the answer "Neither -- we should
-> create something entirely new instead"). My POV is that the THP code
-> base would allow us to move faster, since it's proven to work for a
-> very similar case (PMD_ORDER folios mapped by PTEs).
+> One drawback of the retry is that it could introduce large tail latency (by
+> memory zeroing, memory reclaiming or existing populated PTEs). That may not
+> be appreciated by some applications. Thanks.
+
+Good point. based on all the discussion, I think the conclusion is:
+
+ - ask the arch to for preferred folio order with runtime function
+ - check the folio will fit (racy) - if does not fit fall back to order-0
+ - allocate the folio
+ - take the ptl
+ - check the folio still fits (not racy) - if does not fit fall back to order-0
+
+So in the worst case the latency will be allocating and zeroing a large folio,
+then allocating and zeroing an order-0 folio. Which is obviously better than
+iterating through every order from preferred to 0.
+
+I'll work this flow into a v2.
+
+> 
+> 
+> Regards
+> Yin, Fengwei
+> 
+>>
+>> You're also implying that a runtime arch_wants_pte_order() function is better
+>> than the Kconfig stuff I did in patch 8. On reflection, I agree with you here. I
+>> think you mentioned that AMD supports coalescing 8 pages on some CPUs - so you
+>> would probably want runtime logic to determine if you are on an appropriate AMD
+>> CPU as part of the decision in that function?
+>>
+>> The real reason for the existance of try_vma_alloc_movable_folio() is that I'm
+>> reusing it on the other fault paths (which are no longer part of this series).
+>> But I guess that's not a good reason to keep this until we get to those patches.
 
