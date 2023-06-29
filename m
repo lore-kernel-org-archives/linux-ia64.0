@@ -2,58 +2,57 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id EDB31C3DA40
-	for <linux-ia64@archiver.kernel.org>; Thu, 29 Jun 2023 01:39:14 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id DF6ADEB64DA
+	for <linux-ia64@archiver.kernel.org>; Thu, 29 Jun 2023 02:13:29 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S229994AbjF2BjN (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Wed, 28 Jun 2023 21:39:13 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:43376 "EHLO
+        id S231512AbjF2CNX (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Wed, 28 Jun 2023 22:13:23 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:50954 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S229840AbjF2BjM (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Wed, 28 Jun 2023 21:39:12 -0400
-Received: from mail-pg1-x533.google.com (mail-pg1-x533.google.com [IPv6:2607:f8b0:4864:20::533])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 88ACD199B;
-        Wed, 28 Jun 2023 18:39:11 -0700 (PDT)
-Received: by mail-pg1-x533.google.com with SMTP id 41be03b00d2f7-5577905ef38so77571a12.0;
-        Wed, 28 Jun 2023 18:39:11 -0700 (PDT)
+        with ESMTP id S229487AbjF2CNT (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Wed, 28 Jun 2023 22:13:19 -0400
+Received: from mail-pg1-x52a.google.com (mail-pg1-x52a.google.com [IPv6:2607:f8b0:4864:20::52a])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 9B875210E;
+        Wed, 28 Jun 2023 19:13:17 -0700 (PDT)
+Received: by mail-pg1-x52a.google.com with SMTP id 41be03b00d2f7-51452556acdso138425a12.2;
+        Wed, 28 Jun 2023 19:13:17 -0700 (PDT)
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=gmail.com; s=20221208; t=1688002751; x=1690594751;
+        d=gmail.com; s=20221208; t=1688004797; x=1690596797;
         h=content-transfer-encoding:cc:to:subject:message-id:date:from
          :in-reply-to:references:mime-version:from:to:cc:subject:date
          :message-id:reply-to;
-        bh=ux9B0srClyCZWsFVsMJo+q/yRz7KZe7H2zTVS/BvmEY=;
-        b=W6LAHQ9MU7AqXT0poOsZHvm7H0Hux1rT4jeGdWOdyyIy9x4KvcSwcpESQvub372rha
-         PcS2S7s9EGLVRenNs40RPeNR1lHzNmhgCXNs2CnUL1/ve7YQqx/5URo9gmaKbjtD2Zd4
-         NFG8SOwMO1U6FmYcg+G1SoUy5Iy9A6eYjnlGNUoRsSxQnVPkgo9EJO1OO97MhvnuGiaB
-         T+vwP99cg5QDycEK2YsDZplyh8K1htp31VQFkb99p16T27/RjXB1LGTXJRdC0/jM38yp
-         CK6HHxcyHt8RGgCC34+SjP64QMWV1A1ky3yF20JPIyzGobP1vSSv7koi6Y6N99mQcFsR
-         YXGg==
+        bh=eK+GZTvaI9GpF+th2wx0qAS291ZJaIQUkAYN/lJSnjk=;
+        b=LtAm9OJENmFL/CFUxR0GtVCgkyBqDLDbHwNCmdUe4dzkenU0TuMr2ghkJhYLxw9rEU
+         dFL6JDHZTObecMqWehZFBU9vxW46742veERYUyPfemzgxdJCMK1cAMi47wbMRsnHKbfl
+         OcQCaeHRnnvpR22oLYQD/YtL5KnEy0eYqVcyYta+q2H33aXUtc+7OGKyQU+iasEm0EEe
+         Rc+Uti77Airh8wlvU5hSOuEoWh59aMW6RI2qz0sbg1WYFkI/nVvhc3PSY4RFbCm7klLn
+         wg8lbeBS0OCm2po1Q07W5oAXAuSzzr1LHHc+1RdVSszXXSdZp78PSUKFyyrGYUBqu4Cd
+         dxvg==
 X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20221208; t=1688002751; x=1690594751;
+        d=1e100.net; s=20221208; t=1688004797; x=1690596797;
         h=content-transfer-encoding:cc:to:subject:message-id:date:from
          :in-reply-to:references:mime-version:x-gm-message-state:from:to:cc
          :subject:date:message-id:reply-to;
-        bh=ux9B0srClyCZWsFVsMJo+q/yRz7KZe7H2zTVS/BvmEY=;
-        b=NuHmZS/dsWr9eqWJ2wyLJkd0QOLCngtShI9L4Dm4Kcq16/HYD6JAQCRlMIL7tm6KgC
-         INOqACF1fJRDTYNp8mPn6GStr08x3aEdvPBFP/v7li5TYWCN0a9+WwyBV9DntWwuoSwE
-         t17TI3XI2L9x4av9Xw9hyE1wXhlXQPTWAJOOTFsRxcRjwQHmPgZZuam7OK3el3XSCFJ8
-         A2zlDX6beSGeGU7P2YmvHJ7QsVRorPqmDqwuTvTz9c8q+hu0G07wtY9SluWjbgRRbOxD
-         3sRlyEdoaZjs4SRj6EP0N2qHqkpsxolUuZpVGKah/CQHCAmCcaDU+4pRnljFMn477lHv
-         xxeA==
-X-Gm-Message-State: AC+VfDzDkkZSVmqa6nncUHryvCHiDWDhuo7rKrN92sBGwqZ70Op4yIjw
-        Wqkik/8pimsP9tGZl91tSXhFKD+OLcKd1WRE97zAbxEg
-X-Google-Smtp-Source: ACHHUZ7XV721JF+3Hut1ZfFxeuXwoMOKYJDzX2eAcfRiSgLDFWN6VL4HSkG/y2opKdMIB8ABEkCpkFIucyPLdGZCgYU=
-X-Received: by 2002:a17:90a:35c:b0:263:6cb:5b95 with SMTP id
- 28-20020a17090a035c00b0026306cb5b95mr6402422pjf.14.1688002750857; Wed, 28 Jun
- 2023 18:39:10 -0700 (PDT)
+        bh=eK+GZTvaI9GpF+th2wx0qAS291ZJaIQUkAYN/lJSnjk=;
+        b=W8K1gS7PBwrmSVs1utaTOa4dXys6xkmDh9fSemij56BCgb/vzM5/1s+mjORE5NvMhe
+         lFnAROGM6Pfxn76nLpGK5Ll8ndL+cYIB52kblM93MwWKmY3wuOamcv9C2HmyqpfTdyNV
+         Xspj42lkN+56tpNsENjPPveBkfMIPSz8v4PfIJDmM85dqg5WTKgllo4QaOtYt9Ekb4nP
+         bIAd2wbYw+q9gLilcdHycX32hXxHcSCAQ+nDXmxJ/jlseEOVQizf0NAiGTD8sKHMDLXd
+         uvpt7Dn1uHb8rHXSzQfGE6wLa/N84iVgVkWUKsAK3PxnE/iHUXHGZS7GtlrpbDZj+I+n
+         X4zw==
+X-Gm-Message-State: AC+VfDwgjw4THVCvLBKN88oGNfonByqC5bjLIAfvHnSOuxeWm74C0EJp
+        ql7GaqCbJzZQudrLeAbTumn/NzQHcA2gtj1NVLc=
+X-Google-Smtp-Source: ACHHUZ7XN+3LeDvOmFnc3BOChJihvOylEkKOtArWWP3fQVUXkBx23yqNUrbBUPNK4DV+EZeYdINPVsUg8Vd2O3ZLJ1Q=
+X-Received: by 2002:a17:90a:c301:b0:262:c8dc:5ab0 with SMTP id
+ g1-20020a17090ac30100b00262c8dc5ab0mr9049662pjt.39.1688004796832; Wed, 28 Jun
+ 2023 19:13:16 -0700 (PDT)
 MIME-Version: 1.0
-References: <20230626171430.3167004-1-ryan.roberts@arm.com> <20230626171430.3167004-9-ryan.roberts@arm.com>
-In-Reply-To: <20230626171430.3167004-9-ryan.roberts@arm.com>
+References: <20230626171430.3167004-1-ryan.roberts@arm.com> <20230626171430.3167004-11-ryan.roberts@arm.com>
+In-Reply-To: <20230626171430.3167004-11-ryan.roberts@arm.com>
 From:   Yang Shi <shy828301@gmail.com>
-Date:   Wed, 28 Jun 2023 18:38:59 -0700
-Message-ID: <CAHbLzkpScGq-ja2A6dRffG8qbrVuwXzkMpFvSq_Fzdqp2wUwPA@mail.gmail.com>
-Subject: Re: [PATCH v1 08/10] mm: Kconfig hooks to determine max anon folio
- allocation order
+Date:   Wed, 28 Jun 2023 19:13:05 -0700
+Message-ID: <CAHbLzkoZf=5PLrC0HNT4Owy=xM4HfA9HDjdCHC+h5RYXUwp0gw@mail.gmail.com>
+Subject: Re: [PATCH v1 10/10] mm: Allocate large folios for anonymous memory
 To:     Ryan Roberts <ryan.roberts@arm.com>
 Cc:     Andrew Morton <akpm@linux-foundation.org>,
         "Matthew Wilcox (Oracle)" <willy@infradead.org>,
@@ -82,124 +81,274 @@ X-Mailing-List: linux-ia64@vger.kernel.org
 On Mon, Jun 26, 2023 at 10:15=E2=80=AFAM Ryan Roberts <ryan.roberts@arm.com=
 > wrote:
 >
-> For variable-order anonymous folios, we need to determine the order that
-> we will allocate. From a SW perspective, the higher the order we
-> allocate, the less overhead we will have; fewer faults, fewer folios in
-> lists, etc. But of course there will also be more memory wastage as the
-> order increases.
+> With all of the enabler patches in place, modify the anonymous memory
+> write allocation path so that it opportunistically attempts to allocate
+> a large folio up to `max_anon_folio_order()` size (This value is
+> ultimately configured by the architecture). This reduces the number of
+> page faults, reduces the size of (e.g. LRU) lists, and generally
+> improves performance by batching what were per-page operations into
+> per-(large)-folio operations.
 >
-> From a HW perspective, there are memory block sizes that can be
-> beneficial to reducing TLB pressure. arm64, for example, has the ability
-> to map "contpte" sized chunks (64K for a 4K base page, 2M for 16K and
-> 64K base pages) such that one of these chunks only uses a single TLB
-> entry.
->
-> So we let the architecture specify the order of the maximally beneficial
-> mapping unit when PTE-mapped. Furthermore, because in some cases, this
-> order may be quite big (and therefore potentially wasteful of memory),
-> allow the arch to specify 2 values; One is the max order for a mapping
-> that _would not_ use THP if all size and alignment constraints were met,
-> and the other is the max order for a mapping that _would_ use THP if all
-> those constraints were met.
->
-> Implement this with Kconfig by introducing some new options to allow the
-> architecture to declare that it supports large anonymous folios along
-> with these 2 preferred max order values. Then introduce a user-facing
-> option, LARGE_ANON_FOLIO, which defaults to disabled and can only be
-> enabled if the architecture has declared its support. When disabled, it
-> forces the max order values, LARGE_ANON_FOLIO_NOTHP_ORDER_MAX and
-> LARGE_ANON_FOLIO_THP_ORDER_MAX to 0, meaning only a single page is ever
-> allocated.
+> If CONFIG_LARGE_ANON_FOLIO is not enabled (the default) then
+> `max_anon_folio_order()` always returns 0, meaning we get the existing
+> allocation behaviour.
 >
 > Signed-off-by: Ryan Roberts <ryan.roberts@arm.com>
 > ---
->  mm/Kconfig  | 39 +++++++++++++++++++++++++++++++++++++++
->  mm/memory.c |  8 ++++++++
->  2 files changed, 47 insertions(+)
+>  mm/memory.c | 159 +++++++++++++++++++++++++++++++++++++++++++++++-----
+>  1 file changed, 144 insertions(+), 15 deletions(-)
 >
-> diff --git a/mm/Kconfig b/mm/Kconfig
-> index 7672a22647b4..f4ba48c37b75 100644
-> --- a/mm/Kconfig
-> +++ b/mm/Kconfig
-> @@ -1208,4 +1208,43 @@ config PER_VMA_LOCK
->
->  source "mm/damon/Kconfig"
->
-> +config ARCH_SUPPORTS_LARGE_ANON_FOLIO
-> +       def_bool n
-> +       help
-> +         An arch should select this symbol if wants to allow LARGE_ANON_=
-FOLIO
-> +         to be enabled. It must also set the following integer values:
-> +         - ARCH_LARGE_ANON_FOLIO_NOTHP_ORDER_MAX
-> +         - ARCH_LARGE_ANON_FOLIO_THP_ORDER_MAX
-> +
-> +config ARCH_LARGE_ANON_FOLIO_NOTHP_ORDER_MAX
-> +       int
-> +       help
-> +         The maximum size of folio to allocate for an anonymous VMA PTE-=
-mapping
-> +         that does not have the MADV_HUGEPAGE hint set.
-> +
-> +config ARCH_LARGE_ANON_FOLIO_THP_ORDER_MAX
-> +       int
-> +       help
-> +         The maximum size of folio to allocate for an anonymous VMA PTE-=
-mapping
-> +         that has the MADV_HUGEPAGE hint set.
-> +
-> +config LARGE_ANON_FOLIO
-> +       bool "Allocate large folios for anonymous memory"
-> +       depends on ARCH_SUPPORTS_LARGE_ANON_FOLIO
-> +       default n
-> +       help
-> +         Use large (bigger than order-0) folios to back anonymous memory=
- where
-> +         possible. This reduces the number of page faults, as well as ot=
-her
-> +         per-page overheads to improve performance for many workloads.
-> +
-> +config LARGE_ANON_FOLIO_NOTHP_ORDER_MAX
-> +       int
-> +       default 0 if !LARGE_ANON_FOLIO
-> +       default ARCH_LARGE_ANON_FOLIO_NOTHP_ORDER_MAX
-> +
-> +config LARGE_ANON_FOLIO_THP_ORDER_MAX
-> +       int
-> +       default 0 if !LARGE_ANON_FOLIO
-> +       default ARCH_LARGE_ANON_FOLIO_THP_ORDER_MAX
-> +
-
-IMHO I don't think we need all of the new kconfigs. Ideally the large
-anon folios could be supported by all arches, although some of them
-may not benefit from larger TLB entries due to lack of hardware
-support.t
-
-For now with a minimum implementation, I think you could define a
-macro or a function that returns the hardware preferred order.
-
->  endmenu
 > diff --git a/mm/memory.c b/mm/memory.c
-> index 9165ed1b9fc2..a8f7e2b28d7a 100644
+> index a8f7e2b28d7a..d23c44cc5092 100644
 > --- a/mm/memory.c
 > +++ b/mm/memory.c
-> @@ -3153,6 +3153,14 @@ static struct folio *try_vma_alloc_movable_folio(s=
-truct vm_area_struct *vma,
->         return vma_alloc_movable_folio(vma, vaddr, 0, zeroed);
+> @@ -3161,6 +3161,90 @@ static inline int max_anon_folio_order(struct vm_a=
+rea_struct *vma)
+>                 return CONFIG_LARGE_ANON_FOLIO_NOTHP_ORDER_MAX;
 >  }
 >
-> +static inline int max_anon_folio_order(struct vm_area_struct *vma)
+> +/*
+> + * Returns index of first pte that is not none, or nr if all are none.
+> + */
+> +static inline int check_ptes_none(pte_t *pte, int nr)
 > +{
-> +       if (hugepage_vma_check(vma, vma->vm_flags, false, true, true))
-> +               return CONFIG_LARGE_ANON_FOLIO_THP_ORDER_MAX;
-> +       else
-> +               return CONFIG_LARGE_ANON_FOLIO_NOTHP_ORDER_MAX;
+> +       int i;
+> +
+> +       for (i =3D 0; i < nr; i++) {
+> +               if (!pte_none(ptep_get(pte++)))
+> +                       return i;
+> +       }
+> +
+> +       return nr;
+> +}
+> +
+> +static int calc_anon_folio_order_alloc(struct vm_fault *vmf, int order)
+> +{
+> +       /*
+> +        * The aim here is to determine what size of folio we should allo=
+cate
+> +        * for this fault. Factors include:
+> +        * - Order must not be higher than `order` upon entry
+> +        * - Folio must be naturally aligned within VA space
+> +        * - Folio must not breach boundaries of vma
+> +        * - Folio must be fully contained inside one pmd entry
+> +        * - Folio must not overlap any non-none ptes
+> +        *
+> +        * Additionally, we do not allow order-1 since this breaks assump=
+tions
+> +        * elsewhere in the mm; THP pages must be at least order-2 (since=
+ they
+> +        * store state up to the 3rd struct page subpage), and these page=
+s must
+> +        * be THP in order to correctly use pre-existing THP infrastructu=
+re such
+> +        * as folio_split().
+> +        *
+> +        * As a consequence of relying on the THP infrastructure, if the =
+system
+> +        * does not support THP, we always fallback to order-0.
+> +        *
+> +        * Note that the caller may or may not choose to lock the pte. If
+> +        * unlocked, the calculation should be considered an estimate tha=
+t will
+> +        * need to be validated under the lock.
+> +        */
+> +
+> +       struct vm_area_struct *vma =3D vmf->vma;
+> +       int nr;
+> +       unsigned long addr;
+> +       pte_t *pte;
+> +       pte_t *first_set =3D NULL;
+> +       int ret;
+> +
+> +       if (has_transparent_hugepage()) {
+> +               order =3D min(order, PMD_SHIFT - PAGE_SHIFT);
+> +
+> +               for (; order > 1; order--) {
+> +                       nr =3D 1 << order;
+> +                       addr =3D ALIGN_DOWN(vmf->address, nr << PAGE_SHIF=
+T);
+> +                       pte =3D vmf->pte - ((vmf->address - addr) >> PAGE=
+_SHIFT);
+> +
+> +                       /* Check vma bounds. */
+> +                       if (addr < vma->vm_start ||
+> +                           addr + (nr << PAGE_SHIFT) > vma->vm_end)
+> +                               continue;
+> +
+> +                       /* Ptes covered by order already known to be none=
+. */
+> +                       if (pte + nr <=3D first_set)
+> +                               break;
+> +
+> +                       /* Already found set pte in range covered by orde=
+r. */
+> +                       if (pte <=3D first_set)
+> +                               continue;
+> +
+> +                       /* Need to check if all the ptes are none. */
+> +                       ret =3D check_ptes_none(pte, nr);
+> +                       if (ret =3D=3D nr)
+> +                               break;
+> +
+> +                       first_set =3D pte + ret;
+> +               }
+> +
+> +               if (order =3D=3D 1)
+> +                       order =3D 0;
+> +       } else
+> +               order =3D 0;
+> +
+> +       return order;
 > +}
 > +
 >  /*
 >   * Handle write page faults for pages that can be reused in the current =
 vma
 >   *
+> @@ -4201,6 +4285,9 @@ static vm_fault_t do_anonymous_page(struct vm_fault=
+ *vmf)
+>         struct folio *folio;
+>         vm_fault_t ret =3D 0;
+>         pte_t entry;
+> +       unsigned long addr;
+> +       int order =3D uffd_wp ? 0 : max_anon_folio_order(vma);
+> +       int pgcount =3D BIT(order);
+>
+>         /* File mapping without ->vm_ops ? */
+>         if (vma->vm_flags & VM_SHARED)
+> @@ -4242,24 +4329,44 @@ static vm_fault_t do_anonymous_page(struct vm_fau=
+lt *vmf)
+>                         pte_unmap_unlock(vmf->pte, vmf->ptl);
+>                         return handle_userfault(vmf, VM_UFFD_MISSING);
+>                 }
+> -               goto setpte;
+> +               if (uffd_wp)
+> +                       entry =3D pte_mkuffd_wp(entry);
+> +               set_pte_at(vma->vm_mm, vmf->address, vmf->pte, entry);
+> +
+> +               /* No need to invalidate - it was non-present before */
+> +               update_mmu_cache(vma, vmf->address, vmf->pte);
+> +               goto unlock;
+>         }
+>
+> -       /* Allocate our own private page. */
+> +retry:
+> +       /*
+> +        * Estimate the folio order to allocate. We are not under the ptl=
+ here
+> +        * so this estiamte needs to be re-checked later once we have the=
+ lock.
+> +        */
+> +       vmf->pte =3D pte_offset_map(vmf->pmd, vmf->address);
+> +       order =3D calc_anon_folio_order_alloc(vmf, order);
+> +       pte_unmap(vmf->pte);
+> +
+> +       /* Allocate our own private folio. */
+>         if (unlikely(anon_vma_prepare(vma)))
+>                 goto oom;
+> -       folio =3D vma_alloc_zeroed_movable_folio(vma, vmf->address, 0, 0)=
+;
+> +       folio =3D try_vma_alloc_movable_folio(vma, vmf->address, order, t=
+rue);
+>         if (!folio)
+>                 goto oom;
+>
+> +       /* We may have been granted less than we asked for. */
+> +       order =3D folio_order(folio);
+> +       pgcount =3D BIT(order);
+> +       addr =3D ALIGN_DOWN(vmf->address, pgcount << PAGE_SHIFT);
+> +
+>         if (mem_cgroup_charge(folio, vma->vm_mm, GFP_KERNEL))
+>                 goto oom_free_page;
+>         folio_throttle_swaprate(folio, GFP_KERNEL);
+>
+>         /*
+>          * The memory barrier inside __folio_mark_uptodate makes sure tha=
+t
+> -        * preceding stores to the page contents become visible before
+> -        * the set_pte_at() write.
+> +        * preceding stores to the folio contents become visible before
+> +        * the set_ptes() write.
+>          */
+>         __folio_mark_uptodate(folio);
+>
+> @@ -4268,11 +4375,31 @@ static vm_fault_t do_anonymous_page(struct vm_fau=
+lt *vmf)
+>         if (vma->vm_flags & VM_WRITE)
+>                 entry =3D pte_mkwrite(pte_mkdirty(entry));
+>
+> -       vmf->pte =3D pte_offset_map_lock(vma->vm_mm, vmf->pmd, vmf->addre=
+ss,
+> -                       &vmf->ptl);
+> -       if (vmf_pte_changed(vmf)) {
+> -               update_mmu_tlb(vma, vmf->address, vmf->pte);
+> -               goto release;
+> +       vmf->pte =3D pte_offset_map_lock(vma->vm_mm, vmf->pmd, addr, &vmf=
+->ptl);
+> +
+> +       /*
+> +        * Ensure our estimate above is still correct; we could have race=
+d with
+> +        * another thread to service a fault in the region.
+> +        */
+> +       if (order =3D=3D 0) {
+> +               if (vmf_pte_changed(vmf)) {
+> +                       update_mmu_tlb(vma, vmf->address, vmf->pte);
+> +                       goto release;
+> +               }
+> +       } else if (check_ptes_none(vmf->pte, pgcount) !=3D pgcount) {
+> +               pte_t *pte =3D vmf->pte + ((vmf->address - addr) >> PAGE_=
+SHIFT);
+> +
+> +               /* If faulting pte was allocated by another, exit early. =
+*/
+> +               if (!pte_none(ptep_get(pte))) {
+> +                       update_mmu_tlb(vma, vmf->address, pte);
+> +                       goto release;
+> +               }
+> +
+> +               /* Else try again, with a lower order. */
+> +               pte_unmap_unlock(vmf->pte, vmf->ptl);
+> +               folio_put(folio);
+> +               order--;
+> +               goto retry;
+
+I'm not sure whether this extra fallback logic is worth it or not. Do
+you have any benchmark data or is it just an arbitrary design choice?
+If it is just an arbitrary design choice, I'd like to go with the
+simplest way by just exiting page fault handler, just like the
+order-0, IMHO.
+
+>         }
+>
+>         ret =3D check_stable_address_space(vma->vm_mm);
+> @@ -4286,16 +4413,18 @@ static vm_fault_t do_anonymous_page(struct vm_fau=
+lt *vmf)
+>                 return handle_userfault(vmf, VM_UFFD_MISSING);
+>         }
+>
+> -       inc_mm_counter(vma->vm_mm, MM_ANONPAGES);
+> -       folio_add_new_anon_rmap(folio, vma, vmf->address);
+> +       folio_ref_add(folio, pgcount - 1);
+> +
+> +       add_mm_counter(vma->vm_mm, MM_ANONPAGES, pgcount);
+> +       folio_add_new_anon_rmap_range(folio, &folio->page, pgcount, vma, =
+addr);
+>         folio_add_lru_vma(folio, vma);
+> -setpte:
+> +
+>         if (uffd_wp)
+>                 entry =3D pte_mkuffd_wp(entry);
+> -       set_pte_at(vma->vm_mm, vmf->address, vmf->pte, entry);
+> +       set_ptes(vma->vm_mm, addr, vmf->pte, entry, pgcount);
+>
+>         /* No need to invalidate - it was non-present before */
+> -       update_mmu_cache(vma, vmf->address, vmf->pte);
+> +       update_mmu_cache_range(vma, addr, vmf->pte, pgcount);
+>  unlock:
+>         pte_unmap_unlock(vmf->pte, vmf->ptl);
+>         return ret;
 > --
 > 2.25.1
 >
