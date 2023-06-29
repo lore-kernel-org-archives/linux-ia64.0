@@ -2,185 +2,167 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 02386C001B3
-	for <linux-ia64@archiver.kernel.org>; Thu, 29 Jun 2023 11:31:59 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 0005FEB64DD
+	for <linux-ia64@archiver.kernel.org>; Thu, 29 Jun 2023 12:20:00 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S231537AbjF2Lb7 (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Thu, 29 Jun 2023 07:31:59 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:41984 "EHLO
+        id S232125AbjF2MT7 (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Thu, 29 Jun 2023 08:19:59 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:52218 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S229615AbjF2Lb6 (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Thu, 29 Jun 2023 07:31:58 -0400
-Received: from foss.arm.com (foss.arm.com [217.140.110.172])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTP id 714C8132;
-        Thu, 29 Jun 2023 04:31:56 -0700 (PDT)
-Received: from usa-sjc-imap-foss1.foss.arm.com (unknown [10.121.207.14])
-        by usa-sjc-mx-foss1.foss.arm.com (Postfix) with ESMTP id C511DC14;
-        Thu, 29 Jun 2023 04:32:39 -0700 (PDT)
-Received: from [10.1.27.40] (C02Z41KALVDN.cambridge.arm.com [10.1.27.40])
-        by usa-sjc-imap-foss1.foss.arm.com (Postfix) with ESMTPSA id 45CFC3F64C;
-        Thu, 29 Jun 2023 04:31:53 -0700 (PDT)
-Message-ID: <09ef8f66-6697-d803-89ac-228a6fe2e604@arm.com>
-Date:   Thu, 29 Jun 2023 12:31:52 +0100
+        with ESMTP id S231208AbjF2MT5 (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Thu, 29 Jun 2023 08:19:57 -0400
+Received: from smtp-out2.suse.de (smtp-out2.suse.de [195.135.220.29])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id AA03E1FD8;
+        Thu, 29 Jun 2023 05:19:56 -0700 (PDT)
+Received: from imap2.suse-dmz.suse.de (imap2.suse-dmz.suse.de [192.168.254.74])
+        (using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+         key-exchange X25519 server-signature ECDSA (P-521) server-digest SHA512)
+        (No client certificate requested)
+        by smtp-out2.suse.de (Postfix) with ESMTPS id 4573E1F8D6;
+        Thu, 29 Jun 2023 12:19:55 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=suse.de; s=susede2_rsa;
+        t=1688041195; h=from:from:reply-to:date:date:message-id:message-id:to:to:cc:cc:
+         mime-version:mime-version:  content-transfer-encoding:content-transfer-encoding;
+        bh=nwKCg0ASpMSj/N7nk6+LAWl9eqN5SgDZ9SSsI3CKIes=;
+        b=ifsv+rsuemSFYPhJ/STIdTvx6x75qUEhLLGZ2g9AvONK3jL91ZNzeWNAtZraZVcGWThcHM
+        EfQbM+qs5azyCMPqS9sZhBhwKPyBWCHJQhLVHCTMFRSDdi3SXNdEiGVeBJdlRqG6pE2rO7
+        z3oGS2FeItnucroHvhtx1EF9mKdmXIA=
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=suse.de;
+        s=susede2_ed25519; t=1688041195;
+        h=from:from:reply-to:date:date:message-id:message-id:to:to:cc:cc:
+         mime-version:mime-version:  content-transfer-encoding:content-transfer-encoding;
+        bh=nwKCg0ASpMSj/N7nk6+LAWl9eqN5SgDZ9SSsI3CKIes=;
+        b=E6n/U6MQ4f+3rPbM2UsNu1qwtOXOlMais+WpB4FpCxfnJZvfgaxmYOknSshObU0+YcztfQ
+        wODdqbuTw1DsqWBw==
+Received: from imap2.suse-dmz.suse.de (imap2.suse-dmz.suse.de [192.168.254.74])
+        (using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+         key-exchange X25519 server-signature ECDSA (P-521) server-digest SHA512)
+        (No client certificate requested)
+        by imap2.suse-dmz.suse.de (Postfix) with ESMTPS id CCBF713905;
+        Thu, 29 Jun 2023 12:19:54 +0000 (UTC)
+Received: from dovecot-director2.suse.de ([192.168.254.65])
+        by imap2.suse-dmz.suse.de with ESMTPSA
+        id 1lzwMOp2nWRlVAAAMHmgww
+        (envelope-from <tzimmermann@suse.de>); Thu, 29 Jun 2023 12:19:54 +0000
+From:   Thomas Zimmermann <tzimmermann@suse.de>
+To:     arnd@arndb.de, deller@gmx.de, daniel@ffwll.ch, airlied@gmail.com
+Cc:     linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org,
+        linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org,
+        linux-ia64@vger.kernel.org, loongarch@lists.linux.dev,
+        linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org,
+        sparclinux@vger.kernel.org, dri-devel@lists.freedesktop.org,
+        linux-hyperv@vger.kernel.org, linux-fbdev@vger.kernel.org,
+        linux-staging@lists.linux.dev, linux-arch@vger.kernel.org,
+        Thomas Zimmermann <tzimmermann@suse.de>
+Subject: [PATCH 00/12] arch,fbdev: Move screen_info into arch/
+Date:   Thu, 29 Jun 2023 13:45:39 +0200
+Message-ID: <20230629121952.10559-1-tzimmermann@suse.de>
+X-Mailer: git-send-email 2.41.0
 MIME-Version: 1.0
-User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:102.0)
- Gecko/20100101 Thunderbird/102.12.0
-Subject: Re: [PATCH v1 08/10] mm: Kconfig hooks to determine max anon folio
- allocation order
-To:     Yang Shi <shy828301@gmail.com>
-Cc:     Andrew Morton <akpm@linux-foundation.org>,
-        "Matthew Wilcox (Oracle)" <willy@infradead.org>,
-        "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>,
-        Yin Fengwei <fengwei.yin@intel.com>,
-        David Hildenbrand <david@redhat.com>,
-        Yu Zhao <yuzhao@google.com>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will@kernel.org>,
-        Geert Uytterhoeven <geert@linux-m68k.org>,
-        Christian Borntraeger <borntraeger@linux.ibm.com>,
-        Sven Schnelle <svens@linux.ibm.com>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>,
-        Dave Hansen <dave.hansen@linux.intel.com>,
-        "H. Peter Anvin" <hpa@zytor.com>, linux-kernel@vger.kernel.org,
-        linux-mm@kvack.org, linux-alpha@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org,
-        linux-m68k@lists.linux-m68k.org, linux-s390@vger.kernel.org
-References: <20230626171430.3167004-1-ryan.roberts@arm.com>
- <20230626171430.3167004-9-ryan.roberts@arm.com>
- <CAHbLzkpScGq-ja2A6dRffG8qbrVuwXzkMpFvSq_Fzdqp2wUwPA@mail.gmail.com>
-From:   Ryan Roberts <ryan.roberts@arm.com>
-In-Reply-To: <CAHbLzkpScGq-ja2A6dRffG8qbrVuwXzkMpFvSq_Fzdqp2wUwPA@mail.gmail.com>
-Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On 29/06/2023 02:38, Yang Shi wrote:
-> On Mon, Jun 26, 2023 at 10:15 AM Ryan Roberts <ryan.roberts@arm.com> wrote:
->>
->> For variable-order anonymous folios, we need to determine the order that
->> we will allocate. From a SW perspective, the higher the order we
->> allocate, the less overhead we will have; fewer faults, fewer folios in
->> lists, etc. But of course there will also be more memory wastage as the
->> order increases.
->>
->> From a HW perspective, there are memory block sizes that can be
->> beneficial to reducing TLB pressure. arm64, for example, has the ability
->> to map "contpte" sized chunks (64K for a 4K base page, 2M for 16K and
->> 64K base pages) such that one of these chunks only uses a single TLB
->> entry.
->>
->> So we let the architecture specify the order of the maximally beneficial
->> mapping unit when PTE-mapped. Furthermore, because in some cases, this
->> order may be quite big (and therefore potentially wasteful of memory),
->> allow the arch to specify 2 values; One is the max order for a mapping
->> that _would not_ use THP if all size and alignment constraints were met,
->> and the other is the max order for a mapping that _would_ use THP if all
->> those constraints were met.
->>
->> Implement this with Kconfig by introducing some new options to allow the
->> architecture to declare that it supports large anonymous folios along
->> with these 2 preferred max order values. Then introduce a user-facing
->> option, LARGE_ANON_FOLIO, which defaults to disabled and can only be
->> enabled if the architecture has declared its support. When disabled, it
->> forces the max order values, LARGE_ANON_FOLIO_NOTHP_ORDER_MAX and
->> LARGE_ANON_FOLIO_THP_ORDER_MAX to 0, meaning only a single page is ever
->> allocated.
->>
->> Signed-off-by: Ryan Roberts <ryan.roberts@arm.com>
->> ---
->>  mm/Kconfig  | 39 +++++++++++++++++++++++++++++++++++++++
->>  mm/memory.c |  8 ++++++++
->>  2 files changed, 47 insertions(+)
->>
->> diff --git a/mm/Kconfig b/mm/Kconfig
->> index 7672a22647b4..f4ba48c37b75 100644
->> --- a/mm/Kconfig
->> +++ b/mm/Kconfig
->> @@ -1208,4 +1208,43 @@ config PER_VMA_LOCK
->>
->>  source "mm/damon/Kconfig"
->>
->> +config ARCH_SUPPORTS_LARGE_ANON_FOLIO
->> +       def_bool n
->> +       help
->> +         An arch should select this symbol if wants to allow LARGE_ANON_FOLIO
->> +         to be enabled. It must also set the following integer values:
->> +         - ARCH_LARGE_ANON_FOLIO_NOTHP_ORDER_MAX
->> +         - ARCH_LARGE_ANON_FOLIO_THP_ORDER_MAX
->> +
->> +config ARCH_LARGE_ANON_FOLIO_NOTHP_ORDER_MAX
->> +       int
->> +       help
->> +         The maximum size of folio to allocate for an anonymous VMA PTE-mapping
->> +         that does not have the MADV_HUGEPAGE hint set.
->> +
->> +config ARCH_LARGE_ANON_FOLIO_THP_ORDER_MAX
->> +       int
->> +       help
->> +         The maximum size of folio to allocate for an anonymous VMA PTE-mapping
->> +         that has the MADV_HUGEPAGE hint set.
->> +
->> +config LARGE_ANON_FOLIO
->> +       bool "Allocate large folios for anonymous memory"
->> +       depends on ARCH_SUPPORTS_LARGE_ANON_FOLIO
->> +       default n
->> +       help
->> +         Use large (bigger than order-0) folios to back anonymous memory where
->> +         possible. This reduces the number of page faults, as well as other
->> +         per-page overheads to improve performance for many workloads.
->> +
->> +config LARGE_ANON_FOLIO_NOTHP_ORDER_MAX
->> +       int
->> +       default 0 if !LARGE_ANON_FOLIO
->> +       default ARCH_LARGE_ANON_FOLIO_NOTHP_ORDER_MAX
->> +
->> +config LARGE_ANON_FOLIO_THP_ORDER_MAX
->> +       int
->> +       default 0 if !LARGE_ANON_FOLIO
->> +       default ARCH_LARGE_ANON_FOLIO_THP_ORDER_MAX
->> +
-> 
-> IMHO I don't think we need all of the new kconfigs. Ideally the large
-> anon folios could be supported by all arches, although some of them
-> may not benefit from larger TLB entries due to lack of hardware
-> support.t
-> 
-> For now with a minimum implementation, I think you could define a
-> macro or a function that returns the hardware preferred order.
+The variables screen_info and edid_info provide information about
+the system's screen, and possibly EDID data of the connected display.
+Both are defined and set by architecture code. But both variables are
+declared in non-arch header files. Dependencies are at bease loosely
+tracked. To resolve this, move the global state screen_info and its
+companion edid_info into arch/. Only declare them on architectures
+that define them. List dependencies on the variables in the Kconfig
+files. Also clean up the callers.
 
-Thanks for the feedback - that aligns with what Yu Zhao suggested. I'm
-implementing it for v2.
+Patch 1 to 4 resolve a number of unnecessary include statements of
+<linux/screen_info.h>. The header should only be included in source
+files that access struct screen_info.
 
-Thanks,
-Ryan
+Patches 5 to 7 move the declaration of screen_info and edid_info to
+<asm-generic/screen_info.h>. Architectures that provide either set
+a Kconfig token to enable them.
+
+Patches 8 to 9 make users of screen_info depend on the architecture's
+feature.
+
+Finally, patches 10 to 12 rework fbdev's handling of firmware EDID
+data to make use of existing helpers and the refactored edid_info.
+
+Tested on x86-64. Built for a variety of platforms.
+
+Future directions: with the patchset in place, it will become possible
+to provide screen_info and edid_info only if there are users. Some
+architectures do this by testing for CONFIG_VT, CONFIG_DUMMY_CONSOLE,
+etc. A more uniform approach would be nice. We should also attempt
+to minimize access to the global screen_info as much as possible. To
+do so, some drivers, such as efifb and vesafb, would require an update.
+The firmware's EDID data could possibly made available outside of fbdev.
+For example, the simpledrm and ofdrm drivers could provide such data
+to userspace compositors.
+
+Thomas Zimmermann (12):
+  efi: Do not include <linux/screen_info.h> from EFI header
+  fbdev/sm712fb: Do not include <linux/screen_info.h>
+  sysfb: Do not include <linux/screen_info.h> from sysfb header
+  staging/sm750fb: Do not include <linux/screen_info.h>
+  arch: Remove trailing whitespaces
+  arch: Declare screen_info in <asm/screen_info.h>
+  arch/x86: Declare edid_info in <asm/screen_info.h>
+  drivers/firmware: Remove trailing whitespaces
+  drivers: Add dependencies on CONFIG_ARCH_HAS_SCREEN_INFO
+  fbdev/core: Use fb_is_primary_device() in fb_firmware_edid()
+  fbdev/core: Protect edid_info with CONFIG_ARCH_HAS_EDID_INFO
+  fbdev/core: Define empty fb_firmware_edid() in <linux/fb.h>
+
+ arch/Kconfig                                  | 12 +++++++
+ arch/alpha/Kconfig                            |  1 +
+ arch/arm/Kconfig                              |  1 +
+ arch/arm/kernel/efi.c                         |  2 ++
+ arch/arm64/Kconfig                            |  1 +
+ arch/arm64/kernel/efi.c                       |  1 +
+ arch/csky/Kconfig                             |  1 +
+ arch/hexagon/Kconfig                          |  1 +
+ arch/ia64/Kconfig                             |  5 +--
+ arch/loongarch/Kconfig                        |  1 +
+ arch/mips/Kconfig                             |  1 +
+ arch/nios2/Kconfig                            |  1 +
+ arch/powerpc/Kconfig                          |  1 +
+ arch/riscv/Kconfig                            |  1 +
+ arch/sh/Kconfig                               |  7 ++--
+ arch/sparc/Kconfig                            |  1 +
+ arch/x86/Kconfig                              |  2 ++
+ arch/xtensa/Kconfig                           |  1 +
+ drivers/firmware/Kconfig                      |  3 +-
+ drivers/firmware/efi/Kconfig                  |  1 +
+ drivers/firmware/efi/libstub/efi-stub-entry.c |  2 ++
+ drivers/firmware/efi/libstub/screen_info.c    |  2 ++
+ drivers/gpu/drm/Kconfig                       |  1 +
+ drivers/hv/Kconfig                            |  1 +
+ drivers/staging/sm750fb/sm750.c               |  1 -
+ drivers/staging/sm750fb/sm750_accel.c         |  1 -
+ drivers/staging/sm750fb/sm750_cursor.c        |  1 -
+ drivers/staging/sm750fb/sm750_hw.c            |  1 -
+ drivers/video/console/Kconfig                 |  2 ++
+ drivers/video/fbdev/Kconfig                   |  4 +++
+ drivers/video/fbdev/core/fbmon.c              | 34 ++++++-------------
+ drivers/video/fbdev/i810/i810-i2c.c           |  2 +-
+ drivers/video/fbdev/intelfb/intelfbdrv.c      |  2 +-
+ drivers/video/fbdev/nvidia/nv_i2c.c           |  2 +-
+ drivers/video/fbdev/savage/savagefb-i2c.c     |  2 +-
+ drivers/video/fbdev/sm712fb.c                 |  9 +++--
+ include/asm-generic/Kbuild                    |  1 +
+ include/asm-generic/screen_info.h             | 18 ++++++++++
+ include/linux/efi.h                           |  3 +-
+ include/linux/fb.h                            | 10 +++++-
+ include/linux/screen_info.h                   |  2 +-
+ include/linux/sysfb.h                         |  3 +-
+ include/video/edid.h                          |  3 --
+ 43 files changed, 105 insertions(+), 47 deletions(-)
+ create mode 100644 include/asm-generic/screen_info.h
 
 
-> 
->>  endmenu
->> diff --git a/mm/memory.c b/mm/memory.c
->> index 9165ed1b9fc2..a8f7e2b28d7a 100644
->> --- a/mm/memory.c
->> +++ b/mm/memory.c
->> @@ -3153,6 +3153,14 @@ static struct folio *try_vma_alloc_movable_folio(struct vm_area_struct *vma,
->>         return vma_alloc_movable_folio(vma, vaddr, 0, zeroed);
->>  }
->>
->> +static inline int max_anon_folio_order(struct vm_area_struct *vma)
->> +{
->> +       if (hugepage_vma_check(vma, vma->vm_flags, false, true, true))
->> +               return CONFIG_LARGE_ANON_FOLIO_THP_ORDER_MAX;
->> +       else
->> +               return CONFIG_LARGE_ANON_FOLIO_NOTHP_ORDER_MAX;
->> +}
->> +
->>  /*
->>   * Handle write page faults for pages that can be reused in the current vma
->>   *
->> --
->> 2.25.1
->>
->>
+base-commit: d2f0af8472494398a42153684b790b723a79f143
+-- 
+2.41.0
 
