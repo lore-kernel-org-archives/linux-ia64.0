@@ -2,116 +2,96 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id BB792C001DE
-	for <linux-ia64@archiver.kernel.org>; Wed,  5 Jul 2023 01:43:19 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 6EA39C001B0
+	for <linux-ia64@archiver.kernel.org>; Wed,  5 Jul 2023 07:47:27 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S229906AbjGEBnS (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Tue, 4 Jul 2023 21:43:18 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:46864 "EHLO
+        id S232310AbjGEHr0 (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Wed, 5 Jul 2023 03:47:26 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:55110 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S229563AbjGEBnR (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Tue, 4 Jul 2023 21:43:17 -0400
-Received: from mail.loongson.cn (mail.loongson.cn [114.242.206.163])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTP id 2C17EDD;
-        Tue,  4 Jul 2023 18:43:12 -0700 (PDT)
-Received: from loongson.cn (unknown [10.20.42.43])
-        by gateway (Coremail) with SMTP id _____8Cx5_GuyqRk5i4AAA--.1123S3;
-        Wed, 05 Jul 2023 09:43:10 +0800 (CST)
-Received: from [10.20.42.43] (unknown [10.20.42.43])
-        by localhost.localdomain (Coremail) with SMTP id AQAAf8DxJ82tyqRkCM4bAA--.17672S3;
-        Wed, 05 Jul 2023 09:43:09 +0800 (CST)
-Message-ID: <dc239a28-4314-1661-f556-670946a0982b@loongson.cn>
-Date:   Wed, 5 Jul 2023 09:43:09 +0800
-MIME-Version: 1.0
-User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
- Thunderbird/102.11.0
-Subject: Re: [11/12] fbdev/core: Protect edid_info with
- CONFIG_ARCH_HAS_EDID_INFO
-Content-Language: en-US
+        with ESMTP id S231796AbjGEHrZ (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Wed, 5 Jul 2023 03:47:25 -0400
+Received: from us-smtp-delivery-124.mimecast.com (us-smtp-delivery-124.mimecast.com [170.10.133.124])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 61D6D1706
+        for <linux-ia64@vger.kernel.org>; Wed,  5 Jul 2023 00:46:37 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=redhat.com;
+        s=mimecast20190719; t=1688543196;
+        h=from:from:reply-to:subject:subject:date:date:message-id:message-id:
+         to:to:cc:cc:mime-version:mime-version:content-type:content-type:
+         in-reply-to:in-reply-to:references:references;
+        bh=ErZ583UAFFXXktAwUkPKfSDXi8WyYfGqw8H1xV5E3EY=;
+        b=bvtdsMB3TTi+6muykpHIIQ0A3AvT01aPDochyxGzhVwN5XImzQvuvqiWgY30SlBNp9xbR7
+        X+KIFZJfCG/FupP191BtP1KMoFSrsQZI0zvvJZuCwEve2VWRivHkRa3WedCjk6SJq62EmR
+        BsMIezWaYYDX4m2P3zvIoWpVQSUA3SU=
+Received: from mail-wr1-f71.google.com (mail-wr1-f71.google.com
+ [209.85.221.71]) by relay.mimecast.com with ESMTP with STARTTLS
+ (version=TLSv1.3, cipher=TLS_AES_256_GCM_SHA384) id
+ us-mta-148-2XViy9AOODyFqLYCNpfEUQ-1; Wed, 05 Jul 2023 03:46:35 -0400
+X-MC-Unique: 2XViy9AOODyFqLYCNpfEUQ-1
+Received: by mail-wr1-f71.google.com with SMTP id ffacd0b85a97d-3141325af78so4253814f8f.3
+        for <linux-ia64@vger.kernel.org>; Wed, 05 Jul 2023 00:46:35 -0700 (PDT)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20221208; t=1688543194; x=1691135194;
+        h=mime-version:message-id:date:references:in-reply-to:subject:cc:to
+         :from:x-gm-message-state:from:to:cc:subject:date:message-id:reply-to;
+        bh=ErZ583UAFFXXktAwUkPKfSDXi8WyYfGqw8H1xV5E3EY=;
+        b=FrOmOT3fHjXCNDOA/sbMPQozBXT+REVg5lkwwY6T+ttflw15pAthhhUXvGSBLTivVt
+         4XIDFsjjIdOdwK4ERYinoN6aGx+Z13411E8dhLzQ1KGwRWrHzLrCPcRDjqQqAW7pjTQt
+         ugUAWu45rFtDyHp++XDDb3dDY37ZKqjGhJsYQEXMkA+mlp7OqmIbE1Yo+zLjL83NdeTw
+         BjQjEsSar2Io2WfXzUl4xL0eJsSWlgP4Os+BcVuBe1IoA0pq4eYIiRA3ZJGz+Accal8p
+         3gxBsDG4qAuaU69NK6OyOEqFUjPWgmh1Lg7mgFBEYi+a3pXyYtjV5Z7YiqNm7unJzole
+         v9OA==
+X-Gm-Message-State: ABy/qLb9tB1GtBuLLD54/s/SQmU7UEs0guULVQvknvfKCa1cY/x1P9RF
+        Fb3HDSvBN7UhvnzjDN7zRhR5qnSK9CnVVyznU+ejKA5ynbOrnhuYu2PVX4oNsmSlHTaD0A/pNQe
+        Fq7YeKHOCHzU40SgNIqkMhQ==
+X-Received: by 2002:adf:e44d:0:b0:314:2732:e81e with SMTP id t13-20020adfe44d000000b003142732e81emr13085723wrm.8.1688543194261;
+        Wed, 05 Jul 2023 00:46:34 -0700 (PDT)
+X-Google-Smtp-Source: APBJJlFsu0NXA2DcqaEBs6I3Rg+ekfJ+Y9cFLpHbU/8XeUuuyRyAepiisRLN9BUbx4g3BoqHacYmEg==
+X-Received: by 2002:adf:e44d:0:b0:314:2732:e81e with SMTP id t13-20020adfe44d000000b003142732e81emr13085694wrm.8.1688543193994;
+        Wed, 05 Jul 2023 00:46:33 -0700 (PDT)
+Received: from localhost (205.pool92-176-231.dynamic.orange.es. [92.176.231.205])
+        by smtp.gmail.com with ESMTPSA id k5-20020a5d6e85000000b003063a92bbf5sm30496891wrz.70.2023.07.05.00.46.33
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Wed, 05 Jul 2023 00:46:33 -0700 (PDT)
+From:   Javier Martinez Canillas <javierm@redhat.com>
 To:     Thomas Zimmermann <tzimmermann@suse.de>, arnd@arndb.de,
         deller@gmx.de, daniel@ffwll.ch, airlied@gmail.com
 Cc:     linux-arch@vger.kernel.org, linux-hyperv@vger.kernel.org,
         linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org,
+        Thomas Zimmermann <tzimmermann@suse.de>,
         linux-sh@vger.kernel.org, linux-hexagon@vger.kernel.org,
         linux-staging@lists.linux.dev, linux-kernel@vger.kernel.org,
         linux-csky@vger.kernel.org, linux-mips@vger.kernel.org,
-        linux-fbdev@vger.kernel.org, Randy Dunlap <rdunlap@infradead.org>,
-        dri-devel@lists.freedesktop.org, loongarch@lists.linux.dev,
-        linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org,
-        linux-riscv@lists.infradead.org, linuxppc-dev@lists.ozlabs.org,
-        linux-arm-kernel@lists.infradead.org
-References: <20230629121952.10559-12-tzimmermann@suse.de>
-From:   Sui Jingfeng <suijingfeng@loongson.cn>
-In-Reply-To: <20230629121952.10559-12-tzimmermann@suse.de>
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-X-CM-TRANSID: AQAAf8DxJ82tyqRkCM4bAA--.17672S3
-X-CM-SenderInfo: xvxlyxpqjiv03j6o00pqjv00gofq/
-X-Coremail-Antispam: 1Uk129KBj93XoW7ZF4rtF4rKw1kKFWkJF1fAFc_yoW8Gr1Upr
-        W0qa98trW8tr47W3y8Kws2vFW5X34rGFy29rZ7G3W5Kryqv3y5WFyUJrn0kr93ur4xAr4I
-        yryvqw13CFnruagCm3ZEXasCq-sJn29KB7ZKAUJUUUUk529EdanIXcx71UUUUU7KY7ZEXa
-        sCq-sGcSsGvfJ3Ic02F40EFcxC0VAKzVAqx4xG6I80ebIjqfuFe4nvWSU5nxnvy29KBjDU
-        0xBIdaVrnRJUUUHab4IE77IF4wAFF20E14v26r4j6ryUM7CY07I20VC2zVCF04k26cxKx2
-        IYs7xG6rWj6s0DM7CIcVAFz4kK6r1Y6r17M28lY4IEw2IIxxk0rwA2F7IY1VAKz4vEj48v
-        e4kI8wA2z4x0Y4vE2Ix0cI8IcVAFwI0_Ar0_tr1l84ACjcxK6xIIjxv20xvEc7CjxVAFwI
-        0_Cr0_Gr1UM28EF7xvwVC2z280aVAFwI0_Gr1j6F4UJwA2z4x0Y4vEx4A2jsIEc7CjxVAF
-        wI0_Gr1j6F4UJwAaw2AFwI0_Jw0_GFyle2I262IYc4CY6c8Ij28IcVAaY2xG8wAqjxCEc2
-        xF0cIa020Ex4CE44I27wAqx4xG64xvF2IEw4CE5I8CrVC2j2WlYx0E2Ix0cI8IcVAFwI0_
-        Wrv_ZF1lYx0Ex4A2jsIE14v26r4UJVWxJr1lOx8S6xCaFVCjc4AY6r1j6r4UM4x0Y48IcV
-        AKI48JM4x0Y40E4IxF1VCIxcxG6Fyj6r4UJwACI402YVCY1x026xAvFcxGjxylc7I2V7IY
-        0VAS07AlzVAYIcxG8wCY1x0262kKe7AKxVWUtVW8ZwCF04k20xvY0x0EwIxGrwCFx2IqxV
-        CFs4IE7xkEbVWUJVW8JwCFI7km07C267AKxVWUtVW8ZwC20s026c02F40E14v26r1j6r18
-        MI8I3I0E7480Y4vE14v26r106r1rMI8E67AF67kF1VAFwI0_GFv_WrylIxkGc2Ij64vIr4
-        1lIxAIcVC0I7IYx2IY67AKxVW5JVW7JwCI42IY6xIIjxv20xvEc7CjxVAFwI0_Cr0_Gr1U
-        MIIF0xvE42xK8VAvwI8IcIk0rVWUJVWUCwCI42IY6I8E87Iv67AKxVW8Jr0_Cr1UMIIF0x
-        vEx4A2jsIEc7CjxVAFwI0_Gr1j6F4UJbIYCTnIWIevJa73UjIFyTuYvjxUymiiDUUUU
+        linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org,
+        loongarch@lists.linux.dev, linux-alpha@vger.kernel.org,
+        sparclinux@vger.kernel.org, linux-riscv@lists.infradead.org,
+        linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org
+Subject: Re: [PATCH 08/12] drivers/firmware: Remove trailing whitespaces
+In-Reply-To: <20230629121952.10559-9-tzimmermann@suse.de>
+References: <20230629121952.10559-1-tzimmermann@suse.de>
+ <20230629121952.10559-9-tzimmermann@suse.de>
+Date:   Wed, 05 Jul 2023 09:46:32 +0200
+Message-ID: <87bkgqssvb.fsf@minerva.mail-host-address-is-not-set>
+MIME-Version: 1.0
+Content-Type: text/plain
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-Hi,
+Thomas Zimmermann <tzimmermann@suse.de> writes:
 
-
-On 2023/6/29 19:45, Thomas Zimmermann wrote:
-> Guard usage of edid_info with CONFIG_ARCH_HAS_EDID_INFO instead
-> of CONFIG_X86. No functional changes.
+> Fix coding style. No functional changes.
 >
 > Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
-
-
-Reviewed-by: Sui Jingfeng <suijingfeng@loongson.cn>
-
-
-> Cc: Daniel Vetter <daniel@ffwll.ch>
-> Cc: Helge Deller <deller@gmx.de>
-> Cc: Randy Dunlap <rdunlap@infradead.org>
 > ---
->   drivers/video/fbdev/core/fbmon.c | 4 +++-
->   1 file changed, 3 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/video/fbdev/core/fbmon.c b/drivers/video/fbdev/core/fbmon.c
-> index 35be4431f649a..9ae063021e431 100644
-> --- a/drivers/video/fbdev/core/fbmon.c
-> +++ b/drivers/video/fbdev/core/fbmon.c
-> @@ -1480,17 +1480,19 @@ int fb_validate_mode(const struct fb_var_screeninfo *var, struct fb_info *info)
->   		-EINVAL : 0;
->   }
->   
-> -#if defined(CONFIG_FIRMWARE_EDID) && defined(CONFIG_X86)
-> +#if defined(CONFIG_FIRMWARE_EDID)
->   const unsigned char *fb_firmware_edid(struct fb_info *info)
->   {
->   	unsigned char *edid = NULL;
->   
-> +#if defined(CONFIG_ARCH_HAS_EDID_INFO)
->   	/*
->   	 * We need to ensure that the EDID block is only
->   	 * returned for the primary graphics adapter.
->   	 */
->   	if (fb_is_primary_device(info))
->   		edid = edid_info.dummy;
-> +#endif
->   
->   	return edid;
->   }
+
+Reviewed-by: Javier Martinez Canillas <javierm@redhat.com>
+
+
+-- 
+Best regards,
+
+Javier Martinez Canillas
+Core Platforms
+Red Hat
 
