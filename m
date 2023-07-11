@@ -2,31 +2,31 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 24AB5EB64DD
-	for <linux-ia64@archiver.kernel.org>; Tue, 11 Jul 2023 11:29:04 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id C124BEB64DC
+	for <linux-ia64@archiver.kernel.org>; Tue, 11 Jul 2023 11:29:26 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S232079AbjGKL3C (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Tue, 11 Jul 2023 07:29:02 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:53544 "EHLO
+        id S231984AbjGKL3Z (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Tue, 11 Jul 2023 07:29:25 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:53388 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S232101AbjGKL2i (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Tue, 11 Jul 2023 07:28:38 -0400
+        with ESMTP id S231876AbjGKL26 (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Tue, 11 Jul 2023 07:28:58 -0400
 Received: from us-smtp-delivery-44.mimecast.com (unknown [207.211.30.44])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 380FF1BC0
-        for <linux-ia64@vger.kernel.org>; Tue, 11 Jul 2023 04:28:27 -0700 (PDT)
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 3B29F1708
+        for <linux-ia64@vger.kernel.org>; Tue, 11 Jul 2023 04:28:43 -0700 (PDT)
 Received: from mimecast-mx02.redhat.com (mx3-rdu2.redhat.com
  [66.187.233.73]) by relay.mimecast.com with ESMTP with STARTTLS
  (version=TLSv1.2, cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id
- us-mta-349-1yjghznhNHO9f6zghBUlhw-1; Tue, 11 Jul 2023 07:26:39 -0400
-X-MC-Unique: 1yjghznhNHO9f6zghBUlhw-1
+ us-mta-189-x-qLHQFXN3-4IM4VQ4fRJA-1; Tue, 11 Jul 2023 07:27:03 -0400
+X-MC-Unique: x-qLHQFXN3-4IM4VQ4fRJA-1
 Received: from smtp.corp.redhat.com (int-mx05.intmail.prod.int.rdu2.redhat.com [10.11.54.5])
         (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
         (No client certificate requested)
-        by mimecast-mx02.redhat.com (Postfix) with ESMTPS id 4F71B3C13928;
-        Tue, 11 Jul 2023 11:26:38 +0000 (UTC)
+        by mimecast-mx02.redhat.com (Postfix) with ESMTPS id 1A8F33C1392B;
+        Tue, 11 Jul 2023 11:27:03 +0000 (UTC)
 Received: from localhost.localdomain.com (unknown [10.45.225.44])
-        by smtp.corp.redhat.com (Postfix) with ESMTP id C5A9463F3C;
-        Tue, 11 Jul 2023 11:26:25 +0000 (UTC)
+        by smtp.corp.redhat.com (Postfix) with ESMTP id C29E0F66B9;
+        Tue, 11 Jul 2023 11:26:50 +0000 (UTC)
 From:   Alexey Gladkov <legion@kernel.org>
 To:     LKML <linux-kernel@vger.kernel.org>, Arnd Bergmann <arnd@arndb.de>,
         linux-api@vger.kernel.org, linux-fsdevel@vger.kernel.org,
@@ -55,9 +55,9 @@ Cc:     Palmer Dabbelt <palmer@sifive.com>,
         stefan@agner.ch, tglx@linutronix.de, tony.luck@intel.com,
         tycho@tycho.ws, will@kernel.org, x86@kernel.org,
         ysato@users.sourceforge.jp
-Subject: [PATCH v3 2/5] fs: Add fchmodat4()
-Date:   Tue, 11 Jul 2023 13:25:43 +0200
-Message-Id: <d11b93ad8e3b669afaff942e25c3fca65c6a983c.1689074739.git.legion@kernel.org>
+Subject: [PATCH v3 4/5] tools headers UAPI: Sync files changed by new fchmodat4 syscall
+Date:   Tue, 11 Jul 2023 13:25:45 +0200
+Message-Id: <1d92a38d1f447ef49ff420847faad7bf2bd4e281.1689074739.git.legion@kernel.org>
 In-Reply-To: <cover.1689074739.git.legion@kernel.org>
 References: <87o8pscpny.fsf@oldenburg2.str.redhat.com> <cover.1689074739.git.legion@kernel.org>
 MIME-Version: 1.0
@@ -69,86 +69,74 @@ X-Mailing-List: linux-ia64@vger.kernel.org
 
 From: Palmer Dabbelt <palmer@sifive.com>
 
-On the userspace side fchmodat(3) is implemented as a wrapper
-function which implements the POSIX-specified interface. This
-interface differs from the underlying kernel system call, which does not
-have a flags argument. Most implementations require procfs [1][2].
-
-There doesn't appear to be a good userspace workaround for this issue
-but the implementation in the kernel is pretty straight-forward.
-
-The new fchmodat4() syscall allows to pass the AT_SYMLINK_NOFOLLOW flag,
-unlike existing fchmodat.
-
-[1] https://sourceware.org/git/?p=glibc.git;a=blob;f=sysdeps/unix/sysv/linux/fchmodat.c;h=17eca54051ee28ba1ec3f9aed170a62630959143;hb=a492b1e5ef7ab50c6fdd4e4e9879ea5569ab0a6c#l35
-[2] https://git.musl-libc.org/cgit/musl/tree/src/stat/fchmodat.c?id=718f363bc2067b6487900eddc9180c84e7739f80#n28
+That add support for this new syscall in tools such as 'perf trace'.
 
 Signed-off-by: Palmer Dabbelt <palmer@sifive.com>
 Signed-off-by: Alexey Gladkov <legion@kernel.org>
 ---
- fs/open.c                | 18 ++++++++++++++----
- include/linux/syscalls.h |  2 ++
- 2 files changed, 16 insertions(+), 4 deletions(-)
+ tools/include/uapi/asm-generic/unistd.h             | 5 ++++-
+ tools/perf/arch/mips/entry/syscalls/syscall_n64.tbl | 1 +
+ tools/perf/arch/powerpc/entry/syscalls/syscall.tbl  | 1 +
+ tools/perf/arch/s390/entry/syscalls/syscall.tbl     | 1 +
+ tools/perf/arch/x86/entry/syscalls/syscall_64.tbl   | 1 +
+ 5 files changed, 8 insertions(+), 1 deletion(-)
 
-diff --git a/fs/open.c b/fs/open.c
-index 4478adcc4f3a..58bb88c6afb6 100644
---- a/fs/open.c
-+++ b/fs/open.c
-@@ -671,11 +671,11 @@ SYSCALL_DEFINE2(fchmod, unsigned int, fd, umode_t, mode)
- 	return err;
- }
+diff --git a/tools/include/uapi/asm-generic/unistd.h b/tools/include/uapi/asm-generic/unistd.h
+index 45fa180cc56a..b7978b3ce3f1 100644
+--- a/tools/include/uapi/asm-generic/unistd.h
++++ b/tools/include/uapi/asm-generic/unistd.h
+@@ -886,8 +886,11 @@ __SYSCALL(__NR_futex_waitv, sys_futex_waitv)
+ #define __NR_set_mempolicy_home_node 450
+ __SYSCALL(__NR_set_mempolicy_home_node, sys_set_mempolicy_home_node)
  
--static int do_fchmodat(int dfd, const char __user *filename, umode_t mode)
-+static int do_fchmodat4(int dfd, const char __user *filename, umode_t mode, int lookup_flags)
- {
- 	struct path path;
- 	int error;
--	unsigned int lookup_flags = LOOKUP_FOLLOW;
++#define __NR_fchmodat4 451
++__SYSCALL(__NR_fchmodat4, sys_fchmodat4)
 +
- retry:
- 	error = user_path_at(dfd, filename, lookup_flags, &path);
- 	if (!error) {
-@@ -689,15 +689,25 @@ static int do_fchmodat(int dfd, const char __user *filename, umode_t mode)
- 	return error;
- }
+ #undef __NR_syscalls
+-#define __NR_syscalls 451
++#define __NR_syscalls 452
  
-+SYSCALL_DEFINE4(fchmodat4, int, dfd, const char __user *, filename,
-+		umode_t, mode, int, flags)
-+{
-+	if (unlikely(flags & ~AT_SYMLINK_NOFOLLOW))
-+		return -EINVAL;
-+
-+	return do_fchmodat4(dfd, filename, mode,
-+			flags & AT_SYMLINK_NOFOLLOW ? 0 : LOOKUP_FOLLOW);
-+}
-+
- SYSCALL_DEFINE3(fchmodat, int, dfd, const char __user *, filename,
- 		umode_t, mode)
- {
--	return do_fchmodat(dfd, filename, mode);
-+	return do_fchmodat4(dfd, filename, mode, LOOKUP_FOLLOW);
- }
+ /*
+  * 32 bit systems traditionally used different
+diff --git a/tools/perf/arch/mips/entry/syscalls/syscall_n64.tbl b/tools/perf/arch/mips/entry/syscalls/syscall_n64.tbl
+index 3f1886ad9d80..6356c0a6cda0 100644
+--- a/tools/perf/arch/mips/entry/syscalls/syscall_n64.tbl
++++ b/tools/perf/arch/mips/entry/syscalls/syscall_n64.tbl
+@@ -365,3 +365,4 @@
+ 448	n64	process_mrelease		sys_process_mrelease
+ 449	n64	futex_waitv			sys_futex_waitv
+ 450	common	set_mempolicy_home_node		sys_set_mempolicy_home_node
++451	n64	fchmodat4			sys_fchmodat4
+diff --git a/tools/perf/arch/powerpc/entry/syscalls/syscall.tbl b/tools/perf/arch/powerpc/entry/syscalls/syscall.tbl
+index a0be127475b1..ee23866fa1c8 100644
+--- a/tools/perf/arch/powerpc/entry/syscalls/syscall.tbl
++++ b/tools/perf/arch/powerpc/entry/syscalls/syscall.tbl
+@@ -537,3 +537,4 @@
+ 448	common	process_mrelease		sys_process_mrelease
+ 449	common  futex_waitv                     sys_futex_waitv
+ 450 	nospu	set_mempolicy_home_node		sys_set_mempolicy_home_node
++451	common	fchmodat4			sys_fchmodat4
+diff --git a/tools/perf/arch/s390/entry/syscalls/syscall.tbl b/tools/perf/arch/s390/entry/syscalls/syscall.tbl
+index b68f47541169..d5ce80065ece 100644
+--- a/tools/perf/arch/s390/entry/syscalls/syscall.tbl
++++ b/tools/perf/arch/s390/entry/syscalls/syscall.tbl
+@@ -453,3 +453,4 @@
+ 448  common	process_mrelease	sys_process_mrelease		sys_process_mrelease
+ 449  common	futex_waitv		sys_futex_waitv			sys_futex_waitv
+ 450  common	set_mempolicy_home_node	sys_set_mempolicy_home_node	sys_set_mempolicy_home_node
++451  common	fchmodat4		sys_fchmodat4			sys_fchmodat4
+diff --git a/tools/perf/arch/x86/entry/syscalls/syscall_64.tbl b/tools/perf/arch/x86/entry/syscalls/syscall_64.tbl
+index c84d12608cd2..17047878293c 100644
+--- a/tools/perf/arch/x86/entry/syscalls/syscall_64.tbl
++++ b/tools/perf/arch/x86/entry/syscalls/syscall_64.tbl
+@@ -372,6 +372,7 @@
+ 448	common	process_mrelease	sys_process_mrelease
+ 449	common	futex_waitv		sys_futex_waitv
+ 450	common	set_mempolicy_home_node	sys_set_mempolicy_home_node
++451	common	fchmodat4		sys_fchmodat4
  
- SYSCALL_DEFINE2(chmod, const char __user *, filename, umode_t, mode)
- {
--	return do_fchmodat(AT_FDCWD, filename, mode);
-+	return do_fchmodat4(AT_FDCWD, filename, mode, LOOKUP_FOLLOW);
- }
- 
- /**
-diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
-index 497bdd968c32..b17d37d2bad6 100644
---- a/include/linux/syscalls.h
-+++ b/include/linux/syscalls.h
-@@ -466,6 +466,8 @@ asmlinkage long sys_chroot(const char __user *filename);
- asmlinkage long sys_fchmod(unsigned int fd, umode_t mode);
- asmlinkage long sys_fchmodat(int dfd, const char __user *filename,
- 			     umode_t mode);
-+asmlinkage long sys_fchmodat4(int dfd, const char __user *filename,
-+			     umode_t mode, int flags);
- asmlinkage long sys_fchownat(int dfd, const char __user *filename, uid_t user,
- 			     gid_t group, int flag);
- asmlinkage long sys_fchown(unsigned int fd, uid_t user, gid_t group);
+ #
+ # Due to a historical design error, certain syscalls are numbered differently
 -- 
 2.33.8
 
