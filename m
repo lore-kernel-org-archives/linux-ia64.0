@@ -2,31 +2,31 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 8BB38C05052
-	for <linux-ia64@archiver.kernel.org>; Tue, 11 Jul 2023 16:18:25 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 0D771C001DD
+	for <linux-ia64@archiver.kernel.org>; Tue, 11 Jul 2023 16:19:29 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S232365AbjGKQSX (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Tue, 11 Jul 2023 12:18:23 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:52222 "EHLO
+        id S230072AbjGKQT1 (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Tue, 11 Jul 2023 12:19:27 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:52660 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S233026AbjGKQRq (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Tue, 11 Jul 2023 12:17:46 -0400
+        with ESMTP id S232989AbjGKQS0 (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Tue, 11 Jul 2023 12:18:26 -0400
 Received: from us-smtp-delivery-44.mimecast.com (unknown [207.211.30.44])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id BC7D91722
-        for <linux-ia64@vger.kernel.org>; Tue, 11 Jul 2023 09:17:44 -0700 (PDT)
-Received: from mimecast-mx02.redhat.com (mimecast-mx02.redhat.com
- [66.187.233.88]) by relay.mimecast.com with ESMTP with STARTTLS
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 3346610C7
+        for <linux-ia64@vger.kernel.org>; Tue, 11 Jul 2023 09:18:23 -0700 (PDT)
+Received: from mimecast-mx02.redhat.com (mx3-rdu2.redhat.com
+ [66.187.233.73]) by relay.mimecast.com with ESMTP with STARTTLS
  (version=TLSv1.2, cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id
- us-mta-287-zFqPIjk9Pg208y19fOqwOQ-1; Tue, 11 Jul 2023 12:17:19 -0400
-X-MC-Unique: zFqPIjk9Pg208y19fOqwOQ-1
+ us-mta-439-cesqXmrcO4qN91k_C9676Q-1; Tue, 11 Jul 2023 12:18:05 -0400
+X-MC-Unique: cesqXmrcO4qN91k_C9676Q-1
 Received: from smtp.corp.redhat.com (int-mx04.intmail.prod.int.rdu2.redhat.com [10.11.54.4])
         (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
         (No client certificate requested)
-        by mimecast-mx02.redhat.com (Postfix) with ESMTPS id B51E6185AD26;
-        Tue, 11 Jul 2023 16:17:11 +0000 (UTC)
+        by mimecast-mx02.redhat.com (Postfix) with ESMTPS id 68D6C3C0C487;
+        Tue, 11 Jul 2023 16:18:02 +0000 (UTC)
 Received: from localhost.localdomain.com (unknown [10.45.225.44])
-        by smtp.corp.redhat.com (Postfix) with ESMTP id 90838200AD6E;
-        Tue, 11 Jul 2023 16:17:00 +0000 (UTC)
+        by smtp.corp.redhat.com (Postfix) with ESMTP id 5B797200B415;
+        Tue, 11 Jul 2023 16:17:52 +0000 (UTC)
 From:   Alexey Gladkov <legion@kernel.org>
 To:     LKML <linux-kernel@vger.kernel.org>, Arnd Bergmann <arnd@arndb.de>,
         linux-api@vger.kernel.org, linux-fsdevel@vger.kernel.org,
@@ -50,11 +50,10 @@ Cc:     James.Bottomley@HansenPartnership.com, acme@kernel.org,
         paulus@samba.org, peterz@infradead.org, ralf@linux-mips.org,
         sparclinux@vger.kernel.org, stefan@agner.ch, tglx@linutronix.de,
         tony.luck@intel.com, tycho@tycho.ws, will@kernel.org,
-        x86@kernel.org, ysato@users.sourceforge.jp,
-        Palmer Dabbelt <palmer@sifive.com>
-Subject: [PATCH v4 2/5] fs: Add fchmodat2()
-Date:   Tue, 11 Jul 2023 18:16:04 +0200
-Message-Id: <f2a846ef495943c5d101011eebcf01179d0c7b61.1689092120.git.legion@kernel.org>
+        x86@kernel.org, ysato@users.sourceforge.jp
+Subject: [PATCH v4 5/5] selftests: Add fchmodat2 selftest
+Date:   Tue, 11 Jul 2023 18:16:07 +0200
+Message-Id: <4532a04a870ff589ba62ceeacf76f0bd81b9ba01.1689092120.git.legion@kernel.org>
 In-Reply-To: <cover.1689092120.git.legion@kernel.org>
 References: <cover.1689074739.git.legion@kernel.org> <cover.1689092120.git.legion@kernel.org>
 MIME-Version: 1.0
@@ -64,88 +63,241 @@ Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On the userspace side fchmodat(3) is implemented as a wrapper
-function which implements the POSIX-specified interface. This
-interface differs from the underlying kernel system call, which does not
-have a flags argument. Most implementations require procfs [1][2].
+The test marks as skipped if a syscall with the AT_SYMLINK_NOFOLLOW flag
+fails. This is because not all filesystems support changing the mode
+bits of symlinks properly. These filesystems return an error but change
+the mode bits:
 
-There doesn't appear to be a good userspace workaround for this issue
-but the implementation in the kernel is pretty straight-forward.
+newfstatat(4, "regfile", {st_mode=S_IFREG|0640, st_size=0, ...}, AT_SYMLINK_NOFOLLOW) = 0
+newfstatat(4, "symlink", {st_mode=S_IFLNK|0777, st_size=7, ...}, AT_SYMLINK_NOFOLLOW) = 0
+syscall_0x1c3(0x4, 0x55fa1f244396, 0x180, 0x100, 0x55fa1f24438e, 0x34) = -1 EOPNOTSUPP (Operation not supported)
+newfstatat(4, "regfile", {st_mode=S_IFREG|0640, st_size=0, ...}, AT_SYMLINK_NOFOLLOW) = 0
 
-The new fchmodat2() syscall allows to pass the AT_SYMLINK_NOFOLLOW flag,
-unlike existing fchmodat.
+This happens with btrfs and xfs:
 
-[1] https://sourceware.org/git/?p=glibc.git;a=blob;f=sysdeps/unix/sysv/linux/fchmodat.c;h=17eca54051ee28ba1ec3f9aed170a62630959143;hb=a492b1e5ef7ab50c6fdd4e4e9879ea5569ab0a6c#l35
-[2] https://git.musl-libc.org/cgit/musl/tree/src/stat/fchmodat.c?id=718f363bc2067b6487900eddc9180c84e7739f80#n28
+ $ tools/testing/selftests/fchmodat2/fchmodat2_test
+ TAP version 13
+ 1..1
+ ok 1 # SKIP fchmodat2(symlink)
+ # Totals: pass:0 fail:0 xfail:0 xpass:0 skip:1 error:0
 
-Co-developed-by: Palmer Dabbelt <palmer@sifive.com>
-Signed-off-by: Palmer Dabbelt <palmer@sifive.com>
+ $ stat /tmp/ksft-fchmodat2.*/symlink
+   File: /tmp/ksft-fchmodat2.3NCqlE/symlink -> regfile
+   Size: 7               Blocks: 0          IO Block: 4096   symbolic link
+ Device: 7,0     Inode: 133         Links: 1
+ Access: (0600/lrw-------)  Uid: (    0/    root)   Gid: (    0/    root)
+
 Signed-off-by: Alexey Gladkov <legion@kernel.org>
-Acked-by: Arnd Bergmann <arnd@arndb.de>
 ---
- fs/open.c                | 18 ++++++++++++++----
- include/linux/syscalls.h |  2 ++
- 2 files changed, 16 insertions(+), 4 deletions(-)
+ tools/testing/selftests/Makefile              |   1 +
+ tools/testing/selftests/fchmodat2/.gitignore  |   2 +
+ tools/testing/selftests/fchmodat2/Makefile    |   6 +
+ .../selftests/fchmodat2/fchmodat2_test.c      | 162 ++++++++++++++++++
+ 4 files changed, 171 insertions(+)
+ create mode 100644 tools/testing/selftests/fchmodat2/.gitignore
+ create mode 100644 tools/testing/selftests/fchmodat2/Makefile
+ create mode 100644 tools/testing/selftests/fchmodat2/fchmodat2_test.c
 
-diff --git a/fs/open.c b/fs/open.c
-index 0c55c8e7f837..39a7939f0d00 100644
---- a/fs/open.c
-+++ b/fs/open.c
-@@ -671,11 +671,11 @@ SYSCALL_DEFINE2(fchmod, unsigned int, fd, umode_t, mode)
- 	return err;
- }
- 
--static int do_fchmodat(int dfd, const char __user *filename, umode_t mode)
-+static int do_fchmodat(int dfd, const char __user *filename, umode_t mode, int lookup_flags)
- {
- 	struct path path;
- 	int error;
--	unsigned int lookup_flags = LOOKUP_FOLLOW;
+diff --git a/tools/testing/selftests/Makefile b/tools/testing/selftests/Makefile
+index 666b56f22a41..8dca8acdb671 100644
+--- a/tools/testing/selftests/Makefile
++++ b/tools/testing/selftests/Makefile
+@@ -18,6 +18,7 @@ TARGETS += drivers/net/bonding
+ TARGETS += drivers/net/team
+ TARGETS += efivarfs
+ TARGETS += exec
++TARGETS += fchmodat2
+ TARGETS += filesystems
+ TARGETS += filesystems/binderfs
+ TARGETS += filesystems/epoll
+diff --git a/tools/testing/selftests/fchmodat2/.gitignore b/tools/testing/selftests/fchmodat2/.gitignore
+new file mode 100644
+index 000000000000..82a4846cbc4b
+--- /dev/null
++++ b/tools/testing/selftests/fchmodat2/.gitignore
+@@ -0,0 +1,2 @@
++# SPDX-License-Identifier: GPL-2.0-only
++/*_test
+diff --git a/tools/testing/selftests/fchmodat2/Makefile b/tools/testing/selftests/fchmodat2/Makefile
+new file mode 100644
+index 000000000000..45b519eab851
+--- /dev/null
++++ b/tools/testing/selftests/fchmodat2/Makefile
+@@ -0,0 +1,6 @@
++# SPDX-License-Identifier: GPL-2.0-or-later
 +
- retry:
- 	error = user_path_at(dfd, filename, lookup_flags, &path);
- 	if (!error) {
-@@ -689,15 +689,25 @@ static int do_fchmodat(int dfd, const char __user *filename, umode_t mode)
- 	return error;
- }
- 
-+SYSCALL_DEFINE4(fchmodat2, int, dfd, const char __user *, filename,
-+		umode_t, mode, int, flags)
++CFLAGS += -Wall -O2 -g -fsanitize=address -fsanitize=undefined
++TEST_GEN_PROGS := fchmodat2_test
++
++include ../lib.mk
+diff --git a/tools/testing/selftests/fchmodat2/fchmodat2_test.c b/tools/testing/selftests/fchmodat2/fchmodat2_test.c
+new file mode 100644
+index 000000000000..2d98eb215bc6
+--- /dev/null
++++ b/tools/testing/selftests/fchmodat2/fchmodat2_test.c
+@@ -0,0 +1,162 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++#define _GNU_SOURCE
++#include <fcntl.h>
++#include <sys/stat.h>
++#include <sys/types.h>
++#include <syscall.h>
++#include <unistd.h>
++
++#include "../kselftest.h"
++
++#ifndef __NR_fchmodat2
++	#if defined __alpha__
++		#define __NR_fchmodat2 562
++	#elif defined _MIPS_SIM
++		#if _MIPS_SIM == _MIPS_SIM_ABI32	/* o32 */
++			#define __NR_fchmodat2 (452 + 4000)
++		#endif
++		#if _MIPS_SIM == _MIPS_SIM_NABI32	/* n32 */
++			#define __NR_fchmodat2 (452 + 6000)
++		#endif
++		#if _MIPS_SIM == _MIPS_SIM_ABI64	/* n64 */
++			#define __NR_fchmodat2 (452 + 5000)
++		#endif
++	#elif defined __ia64__
++		#define __NR_fchmodat2 (452 + 1024)
++	#else
++		#define __NR_fchmodat2 452
++	#endif
++#endif
++
++int sys_fchmodat2(int dfd, const char *filename, mode_t mode, int flags)
 +{
-+	if (unlikely(flags & ~AT_SYMLINK_NOFOLLOW))
-+		return -EINVAL;
++	int ret = syscall(__NR_fchmodat2, dfd, filename, mode, flags);
 +
-+	return do_fchmodat(dfd, filename, mode,
-+			flags & AT_SYMLINK_NOFOLLOW ? 0 : LOOKUP_FOLLOW);
++	return ret >= 0 ? ret : -errno;
 +}
 +
- SYSCALL_DEFINE3(fchmodat, int, dfd, const char __user *, filename,
- 		umode_t, mode)
- {
--	return do_fchmodat(dfd, filename, mode);
-+	return do_fchmodat(dfd, filename, mode, LOOKUP_FOLLOW);
- }
- 
- SYSCALL_DEFINE2(chmod, const char __user *, filename, umode_t, mode)
- {
--	return do_fchmodat(AT_FDCWD, filename, mode);
-+	return do_fchmodat(AT_FDCWD, filename, mode, LOOKUP_FOLLOW);
- }
- 
- /*
-diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
-index 584f404bf868..6e852279fbc3 100644
---- a/include/linux/syscalls.h
-+++ b/include/linux/syscalls.h
-@@ -440,6 +440,8 @@ asmlinkage long sys_chroot(const char __user *filename);
- asmlinkage long sys_fchmod(unsigned int fd, umode_t mode);
- asmlinkage long sys_fchmodat(int dfd, const char __user *filename,
- 			     umode_t mode);
-+asmlinkage long sys_fchmodat2(int dfd, const char __user *filename,
-+			     umode_t mode, int flags);
- asmlinkage long sys_fchownat(int dfd, const char __user *filename, uid_t user,
- 			     gid_t group, int flag);
- asmlinkage long sys_fchown(unsigned int fd, uid_t user, gid_t group);
++int setup_testdir(void)
++{
++	int dfd, ret;
++	char dirname[] = "/tmp/ksft-fchmodat2.XXXXXX";
++
++	/* Make the top-level directory. */
++	if (!mkdtemp(dirname))
++		ksft_exit_fail_msg("%s: failed to create tmpdir\n", __func__);
++
++	dfd = open(dirname, O_PATH | O_DIRECTORY);
++	if (dfd < 0)
++		ksft_exit_fail_msg("%s: failed to open tmpdir\n", __func__);
++
++	ret = openat(dfd, "regfile", O_CREAT | O_WRONLY | O_TRUNC, 0644);
++	if (ret < 0)
++		ksft_exit_fail_msg("%s: failed to create file in tmpdir\n",
++				__func__);
++	close(ret);
++
++	ret = symlinkat("regfile", dfd, "symlink");
++	if (ret < 0)
++		ksft_exit_fail_msg("%s: failed to create symlink in tmpdir\n",
++				__func__);
++
++	return dfd;
++}
++
++int expect_mode(int dfd, const char *filename, mode_t expect_mode)
++{
++	struct stat st;
++	int ret = fstatat(dfd, filename, &st, AT_SYMLINK_NOFOLLOW);
++
++	if (ret)
++		ksft_exit_fail_msg("%s: %s: fstatat failed\n",
++				__func__, filename);
++
++	return (st.st_mode == expect_mode);
++}
++
++void test_regfile(void)
++{
++	int dfd, ret;
++
++	dfd = setup_testdir();
++
++	ret = sys_fchmodat2(dfd, "regfile", 0640, 0);
++
++	if (ret < 0)
++		ksft_exit_fail_msg("%s: fchmodat2(noflag) failed\n", __func__);
++
++	if (!expect_mode(dfd, "regfile", 0100640))
++		ksft_exit_fail_msg("%s: wrong file mode bits after fchmodat2\n",
++				__func__);
++
++	ret = sys_fchmodat2(dfd, "regfile", 0600, AT_SYMLINK_NOFOLLOW);
++
++	if (ret < 0)
++		ksft_exit_fail_msg("%s: fchmodat2(AT_SYMLINK_NOFOLLOW) failed\n",
++				__func__);
++
++	if (!expect_mode(dfd, "regfile", 0100600))
++		ksft_exit_fail_msg("%s: wrong file mode bits after fchmodat2 with nofollow\n",
++				__func__);
++
++	ksft_test_result_pass("fchmodat2(regfile)\n");
++}
++
++void test_symlink(void)
++{
++	int dfd, ret;
++
++	dfd = setup_testdir();
++
++	ret = sys_fchmodat2(dfd, "symlink", 0640, 0);
++
++	if (ret < 0)
++		ksft_exit_fail_msg("%s: fchmodat2(noflag) failed\n", __func__);
++
++	if (!expect_mode(dfd, "regfile", 0100640))
++		ksft_exit_fail_msg("%s: wrong file mode bits after fchmodat2\n",
++				__func__);
++
++	if (!expect_mode(dfd, "symlink", 0120777))
++		ksft_exit_fail_msg("%s: wrong symlink mode bits after fchmodat2\n",
++				__func__);
++
++	ret = sys_fchmodat2(dfd, "symlink", 0600, AT_SYMLINK_NOFOLLOW);
++
++	/*
++	 * On certain filesystems (xfs or btrfs), chmod operation fails. So we
++	 * first check the symlink target but if the operation fails we mark the
++	 * test as skipped.
++	 *
++	 * https://sourceware.org/legacy-ml/libc-alpha/2020-02/msg00467.html
++	 */
++	if (ret == 0 && !expect_mode(dfd, "symlink", 0120600))
++		ksft_exit_fail_msg("%s: wrong symlink mode bits after fchmodat2 with nofollow\n",
++				__func__);
++
++	if (!expect_mode(dfd, "regfile", 0100640))
++		ksft_exit_fail_msg("%s: wrong file mode bits after fchmodat2 with nofollow\n",
++				__func__);
++
++	if (ret != 0)
++		ksft_test_result_skip("fchmodat2(symlink)\n");
++	else
++		ksft_test_result_pass("fchmodat2(symlink)\n");
++}
++
++#define NUM_TESTS 2
++
++int main(int argc, char **argv)
++{
++	ksft_print_header();
++	ksft_set_plan(NUM_TESTS);
++
++	test_regfile();
++	test_symlink();
++
++	if (ksft_get_fail_cnt() + ksft_get_error_cnt() > 0)
++		ksft_exit_fail();
++	else
++		ksft_exit_pass();
++}
 -- 
 2.33.8
 
