@@ -2,225 +2,292 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id F3A63EB64D9
-	for <linux-ia64@archiver.kernel.org>; Wed, 12 Jul 2023 04:59:22 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 96892EB64DA
+	for <linux-ia64@archiver.kernel.org>; Wed, 12 Jul 2023 16:16:42 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S229714AbjGLE7V (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Wed, 12 Jul 2023 00:59:21 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:60162 "EHLO
+        id S232346AbjGLQQl (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Wed, 12 Jul 2023 12:16:41 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:51018 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S229551AbjGLE7V (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Wed, 12 Jul 2023 00:59:21 -0400
-X-Greylist: delayed 925 seconds by postgrey-1.37 at lindbergh.monkeyblade.net; Tue, 11 Jul 2023 21:59:16 PDT
-Received: from matoro.tk (unknown [IPv6:2600:1700:4b10:9d80::2])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTP id 7150F10C7;
-        Tue, 11 Jul 2023 21:59:16 -0700 (PDT)
-DKIM-Signature: a=rsa-sha256; bh=AmT1aKMPK3gKXs7To3pWHL7mFVXHJwu4qHL/FOUhizU=;
- c=relaxed/relaxed; d=matoro.tk;
- h=Subject:Subject:Sender:To:To:Cc:Cc:From:From:Date:Date:MIME-Version:MIME-Version:Content-Type:Content-Type:Content-Transfer-Encoding:Content-Transfer-Encoding:Reply-To:In-Reply-To:In-Reply-To:Message-Id:Message-Id:References:References:Autocrypt:Openpgp;
- i=@matoro.tk; s=20230516; t=1689137029; v=1; x=1689569029;
- b=rRss77qfVCKw89Q2KXKOka+BUVOa3JEY+rFpC+0QULQXIL0mYRZv2ny4XQVltTDlb3U82oVX
- lIkeYmIE9kpLVU+U+HJBjSedPG6GfqEHJYQUHbm3rFm/GI18hxPhn1myX0qL+csrcgIL72xuigH
- TCS2yS5GOolB7MBnaXB9CDreXfOORIUuEJRGV2GdE8R+05oxZBx1liKbW02UI4ZsfcqxP/1ZtZc
- zsIqJ0FsITOO6oLBbRH3swD1P4W7JXVrInuCNb+3wO61v+HrKxzsQOEKt9qXihGgVLgvniWJQww
- DJO3halzoGboGaF2Qf74908qQouswzS3eGCUqCm3rfjmNrXTllzhYALJvX0sAOGzJDQBpTHLazZ
- F+yFqyH/75JabQ9lDJMLJTpOmpN0e7fiMJKSrHwfCRIeyEn+cbSQTfwThVIH9ojN/VV851OfWCQ
- EywODCF0Y63r4Y2TqSymZG4ja6bFNkmpmGu+FKzQcCDza/F2gNS6tVJUZcEnYsgU1sAAx530PsT
- mKDrChXr+d08U/FcU+4Io2Y15o7C6vEYiP6lHVLtI6RL/odnuPTHlvt1DE/5PHx6MDj7zeFuzph
- TE68gygYnCmDbXJW7adytx2L1lOYLtzM0BWwk5VfQXoIpfEIgiHNirEaojmXUHYZMBdPEIEy4qb
- G47EiCHJZzY=
-Received: by matoro.tk (envelope-sender
- <matoro_mailinglist_kernel@matoro.tk>) with ESMTPS id efb31db1; Wed, 12 Jul
- 2023 00:43:49 -0400
+        with ESMTP id S232056AbjGLQQd (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Wed, 12 Jul 2023 12:16:33 -0400
+Received: from mx0a-00069f02.pphosted.com (mx0a-00069f02.pphosted.com [205.220.165.32])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 47ACC134;
+        Wed, 12 Jul 2023 09:16:31 -0700 (PDT)
+Received: from pps.filterd (m0246629.ppops.net [127.0.0.1])
+        by mx0b-00069f02.pphosted.com (8.17.1.19/8.17.1.19) with ESMTP id 36CEjG2Q010016;
+        Wed, 12 Jul 2023 16:16:14 GMT
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=oracle.com; h=from : to : cc :
+ subject : date : message-id : in-reply-to : references :
+ content-transfer-encoding : content-type : mime-version;
+ s=corp-2023-03-30; bh=S06NXtTpAaXkvDL4nDN9EuueIQWuuanLf+AK04JLc4w=;
+ b=M0OvhxlQ3OlVxFW3IjK89usSf/uE5IqDoqZPS7R8/GqS8J2jTMZxNh8EPJUd2hFS7HPz
+ WnopiZD/Lqh90Wf3c+P78rPLslLNPN3ectZFpflxLtI9mm1NlLoYFaFjL7nCWKUWiD79
+ I7mHgogSRkcQ7utLE8vHBykexkHm+mKmZhZdwovETsRrC5kRK3ICK65uU7B6Ex86/TBO
+ E0veek3vNPNhWdUVp9dubSA6a6lSchF2A24T40AxIjmw4GotaOKgJ8qBf/VJbuslku7l
+ mt4YAPMNbr/XsvsD/zo9mDmkpdIbcdXC/RaFOOWOCcHjqix5H5X3Cfz/1LDJ5NEMWy1M xA== 
+Received: from phxpaimrmta01.imrmtpd1.prodappphxaev1.oraclevcn.com (phxpaimrmta01.appoci.oracle.com [138.1.114.2])
+        by mx0b-00069f02.pphosted.com (PPS) with ESMTPS id 3rrjmhd7aj-1
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK);
+        Wed, 12 Jul 2023 16:16:13 +0000
+Received: from pps.filterd (phxpaimrmta01.imrmtpd1.prodappphxaev1.oraclevcn.com [127.0.0.1])
+        by phxpaimrmta01.imrmtpd1.prodappphxaev1.oraclevcn.com (8.17.1.19/8.17.1.19) with ESMTP id 36CEuuQl026909;
+        Wed, 12 Jul 2023 16:16:13 GMT
+Received: from nam11-dm6-obe.outbound.protection.outlook.com (mail-dm6nam11lp2174.outbound.protection.outlook.com [104.47.57.174])
+        by phxpaimrmta01.imrmtpd1.prodappphxaev1.oraclevcn.com (PPS) with ESMTPS id 3rpx86ubjp-1
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK);
+        Wed, 12 Jul 2023 16:16:13 +0000
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector9901; d=microsoft.com; cv=none;
+ b=CRrYyM1Fa3eIth70tNwiPXBhevfu0XjYH5/XJItKc6xGncKE0150YK0rOYAt25v0FWorVEUEjiD+0RbME3Xt3W6qvq3nxvdEnBaNTwdZm0A/RTK+Y8sMiJir+ctrbXXiZWJ+8+aURND/kOApJIUmZGbwtwNQXm1/DRLoGB1Bw3Au9xg7PERZvWx0Y12qLMPR259GnBhakP2v2FhmnRgFg7GgunkMWLHU2Pn9MtdspelfVYcQTeiPbEXDwCDBxOWRrCZTLJ/9cb/TuiWRxlkAla0iOv7WZYoYnbL7834DiAQGLXZbO6sePIlqTWyycAu8RnhcpuO6AEx9bm1vAgAmrg==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector9901;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
+ bh=S06NXtTpAaXkvDL4nDN9EuueIQWuuanLf+AK04JLc4w=;
+ b=Xq3Q74LLApqlNOq5f8w70waqXH0/2X8lYFCAWa9jPQmgnlieXPwjtmJbLHY2IO5drdT0zH2ypkqaqcFoEFgPIDNf1uH+YU0xN8uxqYuyXVBkn0/elu0H5VpIcXK6fguAuMMVZ2DWXh2TZOiclYC4Nx/IgH9J9TJMU72LF9Axw0yNalwpxmD90KiXKLUtMtjWZHisocHPji/RCq0zLcz2CZrvytXjhqmU1q0ZE6KGv8bXu+oNF9298YIPgGndmhFwZ9OITPJSTR11scNQbe97/wHacdEKlnKGfHRHbdf5uX8dMtfXSJK2/8D+G0XcjBT3Hicjja5ypkCr8JeJjrodQw==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
+ smtp.mailfrom=oracle.com; dmarc=pass action=none header.from=oracle.com;
+ dkim=pass header.d=oracle.com; arc=none
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=oracle.onmicrosoft.com; s=selector2-oracle-onmicrosoft-com;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=S06NXtTpAaXkvDL4nDN9EuueIQWuuanLf+AK04JLc4w=;
+ b=H4UZ/2uOvaLiMtVL55z3Ecv8jpVXsAiNZwga7d7nNHOIZjfl26HlJGSZKY/w1vLm9chcjYF1gSQl1ULWjKH9kCSHwcQCUa6FN7Soe4exj8FOyMZ17m2if2n33HDlXMBIwmb7qOPywSptwW0WpEEbuMpZ4FBL7cLzyLVfjL6Wv5s=
+Received: from CO1PR10MB4531.namprd10.prod.outlook.com (2603:10b6:303:6c::22)
+ by PH8PR10MB6501.namprd10.prod.outlook.com (2603:10b6:510:22b::18) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.6588.22; Wed, 12 Jul
+ 2023 16:16:08 +0000
+Received: from CO1PR10MB4531.namprd10.prod.outlook.com
+ ([fe80::4c83:52fa:a398:11a8]) by CO1PR10MB4531.namprd10.prod.outlook.com
+ ([fe80::4c83:52fa:a398:11a8%3]) with mapi id 15.20.6565.028; Wed, 12 Jul 2023
+ 16:16:08 +0000
+From:   Eric DeVolder <eric.devolder@oracle.com>
+To:     linux@armlinux.org.uk, catalin.marinas@arm.com, will@kernel.org,
+        chenhuacai@kernel.org, geert@linux-m68k.org,
+        tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com,
+        deller@gmx.de, ysato@users.sourceforge.jp, dalias@libc.org,
+        glaubitz@physik.fu-berlin.de, tglx@linutronix.de, mingo@redhat.com,
+        bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org,
+        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-ia64@vger.kernel.org, loongarch@lists.linux.dev,
+        linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org,
+        linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org,
+        linux-sh@vger.kernel.org
+Cc:     kernel@xen0n.name, mpe@ellerman.id.au, npiggin@gmail.com,
+        christophe.leroy@csgroup.eu, paul.walmsley@sifive.com,
+        palmer@dabbelt.com, aou@eecs.berkeley.edu, hca@linux.ibm.com,
+        gor@linux.ibm.com, agordeev@linux.ibm.com,
+        borntraeger@linux.ibm.com, svens@linux.ibm.com, hpa@zytor.com,
+        keescook@chromium.org, paulmck@kernel.org, peterz@infradead.org,
+        frederic@kernel.org, akpm@linux-foundation.org, ardb@kernel.org,
+        samitolvanen@google.com, juerg.haefliger@canonical.com,
+        arnd@arndb.de, rmk+kernel@armlinux.org.uk,
+        linus.walleij@linaro.org, sebastian.reichel@collabora.com,
+        rppt@kernel.org, kirill.shutemov@linux.intel.com,
+        anshuman.khandual@arm.com, ziy@nvidia.com, masahiroy@kernel.org,
+        ndesaulniers@google.com, mhiramat@kernel.org, ojeda@kernel.org,
+        thunder.leizhen@huawei.com, xin3.li@intel.com, tj@kernel.org,
+        gregkh@linuxfoundation.org, tsi@tuyoix.net, bhe@redhat.com,
+        hbathini@linux.ibm.com, sourabhjain@linux.ibm.com,
+        eric.devolder@oracle.com, boris.ostrovsky@oracle.com,
+        konrad.wilk@oracle.com
+Subject: [PATCH v6 05/14] arm64/kexec: refactor for kernel/Kconfig.kexec
+Date:   Wed, 12 Jul 2023 12:15:36 -0400
+Message-Id: <20230712161545.87870-6-eric.devolder@oracle.com>
+X-Mailer: git-send-email 2.31.1
+In-Reply-To: <20230712161545.87870-1-eric.devolder@oracle.com>
+References: <20230712161545.87870-1-eric.devolder@oracle.com>
+Content-Transfer-Encoding: 8bit
+Content-Type: text/plain
+X-ClientProxiedBy: DM6PR05CA0042.namprd05.prod.outlook.com
+ (2603:10b6:5:335::11) To CO1PR10MB4531.namprd10.prod.outlook.com
+ (2603:10b6:303:6c::22)
 MIME-Version: 1.0
-Date:   Wed, 12 Jul 2023 00:43:49 -0400
-From:   matoro <matoro_mailinglist_kernel@matoro.tk>
-To:     Jens Axboe <axboe@kernel.dk>
-Cc:     io-uring@vger.kernel.org, deller@gmx.de,
-        Linux Ia64 <linux-ia64@vger.kernel.org>,
-        glaubitz@physik.fu-berlin.de, Sam James <sam@gentoo.org>
-Subject: Re: [PATCH 1/5] io_uring: Adjust mapping wrt architecture aliasing
- requirements
-In-Reply-To: <20230314171641.10542-2-axboe@kernel.dk>
-References: <20230314171641.10542-1-axboe@kernel.dk>
- <20230314171641.10542-2-axboe@kernel.dk>
-Message-ID: <1d5f8f99f39e2769b9c76fbc24e2cf50@matoro.tk>
-X-Sender: matoro_mailinglist_kernel@matoro.tk
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
+X-MS-PublicTrafficType: Email
+X-MS-TrafficTypeDiagnostic: CO1PR10MB4531:EE_|PH8PR10MB6501:EE_
+X-MS-Office365-Filtering-Correlation-Id: 989acfd5-25dc-489d-dce9-08db82f34d0a
+X-MS-Exchange-SenderADCheck: 1
+X-MS-Exchange-AntiSpam-Relay: 0
+X-Microsoft-Antispam: BCL:0;
+X-Microsoft-Antispam-Message-Info: tYFq5U3qc68XFnTSUdMILpEghcoJpxJpHXu9XwlBMQJIMl5t17TROQM4vPlsYoWPUYvXt1NReNB1avJHSVzwIsEX/soEPabrkBc8OPT6fydYR03vUqbz3mDwmyVuzbPrgmR1TKymepmxZGLLBhth7IKSQO2mFdXikcsztx/EUGxE0ER4ObtJyNQjU8Eb4oID/m7bJEYOnq/Fw+0KMAuOrJZ3w2gWwDi1KpEbGMCdG61PQnkQWoa2+qFBJaAXvqbXjhMTf8yuNbnZ4R8dsIw/Y4P3Jv4Frq56J4xe3gmsoYogZeFjyDeWZwOGidE/iRhvEFVgPmMa+9oEsQSG+/lT54FIT4t73OwyXQHzUttvZUqZeAost7DmqVkX0T6ThJFJDqe0EDEJw7fKL41iJkLScYKKQZdbIQAnWJ5Z6SjciHVA7l8YAMltRO9swj5FgWm0PtHAgu3qLKHChdSrdUEU/VDDBHsIRJBC94J7E38o3i1O+sluRVBFz6opcilCMxRCi8G04rVXPsHhVf9OLGkt620uynHG2a+Z+Sqb4Z/t7kDUGwH91f6jUzFd+ELeXQGCnCVbLNOVAkiZsOMx36n1b5h1vtxlWQECh7YntoyUIfc=
+X-Forefront-Antispam-Report: CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:CO1PR10MB4531.namprd10.prod.outlook.com;PTR:;CAT:NONE;SFS:(13230028)(376002)(396003)(39860400002)(136003)(366004)(346002)(451199021)(38100700002)(478600001)(921005)(4326008)(86362001)(6666004)(66476007)(66556008)(66946007)(6486002)(6512007)(316002)(41300700001)(186003)(83380400001)(2616005)(2906002)(36756003)(8936002)(107886003)(8676002)(7406005)(7366002)(7416002)(5660300002)(26005)(6506007)(1076003);DIR:OUT;SFP:1101;
+X-MS-Exchange-AntiSpam-MessageData-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-0: =?us-ascii?Q?Gu5k3A8vxY3tdSJ4xRfMnsRWv4+QcQbAz6AUP1CZNuHGnI3mNNtW8H8m40lU?=
+ =?us-ascii?Q?OomdO3OcSVFwk7TTD3wXuOQNE2QGshK9umeTUamGQw5kZJn65fqb1vaISApk?=
+ =?us-ascii?Q?AEFiPV4r7+43wdi9+6Fyfs7cJLofsE2lAEN6zVO4dBq63i+CGgkLloYlQDDs?=
+ =?us-ascii?Q?pcXt0Bke1L/RomP2srCfWpgUvOCs6Uc84ea6t28VAAw1rc0YRNHDjwVQnnTa?=
+ =?us-ascii?Q?gdirfAhh261YP5xGwhNFx3iOBUT9uPsCjWJnUzgo2EeObLzHAmvbnBbFqiwQ?=
+ =?us-ascii?Q?f3qwPofyu/uRhN389hridx/oRF4bPYAR38plEBnc/WrWYsBD0jvhiojuLqXp?=
+ =?us-ascii?Q?GyPkIix1femsN3Ke7suElzwPsCLclD5IU8WxKlGPMDpWSc5JoTx6qgcheasR?=
+ =?us-ascii?Q?Yh5pptapHgn/fyQA2U23S7V+BaQD+LUI31Y35VDNtpocHyLZYcasYcs2C6Nb?=
+ =?us-ascii?Q?VPe8tuEMkOww3fap6XL0eYytPZSNXN1/QuGUTA8Zu9nZFblD1SI6z+0vY6vI?=
+ =?us-ascii?Q?GcAZZgnm0t8XBG8ZLOWXgdtjKq7SSz8xEQ1IDLeNIqFk/MGSuQH5iJ5pnKiD?=
+ =?us-ascii?Q?l6qHUMj1fR4NFfp4Lo7AbdzVVWrQn41kjEUhkAasxST+vug8X6Lv8E8bIsvO?=
+ =?us-ascii?Q?EeeGB65lfC+zfs5WtaqgA4hcMAdbKZVjW1DtvZmEI7j+m15YDK/lvNeVAELd?=
+ =?us-ascii?Q?ZSfObRSUZVKp47vqlw4BLDQSdI5v9tp43B9pOTXN76rM6EHzRmb0RhC6LFoK?=
+ =?us-ascii?Q?cAJKR86QgdBCiXBbHd2iI1E/47P8gdV1KQuyS8/kUk/73ZhL3ep7sPxLHjxt?=
+ =?us-ascii?Q?JJXcQvJJemK0rHaa6rqdHmigKzKlWis7KN7XOWZolvW4tPZxs3VAbZ1st7aB?=
+ =?us-ascii?Q?MiPMoxGgKvfo2l0br9vS9iLALCPv5mf4j1ytp5KaheGHx0+BCvJis+O/RXcU?=
+ =?us-ascii?Q?G/ycR3XMYQTA/aop4ba59l2jyRL4uYjgSjab6L/6d0bTrhM9+Amb01LMD2uI?=
+ =?us-ascii?Q?sevlP86erA6abcnVuAImHzfve0hr/GnDJd5UyhWdaGpWoDDPcuGeU1jKowd7?=
+ =?us-ascii?Q?rkT0xf27KtWKQEVXvgyGtRkY1/fhQXDKqZt+Z3mCMy8b9u4cgm15LNsLv9Xw?=
+ =?us-ascii?Q?d3Hfs0BMDXo6FCd0ReprusG/fd07xddRjmktFyVnRRAKiciz5dS6PfcMgKLs?=
+ =?us-ascii?Q?3iK/55DQDkczWxzgB7v9QULmQLpomJAg0byN4+9hlEPpQ+9C+XDlf+j/1uSW?=
+ =?us-ascii?Q?Duj7DWjKuNHQ9VqhuqzYfrZ5BLKphSGXco1xxXxwUW8ftDLc0ELGJYZEx00L?=
+ =?us-ascii?Q?vCS4RLijJBX8ji4RFujWgsv5eCoQiDiRbuUFQoWpBYLCXaVuIBHNTGzcksMj?=
+ =?us-ascii?Q?RXcu91TBqkQmiZ3CuFFl4jWcz50Miy7QAegtTFeDyo325n7GIVhGGNC1AtBe?=
+ =?us-ascii?Q?bNgMkNOsfgdGl+PZaoNuOZDEgWW7lztk02IXBNOQp3iYK4iXR/xGsdu6YBM5?=
+ =?us-ascii?Q?ViVlhWIz8W0lRXDD+VPiGSjrOKNn7fnA6QXOMmNsJJRzecwdtqv2mby2Ms/2?=
+ =?us-ascii?Q?b/4KJivdGAAqmkyCOzYwXVnzQNCici5ZCc6Y01lBqRZ+EN6nLA+PnnO6TMBu?=
+ =?us-ascii?Q?tA=3D=3D?=
+X-MS-Exchange-AntiSpam-ExternalHop-MessageData-ChunkCount: 2
+X-MS-Exchange-AntiSpam-ExternalHop-MessageData-0: =?us-ascii?Q?0/PiFjAbcoJuG4U0xojQv9Ak0lo+1iTdnZE1pJlEur/Ub0DdvvwlkMOrUoyv?=
+ =?us-ascii?Q?zqLQZw4u9GmTguTaPECU5e4XDZMXhAZmUBjEzMVN0eSPXDk8MeaNBhSIsRO0?=
+ =?us-ascii?Q?5KA/BShVL7eWN8JnTvze12KJZncu+N0HXcjx0vityIZOz+28rnY1mh1LlePa?=
+ =?us-ascii?Q?w0425uEFvNK9Fozoa5R0zra5ZRYGy5YqFH/w4HeyO3OEFyH7v8qDKBN6pDhp?=
+ =?us-ascii?Q?x1BwPih+H0E8/WyrCoDIt2Li93E81tcDrdfYj9Me14uRwjWXtciYuTk0SDlP?=
+ =?us-ascii?Q?22Cu9pV0xYxU9faLzU64/XyD+8KahnN5mTEV4pcCcB6RCNcPDaX+qmTThLas?=
+ =?us-ascii?Q?tP7tS87j4+4ERvFt3IO1r3GOrF8/+GNGlfUPdTgYuwzKSpcs0x/sHm1nF3/O?=
+ =?us-ascii?Q?BQ1U2yzSSKE1yTPbzq7EKwjONqNE7hyLd3OnNo/hVvPrVA1VPKkHggSOnlXu?=
+ =?us-ascii?Q?EHnSeCQYjv7REfqUa/posM/Xo20BbhkMRDV43M64CxlKgi31NIfApNP1tMWs?=
+ =?us-ascii?Q?Jta06mKDq7BjZ/fGjs6C5u3cx+MBxU3y0h+unL1wwQ+D53B0s6V2ZqE2K0c2?=
+ =?us-ascii?Q?aRlU1THXSVvQoMp5enXzco2bFz6Edb7xKC8hy+ntg5aDFOdb5WImHNBxjalw?=
+ =?us-ascii?Q?iuEzw64ozqxcfWAvToZfYcvJcsV9hPwKv5aY4EQTY3m95CE+DkwCsq+Q1RIB?=
+ =?us-ascii?Q?If7M08Xz5dSuB2yNMZYbb0WsztnCnhQYxbJOaPH2MJGvBw8GFjJo3Z6sEi7a?=
+ =?us-ascii?Q?Efn63h3QxO5TD1h7qIfoTGZ9sSmd5z0jdQt/LP4EmDRnvPja6Xcet3aNRPhA?=
+ =?us-ascii?Q?NJpnL7NyaTn4ZchlTpW6Zbl/hQhW+7ai7jErzQyJjEuYMwDTmmqUgW/ywjbk?=
+ =?us-ascii?Q?1hnYK0ZDhAZqsOy5UA2QZikQV8xjyJnccS20x4DWpXnwPPBToZiryS3uUhZp?=
+ =?us-ascii?Q?RgzuDxLacmwkKDNgjqZ7hEpBeHyA15fUdblyFKAck81x+2PqDDrRdCPZvsP9?=
+ =?us-ascii?Q?83n//lSb733aHT4ZjgSUOUE5QMmDiLN1RgMtU+aI1c1ZDiMF37lH2dmOn+Mv?=
+ =?us-ascii?Q?VuDQ6DQgJqwm39I1H4XAZTtbxS9Cft15eEly9QgkyFTYcTlLJ9Ci/nfnyeHc?=
+ =?us-ascii?Q?tVTglcVFH/cEs42kbejZHUAn9moWWo8cHntcHWMo9bChF9ZFgt8gTluRcWDy?=
+ =?us-ascii?Q?Lk4OtdkOe6u/xdRLIHCP4uOVUC7hG3nkRDqYK9VBkvxSxqOyzttQtonEkYyI?=
+ =?us-ascii?Q?iMVqHy3fPsx2dU9I4k3eLbpPMSDUo0QLnDtlex9UbyTeHLD8n1gPBwJB5sv7?=
+ =?us-ascii?Q?IyTjrJW/e6J2BJSbIckTLDSjswQ+jtVs67JuXe3S/DhYlAZZHlV31JpP/iCP?=
+ =?us-ascii?Q?Ro4vWG8erpQErzlsBaH0h8mdVp3ryoM6rACESieI+3zf1xrGxMdyDMmMF7hj?=
+ =?us-ascii?Q?2pQpOyHevHQBu9LZTlCU9DFqZojkx7IYgu4UrAlw+eqJ6OGlU2d4Bajz8JOn?=
+ =?us-ascii?Q?xWafLHzTOCpOY/JDFHrRRnv6JvjnWvZTzGnOh3z/alhTE3IndxItC0FmJAbG?=
+ =?us-ascii?Q?DigI9OKX3Z+HHRrucfDEwL8Grs6X0FO5IjMlFCGyURvLsEQQDgWtxmF60vW3?=
+ =?us-ascii?Q?3RZyBf+OvY4hnB7f2hvN52JIJ759Bar7el7AW43feGXwBnxv2BmVFq9a2oXO?=
+ =?us-ascii?Q?slSTLSqfge+EzyGPyodjgzwLZIuuMJsNq1CoeoolV2QONN2rqfmnLLxzNrV+?=
+ =?us-ascii?Q?eZxg2k33xAPyoLf6g5GUfd8/djHLpklysq4s5C5nzJ0hg0+UUi3xTi8qUJCw?=
+X-MS-Exchange-AntiSpam-ExternalHop-MessageData-1: HrEniiCK7ZNxpIUIV2FydlWhxyG+LBvMTpzDZLTK+cwC8jb7dwFUB3vBb854RUZBx/bJ2Mmuvuz8Vp8zexDp4YwX3gUx0zPhkxl7nnS8tEIZRmMPxeRsvmUN6GiAiMv2yU2RBdANGU43u+3HQogUmKs3A2nsXBjxC43tOLtyzhMkOOHqks1SS1kGXeBcESMEqQYI2DbLnUjSbwE7ow/nVGw6dUOdG5ubkh7ML5nY9pUFoEX58sFWtS92/rPB3BZJHuS52N9oPsGseNW3eU3tGCEMzeNOgvC9Acf7gNUOyJYqyWuaRndhLaXmdQRQc9LzBkEuImmUEP7ltZggYJrbNb5iqOeFH45zrXBcviMnKHCsFYc4TWBy58AXdHzHc3bVg1VsHI+tEEhQE5s+P2XkCVLegc7X/GhMkBhSkvgTmC7/apwUN7gJKESsGBdnAZ606/phqqlfQlVn5g==
+X-OriginatorOrg: oracle.com
+X-MS-Exchange-CrossTenant-Network-Message-Id: 989acfd5-25dc-489d-dce9-08db82f34d0a
+X-MS-Exchange-CrossTenant-AuthSource: CO1PR10MB4531.namprd10.prod.outlook.com
+X-MS-Exchange-CrossTenant-AuthAs: Internal
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 12 Jul 2023 16:16:08.6617
+ (UTC)
+X-MS-Exchange-CrossTenant-FromEntityHeader: Hosted
+X-MS-Exchange-CrossTenant-Id: 4e2c6054-71cb-48f1-bd6c-3a9705aca71b
+X-MS-Exchange-CrossTenant-MailboxType: HOSTED
+X-MS-Exchange-CrossTenant-UserPrincipalName: oh6udtyvSk0XXQtg5wis/GdocsagsE5bT9srO25cwFDfJ2sQxxUAA8PeJGV+d1MNV6rh4wDD4CeHMJ9+l4+/C/MJCVCiVeawhVCNFvkbWRQ=
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: PH8PR10MB6501
+X-Proofpoint-Virus-Version: vendor=baseguard
+ engine=ICAP:2.0.254,Aquarius:18.0.957,Hydra:6.0.591,FMLib:17.11.176.26
+ definitions=2023-07-12_11,2023-07-11_01,2023-05-22_02
+X-Proofpoint-Spam-Details: rule=notspam policy=default score=0 adultscore=0 mlxscore=0 bulkscore=0
+ suspectscore=0 spamscore=0 phishscore=0 mlxlogscore=999 malwarescore=0
+ classifier=spam adjust=0 reason=mlx scancount=1 engine=8.12.0-2305260000
+ definitions=main-2307120146
+X-Proofpoint-ORIG-GUID: xx-9JcLr-n2xBKVK9HmXprQe1ENSpoJ7
+X-Proofpoint-GUID: xx-9JcLr-n2xBKVK9HmXprQe1ENSpoJ7
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On 2023-03-14 13:16, Jens Axboe wrote:
-> From: Helge Deller <deller@gmx.de>
-> 
-> Some architectures have memory cache aliasing requirements (e.g. 
-> parisc)
-> if memory is shared between userspace and kernel. This patch fixes the
-> kernel to return an aliased address when asked by userspace via mmap().
-> 
-> Signed-off-by: Helge Deller <deller@gmx.de>
-> Signed-off-by: Jens Axboe <axboe@kernel.dk>
-> ---
->  io_uring/io_uring.c | 51 +++++++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 51 insertions(+)
-> 
-> diff --git a/io_uring/io_uring.c b/io_uring/io_uring.c
-> index 722624b6d0dc..3adecebbac71 100644
-> --- a/io_uring/io_uring.c
-> +++ b/io_uring/io_uring.c
-> @@ -72,6 +72,7 @@
->  #include <linux/io_uring.h>
->  #include <linux/audit.h>
->  #include <linux/security.h>
-> +#include <asm/shmparam.h>
-> 
->  #define CREATE_TRACE_POINTS
->  #include <trace/events/io_uring.h>
-> @@ -3317,6 +3318,54 @@ static __cold int io_uring_mmap(struct file 
-> *file, struct vm_area_struct *vma)
->  	return remap_pfn_range(vma, vma->vm_start, pfn, sz, 
-> vma->vm_page_prot);
->  }
-> 
-> +static unsigned long io_uring_mmu_get_unmapped_area(struct file *filp,
-> +			unsigned long addr, unsigned long len,
-> +			unsigned long pgoff, unsigned long flags)
-> +{
-> +	const unsigned long mmap_end = arch_get_mmap_end(addr, len, flags);
-> +	struct vm_unmapped_area_info info;
-> +	void *ptr;
-> +
-> +	/*
-> +	 * Do not allow to map to user-provided address to avoid breaking the
-> +	 * aliasing rules. Userspace is not able to guess the offset address 
-> of
-> +	 * kernel kmalloc()ed memory area.
-> +	 */
-> +	if (addr)
-> +		return -EINVAL;
-> +
-> +	ptr = io_uring_validate_mmap_request(filp, pgoff, len);
-> +	if (IS_ERR(ptr))
-> +		return -ENOMEM;
-> +
-> +	info.flags = VM_UNMAPPED_AREA_TOPDOWN;
-> +	info.length = len;
-> +	info.low_limit = max(PAGE_SIZE, mmap_min_addr);
-> +	info.high_limit = arch_get_mmap_base(addr, current->mm->mmap_base);
-> +#ifdef SHM_COLOUR
-> +	info.align_mask = PAGE_MASK & (SHM_COLOUR - 1UL);
-> +#else
-> +	info.align_mask = PAGE_MASK & (SHMLBA - 1UL);
-> +#endif
-> +	info.align_offset = (unsigned long) ptr;
-> +
-> +	/*
-> +	 * A failed mmap() very likely causes application failure,
-> +	 * so fall back to the bottom-up function here. This scenario
-> +	 * can happen with large stack limits and large mmap()
-> +	 * allocations.
-> +	 */
-> +	addr = vm_unmapped_area(&info);
-> +	if (offset_in_page(addr)) {
-> +		info.flags = 0;
-> +		info.low_limit = TASK_UNMAPPED_BASE;
-> +		info.high_limit = mmap_end;
-> +		addr = vm_unmapped_area(&info);
-> +	}
-> +
-> +	return addr;
-> +}
-> +
->  #else /* !CONFIG_MMU */
-> 
->  static int io_uring_mmap(struct file *file, struct vm_area_struct 
-> *vma)
-> @@ -3529,6 +3578,8 @@ static const struct file_operations io_uring_fops 
-> = {
->  #ifndef CONFIG_MMU
->  	.get_unmapped_area = io_uring_nommu_get_unmapped_area,
->  	.mmap_capabilities = io_uring_nommu_mmap_capabilities,
-> +#else
-> +	.get_unmapped_area = io_uring_mmu_get_unmapped_area,
->  #endif
->  	.poll		= io_uring_poll,
->  #ifdef CONFIG_PROC_FS
+The kexec and crash kernel options are provided in the common
+kernel/Kconfig.kexec. Utilize the common options and provide
+the ARCH_SUPPORTS_ and ARCH_SELECTS_ entries to recreate the
+equivalent set of KEXEC and CRASH options.
 
-Hi Jens, Helge - I've bisected a regression with io_uring on ia64 to 
-this patch in 6.4.  Unfortunately this breaks userspace programs using 
-io_uring, the easiest one to test is cmake with an io_uring enabled 
-libuv (i.e., libuv >= 1.45.0) which will hang.
+Signed-off-by: Eric DeVolder <eric.devolder@oracle.com>
+---
+ arch/arm64/Kconfig | 64 ++++++++++++----------------------------------
+ 1 file changed, 16 insertions(+), 48 deletions(-)
 
-I am aware that ia64 is in a vulnerable place right now which I why I am 
-keeping this spread limited.  Since this clearly involves 
-architecture-specific changes for parisc, is there any chance of looking 
-at what is required to do the same for ia64?  I looked at 
-0ef36bd2b37815719e31a72d2beecc28ca8ecd26 ("parisc: change value of 
-SHMLBA from 0x00400000 to PAGE_SIZE") and tried to replicate the SHMLBA 
--> SHM_COLOUR change, but it made no difference.
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index 7856c3a3e35a..3a9b06a693a9 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -1459,60 +1459,28 @@ config PARAVIRT_TIME_ACCOUNTING
+ 
+ 	  If in doubt, say N here.
+ 
+-config KEXEC
+-	depends on PM_SLEEP_SMP
+-	select KEXEC_CORE
+-	bool "kexec system call"
+-	help
+-	  kexec is a system call that implements the ability to shutdown your
+-	  current kernel, and to start another kernel.  It is like a reboot
+-	  but it is independent of the system firmware.   And like a reboot
+-	  you can start any kernel with it, not just Linux.
+-
+-config KEXEC_FILE
+-	bool "kexec file based system call"
+-	select KEXEC_CORE
+-	select HAVE_IMA_KEXEC if IMA
+-	help
+-	  This is new version of kexec system call. This system call is
+-	  file based and takes file descriptors as system call argument
+-	  for kernel and initramfs as opposed to list of segments as
+-	  accepted by previous system call.
++config ARCH_SUPPORTS_KEXEC
++	def_bool PM_SLEEP_SMP
+ 
+-config KEXEC_SIG
+-	bool "Verify kernel signature during kexec_file_load() syscall"
+-	depends on KEXEC_FILE
+-	help
+-	  Select this option to verify a signature with loaded kernel
+-	  image. If configured, any attempt of loading a image without
+-	  valid signature will fail.
++config ARCH_SUPPORTS_KEXEC_FILE
++	def_bool y
+ 
+-	  In addition to that option, you need to enable signature
+-	  verification for the corresponding kernel image type being
+-	  loaded in order for this to work.
++config ARCH_SELECTS_KEXEC_FILE
++	def_bool y
++	depends on KEXEC_FILE
++	select HAVE_IMA_KEXEC if IMA
+ 
+-config KEXEC_IMAGE_VERIFY_SIG
+-	bool "Enable Image signature verification support"
+-	default y
+-	depends on KEXEC_SIG
+-	depends on EFI && SIGNED_PE_FILE_VERIFICATION
+-	help
+-	  Enable Image signature verification support.
++config ARCH_SUPPORTS_KEXEC_SIG
++	def_bool y
+ 
+-comment "Support for PE file signature verification disabled"
+-	depends on KEXEC_SIG
+-	depends on !EFI || !SIGNED_PE_FILE_VERIFICATION
++config ARCH_SUPPORTS_KEXEC_IMAGE_VERIFY_SIG
++	def_bool y
+ 
+-config CRASH_DUMP
+-	bool "Build kdump crash kernel"
+-	help
+-	  Generate crash dump after being started by kexec. This should
+-	  be normally only set in special crash dump kernels which are
+-	  loaded in the main kernel with kexec-tools into a specially
+-	  reserved region and then later executed after a crash by
+-	  kdump/kexec.
++config ARCH_DEFAULT_KEXEC_IMAGE_VERIFY_SIG
++	def_bool y
+ 
+-	  For more details see Documentation/admin-guide/kdump/kdump.rst
++config ARCH_SUPPORTS_CRASH_DUMP
++	def_bool y
+ 
+ config TRANS_TABLE
+ 	def_bool y
+-- 
+2.31.1
 
-If hardware is necessary for testing, I can provide it, including remote 
-BMC access for restarts/kernel debugging.  Any takers?
-
-$ git bisect log
-git bisect start
-# status: waiting for both good and bad commits
-# good: [eceb0b18ae34b399856a2dd1eee8c18b2341e6f0] Linux 6.3.12
-git bisect good eceb0b18ae34b399856a2dd1eee8c18b2341e6f0
-# status: waiting for bad commit, 1 good commit known
-# bad: [59377679473491963a599bfd51cc9877492312ee] Linux 6.4.1
-git bisect bad 59377679473491963a599bfd51cc9877492312ee
-# good: [457391b0380335d5e9a5babdec90ac53928b23b4] Linux 6.3
-git bisect good 457391b0380335d5e9a5babdec90ac53928b23b4
-# bad: [cb6fe2ceb667eb78f252d473b03deb23999ab1cf] Merge tag 
-'devicetree-for-6.4-2' of 
-git://git.kernel.org/pub/scm/linux/kernel/git/robh/linux
-git bisect bad cb6fe2ceb667eb78f252d473b03deb23999ab1cf
-# good: [f5468bec213ec2ad3f2724e3f1714b3bc7bf1515] Merge tag 
-'regmap-v6.4' of 
-git://git.kernel.org/pub/scm/linux/kernel/git/broonie/regmap
-git bisect good f5468bec213ec2ad3f2724e3f1714b3bc7bf1515
-# good: [207296f1a03bfead0110ffc4f192f242100ce4ff] netfilter: nf_tables: 
-allow to create netdev chain without device
-git bisect good 207296f1a03bfead0110ffc4f192f242100ce4ff
-# good: [85d7ab2463822a4ab096c0b7b59feec962552572] Merge tag 
-'for-6.4-tag' of 
-git://git.kernel.org/pub/scm/linux/kernel/git/kdave/linux
-git bisect good 85d7ab2463822a4ab096c0b7b59feec962552572
-# bad: [b68ee1c6131c540a62ecd443be89c406401df091] Merge tag 'scsi-misc' 
-of git://git.kernel.org/pub/scm/linux/kernel/git/jejb/scsi
-git bisect bad b68ee1c6131c540a62ecd443be89c406401df091
-# bad: [48dc810012a6b4f4ba94073d6b7edb4f76edeb72] Merge tag 
-'for-6.4/dm-changes' of 
-git://git.kernel.org/pub/scm/linux/kernel/git/device-mapper/linux-dm
-git bisect bad 48dc810012a6b4f4ba94073d6b7edb4f76edeb72
-# bad: [5b9a7bb72fddbc5247f56ede55d485fab7abdf92] Merge tag 
-'for-6.4/io_uring-2023-04-21' of git://git.kernel.dk/linux
-git bisect bad 5b9a7bb72fddbc5247f56ede55d485fab7abdf92
-# good: [5c7ecada25d2086aee607ff7deb69e77faa4aa92] Merge tag 
-'f2fs-for-6.4-rc1' of 
-git://git.kernel.org/pub/scm/linux/kernel/git/jaegeuk/f2fs
-git bisect good 5c7ecada25d2086aee607ff7deb69e77faa4aa92
-# bad: [6e7248adf8f7adb5e36ec1e91efcc85a83bf8aeb] io_uring: refactor 
-io_cqring_wake()
-git bisect bad 6e7248adf8f7adb5e36ec1e91efcc85a83bf8aeb
-# bad: [2ad57931db641f3de627023afb8147a8ec0b41dc] io_uring: rename 
-trace_io_uring_submit_sqe() tracepoint
-git bisect bad 2ad57931db641f3de627023afb8147a8ec0b41dc
-# bad: [efba1a9e653e107577a48157b5424878c46f2285] io_uring: Move from 
-hlist to io_wq_work_node
-git bisect bad efba1a9e653e107577a48157b5424878c46f2285
-# bad: [ba56b63242d12df088ed9a701cad320e6b306dfe] io_uring/kbuf: move 
-pinning of provided buffer ring into helper
-git bisect bad ba56b63242d12df088ed9a701cad320e6b306dfe
-# good: [d4755e15386c38e4ae532ace5acc29fbfaee42e7] io_uring: avoid 
-hashing O_DIRECT writes if the filesystem doesn't need it
-git bisect good d4755e15386c38e4ae532ace5acc29fbfaee42e7
-# bad: [d808459b2e31bd5123a14258a7a529995db974c8] io_uring: Adjust 
-mapping wrt architecture aliasing requirements
-git bisect bad d808459b2e31bd5123a14258a7a529995db974c8
-# first bad commit: [d808459b2e31bd5123a14258a7a529995db974c8] io_uring: 
-Adjust mapping wrt architecture aliasing requirements
