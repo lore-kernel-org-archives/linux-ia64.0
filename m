@@ -2,419 +2,120 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 9EE0FC001B0
-	for <linux-ia64@archiver.kernel.org>; Thu, 13 Jul 2023 23:57:52 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id F3D26EB64DD
+	for <linux-ia64@archiver.kernel.org>; Fri, 14 Jul 2023 02:46:23 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S234295AbjGMX5v (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Thu, 13 Jul 2023 19:57:51 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:36280 "EHLO
+        id S232573AbjGNCqX (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Thu, 13 Jul 2023 22:46:23 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:56890 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S233269AbjGMX5v (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Thu, 13 Jul 2023 19:57:51 -0400
-Received: from matoro.tk (unknown [IPv6:2600:1700:4b10:9d80::2])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTP id 5ED2F270D;
-        Thu, 13 Jul 2023 16:57:28 -0700 (PDT)
-DKIM-Signature: a=rsa-sha256; bh=wXoxrOGFOUhCIZSRsmz4Ndq9jepUP3iH8NuBx5555r0=;
- c=relaxed/relaxed; d=matoro.tk;
- h=Subject:Subject:Sender:To:To:Cc:Cc:From:From:Date:Date:MIME-Version:MIME-Version:Content-Type:Content-Type:Content-Transfer-Encoding:Content-Transfer-Encoding:Reply-To:In-Reply-To:In-Reply-To:Message-Id:Message-Id:References:References:Autocrypt:Openpgp;
- i=@matoro.tk; s=20230516; t=1689292643; v=1; x=1689724643;
- b=A90zkKfD6dh/SUorNo4c8F62m5fcbF3GsEnyaEYWERYNkaGk9LtMJ6dGBWW+2p5ZpbA/rKgy
- Y9/TPzKjpIntQylfNcFh453Sdi09+1vSNgs9fW7/IDGtXB+n1xWdhBcGEshIVAjxY7rsKYKjzDb
- CmdvPWqMd4zFeC/kL3rAbk8JqR3/WiK+NLzzF+Y3RmAm583aRC8YeKBO0ih5Fq2Kuleqw1Vr+TH
- O8YdT1irKJZvfkduuJwQPTKClDuYul7ZSuzsqnvv6/QCA5i6AT1Y7MNSPj+l7bOUAt5OyBsv+bi
- 1WONJZ0KpBmbAwnto5XAuMcGhgw+9Upana9tE8VLFSTlrh+6ekuVQHNgrT4G4mGcWfIU6A1GQ7a
- y5YJlfvNysZvJEdi7g2c22JBwtPlFc/EF1Shr/2al1dxdnP1ceKrRl0yuHisT/f9T8dRI/+/46i
- G3y4KwFEBKkFjWBumdA74JteZPmvcPQOcOE8IFB68hyFNPA7fz8+N8vlKprz2fYOnbsbRAAi/n1
- Ao9GS7BqzSfwayQxLS9D7RJm4sx8ft06rZdNG7Sz0BKzYxJsiZbjl935BxjkrkjaDaCqEgsfQgO
- K1pj1ew9Aooj1AwEGpcP/zl+3WWieFsEQd75wNEqTh1fzdXxMDZLlzUXyO6LeeAwD2DmOg3710M
- +2u64lM627s=
-Received: by matoro.tk (envelope-sender
- <matoro_mailinglist_kernel@matoro.tk>) with ESMTPS id 918a7c69; Thu, 13 Jul
- 2023 19:57:23 -0400
+        with ESMTP id S229580AbjGNCqW (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Thu, 13 Jul 2023 22:46:22 -0400
+Received: from mga14.intel.com (mga14.intel.com [192.55.52.115])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 711D8272E
+        for <linux-ia64@vger.kernel.org>; Thu, 13 Jul 2023 19:46:21 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple;
+  d=intel.com; i=@intel.com; q=dns/txt; s=Intel;
+  t=1689302781; x=1720838781;
+  h=date:from:to:cc:subject:message-id:mime-version;
+  bh=ZlHkugwqfb1QuSXe+Rju5wrbeYoINA3MoKkX0C6otDI=;
+  b=jk8rwbXji7bYqytML6Xhtj9+pemW1Zo1W+1QsxMQPm1M4yXpgMN1Myxq
+   9ydc9BVkUjYj+bBvTcwvJJJu+V7mPY0ZRV2k5gnX26H19On38lGrvh5/s
+   a8m65+KdjZ/UUnAgryPCWGvfXQffR6HgFFc9zlpUoeG1ZSNSGvDO5iBSu
+   OBvhH7lBhRSbqe2v1nmw4f34NcYUnmeOA05hAuaVx+VILax7wlqHCdguu
+   RAtob1x+pDwU/AS3hZFMHp0QjQFE7oUxXX1p3NR27l8Bxx/I/IwA6raP3
+   L7vRh8A6/mnVDTii/665oIZcZkHaeJ8dYK4Tpkn4/Ik4L6iVHcGV2a2aj
+   w==;
+X-IronPort-AV: E=McAfee;i="6600,9927,10770"; a="365411735"
+X-IronPort-AV: E=Sophos;i="6.01,204,1684825200"; 
+   d="scan'208";a="365411735"
+Received: from fmsmga005.fm.intel.com ([10.253.24.32])
+  by fmsmga103.fm.intel.com with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 13 Jul 2023 19:46:20 -0700
+X-ExtLoop1: 1
+X-IronPort-AV: E=McAfee;i="6600,9927,10770"; a="1052882394"
+X-IronPort-AV: E=Sophos;i="6.01,204,1684825200"; 
+   d="scan'208";a="1052882394"
+Received: from lkp-server01.sh.intel.com (HELO c544d7fc5005) ([10.239.97.150])
+  by fmsmga005.fm.intel.com with ESMTP; 13 Jul 2023 19:46:19 -0700
+Received: from kbuild by c544d7fc5005 with local (Exim 4.96)
+        (envelope-from <lkp@intel.com>)
+        id 1qK8p0-000765-2i;
+        Fri, 14 Jul 2023 02:46:18 +0000
+Date:   Fri, 14 Jul 2023 10:45:42 +0800
+From:   kernel test robot <lkp@intel.com>
+To:     Tony Luck <tony.luck@intel.com>
+Cc:     oe-kbuild-all@lists.linux.dev, linux-ia64@vger.kernel.org
+Subject: [aegl:resctrl2_v65rc1 10/10]
+ arch/riscv/include/asm/cacheinfo.h:17:11: error: conflicting types for
+ 'get_cache_size'; have 'uintptr_t(u32,  enum cache_type)' {aka 'long
+ unsigned int(unsigned int,  enum cache_type)'}
+Message-ID: <202307141026.5ORwMP1Y-lkp@intel.com>
 MIME-Version: 1.0
-Date:   Thu, 13 Jul 2023 19:57:22 -0400
-From:   matoro <matoro_mailinglist_kernel@matoro.tk>
-To:     Helge Deller <deller@gmx.de>
-Cc:     Jens Axboe <axboe@kernel.dk>, io-uring@vger.kernel.org,
-        Linux Ia64 <linux-ia64@vger.kernel.org>,
-        glaubitz@physik.fu-berlin.de, Sam James <sam@gentoo.org>
-Subject: Re: [PATCH 1/5] io_uring: Adjust mapping wrt architecture aliasing
- requirements
-In-Reply-To: <ZK+nYIxe6zf2vYwH@ls3530>
-References: <20230314171641.10542-1-axboe@kernel.dk>
- <20230314171641.10542-2-axboe@kernel.dk>
- <1d5f8f99f39e2769b9c76fbc24e2cf50@matoro.tk> <ZK7TrdVXc0O6HMpQ@ls3530>
- <f1bed3cc3c43083cfd86768a91402f6b@matoro.tk>
- <a3ae1656-be97-ccc2-8962-1cb70ebc67fa@gmx.de>
- <802b84f7-94f4-638b-3742-26bca00b262d@gmx.de>
- <8bb091fb5fd00072842fe92b03abac9b@matoro.tk> <ZK+nYIxe6zf2vYwH@ls3530>
-Message-ID: <695fbf1a4f48619de63297b21aa9f6c4@matoro.tk>
-X-Sender: matoro_mailinglist_kernel@matoro.tk
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On 2023-07-13 03:27, Helge Deller wrote:
-> * matoro <matoro_mailinglist_kernel@matoro.tk>:
->> On 2023-07-12 16:30, Helge Deller wrote:
->> > On 7/12/23 21:05, Helge Deller wrote:
->> > > On 7/12/23 19:28, matoro wrote:
->> > > > On 2023-07-12 12:24, Helge Deller wrote:
->> > > > > Hi Matoro,
->> > > > >
->> > > > > * matoro <matoro_mailinglist_kernel@matoro.tk>:
->> > > > > > On 2023-03-14 13:16, Jens Axboe wrote:
->> > > > > > > From: Helge Deller <deller@gmx.de>
->> > > > > > >
->> > > > > > > Some architectures have memory cache aliasing requirements (e.g. parisc)
->> > > > > > > if memory is shared between userspace and kernel. This patch fixes the
->> > > > > > > kernel to return an aliased address when asked by userspace via mmap().
->> > > > > > >
->> > > > > > > Signed-off-by: Helge Deller <deller@gmx.de>
->> > > > > > > Signed-off-by: Jens Axboe <axboe@kernel.dk>
->> > > > > > > ---
->> > > > > > >  io_uring/io_uring.c | 51 +++++++++++++++++++++++++++++++++++++++++++++
->> > > > > > >  1 file changed, 51 insertions(+)
->> > > > > > >
->> > > > > > > diff --git a/io_uring/io_uring.c b/io_uring/io_uring.c
->> > > > > > > index 722624b6d0dc..3adecebbac71 100644
->> > > > > > > --- a/io_uring/io_uring.c
->> > > > > > > +++ b/io_uring/io_uring.c
->> > > > > > > @@ -72,6 +72,7 @@
->> > > > > > >  #include <linux/io_uring.h>
->> > > > > > >  #include <linux/audit.h>
->> > > > > > >  #include <linux/security.h>
->> > > > > > > +#include <asm/shmparam.h>
->> > > > > > >
->> > > > > > >  #define CREATE_TRACE_POINTS
->> > > > > > >  #include <trace/events/io_uring.h>
->> > > > > > > @@ -3317,6 +3318,54 @@ static __cold int io_uring_mmap(struct file
->> > > > > > > *file, struct vm_area_struct *vma)
->> > > > > > >      return remap_pfn_range(vma, vma->vm_start, pfn, sz,
->> > > > > > > vma->vm_page_prot);
->> > > > > > >  }
->> > > > > > >
->> > > > > > > +static unsigned long io_uring_mmu_get_unmapped_area(struct file *filp,
->> > > > > > > +            unsigned long addr, unsigned long len,
->> > > > > > > +            unsigned long pgoff, unsigned long flags)
->> > > > > > > +{
->> > > > > > > +    const unsigned long mmap_end = arch_get_mmap_end(addr, len, flags);
->> > > > > > > +    struct vm_unmapped_area_info info;
->> > > > > > > +    void *ptr;
->> > > > > > > +
->> > > > > > > +    /*
->> > > > > > > +     * Do not allow to map to user-provided address to avoid breaking the
->> > > > > > > +     * aliasing rules. Userspace is not able to guess the offset address
->> > > > > > > of
->> > > > > > > +     * kernel kmalloc()ed memory area.
->> > > > > > > +     */
->> > > > > > > +    if (addr)
->> > > > > > > +        return -EINVAL;
->> > > > > > > +
->> > > > > > > +    ptr = io_uring_validate_mmap_request(filp, pgoff, len);
->> > > > > > > +    if (IS_ERR(ptr))
->> > > > > > > +        return -ENOMEM;
->> > > > > > > +
->> > > > > > > +    info.flags = VM_UNMAPPED_AREA_TOPDOWN;
->> > > > > > > +    info.length = len;
->> > > > > > > +    info.low_limit = max(PAGE_SIZE, mmap_min_addr);
->> > > > > > > +    info.high_limit = arch_get_mmap_base(addr, current->mm->mmap_base);
->> > > > > > > +#ifdef SHM_COLOUR
->> > > > > > > +    info.align_mask = PAGE_MASK & (SHM_COLOUR - 1UL);
->> > > > > > > +#else
->> > > > > > > +    info.align_mask = PAGE_MASK & (SHMLBA - 1UL);
->> > > > > > > +#endif
->> > > > > > > +    info.align_offset = (unsigned long) ptr;
->> > > > > > > +
->> > > > > > > +    /*
->> > > > > > > +     * A failed mmap() very likely causes application failure,
->> > > > > > > +     * so fall back to the bottom-up function here. This scenario
->> > > > > > > +     * can happen with large stack limits and large mmap()
->> > > > > > > +     * allocations.
->> > > > > > > +     */
->> > > > > > > +    addr = vm_unmapped_area(&info);
->> > > > > > > +    if (offset_in_page(addr)) {
->> > > > > > > +        info.flags = 0;
->> > > > > > > +        info.low_limit = TASK_UNMAPPED_BASE;
->> > > > > > > +        info.high_limit = mmap_end;
->> > > > > > > +        addr = vm_unmapped_area(&info);
->> > > > > > > +    }
->> > > > > > > +
->> > > > > > > +    return addr;
->> > > > > > > +}
->> > > > > > > +
->> > > > > > >  #else /* !CONFIG_MMU */
->> > > > > > >
->> > > > > > >  static int io_uring_mmap(struct file *file, struct vm_area_struct *vma)
->> > > > > > > @@ -3529,6 +3578,8 @@ static const struct file_operations io_uring_fops
->> > > > > > > = {
->> > > > > > >  #ifndef CONFIG_MMU
->> > > > > > >      .get_unmapped_area = io_uring_nommu_get_unmapped_area,
->> > > > > > >      .mmap_capabilities = io_uring_nommu_mmap_capabilities,
->> > > > > > > +#else
->> > > > > > > +    .get_unmapped_area = io_uring_mmu_get_unmapped_area,
->> > > > > > >  #endif
->> > > > > > >      .poll        = io_uring_poll,
->> > > > > > >  #ifdef CONFIG_PROC_FS
->> > > > > >
->> > > > > > Hi Jens, Helge - I've bisected a regression with
->> > > > > > io_uring on ia64 to this
->> > > > > > patch in 6.4.  Unfortunately this breaks userspace
->> > > > > > programs using io_uring,
->> > > > > > the easiest one to test is cmake with an io_uring
->> > > > > > enabled libuv (i.e., libuv
->> > > > > > >= 1.45.0) which will hang.
->> > > > > >
->> > > > > > I am aware that ia64 is in a vulnerable place right now
->> > > > > > which I why I am
->> > > > > > keeping this spread limited.  Since this clearly involves
->> > > > > > architecture-specific changes for parisc,
->> > > > >
->> > > > > it isn't so much architecture-specific... (just one ifdef)
->> > > > >
->> > > > > > is there any chance of looking at
->> > > > > > what is required to do the same for ia64?  I looked at
->> > > > > > 0ef36bd2b37815719e31a72d2beecc28ca8ecd26 ("parisc:
->> > > > > > change value of SHMLBA
->> > > > > > from 0x00400000 to PAGE_SIZE") and tried to replicate the SHMLBA ->
->> > > > > > SHM_COLOUR change, but it made no difference.
->> > > > > >
->> > > > > > If hardware is necessary for testing, I can provide it,
->> > > > > > including remote BMC
->> > > > > > access for restarts/kernel debugging.  Any takers?
->> > > > >
->> > > > > I won't have time to test myself, but maybe you could test?
->> > > > >
->> > > > > Basically we should try to find out why
->> > > > > io_uring_mmu_get_unmapped_area()
->> > > > > doesn't return valid addresses, while arch_get_unmapped_area()
->> > > > > [in arch/ia64/kernel/sys_ia64.c] does.
->> > > > >
->> > > > > You could apply this patch first:
->> > > > > It introduces a memory leak (as it requests memory twice),
->> > > > > but maybe we
->> > > > > get an idea?
->> > > > > The ia64 arch_get_unmapped_area() searches for memory from bottom
->> > > > > (flags=0), while io_uring function tries top-down first.
->> > > > > Maybe that's
->> > > > > the problem. And I don't understand the offset_in_page() check right
->> > > > > now.
->> > > > >
->> > > > > diff --git a/io_uring/io_uring.c b/io_uring/io_uring.c
->> > > > > index 3bca7a79efda..93b1964d2bbb 100644
->> > > > > --- a/io_uring/io_uring.c
->> > > > > +++ b/io_uring/io_uring.c
->> > > > > @@ -3431,13 +3431,17 @@ static unsigned long
->> > > > > io_uring_mmu_get_unmapped_area(struct file *filp,
->> > > > >       * can happen with large stack limits and large mmap()
->> > > > >       * allocations.
->> > > > >       */
->> > > > > +/* compare to arch_get_unmapped_area() in
->> > > > > arch/ia64/kernel/sys_ia64.c */
->> > > > >      addr = vm_unmapped_area(&info);
->> > > > > -    if (offset_in_page(addr)) {
->> > > > > +printk("io_uring_mmu_get_unmapped_area() address 1 is:
->> > > > > %px\n", addr);
->> > > > > +    addr = NULL;
->> > > > > +    if (!addr) {
->> > > > >          info.flags = 0;
->> > > > >          info.low_limit = TASK_UNMAPPED_BASE;
->> > > > >          info.high_limit = mmap_end;
->> > > > >          addr = vm_unmapped_area(&info);
->> > > > >      }
->> > > > > +printk("io_uring_mmu_get_unmapped_area() returns address
->> > > > > %px\n", addr);
->> > > > >
->> > > > >      return addr;
->> > > > >  }
->> > > > >
->> > > > >
->> > > > > Another option is to disable the call to
->> > > > > io_uring_nommu_get_unmapped_area())
->> > > > > with the next patch. Maybe you could add printks() to ia64's
->> > > > > arch_get_unmapped_area()
->> > > > > and check what it returns there?
->> > > > >
->> > > > > @@ -3654,6 +3658,8 @@ static const struct file_operations
->> > > > > io_uring_fops = {
->> > > > >  #ifndef CONFIG_MMU
->> > > > >      .get_unmapped_area = io_uring_nommu_get_unmapped_area,
->> > > > >      .mmap_capabilities = io_uring_nommu_mmap_capabilities,
->> > > > > +#elif 0    /* IS_ENABLED(CONFIG_IA64) */
->> > > > > +    .get_unmapped_area = NULL,
->> > > > >  #else
->> > > > >      .get_unmapped_area = io_uring_mmu_get_unmapped_area,
->> > > > >  #endif
->> > > > >
->> > > > > Helge
->> > > >
->> > > > Thanks Helge.  Sample output from that first patch:
->> > > >
->> > > > [Wed Jul 12 13:09:50 2023] io_uring_mmu_get_unmapped_area()
->> > > > address 1 is: 1ffffffffff40000
->> > > > [Wed Jul 12 13:09:50 2023] io_uring_mmu_get_unmapped_area()
->> > > > returns address 2000000001e40000
->> > > > [Wed Jul 12 13:09:50 2023] io_uring_mmu_get_unmapped_area()
->> > > > address 1 is: 1ffffffffff20000
->> > > > [Wed Jul 12 13:09:50 2023] io_uring_mmu_get_unmapped_area()
->> > > > returns address 2000000001f20000
->> > > > [Wed Jul 12 13:09:50 2023] io_uring_mmu_get_unmapped_area()
->> > > > address 1 is: 1ffffffffff30000
->> > > > [Wed Jul 12 13:09:50 2023] io_uring_mmu_get_unmapped_area()
->> > > > returns address 2000000001f30000
->> > > > [Wed Jul 12 13:09:50 2023] io_uring_mmu_get_unmapped_area()
->> > > > address 1 is: 1ffffffffff90000
->> > > > [Wed Jul 12 13:09:50 2023] io_uring_mmu_get_unmapped_area()
->> > > > returns address 2000000001f90000
->> > > >
->> > > > This pattern seems to be pretty stable, I tried instead just
->> > > > directly returning the result of a call to
->> > > > arch_get_unmapped_area() at the end of the function and it seems
->> > > > similar:
->> > > >
->> > > > [Wed Jul 12 13:27:07 2023] io_uring_mmu_get_unmapped_area()
->> > > > would return address 1ffffffffffd0000
->> > > > [Wed Jul 12 13:27:07 2023] but arch_get_unmapped_area() would
->> > > > return address 2000000001f00000
->> > > > [Wed Jul 12 13:27:07 2023] io_uring_mmu_get_unmapped_area()
->> > > > would return address 1ffffffffff00000
->> > > > [Wed Jul 12 13:27:07 2023] but arch_get_unmapped_area() would
->> > > > return address 1ffffffffff00000
->> > > > [Wed Jul 12 13:27:07 2023] io_uring_mmu_get_unmapped_area()
->> > > > would return address 1fffffffffe20000
->> > > > [Wed Jul 12 13:27:07 2023] but arch_get_unmapped_area() would
->> > > > return address 2000000002000000
->> > > > [Wed Jul 12 13:27:07 2023] io_uring_mmu_get_unmapped_area()
->> > > > would return address 1fffffffffe30000
->> > > > [Wed Jul 12 13:27:07 2023] but arch_get_unmapped_area() would
->> > > > return address 2000000002100000
->> > > >
->> > > > Is that enough of a clue to go on?
->> > >
->> > > SHMLBA on ia64 is 0x100000:
->> > > arch/ia64/include/asm/shmparam.h:#define        SHMLBA  (1024*1024)
->> > > but the values returned by io_uring_mmu_get_unmapped_area() does not
->> > > fullfill this.
->> > >
->> > > So, probably ia64's SHMLBA isn't pulled in correctly in
->> > > io_uring/io_uring.c.
->> > > Check value of this line:
->> > >      info.align_mask = PAGE_MASK & (SHMLBA - 1UL);
->> > >
->> > > You could also add
->> > > #define SHM_COLOUR  0x100000
->> > > in front of the
->> > >      #ifdef SHM_COLOUR
->> > > (define SHM_COLOUR in io_uring/kbuf.c too).
->> >
->> > What is the value of PAGE_SIZE and "ptr" on your machine?
->> > For 4k page size I get:
->> > SHMLBA -1   ->        FFFFF
->> > PAGE_MASK   -> FFFFFFFFF000
->> > so,
->> > info.align_mask = PAGE_MASK & (SHMLBA - 1UL) = 0xFF000;
->> > You could try to set nfo.align_mask = 0xfffff;
->> >
->> > Helge
->> 
->> Using 64KiB (65536) PAGE_SIZE here.  64-bit pointers.
->> 
->> Tried both #define SHM_COLOUR 0x100000, as well and info.align_mask =
->> 0xFFFFF, but both of them made the problem change from 100% 
->> reproducible, to
->> intermittent.
->> 
->> After inspecting the ouput I observed that it hangs only when the 
->> first
->> allocation returns an address below 0x2000000000000000, and the second
->> returns an address above it.  When both addresses are above it, it 
->> does not
->> hang.  Examples:
->> 
->> When it works:
->> $ cmake --version
->> cmake version 3.26.4
->> 
->> CMake suite maintained and supported by Kitware (kitware.com/cmake).
->> $ dmesg --color=always -T | tail -n 4
->> [Wed Jul 12 20:32:37 2023] io_uring_mmu_get_unmapped_area() would 
->> return
->> address 1fffffffffe20000
->> [Wed Jul 12 20:32:37 2023] but arch_get_unmapped_area() would return 
->> address
->> 2000000002000000
->> [Wed Jul 12 20:32:37 2023] io_uring_mmu_get_unmapped_area() would 
->> return
->> address 1fffffffffe50000
->> [Wed Jul 12 20:32:37 2023] but arch_get_unmapped_area() would return 
->> address
->> 2000000002100000
->> 
->> 
->> When it hangs:
->> $ cmake --version
->> cmake version 3.26.4
->> 
->> CMake suite maintained and supported by Kitware (kitware.com/cmake).
->> ^C
->> $ dmesg --color=always -T | tail -n 4
->> [Wed Jul 12 20:33:12 2023] io_uring_mmu_get_unmapped_area() would 
->> return
->> address 1ffffffffff00000
->> [Wed Jul 12 20:33:12 2023] but arch_get_unmapped_area() would return 
->> address
->> 1ffffffffff00000
->> [Wed Jul 12 20:33:12 2023] io_uring_mmu_get_unmapped_area() would 
->> return
->> address 1fffffffffe60000
->> [Wed Jul 12 20:33:12 2023] but arch_get_unmapped_area() would return 
->> address
->> 2000000001f00000
->> 
->> Is io_uring_mmu_get_unmapped_area supported to always return addresses 
->> above
->> 0x2000000000000000?
-> 
-> Yes, with the patch below.
-> 
->> Any reason why it is not doing so sometimes?
-> 
-> It depends on the parameters for vm_unmapped_area(). Specifically
-> info.flags=0.
-> 
-> Try this patch:
-> 
-> diff --git a/io_uring/io_uring.c b/io_uring/io_uring.c
-> index 3bca7a79efda..b259794ab53b 100644
-> --- a/io_uring/io_uring.c
-> +++ b/io_uring/io_uring.c
-> @@ -3429,10 +3429,13 @@ static unsigned long 
-> io_uring_mmu_get_unmapped_area(struct file *filp,
->  	 * A failed mmap() very likely causes application failure,
->  	 * so fall back to the bottom-up function here. This scenario
->  	 * can happen with large stack limits and large mmap()
-> -	 * allocations.
-> +	 * allocations. Use bottom-up on IA64 for correct aliasing.
->  	 */
-> -	addr = vm_unmapped_area(&info);
-> -	if (offset_in_page(addr)) {
-> +	if (IS_ENABLED(CONFIG_IA64))
-> +		addr = NULL;
-> +	else
-> +		addr = vm_unmapped_area(&info);
-> +	if (!addr) {
->  		info.flags = 0;
->  		info.low_limit = TASK_UNMAPPED_BASE;
->  		info.high_limit = mmap_end;
-> 
-> Helge
+tree:   https://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git resctrl2_v65rc1
+head:   b9c1779deb41e52476fa9d9d61645168d11ef092
+commit: b9c1779deb41e52476fa9d9d61645168d11ef092 [10/10] resctrl2: Add the "size" file to control groups
+config: riscv-allyesconfig (https://download.01.org/0day-ci/archive/20230714/202307141026.5ORwMP1Y-lkp@intel.com/config)
+compiler: riscv64-linux-gcc (GCC) 12.3.0
+reproduce: (https://download.01.org/0day-ci/archive/20230714/202307141026.5ORwMP1Y-lkp@intel.com/reproduce)
 
-This patch does do the trick, but I am a little unsure if it's the right 
-one to go in:
+If you fix the issue in a separate patch/commit (i.e. not just a new version of
+the same patch/commit), kindly add following tags
+| Reported-by: kernel test robot <lkp@intel.com>
+| Closes: https://lore.kernel.org/oe-kbuild-all/202307141026.5ORwMP1Y-lkp@intel.com/
 
-* Adding an arch-specific conditional feels like a bad hack, why is it 
-not working with the other vm_unmapped_area_info settings?
-* What happened to the offset_in_page check for other arches?
+All errors (new ones prefixed by >>):
+
+   scripts/genksyms/parse.y: warning: 9 shift/reduce conflicts [-Wconflicts-sr]
+   scripts/genksyms/parse.y: warning: 5 reduce/reduce conflicts [-Wconflicts-rr]
+   scripts/genksyms/parse.y: note: rerun with option '-Wcounterexamples' to generate conflict counterexamples
+   In file included from arch/riscv/include/asm/elf.h:16,
+                    from include/linux/elf.h:6,
+                    from include/linux/module.h:19,
+                    from include/linux/device/driver.h:21,
+                    from include/linux/device.h:32,
+                    from include/linux/blk_types.h:11,
+                    from include/linux/writeback.h:13,
+                    from include/linux/memcontrol.h:22,
+                    from include/linux/swap.h:9,
+                    from include/linux/suspend.h:5,
+                    from arch/riscv/kernel/asm-offsets.c:12:
+>> arch/riscv/include/asm/cacheinfo.h:17:11: error: conflicting types for 'get_cache_size'; have 'uintptr_t(u32,  enum cache_type)' {aka 'long unsigned int(unsigned int,  enum cache_type)'}
+      17 | uintptr_t get_cache_size(u32 level, enum cache_type type);
+         |           ^~~~~~~~~~~~~~
+   In file included from arch/riscv/include/asm/cacheinfo.h:9:
+   include/linux/cacheinfo.h:83:5: note: previous declaration of 'get_cache_size' with type 'int(int,  int)'
+      83 | int get_cache_size(int cpu, int cache_level);
+         |     ^~~~~~~~~~~~~~
+   make[3]: *** [scripts/Makefile.build:116: arch/riscv/kernel/asm-offsets.s] Error 1
+   make[3]: Target 'prepare' not remade because of errors.
+   make[2]: *** [Makefile:1275: prepare0] Error 2
+   make[2]: Target 'prepare' not remade because of errors.
+   make[1]: *** [Makefile:234: __sub-make] Error 2
+   make[1]: Target 'prepare' not remade because of errors.
+   make: *** [Makefile:234: __sub-make] Error 2
+   make: Target 'prepare' not remade because of errors.
+
+
+vim +17 arch/riscv/include/asm/cacheinfo.h
+
+087958a17658dc Yash Shah 2020-02-20  15  
+087958a17658dc Yash Shah 2020-02-20  16  void riscv_set_cacheinfo_ops(struct riscv_cacheinfo_ops *ops);
+38f5bd23deae24 Zong Li   2020-08-31 @17  uintptr_t get_cache_size(u32 level, enum cache_type type);
+38f5bd23deae24 Zong Li   2020-08-31  18  uintptr_t get_cache_geometry(u32 level, enum cache_type type);
+087958a17658dc Yash Shah 2020-02-20  19  
+
+:::::: The code at line 17 was first introduced by commit
+:::::: 38f5bd23deae24c8fa67a2c574b6d43df27a8aa8 riscv: Add cache information in AUX vector
+
+:::::: TO: Zong Li <zong.li@sifive.com>
+:::::: CC: Palmer Dabbelt <palmerdabbelt@google.com>
+
+-- 
+0-DAY CI Kernel Test Service
+https://github.com/intel/lkp-tests/wiki
