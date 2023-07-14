@@ -2,120 +2,133 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id F3D26EB64DD
-	for <linux-ia64@archiver.kernel.org>; Fri, 14 Jul 2023 02:46:23 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 0058BC00528
+	for <linux-ia64@archiver.kernel.org>; Fri, 14 Jul 2023 22:57:28 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S232573AbjGNCqX (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Thu, 13 Jul 2023 22:46:23 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:56890 "EHLO
+        id S229816AbjGNW51 (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Fri, 14 Jul 2023 18:57:27 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:40318 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S229580AbjGNCqW (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Thu, 13 Jul 2023 22:46:22 -0400
-Received: from mga14.intel.com (mga14.intel.com [192.55.52.115])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 711D8272E
-        for <linux-ia64@vger.kernel.org>; Thu, 13 Jul 2023 19:46:21 -0700 (PDT)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple;
-  d=intel.com; i=@intel.com; q=dns/txt; s=Intel;
-  t=1689302781; x=1720838781;
-  h=date:from:to:cc:subject:message-id:mime-version;
-  bh=ZlHkugwqfb1QuSXe+Rju5wrbeYoINA3MoKkX0C6otDI=;
-  b=jk8rwbXji7bYqytML6Xhtj9+pemW1Zo1W+1QsxMQPm1M4yXpgMN1Myxq
-   9ydc9BVkUjYj+bBvTcwvJJJu+V7mPY0ZRV2k5gnX26H19On38lGrvh5/s
-   a8m65+KdjZ/UUnAgryPCWGvfXQffR6HgFFc9zlpUoeG1ZSNSGvDO5iBSu
-   OBvhH7lBhRSbqe2v1nmw4f34NcYUnmeOA05hAuaVx+VILax7wlqHCdguu
-   RAtob1x+pDwU/AS3hZFMHp0QjQFE7oUxXX1p3NR27l8Bxx/I/IwA6raP3
-   L7vRh8A6/mnVDTii/665oIZcZkHaeJ8dYK4Tpkn4/Ik4L6iVHcGV2a2aj
-   w==;
-X-IronPort-AV: E=McAfee;i="6600,9927,10770"; a="365411735"
-X-IronPort-AV: E=Sophos;i="6.01,204,1684825200"; 
-   d="scan'208";a="365411735"
-Received: from fmsmga005.fm.intel.com ([10.253.24.32])
-  by fmsmga103.fm.intel.com with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 13 Jul 2023 19:46:20 -0700
-X-ExtLoop1: 1
-X-IronPort-AV: E=McAfee;i="6600,9927,10770"; a="1052882394"
-X-IronPort-AV: E=Sophos;i="6.01,204,1684825200"; 
-   d="scan'208";a="1052882394"
-Received: from lkp-server01.sh.intel.com (HELO c544d7fc5005) ([10.239.97.150])
-  by fmsmga005.fm.intel.com with ESMTP; 13 Jul 2023 19:46:19 -0700
-Received: from kbuild by c544d7fc5005 with local (Exim 4.96)
-        (envelope-from <lkp@intel.com>)
-        id 1qK8p0-000765-2i;
-        Fri, 14 Jul 2023 02:46:18 +0000
-Date:   Fri, 14 Jul 2023 10:45:42 +0800
-From:   kernel test robot <lkp@intel.com>
-To:     Tony Luck <tony.luck@intel.com>
-Cc:     oe-kbuild-all@lists.linux.dev, linux-ia64@vger.kernel.org
-Subject: [aegl:resctrl2_v65rc1 10/10]
- arch/riscv/include/asm/cacheinfo.h:17:11: error: conflicting types for
- 'get_cache_size'; have 'uintptr_t(u32,  enum cache_type)' {aka 'long
- unsigned int(unsigned int,  enum cache_type)'}
-Message-ID: <202307141026.5ORwMP1Y-lkp@intel.com>
+        with ESMTP id S229950AbjGNW50 (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Fri, 14 Jul 2023 18:57:26 -0400
+Received: from dfw.source.kernel.org (dfw.source.kernel.org [IPv6:2604:1380:4641:c500::1])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 30B063593;
+        Fri, 14 Jul 2023 15:57:25 -0700 (PDT)
+Received: from smtp.kernel.org (relay.kernel.org [52.25.139.140])
+        (using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+         key-exchange X25519 server-signature RSA-PSS (2048 bits))
+        (No client certificate requested)
+        by dfw.source.kernel.org (Postfix) with ESMTPS id B3D4A61E07;
+        Fri, 14 Jul 2023 22:57:24 +0000 (UTC)
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id 73C28C433C8;
+        Fri, 14 Jul 2023 22:57:10 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=kernel.org;
+        s=k20201202; t=1689375444;
+        bh=P8clI5KtqQRzgFfns22g81I3g6E4+6MLCwEqWyZYU68=;
+        h=Date:From:To:Cc:Subject:References:In-Reply-To:From;
+        b=qjATGNeW2AnMB8iSVCidFlZhH9OfkN7bAt2p7ldacOlxk00MBC0K43n0wGgdC/kES
+         5er615dq9DLL0q9cE1VNLaWlbFSi2IfYsicV7umDzTZyH4W2s60ky3l5tGI2zapesZ
+         a6IFRb5wsW2IyAbgdPu3qj324ZAqxXKa5uD5MSOHkbg0ycP0RX1WKos7Wx9s9h14c7
+         mr09nK6DvKTxBa912H2K859rBf/1exfAJQyuctMgVjw5UcRvPGqHIzg/7kZ1W2WHDS
+         fPdS6OedIvs2Ff2PDWFgTKxBrTglm+398FEIc7xd983iXS7+gUDgWarryvZetDtEg3
+         d1Xp1VJIV7NTA==
+Date:   Fri, 14 Jul 2023 23:57:06 +0100
+From:   Mark Brown <broonie@kernel.org>
+To:     Rick Edgecombe <rick.p.edgecombe@intel.com>
+Cc:     x86@kernel.org, "H . Peter Anvin" <hpa@zytor.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Ingo Molnar <mingo@redhat.com>, linux-kernel@vger.kernel.org,
+        linux-doc@vger.kernel.org, linux-mm@kvack.org,
+        linux-arch@vger.kernel.org, linux-api@vger.kernel.org,
+        Arnd Bergmann <arnd@arndb.de>,
+        Andy Lutomirski <luto@kernel.org>,
+        Balbir Singh <bsingharora@gmail.com>,
+        Borislav Petkov <bp@alien8.de>,
+        Cyrill Gorcunov <gorcunov@gmail.com>,
+        Dave Hansen <dave.hansen@linux.intel.com>,
+        Eugene Syromiatnikov <esyr@redhat.com>,
+        Florian Weimer <fweimer@redhat.com>,
+        "H . J . Lu" <hjl.tools@gmail.com>, Jann Horn <jannh@google.com>,
+        Jonathan Corbet <corbet@lwn.net>,
+        Kees Cook <keescook@chromium.org>,
+        Mike Kravetz <mike.kravetz@oracle.com>,
+        Nadav Amit <nadav.amit@gmail.com>,
+        Oleg Nesterov <oleg@redhat.com>, Pavel Machek <pavel@ucw.cz>,
+        Peter Zijlstra <peterz@infradead.org>,
+        Randy Dunlap <rdunlap@infradead.org>,
+        Weijiang Yang <weijiang.yang@intel.com>,
+        "Kirill A . Shutemov" <kirill.shutemov@linux.intel.com>,
+        John Allen <john.allen@amd.com>, kcc@google.com,
+        eranian@google.com, rppt@kernel.org, jamorris@linux.microsoft.com,
+        dethoma@microsoft.com, akpm@linux-foundation.org,
+        Andrew.Cooper3@citrix.com, christina.schimpe@intel.com,
+        david@redhat.com, debug@rivosinc.com, szabolcs.nagy@arm.com,
+        torvalds@linux-foundation.org, linux-alpha@vger.kernel.org,
+        linux-snps-arc@lists.infradead.org,
+        linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org,
+        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+        loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org,
+        Michal Simek <monstr@monstr.eu>,
+        Dinh Nguyen <dinguyen@kernel.org>, linux-mips@vger.kernel.org,
+        openrisc@lists.librecores.org, linux-parisc@vger.kernel.org,
+        linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org,
+        linux-s390@vger.kernel.org, linux-sh@vger.kernel.org,
+        sparclinux@vger.kernel.org, linux-um@lists.infradead.org,
+        Linus Torvalds <torvalds@linuxfoundation.org>
+Subject: Re: [PATCH v9 01/42] mm: Rename arch pte_mkwrite()'s to
+ pte_mkwrite_novma()
+Message-ID: <b389274a-abed-40dc-8e33-7ce922ea9b61@sirena.org.uk>
+References: <20230613001108.3040476-1-rick.p.edgecombe@intel.com>
+ <20230613001108.3040476-2-rick.p.edgecombe@intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/signed; micalg=pgp-sha512;
+        protocol="application/pgp-signature"; boundary="Om+vkuYZS0OLKEiC"
 Content-Disposition: inline
+In-Reply-To: <20230613001108.3040476-2-rick.p.edgecombe@intel.com>
+X-Cookie: Preserve the old, but know the new.
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-tree:   https://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git resctrl2_v65rc1
-head:   b9c1779deb41e52476fa9d9d61645168d11ef092
-commit: b9c1779deb41e52476fa9d9d61645168d11ef092 [10/10] resctrl2: Add the "size" file to control groups
-config: riscv-allyesconfig (https://download.01.org/0day-ci/archive/20230714/202307141026.5ORwMP1Y-lkp@intel.com/config)
-compiler: riscv64-linux-gcc (GCC) 12.3.0
-reproduce: (https://download.01.org/0day-ci/archive/20230714/202307141026.5ORwMP1Y-lkp@intel.com/reproduce)
 
-If you fix the issue in a separate patch/commit (i.e. not just a new version of
-the same patch/commit), kindly add following tags
-| Reported-by: kernel test robot <lkp@intel.com>
-| Closes: https://lore.kernel.org/oe-kbuild-all/202307141026.5ORwMP1Y-lkp@intel.com/
+--Om+vkuYZS0OLKEiC
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-All errors (new ones prefixed by >>):
+On Mon, Jun 12, 2023 at 05:10:27PM -0700, Rick Edgecombe wrote:
+> The x86 Shadow stack feature includes a new type of memory called shadow
+> stack. This shadow stack memory has some unusual properties, which requires
+> some core mm changes to function properly.
 
-   scripts/genksyms/parse.y: warning: 9 shift/reduce conflicts [-Wconflicts-sr]
-   scripts/genksyms/parse.y: warning: 5 reduce/reduce conflicts [-Wconflicts-rr]
-   scripts/genksyms/parse.y: note: rerun with option '-Wcounterexamples' to generate conflict counterexamples
-   In file included from arch/riscv/include/asm/elf.h:16,
-                    from include/linux/elf.h:6,
-                    from include/linux/module.h:19,
-                    from include/linux/device/driver.h:21,
-                    from include/linux/device.h:32,
-                    from include/linux/blk_types.h:11,
-                    from include/linux/writeback.h:13,
-                    from include/linux/memcontrol.h:22,
-                    from include/linux/swap.h:9,
-                    from include/linux/suspend.h:5,
-                    from arch/riscv/kernel/asm-offsets.c:12:
->> arch/riscv/include/asm/cacheinfo.h:17:11: error: conflicting types for 'get_cache_size'; have 'uintptr_t(u32,  enum cache_type)' {aka 'long unsigned int(unsigned int,  enum cache_type)'}
-      17 | uintptr_t get_cache_size(u32 level, enum cache_type type);
-         |           ^~~~~~~~~~~~~~
-   In file included from arch/riscv/include/asm/cacheinfo.h:9:
-   include/linux/cacheinfo.h:83:5: note: previous declaration of 'get_cache_size' with type 'int(int,  int)'
-      83 | int get_cache_size(int cpu, int cache_level);
-         |     ^~~~~~~~~~~~~~
-   make[3]: *** [scripts/Makefile.build:116: arch/riscv/kernel/asm-offsets.s] Error 1
-   make[3]: Target 'prepare' not remade because of errors.
-   make[2]: *** [Makefile:1275: prepare0] Error 2
-   make[2]: Target 'prepare' not remade because of errors.
-   make[1]: *** [Makefile:234: __sub-make] Error 2
-   make[1]: Target 'prepare' not remade because of errors.
-   make: *** [Makefile:234: __sub-make] Error 2
-   make: Target 'prepare' not remade because of errors.
+This seems to break sparc64_defconfig when applied on top of v6.5-rc1:
 
+In file included from /home/broonie/git/bisect/include/linux/mm.h:29,
+                 from /home/broonie/git/bisect/net/core/skbuff.c:40:
+/home/broonie/git/bisect/include/linux/pgtable.h: In function 'pmd_mkwrite':
+/home/broonie/git/bisect/include/linux/pgtable.h:528:9: error: implicit declaration of function 'pmd_mkwrite_novma'; did you mean 'pte_mkwrite_novma'? [-Werror=implicit-function-declaration]
+  return pmd_mkwrite_novma(pmd);
+         ^~~~~~~~~~~~~~~~~
+         pte_mkwrite_novma
+/home/broonie/git/bisect/include/linux/pgtable.h:528:9: error: incompatible types when returning type 'int' but 'pmd_t' {aka 'struct <anonymous>'} was expected
+  return pmd_mkwrite_novma(pmd);
+         ^~~~~~~~~~~~~~~~~~~~~~
 
-vim +17 arch/riscv/include/asm/cacheinfo.h
+The same issue seems to apply with the version that was in -next based
+on v6.4-rc4 too.
 
-087958a17658dc Yash Shah 2020-02-20  15  
-087958a17658dc Yash Shah 2020-02-20  16  void riscv_set_cacheinfo_ops(struct riscv_cacheinfo_ops *ops);
-38f5bd23deae24 Zong Li   2020-08-31 @17  uintptr_t get_cache_size(u32 level, enum cache_type type);
-38f5bd23deae24 Zong Li   2020-08-31  18  uintptr_t get_cache_geometry(u32 level, enum cache_type type);
-087958a17658dc Yash Shah 2020-02-20  19  
+--Om+vkuYZS0OLKEiC
+Content-Type: application/pgp-signature; name="signature.asc"
 
-:::::: The code at line 17 was first introduced by commit
-:::::: 38f5bd23deae24c8fa67a2c574b6d43df27a8aa8 riscv: Add cache information in AUX vector
+-----BEGIN PGP SIGNATURE-----
 
-:::::: TO: Zong Li <zong.li@sifive.com>
-:::::: CC: Palmer Dabbelt <palmerdabbelt@google.com>
+iQEzBAABCgAdFiEEreZoqmdXGLWf4p/qJNaLcl1Uh9AFAmSx0sEACgkQJNaLcl1U
+h9Cgsgf+I5DDysBO4SJ+jmxeXww6HYCycJsoc6oA/wVf/wO7aTv89RFcAPpwMOoq
+jZKiD/xiUtCMUcNE+ZtCQIYVymIrK1BBcNPzgflt5fa50gm53Hp2mcNFaUeriWjC
+x2DfyH1wsfgAjwv14aKu1m59Y7xdhIQWZ4HTezaEFND/3GQTrvGy8tHMDL07GKWz
+qL1gMkJ7kYVKEAf86IsSwbDBcSa/SV5cLbsL4S5GEm5K/hQcLwUqSw4WYuMLfNip
+Eb4Napl5JYGKJcb/IQIm/PGQbmnKgijPg7mR0lvF6RWZk39wCFxKQizahf6cRCwv
+HSMmlXJHILeOK57vaStYZJvapWZzdg==
+=/plS
+-----END PGP SIGNATURE-----
 
--- 
-0-DAY CI Kernel Test Service
-https://github.com/intel/lkp-tests/wiki
+--Om+vkuYZS0OLKEiC--
