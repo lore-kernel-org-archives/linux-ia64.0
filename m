@@ -2,656 +2,254 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 4A9EFC001B0
-	for <linux-ia64@archiver.kernel.org>; Sun, 16 Jul 2023 20:54:57 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id B8E6DC04E69
+	for <linux-ia64@archiver.kernel.org>; Mon, 17 Jul 2023 15:56:02 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S233017AbjGPUy4 (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Sun, 16 Jul 2023 16:54:56 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:41984 "EHLO
+        id S231911AbjGQP4B (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Mon, 17 Jul 2023 11:56:01 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:49912 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S233010AbjGPUyu (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Sun, 16 Jul 2023 16:54:50 -0400
-Received: from mout.gmx.net (mout.gmx.net [212.227.15.15])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 32E6C109;
-        Sun, 16 Jul 2023 13:54:47 -0700 (PDT)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=gmx.de;
- s=s31663417; t=1689540858; x=1690145658; i=deller@gmx.de;
- bh=s4Yckyeh31GYbwREkyDwEuFn2EloxNa6Hp0jxr3AK+U=;
- h=X-UI-Sender-Class:Date:Subject:To:Cc:References:From:In-Reply-To;
- b=FS1Tem9TXFzpeBqYFkFtrpevk2uexR6lxkryThCA1LKnaGy+XtG/pMjaHa2jajI0+BZ1n8b
- 7GslUiBBePGYM/gN8llWYPR/Mhi9eq9fvc9Ant+XsUA5ni3jUPDiWWtyBfiXY69MRzq/Af7E0
- tD5B+CRx74ZoDNd2AD2ubshQeKJw+fr69kXigqFpSLzbSQki7wAg45gWdMLMzuy1b0IOdUEZC
- w7GAydF0whFLsnbaI4fqZpwPmFBQKsJPQo7IOjbpCW8Vtnj+US/J+OpIe8/tvj4z7MCSWII5d
- BCjl8PXnxShM+MmAX0H4wzzZ6Bh5DYwF0w/2pI33uxw4SJGV+4sg==
-X-UI-Sender-Class: 724b4f7f-cbec-4199-ad4e-598c01a50d3a
-Received: from [192.168.20.60] ([94.134.154.206]) by mail.gmx.net (mrgmx005
- [212.227.17.190]) with ESMTPSA (Nemesis) id 1MHGCo-1q7xSk1bZg-00DIaa; Sun, 16
- Jul 2023 22:54:18 +0200
-Message-ID: <7d3fb4b8-a7e6-8a28-0558-75c1c5a0518d@gmx.de>
-Date:   Sun, 16 Jul 2023 22:54:16 +0200
-MIME-Version: 1.0
-User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
- Thunderbird/102.12.0
-Subject: Re: [PATCH 1/5] io_uring: Adjust mapping wrt architecture aliasing
- requirements
+        with ESMTP id S231556AbjGQPz7 (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Mon, 17 Jul 2023 11:55:59 -0400
+Received: from mga12.intel.com (mga12.intel.com [192.55.52.136])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id B14C21A8;
+        Mon, 17 Jul 2023 08:55:56 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple;
+  d=intel.com; i=@intel.com; q=dns/txt; s=Intel;
+  t=1689609356; x=1721145356;
+  h=from:to:cc:subject:date:message-id:references:
+   in-reply-to:content-id:content-transfer-encoding:
+   mime-version;
+  bh=pyrnp3e0ft0lUNotDieIaaw+/wrylRvfaKtSsCJv0Rw=;
+  b=b0QiR0pQcRknEE1JcFRDYu4w/kSZe1Aowve9zP9pKKW4a7ir8331nbgw
+   3jUlvqnr7C+lwtoFquyjQVmi3/7ZEjaM8QWFfvTRg1sg5VIKsBztuyis3
+   UH9WXlBv/+ZnXi+bFsq7HbMdGivPVGfFQ68j2PQ6vhnTXyDFR9jTuWrwA
+   2RmeA+DsSjXlh+WZAAfTkSBQdZB2KGQPWtjxitu1uWUOTd5CUuB7TaaY8
+   hiBt3Ype7tcUk8mYqboNWqwRubVvRI5OMq0vCz5vgbU2IELV0uMGeFsKP
+   M+YuvNfCIyyZOPgWECnDr+jRilCGSKO43TQweVdCDYSRCTjfHt9wz1wF5
+   g==;
+X-IronPort-AV: E=McAfee;i="6600,9927,10774"; a="345557749"
+X-IronPort-AV: E=Sophos;i="6.01,211,1684825200"; 
+   d="scan'208";a="345557749"
+Received: from orsmga001.jf.intel.com ([10.7.209.18])
+  by fmsmga106.fm.intel.com with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 17 Jul 2023 08:55:55 -0700
+X-ExtLoop1: 1
+X-IronPort-AV: E=McAfee;i="6600,9927,10774"; a="758469747"
+X-IronPort-AV: E=Sophos;i="6.01,211,1684825200"; 
+   d="scan'208";a="758469747"
+Received: from fmsmsx602.amr.corp.intel.com ([10.18.126.82])
+  by orsmga001.jf.intel.com with ESMTP; 17 Jul 2023 08:55:54 -0700
+Received: from fmsmsx611.amr.corp.intel.com (10.18.126.91) by
+ fmsmsx602.amr.corp.intel.com (10.18.126.82) with Microsoft SMTP Server
+ (version=TLS1_2, cipher=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256) id
+ 15.1.2507.27; Mon, 17 Jul 2023 08:55:53 -0700
+Received: from fmsmsx610.amr.corp.intel.com (10.18.126.90) by
+ fmsmsx611.amr.corp.intel.com (10.18.126.91) with Microsoft SMTP Server
+ (version=TLS1_2, cipher=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256) id
+ 15.1.2507.27; Mon, 17 Jul 2023 08:55:53 -0700
+Received: from fmsedg602.ED.cps.intel.com (10.1.192.136) by
+ fmsmsx610.amr.corp.intel.com (10.18.126.90) with Microsoft SMTP Server
+ (version=TLS1_2, cipher=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256) id
+ 15.1.2507.27 via Frontend Transport; Mon, 17 Jul 2023 08:55:53 -0700
+Received: from NAM10-BN7-obe.outbound.protection.outlook.com (104.47.70.103)
+ by edgegateway.intel.com (192.55.55.71) with Microsoft SMTP Server
+ (version=TLS1_2, cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id
+ 15.1.2507.27; Mon, 17 Jul 2023 08:55:53 -0700
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector9901; d=microsoft.com; cv=none;
+ b=WFA8BL42bE+00z7BrVD+9wTd0fevA+7VtvGRkroCQm0JfeyPwCmV/Yv6FEJkJePiN/hOli6ieozJ57slH9Zh9RKQbxbo1L+KGAqO6DLGMweZm9KMslJqfSfzhfEOoZQgW+yD5na71FFpzNulJKI8D5ESLYkIx41ziWwlB4Ha66P0irfkF1JCE9wry0B8j1wtzprJ1FC/YAi8E0FSMZ6gKyiyo8islSULwnM7JQfp6kZWbKb2e4GH/iZWbboMXzJGrp2XBl4+MySQ6plfKbEUjwNxbqK0ypePWdbndRaZ2qVZHMBSELFz0HRHnn558zMae7GP2+jGyeo1zpJVVzBfdg==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector9901;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
+ bh=pyrnp3e0ft0lUNotDieIaaw+/wrylRvfaKtSsCJv0Rw=;
+ b=XyqbnLziWMn6UY67nmZX94+HHxRQ5ZTGoBw/OZkc/XXkUCSAPSuDQHqLt/k/BXA1U1EjXYuFhyU7atBRmwvmXAakAXZAJ0/pYJuJQvEqboHUnx5P1OakW/bJmXK4Kid8bIr6E3lMaAAXWSW4z24jkZGBz4o7LvYyLV72DbZA/BAEtO0k7Q4IeWgozWA4uuI1lpqpmvBHYriDL/JngDrCZ7VRgviJqsr0nGYepc6YFE4uu7tNaUGf8CTxwN18E0EhCOjqp+mt+L45McVG3i/9WFLQUtajVsP/8ANmUywpokMo7RlB+sktSUNfQf9Hctx3pG4ESIOrlZP3uvuV1XXXCQ==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
+ smtp.mailfrom=intel.com; dmarc=pass action=none header.from=intel.com;
+ dkim=pass header.d=intel.com; arc=none
+Received: from MN0PR11MB5963.namprd11.prod.outlook.com (2603:10b6:208:372::10)
+ by LV8PR11MB8770.namprd11.prod.outlook.com (2603:10b6:408:202::19) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.6588.31; Mon, 17 Jul
+ 2023 15:55:50 +0000
+Received: from MN0PR11MB5963.namprd11.prod.outlook.com
+ ([fe80::abd2:f781:1433:259]) by MN0PR11MB5963.namprd11.prod.outlook.com
+ ([fe80::abd2:f781:1433:259%3]) with mapi id 15.20.6588.031; Mon, 17 Jul 2023
+ 15:55:50 +0000
+From:   "Edgecombe, Rick P" <rick.p.edgecombe@intel.com>
+To:     "broonie@kernel.org" <broonie@kernel.org>
+CC:     "Schimpe, Christina" <christina.schimpe@intel.com>,
+        "Yang, Weijiang" <weijiang.yang@intel.com>,
+        "hjl.tools@gmail.com" <hjl.tools@gmail.com>,
+        "x86@kernel.org" <x86@kernel.org>,
+        "monstr@monstr.eu" <monstr@monstr.eu>,
+        "rppt@kernel.org" <rppt@kernel.org>,
+        "dave.hansen@linux.intel.com" <dave.hansen@linux.intel.com>,
+        "linux-snps-arc@lists.infradead.org" 
+        <linux-snps-arc@lists.infradead.org>,
+        "Torvalds, Linus" <torvalds@linux-foundation.org>,
+        "kirill.shutemov@linux.intel.com" <kirill.shutemov@linux.intel.com>,
+        "linux-api@vger.kernel.org" <linux-api@vger.kernel.org>,
+        "dinguyen@kernel.org" <dinguyen@kernel.org>,
+        "rdunlap@infradead.org" <rdunlap@infradead.org>,
+        "tglx@linutronix.de" <tglx@linutronix.de>,
+        "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>,
+        "arnd@arndb.de" <arnd@arndb.de>,
+        "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>,
+        "Lutomirski, Andy" <luto@kernel.org>,
+        "szabolcs.nagy@arm.com" <szabolcs.nagy@arm.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>,
+        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+        "pavel@ucw.cz" <pavel@ucw.cz>,
+        "keescook@chromium.org" <keescook@chromium.org>,
+        "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+        "gorcunov@gmail.com" <gorcunov@gmail.com>,
+        "andrew.cooper3@citrix.com" <andrew.cooper3@citrix.com>,
+        "david@redhat.com" <david@redhat.com>,
+        "hpa@zytor.com" <hpa@zytor.com>,
+        "loongarch@lists.linux.dev" <loongarch@lists.linux.dev>,
+        "peterz@infradead.org" <peterz@infradead.org>,
+        "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
+        "nadav.amit@gmail.com" <nadav.amit@gmail.com>,
+        "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>,
+        "linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+        "openrisc@lists.librecores.org" <openrisc@lists.librecores.org>,
+        "jamorris@linux.microsoft.com" <jamorris@linux.microsoft.com>,
+        "mike.kravetz@oracle.com" <mike.kravetz@oracle.com>,
+        "debug@rivosinc.com" <debug@rivosinc.com>,
+        "fweimer@redhat.com" <fweimer@redhat.com>,
+        "kcc@google.com" <kcc@google.com>,
+        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
+        "mingo@redhat.com" <mingo@redhat.com>,
+        "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>,
+        "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>,
+        "john.allen@amd.com" <john.allen@amd.com>,
+        "Eranian, Stephane" <eranian@google.com>,
+        "bsingharora@gmail.com" <bsingharora@gmail.com>,
+        "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>,
+        "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
+        "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>,
+        "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>,
+        "linux-arm-kernel@lists.infradead.org" 
+        <linux-arm-kernel@lists.infradead.org>,
+        "torvalds@linuxfoundation.org" <torvalds@linuxfoundation.org>,
+        "bp@alien8.de" <bp@alien8.de>, "corbet@lwn.net" <corbet@lwn.net>,
+        "linux-hexagon@vger.kernel.org" <linux-hexagon@vger.kernel.org>,
+        "dethoma@microsoft.com" <dethoma@microsoft.com>,
+        "jannh@google.com" <jannh@google.com>,
+        "Syromiatnikov, Eugene" <esyr@redhat.com>,
+        "oleg@redhat.com" <oleg@redhat.com>,
+        "linux-mm@kvack.org" <linux-mm@kvack.org>
+Subject: Re: [PATCH v9 01/42] mm: Rename arch pte_mkwrite()'s to
+ pte_mkwrite_novma()
+Thread-Topic: [PATCH v9 01/42] mm: Rename arch pte_mkwrite()'s to
+ pte_mkwrite_novma()
+Thread-Index: AQHZnYu46x2k3QQH7UG560N9dHwyWK+6Ee4AgARBSoA=
+Date:   Mon, 17 Jul 2023 15:55:50 +0000
+Message-ID: <87acbb49fa83b0e3f261315a531e105da9e5b9d6.camel@intel.com>
+References: <20230613001108.3040476-1-rick.p.edgecombe@intel.com>
+         <20230613001108.3040476-2-rick.p.edgecombe@intel.com>
+         <b389274a-abed-40dc-8e33-7ce922ea9b61@sirena.org.uk>
+In-Reply-To: <b389274a-abed-40dc-8e33-7ce922ea9b61@sirena.org.uk>
+Accept-Language: en-US
 Content-Language: en-US
-To:     matoro <matoro_mailinglist_kernel@matoro.tk>
-Cc:     Jens Axboe <axboe@kernel.dk>, io-uring@vger.kernel.org,
-        Linux Ia64 <linux-ia64@vger.kernel.org>,
-        glaubitz@physik.fu-berlin.de, Sam James <sam@gentoo.org>
-References: <20230314171641.10542-1-axboe@kernel.dk>
- <20230314171641.10542-2-axboe@kernel.dk>
- <1d5f8f99f39e2769b9c76fbc24e2cf50@matoro.tk> <ZK7TrdVXc0O6HMpQ@ls3530>
- <f1bed3cc3c43083cfd86768a91402f6b@matoro.tk>
- <a3ae1656-be97-ccc2-8962-1cb70ebc67fa@gmx.de>
- <802b84f7-94f4-638b-3742-26bca00b262d@gmx.de>
- <8bb091fb5fd00072842fe92b03abac9b@matoro.tk> <ZK+nYIxe6zf2vYwH@ls3530>
- <695fbf1a4f48619de63297b21aa9f6c4@matoro.tk> <ZLOUL+5PxCHW/uc5@p100>
- <58aaccbd483c582b3bfd590c110d45c6@matoro.tk>
-From:   Helge Deller <deller@gmx.de>
-In-Reply-To: <58aaccbd483c582b3bfd590c110d45c6@matoro.tk>
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: quoted-printable
-X-Provags-ID: V03:K1:ljl0i79Ds+rYcDyfSFZeuv20isnIM2I5DSeInWp4ZGX5Lm/4A9t
- YReNYaTCVA9nqInLm5TFDCQ0l/nLQN1+VMDJZ6LxzQo62NKBi2kaJ+seDQfbwxNHK8Qycbr
- 6ILxmJLzh0ResJkC8Cy8UR2baBGLSWlnS+sE4UtOg6y3XLc1RRzsDIwybv8jAxoFJpBdHrv
- QVc9CBIR7xwS3hVUfrF1w==
-UI-OutboundReport: notjunk:1;M01:P0:poctkaI9GPE=;m7T45jtVfrBiKAm76cbW4OYPWJD
- DnlHSENzFmoiwsqff2cp6ddQzxJmQCj3JeP3sdYTKTeLOi4iAtsN0CHyn5ARJIDP015fwfg8b
- C/R493ubpDccVpffqQUuoBvTPFJ0BbusTzuas8oKbuRWY6WyZ5fOQnUeBBtXpQuFJHlL2rbjg
- UiWc12z0cqoKoNdZ8/aO4RaUqpbMoDSPLyA7O1TiQPKYqUgAyy18YMWfFk31NSLs7dzmnJPZf
- 9m+eX6UQ3gXOtbjN6iM6nZIZ+5UosHbeexjVVfN4FP2HWTZg8GQJk7xM+cBtS99ijVNFZj1if
- Ga/hFEsUkIX9XnJHuydM19C6Xmoielg78FqKy6ImT2fzXxGitrGFv6cmOIu7lE+69hcnd/Zbp
- RJ5csF+KZJD1d46OZBngC3Wvq6FyUwNxXYOc0XIXN5kumsqTyuyWpbEgStq9VyHXdDev+U+jw
- nrVoaTFVF++CB8g2vM0xV2UkI3M5gvYooGOgYBe62dU8sKI1b7K2c/ds85FouAehDH6Wyqmzp
- Xg3BvY24ThUJbfFu8YkLqTIPXktnWr+dwZQeVueQ0FYRkgI+sGBo8JXCFqxThUkYzZD135/V4
- Gn1eAp64bF4ncrtq2eqC1kxJCjYmLFKNox2733b3WHkCUazHANvv/ZUem5A4YqwSv/dwJyQkI
- deq6j9XAYIgx34FdovFB1GK0p3cSSJuhg94Pa6NBv8164dkVoSsrXj3ehde99fGkNg3DsYVOh
- +duPv8N0MXFQOdhS6l/HXIUjxJkMahnaOy7s4kdh/aAt+s5EP6sok6shIMddGtZgqHzoA76qG
- lXiA9rB4mg0fi0Wu4ujK0YCD44srVMMpHrS2UT07dHm4slphZJKnVzKmtXNIW38ZpiZ0QltDa
- l6CEyjo+yUpOnPzHLYMG05OT/S/uF5Jc1Nq4ubp8bFeGhCkadNSezdfRSP0sQ4zm/ll1d8Ryl
- 0eSqPGo4T6hPUIctGyYApJKqKa4=
+X-MS-Has-Attach: 
+X-MS-TNEF-Correlator: 
+user-agent: Evolution 3.44.4-0ubuntu1 
+authentication-results: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=intel.com;
+x-ms-publictraffictype: Email
+x-ms-traffictypediagnostic: MN0PR11MB5963:EE_|LV8PR11MB8770:EE_
+x-ms-office365-filtering-correlation-id: 842393ba-05d8-4e65-a368-08db86de4b47
+x-ld-processed: 46c98d88-e344-4ed4-8496-4ed7712e255d,ExtAddr
+x-ms-exchange-senderadcheck: 1
+x-ms-exchange-antispam-relay: 0
+x-microsoft-antispam: BCL:0;
+x-microsoft-antispam-message-info: RwnCdwxG9RtVoyeu0N+QLV+LSeUJtOr2t20RL+5m/laBXJkInu+vzU/Vl5hWTGuswMqty6wTjelRsWHc8o3RHbvSmeS/I4I/xre3uVQ6iRNYtSjdbyDqt27U2cJHNRfSoTqXIjGi65wfpVAlj0oy5Rnft5oJawcihujeBq9smTDjyfAuMNVqG0ADePky1Zg/SV/C1Oxf2MejxVePdraxQ9SIFChPD6SN6V+Rdp1NIv6K8H6JwJ+x8zGyOqFdhDS7S+sc09kDRjVQwKe0aaFBKd9eV/X0uayCSil72AHVXbsPUGGiIZcShE8ItLBnhtcP4TU1rkEWfj/5X7P9NbmgxVVgT87yJXNADVlVSdUAQdbmDcbQ8my3oSZBb260ghnPp2IQiA1wkEe5yYDjt1IdNuPdYDHMXXqHVHu5DHLc66tKD/VY5eq3N0W+PjEBTCrs0FyXV2CuHOQwdkZIfDBkF4gwuWldmKChGRYv455ZlIaLPsCS6f4BFqQ8UjRwa3eiSBB8oV1Tj+SvWX3EhC3vP7DzuiiVlhGju6oKg+IlIbSwbNDWP6Kaf0Tnl+fWsAw/n1GRcQqqXN/WqD+QkqBwxpWYP3QQRTbBzkPUAOU2zXk=
+x-forefront-antispam-report: CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:MN0PR11MB5963.namprd11.prod.outlook.com;PTR:;CAT:NONE;SFS:(13230028)(346002)(39860400002)(366004)(396003)(376002)(136003)(451199021)(38070700005)(82960400001)(478600001)(83380400001)(186003)(2616005)(26005)(6506007)(6512007)(966005)(6916009)(8676002)(4326008)(41300700001)(2906002)(316002)(5660300002)(6486002)(86362001)(71200400001)(8936002)(54906003)(66446008)(122000001)(66946007)(64756008)(36756003)(76116006)(38100700002)(91956017)(66556008)(7406005)(7416002)(7366002)(66476007);DIR:OUT;SFP:1102;
+x-ms-exchange-antispam-messagedata-chunkcount: 1
+x-ms-exchange-antispam-messagedata-0: =?utf-8?B?bzFVakpTSmZXUElMN3J4bldsTmxOdnhLaytJOFl2VWU4QzhVaUNlQWdHQS9i?=
+ =?utf-8?B?VHM0M3JwNjFjR2pVSE5MbUQ1U1BVWUMyalZQc3haR0hKUDZFa2ZWUU84NlF5?=
+ =?utf-8?B?cWhMQlh6by8wVWVmYm42RWFTMFRQTUhVSXF0eWhkS2dLVFQxM25KMHZqVTRm?=
+ =?utf-8?B?bTJXbThkMVlwQ3hVUzBJNWRqQzFsVks0TENvM1MwVG0zWTFWcnl1MUJ3Tmkw?=
+ =?utf-8?B?Z2RDWm1lbnY4Y3NWL28veUNVZzJDbzFyY3JNaDRlQXE1cE9IREVMWmNsUEo0?=
+ =?utf-8?B?WUYybU1TdDQ3SlBIUnFERFBkYWRhR3o0RE1tbE5QaTlCNHJYQnltbVZMOTh6?=
+ =?utf-8?B?MnZFUFBrLzYrci9uanlFME9EOVRiOWhNbVVEaXdCem8zQmFGQVpPL1Q1bm5a?=
+ =?utf-8?B?ekVZWmVDa2hNZDc3UVhFd3hIanF4ZGl0ei9RSk1vRzVKMW1naURGcVNBMEEz?=
+ =?utf-8?B?cldKSzcyemx3elc2Umc5WnFOV0xrYkRQZUJFanNkbTJDYWJrMmFZNFJOTVRr?=
+ =?utf-8?B?NDVjaFZyaGVQOWgyRjdIbDZQTk1uS25lczh2TWdrSGk5OWg5YWhtMVdLZStN?=
+ =?utf-8?B?aVV2NEhxUi9nM01iaVNvcUJta0k4VEJsTVExRFFwTG9wY3ZCYXBMYUd1aWxq?=
+ =?utf-8?B?b0oweXA2RERwUWtpM3lmL0syU25RdG1jS01YRDh5b253dUQwdzZaR05MTjZ2?=
+ =?utf-8?B?TkRUQmpTS2lQdVZQL2htWVRSNzZ3TnI5bE9qbHRWOHNrWUo3cnpVdzdOa0Iv?=
+ =?utf-8?B?d1lLVXlWcGVhaGFZV0ZjWDZyaGxySHY3ZkxveDdQTllVZlFrOHBjQ1JhdDcv?=
+ =?utf-8?B?czlKUjVCbVVVSEY3SjNad1hBMTc1TGpKaGZ3cUxqMWF0b245d1BPc2ptekRu?=
+ =?utf-8?B?Zm42T2lKbjhmM2pMMlVzb2RIc2pFQnRQWm5ybTJFOTlXSGsxekpBU3BFYm5F?=
+ =?utf-8?B?Y2RPcjJWOWQzMmkrZHlOZEFGd0FlZjRGZ0tYNjhvNzlxcnZraks1eEt6ZXJC?=
+ =?utf-8?B?TXhXRDBFWGx2dXNZR1AxOFp1ZG01cGtHYmZHbFhVaWFFYjNuT2NFSWI4UC9n?=
+ =?utf-8?B?aXRvajRxWE1DdThvWnpJZTU5RVJrdnF1WHF1Snd3dEd0RXhka1BZbkNiRk04?=
+ =?utf-8?B?cjlpTjJlSjhYVnY2cFFyNHhjcXZBT2ZVMkV5VVRMRlBvM1g2Z0s0NHFzaHVI?=
+ =?utf-8?B?ZHlWVU01ZmFJUURENmN3VzFscFUzQW9xdDVQdkswODJVVkpiVVgwRXpLTjZY?=
+ =?utf-8?B?dlhRaUttZmZsYUZ6OUxHOG92TTdYK1hZVDA0S2syNlpMcHR0MllWbC9LazhL?=
+ =?utf-8?B?UTIvVlh4U1p0US9vZHl2Rk5yc2J1MDhPZGhBWU4wUXJPN08zdmhqdmEyWHZF?=
+ =?utf-8?B?L3J4ZHNjR0srMjFReHdma2ZlS2FYT3RxVldOSXZkZVFHMnM0TUZyUjlESlk3?=
+ =?utf-8?B?L0h4R1IyLzdUUmZzU1h6WWxnVThYV2MwOGFnTlBJVEJOanNqZUdqYVpJVWdE?=
+ =?utf-8?B?WDZkUXdjWE45ZWEwcWdhU29Pckp1UzZMYituSmdsajJYUlM1cSt4TXhPL3hj?=
+ =?utf-8?B?NUc0bzV1QnRvNFA2Qk9nU21ZQXBBbDIyZ1dFbHRIa1EyVkcxUEZtRDdjaFEx?=
+ =?utf-8?B?TGdia3ZhNFZUaEt5MHZCTUl2clJvTVMwQXZSRnJCWXNxeVI5S3BCZHBpRW8v?=
+ =?utf-8?B?dndBaUpwVTRtM05XWFNvWWFCNVBTQW82TDhHUzd3TEU0VzF6ZlBMQ3NFblJj?=
+ =?utf-8?B?L2N5K0R4U3JyWEFZNzdnUG9aS2tTa3E5blFhYStiejFnOXBYQUlCcWZOTlJS?=
+ =?utf-8?B?TWZ3Mi8vMVErU1ppbCt4YmdDdnNTZ3cyVmlLbHJtK2tTakNFRlhnTkJXZ0cy?=
+ =?utf-8?B?WVR3dFhjbnV4bHFSTy9kMEhtaHY3Nk56UzBKTSt1K0YzY01ZdFBzMmhrdTgz?=
+ =?utf-8?B?UTU5czRoZ1Y3MTl5R1NRVkUvdk4xRkRrTENpZlhYbTJ4NTZVSmhDNzFaSU5O?=
+ =?utf-8?B?NXNYZ3JlTHMrbXhsazFjeGNncDlTclM3T3FHUjlEVkQwVDdSRHh5NkYwS3Vj?=
+ =?utf-8?B?OW1hRUkvRVFqUVRKSmtnMy9MZ21lc2w5M0xMdE01dW5lUVEwNDVHN0YxV3VW?=
+ =?utf-8?B?V3YrSVdUN0RhUzhDait6a3dTR3dBRHpzdjV5TWFpUHNZTEE1a1BHSVhvQ2lO?=
+ =?utf-8?B?VVE9PQ==?=
+Content-Type: text/plain; charset="utf-8"
+Content-ID: <F76615E78E972040956CCDC0942351CA@namprd11.prod.outlook.com>
+Content-Transfer-Encoding: base64
+MIME-Version: 1.0
+X-MS-Exchange-CrossTenant-AuthAs: Internal
+X-MS-Exchange-CrossTenant-AuthSource: MN0PR11MB5963.namprd11.prod.outlook.com
+X-MS-Exchange-CrossTenant-Network-Message-Id: 842393ba-05d8-4e65-a368-08db86de4b47
+X-MS-Exchange-CrossTenant-originalarrivaltime: 17 Jul 2023 15:55:50.6864
+ (UTC)
+X-MS-Exchange-CrossTenant-fromentityheader: Hosted
+X-MS-Exchange-CrossTenant-id: 46c98d88-e344-4ed4-8496-4ed7712e255d
+X-MS-Exchange-CrossTenant-mailboxtype: HOSTED
+X-MS-Exchange-CrossTenant-userprincipalname: Kc/iv+2N0HDSu5pNmYrS/qkLenQYjgtg+wM1EcGdTagdZH2THk1NmQV5BQs5xNNu+wgDdyamJT+fWb+sKlEbMr98GQyWN7wso9SlrHaCJa8=
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: LV8PR11MB8770
+X-OriginatorOrg: intel.com
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On 7/16/23 20:03, matoro wrote:
-> On 2023-07-16 02:54, Helge Deller wrote:
->> * matoro <matoro_mailinglist_kernel@matoro.tk>:
->>> On 2023-07-13 03:27, Helge Deller wrote:
->>> > * matoro <matoro_mailinglist_kernel@matoro.tk>:
->>> > > On 2023-07-12 16:30, Helge Deller wrote:
->>> > > > On 7/12/23 21:05, Helge Deller wrote:
->>> > > > > On 7/12/23 19:28, matoro wrote:
->>> > > > > > On 2023-07-12 12:24, Helge Deller wrote:
->>> > > > > > > Hi Matoro,
->>> > > > > > >
->>> > > > > > > * matoro <matoro_mailinglist_kernel@matoro.tk>:
->>> > > > > > > > On 2023-03-14 13:16, Jens Axboe wrote:
->>> > > > > > > > > From: Helge Deller <deller@gmx.de>
->>> > > > > > > > >
->>> > > > > > > > > Some architectures have memory cache aliasing requirem=
-ents (e.g. parisc)
->>> > > > > > > > > if memory is shared between userspace and kernel. This=
- patch fixes the
->>> > > > > > > > > kernel to return an aliased address when asked by user=
-space via mmap().
->>> > > > > > > > >
->>> > > > > > > > > Signed-off-by: Helge Deller <deller@gmx.de>
->>> > > > > > > > > Signed-off-by: Jens Axboe <axboe@kernel.dk>
->>> > > > > > > > > ---
->>> > > > > > > > >=C2=A0 io_uring/io_uring.c | 51 +++++++++++++++++++++++=
-++++++++++++++++++++++
->>> > > > > > > > >=C2=A0 1 file changed, 51 insertions(+)
->>> > > > > > > > >
->>> > > > > > > > > diff --git a/io_uring/io_uring.c b/io_uring/io_uring.c
->>> > > > > > > > > index 722624b6d0dc..3adecebbac71 100644
->>> > > > > > > > > --- a/io_uring/io_uring.c
->>> > > > > > > > > +++ b/io_uring/io_uring.c
->>> > > > > > > > > @@ -72,6 +72,7 @@
->>> > > > > > > > >=C2=A0 #include <linux/io_uring.h>
->>> > > > > > > > >=C2=A0 #include <linux/audit.h>
->>> > > > > > > > >=C2=A0 #include <linux/security.h>
->>> > > > > > > > > +#include <asm/shmparam.h>
->>> > > > > > > > >
->>> > > > > > > > >=C2=A0 #define CREATE_TRACE_POINTS
->>> > > > > > > > >=C2=A0 #include <trace/events/io_uring.h>
->>> > > > > > > > > @@ -3317,6 +3318,54 @@ static __cold int io_uring_mmap=
-(struct file
->>> > > > > > > > > *file, struct vm_area_struct *vma)
->>> > > > > > > > >=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 return remap_pfn_range(v=
-ma, vma->vm_start, pfn, sz,
->>> > > > > > > > > vma->vm_page_prot);
->>> > > > > > > > >=C2=A0 }
->>> > > > > > > > >
->>> > > > > > > > > +static unsigned long io_uring_mmu_get_unmapped_area(s=
-truct file *filp,
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0 unsigned long addr, unsigned long len,
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0 unsigned long pgoff, unsigned long flags)
->>> > > > > > > > > +{
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0 const unsigned long mmap_end =3D a=
-rch_get_mmap_end(addr, len, flags);
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0 struct vm_unmapped_area_info info;
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0 void *ptr;
->>> > > > > > > > > +
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0 /*
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0=C2=A0 * Do not allow to map to use=
-r-provided address to avoid breaking the
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0=C2=A0 * aliasing rules. Userspace =
-is not able to guess the offset address
->>> > > > > > > > > of
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0=C2=A0 * kernel kmalloc()ed memory =
-area.
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0=C2=A0 */
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0 if (addr)
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 return -EI=
-NVAL;
->>> > > > > > > > > +
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0 ptr =3D io_uring_validate_mmap_req=
-uest(filp, pgoff, len);
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0 if (IS_ERR(ptr))
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 return -EN=
-OMEM;
->>> > > > > > > > > +
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0 info.flags =3D VM_UNMAPPED_AREA_TO=
-PDOWN;
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0 info.length =3D len;
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0 info.low_limit =3D max(PAGE_SIZE, =
-mmap_min_addr);
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0 info.high_limit =3D arch_get_mmap_=
-base(addr, current->mm->mmap_base);
->>> > > > > > > > > +#ifdef SHM_COLOUR
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0 info.align_mask =3D PAGE_MASK & (S=
-HM_COLOUR - 1UL);
->>> > > > > > > > > +#else
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0 info.align_mask =3D PAGE_MASK & (S=
-HMLBA - 1UL);
->>> > > > > > > > > +#endif
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0 info.align_offset =3D (unsigned lo=
-ng) ptr;
->>> > > > > > > > > +
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0 /*
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0=C2=A0 * A failed mmap() very likel=
-y causes application failure,
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0=C2=A0 * so fall back to the bottom=
--up function here. This scenario
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0=C2=A0 * can happen with large stac=
-k limits and large mmap()
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0=C2=A0 * allocations.
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0=C2=A0 */
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0 addr =3D vm_unmapped_area(&info);
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0 if (offset_in_page(addr)) {
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 info.flags=
- =3D 0;
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 info.low_l=
-imit =3D TASK_UNMAPPED_BASE;
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 info.high_=
-limit =3D mmap_end;
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 addr =3D v=
-m_unmapped_area(&info);
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0 }
->>> > > > > > > > > +
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0 return addr;
->>> > > > > > > > > +}
->>> > > > > > > > > +
->>> > > > > > > > >=C2=A0 #else /* !CONFIG_MMU */
->>> > > > > > > > >
->>> > > > > > > > >=C2=A0 static int io_uring_mmap(struct file *file, stru=
-ct vm_area_struct *vma)
->>> > > > > > > > > @@ -3529,6 +3578,8 @@ static const struct file_operati=
-ons io_uring_fops
->>> > > > > > > > > =3D {
->>> > > > > > > > >=C2=A0 #ifndef CONFIG_MMU
->>> > > > > > > > >=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 .get_unmapped_area =3D i=
-o_uring_nommu_get_unmapped_area,
->>> > > > > > > > >=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 .mmap_capabilities =3D i=
-o_uring_nommu_mmap_capabilities,
->>> > > > > > > > > +#else
->>> > > > > > > > > +=C2=A0=C2=A0=C2=A0 .get_unmapped_area =3D io_uring_mm=
-u_get_unmapped_area,
->>> > > > > > > > >=C2=A0 #endif
->>> > > > > > > > >=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 .poll=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0=C2=A0=C2=A0 =3D io_uring_poll,
->>> > > > > > > > >=C2=A0 #ifdef CONFIG_PROC_FS
->>> > > > > > > >
->>> > > > > > > > Hi Jens, Helge - I've bisected a regression with
->>> > > > > > > > io_uring on ia64 to this
->>> > > > > > > > patch in 6.4.=C2=A0 Unfortunately this breaks userspace
->>> > > > > > > > programs using io_uring,
->>> > > > > > > > the easiest one to test is cmake with an io_uring
->>> > > > > > > > enabled libuv (i.e., libuv
->>> > > > > > > > >=3D 1.45.0) which will hang.
->>> > > > > > > >
->>> > > > > > > > I am aware that ia64 is in a vulnerable place right now
->>> > > > > > > > which I why I am
->>> > > > > > > > keeping this spread limited.=C2=A0 Since this clearly in=
-volves
->>> > > > > > > > architecture-specific changes for parisc,
->>> > > > > > >
->>> > > > > > > it isn't so much architecture-specific... (just one ifdef)
->>> > > > > > >
->>> > > > > > > > is there any chance of looking at
->>> > > > > > > > what is required to do the same for ia64?=C2=A0 I looked=
- at
->>> > > > > > > > 0ef36bd2b37815719e31a72d2beecc28ca8ecd26 ("parisc:
->>> > > > > > > > change value of SHMLBA
->>> > > > > > > > from 0x00400000 to PAGE_SIZE") and tried to replicate th=
-e SHMLBA ->
->>> > > > > > > > SHM_COLOUR change, but it made no difference.
->>> > > > > > > >
->>> > > > > > > > If hardware is necessary for testing, I can provide it,
->>> > > > > > > > including remote BMC
->>> > > > > > > > access for restarts/kernel debugging.=C2=A0 Any takers?
->>> > > > > > >
->>> > > > > > > I won't have time to test myself, but maybe you could test=
-?
->>> > > > > > >
->>> > > > > > > Basically we should try to find out why
->>> > > > > > > io_uring_mmu_get_unmapped_area()
->>> > > > > > > doesn't return valid addresses, while arch_get_unmapped_ar=
-ea()
->>> > > > > > > [in arch/ia64/kernel/sys_ia64.c] does.
->>> > > > > > >
->>> > > > > > > You could apply this patch first:
->>> > > > > > > It introduces a memory leak (as it requests memory twice),
->>> > > > > > > but maybe we
->>> > > > > > > get an idea?
->>> > > > > > > The ia64 arch_get_unmapped_area() searches for memory from=
- bottom
->>> > > > > > > (flags=3D0), while io_uring function tries top-down first.
->>> > > > > > > Maybe that's
->>> > > > > > > the problem. And I don't understand the offset_in_page() c=
-heck right
->>> > > > > > > now.
->>> > > > > > >
->>> > > > > > > diff --git a/io_uring/io_uring.c b/io_uring/io_uring.c
->>> > > > > > > index 3bca7a79efda..93b1964d2bbb 100644
->>> > > > > > > --- a/io_uring/io_uring.c
->>> > > > > > > +++ b/io_uring/io_uring.c
->>> > > > > > > @@ -3431,13 +3431,17 @@ static unsigned long
->>> > > > > > > io_uring_mmu_get_unmapped_area(struct file *filp,
->>> > > > > > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 * can happen with large sta=
-ck limits and large mmap()
->>> > > > > > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 * allocations.
->>> > > > > > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 */
->>> > > > > > > +/* compare to arch_get_unmapped_area() in
->>> > > > > > > arch/ia64/kernel/sys_ia64.c */
->>> > > > > > > =C2=A0=C2=A0=C2=A0=C2=A0 addr =3D vm_unmapped_area(&info);
->>> > > > > > > -=C2=A0=C2=A0=C2=A0 if (offset_in_page(addr)) {
->>> > > > > > > +printk("io_uring_mmu_get_unmapped_area() address 1 is:
->>> > > > > > > %px\n", addr);
->>> > > > > > > +=C2=A0=C2=A0=C2=A0 addr =3D NULL;
->>> > > > > > > +=C2=A0=C2=A0=C2=A0 if (!addr) {
->>> > > > > > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 info.flag=
-s =3D 0;
->>> > > > > > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 info.low_=
-limit =3D TASK_UNMAPPED_BASE;
->>> > > > > > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 info.high=
-_limit =3D mmap_end;
->>> > > > > > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 addr =3D =
-vm_unmapped_area(&info);
->>> > > > > > > =C2=A0=C2=A0=C2=A0=C2=A0 }
->>> > > > > > > +printk("io_uring_mmu_get_unmapped_area() returns address
->>> > > > > > > %px\n", addr);
->>> > > > > > >
->>> > > > > > > =C2=A0=C2=A0=C2=A0=C2=A0 return addr;
->>> > > > > > > =C2=A0}
->>> > > > > > >
->>> > > > > > >
->>> > > > > > > Another option is to disable the call to
->>> > > > > > > io_uring_nommu_get_unmapped_area())
->>> > > > > > > with the next patch. Maybe you could add printks() to ia64=
-'s
->>> > > > > > > arch_get_unmapped_area()
->>> > > > > > > and check what it returns there?
->>> > > > > > >
->>> > > > > > > @@ -3654,6 +3658,8 @@ static const struct file_operations
->>> > > > > > > io_uring_fops =3D {
->>> > > > > > > =C2=A0#ifndef CONFIG_MMU
->>> > > > > > > =C2=A0=C2=A0=C2=A0=C2=A0 .get_unmapped_area =3D io_uring_n=
-ommu_get_unmapped_area,
->>> > > > > > > =C2=A0=C2=A0=C2=A0=C2=A0 .mmap_capabilities =3D io_uring_n=
-ommu_mmap_capabilities,
->>> > > > > > > +#elif 0=C2=A0=C2=A0=C2=A0 /* IS_ENABLED(CONFIG_IA64) */
->>> > > > > > > +=C2=A0=C2=A0=C2=A0 .get_unmapped_area =3D NULL,
->>> > > > > > > =C2=A0#else
->>> > > > > > > =C2=A0=C2=A0=C2=A0=C2=A0 .get_unmapped_area =3D io_uring_m=
-mu_get_unmapped_area,
->>> > > > > > > =C2=A0#endif
->>> > > > > > >
->>> > > > > > > Helge
->>> > > > > >
->>> > > > > > Thanks Helge.=C2=A0 Sample output from that first patch:
->>> > > > > >
->>> > > > > > [Wed Jul 12 13:09:50 2023] io_uring_mmu_get_unmapped_area()
->>> > > > > > address 1 is: 1ffffffffff40000
->>> > > > > > [Wed Jul 12 13:09:50 2023] io_uring_mmu_get_unmapped_area()
->>> > > > > > returns address 2000000001e40000
->>> > > > > > [Wed Jul 12 13:09:50 2023] io_uring_mmu_get_unmapped_area()
->>> > > > > > address 1 is: 1ffffffffff20000
->>> > > > > > [Wed Jul 12 13:09:50 2023] io_uring_mmu_get_unmapped_area()
->>> > > > > > returns address 2000000001f20000
->>> > > > > > [Wed Jul 12 13:09:50 2023] io_uring_mmu_get_unmapped_area()
->>> > > > > > address 1 is: 1ffffffffff30000
->>> > > > > > [Wed Jul 12 13:09:50 2023] io_uring_mmu_get_unmapped_area()
->>> > > > > > returns address 2000000001f30000
->>> > > > > > [Wed Jul 12 13:09:50 2023] io_uring_mmu_get_unmapped_area()
->>> > > > > > address 1 is: 1ffffffffff90000
->>> > > > > > [Wed Jul 12 13:09:50 2023] io_uring_mmu_get_unmapped_area()
->>> > > > > > returns address 2000000001f90000
->>> > > > > >
->>> > > > > > This pattern seems to be pretty stable, I tried instead just
->>> > > > > > directly returning the result of a call to
->>> > > > > > arch_get_unmapped_area() at the end of the function and it s=
-eems
->>> > > > > > similar:
->>> > > > > >
->>> > > > > > [Wed Jul 12 13:27:07 2023] io_uring_mmu_get_unmapped_area()
->>> > > > > > would return address 1ffffffffffd0000
->>> > > > > > [Wed Jul 12 13:27:07 2023] but arch_get_unmapped_area() woul=
-d
->>> > > > > > return address 2000000001f00000
->>> > > > > > [Wed Jul 12 13:27:07 2023] io_uring_mmu_get_unmapped_area()
->>> > > > > > would return address 1ffffffffff00000
->>> > > > > > [Wed Jul 12 13:27:07 2023] but arch_get_unmapped_area() woul=
-d
->>> > > > > > return address 1ffffffffff00000
->>> > > > > > [Wed Jul 12 13:27:07 2023] io_uring_mmu_get_unmapped_area()
->>> > > > > > would return address 1fffffffffe20000
->>> > > > > > [Wed Jul 12 13:27:07 2023] but arch_get_unmapped_area() woul=
-d
->>> > > > > > return address 2000000002000000
->>> > > > > > [Wed Jul 12 13:27:07 2023] io_uring_mmu_get_unmapped_area()
->>> > > > > > would return address 1fffffffffe30000
->>> > > > > > [Wed Jul 12 13:27:07 2023] but arch_get_unmapped_area() woul=
-d
->>> > > > > > return address 2000000002100000
->>> > > > > >
->>> > > > > > Is that enough of a clue to go on?
->>> > > > >
->>> > > > > SHMLBA on ia64 is 0x100000:
->>> > > > > arch/ia64/include/asm/shmparam.h:#define=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0 SHMLBA=C2=A0 (1024*1024)
->>> > > > > but the values returned by io_uring_mmu_get_unmapped_area() do=
-es not
->>> > > > > fullfill this.
->>> > > > >
->>> > > > > So, probably ia64's SHMLBA isn't pulled in correctly in
->>> > > > > io_uring/io_uring.c.
->>> > > > > Check value of this line:
->>> > > > >=C2=A0 =C2=A0=C2=A0=C2=A0=C2=A0info.align_mask =3D PAGE_MASK & =
-(SHMLBA - 1UL);
->>> > > > >
->>> > > > > You could also add
->>> > > > > #define SHM_COLOUR=C2=A0 0x100000
->>> > > > > in front of the
->>> > > > >=C2=A0 =C2=A0=C2=A0=C2=A0=C2=A0#ifdef SHM_COLOUR
->>> > > > > (define SHM_COLOUR in io_uring/kbuf.c too).
->>> > > >
->>> > > > What is the value of PAGE_SIZE and "ptr" on your machine?
->>> > > > For 4k page size I get:
->>> > > > SHMLBA -1=C2=A0=C2=A0 ->=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0 FFFFF
->>> > > > PAGE_MASK=C2=A0=C2=A0 -> FFFFFFFFF000
->>> > > > so,
->>> > > > info.align_mask =3D PAGE_MASK & (SHMLBA - 1UL) =3D 0xFF000;
->>> > > > You could try to set nfo.align_mask =3D 0xfffff;
->>> > > >
->>> > > > Helge
->>> > >
->>> > > Using 64KiB (65536) PAGE_SIZE here.=C2=A0 64-bit pointers.
->>> > >
->>> > > Tried both #define SHM_COLOUR 0x100000, as well and info.align_mas=
-k =3D
->>> > > 0xFFFFF, but both of them made the problem change from 100%
->>> > > reproducible, to
->>> > > intermittent.
->>> > >
->>> > > After inspecting the ouput I observed that it hangs only when the
->>> > > first
->>> > > allocation returns an address below 0x2000000000000000, and the se=
-cond
->>> > > returns an address above it.=C2=A0 When both addresses are above i=
-t, it
->>> > > does not
->>> > > hang.=C2=A0 Examples:
->>> > >
->>> > > When it works:
->>> > > $ cmake --version
->>> > > cmake version 3.26.4
->>> > >
->>> > > CMake suite maintained and supported by Kitware (kitware.com/cmake=
-).
->>> > > $ dmesg --color=3Dalways -T | tail -n 4
->>> > > [Wed Jul 12 20:32:37 2023] io_uring_mmu_get_unmapped_area() would
->>> > > return
->>> > > address 1fffffffffe20000
->>> > > [Wed Jul 12 20:32:37 2023] but arch_get_unmapped_area() would retu=
-rn
->>> > > address
->>> > > 2000000002000000
->>> > > [Wed Jul 12 20:32:37 2023] io_uring_mmu_get_unmapped_area() would
->>> > > return
->>> > > address 1fffffffffe50000
->>> > > [Wed Jul 12 20:32:37 2023] but arch_get_unmapped_area() would retu=
-rn
->>> > > address
->>> > > 2000000002100000
->>> > >
->>> > >
->>> > > When it hangs:
->>> > > $ cmake --version
->>> > > cmake version 3.26.4
->>> > >
->>> > > CMake suite maintained and supported by Kitware (kitware.com/cmake=
-).
->>> > > ^C
->>> > > $ dmesg --color=3Dalways -T | tail -n 4
->>> > > [Wed Jul 12 20:33:12 2023] io_uring_mmu_get_unmapped_area() would
->>> > > return
->>> > > address 1ffffffffff00000
->>> > > [Wed Jul 12 20:33:12 2023] but arch_get_unmapped_area() would retu=
-rn
->>> > > address
->>> > > 1ffffffffff00000
->>> > > [Wed Jul 12 20:33:12 2023] io_uring_mmu_get_unmapped_area() would
->>> > > return
->>> > > address 1fffffffffe60000
->>> > > [Wed Jul 12 20:33:12 2023] but arch_get_unmapped_area() would retu=
-rn
->>> > > address
->>> > > 2000000001f00000
->>> > >
->>> > > Is io_uring_mmu_get_unmapped_area supported to always return
->>> > > addresses above
->>> > > 0x2000000000000000?
->>> >
->>> > Yes, with the patch below.
->>> >
->>> > > Any reason why it is not doing so sometimes?
->>> >
->>> > It depends on the parameters for vm_unmapped_area(). Specifically
->>> > info.flags=3D0.
->>> >
->>> > Try this patch:
->>> >
->>> > diff --git a/io_uring/io_uring.c b/io_uring/io_uring.c
->>> > index 3bca7a79efda..b259794ab53b 100644
->>> > --- a/io_uring/io_uring.c
->>> > +++ b/io_uring/io_uring.c
->>> > @@ -3429,10 +3429,13 @@ static unsigned long
->>> > io_uring_mmu_get_unmapped_area(struct file *filp,
->>> >=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 * A failed mmap() very likely ca=
-uses application failure,
->>> >=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 * so fall back to the bottom-up =
-function here. This scenario
->>> >=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 * can happen with large stack li=
-mits and large mmap()
->>> > -=C2=A0=C2=A0=C2=A0=C2=A0 * allocations.
->>> > +=C2=A0=C2=A0=C2=A0=C2=A0 * allocations. Use bottom-up on IA64 for c=
-orrect aliasing.
->>> >=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 */
->>> > -=C2=A0=C2=A0=C2=A0 addr =3D vm_unmapped_area(&info);
->>> > -=C2=A0=C2=A0=C2=A0 if (offset_in_page(addr)) {
->>> > +=C2=A0=C2=A0=C2=A0 if (IS_ENABLED(CONFIG_IA64))
->>> > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 addr =3D NULL;
->>> > +=C2=A0=C2=A0=C2=A0 else
->>> > +=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 addr =3D vm_unmapped_are=
-a(&info);
->>> > +=C2=A0=C2=A0=C2=A0 if (!addr) {
->>> >=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 info.flags =3D=
- 0;
->>> >=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 info.low_limit=
- =3D TASK_UNMAPPED_BASE;
->>> >=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 info.high_limi=
-t =3D mmap_end;
->>> >
->>> > Helge
->>>
->>> This patch does do the trick, but I am a little unsure if it's the rig=
-ht one
->>> to go in:
->>>
->>> * Adding an arch-specific conditional feels like a bad hack, why is it=
- not
->>> working with the other vm_unmapped_area_info settings?
->>
->> because it tries to map below TASK_UNMAPPED_BASE, for which (I assume) =
-IA-64
->> has different aliasing/caching rules. There are some comments in the ar=
-ch/ia64
->> files, but I'm not a IA-64 expert...
->>
->>> * What happened to the offset_in_page check for other arches?
->>
->> I thought it's not necessary.
->>
->> But below is another (and much better) approach, which you may test.
->> I see quite some errors with the liburing testcases on hppa, but I thin=
-k
->> they are not related to this function.
->>
->> Can you test and report back?
->>
->> Helge
->>
->>
->> From 457f2c2db984bc159119bfb4426d9dc6c2779ed6 Mon Sep 17 00:00:00 2001
->> From: Helge Deller <deller@gmx.de>
->> Date: Sun, 16 Jul 2023 08:45:17 +0200
->> Subject: [PATCH] io_uring: Adjust mapping wrt architecture aliasing
->> =C2=A0requirements
->>
->> When mapping memory to userspace use the architecture-provided
->> get_unmapped_area() function instead of the own copy which fails on
->> IA-64 since it doesn't allow mappings below TASK_UNMAPPED_BASE.
->>
->> Additionally make sure to flag the requested memory as MAP_SHARED so
->> that any architecture-specific aliasing rules will be applied.
->>
->> Reported-by: matoro <matoro_mailinglist_kernel@matoro.tk>
->> Signed-off-by: Helge Deller <deller@gmx.de>
->>
->> diff --git a/io_uring/io_uring.c b/io_uring/io_uring.c
->> index 3bca7a79efda..2e7dd93e45d0 100644
->> --- a/io_uring/io_uring.c
->> +++ b/io_uring/io_uring.c
->> @@ -3398,48 +3398,27 @@ static unsigned long io_uring_mmu_get_unmapped_=
-area(struct file *filp,
->> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0 unsigned long addr, unsigned long len,
->> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0 unsigned long pgoff, unsigned long flags)
->> =C2=A0{
->> -=C2=A0=C2=A0=C2=A0 const unsigned long mmap_end =3D arch_get_mmap_end(=
-addr, len, flags);
->> -=C2=A0=C2=A0=C2=A0 struct vm_unmapped_area_info info;
->> =C2=A0=C2=A0=C2=A0=C2=A0 void *ptr;
->>
->> =C2=A0=C2=A0=C2=A0=C2=A0 /*
->> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 * Do not allow to map to user-provided a=
-ddress to avoid breaking the
->> -=C2=A0=C2=A0=C2=A0=C2=A0 * aliasing rules. Userspace is not able to gu=
-ess the offset address of
->> -=C2=A0=C2=A0=C2=A0=C2=A0 * kernel kmalloc()ed memory area.
->> +=C2=A0=C2=A0=C2=A0=C2=A0 * aliasing rules of various architectures. Us=
-erspace is not able to
->> +=C2=A0=C2=A0=C2=A0=C2=A0 * guess the offset address of kernel kmalloc(=
-)ed memory area.
->> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 */
->> -=C2=A0=C2=A0=C2=A0 if (addr)
->> +=C2=A0=C2=A0=C2=A0 if (addr | (flags & MAP_FIXED))
->> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 return -EINVAL;
->>
->> +=C2=A0=C2=A0=C2=A0 /*
->> +=C2=A0=C2=A0=C2=A0=C2=A0 * The requested memory region is required to =
-be shared between kernel
->> +=C2=A0=C2=A0=C2=A0=C2=A0 * and userspace application.
->> +=C2=A0=C2=A0=C2=A0=C2=A0 */
->> +=C2=A0=C2=A0=C2=A0 flags |=3D MAP_SHARED;
->> +
->> =C2=A0=C2=A0=C2=A0=C2=A0 ptr =3D io_uring_validate_mmap_request(filp, p=
-goff, len);
->> =C2=A0=C2=A0=C2=A0=C2=A0 if (IS_ERR(ptr))
->> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 return -ENOMEM;
->>
->> -=C2=A0=C2=A0=C2=A0 info.flags =3D VM_UNMAPPED_AREA_TOPDOWN;
->> -=C2=A0=C2=A0=C2=A0 info.length =3D len;
->> -=C2=A0=C2=A0=C2=A0 info.low_limit =3D max(PAGE_SIZE, mmap_min_addr);
->> -=C2=A0=C2=A0=C2=A0 info.high_limit =3D arch_get_mmap_base(addr, curren=
-t->mm->mmap_base);
->> -#ifdef SHM_COLOUR
->> -=C2=A0=C2=A0=C2=A0 info.align_mask =3D PAGE_MASK & (SHM_COLOUR - 1UL);
->> -#else
->> -=C2=A0=C2=A0=C2=A0 info.align_mask =3D PAGE_MASK & (SHMLBA - 1UL);
->> -#endif
->> -=C2=A0=C2=A0=C2=A0 info.align_offset =3D (unsigned long) ptr;
->> -
->> -=C2=A0=C2=A0=C2=A0 /*
->> -=C2=A0=C2=A0=C2=A0=C2=A0 * A failed mmap() very likely causes applicat=
-ion failure,
->> -=C2=A0=C2=A0=C2=A0=C2=A0 * so fall back to the bottom-up function here=
-. This scenario
->> -=C2=A0=C2=A0=C2=A0=C2=A0 * can happen with large stack limits and larg=
-e mmap()
->> -=C2=A0=C2=A0=C2=A0=C2=A0 * allocations.
->> -=C2=A0=C2=A0=C2=A0=C2=A0 */
->> -=C2=A0=C2=A0=C2=A0 addr =3D vm_unmapped_area(&info);
->> -=C2=A0=C2=A0=C2=A0 if (offset_in_page(addr)) {
->> -=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 info.flags =3D 0;
->> -=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 info.low_limit =3D TASK_UNM=
-APPED_BASE;
->> -=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 info.high_limit =3D mmap_en=
-d;
->> -=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 addr =3D vm_unmapped_area(&=
-info);
->> -=C2=A0=C2=A0=C2=A0 }
->> -
->> -=C2=A0=C2=A0=C2=A0 return addr;
->> +=C2=A0=C2=A0=C2=A0 return current->mm->get_unmapped_area(filp, addr, l=
-en, pgoff, flags);
->> =C2=A0}
->>
->> =C2=A0#else /* !CONFIG_MMU */
->
-> This seems really close.=C2=A0 It worked for the trivial test case, so I=
- ran the test suite from https://github.com/axboe/liburing to compare.=C2=
-=A0 With kernel 6.3, I get 100% pass, after I get one failure:
-> Running test read-write.t cqe->res=3D33, expected=3D32
-> test_rem_buf_single(BUFFERS + 1) failed
-> Not root, skipping test_write_efbig
-> Test read-write.t failed with ret 1
->
-> Trying this patch out on other arches to see if it also affects them or =
-is ia64-specific.
-
-I'm sorry, but this patch does break parisc heavily...
-
-I'll need to think more...
-
-Helge
-
-
-
+T24gRnJpLCAyMDIzLTA3LTE0IGF0IDIzOjU3ICswMTAwLCBNYXJrIEJyb3duIHdyb3RlOg0KPiBP
+biBNb24sIEp1biAxMiwgMjAyMyBhdCAwNToxMDoyN1BNIC0wNzAwLCBSaWNrIEVkZ2Vjb21iZSB3
+cm90ZToNCj4gPiBUaGUgeDg2IFNoYWRvdyBzdGFjayBmZWF0dXJlIGluY2x1ZGVzIGEgbmV3IHR5
+cGUgb2YgbWVtb3J5IGNhbGxlZA0KPiA+IHNoYWRvdw0KPiA+IHN0YWNrLiBUaGlzIHNoYWRvdyBz
+dGFjayBtZW1vcnkgaGFzIHNvbWUgdW51c3VhbCBwcm9wZXJ0aWVzLCB3aGljaA0KPiA+IHJlcXVp
+cmVzDQo+ID4gc29tZSBjb3JlIG1tIGNoYW5nZXMgdG8gZnVuY3Rpb24gcHJvcGVybHkuDQo+IA0K
+PiBUaGlzIHNlZW1zIHRvIGJyZWFrIHNwYXJjNjRfZGVmY29uZmlnIHdoZW4gYXBwbGllZCBvbiB0
+b3Agb2YgdjYuNS0NCj4gcmMxOg0KPiANCj4gSW4gZmlsZSBpbmNsdWRlZCBmcm9tIC9ob21lL2Jy
+b29uaWUvZ2l0L2Jpc2VjdC9pbmNsdWRlL2xpbnV4L21tLmg6MjksDQo+IMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgIGZyb20gL2hvbWUvYnJvb25pZS9naXQvYmlzZWN0L25ldC9jb3Jl
+L3NrYnVmZi5jOjQwOg0KPiAvaG9tZS9icm9vbmllL2dpdC9iaXNlY3QvaW5jbHVkZS9saW51eC9w
+Z3RhYmxlLmg6IEluIGZ1bmN0aW9uDQo+ICdwbWRfbWt3cml0ZSc6DQo+IC9ob21lL2Jyb29uaWUv
+Z2l0L2Jpc2VjdC9pbmNsdWRlL2xpbnV4L3BndGFibGUuaDo1Mjg6OTogZXJyb3I6DQo+IGltcGxp
+Y2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uICdwbWRfbWt3cml0ZV9ub3ZtYSc7IGRpZCB5b3Ug
+bWVhbg0KPiAncHRlX21rd3JpdGVfbm92bWEnPyBbLVdlcnJvcj1pbXBsaWNpdC1mdW5jdGlvbi1k
+ZWNsYXJhdGlvbl0NCj4gwqAgcmV0dXJuIHBtZF9ta3dyaXRlX25vdm1hKHBtZCk7DQo+IMKgwqDC
+oMKgwqDCoMKgwqAgXn5+fn5+fn5+fn5+fn5+fn4NCj4gwqDCoMKgwqDCoMKgwqDCoCBwdGVfbWt3
+cml0ZV9ub3ZtYQ0KPiAvaG9tZS9icm9vbmllL2dpdC9iaXNlY3QvaW5jbHVkZS9saW51eC9wZ3Rh
+YmxlLmg6NTI4Ojk6IGVycm9yOg0KPiBpbmNvbXBhdGlibGUgdHlwZXMgd2hlbiByZXR1cm5pbmcg
+dHlwZSAnaW50JyBidXQgJ3BtZF90JyB7YWthICdzdHJ1Y3QNCj4gPGFub255bW91cz4nfSB3YXMg
+ZXhwZWN0ZWQNCj4gwqAgcmV0dXJuIHBtZF9ta3dyaXRlX25vdm1hKHBtZCk7DQo+IMKgwqDCoMKg
+wqDCoMKgwqAgXn5+fn5+fn5+fn5+fn5+fn5+fn5+fg0KPiANCj4gVGhlIHNhbWUgaXNzdWUgc2Vl
+bXMgdG8gYXBwbHkgd2l0aCB0aGUgdmVyc2lvbiB0aGF0IHdhcyBpbiAtbmV4dA0KPiBiYXNlZA0K
+PiBvbiB2Ni40LXJjNCB0b28uDQoNClRoZSB2ZXJzaW9uIGluIHlvdXIgYnJhbmNoIGlzIG5vdCB0
+aGUgc2FtZSBhcyB0aGUgdmVyc2lvbiBpbiB0aXAgKHdoaWNoDQpoYWQgYSBzcXVhc2hlZCBidWls
+ZCBmaXgpLiBJIHdhcyBhYmxlIHRvIHJlcHJvZHVjZSB0aGUgYnVpbGQgZXJyb3Igd2l0aA0KeW91
+ciBicmFuY2guIEJ1dCBub3Qgd2l0aCB0aGUgb25lIGluIHRpcCByZWJhc2VkIG9uIHY2LjUtcmMx
+LiBTbyBjYW4NCnlvdSB0cnkgdGhpcyB2ZXJzaW9uOg0KaHR0cHM6Ly9naXQua2VybmVsLm9yZy9w
+dWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvdGlwL3RpcC5naXQvY29tbWl0Lz9oPXg4Ni9zaHN0ayZp
+ZD04OTkyMjNkNjljZTlmMzM4MDU2ZjRjNDFlZjg3MGQ3MDA0MGZjODYwDQoNCg0K
