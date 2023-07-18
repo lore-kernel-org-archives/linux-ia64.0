@@ -2,154 +2,98 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 85E2BC04E69
-	for <linux-ia64@archiver.kernel.org>; Mon, 17 Jul 2023 16:52:03 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 949A4EB64DA
+	for <linux-ia64@archiver.kernel.org>; Tue, 18 Jul 2023 04:14:28 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S232054AbjGQQwC (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Mon, 17 Jul 2023 12:52:02 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:53696 "EHLO
+        id S229481AbjGREO1 (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Tue, 18 Jul 2023 00:14:27 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:51570 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S231623AbjGQQv5 (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Mon, 17 Jul 2023 12:51:57 -0400
-Received: from dfw.source.kernel.org (dfw.source.kernel.org [139.178.84.217])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id E32F7170D;
-        Mon, 17 Jul 2023 09:51:47 -0700 (PDT)
-Received: from smtp.kernel.org (relay.kernel.org [52.25.139.140])
-        (using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
-         key-exchange X25519 server-signature RSA-PSS (2048 bits))
-        (No client certificate requested)
-        by dfw.source.kernel.org (Postfix) with ESMTPS id 063A661181;
-        Mon, 17 Jul 2023 16:51:47 +0000 (UTC)
-Received: by smtp.kernel.org (Postfix) with ESMTPSA id 812EAC433C7;
-        Mon, 17 Jul 2023 16:51:34 +0000 (UTC)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=kernel.org;
-        s=k20201202; t=1689612706;
-        bh=GDoZ+CsfFo9PibsTP4iZm+ttTgfHxn11DDJbAlCFH8E=;
-        h=Date:From:To:Cc:Subject:References:In-Reply-To:From;
-        b=ZEoHMX2JdQeUVyNkgdWBKI6yr5pe/INc5DfODCru+00fN8J5XJg/01FraxC5Uf+FG
-         XLGyykcZarElT+yfQ88/qw3rxbdtmQwlMm4MVMWcjVA8W1BzI++pek5YZKKBwI7XR6
-         Vc/WH98m5BnS7DdeM2++eaKr94hk2O0k89Bc1b9ybe/FsHvQBWZ/9PaJFm5XUvbhPh
-         78TOOOqQ+Nd6w2oOqOYhgVZm+Y7ykGxydEmczeSZwjlePi5nZMkHrFdDg9hL8zxSio
-         SCc95tvYUaXDed+x2C7VwVXHcnKo0+0JBdhxm/Vl4xw/gxBOwJrvOMJAyCgSMZ+3MK
-         +O+f2UpDtYbxQ==
-Date:   Mon, 17 Jul 2023 17:51:31 +0100
-From:   Mark Brown <broonie@kernel.org>
-To:     "Edgecombe, Rick P" <rick.p.edgecombe@intel.com>
-Cc:     "Schimpe, Christina" <christina.schimpe@intel.com>,
-        "Yang, Weijiang" <weijiang.yang@intel.com>,
-        "hjl.tools@gmail.com" <hjl.tools@gmail.com>,
-        "x86@kernel.org" <x86@kernel.org>,
-        "monstr@monstr.eu" <monstr@monstr.eu>,
-        "rppt@kernel.org" <rppt@kernel.org>,
-        "dave.hansen@linux.intel.com" <dave.hansen@linux.intel.com>,
-        "linux-snps-arc@lists.infradead.org" 
-        <linux-snps-arc@lists.infradead.org>,
-        "Torvalds, Linus" <torvalds@linux-foundation.org>,
-        "kirill.shutemov@linux.intel.com" <kirill.shutemov@linux.intel.com>,
-        "linux-api@vger.kernel.org" <linux-api@vger.kernel.org>,
-        "dinguyen@kernel.org" <dinguyen@kernel.org>,
-        "rdunlap@infradead.org" <rdunlap@infradead.org>,
-        "tglx@linutronix.de" <tglx@linutronix.de>,
-        "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>,
-        "arnd@arndb.de" <arnd@arndb.de>,
-        "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>,
-        "Lutomirski, Andy" <luto@kernel.org>,
-        "szabolcs.nagy@arm.com" <szabolcs.nagy@arm.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>,
-        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-        "pavel@ucw.cz" <pavel@ucw.cz>,
-        "keescook@chromium.org" <keescook@chromium.org>,
-        "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-        "gorcunov@gmail.com" <gorcunov@gmail.com>,
-        "andrew.cooper3@citrix.com" <andrew.cooper3@citrix.com>,
-        "david@redhat.com" <david@redhat.com>,
-        "hpa@zytor.com" <hpa@zytor.com>,
-        "loongarch@lists.linux.dev" <loongarch@lists.linux.dev>,
-        "peterz@infradead.org" <peterz@infradead.org>,
-        "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
-        "nadav.amit@gmail.com" <nadav.amit@gmail.com>,
-        "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>,
-        "linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-        "openrisc@lists.librecores.org" <openrisc@lists.librecores.org>,
-        "jamorris@linux.microsoft.com" <jamorris@linux.microsoft.com>,
-        "mike.kravetz@oracle.com" <mike.kravetz@oracle.com>,
-        "debug@rivosinc.com" <debug@rivosinc.com>,
-        "fweimer@redhat.com" <fweimer@redhat.com>,
-        "kcc@google.com" <kcc@google.com>,
-        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
-        "mingo@redhat.com" <mingo@redhat.com>,
-        "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>,
-        "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>,
-        "john.allen@amd.com" <john.allen@amd.com>,
-        "Eranian, Stephane" <eranian@google.com>,
-        "bsingharora@gmail.com" <bsingharora@gmail.com>,
-        "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>,
-        "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
-        "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>,
-        "linux-um@lists.infradead.org" <linux-um@lists.infradead.org>,
-        "linux-arm-kernel@lists.infradead.org" 
-        <linux-arm-kernel@lists.infradead.org>,
-        "torvalds@linuxfoundation.org" <torvalds@linuxfoundation.org>,
-        "bp@alien8.de" <bp@alien8.de>, "corbet@lwn.net" <corbet@lwn.net>,
-        "linux-hexagon@vger.kernel.org" <linux-hexagon@vger.kernel.org>,
-        "dethoma@microsoft.com" <dethoma@microsoft.com>,
-        "jannh@google.com" <jannh@google.com>,
-        "Syromiatnikov, Eugene" <esyr@redhat.com>,
-        "oleg@redhat.com" <oleg@redhat.com>,
-        "linux-mm@kvack.org" <linux-mm@kvack.org>
-Subject: Re: [PATCH v9 01/42] mm: Rename arch pte_mkwrite()'s to
- pte_mkwrite_novma()
-Message-ID: <285d346e-14e7-4f43-9b5b-faded6205142@sirena.org.uk>
-References: <20230613001108.3040476-1-rick.p.edgecombe@intel.com>
- <20230613001108.3040476-2-rick.p.edgecombe@intel.com>
- <b389274a-abed-40dc-8e33-7ce922ea9b61@sirena.org.uk>
- <87acbb49fa83b0e3f261315a531e105da9e5b9d6.camel@intel.com>
+        with ESMTP id S230227AbjGREOW (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Tue, 18 Jul 2023 00:14:22 -0400
+Received: from mga01.intel.com (mga01.intel.com [192.55.52.88])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id A340CE4C
+        for <linux-ia64@vger.kernel.org>; Mon, 17 Jul 2023 21:14:20 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple;
+  d=intel.com; i=@intel.com; q=dns/txt; s=Intel;
+  t=1689653660; x=1721189660;
+  h=date:from:to:cc:subject:message-id:mime-version;
+  bh=KapuiXsbrVpnrQRhJb26zrxebwlUVw0bp6t27/wbjnU=;
+  b=fs1DPNaum/lb5uHy741tclUDUK2h2ykiX/CK8LOQllub8Hz7MZsWv48a
+   Xk1qXhm7IpvpN4ZVjuHYUfi5nRrbO1LQtjrcfmynoWj6mb6DmaqZiT1Iy
+   TPyK4s6CfgFZ1YhY+T7J4pqklsHLYqIqup6gvOH5FXMflc7zboU7TGDza
+   f7wNDwB1hyGI36hBox/mtsHHpVtJ2D6ljE/721fNLcjRRxd1V74uSmAiX
+   5Fq6Vh9LUIXlXVMx+c4dzQux97KBrjB7vd8AjsEKEBNqzHntE//OJSFzx
+   ulKyP+fKF1hft+M2YSHY9+RnzIjJ+V8ZftPtJxQvjQtbPzKWvtqXu4u3r
+   g==;
+X-IronPort-AV: E=McAfee;i="6600,9927,10774"; a="396941354"
+X-IronPort-AV: E=Sophos;i="6.01,213,1684825200"; 
+   d="scan'208";a="396941354"
+Received: from orsmga001.jf.intel.com ([10.7.209.18])
+  by fmsmga101.fm.intel.com with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 17 Jul 2023 21:14:20 -0700
+X-ExtLoop1: 1
+X-IronPort-AV: E=McAfee;i="6600,9927,10774"; a="758655220"
+X-IronPort-AV: E=Sophos;i="6.01,213,1684825200"; 
+   d="scan'208";a="758655220"
+Received: from lkp-server02.sh.intel.com (HELO 36946fcf73d7) ([10.239.97.151])
+  by orsmga001.jf.intel.com with ESMTP; 17 Jul 2023 21:14:18 -0700
+Received: from kbuild by 36946fcf73d7 with local (Exim 4.96)
+        (envelope-from <lkp@intel.com>)
+        id 1qLc6M-0000Br-0d;
+        Tue, 18 Jul 2023 04:14:18 +0000
+Date:   Tue, 18 Jul 2023 12:14:02 +0800
+From:   kernel test robot <lkp@intel.com>
+To:     Tony Luck <tony.luck@intel.com>
+Cc:     oe-kbuild-all@lists.linux.dev, linux-ia64@vger.kernel.org
+Subject: [aegl:resctrl2_v65rc1 2/11] fs/resctrl2/arch/x86/rdt_monitor.c:466:
+ undefined reference to `__udivdi3'
+Message-ID: <202307181250.VpWoObkT-lkp@intel.com>
 MIME-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-        protocol="application/pgp-signature"; boundary="klyEM8Lfv/18WVhb"
+Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
-In-Reply-To: <87acbb49fa83b0e3f261315a531e105da9e5b9d6.camel@intel.com>
-X-Cookie: Not a flying toy.
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
+tree:   https://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git resctrl2_v65rc1
+head:   16f9fb3b3a3875cdb7f611d60e5072ed15feec27
+commit: 6ea3248fa5ec877bbd6a7a1201775ae486016256 [2/11] resctrl2: Arch x86 modules for most of the legacy control/monitor functions Missing: 1) Pseudo-locking 2) AMD SMBA/BMEC 3) Other stuff I haven't noticed
+config: i386-randconfig-r006-20230718 (https://download.01.org/0day-ci/archive/20230718/202307181250.VpWoObkT-lkp@intel.com/config)
+compiler: gcc-12 (Debian 12.2.0-14) 12.2.0
+reproduce: (https://download.01.org/0day-ci/archive/20230718/202307181250.VpWoObkT-lkp@intel.com/reproduce)
 
---klyEM8Lfv/18WVhb
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+If you fix the issue in a separate patch/commit (i.e. not just a new version of
+the same patch/commit), kindly add following tags
+| Reported-by: kernel test robot <lkp@intel.com>
+| Closes: https://lore.kernel.org/oe-kbuild-all/202307181250.VpWoObkT-lkp@intel.com/
 
-On Mon, Jul 17, 2023 at 03:55:50PM +0000, Edgecombe, Rick P wrote:
-> On Fri, 2023-07-14 at 23:57 +0100, Mark Brown wrote:
+All errors (new ones prefixed by >>):
 
-> > The same issue seems to apply with the version that was in -next
-> > based
-> > on v6.4-rc4 too.
+   ld: fs/resctrl2/arch/x86/rdt_monitor.o: in function `mbm_poll_threshold_write':
+>> fs/resctrl2/arch/x86/rdt_monitor.c:466: undefined reference to `__udivdi3'
 
-> The version in your branch is not the same as the version in tip (which
-> had a squashed build fix). I was able to reproduce the build error with
-> your branch. But not with the one in tip rebased on v6.5-rc1. So can
-> you try this version:
-> https://git.kernel.org/pub/scm/linux/kernel/git/tip/tip.git/commit/?h=x86/shstk&id=899223d69ce9f338056f4c41ef870d70040fc860
 
-Ah, I'd not seen that patch or that tip had been rebased - I'd actually
-been using literally the branch from tip as my base at whatever point I
-last noticed it changing up until I rebased onto -rc1.
+vim +466 fs/resctrl2/arch/x86/rdt_monitor.c
 
---klyEM8Lfv/18WVhb
-Content-Type: application/pgp-signature; name="signature.asc"
+   453	
+   454	static ssize_t mbm_poll_threshold_write(char *buf, size_t nbytes)
+   455	{
+   456		unsigned int mbytes;
+   457		int ret;
+   458	
+   459		ret = kstrtouint(buf, 0, &mbytes);
+   460		if (ret)
+   461			return ret;
+   462		if (mbytes > MBM_POLL_THRESHOLD)
+   463			return -EINVAL;
+   464	
+   465		mbm_poll_threshold = mbytes;
+ > 466		mbm_poll_threshold_chunks = ((u64)mbytes << 20) / upscale;
+   467	
+   468		return nbytes;
+   469	}
+   470	
 
------BEGIN PGP SIGNATURE-----
-
-iQEzBAABCgAdFiEEreZoqmdXGLWf4p/qJNaLcl1Uh9AFAmS1cZIACgkQJNaLcl1U
-h9DfWwf/Qv2sx8Qywn2HA+F1wJsVWOOqaPIZzIVBQ5Kg2bysQK3YMNLLZWKdXMsh
-sTgXGVlr5oANLjP/hYxvcaxk16N1y51q6PuBh4lJN1w37tEdph1ZIcSejQY/jKpf
-fKFWHZ++2w+lXvIOB/7rYQe+XutmQzCVmL0Cod8zxf2UhC4WJe9/3RCKxi6rfxuV
-NXldTW7h7dqnurbev4TX4npwjcetNGofPUer7VZD7o1vRKXvX9VLG42UbeV4cu+g
-ICKZmGwC9G23gWg0Ql2QkeOr43PLBo4AocKhyO6B22uYLOrA8BQHJUrbnD4ZUyD+
-4rWq0iWXOnrixnw11LOSSIVZ2HkwmQ==
-=SaIl
------END PGP SIGNATURE-----
-
---klyEM8Lfv/18WVhb--
+-- 
+0-DAY CI Kernel Test Service
+https://github.com/intel/lkp-tests/wiki
