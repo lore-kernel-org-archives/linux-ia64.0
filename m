@@ -2,136 +2,207 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id BA960C001E0
-	for <linux-ia64@archiver.kernel.org>; Wed, 19 Jul 2023 14:59:02 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 188D1C0015E
+	for <linux-ia64@archiver.kernel.org>; Wed, 19 Jul 2023 21:21:06 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S231176AbjGSO7B (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Wed, 19 Jul 2023 10:59:01 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:47732 "EHLO
+        id S229935AbjGSVVF (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Wed, 19 Jul 2023 17:21:05 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:59594 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S229646AbjGSO7A (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Wed, 19 Jul 2023 10:59:00 -0400
-Received: from mout.gmx.net (mout.gmx.net [212.227.17.20])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id D18D7C0;
-        Wed, 19 Jul 2023 07:58:58 -0700 (PDT)
+        with ESMTP id S229536AbjGSVVE (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Wed, 19 Jul 2023 17:21:04 -0400
+Received: from mout.gmx.net (mout.gmx.net [212.227.17.22])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id CB3271FC0;
+        Wed, 19 Jul 2023 14:21:02 -0700 (PDT)
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=gmx.de;
- s=s31663417; t=1689778659; x=1690383459; i=deller@gmx.de;
- bh=iQUnHGbic8gu+ig2/dvuRMVZ9NdHOWOrYR1bIcIdEEI=;
- h=X-UI-Sender-Class:Date:Subject:To:Cc:References:From:In-Reply-To;
- b=Oj76ZDbvIWlVeT7RknkMQBRZveyGPeaavM/7Hd2yo0VaxgBreq1RYAEB0hFfewqVvvghv6Q
- bodOrVr550D5HZlqDgB3YLfPOrTCQM3TCjKHDB2dJOZHoIa71786MQxwB1NbvycigzSKOxAXb
- 6ZzEXcDb9k3UgAEfth7TfHSLA58vvfzUv6ulGW71L5xNw0gixI8MKF5gnbT3fhbWS+ATeYNKt
- ieCK2TFKuSXE/ozWDwJJy++aTZ0SBnrY/ovnKdb81Uk7xmvoS7C6bZynPoMyxlk0tyc4eBPNb
- ugz85t+iHLpPDHwe2/OJ0aXdRz0Qd8Wj5Gm6vVqKd6ptYS3WJ2ZA==
+ s=s31663417; t=1689801660; x=1690406460; i=deller@gmx.de;
+ bh=gNkbRbptmMouxYMIBFLEub9MbsRJyCdJnwvjYwKt+kU=;
+ h=X-UI-Sender-Class:Date:From:To:Subject;
+ b=Cujk2OH2LDXNzPGE88He9x833krzOqBsMRotgg5OHAEJW+u8Bs/+dC1hVR7KHjf7EdFztLn
+ 1qx5z6XXiQ4B6PpOpij9mC2gO5ZtPH0ZwtGQFBbgcL/mX0RcAptRaIUKc/2IxthjzknY7YMlZ
+ CPgO+paD+3JnqJJcTsf8gcxkHAvFTtqKhd0BlkcqEyMrEswFfCUfLok0DqKXJQwr16CgNRqHW
+ eNSv7d9GrJL+R/IzRmUBzEpd28GNDSEjrl2Mn66qPi+4whNurA/Z6+V7qRfz0VkHaPih1qd72
+ 8NrVY1Su430yhNqEIOeZ80S2e5OwBD9cvHGIyTESPo3sPTFzT+AQ==
 X-UI-Sender-Class: 724b4f7f-cbec-4199-ad4e-598c01a50d3a
-Received: from [192.168.20.60] ([94.134.145.157]) by mail.gmx.net (mrgmx104
- [212.227.17.168]) with ESMTPSA (Nemesis) id 1N1Obb-1pwrjE0tCd-012rpb; Wed, 19
- Jul 2023 16:57:39 +0200
-Message-ID: <6c9be40f-0970-3eb5-899f-b69aa09d7f97@gmx.de>
-Date:   Wed, 19 Jul 2023 16:57:30 +0200
-MIME-Version: 1.0
-User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
- Thunderbird/102.12.0
-Subject: Re: [PATCH v2 0/9] video: screen_info cleanups
-Content-Language: en-US
-To:     Arnd Bergmann <arnd@kernel.org>, linux-fbdev@vger.kernel.org,
-        Thomas Zimmermann <tzimmermann@suse.de>,
-        Javier Martinez Canillas <javierm@redhat.com>
-Cc:     Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        "K. Y. Srinivasan" <kys@microsoft.com>,
-        Ard Biesheuvel <ardb@kernel.org>,
-        Borislav Petkov <bp@alien8.de>, Brian Cain <bcain@quicinc.com>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Christophe Leroy <christophe.leroy@csgroup.eu>,
-        Daniel Vetter <daniel@ffwll.ch>,
-        Dave Hansen <dave.hansen@linux.intel.com>,
-        David Airlie <airlied@gmail.com>,
-        Deepak Rawat <drawat.floss@gmail.com>,
-        Dexuan Cui <decui@microsoft.com>,
-        Dinh Nguyen <dinguyen@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Guo Ren <guoren@kernel.org>,
-        Haiyang Zhang <haiyangz@microsoft.com>,
-        Huacai Chen <chenhuacai@kernel.org>,
-        Ingo Molnar <mingo@redhat.com>,
-        John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
-        Khalid Aziz <khalid@gonehiking.org>,
-        Linus Walleij <linus.walleij@linaro.org>,
-        Matt Turner <mattst88@gmail.com>,
-        Max Filippov <jcmvbkbc@gmail.com>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        Nicholas Piggin <npiggin@gmail.com>,
-        Palmer Dabbelt <palmer@dabbelt.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        WANG Xuerui <kernel@xen0n.name>, Wei Liu <wei.liu@kernel.org>,
-        Will Deacon <will@kernel.org>, x86@kernel.org,
-        linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org,
-        linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org,
-        linux-ia64@vger.kernel.org, loongarch@lists.linux.dev,
-        linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org,
-        sparclinux@vger.kernel.org, linux-hyperv@vger.kernel.org,
-        dri-devel@lists.freedesktop.org
-References: <20230719123944.3438363-1-arnd@kernel.org>
+Received: from p100 ([94.134.145.157]) by mail.gmx.net (mrgmx105
+ [212.227.17.168]) with ESMTPSA (Nemesis) id 1M7K3Y-1qGjLz3gAW-007hY2; Wed, 19
+ Jul 2023 23:20:59 +0200
+Date:   Wed, 19 Jul 2023 23:20:57 +0200
 From:   Helge Deller <deller@gmx.de>
-In-Reply-To: <20230719123944.3438363-1-arnd@kernel.org>
-Content-Type: text/plain; charset=UTF-8; format=flowed
+To:     Jens Axboe <axboe@kernel.dk>, io-uring@vger.kernel.org,
+        linux-ia64@vger.kernel.org, matoro_mailinglist_kernel@matoro.tk,
+        linux-parisc@vger.kernel.org
+Subject: [PATCH][RFC] io_uring: Fix io_uring_mmu_get_unmapped_area() for IA-64
+Message-ID: <ZLhTuTPecx2fGuH1@p100>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+X-Provags-ID: V03:K1:EwY2RzLk9RKgvSpx5rlHVgjNLlt7RV/3gvc85Mr6EmpWekmzvpv
+ M9WWJLWaZNY7J/u8aOu5V39D03C3UedRelbsbJGM4Piz49BZyBMjJktaWYoxvKyqLco56mu
+ RW6mnStg0fAEDl/ScAllKzdodxc8vqJRGTL1TVJp81pxb2UZQtLNNHqQA7ZU5JWUU3DggkV
+ OTa7HCLztuxNCE9xljziQ==
+UI-OutboundReport: notjunk:1;M01:P0:m8fqtvCpf3o=;wIWVYZmPIFx3gkDbiuR17VT4Ky6
+ 1xDCK1Oldi5pYRJk2uNfwSRzAmcfdQNHrLseqIPv0NqOHHwSIqAsRfmlVxCkrigVT6biL13Jh
+ M4/8LEovok4ewliGRKm9DUweI4wywTmvYK8kx48ak5f5NOgQ6/gkJWEuwbojacUJuEzYwOSjA
+ kSsgNjJHmXUuazQtqxawBmRbfE0fXQEYHFl8MFgcBHov3YrDhQSPtmknwFboWRSg1KW0zqr2w
+ R3tGfDlytdy5ZTQlFNFzmvSajh+iPcG6VyJLUom0cmb5vcUYPpOwGT8JtmOskcBm2YsRwqUMM
+ FNNJm10zRtTrBAWXY6ZAp3MxsbG5MyHdcJqCamZiMtyJkH08jzwr8ltlP2jroF3z5Nl1OkUX8
+ Xi2rdI1wVmArqM9czGa2329ShU70Dcf1J65Kapi2cj8Igo1RRpyTgsPl72VjGD+OuaL8HU+Py
+ qI6Xr+tFMXOkr3/DWHQircJgl0kfNDUCAmsis5zoG9JqLZPIY1Wm2SNjwbMrTJSD4JV0lFgYr
+ fH2bO/uterkKRKgGSblGinWDwJFxpq1T77kbkJhO3DyBioIVafsS753mmJYlaPUMMw++AOHR+
+ 0BiEz7RSawk1Dt2NMs2rY6gQUkTe5oWOBBnHKfIE/Gx0Wtvde6LSbKe5kuQVHOV0Rk4qXFWeO
+ W0Je8oT0PBgSoWp5KKvhp8sd5Psr2dhM/m6Dj9Jas8hbzzyt0SAPIF2ch45njtMmiT9jLz8TG
+ xfX23ZmCw4CQEJP5FiiSxtbJTdIdWkb7S70skkzqLMZdHtGTeTdw+gEfaW7w2ndJfY56me5ir
+ Xa0m38kCUslDZHBaeTleDIZbzESrzj8svoULdbHfX9RO093f6DK4Gn/cwt1TOeFwFog8Uafvp
+ 1lJ6h3foytqvuv6OC23VyyD//h9q6KISWhv/qDkkpFhUn6bE9tZh9LT9oQda43x8NxrJBvAiM
+ wAsOA8pP7JvIW3djT3f4uJ0mUio=
 Content-Transfer-Encoding: quoted-printable
-X-Provags-ID: V03:K1:YKbXr21JZgKRkgbsGmVJDM40tJR1qBdCxKWfG2/2zM1Hz5g95nU
- PY0FOmI/L2j9W1vGyLYbMi9ABDdfgWOPRCMO8zMry116yimj9tsvXc4s6fjnjRwkYdIoPKa
- n+9JxJJXhDMP2Ce+c3fQIz1wcyEzeBExDfucEwj81ZYLXufdZhN/dpMjy+bzjb7TNdOFqgM
- Ief2UkK3zX3uAV0dVEamQ==
-UI-OutboundReport: notjunk:1;M01:P0:egu7CabpTFY=;cUfSSNb5FGDxvZd6PLuSysdSDvD
- ls5ct71ZsXDBRiFkda5EH38/nQ/EcAqCJZsUD40cSH/+igFVbthR3XF2Po8lNk1cqs1EYQCIm
- M/bNP4mwkBL0U5cBk8a7oo/RnMLCbsMCOBYccP1D8xm88u/QaFKZ8Q3yphrv+yPohojv/cdhw
- 9uc+JLy6730Il4w/FO8mbH++J/ftKfmDZ1Sofwp3BC74D/cPKVNtj6MJKCnmxBufOnI6SmYoB
- 2S/yrdA0s4catYwxtpxHM3qw3ad+06jWcK6vyHiCRvOom/FhPAW2DOqNBRgfVRjVqNNkCK1T+
- R+kY3p3qGKi67yqmoP7PyYbgt8ozyAYza5uml8XRMAO8h8HnG9PhpbBTMgJMCWcoNmhPGARkd
- 39g8HecgJijqw57SdgghEDepDk7sJruagdtGZ2868LrRd1+i+TchHaii2BcwWpiYsWC/1Jg1p
- MiBZSrab+b4o06BLX/KJqYTcugazeV/g3/6FNIaPyOApN+Tqmv0kbjPi9aEso0ZaDYDcGEfEp
- UGyUC4NAS8Vk6cdQkMzuvtDIwy0Lfam4D/ERNFlqdybQ6k+vYPc/d1m2lyrpiCArcJh9w8iZv
- BydvWmnjmdvnxQ/ozWK++LnqAT+6AjTXLjpmtlM4YyYIR+y0DCsuhbJVefrYaIcexS9LB+1d9
- kxc7jGoCqjyFvgc6zNOKsUiGZwOLTDLjuUyUACf/QIUSqdRrjRHPw8VRISdmCJF3qXEqGku22
- PRBqA4Yt3B3/+1CHDZZA4kapOF9ZTTCQwBk3hy7mq/9XRQYULEAyX2HX9iJE0snjLeQjHi7TG
- CAebdhtQzKSHSt6891NcXCQyAntbr1DR+vZDS02S62uxQ=
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On 7/19/23 14:39, Arnd Bergmann wrote:
-> From: Arnd Bergmann <arnd@arndb.de>
->
-> I refreshed the first four patches that I sent before with very minor
-> updates, and then added some more to further disaggregate the use
-> of screen_info:
->
->   - I found that powerpc wasn't using vga16fb any more
->
->   - vgacon can be almost entirely separated from the global
->     screen_info, except on x86
->
->   - similarly, the EFI framebuffer initialization can be
->     kept separate, except on x86.
+The io_uring testcase is broken on IA-64 since commit d808459b2e31
+("io_uring: Adjust mapping wrt architecture aliasing requirements").
 
-Nice cleanup, Arnd!
+The reason is, that this commit introduced an own architecture
+independend get_unmapped_area() search algorithm which doesn't suite the
+memory region requirements for IA-64.
 
-You may add a
-Acked-by: Helge Deller <deller@gmx.de>
-to the series.
+To avoid similar problems in the future it's better to switch back to
+the architecture-provided get_unmapped_area() function and adjust the
+needed input parameters before the call.  Additionally
+io_uring_mmu_get_unmapped_area() will now become easier to understand
+and maintain.
 
+This patch has been tested on physical IA-64 and PA-RISC machines,
+without any failures in the io_uring testcases. On PA-RISC the
+LTP mmmap testcases did not report any regressions either.
 
-> I did extensive build testing on arm/arm64/x86 and the normal built bot
-> testing for the other architectures.
+I don't expect issues for other architectures, but it would be nice if
+this patch could be tested on other machines too.
 
-> Which tree should this get merged through?
+Reported-by: matoro <matoro_mailinglist_kernel@matoro.tk>
+Fixes: d808459b2e31 ("io_uring: Adjust mapping wrt architecture aliasing r=
+equirements")
+Signed-off-by: Helge Deller <deller@gmx.de>
 
-I suggest drm-misc or fbdev. Either is fine for me.
+diff --git a/arch/ia64/kernel/sys_ia64.c b/arch/ia64/kernel/sys_ia64.c
+index 6e948d015332..eb561cc93632 100644
+=2D-- a/arch/ia64/kernel/sys_ia64.c
++++ b/arch/ia64/kernel/sys_ia64.c
+@@ -63,7 +63,7 @@ arch_get_unmapped_area (struct file *filp, unsigned long=
+ addr, unsigned long len
+ 	info.low_limit =3D addr;
+ 	info.high_limit =3D TASK_SIZE;
+ 	info.align_mask =3D align_mask;
+-	info.align_offset =3D 0;
++	info.align_offset =3D pgoff << PAGE_SHIFT;
+ 	return vm_unmapped_area(&info);
+ }
 
-Since it applies cleanly onto git head, I can put it a few days into
-the fbdev git tree to see if some builds break. Just let me know.
+diff --git a/arch/parisc/kernel/sys_parisc.c b/arch/parisc/kernel/sys_pari=
+sc.c
+index 39acccabf2ed..465b7cb9d44f 100644
+=2D-- a/arch/parisc/kernel/sys_parisc.c
++++ b/arch/parisc/kernel/sys_parisc.c
+@@ -26,12 +26,17 @@
+ #include <linux/compat.h>
 
-Helge
+ /*
+- * Construct an artificial page offset for the mapping based on the physi=
+cal
++ * Construct an artificial page offset for the mapping based on the virtu=
+al
+  * address of the kernel file mapping variable.
++ * If filp is zero the calculated pgoff value aliases the memory of the g=
+iven
++ * address. This is useful for io_uring where the mapping shall alias a k=
+ernel
++ * address and a userspace adress where both the kernel and the userspace
++ * access the same memory region.
+  */
+-#define GET_FILP_PGOFF(filp)		\
+-	(filp ? (((unsigned long) filp->f_mapping) >> 8)	\
+-		 & ((SHM_COLOUR-1) >> PAGE_SHIFT) : 0UL)
++#define GET_FILP_PGOFF(filp, addr)		\
++	((filp ? (((unsigned long) filp->f_mapping) >> 8)	\
++		 & ((SHM_COLOUR-1) >> PAGE_SHIFT) : 0UL)	\
++	  + (addr >> PAGE_SHIFT))
+
+ static unsigned long shared_align_offset(unsigned long filp_pgoff,
+ 					 unsigned long pgoff)
+@@ -111,7 +116,7 @@ static unsigned long arch_get_unmapped_area_common(str=
+uct file *filp,
+ 	do_color_align =3D 0;
+ 	if (filp || (flags & MAP_SHARED))
+ 		do_color_align =3D 1;
+-	filp_pgoff =3D GET_FILP_PGOFF(filp);
++	filp_pgoff =3D GET_FILP_PGOFF(filp, addr);
+
+ 	if (flags & MAP_FIXED) {
+ 		/* Even MAP_FIXED mappings must reside within TASK_SIZE */
+diff --git a/io_uring/io_uring.c b/io_uring/io_uring.c
+index f1b79959d1c1..70eb01faf15f 100644
+=2D-- a/io_uring/io_uring.c
++++ b/io_uring/io_uring.c
+@@ -3425,8 +3425,6 @@ static unsigned long io_uring_mmu_get_unmapped_area(=
+struct file *filp,
+ 			unsigned long addr, unsigned long len,
+ 			unsigned long pgoff, unsigned long flags)
+ {
+-	const unsigned long mmap_end =3D arch_get_mmap_end(addr, len, flags);
+-	struct vm_unmapped_area_info info;
+ 	void *ptr;
+
+ 	/*
+@@ -3441,32 +3439,26 @@ static unsigned long io_uring_mmu_get_unmapped_are=
+a(struct file *filp,
+ 	if (IS_ERR(ptr))
+ 		return -ENOMEM;
+
+-	info.flags =3D VM_UNMAPPED_AREA_TOPDOWN;
+-	info.length =3D len;
+-	info.low_limit =3D max(PAGE_SIZE, mmap_min_addr);
+-	info.high_limit =3D arch_get_mmap_base(addr, current->mm->mmap_base);
++	/*
++	 * Some architectures have strong cache aliasing requirements.
++	 * For such architectures we need a coherent mapping which aliases
++	 * kernel memory *and* userspace memory. To achieve that:
++	 * - use a NULL file pointer to reference physical memory, and
++	 * - use the kernel virtual address of the shared io_uring context
++	 *   (instead of the userspace-provided address, which has to be 0UL
++	 *   anyway).
++	 * For architectures without such aliasing requirements, the
++	 * architecture will return any suitable mapping because addr is 0.
++	 */
++	filp =3D NULL;
++	flags |=3D MAP_SHARED;
++	pgoff =3D 0;	/* has been translated to ptr above */
+ #ifdef SHM_COLOUR
+-	info.align_mask =3D PAGE_MASK & (SHM_COLOUR - 1UL);
++	addr =3D (uintptr_t) ptr;
+ #else
+-	info.align_mask =3D PAGE_MASK & (SHMLBA - 1UL);
++	addr =3D 0UL;
+ #endif
+-	info.align_offset =3D (unsigned long) ptr;
+-
+-	/*
+-	 * A failed mmap() very likely causes application failure,
+-	 * so fall back to the bottom-up function here. This scenario
+-	 * can happen with large stack limits and large mmap()
+-	 * allocations.
+-	 */
+-	addr =3D vm_unmapped_area(&info);
+-	if (offset_in_page(addr)) {
+-		info.flags =3D 0;
+-		info.low_limit =3D TASK_UNMAPPED_BASE;
+-		info.high_limit =3D mmap_end;
+-		addr =3D vm_unmapped_area(&info);
+-	}
+-
+-	return addr;
++	return current->mm->get_unmapped_area(filp, addr, len, pgoff, flags);
+ }
+
+ #else /* !CONFIG_MMU */
