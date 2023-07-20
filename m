@@ -2,144 +2,99 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 56076C001DC
-	for <linux-ia64@archiver.kernel.org>; Thu, 20 Jul 2023 19:24:14 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 5D635EB64DD
+	for <linux-ia64@archiver.kernel.org>; Thu, 20 Jul 2023 22:30:14 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S230259AbjGTTYN (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Thu, 20 Jul 2023 15:24:13 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:36428 "EHLO
+        id S229902AbjGTWaN (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Thu, 20 Jul 2023 18:30:13 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:54754 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S229684AbjGTTYM (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Thu, 20 Jul 2023 15:24:12 -0400
-Received: from mailout.easymail.ca (mailout.easymail.ca [64.68.200.34])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id CC1B7171D;
-        Thu, 20 Jul 2023 12:24:09 -0700 (PDT)
-Received: from localhost (localhost [127.0.0.1])
-        by mailout.easymail.ca (Postfix) with ESMTP id 479C0623ED;
-        Thu, 20 Jul 2023 18:48:50 +0000 (UTC)
-X-Virus-Scanned: Debian amavisd-new at emo07-pco.easydns.vpn
-Received: from mailout.easymail.ca ([127.0.0.1])
-        by localhost (emo07-pco.easydns.vpn [127.0.0.1]) (amavisd-new, port 10024)
-        with ESMTP id YkMMq7FPWqRc; Thu, 20 Jul 2023 18:48:49 +0000 (UTC)
-Received: from mail.gonehiking.org (unknown [38.15.45.1])
-        by mailout.easymail.ca (Postfix) with ESMTPA id C8ABC61E38;
-        Thu, 20 Jul 2023 18:48:49 +0000 (UTC)
-Received: from [192.168.1.4] (internal [192.168.1.4])
-        by mail.gonehiking.org (Postfix) with ESMTP id CC21F3EED6;
-        Thu, 20 Jul 2023 12:48:47 -0600 (MDT)
-Message-ID: <aea82980-358a-863f-d6a0-66f4ce3f87b7@gonehiking.org>
-Date:   Thu, 20 Jul 2023 12:48:47 -0600
+        with ESMTP id S230146AbjGTWaL (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Thu, 20 Jul 2023 18:30:11 -0400
+Received: from mail-pl1-x62c.google.com (mail-pl1-x62c.google.com [IPv6:2607:f8b0:4864:20::62c])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 6789C1737
+        for <linux-ia64@vger.kernel.org>; Thu, 20 Jul 2023 15:30:09 -0700 (PDT)
+Received: by mail-pl1-x62c.google.com with SMTP id d9443c01a7336-1b89b0c73d7so2084595ad.1
+        for <linux-ia64@vger.kernel.org>; Thu, 20 Jul 2023 15:30:09 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=kernel-dk.20221208.gappssmtp.com; s=20221208; t=1689892209; x=1690497009;
+        h=content-transfer-encoding:in-reply-to:from:references:to
+         :content-language:subject:user-agent:mime-version:date:message-id
+         :from:to:cc:subject:date:message-id:reply-to;
+        bh=OYtWiRM7tW34YhdFkeTv7dseSSbFStm63dF6+Qox3nQ=;
+        b=MyqgL2NZqt3wX0CokyEny0Cwv/QsIUvLQOor+cmnA4MIv2EiV+FBkg66Y4ke77fWae
+         YvPRKYytFhLv/dVRhUKLfuu5tlPGcQQ3xVIB0EWrZSzyhYWmxzlg0imabFmTc2CkJwxD
+         13vSVKB9rgoFfygewisdYMC/bKR5uZ4CjOLdVOyocKtgEN0Rzl/hAxKYsiWSpMGDoZ56
+         Tk6vbG3nU9Uhr7fJIyindPCBu35kd92Xy1jpztoLmm/YvClb5BTSzRNfaec/3WPSW2jR
+         c5NameHAftIb9C/R1Nky/LzOgp2BoFn4/sccXZxbDn1EP8xphM+0gkQUX2sGWHoV7Zqx
+         5Z1g==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20221208; t=1689892209; x=1690497009;
+        h=content-transfer-encoding:in-reply-to:from:references:to
+         :content-language:subject:user-agent:mime-version:date:message-id
+         :x-gm-message-state:from:to:cc:subject:date:message-id:reply-to;
+        bh=OYtWiRM7tW34YhdFkeTv7dseSSbFStm63dF6+Qox3nQ=;
+        b=ayxXsmmFMb/gpU1ncZxTa5Zha/zxSnGK4OLf0wEliTX24JPAxWsoCQ+mNX1H6bN9b2
+         V4AhOXz+NAoUvm21SI6YNfcaa/FmHHXAtvg36iVYyw6AQgicUcPK7ae/GFvUDLcKbi9m
+         DxRwc9RMb1IMjyA4TcZkvVx/ZeB13DUXMM6idRakbfQbi5xYcaEHtS/xp458WmSXwTeZ
+         cnBxnx+37kuvPTFH9pOALCAxJG3UAiGL7cuP4lVetCYo2nQ4f82rOq3A8qHKU+G8sUOx
+         2hLOazTA8VKID54fLPSQzSJPNnlmUNoIhFDoEcYkILT+ZxiMEoQKxKEavKBJaBxv2lVH
+         wdZw==
+X-Gm-Message-State: ABy/qLbMn4aSX+tC2V113LtFHlDHl3fwrPjeilva+l3RFjHR8ki5Evf8
+        fK4Ywhs2aZ+T+QAoP69izZyY3A==
+X-Google-Smtp-Source: APBJJlFPE7arqfyDqpoa3K2IU9QzoSW/YKuPQOZnYoRE0MUhsBKypGOXt/lhN417Z1pR6qwaOQJrTw==
+X-Received: by 2002:a17:902:d4c6:b0:1b8:85c4:48f5 with SMTP id o6-20020a170902d4c600b001b885c448f5mr398893plg.2.1689892208853;
+        Thu, 20 Jul 2023 15:30:08 -0700 (PDT)
+Received: from [192.168.1.136] ([198.8.77.157])
+        by smtp.gmail.com with ESMTPSA id f8-20020a170902ce8800b001b893b689a0sm1919839plg.84.2023.07.20.15.30.07
+        (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);
+        Thu, 20 Jul 2023 15:30:08 -0700 (PDT)
+Message-ID: <0a242157-6dd6-77fd-b218-52e3ba06e450@kernel.dk>
+Date:   Thu, 20 Jul 2023 16:30:07 -0600
 MIME-Version: 1.0
-User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
- Thunderbird/102.11.0
-Reply-To: khalid@gonehiking.org
-Subject: Re: [PATCH v2 1/9] vgacon: rework Kconfig dependencies
+User-Agent: Mozilla/5.0 (X11; Linux aarch64; rv:102.0) Gecko/20100101
+ Thunderbird/102.13.0
+Subject: Re: [PATCH][RFC] io_uring: Fix io_uring_mmu_get_unmapped_area() for
+ IA-64
 Content-Language: en-US
-To:     Arnd Bergmann <arnd@kernel.org>, linux-fbdev@vger.kernel.org,
-        Thomas Zimmermann <tzimmermann@suse.de>,
-        Helge Deller <deller@gmx.de>,
-        Javier Martinez Canillas <javierm@redhat.com>
-Cc:     Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        "K. Y. Srinivasan" <kys@microsoft.com>,
-        Ard Biesheuvel <ardb@kernel.org>,
-        Borislav Petkov <bp@alien8.de>, Brian Cain <bcain@quicinc.com>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Christophe Leroy <christophe.leroy@csgroup.eu>,
-        Daniel Vetter <daniel@ffwll.ch>,
-        Dave Hansen <dave.hansen@linux.intel.com>,
-        David Airlie <airlied@gmail.com>,
-        Deepak Rawat <drawat.floss@gmail.com>,
-        Dexuan Cui <decui@microsoft.com>,
-        Dinh Nguyen <dinguyen@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Guo Ren <guoren@kernel.org>,
-        Haiyang Zhang <haiyangz@microsoft.com>,
-        Huacai Chen <chenhuacai@kernel.org>,
-        Ingo Molnar <mingo@redhat.com>,
-        John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
-        Linus Walleij <linus.walleij@linaro.org>,
-        Matt Turner <mattst88@gmail.com>,
-        Max Filippov <jcmvbkbc@gmail.com>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        Nicholas Piggin <npiggin@gmail.com>,
-        Palmer Dabbelt <palmer@dabbelt.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        WANG Xuerui <kernel@xen0n.name>, Wei Liu <wei.liu@kernel.org>,
-        Will Deacon <will@kernel.org>, x86@kernel.org,
-        linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org,
-        linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org,
-        linux-ia64@vger.kernel.org, loongarch@lists.linux.dev,
-        linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org,
-        sparclinux@vger.kernel.org, linux-hyperv@vger.kernel.org,
-        dri-devel@lists.freedesktop.org
-References: <20230719123944.3438363-1-arnd@kernel.org>
- <20230719123944.3438363-2-arnd@kernel.org>
-From:   Khalid Aziz <khalid@gonehiking.org>
-In-Reply-To: <20230719123944.3438363-2-arnd@kernel.org>
-Content-Type: text/plain; charset=UTF-8; format=flowed
+To:     Helge Deller <deller@gmx.de>, io-uring@vger.kernel.org,
+        linux-ia64@vger.kernel.org, matoro_mailinglist_kernel@matoro.tk,
+        linux-parisc@vger.kernel.org
+References: <ZLhTuTPecx2fGuH1@p100>
+From:   Jens Axboe <axboe@kernel.dk>
+In-Reply-To: <ZLhTuTPecx2fGuH1@p100>
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On 7/19/23 6:39 AM, Arnd Bergmann wrote:
-> From: Arnd Bergmann <arnd@arndb.de>
+On 7/19/23 3:20?PM, Helge Deller wrote:
+> The io_uring testcase is broken on IA-64 since commit d808459b2e31
+> ("io_uring: Adjust mapping wrt architecture aliasing requirements").
 > 
-> The list of dependencies here is phrased as an opt-out, but this is missing
-> a lot of architectures that don't actually support VGA consoles, and some
-> of the entries are stale:
+> The reason is, that this commit introduced an own architecture
+> independend get_unmapped_area() search algorithm which doesn't suite the
+> memory region requirements for IA-64.
 > 
->   - powerpc used to support VGA consoles in the old arch/ppc codebase, but
->     the merged arch/powerpc never did
+> To avoid similar problems in the future it's better to switch back to
+> the architecture-provided get_unmapped_area() function and adjust the
+> needed input parameters before the call.  Additionally
+> io_uring_mmu_get_unmapped_area() will now become easier to understand
+> and maintain.
 > 
->   - arm lists footbridge, integrator and netwinder, but netwinder is actually
->     part of footbridge, and integrator does not appear to have an actual
->     VGA hardware, or list it in its ATAG or DT.
+> This patch has been tested on physical IA-64 and PA-RISC machines,
+> without any failures in the io_uring testcases. On PA-RISC the
+> LTP mmmap testcases did not report any regressions either.
 > 
->   - mips has a few platforms (malta, sibyte, and sni) that initialize
->     screen_info, on everything else the console is selected but cannot
->     actually work.
-> 
->   - csky, hexgagon, loongarch, nios2, riscv and xtensa are not listed
->     in the opt-out table and declare a screen_info to allow building
->     vga_con, but this cannot work because the console is never selected.
-> 
-> Replace this with an opt-in table that lists only the platforms that
-> remain. This is effectively x86, plus a couple of historic workstation
-> and server machines that reused parts of the x86 system architecture.
-> 
-> Reviewed-by: Javier Martinez Canillas <javierm@redhat.com>
-> Reviewed-by: Thomas Zimmermann <tzimmermann@suse.de>
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> I don't expect issues for other architectures, but it would be nice if
+> this patch could be tested on other machines too.
 
+Any comments from the IA64 folks?
 
-Reviewed-by: Khalid Aziz <khalid@gonehiking.org>
+Helge, should this be split into three patches? One for hppa, one for
+ia64, and then the io_uring one?
 
-
-> ---
->   drivers/video/console/Kconfig | 6 +++---
->   1 file changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/video/console/Kconfig b/drivers/video/console/Kconfig
-> index 1b5a319971ed0..6af90db6d2da9 100644
-> --- a/drivers/video/console/Kconfig
-> +++ b/drivers/video/console/Kconfig
-> @@ -7,9 +7,9 @@ menu "Console display driver support"
->   
->   config VGA_CONSOLE
->   	bool "VGA text console" if EXPERT || !X86
-> -	depends on !4xx && !PPC_8xx && !SPARC && !M68K && !PARISC &&  !SUPERH && \
-> -		(!ARM || ARCH_FOOTBRIDGE || ARCH_INTEGRATOR || ARCH_NETWINDER) && \
-> -		!ARM64 && !ARC && !MICROBLAZE && !OPENRISC && !S390 && !UML
-> +	depends on ALPHA || IA64 || X86 || \
-> +		(ARM && ARCH_FOOTBRIDGE) || \
-> +		(MIPS && (MIPS_MALTA || SIBYTE_BCM112X || SIBYTE_SB1250 || SIBYTE_BCM1x80 || SNI_RM))
->   	select APERTURE_HELPERS if (DRM || FB || VFIO_PCI_CORE)
->   	default y
->   	help
+-- 
+Jens Axboe
 
