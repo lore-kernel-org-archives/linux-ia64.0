@@ -2,114 +2,105 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id D4FC2EB64DA
-	for <linux-ia64@archiver.kernel.org>; Thu, 20 Jul 2023 23:02:00 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id A0197C001DE
+	for <linux-ia64@archiver.kernel.org>; Fri, 21 Jul 2023 04:59:47 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S229519AbjGTXCA (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Thu, 20 Jul 2023 19:02:00 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:33740 "EHLO
+        id S229599AbjGUE7q (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Fri, 21 Jul 2023 00:59:46 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:52390 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S229451AbjGTXB7 (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Thu, 20 Jul 2023 19:01:59 -0400
-Received: from mout.gmx.net (mout.gmx.net [212.227.17.22])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id E6F9C92;
-        Thu, 20 Jul 2023 16:01:57 -0700 (PDT)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=gmx.de;
- s=s31663417; t=1689894115; x=1690498915; i=deller@gmx.de;
- bh=NLW57MKbuSFqkweYp1SSc7U/sQ5F1Uv49Q59sFSA9Zg=;
- h=X-UI-Sender-Class:Date:Subject:To:References:From:In-Reply-To;
- b=EHidxgHSi+iWotq7d2kvx3fRDAG7zSobqhZU8Jocz6KuSMVXPHV9M3Oft05OJf4O4TEUqJC
- JKpBk5/fjJL7zOuMA+KzbwXQz7ZzO2cwtaz2sY3jpnuB9JOFzn/pRCdHrkuK7nzprTpy9gADD
- 2a37H9wkHdBVKR2B1xwvXfMC2UW4ofsRB7PHaop1t1PfWyYePMUdhN8VsXvVGH9piahYvm5Q+
- p1bkmo5wQ6IpB4FkB//bjrHS9Pc4NdAB/Ab+9Y9METGYmu2FSeoJytfG4fspKt+gvJPwM0vhM
- akBNh63YRiqviy/9JxrN0Yss9paHgpyAHY6GOm79uYpoEbH0UAOA==
-X-UI-Sender-Class: 724b4f7f-cbec-4199-ad4e-598c01a50d3a
-Received: from [192.168.20.60] ([94.134.153.9]) by mail.gmx.net (mrgmx105
- [212.227.17.168]) with ESMTPSA (Nemesis) id 1M72oB-1qHN4G0h1r-008aj9; Fri, 21
- Jul 2023 01:01:55 +0200
-Message-ID: <9ed73ae3-7990-1084-9656-8295e1b7fcfb@gmx.de>
-Date:   Fri, 21 Jul 2023 01:01:54 +0200
+        with ESMTP id S229457AbjGUE7o (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Fri, 21 Jul 2023 00:59:44 -0400
+Received: from gandalf.ozlabs.org (gandalf.ozlabs.org [150.107.74.76])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 19870B3;
+        Thu, 20 Jul 2023 21:59:41 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=ellerman.id.au;
+        s=201909; t=1689915579;
+        bh=E8y/g9Khd0fFkgBzOo2hgfNC9FxKvpUwWSNkgdFASms=;
+        h=From:To:Cc:Subject:In-Reply-To:References:Date:From;
+        b=Vz9fUc/RXTu27vyeQvrCGoaE8JdmFqjso1U7IKft3F4+AMIPMbJxbd6+vpUogCok2
+         jjqvREfJvYqz3QSGYRTfM9NbVcZw6ETTGk+G5ORy8Ef27KmVipGpAru/++iMcP0ZIY
+         irL63A70ZpZtpSAA842FIXFsBi3K9pkiGHMiMA9uGES1k6AQTlIav7DvOXvaXW5lr1
+         +C0AtN1LzNzfZWs6cqLKzQSLR9CakXGeTo5RmwHO24fURCoJ28UFMNlTF5RfwYFygo
+         JIBkIXyWk0zwzOR6aKsdnuJSg4XvmCPd8c6HNDSu/dKGG51lsM7dl8r9XMYvtkwX6A
+         gBrLXrGghZj8Q==
+Received: from authenticated.ozlabs.org (localhost [127.0.0.1])
+        (using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+         key-exchange X25519 server-signature RSA-PSS (4096 bits) server-digest SHA256)
+        (No client certificate requested)
+        by mail.ozlabs.org (Postfix) with ESMTPSA id 4R6cmH4jNJz4wqW;
+        Fri, 21 Jul 2023 14:59:27 +1000 (AEST)
+From:   Michael Ellerman <mpe@ellerman.id.au>
+To:     Arnd Bergmann <arnd@kernel.org>, linux-fbdev@vger.kernel.org,
+        Thomas Zimmermann <tzimmermann@suse.de>,
+        Helge Deller <deller@gmx.de>,
+        Javier Martinez Canillas <javierm@redhat.com>
+Cc:     Arnd Bergmann <arnd@arndb.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        "K. Y. Srinivasan" <kys@microsoft.com>,
+        Ard Biesheuvel <ardb@kernel.org>,
+        Borislav Petkov <bp@alien8.de>, Brian Cain <bcain@quicinc.com>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Christophe Leroy <christophe.leroy@csgroup.eu>,
+        Daniel Vetter <daniel@ffwll.ch>,
+        Dave Hansen <dave.hansen@linux.intel.com>,
+        David Airlie <airlied@gmail.com>,
+        Deepak Rawat <drawat.floss@gmail.com>,
+        Dexuan Cui <decui@microsoft.com>,
+        Dinh Nguyen <dinguyen@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Guo Ren <guoren@kernel.org>,
+        Haiyang Zhang <haiyangz@microsoft.com>,
+        Huacai Chen <chenhuacai@kernel.org>,
+        Ingo Molnar <mingo@redhat.com>,
+        John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
+        Khalid Aziz <khalid@gonehiking.org>,
+        Linus Walleij <linus.walleij@linaro.org>,
+        Matt Turner <mattst88@gmail.com>,
+        Max Filippov <jcmvbkbc@gmail.com>,
+        Nicholas Piggin <npiggin@gmail.com>,
+        Palmer Dabbelt <palmer@dabbelt.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        WANG Xuerui <kernel@xen0n.name>, Wei Liu <wei.liu@kernel.org>,
+        Will Deacon <will@kernel.org>, x86@kernel.org,
+        linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org,
+        linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org,
+        linux-ia64@vger.kernel.org, loongarch@lists.linux.dev,
+        linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org,
+        sparclinux@vger.kernel.org, linux-hyperv@vger.kernel.org,
+        dri-devel@lists.freedesktop.org
+Subject: Re: [PATCH v2 1/9] vgacon: rework Kconfig dependencies
+In-Reply-To: <20230719123944.3438363-2-arnd@kernel.org>
+References: <20230719123944.3438363-1-arnd@kernel.org>
+ <20230719123944.3438363-2-arnd@kernel.org>
+Date:   Fri, 21 Jul 2023 14:59:24 +1000
+Message-ID: <87pm4lj1w3.fsf@mail.lhotse>
 MIME-Version: 1.0
-User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
- Thunderbird/102.12.0
-Subject: Re: [PATCH][RFC] io_uring: Fix io_uring_mmu_get_unmapped_area() for
- IA-64
-Content-Language: en-US
-To:     Jens Axboe <axboe@kernel.dk>, io-uring@vger.kernel.org,
-        linux-ia64@vger.kernel.org, matoro_mailinglist_kernel@matoro.tk,
-        linux-parisc@vger.kernel.org
-References: <ZLhTuTPecx2fGuH1@p100>
- <0a242157-6dd6-77fd-b218-52e3ba06e450@kernel.dk>
- <be208704-b312-f04d-4548-90853a638752@gmx.de>
- <6dfbaa5b-5894-bfc9-f9a9-09d019c335d9@kernel.dk>
-From:   Helge Deller <deller@gmx.de>
-In-Reply-To: <6dfbaa5b-5894-bfc9-f9a9-09d019c335d9@kernel.dk>
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: quoted-printable
-X-Provags-ID: V03:K1:q1FlcaJQPJA5CpcKiVyDflKpqsn9MUai+i+tvkbNl2D/LaVYABv
- ATcRxmHtIjWSW9egSFcTwb7UHa58zaouG6s3QowS8uRj7G+AAa41puCjWCmWggNMmTqmTxL
- Sn7hymdmfyxGxtzze5ppLMGEHEb+0k2Aw607ba3AVGtyjbUDUh6vHpz/BNl+ZF/boc7PZei
- borLcuMVHHkiPCdhIja9Q==
-UI-OutboundReport: notjunk:1;M01:P0:XSB0TfHZTVc=;HAhVS/oNgolV6glgUcdY3k+KeEy
- VK0FWjef+AjxTkK537ox5y0yXFUs6x/XBUzO1U0RdzVYez7NZCLaWZ3ukPKaDQa6e5+y/bouQ
- s2wzHESOsjumkC8qPTpgVDi7bZJB6Dxn7Ikk0MuiOzYZFJKOtAbQCqcQPMGQDQhixisNLwBt2
- 7LtFxi4T6TNaGUoSzoqpDNCS0TYksMUpev9sbrqS0StsZ8ZS1Mv0xjbq83bJsdzqh4TC+hS4u
- cWn2EBWNXcGHZzCFBuo85zqeKlHY1Jtyp1PNsP3Hu5g0sQSzGuBcgOdgHVvkG0Frv/VCHWOUP
- 8BLuFz9uea6DblrgyGeTIAs3fsV8EIqdCw4TVDQ3vdMC9eZS+lVStn23iAOImxRpQ1ufgLPnx
- xWVvVr9QgqA9EB6izRm3qKXSa8BivT5uv3I7uXthHdVuZK/hCXQHqT03OGATGvcu0YC/Hse+6
- eCGKyGph3MiJa2DsXXLknUtbSIcZXuBPEy4nZEcEynxulYLKncMQzldPKvGrl9bRBEQmj1+rj
- v7nbdFXZBHSyPW0UFDw4twEzzNJuEPX+j4jAykuuIfJXX3YSZGa1U82kCzVivqSOGYfyZNYGZ
- TdmwVbyAgAIGacazIa6PGdE/DK2/GMRK4oIAitFGgKUVv0yv8wHRWlGwbhpiXLwMr0pDMUtBp
- 4sLv1PKoHJynpl3CX/GCxDhzqGopbl+Ms0H7I1+8TcgeTQkIimxPeOq2Q6X7OBzu5PlWdEPJS
- t8p7Qobm7BkezWuYif9eS4FpEJ8aLRvnONHmfoynge1RgriUc6ilLPzqCei1dOI7ZhlHtLdxD
- xBO/clQzkM/2dfg1XDyVkYDmXIDrN4tVOVNtaRWoV67EKL+GiwxDy8CZbrELwucv2p/qSW2Io
- UmNytZYz1rlr8ulzNe11lqAspao1aqcdDODSd3E2agU5l6+T6EypRzDoOh3gwbscsM/+UhyES
- GDh5RJqxi9/gZMuTklr6NIaPCfg=
+Content-Type: text/plain
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On 7/21/23 00:43, Jens Axboe wrote:
-> On 7/20/23 4:38?PM, Helge Deller wrote:
->> On 7/21/23 00:30, Jens Axboe wrote:
->>> On 7/19/23 3:20?PM, Helge Deller wrote:
->>>> The io_uring testcase is broken on IA-64 since commit d808459b2e31
->>>> ("io_uring: Adjust mapping wrt architecture aliasing requirements").
->>>>
->>>> The reason is, that this commit introduced an own architecture
->>>> independend get_unmapped_area() search algorithm which doesn't suite =
-the
->>>> memory region requirements for IA-64.
->>>>
->>>> To avoid similar problems in the future it's better to switch back to
->>>> the architecture-provided get_unmapped_area() function and adjust the
->>>> needed input parameters before the call.  Additionally
->>>> io_uring_mmu_get_unmapped_area() will now become easier to understand
->>>> and maintain.
->>>>
->>>> This patch has been tested on physical IA-64 and PA-RISC machines,
->>>> without any failures in the io_uring testcases. On PA-RISC the
->>>> LTP mmmap testcases did not report any regressions either.
->>>>
->>>> I don't expect issues for other architectures, but it would be nice i=
-f
->>>> this patch could be tested on other machines too.
->>>
->>> Any comments from the IA64 folks?
->>
->> matoro tested it on ia64 at least...
->>
->>> Helge, should this be split into three patches? One for hppa, one for
->>> ia64, and then the io_uring one?
->>
->> If we split up, I would prefer to split it into 2 patches: One for
->> io_uring together with the hppa patch, since they should go in
->> together.
+Arnd Bergmann <arnd@kernel.org> writes:
+> From: Arnd Bergmann <arnd@arndb.de>
 >
-> OK, that makes sense. Want to spin a new version done like that?
+> The list of dependencies here is phrased as an opt-out, but this is missing
+> a lot of architectures that don't actually support VGA consoles, and some
+> of the entries are stale:
+>
+>  - powerpc used to support VGA consoles in the old arch/ppc codebase, but
+>    the merged arch/powerpc never did
 
-Yes.
-I'll send it tomorrow.
-(now that we know it works on the major platforms)
+Not disputing this, but how did you come to that conclusion? I grepped
+around and couldn't convince myself whether it can work on powerpc or
+not. ie. currently it's possible to enable CONFIG_VGA_CONSOLE and
+powerpc does have a struct screen_info defined which seems like it would
+allow vgacon_startup() to complete.
 
-Helge
+My only concern is that someone could be using it with Qemu?
+
+cheers
