@@ -2,92 +2,148 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id E6BA6C41513
-	for <linux-ia64@archiver.kernel.org>; Mon, 24 Jul 2023 07:39:14 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 2AB3CC04E69
+	for <linux-ia64@archiver.kernel.org>; Mon, 24 Jul 2023 12:16:03 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S229824AbjGXHjO (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Mon, 24 Jul 2023 03:39:14 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:33512 "EHLO
+        id S230341AbjGXMQC convert rfc822-to-8bit (ORCPT
+        <rfc822;linux-ia64@archiver.kernel.org>);
+        Mon, 24 Jul 2023 08:16:02 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:46102 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S229499AbjGXHjN (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Mon, 24 Jul 2023 03:39:13 -0400
-Received: from mail-wr1-f42.google.com (mail-wr1-f42.google.com [209.85.221.42])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 647E9180;
-        Mon, 24 Jul 2023 00:39:10 -0700 (PDT)
-Received: by mail-wr1-f42.google.com with SMTP id ffacd0b85a97d-3163eb69487so3145192f8f.1;
-        Mon, 24 Jul 2023 00:39:10 -0700 (PDT)
+        with ESMTP id S230317AbjGXMQA (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Mon, 24 Jul 2023 08:16:00 -0400
+Received: from mail-ot1-f46.google.com (mail-ot1-f46.google.com [209.85.210.46])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 4B63110E4;
+        Mon, 24 Jul 2023 05:15:34 -0700 (PDT)
+Received: by mail-ot1-f46.google.com with SMTP id 46e09a7af769-6bb140cd5a5so2034274a34.3;
+        Mon, 24 Jul 2023 05:15:34 -0700 (PDT)
 X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20221208; t=1690184349; x=1690789149;
-        h=content-transfer-encoding:in-reply-to:from:references:cc:to
-         :content-language:subject:user-agent:mime-version:date:message-id
-         :x-gm-message-state:from:to:cc:subject:date:message-id:reply-to;
-        bh=r3c21fZlC0KRnz3kLqOIBEGeprFwWXQT2AytBpy+S6I=;
-        b=MDiGT45Jia46d6K2KpnrPiUmazseorqGszvr7897suhMdjh717FcYZKoibKuEOwRSU
-         WvECIP+C+ogPc3ygH5VzZcO3LsNsnYWnFOSG3+vFfOtDjxqeFbAE15Bc1iclFK+q1HRf
-         TLquOVunDTav8mz1Rfupc2E0vb2+PzOf2Vp6JtZYLWm0l+Ba6wOCRRHMRc5GIaA4Up5i
-         UVAavWPEAVG1Ot2pXPb6xnkpeiYvlGCpXnXZIPREzqjEKvxZr4a52sLBsgFYYEbhfLSq
-         /NoTtKjoUcZRR9Wc6neK2M5yMhFSGPQt+RKO3Kr4uBXkOSalOi1xb3GK1sSCJJMTivSD
-         qz8g==
-X-Gm-Message-State: ABy/qLar+LZ6/55TWzc67qKdF8Zf2OrMHlEyWZMeb2gFDyx65/4gTql1
-        CvMG6+kabsUwNgZ9XG8BgGLNOv/zkALXpw==
-X-Google-Smtp-Source: APBJJlFc+I0Ove3B+q7CdMlUexJdLMe/NJNkJeHcnmrXtpPsJgnPW2/z3WAEKsY02B7RJKRdXQMhBg==
-X-Received: by 2002:adf:eec2:0:b0:317:417e:a467 with SMTP id a2-20020adfeec2000000b00317417ea467mr5085884wrp.6.1690184348831;
-        Mon, 24 Jul 2023 00:39:08 -0700 (PDT)
-Received: from [192.168.1.58] (185-219-167-24-static.vivo.cz. [185.219.167.24])
-        by smtp.gmail.com with ESMTPSA id w2-20020a5d4b42000000b0030ae53550f5sm11918440wrs.51.2023.07.24.00.39.07
+        d=1e100.net; s=20221208; t=1690200925; x=1690805725;
+        h=content-transfer-encoding:cc:to:subject:message-id:date:from
+         :in-reply-to:references:mime-version:x-gm-message-state:from:to:cc
+         :subject:date:message-id:reply-to;
+        bh=9nNGOJzgymf6gQYpdxd2UIkw90HSJ+oAIVzOwuAShWk=;
+        b=Uy62wyMg9w8t+mqXu0QFMNYQLHegY1Q65joGU4ncPvQPGwYptIiN2f6DmsYUouk6+7
+         JtAWmLG197KYoHDOmAfg3ZxOMrjHz4xE3hYyT76AcEWP1/NbfEO6q8JRB5nr/BxAzOyg
+         a7+QOuyPI2rhvw7/jP5F4BBg9IY8T8XHLcAMM5ohppGtr7R86x2IuaPjPO9X/nWI0OoX
+         EtvgGcsk0r/ueEy3TzgJuT1uDqG0x03uxNtyt02jDdb+T8/6bg+fyCYc4tnNsnN92/Ld
+         LEs75sY2hdIgCGspHVn8/auJuTwf5Te67YoZrN0CdTPjjYJTQVBra4cPZU4AkhkcKXZg
+         UqmA==
+X-Gm-Message-State: ABy/qLbLYusZCq828Ib/fOAikT1ZT1JurJbDna2ZiunMDfG28vkcu73f
+        FuQTMKLHFf9zJHCLdakK0mBA/eVijJEt8w==
+X-Google-Smtp-Source: APBJJlGibdh4VyCHZRuKbHeK83kZpT8FPuPgZrxRhKw6BlST+Wy1ddPXguufHTrmJ8wIiimetINKUg==
+X-Received: by 2002:a05:6830:188:b0:6b9:91da:484f with SMTP id q8-20020a056830018800b006b991da484fmr8804468ota.27.1690200924916;
+        Mon, 24 Jul 2023 05:15:24 -0700 (PDT)
+Received: from mail-oo1-f50.google.com (mail-oo1-f50.google.com. [209.85.161.50])
+        by smtp.gmail.com with ESMTPSA id d9-20020a056830004900b006b8c6eb962esm3835164otp.52.2023.07.24.05.15.24
         (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);
-        Mon, 24 Jul 2023 00:39:08 -0700 (PDT)
-Message-ID: <047346f8-9ac4-4990-2885-8bfac47b83a3@kernel.org>
-Date:   Mon, 24 Jul 2023 09:39:07 +0200
+        Mon, 24 Jul 2023 05:15:24 -0700 (PDT)
+Received: by mail-oo1-f50.google.com with SMTP id 006d021491bc7-56368c40e8eso2620523eaf.0;
+        Mon, 24 Jul 2023 05:15:24 -0700 (PDT)
+X-Received: by 2002:a25:238e:0:b0:d05:abaf:9933 with SMTP id
+ j136-20020a25238e000000b00d05abaf9933mr7019302ybj.36.1690200457350; Mon, 24
+ Jul 2023 05:07:37 -0700 (PDT)
 MIME-Version: 1.0
-User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
- Thunderbird/102.13.0
-Subject: Re: [PATCH 1/2] io_uring: Fix io_uring mmap() by using
- architecture-provided get_unmapped_area()
-Content-Language: en-US
-To:     Helge Deller <deller@gmx.de>, linux-kernel@vger.kernel.org,
-        io-uring@vger.kernel.org, Jens Axboe <axboe@kernel.dk>,
-        linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org
-Cc:     matoro <matoro_mailinglist_kernel@matoro.tk>
-References: <20230721152432.196382-1-deller@gmx.de>
- <20230721152432.196382-2-deller@gmx.de>
-From:   Jiri Slaby <jirislaby@kernel.org>
-In-Reply-To: <20230721152432.196382-2-deller@gmx.de>
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+References: <20230719123944.3438363-1-arnd@kernel.org> <20230719123944.3438363-2-arnd@kernel.org>
+ <87pm4lj1w3.fsf@mail.lhotse> <19631e74-415e-4dcb-b79d-33dcf03d2dfc@app.fastmail.com>
+In-Reply-To: <19631e74-415e-4dcb-b79d-33dcf03d2dfc@app.fastmail.com>
+From:   Geert Uytterhoeven <geert@linux-m68k.org>
+Date:   Mon, 24 Jul 2023 14:07:25 +0200
+X-Gmail-Original-Message-ID: <CAMuHMdVszR+oZi8x8L0iXx=ydTiaNUZxToBSdf=2ZH5t85+D_Q@mail.gmail.com>
+Message-ID: <CAMuHMdVszR+oZi8x8L0iXx=ydTiaNUZxToBSdf=2ZH5t85+D_Q@mail.gmail.com>
+Subject: Re: [PATCH v2 1/9] vgacon: rework Kconfig dependencies
+To:     Arnd Bergmann <arnd@arndb.de>
+Cc:     Michael Ellerman <mpe@ellerman.id.au>,
+        Arnd Bergmann <arnd@kernel.org>, linux-fbdev@vger.kernel.org,
+        Thomas Zimmermann <tzimmermann@suse.de>,
+        Helge Deller <deller@gmx.de>,
+        Javier Martinez Canillas <javierm@redhat.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        "K. Y. Srinivasan" <kys@microsoft.com>,
+        Ard Biesheuvel <ardb@kernel.org>,
+        Borislav Petkov <bp@alien8.de>, Brian Cain <bcain@quicinc.com>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Christophe Leroy <christophe.leroy@csgroup.eu>,
+        Daniel Vetter <daniel@ffwll.ch>,
+        Dave Hansen <dave.hansen@linux.intel.com>,
+        Dave Airlie <airlied@gmail.com>,
+        Deepak Rawat <drawat.floss@gmail.com>,
+        Dexuan Cui <decui@microsoft.com>,
+        Dinh Nguyen <dinguyen@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        guoren <guoren@kernel.org>,
+        Haiyang Zhang <haiyangz@microsoft.com>,
+        Huacai Chen <chenhuacai@kernel.org>,
+        Ingo Molnar <mingo@redhat.com>,
+        John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
+        Khalid Aziz <khalid@gonehiking.org>,
+        Linus Walleij <linus.walleij@linaro.org>,
+        Matt Turner <mattst88@gmail.com>,
+        Max Filippov <jcmvbkbc@gmail.com>,
+        Nicholas Piggin <npiggin@gmail.com>,
+        Palmer Dabbelt <palmer@dabbelt.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        WANG Xuerui <kernel@xen0n.name>, Wei Liu <wei.liu@kernel.org>,
+        Will Deacon <will@kernel.org>, x86@kernel.org,
+        linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org,
+        "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>,
+        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+        loongarch@lists.linux.dev, linux-mips@vger.kernel.org,
+        linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org,
+        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
+        linux-hyperv@vger.kernel.org, dri-devel@lists.freedesktop.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On 21. 07. 23, 17:24, Helge Deller wrote:
-> The io_uring testcase is broken on IA-64 since commit d808459b2e31
-> ("io_uring: Adjust mapping wrt architecture aliasing requirements").
-> 
-> The reason is, that this commit introduced an own architecture
-> independend get_unmapped_area() search algorithm which finds on IA-64 a
-> memory region which is outside of the regular memory region used for
-> shared userspace mappings and which can't be used on that platform
-> due to aliasing.
-> 
-> To avoid similar problems on IA-64 and other platforms in the future,
-> it's better to switch back to the architecture-provided
-> get_unmapped_area() function and adjust the needed input parameters
-> before the call. Beside fixing the issue, the function now becomes
-> easier to understand and maintain.
-> 
-> This patch has been successfully tested with the io_uring testcase on
-> physical x86-64, ppc64le, IA-64 and PA-RISC machines. On PA-RISC the LTP
-> mmmap testcases did not report any regressions.
-> 
-> Signed-off-by: Helge Deller <deller@gmx.de>
-> Cc: Jens Axboe <axboe@kernel.dk>
-> Reported-by: matoro <matoro_mailinglist_kernel@matoro.tk>
-> Fixes: d808459b2e31 ("io_uring: Adjust mapping wrt architecture aliasing requirements")
+Hi Arnd,
 
-Tested-by: Jiri Slaby <jirislaby@kernel.org>
+On Fri, Jul 21, 2023 at 10:29 AM Arnd Bergmann <arnd@arndb.de> wrote:
+> On Fri, Jul 21, 2023, at 06:59, Michael Ellerman wrote:
+> > Arnd Bergmann <arnd@kernel.org> writes:
+> >> From: Arnd Bergmann <arnd@arndb.de>
+> >>
+> >> The list of dependencies here is phrased as an opt-out, but this is missing
+> >> a lot of architectures that don't actually support VGA consoles, and some
+> >> of the entries are stale:
+> >>
+> >>  - powerpc used to support VGA consoles in the old arch/ppc codebase, but
+> >>    the merged arch/powerpc never did
+> >
+> > Not disputing this, but how did you come to that conclusion? I grepped
+> > around and couldn't convince myself whether it can work on powerpc or
+> > not. ie. currently it's possible to enable CONFIG_VGA_CONSOLE and
+> > powerpc does have a struct screen_info defined which seems like it would
+> > allow vgacon_startup() to complete.
+>
+> The VGA console needs both screen_info and vga_con to work. In arch/ppc
+> we had both, but in arch/powerpc we only retained the screen_info:
+>
+> $ git grep vga_con v2.6.26 -- arch/ppc arch/ppc64 arch/powerpc
+> v2.6.26:arch/ppc/platforms/pplus.c:     conswitchp = &vga_con;
+> v2.6.26:arch/ppc/platforms/prep_setup.c:        conswitchp = &vga_con;
+>
+> so after arch/ppc was removed, this became impossible to use on both
+> pplus and prep. These two platforms were also (as far as I can tell)
+> the only ones to support vga16fb as an alternative to vgacon, but
+> both platforms were removed later on.
 
-thanks,
+I did use vgacon and vga16fb on CHRP on a second video card
+(initialized using Gabriel Paubert's x86 BIOS emulator), but that was
+definitely before the advent of arch/powerpc/.
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
 -- 
-js
-suse labs
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
 
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
