@@ -2,140 +2,99 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 2AB3CC04E69
-	for <linux-ia64@archiver.kernel.org>; Mon, 24 Jul 2023 12:16:03 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 8214FC00528
+	for <linux-ia64@archiver.kernel.org>; Tue, 25 Jul 2023 07:16:38 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S230341AbjGXMQC convert rfc822-to-8bit (ORCPT
+        id S232311AbjGYHQh convert rfc822-to-8bit (ORCPT
         <rfc822;linux-ia64@archiver.kernel.org>);
-        Mon, 24 Jul 2023 08:16:02 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:46102 "EHLO
+        Tue, 25 Jul 2023 03:16:37 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:40142 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S230317AbjGXMQA (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Mon, 24 Jul 2023 08:16:00 -0400
-Received: from mail-ot1-f46.google.com (mail-ot1-f46.google.com [209.85.210.46])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 4B63110E4;
-        Mon, 24 Jul 2023 05:15:34 -0700 (PDT)
-Received: by mail-ot1-f46.google.com with SMTP id 46e09a7af769-6bb140cd5a5so2034274a34.3;
-        Mon, 24 Jul 2023 05:15:34 -0700 (PDT)
+        with ESMTP id S230224AbjGYHQf (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Tue, 25 Jul 2023 03:16:35 -0400
+Received: from mail-yw1-f170.google.com (mail-yw1-f170.google.com [209.85.128.170])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 4FFF312D;
+        Tue, 25 Jul 2023 00:16:32 -0700 (PDT)
+Received: by mail-yw1-f170.google.com with SMTP id 00721157ae682-583f036d50bso23921037b3.3;
+        Tue, 25 Jul 2023 00:16:32 -0700 (PDT)
 X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20221208; t=1690200925; x=1690805725;
+        d=1e100.net; s=20221208; t=1690269391; x=1690874191;
         h=content-transfer-encoding:cc:to:subject:message-id:date:from
          :in-reply-to:references:mime-version:x-gm-message-state:from:to:cc
          :subject:date:message-id:reply-to;
-        bh=9nNGOJzgymf6gQYpdxd2UIkw90HSJ+oAIVzOwuAShWk=;
-        b=Uy62wyMg9w8t+mqXu0QFMNYQLHegY1Q65joGU4ncPvQPGwYptIiN2f6DmsYUouk6+7
-         JtAWmLG197KYoHDOmAfg3ZxOMrjHz4xE3hYyT76AcEWP1/NbfEO6q8JRB5nr/BxAzOyg
-         a7+QOuyPI2rhvw7/jP5F4BBg9IY8T8XHLcAMM5ohppGtr7R86x2IuaPjPO9X/nWI0OoX
-         EtvgGcsk0r/ueEy3TzgJuT1uDqG0x03uxNtyt02jDdb+T8/6bg+fyCYc4tnNsnN92/Ld
-         LEs75sY2hdIgCGspHVn8/auJuTwf5Te67YoZrN0CdTPjjYJTQVBra4cPZU4AkhkcKXZg
-         UqmA==
-X-Gm-Message-State: ABy/qLbLYusZCq828Ib/fOAikT1ZT1JurJbDna2ZiunMDfG28vkcu73f
-        FuQTMKLHFf9zJHCLdakK0mBA/eVijJEt8w==
-X-Google-Smtp-Source: APBJJlGibdh4VyCHZRuKbHeK83kZpT8FPuPgZrxRhKw6BlST+Wy1ddPXguufHTrmJ8wIiimetINKUg==
-X-Received: by 2002:a05:6830:188:b0:6b9:91da:484f with SMTP id q8-20020a056830018800b006b991da484fmr8804468ota.27.1690200924916;
-        Mon, 24 Jul 2023 05:15:24 -0700 (PDT)
-Received: from mail-oo1-f50.google.com (mail-oo1-f50.google.com. [209.85.161.50])
-        by smtp.gmail.com with ESMTPSA id d9-20020a056830004900b006b8c6eb962esm3835164otp.52.2023.07.24.05.15.24
+        bh=cJjDsseCku7rw4c3XWBJPjjfZ2OLqB4Q28CEWAPlCas=;
+        b=hVQgl7DJn5GMlVxdjbl2+VQHv/xf18JajW1kmjJZJSajwKgmpvI4WnQFNuFrN6Kut4
+         GT5Et9fFsFo12XxQqaujQ4J+n8o3+fD9UH64LXzwqYAjKJXXULdTqQ8B4kOMVZo3YVDI
+         q5IT8zU1iLniV5tVgsao0GvWUOM58b+tcfTurz/v4/l+EJ6TZ7puiGmuvJ3eK3Kw8XLX
+         yTtuhIpuWw6/E45ha48s1YccW9z0uuxUs95lQMKV98Y3OHCMiLVP32qsMngUQj5lmyl3
+         nTThflP9pjqEwbHY3bKdonTWOW9i+KkfCdWzb3hRhj2Vnkzrj59bDYrBWumdJ4HmycNt
+         zu2g==
+X-Gm-Message-State: ABy/qLao/3eJ40JY7/2WDUcsy767G4pg3s4vipoIUxV0DGufrxZSA9sh
+        sZuL08BUJbvdndkxbBFyyya1Ez6mYXzdcYuw
+X-Google-Smtp-Source: APBJJlGGkYf3TOwXUHFzKgPD8ivkikovqfooPElc9ajMbqNe2UaqmvOSsqb2a9wDw8jy7t1AOf/MZg==
+X-Received: by 2002:a0d:d646:0:b0:577:1909:ee16 with SMTP id y67-20020a0dd646000000b005771909ee16mr12409284ywd.30.1690269391390;
+        Tue, 25 Jul 2023 00:16:31 -0700 (PDT)
+Received: from mail-yb1-f177.google.com (mail-yb1-f177.google.com. [209.85.219.177])
+        by smtp.gmail.com with ESMTPSA id k67-20020a0dfa46000000b005619cfb1b88sm3383079ywf.52.2023.07.25.00.16.29
         (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);
-        Mon, 24 Jul 2023 05:15:24 -0700 (PDT)
-Received: by mail-oo1-f50.google.com with SMTP id 006d021491bc7-56368c40e8eso2620523eaf.0;
-        Mon, 24 Jul 2023 05:15:24 -0700 (PDT)
-X-Received: by 2002:a25:238e:0:b0:d05:abaf:9933 with SMTP id
- j136-20020a25238e000000b00d05abaf9933mr7019302ybj.36.1690200457350; Mon, 24
- Jul 2023 05:07:37 -0700 (PDT)
+        Tue, 25 Jul 2023 00:16:29 -0700 (PDT)
+Received: by mail-yb1-f177.google.com with SMTP id 3f1490d57ef6-c2cf4e61bc6so5822765276.3;
+        Tue, 25 Jul 2023 00:16:29 -0700 (PDT)
+X-Received: by 2002:a25:10c5:0:b0:c91:717e:7658 with SMTP id
+ 188-20020a2510c5000000b00c91717e7658mr10654915ybq.2.1690269388936; Tue, 25
+ Jul 2023 00:16:28 -0700 (PDT)
 MIME-Version: 1.0
-References: <20230719123944.3438363-1-arnd@kernel.org> <20230719123944.3438363-2-arnd@kernel.org>
- <87pm4lj1w3.fsf@mail.lhotse> <19631e74-415e-4dcb-b79d-33dcf03d2dfc@app.fastmail.com>
-In-Reply-To: <19631e74-415e-4dcb-b79d-33dcf03d2dfc@app.fastmail.com>
+References: <cover.1689074739.git.legion@kernel.org> <cover.1689092120.git.legion@kernel.org>
+ <a677d521f048e4ca439e7080a5328f21eb8e960e.1689092120.git.legion@kernel.org>
+In-Reply-To: <a677d521f048e4ca439e7080a5328f21eb8e960e.1689092120.git.legion@kernel.org>
 From:   Geert Uytterhoeven <geert@linux-m68k.org>
-Date:   Mon, 24 Jul 2023 14:07:25 +0200
-X-Gmail-Original-Message-ID: <CAMuHMdVszR+oZi8x8L0iXx=ydTiaNUZxToBSdf=2ZH5t85+D_Q@mail.gmail.com>
-Message-ID: <CAMuHMdVszR+oZi8x8L0iXx=ydTiaNUZxToBSdf=2ZH5t85+D_Q@mail.gmail.com>
-Subject: Re: [PATCH v2 1/9] vgacon: rework Kconfig dependencies
-To:     Arnd Bergmann <arnd@arndb.de>
-Cc:     Michael Ellerman <mpe@ellerman.id.au>,
-        Arnd Bergmann <arnd@kernel.org>, linux-fbdev@vger.kernel.org,
-        Thomas Zimmermann <tzimmermann@suse.de>,
-        Helge Deller <deller@gmx.de>,
-        Javier Martinez Canillas <javierm@redhat.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        "K. Y. Srinivasan" <kys@microsoft.com>,
-        Ard Biesheuvel <ardb@kernel.org>,
-        Borislav Petkov <bp@alien8.de>, Brian Cain <bcain@quicinc.com>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Christophe Leroy <christophe.leroy@csgroup.eu>,
-        Daniel Vetter <daniel@ffwll.ch>,
-        Dave Hansen <dave.hansen@linux.intel.com>,
-        Dave Airlie <airlied@gmail.com>,
-        Deepak Rawat <drawat.floss@gmail.com>,
-        Dexuan Cui <decui@microsoft.com>,
-        Dinh Nguyen <dinguyen@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        guoren <guoren@kernel.org>,
-        Haiyang Zhang <haiyangz@microsoft.com>,
-        Huacai Chen <chenhuacai@kernel.org>,
-        Ingo Molnar <mingo@redhat.com>,
-        John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
-        Khalid Aziz <khalid@gonehiking.org>,
-        Linus Walleij <linus.walleij@linaro.org>,
-        Matt Turner <mattst88@gmail.com>,
-        Max Filippov <jcmvbkbc@gmail.com>,
-        Nicholas Piggin <npiggin@gmail.com>,
-        Palmer Dabbelt <palmer@dabbelt.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        WANG Xuerui <kernel@xen0n.name>, Wei Liu <wei.liu@kernel.org>,
-        Will Deacon <will@kernel.org>, x86@kernel.org,
-        linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-efi@vger.kernel.org,
-        "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>,
-        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
-        loongarch@lists.linux.dev, linux-mips@vger.kernel.org,
-        linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org,
-        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
-        linux-hyperv@vger.kernel.org, dri-devel@lists.freedesktop.org
+Date:   Tue, 25 Jul 2023 09:16:17 +0200
+X-Gmail-Original-Message-ID: <CAMuHMdXzYxo83AXfWWVyp2fL3fcEUNgbG5aSZuA62FwO2i3jDg@mail.gmail.com>
+Message-ID: <CAMuHMdXzYxo83AXfWWVyp2fL3fcEUNgbG5aSZuA62FwO2i3jDg@mail.gmail.com>
+Subject: Re: [PATCH v4 3/5] arch: Register fchmodat2, usually as syscall 452
+To:     Alexey Gladkov <legion@kernel.org>
+Cc:     LKML <linux-kernel@vger.kernel.org>, Arnd Bergmann <arnd@arndb.de>,
+        linux-api@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+        viro@zeniv.linux.org.uk, Palmer Dabbelt <palmer@sifive.com>,
+        James.Bottomley@hansenpartnership.com, acme@kernel.org,
+        alexander.shishkin@linux.intel.com, axboe@kernel.dk,
+        benh@kernel.crashing.org, borntraeger@de.ibm.com, bp@alien8.de,
+        catalin.marinas@arm.com, christian@brauner.io, dalias@libc.org,
+        davem@davemloft.net, deepa.kernel@gmail.com, deller@gmx.de,
+        dhowells@redhat.com, fenghua.yu@intel.com, fweimer@redhat.com,
+        glebfm@altlinux.org, gor@linux.ibm.com, hare@suse.com,
+        hpa@zytor.com, ink@jurassic.park.msu.ru, jhogan@kernel.org,
+        kim.phillips@arm.com, ldv@altlinux.org,
+        linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org,
+        linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org,
+        linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org,
+        linux-s390@vger.kernel.org, linux-sh@vger.kernel.org,
+        linux@armlinux.org.uk, linuxppc-dev@lists.ozlabs.org,
+        luto@kernel.org, mattst88@gmail.com, mingo@redhat.com,
+        monstr@monstr.eu, mpe@ellerman.id.au, namhyung@kernel.org,
+        paulus@samba.org, peterz@infradead.org, ralf@linux-mips.org,
+        sparclinux@vger.kernel.org, stefan@agner.ch, tglx@linutronix.de,
+        tony.luck@intel.com, tycho@tycho.ws, will@kernel.org,
+        x86@kernel.org, ysato@users.sourceforge.jp
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8BIT
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-Hi Arnd,
+On Tue, Jul 11, 2023 at 6:25 PM Alexey Gladkov <legion@kernel.org> wrote:
+> From: Palmer Dabbelt <palmer@sifive.com>
+>
+> This registers the new fchmodat2 syscall in most places as nuber 452,
+> with alpha being the exception where it's 562.  I found all these sites
+> by grepping for fspick, which I assume has found me everything.
+>
+> Signed-off-by: Palmer Dabbelt <palmer@sifive.com>
+> Signed-off-by: Alexey Gladkov <legion@kernel.org>
 
-On Fri, Jul 21, 2023 at 10:29 AM Arnd Bergmann <arnd@arndb.de> wrote:
-> On Fri, Jul 21, 2023, at 06:59, Michael Ellerman wrote:
-> > Arnd Bergmann <arnd@kernel.org> writes:
-> >> From: Arnd Bergmann <arnd@arndb.de>
-> >>
-> >> The list of dependencies here is phrased as an opt-out, but this is missing
-> >> a lot of architectures that don't actually support VGA consoles, and some
-> >> of the entries are stale:
-> >>
-> >>  - powerpc used to support VGA consoles in the old arch/ppc codebase, but
-> >>    the merged arch/powerpc never did
-> >
-> > Not disputing this, but how did you come to that conclusion? I grepped
-> > around and couldn't convince myself whether it can work on powerpc or
-> > not. ie. currently it's possible to enable CONFIG_VGA_CONSOLE and
-> > powerpc does have a struct screen_info defined which seems like it would
-> > allow vgacon_startup() to complete.
->
-> The VGA console needs both screen_info and vga_con to work. In arch/ppc
-> we had both, but in arch/powerpc we only retained the screen_info:
->
-> $ git grep vga_con v2.6.26 -- arch/ppc arch/ppc64 arch/powerpc
-> v2.6.26:arch/ppc/platforms/pplus.c:     conswitchp = &vga_con;
-> v2.6.26:arch/ppc/platforms/prep_setup.c:        conswitchp = &vga_con;
->
-> so after arch/ppc was removed, this became impossible to use on both
-> pplus and prep. These two platforms were also (as far as I can tell)
-> the only ones to support vga16fb as an alternative to vgacon, but
-> both platforms were removed later on.
+>  arch/m68k/kernel/syscalls/syscall.tbl       | 1 +
 
-I did use vgacon and vga16fb on CHRP on a second video card
-(initialized using Gabriel Paubert's x86 BIOS emulator), but that was
-definitely before the advent of arch/powerpc/.
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
 Gr{oetje,eeting}s,
 
