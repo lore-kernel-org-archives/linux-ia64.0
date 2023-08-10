@@ -2,400 +2,211 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id D07E3C001E0
-	for <linux-ia64@archiver.kernel.org>; Thu, 10 Aug 2023 14:35:17 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id C5684C001B0
+	for <linux-ia64@archiver.kernel.org>; Thu, 10 Aug 2023 15:21:32 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S235464AbjHJOfQ (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Thu, 10 Aug 2023 10:35:16 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:42358 "EHLO
+        id S235114AbjHJPVc (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Thu, 10 Aug 2023 11:21:32 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:38904 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S235637AbjHJOfP (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Thu, 10 Aug 2023 10:35:15 -0400
-Received: from dfw.source.kernel.org (dfw.source.kernel.org [IPv6:2604:1380:4641:c500::1])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id C00C62698
-        for <linux-ia64@vger.kernel.org>; Thu, 10 Aug 2023 07:35:14 -0700 (PDT)
-Received: from smtp.kernel.org (relay.kernel.org [52.25.139.140])
-        (using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
-         key-exchange X25519 server-signature RSA-PSS (2048 bits))
-        (No client certificate requested)
-        by dfw.source.kernel.org (Postfix) with ESMTPS id 449176202A
-        for <linux-ia64@vger.kernel.org>; Thu, 10 Aug 2023 14:35:14 +0000 (UTC)
-Received: by smtp.kernel.org (Postfix) with ESMTPSA id 3B61CC433C7;
-        Thu, 10 Aug 2023 14:35:13 +0000 (UTC)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=kernel.org;
-        s=k20201202; t=1691678113;
-        bh=l7iX2EFXiiKalApDOgrMA9KciL+YR2kWW6FuOaN5oXo=;
-        h=Date:From:To:Cc:Subject:References:In-Reply-To:From;
-        b=I62Nd4+MWtex1Kqp9IwKczgKaZxjLl4uwfpI+9RKlMS9gah1cJZaGCNLwzGR1rEOY
-         RFsjtWDXbanVmYxezCl+eTUt1dSHDtGXgfM13CcBaaR2dnSCorr+o7ka9/b5WSdhRE
-         XRV0ry1YbnyoJlU5C8tlCDvEJQrk18j8CKrDzBrr2iGYf73rnccTlWlJ91LLNwRgrv
-         F8Lsi3x7I4xTd79G1wXEeLKib48kiFHjuL6EhAdGQ6k5bE2cFjXiFkg/N3roY03tNC
-         8pwapyCbF9piGqDPakbkcBZfBfIZ189zlA8DmBQC6L+0o4Mn9SorQNvZGR3aBti1BH
-         5vK8/N8OlKIwA==
-Date:   Thu, 10 Aug 2023 07:35:11 -0700
-From:   Nathan Chancellor <nathan@kernel.org>
-To:     Yujie Liu <yujie.liu@intel.com>
-Cc:     Nick Desaulniers <ndesaulniers@google.com>,
-        Tony Luck <tony.luck@intel.com>, llvm@lists.linux.dev,
-        oe-kbuild-all@lists.linux.dev, linux-ia64@vger.kernel.org,
-        kernel test robot <lkp@intel.com>
-Subject: Re: [aegl:resctrl2_v65rc4 2/2]
- fs/resctrl2/arch/x86/l3_pseudolock.c:569:1: error: expected ';' after top
- level declarator
-Message-ID: <20230810143511.GB1549244@dev-arch.thelio-3990X>
-References: <202308040650.ayL6ExhZ-lkp@intel.com>
- <ZNSFUHra6FTSxFLF@yujie-X299>
-MIME-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-In-Reply-To: <ZNSFUHra6FTSxFLF@yujie-X299>
+        with ESMTP id S230123AbjHJPVb (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Thu, 10 Aug 2023 11:21:31 -0400
+Received: from wout5-smtp.messagingengine.com (wout5-smtp.messagingengine.com [64.147.123.21])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id A0B9C90;
+        Thu, 10 Aug 2023 08:21:30 -0700 (PDT)
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.47])
+        by mailout.west.internal (Postfix) with ESMTP id 59DCC32002F9;
+        Thu, 10 Aug 2023 11:21:28 -0400 (EDT)
+Received: from imap51 ([10.202.2.101])
+  by compute6.internal (MEProxy); Thu, 10 Aug 2023 11:21:30 -0400
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=arndb.de; h=cc
+        :cc:content-transfer-encoding:content-type:content-type:date
+        :date:from:from:in-reply-to:in-reply-to:message-id:mime-version
+        :references:reply-to:sender:subject:subject:to:to; s=fm3; t=
+        1691680887; x=1691767287; bh=2Q9/wkZuAqGaPUlwVeMbpzA59zc+JfHIktY
+        O4gpFXEA=; b=ZCcOvD/TT/PSev+2Dyu9ZRKhlD4q/bxEv5m+kvnNStn5eSszZWm
+        w9D5rrEsvkBLmz306pN0MqgCBrkdacFLlP0rSRb/WNaZNJc5uMDd5iDiMN+uBXYv
+        GJOyPmA70xOSVNmpH/ET30WSOY/HTl7/mzDWPBLgMgllw73V+Wv/UFpDGv0WYEPU
+        jtUByC4uRRJ9OjRPV5CNx4fob5dB60qcHFbzeHEg6+R6a57BUKfeNUoGYWovUIwx
+        vkeit7Rlnxv0zWR6jkbC368cwJlumjjVa75wl8kXhsl3JJ4muOCtwGQNk5fIhkuq
+        znkzlDD0Cg6bRbITDLIDSH2A0JKt/5wgXSw==
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=
+        messagingengine.com; h=cc:cc:content-transfer-encoding
+        :content-type:content-type:date:date:feedback-id:feedback-id
+        :from:from:in-reply-to:in-reply-to:message-id:mime-version
+        :references:reply-to:sender:subject:subject:to:to:x-me-proxy
+        :x-me-proxy:x-me-sender:x-me-sender:x-sasl-enc; s=fm3; t=
+        1691680887; x=1691767287; bh=2Q9/wkZuAqGaPUlwVeMbpzA59zc+JfHIktY
+        O4gpFXEA=; b=mms0pG75QfEGRdY/ORQ0MstTvMIXTCXtbdJmNVVzt+DPpXNBlxD
+        +5UMexA4voHGOBrQCEgGvYUXvBBPVnElQGSTKN9uQ8of7OyWgnvQiBUp3C/yIlpy
+        T8an/+4gYsr+5skEsqiLG48DUKeq8u9j9UtmpBVUujkjk2ll6C5FtSa5b+haekJ9
+        OYWWYQ7A6PKlUtSVrMal7TiMysf/suC9L/GvlijFC/9PWaapAgwmMSMO0BPq04x/
+        L0g0JH5xn86tizCEsedGoJzcSUulJHdXcLb6W1ZtqmRKS99y2tntFCSMjAa6TicL
+        b1YxAem1VYQEPfpVW+ue+k4iDarYNL+9IGQ==
+X-ME-Sender: <xms:dgDVZIXZFhxPSMTfGHMu_-j2HVQVYW5vHFeTdOtr8BoWT28-RIF6yg>
+    <xme:dgDVZMk3uqFfDMn82mnb43VO29EJCPpp4plX5mMJRz932dNS5aFn-4w3AV_XBb3jl
+    0mvSPPdywvSiJb_y1I>
+X-ME-Proxy-Cause: gggruggvucftvghtrhhoucdtuddrgedviedrleeigdekiecutefuodetggdotefrodftvf
+    curfhrohhfihhlvgemucfhrghsthforghilhdpqfgfvfdpuffrtefokffrpgfnqfghnecu
+    uegrihhlohhuthemuceftddtnecusecvtfgvtghiphhivghnthhsucdlqddutddtmdenuc
+    fjughrpefofgggkfgjfhffhffvvefutgfgsehtqhertderreejnecuhfhrohhmpedftehr
+    nhguuceuvghrghhmrghnnhdfuceorghrnhgusegrrhhnuggsrdguvgeqnecuggftrfgrth
+    htvghrnhepgeefjeehvdelvdffieejieejiedvvdfhleeivdelveehjeelteegudektdfg
+    jeevnecuvehluhhsthgvrhfuihiivgeptdenucfrrghrrghmpehmrghilhhfrhhomheprg
+    hrnhgusegrrhhnuggsrdguvg
+X-ME-Proxy: <xmx:dgDVZMauFN35ddea0SKuU1yYRyrapWXPaaGMByK8EiIaJYRLkYpkFg>
+    <xmx:dgDVZHW6P84vUGMSkVGacaT3VuYhP0-MSZOmlRLNtYFc3x20Qf70Cw>
+    <xmx:dgDVZClGx6gZNd8wTSf4DZdU-Y0BptPuYTUp1iefJsadxxAKOn6JuA>
+    <xmx:dwDVZBqV2y_X_7ikf2dZGac6q82UL0zULTX42gbZsO_CIPAMrcH-BQ>
+Feedback-ID: i56a14606:Fastmail
+Received: by mailuser.nyi.internal (Postfix, from userid 501)
+        id 47DE4B60089; Thu, 10 Aug 2023 11:21:26 -0400 (EDT)
+X-Mailer: MessagingEngine.com Webmail Interface
+User-Agent: Cyrus-JMAP/3.9.0-alpha0-624-g7714e4406d-fm-20230801.001-g7714e440
+Mime-Version: 1.0
+Message-Id: <a6222c7f-f903-4de5-821a-f90da8ad1dc9@app.fastmail.com>
+In-Reply-To: <e0c2f7b1-b137-fbd3-aa28-808498eb8e3f@csgroup.eu>
+References: <20230810141947.1236730-1-arnd@kernel.org>
+ <20230810141947.1236730-17-arnd@kernel.org>
+ <e0c2f7b1-b137-fbd3-aa28-808498eb8e3f@csgroup.eu>
+Date:   Thu, 10 Aug 2023 17:21:04 +0200
+From:   "Arnd Bergmann" <arnd@arndb.de>
+To:     "Christophe Leroy" <christophe.leroy@csgroup.eu>,
+        "Arnd Bergmann" <arnd@kernel.org>,
+        "Andrew Morton" <akpm@linux-foundation.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Cc:     "Matt Turner" <mattst88@gmail.com>,
+        "Vineet Gupta" <vgupta@kernel.org>,
+        "Russell King" <linux@armlinux.org.uk>,
+        "Catalin Marinas" <catalin.marinas@arm.com>,
+        "Will Deacon" <will@kernel.org>, guoren <guoren@kernel.org>,
+        "Brian Cain" <bcain@quicinc.com>,
+        "Huacai Chen" <chenhuacai@kernel.org>,
+        "WANG Xuerui" <kernel@xen0n.name>,
+        "Geert Uytterhoeven" <geert@linux-m68k.org>,
+        "Michal Simek" <monstr@monstr.eu>,
+        "Thomas Bogendoerfer" <tsbogend@alpha.franken.de>,
+        "Dinh Nguyen" <dinguyen@kernel.org>,
+        "Jonas Bonn" <jonas@southpole.se>,
+        "Stafford Horne" <shorne@gmail.com>,
+        "James E . J . Bottomley" <James.Bottomley@HansenPartnership.com>,
+        "Helge Deller" <deller@gmx.de>,
+        "Michael Ellerman" <mpe@ellerman.id.au>,
+        "Palmer Dabbelt" <palmer@dabbelt.com>,
+        "Heiko Carstens" <hca@linux.ibm.com>,
+        "John Paul Adrian Glaubitz" <glaubitz@physik.fu-berlin.de>,
+        "x86@kernel.org" <x86@kernel.org>,
+        "Borislav Petkov" <bp@alien8.de>,
+        "Nathan Chancellor" <nathan@kernel.org>,
+        "Nick Desaulniers" <ndesaulniers@google.com>,
+        "Guenter Roeck" <linux@roeck-us.net>,
+        "Stephen Rothwell" <sfr@canb.auug.org.au>,
+        linux-next <linux-next@vger.kernel.org>,
+        "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>,
+        "linux-snps-arc@lists.infradead.org" 
+        <linux-snps-arc@lists.infradead.org>,
+        "linux-arm-kernel@lists.infradead.org" 
+        <linux-arm-kernel@lists.infradead.org>,
+        "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>,
+        "linux-hexagon@vger.kernel.org" <linux-hexagon@vger.kernel.org>,
+        "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>,
+        "loongarch@lists.linux.dev" <loongarch@lists.linux.dev>,
+        "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>,
+        "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>,
+        "linux-openrisc@vger.kernel.org" <linux-openrisc@vger.kernel.org>,
+        "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>,
+        "Richard Henderson" <richard.henderson@linaro.org>,
+        "Ivan Kokshaysky" <ink@jurassic.park.msu.ru>,
+        "Stefan Kristiansson" <stefan.kristiansson@saunalahti.fi>,
+        "Yoshinori Sato" <ysato@users.sourceforge.jp>,
+        "Rich Felker" <dalias@libc.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        "Chris Zankel" <chris@zankel.net>,
+        "Max Filippov" <jcmvbkbc@gmail.com>,
+        "Christian Brauner" <brauner@kernel.org>,
+        "Paul Walmsley" <paul.walmsley@sifive.com>,
+        "Albert Ou" <aou@eecs.berkeley.edu>,
+        "Youling Tang" <tangyouling@loongson.cn>,
+        "Tiezhu Yang" <yangtiezhu@loongson.cn>,
+        "Masahiro Yamada" <masahiroy@kernel.org>,
+        "Randy Dunlap" <rdunlap@infradead.org>,
+        "Masami Hiramatsu" <mhiramat@kernel.org>,
+        "Paul E. McKenney" <paulmck@kernel.org>,
+        "Miguel Ojeda" <ojeda@kernel.org>,
+        "Zhen Lei" <thunder.leizhen@huawei.com>,
+        "Xin Li" <xin3.li@intel.com>, "Nhat Pham" <nphamcs@gmail.com>,
+        "Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
+        =?UTF-8?Q?Marc_Aur=C3=A8le_La_France?= <tsi@tuyoix.net>,
+        "Johannes Weiner" <hannes@cmpxchg.org>,
+        "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>,
+        "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
+        "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>
+Subject: Re: [PATCH 16/17] [RFC] arch: turn -Wmissing-prototypes off conditionally
+Content-Type: text/plain;charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-Hi Yujie,
+On Thu, Aug 10, 2023, at 16:59, Christophe Leroy wrote:
+> Le 10/08/2023 =C3=A0 16:19, Arnd Bergmann a =C3=A9crit=C2=A0:
+>> From: Arnd Bergmann <arnd@arndb.de>
+>>=20
+>> I have cleaned up the -Wmissing-prototypes warnings for most of the m=
+ajor architectures
+>> as well as all drivers that get enabled for CONFIG_COMPILE_TEST, so n=
+ow these should be
+>> close to fixed on x86, arm, arm64, powerpc, s390, and riscv.
+>>=20
+>> The other architectures tend to have a lot of these warning in archit=
+ecture specific
+>> code, primarily from functions that are only called from assembler co=
+de and do
+>> not otherwise need a declaration but still cause a warning without on=
+e. Other cases
+>> are simply functions that should just be static or are missing an #in=
+clude statement.
+>>=20
+>> In order to be able to turn the warning on globally by default withou=
+t breaking all
+>> these architectures, add a list of exceptions for architecture direct=
+ories that
+>> can revert back to the old behavior of not warning based on a new
+>> CONFIG_WNO_MISSING_PROTOTYPES option.
+>
+> Some architectures only have a few of those errors/warnings.
+>
+> For instance microblaze and parisc only have one each. Isn't it better=20
+> to fix them rather then turn the errors off ?
 
-On Thu, Aug 10, 2023 at 02:36:00PM +0800, Yujie Liu wrote:
-> Hi Nathan, Hi Nick,
-> 
-> Could you kindly help to take a look at this report?
-> 
-> Quote Tony's comment:
-> 
-> > It seems that some/all of the combination of CLANG, ARCH=i386, and
-> > building with CONFIG_XXX=y rather than CONFIG_XXX=m makes clang freak
-> > out.
-> > GCC seems able to build the files in fs/resctrl2/arch/x86/ as either
-> > modules or built-in, x86_64 or i386 without problems.
-> 
-> We re-tested this case and got the same result as Tony's. GCC can build
-> this without problems, while various versions of clang (clang
-> 17/16/15/14) throw this error. Could you help do a quick check to see if
-> necessary to track an issue? Thanks.
+The list was only the 'defconfig' warnings, there are a couple more
+that I saw with 'allmodconfig', and I'm sure there are even more
+when dealing with other random configurations.
 
-I'll do my best to take a look at this either today/tomorrow or early
-next week. We're dealing with some fallout from the SRSO mitigations, so
-that has been priority 0 at the moment.
+I did send other fixes for microblaze and parisc specific drivers,
+and I could also send patches for the two defconfig warnings if
+the maintainers are happy with fixing those but leaving allmodconfig
+to still warn, but I feel that it's easier for them to just
+do the last fixes themselves and then remove my hack again.
 
-Cheers,
-Nathan
+I'll wait for Michal and Helge on these.
 
-> On Fri, Aug 04, 2023 at 06:45:45AM +0800, kernel test robot wrote:
-> > tree:   https://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git resctrl2_v65rc4
-> > head:   36621209814f9810feed9af60d278a198847c117
-> > commit: 36621209814f9810feed9af60d278a198847c117 [2/2] resctrl2: Arch x86 modules for most of the legacy control/monitor functions
-> > config: i386-randconfig-r032-20230804 (https://download.01.org/0day-ci/archive/20230804/202308040650.ayL6ExhZ-lkp@intel.com/config)
-> > compiler: clang version 16.0.4 (https://github.com/llvm/llvm-project.git ae42196bc493ffe877a7e3dff8be32035dea4d07)
-> > reproduce: (https://download.01.org/0day-ci/archive/20230804/202308040650.ayL6ExhZ-lkp@intel.com/reproduce)
-> > 
-> > If you fix the issue in a separate patch/commit (i.e. not just a new version of
-> > the same patch/commit), kindly add following tags
-> > | Reported-by: kernel test robot <lkp@intel.com>
-> > | Closes: https://lore.kernel.org/oe-kbuild-all/202308040650.ayL6ExhZ-lkp@intel.com/
-> > 
-> > All errors (new ones prefixed by >>):
-> > 
-> >    fs/resctrl2/arch/x86/l3_pseudolock.c:569:1: warning: '__cold__' attribute only applies to functions [-Wignored-attributes]
-> >    module_init(cat_init);
-> >    ^
-> >    include/linux/module.h:88:24: note: expanded from macro 'module_init'
-> >    #define module_init(x)  __initcall(x);
-> >                            ^
-> >    include/linux/init.h:316:24: note: expanded from macro '__initcall'
-> >    #define __initcall(fn) device_initcall(fn)
-> >                           ^
-> >    include/linux/init.h:311:30: note: expanded from macro 'device_initcall'
-> >    #define device_initcall(fn)             __define_initcall(fn, 6)
-> >                                            ^
-> >    note: (skipping 4 expansions in backtrace; use -fmacro-backtrace-limit=0 to see all)
-> >    include/linux/init.h:243:6: note: expanded from macro '__define_initcall_stub'
-> >            int __init __stub(void);                                \
-> >                ^
-> >    include/linux/init.h:52:41: note: expanded from macro '__init'
-> >    #define __init          __section(".init.text") __cold  __latent_entropy __noinitretpoline
-> >                                                    ^
-> >    include/linux/compiler_types.h:104:34: note: expanded from macro '__cold'
-> >    #define __cold                          __attribute__((__cold__))
-> >                                                           ^
-> > >> fs/resctrl2/arch/x86/l3_pseudolock.c:569:1: error: expected ';' after top level declarator
-> >    include/linux/module.h:88:24: note: expanded from macro 'module_init'
-> >    #define module_init(x)  __initcall(x);
-> >                            ^
-> >    include/linux/init.h:316:24: note: expanded from macro '__initcall'
-> >    #define __initcall(fn) device_initcall(fn)
-> >                           ^
-> >    include/linux/init.h:311:30: note: expanded from macro 'device_initcall'
-> >    #define device_initcall(fn)             __define_initcall(fn, 6)
-> >                                            ^
-> >    note: (skipping 1 expansions in backtrace; use -fmacro-backtrace-limit=0 to see all)
-> >    include/linux/init.h:280:35: note: expanded from macro '___define_initcall'
-> >            __unique_initcall(fn, id, __sec, __initcall_id(fn))
-> >                                             ^
-> >    include/linux/init.h:209:10: note: expanded from macro '__initcall_id'
-> >            __PASTE(__KBUILD_MODNAME,                               \
-> >                    ^
-> >    <command line>:9:48: note: expanded from macro '__KBUILD_MODNAME'
-> >    #define __KBUILD_MODNAME kmod_rdt_l2_pseudolock:rdt_l3_pseudolock
-> >                                                   ^
-> > >> fs/resctrl2/arch/x86/l3_pseudolock.c:569:1: error: type specifier missing, defaults to 'int'; ISO C99 and later do not support implicit int [-Wimplicit-int]
-> >    include/linux/module.h:88:24: note: expanded from macro 'module_init'
-> >    #define module_init(x)  __initcall(x);
-> >                            ^
-> >    include/linux/init.h:316:24: note: expanded from macro '__initcall'
-> >    #define __initcall(fn) device_initcall(fn)
-> >                           ^
-> >    include/linux/init.h:311:30: note: expanded from macro 'device_initcall'
-> >    #define device_initcall(fn)             __define_initcall(fn, 6)
-> >                                            ^
-> >    note: (skipping 5 expansions in backtrace; use -fmacro-backtrace-limit=0 to see all)
-> >    include/linux/compiler_types.h:75:22: note: expanded from macro '__PASTE'
-> >    #define __PASTE(a,b) ___PASTE(a,b)
-> >                         ^
-> >    include/linux/compiler_types.h:74:23: note: expanded from macro '___PASTE'
-> >    #define ___PASTE(a,b) a##b
-> >                          ^
-> >    <scratch space>:15:1: note: expanded from here
-> >    rdt_l3_pseudolock__215_569_cat_init6
-> >    ^
-> >    fs/resctrl2/arch/x86/l3_pseudolock.c:569:1: warning: '__cold__' attribute only applies to functions [-Wignored-attributes]
-> >    include/linux/module.h:88:24: note: expanded from macro 'module_init'
-> >    #define module_init(x)  __initcall(x);
-> >                            ^
-> >    include/linux/init.h:316:24: note: expanded from macro '__initcall'
-> >    #define __initcall(fn) device_initcall(fn)
-> >                           ^
-> >    include/linux/init.h:311:30: note: expanded from macro 'device_initcall'
-> >    #define device_initcall(fn)             __define_initcall(fn, 6)
-> >                                            ^
-> >    note: (skipping 4 expansions in backtrace; use -fmacro-backtrace-limit=0 to see all)
-> >    include/linux/init.h:244:6: note: expanded from macro '__define_initcall_stub'
-> >            int __init __stub(void)                                 \
-> >                ^
-> >    include/linux/init.h:52:41: note: expanded from macro '__init'
-> >    #define __init          __section(".init.text") __cold  __latent_entropy __noinitretpoline
-> >                                                    ^
-> >    include/linux/compiler_types.h:104:34: note: expanded from macro '__cold'
-> >    #define __cold                          __attribute__((__cold__))
-> >                                                           ^
-> > >> fs/resctrl2/arch/x86/l3_pseudolock.c:569:1: error: expected ';' after top level declarator
-> >    include/linux/module.h:88:24: note: expanded from macro 'module_init'
-> >    #define module_init(x)  __initcall(x);
-> >                            ^
-> >    include/linux/init.h:316:24: note: expanded from macro '__initcall'
-> >    #define __initcall(fn) device_initcall(fn)
-> >                           ^
-> >    include/linux/init.h:311:30: note: expanded from macro 'device_initcall'
-> >    #define device_initcall(fn)             __define_initcall(fn, 6)
-> >                                            ^
-> >    note: (skipping 1 expansions in backtrace; use -fmacro-backtrace-limit=0 to see all)
-> >    include/linux/init.h:280:35: note: expanded from macro '___define_initcall'
-> >            __unique_initcall(fn, id, __sec, __initcall_id(fn))
-> >                                             ^
-> >    include/linux/init.h:209:10: note: expanded from macro '__initcall_id'
-> >            __PASTE(__KBUILD_MODNAME,                               \
-> >                    ^
-> >    <command line>:9:48: note: expanded from macro '__KBUILD_MODNAME'
-> >    #define __KBUILD_MODNAME kmod_rdt_l2_pseudolock:rdt_l3_pseudolock
-> >                                                   ^
-> > >> fs/resctrl2/arch/x86/l3_pseudolock.c:569:1: error: type specifier missing, defaults to 'int'; ISO C99 and later do not support implicit int [-Wimplicit-int]
-> >    include/linux/module.h:88:24: note: expanded from macro 'module_init'
-> >    #define module_init(x)  __initcall(x);
-> >                            ^
-> >    include/linux/init.h:316:24: note: expanded from macro '__initcall'
-> >    #define __initcall(fn) device_initcall(fn)
-> >                           ^
-> >    include/linux/init.h:311:30: note: expanded from macro 'device_initcall'
-> >    #define device_initcall(fn)             __define_initcall(fn, 6)
-> >                                            ^
-> >    note: (skipping 5 expansions in backtrace; use -fmacro-backtrace-limit=0 to see all)
-> >    include/linux/compiler_types.h:75:22: note: expanded from macro '__PASTE'
-> >    #define __PASTE(a,b) ___PASTE(a,b)
-> >                         ^
-> >    include/linux/compiler_types.h:74:23: note: expanded from macro '___PASTE'
-> >    #define ___PASTE(a,b) a##b
-> >                          ^
-> >    <scratch space>:15:1: note: expanded from here
-> >    rdt_l3_pseudolock__215_569_cat_init6
-> >    ^
-> > >> fs/resctrl2/arch/x86/l3_pseudolock.c:569:1: error: expected ';' after top level declarator
-> >    include/linux/module.h:88:24: note: expanded from macro 'module_init'
-> >    #define module_init(x)  __initcall(x);
-> >                            ^
-> >    include/linux/init.h:316:24: note: expanded from macro '__initcall'
-> >    #define __initcall(fn) device_initcall(fn)
-> >                           ^
-> >    include/linux/init.h:311:30: note: expanded from macro 'device_initcall'
-> >    #define device_initcall(fn)             __define_initcall(fn, 6)
-> >                                            ^
-> >    note: (skipping 1 expansions in backtrace; use -fmacro-backtrace-limit=0 to see all)
-> >    include/linux/init.h:280:35: note: expanded from macro '___define_initcall'
-> >            __unique_initcall(fn, id, __sec, __initcall_id(fn))
-> >                                             ^
-> >    include/linux/init.h:209:10: note: expanded from macro '__initcall_id'
-> >            __PASTE(__KBUILD_MODNAME,                               \
-> >                    ^
-> >    <command line>:9:48: note: expanded from macro '__KBUILD_MODNAME'
-> >    #define __KBUILD_MODNAME kmod_rdt_l2_pseudolock:rdt_l3_pseudolock
-> >                                                   ^
-> > >> fs/resctrl2/arch/x86/l3_pseudolock.c:569:1: error: type specifier missing, defaults to 'int'; ISO C99 and later do not support implicit int [-Wimplicit-int]
-> >    include/linux/module.h:88:24: note: expanded from macro 'module_init'
-> >    #define module_init(x)  __initcall(x);
-> >                            ^
-> >    include/linux/init.h:316:24: note: expanded from macro '__initcall'
-> >    #define __initcall(fn) device_initcall(fn)
-> >                           ^
-> >    include/linux/init.h:311:30: note: expanded from macro 'device_initcall'
-> >    #define device_initcall(fn)             __define_initcall(fn, 6)
-> >                                            ^
-> >    note: (skipping 8 expansions in backtrace; use -fmacro-backtrace-limit=0 to see all)
-> >    include/linux/compiler_types.h:75:22: note: expanded from macro '__PASTE'
-> >    #define __PASTE(a,b) ___PASTE(a,b)
-> >                         ^
-> >    include/linux/compiler_types.h:74:23: note: expanded from macro '___PASTE'
-> >    #define ___PASTE(a,b) a##b
-> >                          ^
-> >    <scratch space>:28:1: note: expanded from here
-> >    rdt_l3_pseudolock__215_569_cat_init6216
-> >    ^
-> > >> fs/resctrl2/arch/x86/l3_pseudolock.c:569:1: error: incompatible pointer to integer conversion initializing 'int' with an expression of type 'void *' [-Wint-conversion]
-> >    module_init(cat_init);
-> >    ^~~~~~~~~~~~~~~~~~~~~
-> >    include/linux/module.h:88:24: note: expanded from macro 'module_init'
-> >    #define module_init(x)  __initcall(x);
-> >                            ^~~~~~~~~~~~~
-> >    include/linux/init.h:316:24: note: expanded from macro '__initcall'
-> >    #define __initcall(fn) device_initcall(fn)
-> >                           ^~~~~~~~~~~~~~~~~~~
-> >    include/linux/init.h:311:30: note: expanded from macro 'device_initcall'
-> >    #define device_initcall(fn)             __define_initcall(fn, 6)
-> >                                            ^~~~~~~~~~~~~~~~~~~~~~~~
-> >    note: (skipping 8 expansions in backtrace; use -fmacro-backtrace-limit=0 to see all)
-> >    include/linux/compiler_types.h:75:22: note: expanded from macro '__PASTE'
-> >    #define __PASTE(a,b) ___PASTE(a,b)
-> >                         ^
-> >    include/linux/compiler_types.h:74:23: note: expanded from macro '___PASTE'
-> >    #define ___PASTE(a,b) a##b
-> >                          ^
-> >    <scratch space>:28:1: note: expanded from here
-> >    rdt_l3_pseudolock__215_569_cat_init6216
-> >    ^
-> > >> fs/resctrl2/arch/x86/l3_pseudolock.c:569:1: error: expected ';' after top level declarator
-> >    include/linux/module.h:88:24: note: expanded from macro 'module_init'
-> >    #define module_init(x)  __initcall(x);
-> >                            ^
-> >    include/linux/init.h:316:24: note: expanded from macro '__initcall'
-> >    #define __initcall(fn) device_initcall(fn)
-> >                           ^
-> >    include/linux/init.h:311:30: note: expanded from macro 'device_initcall'
-> >    #define device_initcall(fn)             __define_initcall(fn, 6)
-> >                                            ^
-> >    note: (skipping 1 expansions in backtrace; use -fmacro-backtrace-limit=0 to see all)
-> >    include/linux/init.h:280:35: note: expanded from macro '___define_initcall'
-> >            __unique_initcall(fn, id, __sec, __initcall_id(fn))
-> >                                             ^
-> >    include/linux/init.h:209:10: note: expanded from macro '__initcall_id'
-> >            __PASTE(__KBUILD_MODNAME,                               \
-> >                    ^
-> >    <command line>:9:48: note: expanded from macro '__KBUILD_MODNAME'
-> >    #define __KBUILD_MODNAME kmod_rdt_l2_pseudolock:rdt_l3_pseudolock
-> >                                                   ^
-> > >> fs/resctrl2/arch/x86/l3_pseudolock.c:569:1: error: type specifier missing, defaults to 'int'; ISO C99 and later do not support implicit int [-Wimplicit-int]
-> >    include/linux/module.h:88:24: note: expanded from macro 'module_init'
-> >    #define module_init(x)  __initcall(x);
-> >                            ^
-> >    include/linux/init.h:316:24: note: expanded from macro '__initcall'
-> >    #define __initcall(fn) device_initcall(fn)
-> >                           ^
-> >    include/linux/init.h:311:30: note: expanded from macro 'device_initcall'
-> >    #define device_initcall(fn)             __define_initcall(fn, 6)
-> >                                            ^
-> >    note: (skipping 5 expansions in backtrace; use -fmacro-backtrace-limit=0 to see all)
-> >    include/linux/compiler_types.h:75:22: note: expanded from macro '__PASTE'
-> >    #define __PASTE(a,b) ___PASTE(a,b)
-> >                         ^
-> >    include/linux/compiler_types.h:74:23: note: expanded from macro '___PASTE'
-> >    #define ___PASTE(a,b) a##b
-> >                          ^
-> >    <scratch space>:15:1: note: expanded from here
-> >    rdt_l3_pseudolock__215_569_cat_init6
-> >    ^
-> > >> fs/resctrl2/arch/x86/l3_pseudolock.c:569:1: error: redefinition of 'rdt_l3_pseudolock__215_569_cat_init6' as different kind of symbol
-> >    include/linux/module.h:88:24: note: expanded from macro 'module_init'
-> >    #define module_init(x)  __initcall(x);
-> >                            ^
-> >    include/linux/init.h:316:24: note: expanded from macro '__initcall'
-> >    #define __initcall(fn) device_initcall(fn)
-> >                           ^
-> >    include/linux/init.h:311:30: note: expanded from macro 'device_initcall'
-> >    #define device_initcall(fn)             __define_initcall(fn, 6)
-> >                                            ^
-> >    note: (skipping 5 expansions in backtrace; use -fmacro-backtrace-limit=0 to see all)
-> >    include/linux/compiler_types.h:75:22: note: expanded from macro '__PASTE'
-> >    #define __PASTE(a,b) ___PASTE(a,b)
-> >                         ^
-> >    include/linux/compiler_types.h:74:23: note: expanded from macro '___PASTE'
-> >    #define ___PASTE(a,b) a##b
-> >                          ^
-> >    <scratch space>:15:1: note: expanded from here
-> >    rdt_l3_pseudolock__215_569_cat_init6
-> >    ^
-> >    fs/resctrl2/arch/x86/l3_pseudolock.c:569:1: note: previous definition is here
-> >    include/linux/module.h:88:24: note: expanded from macro 'module_init'
-> >    #define module_init(x)  __initcall(x);
-> >                            ^
-> >    include/linux/init.h:316:24: note: expanded from macro '__initcall'
-> >    #define __initcall(fn) device_initcall(fn)
-> >                           ^
-> >    include/linux/init.h:311:30: note: expanded from macro 'device_initcall'
-> >    #define device_initcall(fn)             __define_initcall(fn, 6)
-> >                                            ^
-> >    note: (skipping 5 expansions in backtrace; use -fmacro-backtrace-limit=0 to see all)
-> >    include/linux/compiler_types.h:75:22: note: expanded from macro '__PASTE'
-> >    #define __PASTE(a,b) ___PASTE(a,b)
-> >                         ^
-> >    include/linux/compiler_types.h:74:23: note: expanded from macro '___PASTE'
-> >    #define ___PASTE(a,b) a##b
-> >                          ^
-> >    <scratch space>:15:1: note: expanded from here
-> >    rdt_l3_pseudolock__215_569_cat_init6
-> >    ^
-> > >> fs/resctrl2/arch/x86/l3_pseudolock.c:569:1: error: '__initstub__kmod_rdt_l2_pseudolock' causes a section type conflict with 'init_rootfs'
-> >    module_init(cat_init);
-> >    ^
-> >    include/linux/module.h:88:24: note: expanded from macro 'module_init'
-> >    #define module_init(x)  __initcall(x);
-> >                            ^
-> >    include/linux/init.h:316:24: note: expanded from macro '__initcall'
-> >    #define __initcall(fn) device_initcall(fn)
-> >                           ^
-> >    include/linux/init.h:311:30: note: expanded from macro 'device_initcall'
-> >    #define device_initcall(fn)             __define_initcall(fn, 6)
-> >                                            ^
-> >    note: (skipping 5 expansions in backtrace; use -fmacro-backtrace-limit=0 to see all)
-> >    include/linux/compiler_types.h:75:22: note: expanded from macro '__PASTE'
-> >    #define __PASTE(a,b) ___PASTE(a,b)
-> >                         ^
-> >    include/linux/compiler_types.h:74:23: note: expanded from macro '___PASTE'
-> >    #define ___PASTE(a,b) a##b
-> >                          ^
-> >    <scratch space>:18:1: note: expanded from here
-> >    __initstub__kmod_rdt_l2_pseudolock
-> >    ^
-> >    include/linux/init.h:154:13: note: declared here
-> >    void __init init_rootfs(void);
-> >                ^
-> >    2 warnings and 11 errors generated.
-> > 
-> > 
-> > vim +569 fs/resctrl2/arch/x86/l3_pseudolock.c
-> > 
-> >    568	
-> >  > 569	module_init(cat_init);
-> >    570	module_exit(cat_cleanup);
-> >    571	
-> > 
-> > -- 
-> > 0-DAY CI Kernel Test Service
-> > https://github.com/intel/lkp-tests/wiki
-> > 
-> 
+> Others like loongarch which is a recent actively maintained=20
+> architecture, I'd expect the 30 errors to be easy to fix.
+
+Agreed, they probably are.
+
+> Many of the alpha ones seems to be brought by your commit e19d4ebc536d=20
+> ("alpha: add full ioread64/iowrite64 implementation")
+
+As far as I can see, those already existing before that patch, though
+I did touch the same lines there.
+
+In the end it's a matter of where to stop, as there are endless
+configurations to test if I want to do a complete job. I drew the
+line between powerpc (which I tried to fix) and mips (which I left
+alone), mainly because the powerpc side was already exhausting
+and mips has even more obscure configurations. The other ones on
+the list are all less actively maintained than these two.
+
+     Arnd
