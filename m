@@ -2,276 +2,122 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 38E1FC41513
-	for <linux-ia64@archiver.kernel.org>; Fri, 11 Aug 2023 11:46:26 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id B1544C001DE
+	for <linux-ia64@archiver.kernel.org>; Fri, 11 Aug 2023 18:25:44 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S230224AbjHKLqZ (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Fri, 11 Aug 2023 07:46:25 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:58962 "EHLO
+        id S234425AbjHKSZo (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Fri, 11 Aug 2023 14:25:44 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:34384 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S229523AbjHKLqY (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Fri, 11 Aug 2023 07:46:24 -0400
+        with ESMTP id S233840AbjHKSZn (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Fri, 11 Aug 2023 14:25:43 -0400
 Received: from dfw.source.kernel.org (dfw.source.kernel.org [IPv6:2604:1380:4641:c500::1])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id EE6DAFA;
-        Fri, 11 Aug 2023 04:46:23 -0700 (PDT)
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id A679F30DC;
+        Fri, 11 Aug 2023 11:25:42 -0700 (PDT)
 Received: from smtp.kernel.org (relay.kernel.org [52.25.139.140])
         (using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
          key-exchange X25519 server-signature RSA-PSS (2048 bits))
         (No client certificate requested)
-        by dfw.source.kernel.org (Postfix) with ESMTPS id 7BDC060F7C;
-        Fri, 11 Aug 2023 11:46:23 +0000 (UTC)
-Received: by smtp.kernel.org (Postfix) with ESMTPSA id 534FAC433C8;
-        Fri, 11 Aug 2023 11:46:14 +0000 (UTC)
+        by dfw.source.kernel.org (Postfix) with ESMTPS id CA7AD660ED;
+        Fri, 11 Aug 2023 18:25:41 +0000 (UTC)
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id 53BC4C433C8;
+        Fri, 11 Aug 2023 18:25:38 +0000 (UTC)
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=kernel.org;
-        s=k20201202; t=1691754382;
-        bh=nTH5cx3CuThfdvc7Jgj5ef5MX658KJ12EMD425UvHt8=;
-        h=Date:From:To:Cc:Subject:In-Reply-To:References:From;
-        b=RSZKGBIx7O0baF8FzU08zN6BbDk6YyZwPVmCxL+wjL15fNlHQseYA8HmJH72lP12y
-         L1VPhNDRuN8cju6D7WcvZrrs2yopjaY/gqk1C9uZ0qoLMw7dtt9XUdHVZHU/5DuYEt
-         9PpEToYZArnWOveIXWIhJsahLeRgA2VLED/duRTAiE2ZDjg4F1yYPjbLkguvSDOXDN
-         SXDGoKe/3gocO00Jmfwu0ZfcPWS0s1JG0Yo5P3D5zD4WnVI8ZK6DBstB+1nyl1Z/7q
-         qeRlOiJgBkdHqgkKFwAvbvUnCL+Th8xrzp5JppTBfmWHrtrlPQFHqm5wB3F/N6df2o
-         JTHnY8hoHU4FQ==
-Date:   Fri, 11 Aug 2023 20:46:11 +0900
-From:   Masami Hiramatsu (Google) <mhiramat@kernel.org>
-To:     Arnd Bergmann <arnd@kernel.org>
+        s=k20201202; t=1691778341;
+        bh=J5jMJWNe5mxefsfwYpjk94ucCqvKpHDhJ2RLFLWPzvE=;
+        h=Date:Subject:To:Cc:References:From:In-Reply-To:From;
+        b=Gz052yUM1XxLU/RgjOg34wukKcdr6mu92lg4kRvftL4t+JLmQb8r1u1actRxxcApf
+         PjHlYbsUsWZ+bKIaVoc7rK52krQ4OWPLnEH93QFvpXRAbigb2wSUKLi45TU/nHEb+C
+         Jwl9WfjJwBcQjOTRkBTLUH9d7syGI0QxxJS6cM+B4sNpqdMSIJVnJTbcdGoGTSTSlZ
+         PeS+VwcMkTke4e6X7PE/F46DP+6t406NKl/ODdSSnHdrM9/eHvIbao7c9+sM5I0D9t
+         oKICESQTk0FrGQu3zXtHyOu/DayhYLn0OVumhMRyOLFfjSFrRZmIStkSQKluPFVJ8K
+         zZHStULYsZlMQ==
+Message-ID: <2cb4c584-fb4a-5781-f74d-902416749ed4@kernel.org>
+Date:   Fri, 11 Aug 2023 11:25:37 -0700
+MIME-Version: 1.0
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
+ Thunderbird/102.13.0
+Subject: Re: [PATCH 16/17] [RFC] arch: turn -Wmissing-prototypes off
+ conditionally
+Content-Language: en-US
+To:     Guo Ren <guoren@kernel.org>, Arnd Bergmann <arnd@kernel.org>
 Cc:     Andrew Morton <akpm@linux-foundation.org>,
-        linux-kernel@vger.kernel.org,
-        "Naveen N. Rao" <naveen.n.rao@linux.ibm.com>,
-        Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>,
-        Arnd Bergmann <arnd@arndb.de>,
+        linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
+        Matt Turner <mattst88@gmail.com>,
         Vineet Gupta <vgupta@kernel.org>,
         Russell King <linux@armlinux.org.uk>,
         Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will@kernel.org>,
+        Will Deacon <will@kernel.org>, Brian Cain <bcain@quicinc.com>,
+        Huacai Chen <chenhuacai@kernel.org>,
+        WANG Xuerui <kernel@xen0n.name>,
+        Geert Uytterhoeven <geert@linux-m68k.org>,
+        Michal Simek <monstr@monstr.eu>,
         Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
+        Dinh Nguyen <dinguyen@kernel.org>,
+        Jonas Bonn <jonas@southpole.se>,
+        Stafford Horne <shorne@gmail.com>,
+        "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>,
+        Helge Deller <deller@gmx.de>,
         Michael Ellerman <mpe@ellerman.id.au>,
-        Nicholas Piggin <npiggin@gmail.com>,
         Christophe Leroy <christophe.leroy@csgroup.eu>,
+        Palmer Dabbelt <palmer@dabbelt.com>,
         Heiko Carstens <hca@linux.ibm.com>,
-        Vasily Gorbik <gor@linux.ibm.com>,
-        Alexander Gordeev <agordeev@linux.ibm.com>,
-        Christian Borntraeger <borntraeger@linux.ibm.com>,
-        Sven Schnelle <svens@linux.ibm.com>,
+        John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
+        x86@kernel.org, Borislav Petkov <bp@alien8.de>,
+        Nathan Chancellor <nathan@kernel.org>,
+        Nick Desaulniers <ndesaulniers@google.com>,
+        Guenter Roeck <linux@roeck-us.net>,
+        Stephen Rothwell <sfr@canb.auug.org.au>,
+        linux-next@vger.kernel.org, linux-alpha@vger.kernel.org,
+        linux-snps-arc@lists.infradead.org,
+        linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org,
+        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+        loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org,
+        linux-mips@vger.kernel.org, linux-openrisc@vger.kernel.org,
+        sparclinux@vger.kernel.org,
+        Richard Henderson <richard.henderson@linaro.org>,
+        Ivan Kokshaysky <ink@jurassic.park.msu.ru>,
+        Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>,
         Yoshinori Sato <ysato@users.sourceforge.jp>,
         Rich Felker <dalias@libc.org>,
-        John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
         "David S. Miller" <davem@davemloft.net>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>,
-        Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org,
-        "H. Peter Anvin" <hpa@zytor.com>,
-        Gaosheng Cui <cuigaosheng1@huawei.com>,
-        "Steven Rostedt (Google)" <rostedt@goodmis.org>,
-        Yang Jihong <yangjihong1@huawei.com>,
-        Jiri Olsa <jolsa@kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>,
-        linux-snps-arc@lists.infradead.org,
-        linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org,
-        linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        linux-s390@vger.kernel.org, linux-sh@vger.kernel.org,
-        sparclinux@vger.kernel.org, linux-trace-kernel@vger.kernel.org
-Subject: Re: [PATCH 14/17] kprobes: unify kprobes_exceptions_nofify()
- prototypes
-Message-Id: <20230811204611.8498b64177e809580e9e4034@kernel.org>
-In-Reply-To: <20230810141947.1236730-15-arnd@kernel.org>
+        Chris Zankel <chris@zankel.net>,
+        Max Filippov <jcmvbkbc@gmail.com>,
+        Christian Brauner <brauner@kernel.org>,
+        Paul Walmsley <paul.walmsley@sifive.com>,
+        Albert Ou <aou@eecs.berkeley.edu>,
+        Youling Tang <tangyouling@loongson.cn>,
+        Tiezhu Yang <yangtiezhu@loongson.cn>,
+        Masahiro Yamada <masahiroy@kernel.org>,
+        Randy Dunlap <rdunlap@infradead.org>,
+        "Masami Hiramatsu (Google)" <mhiramat@kernel.org>,
+        "Paul E. McKenney" <paulmck@kernel.org>,
+        Miguel Ojeda <ojeda@kernel.org>,
+        Zhen Lei <thunder.leizhen@huawei.com>,
+        Xin Li <xin3.li@intel.com>, Nhat Pham <nphamcs@gmail.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        =?UTF-8?Q?Marc_Aur=c3=a8le_La_France?= <tsi@tuyoix.net>,
+        Johannes Weiner <hannes@cmpxchg.org>,
+        linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org,
+        linux-riscv@lists.infradead.org
 References: <20230810141947.1236730-1-arnd@kernel.org>
-        <20230810141947.1236730-15-arnd@kernel.org>
-X-Mailer: Sylpheed 3.7.0 (GTK+ 2.24.33; x86_64-pc-linux-gnu)
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+ <20230810141947.1236730-17-arnd@kernel.org>
+ <CAJF2gTRdbXOEBNPN14y_ZUwBJ15qBG929BDspk0sqPo2sn=L-Q@mail.gmail.com>
+From:   Vineet Gupta <vgupta@kernel.org>
+In-Reply-To: <CAJF2gTRdbXOEBNPN14y_ZUwBJ15qBG929BDspk0sqPo2sn=L-Q@mail.gmail.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On Thu, 10 Aug 2023 16:19:32 +0200
-Arnd Bergmann <arnd@kernel.org> wrote:
 
-> From: Arnd Bergmann <arnd@arndb.de>
-> 
-> Most architectures that support kprobes declare this function in their
-> own asm/kprobes.h header and provide an override, but some are missing
-> the prototype, which causes a warning for the __weak stub implementation:
-> 
-> kernel/kprobes.c:1865:12: error: no previous prototype for 'kprobe_exceptions_notify' [-Werror=missing-prototypes]
->  1865 | int __weak kprobe_exceptions_notify(struct notifier_block *self,
-> 
-> Move the prototype into linux/kprobes.h so it is visible to all
-> the definitions.
+On 8/10/23 19:33, Guo Ren wrote:
+> Thx, Arnd, I will clean them up for the csky part.
 
-Good catch! and it seems x86 has no implementation, so this is more resonable.
+Likewise, I'll clean up ARC errors this weekend !
+It seems most of therm are in the category you mentioned. Non static but 
+only used by asm code.
 
-Acked-by: Masami Hiramatsu (Google) <mhiramat@kernel.org>
-
-Thank you,
-
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
->  arch/arc/include/asm/kprobes.h     | 3 ---
->  arch/arm/include/asm/kprobes.h     | 2 --
->  arch/arm64/include/asm/kprobes.h   | 2 --
->  arch/ia64/include/asm/kprobes.h    | 2 --
->  arch/mips/include/asm/kprobes.h    | 2 --
->  arch/powerpc/include/asm/kprobes.h | 2 --
->  arch/s390/include/asm/kprobes.h    | 2 --
->  arch/sh/include/asm/kprobes.h      | 2 --
->  arch/sparc/include/asm/kprobes.h   | 2 --
->  arch/x86/include/asm/kprobes.h     | 2 --
->  include/linux/kprobes.h            | 4 ++++
->  11 files changed, 4 insertions(+), 21 deletions(-)
-> 
-> diff --git a/arch/arc/include/asm/kprobes.h b/arch/arc/include/asm/kprobes.h
-> index de1566e32cb89..68e8301c0df2c 100644
-> --- a/arch/arc/include/asm/kprobes.h
-> +++ b/arch/arc/include/asm/kprobes.h
-> @@ -32,9 +32,6 @@ struct kprobe;
->  
->  void arch_remove_kprobe(struct kprobe *p);
->  
-> -int kprobe_exceptions_notify(struct notifier_block *self,
-> -			     unsigned long val, void *data);
-> -
->  struct prev_kprobe {
->  	struct kprobe *kp;
->  	unsigned long status;
-> diff --git a/arch/arm/include/asm/kprobes.h b/arch/arm/include/asm/kprobes.h
-> index e26a278d301ab..5b8dbf1b0be49 100644
-> --- a/arch/arm/include/asm/kprobes.h
-> +++ b/arch/arm/include/asm/kprobes.h
-> @@ -40,8 +40,6 @@ struct kprobe_ctlblk {
->  
->  void arch_remove_kprobe(struct kprobe *);
->  int kprobe_fault_handler(struct pt_regs *regs, unsigned int fsr);
-> -int kprobe_exceptions_notify(struct notifier_block *self,
-> -			     unsigned long val, void *data);
->  
->  /* optinsn template addresses */
->  extern __visible kprobe_opcode_t optprobe_template_entry[];
-> diff --git a/arch/arm64/include/asm/kprobes.h b/arch/arm64/include/asm/kprobes.h
-> index 05cd82eeca136..be7a3680dadff 100644
-> --- a/arch/arm64/include/asm/kprobes.h
-> +++ b/arch/arm64/include/asm/kprobes.h
-> @@ -37,8 +37,6 @@ struct kprobe_ctlblk {
->  
->  void arch_remove_kprobe(struct kprobe *);
->  int kprobe_fault_handler(struct pt_regs *regs, unsigned int fsr);
-> -int kprobe_exceptions_notify(struct notifier_block *self,
-> -			     unsigned long val, void *data);
->  void __kretprobe_trampoline(void);
->  void __kprobes *trampoline_probe_handler(struct pt_regs *regs);
->  
-> diff --git a/arch/ia64/include/asm/kprobes.h b/arch/ia64/include/asm/kprobes.h
-> index 9e956768946cc..56004f97df6d2 100644
-> --- a/arch/ia64/include/asm/kprobes.h
-> +++ b/arch/ia64/include/asm/kprobes.h
-> @@ -107,8 +107,6 @@ struct arch_specific_insn {
->  };
->  
->  extern int kprobe_fault_handler(struct pt_regs *regs, int trapnr);
-> -extern int kprobe_exceptions_notify(struct notifier_block *self,
-> -				    unsigned long val, void *data);
->  
->  extern void arch_remove_kprobe(struct kprobe *p);
->  
-> diff --git a/arch/mips/include/asm/kprobes.h b/arch/mips/include/asm/kprobes.h
-> index 68b1e5d458cfb..bc27d99c94363 100644
-> --- a/arch/mips/include/asm/kprobes.h
-> +++ b/arch/mips/include/asm/kprobes.h
-> @@ -71,8 +71,6 @@ struct kprobe_ctlblk {
->  	struct prev_kprobe prev_kprobe;
->  };
->  
-> -extern int kprobe_exceptions_notify(struct notifier_block *self,
-> -				    unsigned long val, void *data);
->  
->  #endif /* CONFIG_KPROBES */
->  #endif /* _ASM_KPROBES_H */
-> diff --git a/arch/powerpc/include/asm/kprobes.h b/arch/powerpc/include/asm/kprobes.h
-> index c8e4b4fd4e330..4525a9c68260d 100644
-> --- a/arch/powerpc/include/asm/kprobes.h
-> +++ b/arch/powerpc/include/asm/kprobes.h
-> @@ -84,8 +84,6 @@ struct arch_optimized_insn {
->  	kprobe_opcode_t *insn;
->  };
->  
-> -extern int kprobe_exceptions_notify(struct notifier_block *self,
-> -					unsigned long val, void *data);
->  extern int kprobe_fault_handler(struct pt_regs *regs, int trapnr);
->  extern int kprobe_handler(struct pt_regs *regs);
->  extern int kprobe_post_handler(struct pt_regs *regs);
-> diff --git a/arch/s390/include/asm/kprobes.h b/arch/s390/include/asm/kprobes.h
-> index 83f732ca3af4d..3f87125dd9b0d 100644
-> --- a/arch/s390/include/asm/kprobes.h
-> +++ b/arch/s390/include/asm/kprobes.h
-> @@ -72,8 +72,6 @@ struct kprobe_ctlblk {
->  void arch_remove_kprobe(struct kprobe *p);
->  
->  int kprobe_fault_handler(struct pt_regs *regs, int trapnr);
-> -int kprobe_exceptions_notify(struct notifier_block *self,
-> -	unsigned long val, void *data);
->  
->  #define flush_insn_slot(p)	do { } while (0)
->  
-> diff --git a/arch/sh/include/asm/kprobes.h b/arch/sh/include/asm/kprobes.h
-> index eeba83e0a7d29..65d4c3316a5bd 100644
-> --- a/arch/sh/include/asm/kprobes.h
-> +++ b/arch/sh/include/asm/kprobes.h
-> @@ -46,8 +46,6 @@ struct kprobe_ctlblk {
->  };
->  
->  extern int kprobe_fault_handler(struct pt_regs *regs, int trapnr);
-> -extern int kprobe_exceptions_notify(struct notifier_block *self,
-> -				    unsigned long val, void *data);
->  extern int kprobe_handle_illslot(unsigned long pc);
->  #else
->  
-> diff --git a/arch/sparc/include/asm/kprobes.h b/arch/sparc/include/asm/kprobes.h
-> index 06c2bc767ef75..aec742cd898f2 100644
-> --- a/arch/sparc/include/asm/kprobes.h
-> +++ b/arch/sparc/include/asm/kprobes.h
-> @@ -47,8 +47,6 @@ struct kprobe_ctlblk {
->  	struct prev_kprobe prev_kprobe;
->  };
->  
-> -int kprobe_exceptions_notify(struct notifier_block *self,
-> -			     unsigned long val, void *data);
->  int kprobe_fault_handler(struct pt_regs *regs, int trapnr);
->  asmlinkage void __kprobes kprobe_trap(unsigned long trap_level,
->  				      struct pt_regs *regs);
-> diff --git a/arch/x86/include/asm/kprobes.h b/arch/x86/include/asm/kprobes.h
-> index a2e9317aad495..5939694dfb28d 100644
-> --- a/arch/x86/include/asm/kprobes.h
-> +++ b/arch/x86/include/asm/kprobes.h
-> @@ -113,8 +113,6 @@ struct kprobe_ctlblk {
->  };
->  
->  extern int kprobe_fault_handler(struct pt_regs *regs, int trapnr);
-> -extern int kprobe_exceptions_notify(struct notifier_block *self,
-> -				    unsigned long val, void *data);
->  extern int kprobe_int3_handler(struct pt_regs *regs);
->  
->  #else
-> diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
-> index 85a64cb95d755..987911cdc90a2 100644
-> --- a/include/linux/kprobes.h
-> +++ b/include/linux/kprobes.h
-> @@ -450,6 +450,10 @@ int kprobe_get_kallsym(unsigned int symnum, unsigned long *value, char *type,
->  
->  int arch_kprobe_get_kallsym(unsigned int *symnum, unsigned long *value,
->  			    char *type, char *sym);
-> +
-> +int kprobe_exceptions_notify(struct notifier_block *self,
-> +			     unsigned long val, void *data);
-> +
->  #else /* !CONFIG_KPROBES: */
->  
->  static inline int kprobe_fault_handler(struct pt_regs *regs, int trapnr)
-> -- 
-> 2.39.2
-> 
-
-
--- 
-Masami Hiramatsu (Google) <mhiramat@kernel.org>
+Thx,
+-Vineet
