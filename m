@@ -2,144 +2,159 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id AA89EC04A94
-	for <linux-ia64@archiver.kernel.org>; Sat, 12 Aug 2023 07:46:39 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id B6D68C04A94
+	for <linux-ia64@archiver.kernel.org>; Sat, 12 Aug 2023 08:02:38 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S234270AbjHLHqd (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Sat, 12 Aug 2023 03:46:33 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:53128 "EHLO
+        id S235018AbjHLICd (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Sat, 12 Aug 2023 04:02:33 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:33358 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S229634AbjHLHqc (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Sat, 12 Aug 2023 03:46:32 -0400
-Received: from out3-smtp.messagingengine.com (out3-smtp.messagingengine.com [66.111.4.27])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id DF33419A4;
-        Sat, 12 Aug 2023 00:46:34 -0700 (PDT)
+        with ESMTP id S229634AbjHLICb (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Sat, 12 Aug 2023 04:02:31 -0400
+Received: from out1-smtp.messagingengine.com (out1-smtp.messagingengine.com [66.111.4.25])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id D0F591FE6;
+        Sat, 12 Aug 2023 01:02:32 -0700 (PDT)
 Received: from compute6.internal (compute6.nyi.internal [10.202.2.47])
-        by mailout.nyi.internal (Postfix) with ESMTP id 208215C0107;
-        Sat, 12 Aug 2023 03:46:35 -0400 (EDT)
+        by mailout.nyi.internal (Postfix) with ESMTP id 15CFE5C0056;
+        Sat, 12 Aug 2023 04:02:32 -0400 (EDT)
 Received: from imap51 ([10.202.2.101])
-  by compute6.internal (MEProxy); Sat, 12 Aug 2023 03:46:35 -0400
+  by compute6.internal (MEProxy); Sat, 12 Aug 2023 04:02:32 -0400
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=arndb.de; h=cc
-        :cc:content-transfer-encoding:content-type:content-type:date
-        :date:from:from:in-reply-to:in-reply-to:message-id:mime-version
-        :references:reply-to:sender:subject:subject:to:to; s=fm3; t=
-        1691826395; x=1691912795; bh=1R5ctzAAcNQB2V3jKP5T5hiyB+DhvFuEPAC
-        bmvPmK50=; b=nutKGvY0eL724xeuBxbBKl0Lec4UQ/Xr1efX8oPnh3bNyR0UoNO
-        v9Q12UKvjSXBbu1l17dDf0VeRYYb0vXDtpXo+AhMNW17vQtsq/L75I7dqtD19i0N
-        P2ntguCjM5MM5W0/YwsFakxFRPMgy6XlaEG0LWeJEDrFEA9qQSznAvNUZUs4FcQl
-        u1KIoMb6ZAn1VXGb8/MFetNgd1tsG3uefwtHIyOPFoGuUqIdHJvyXo82DM5U5I+x
-        SPfb5zRu50Gk1rEvEQqHRDYprHdMe/b7Ve1FKBVrNBpX+174T3eSodjhwVRxQr+q
-        c5l3rdBpbLYcpZEg9Ol1rHUpmPW5dpzQw1g==
+        :cc:content-type:content-type:date:date:from:from:in-reply-to
+        :in-reply-to:message-id:mime-version:references:reply-to:sender
+        :subject:subject:to:to; s=fm3; t=1691827352; x=1691913752; bh=B7
+        pOJdGFDOf/BCasjh0dVOxmA3Mm35lZV2aH6kqC0w8=; b=bWL46N0sK4mIYpWzoj
+        J/+e+b8Mu9CpgyBLRhbmW/TyuCEnsAuKlS4X0lT5efId871OmOj5YcYmYg00NGPd
+        IcAELxQotBSuJ/90jbsZktoCZaBeDjcMja4UE7PY/KJ9BQxHMR8ttw19gadY4pLD
+        wcpu71/4NgDXLZF/K7TzADQEKciG8tdFwEV+hn9mwnLC982sMNooAap2Ahr2ic02
+        OX1TDcc92+mLu+noqL+P1+HfjKrPOssbrzLOWiTlGBYyQ2X6xUoDe8FH5hLbs8Zs
+        FmxsgM31F6ThFZX8SA1a+xBdVxbX9hhX71mg/b6+C5V15wIo2qBJ6zjh3xckiJob
+        8oqQ==
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=
-        messagingengine.com; h=cc:cc:content-transfer-encoding
-        :content-type:content-type:date:date:feedback-id:feedback-id
-        :from:from:in-reply-to:in-reply-to:message-id:mime-version
-        :references:reply-to:sender:subject:subject:to:to:x-me-proxy
-        :x-me-proxy:x-me-sender:x-me-sender:x-sasl-enc; s=fm3; t=
-        1691826395; x=1691912795; bh=1R5ctzAAcNQB2V3jKP5T5hiyB+DhvFuEPAC
-        bmvPmK50=; b=diWSONk0HiGIuLezERYrIYMjKKhl3BQP8CTGfYdlqm4QtJLGRCv
-        PVGdgm7W7PrF92/cjijSeY/GwmlJoby0jMMcilXK0FDsjx3hQpnBkLTPgwxpZJ+8
-        Rms2gABVgt74xlWLBeh32YC5FAFJhTwGwxXiaGscO8F4aeCzB79rfxBSdKu95G62
-        0bOtEeKhGJr4tnc+AszIZCae7zHYXbYdE/tAx+NuCWDXAT9+b4rDI6hUl+YuKTPE
-        DUkZb7Jm5s5UIELgg398zJrI1ehkCOpVgKk0t1wu85St3q90PMrP4xayfvVmfxvB
-        +mq87fa4hw3scj5WO9Ui/nn56oPhDcKaGTw==
-X-ME-Sender: <xms:2DjXZGrcm1nooPaeGiP_UR05ZxqRL9hT_gakPrOkql5l1NX68WDWDQ>
-    <xme:2DjXZEoxEpXce4Bb4Ao9Rhr3HkWqwjDkZ13jaDMd53AjmuBmZmMAaQwV4yXcSNcKO
-    kJpNn__j4mWyHyartc>
-X-ME-Proxy-Cause: gggruggvucftvghtrhhoucdtuddrgedviedrleelgdduvdduucetufdoteggodetrfdotf
+        messagingengine.com; h=cc:cc:content-type:content-type:date:date
+        :feedback-id:feedback-id:from:from:in-reply-to:in-reply-to
+        :message-id:mime-version:references:reply-to:sender:subject
+        :subject:to:to:x-me-proxy:x-me-proxy:x-me-sender:x-me-sender
+        :x-sasl-enc; s=fm3; t=1691827352; x=1691913752; bh=B7pOJdGFDOf/B
+        Casjh0dVOxmA3Mm35lZV2aH6kqC0w8=; b=tJ1h5kA/J6E62tVerAQCZa0aQUiLa
+        dZExElcAFIrHaz4IwM7Ow1ltkUruuCWsOJCyh1z7aQtGI+w5HaBlSmZ+g3sMPCda
+        xubPC3utl1cj6/nHtnBh0zC5LTFR+KNkRg4EMhDLuERXDLZ4Aw4RkebGXJaIBZ2z
+        wqa854o60Ce1tMXNWniimZ3W3nrC3twAjPDF+DoFqhA6k/7W4Q8yP6gpTqTX3H4D
+        A1+7oickvOZ3pG8fapNcg2rld2K7G5tar0BTq01+PtwsrthFpU9JUN88b64SrWxE
+        i+I6EhM3NmuwXev5m6HLAkhNfUxNiuURcXLhz5qvBlOtnzaNWe1YrJFpg==
+X-ME-Sender: <xms:lDzXZLww55is2QMPDYjjRVLtLyoZjTnXsReClk3fNJpNGvX9Yp4KaA>
+    <xme:lDzXZDTEfg0QqMlQN_EwpPTwY-rhr-gEjTSPzFsEPH9b0QutV4uC-Wz-TzUkje1U5
+    ZrIr9BbeyiIc8d0k6k>
+X-ME-Proxy-Cause: gggruggvucftvghtrhhoucdtuddrgedviedrleelgdduvdehucetufdoteggodetrfdotf
     fvucfrrhhofhhilhgvmecuhfgrshhtofgrihhlpdfqfgfvpdfurfetoffkrfgpnffqhgen
     uceurghilhhouhhtmecufedttdenucesvcftvggtihhpihgvnhhtshculddquddttddmne
-    cujfgurhepofgfggfkjghffffhvfevufgtgfesthhqredtreerjeenucfhrhhomhepfdet
-    rhhnugcuuegvrhhgmhgrnhhnfdcuoegrrhhnugesrghrnhgusgdruggvqeenucggtffrrg
-    htthgvrhhnpeegfeejhedvledvffeijeeijeeivddvhfeliedvleevheejleetgedukedt
-    gfejveenucevlhhushhtvghrufhiiigvpedtnecurfgrrhgrmhepmhgrihhlfhhrohhmpe
-    grrhhnugesrghrnhgusgdruggv
-X-ME-Proxy: <xmx:2DjXZLPQn2TqVIgyW6-tQwUG8P8Lw73P-zLqJCOCzSQ_OIuJtfkxzQ>
-    <xmx:2DjXZF4adFG0j0n9wRWuI42R43VpsvtE7VWE70ehnMhOYpN_4lUYCQ>
-    <xmx:2DjXZF5yCw1jmpp8FFpxkysER-4QrzZer5AK3I-Pc5hFGAMvs80Gpw>
-    <xmx:2zjXZJoaKMbDInL_qMZSv86qcrRWO5LB4IgX5rtggdWg9zUAfOpMGQ>
+    cujfgurhepofgfggfkjghffffhvfevufgtsehttdertderredtnecuhfhrohhmpedftehr
+    nhguuceuvghrghhmrghnnhdfuceorghrnhgusegrrhhnuggsrdguvgeqnecuggftrfgrth
+    htvghrnhepffehueegteeihfegtefhjefgtdeugfegjeelheejueethfefgeeghfektdek
+    teffnecuvehluhhsthgvrhfuihiivgeptdenucfrrghrrghmpehmrghilhhfrhhomheprg
+    hrnhgusegrrhhnuggsrdguvg
+X-ME-Proxy: <xmx:lDzXZFWakJL6bP1C3CtyxCernVmFFVA4usDlWrWHbJV80fBcqyEDdQ>
+    <xmx:lDzXZFiAeZOhiK_1-3IRnA4TAG5simqdV9x1oAOMfe9e2PDVwrLUpQ>
+    <xmx:lDzXZNB5btGQ4E1l2bsVvCFcQWx3QMH1JlzzDkSwKyzK6IOlyrvoAw>
+    <xmx:mDzXZB1rv3zksY1BwcCii-YiQW0PH8eBdJskrEe3ags7tVQfE3dKGA>
 Feedback-ID: i56a14606:Fastmail
 Received: by mailuser.nyi.internal (Postfix, from userid 501)
-        id E936CB60089; Sat, 12 Aug 2023 03:46:31 -0400 (EDT)
+        id 3DD63B60089; Sat, 12 Aug 2023 04:02:28 -0400 (EDT)
 X-Mailer: MessagingEngine.com Webmail Interface
 User-Agent: Cyrus-JMAP/3.9.0-alpha0-624-g7714e4406d-fm-20230801.001-g7714e440
 Mime-Version: 1.0
-Message-Id: <3a1c5033-5ce2-4d0b-91be-3b612512f53c@app.fastmail.com>
-In-Reply-To: <CAK7LNARfEmFk0Du4Hed19eX_G6tUC5wG0zP+L1AyvdpOF4ybXQ@mail.gmail.com>
+Message-Id: <13f9c06a-f840-4010-ae2f-97d8b2883e76@app.fastmail.com>
+In-Reply-To: <ZNaVYh2qi0VQQKWf@antec>
 References: <20230810141947.1236730-1-arnd@kernel.org>
- <20230810141947.1236730-16-arnd@kernel.org>
- <CAK7LNARfEmFk0Du4Hed19eX_G6tUC5wG0zP+L1AyvdpOF4ybXQ@mail.gmail.com>
-Date:   Sat, 12 Aug 2023 09:46:11 +0200
+ <20230810141947.1236730-17-arnd@kernel.org> <ZNaVYh2qi0VQQKWf@antec>
+Date:   Sat, 12 Aug 2023 10:02:07 +0200
 From:   "Arnd Bergmann" <arnd@arndb.de>
-To:     "Masahiro Yamada" <masahiroy@kernel.org>,
+To:     "Stafford Horne" <shorne@gmail.com>,
         "Arnd Bergmann" <arnd@kernel.org>
 Cc:     "Andrew Morton" <akpm@linux-foundation.org>,
-        linux-kernel@vger.kernel.org,
-        "Richard Henderson" <richard.henderson@linaro.org>,
-        "Ivan Kokshaysky" <ink@jurassic.park.msu.ru>,
-        "Matt Turner" <mattst88@gmail.com>,
+        linux-kernel@vger.kernel.org, "Matt Turner" <mattst88@gmail.com>,
+        "Vineet Gupta" <vgupta@kernel.org>,
+        "Russell King" <linux@armlinux.org.uk>,
+        "Catalin Marinas" <catalin.marinas@arm.com>,
+        "Will Deacon" <will@kernel.org>, guoren <guoren@kernel.org>,
+        "Brian Cain" <bcain@quicinc.com>,
         "Huacai Chen" <chenhuacai@kernel.org>,
         "WANG Xuerui" <kernel@xen0n.name>,
+        "Geert Uytterhoeven" <geert@linux-m68k.org>,
+        "Michal Simek" <monstr@monstr.eu>,
+        "Thomas Bogendoerfer" <tsbogend@alpha.franken.de>,
+        "Dinh Nguyen" <dinguyen@kernel.org>,
+        "Jonas Bonn" <jonas@southpole.se>,
+        "James E . J . Bottomley" <James.Bottomley@hansenpartnership.com>,
+        "Helge Deller" <deller@gmx.de>,
+        "Michael Ellerman" <mpe@ellerman.id.au>,
+        "Christophe Leroy" <christophe.leroy@csgroup.eu>,
+        "Palmer Dabbelt" <palmer@dabbelt.com>,
+        "Heiko Carstens" <hca@linux.ibm.com>,
+        "John Paul Adrian Glaubitz" <glaubitz@physik.fu-berlin.de>,
+        x86@kernel.org, "Borislav Petkov" <bp@alien8.de>,
+        "Nathan Chancellor" <nathan@kernel.org>,
+        "Nick Desaulniers" <ndesaulniers@google.com>,
+        "Guenter Roeck" <linux@roeck-us.net>,
+        "Stephen Rothwell" <sfr@canb.auug.org.au>,
+        linux-next <linux-next@vger.kernel.org>,
+        linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org,
+        linux-arm-kernel@lists.infradead.org,
+        "linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>,
+        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+        loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org,
+        linux-mips@vger.kernel.org,
+        "linux-openrisc@vger.kernel.org" <linux-openrisc@vger.kernel.org>,
+        sparclinux@vger.kernel.org,
+        "Richard Henderson" <richard.henderson@linaro.org>,
+        "Ivan Kokshaysky" <ink@jurassic.park.msu.ru>,
+        "Stefan Kristiansson" <stefan.kristiansson@saunalahti.fi>,
+        "Yoshinori Sato" <ysato@users.sourceforge.jp>,
+        "Rich Felker" <dalias@libc.org>,
         "David S . Miller" <davem@davemloft.net>,
-        "Alexander Viro" <viro@zeniv.linux.org.uk>,
-        "Steven Rostedt" <rostedt@goodmis.org>,
-        "Qing Zhang" <zhangqing@loongson.cn>,
-        "Donglin Peng" <pengdonglin@sangfor.com.cn>,
-        "Qi Hu" <huqi@loongson.cn>, linux-alpha@vger.kernel.org,
-        linux-ia64@vger.kernel.org, loongarch@lists.linux.dev,
-        sparclinux@vger.kernel.org
-Subject: Re: [PATCH 15/17] arch: fix asm-offsets.c building with -Wmissing-prototypes
-Content-Type: text/plain;charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+        "Chris Zankel" <chris@zankel.net>,
+        "Max Filippov" <jcmvbkbc@gmail.com>,
+        "Christian Brauner" <brauner@kernel.org>,
+        "Paul Walmsley" <paul.walmsley@sifive.com>,
+        "Albert Ou" <aou@eecs.berkeley.edu>,
+        "Youling Tang" <tangyouling@loongson.cn>,
+        "Tiezhu Yang" <yangtiezhu@loongson.cn>,
+        "Masahiro Yamada" <masahiroy@kernel.org>,
+        "Randy Dunlap" <rdunlap@infradead.org>,
+        "Masami Hiramatsu" <mhiramat@kernel.org>,
+        "Paul E. McKenney" <paulmck@kernel.org>,
+        "Miguel Ojeda" <ojeda@kernel.org>,
+        "Zhen Lei" <thunder.leizhen@huawei.com>,
+        "Xin Li" <xin3.li@intel.com>, "Nhat Pham" <nphamcs@gmail.com>,
+        "Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
+        =?UTF-8?Q?Marc_Aur=C3=A8le_La_France?= <tsi@tuyoix.net>,
+        "Johannes Weiner" <hannes@cmpxchg.org>,
+        linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org,
+        linux-riscv@lists.infradead.org
+Subject: Re: [PATCH 16/17] [RFC] arch: turn -Wmissing-prototypes off conditionally
+Content-Type: text/plain
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On Sat, Aug 12, 2023, at 00:12, Masahiro Yamada wrote:
-> On Sat, Aug 12, 2023 at 3:30=E2=80=AFAM Arnd Bergmann <arnd@kernel.org=
-> wrote:
->>
+On Fri, Aug 11, 2023, at 22:09, Stafford Horne wrote:
+> On Thu, Aug 10, 2023 at 04:19:34PM +0200, Arnd Bergmann wrote:
 >> From: Arnd Bergmann <arnd@arndb.de>
->>
->> When -Wmissing-prototypes is enabled, the some asm-offsets.c files fa=
-il
->> to build, even when this warning is disabled in the Makefile for norm=
-al
->> files:
->>
->> arch/sparc/kernel/asm-offsets.c:22:5: error: no previous prototype fo=
-r 'sparc32_foo' [-Werror=3Dmissing-prototypes]
->> arch/sparc/kernel/asm-offsets.c:48:5: error: no previous prototype fo=
-r 'foo' [-Werror=3Dmissing-prototypes]
->>
->> Address this by making use of the same trick we have on other archite=
-ctures,
->> renaming the unused global function to main(), which has an implicit
->> prototype.
->
->
-> main() only works for one function call, but
-> there are some cases where splitting the code
-> into some functions makes the code cleaner.
 
-Right, I went with main() as that is already used on a couple
-of architectures.
-
->> On loongarch, there are many functions in this file, so the trick does
->> not work, adding explicit declarations works around it in a slightly
->> more ugly way but is the best I could come up with here.
+>> arch/openrisc/mm/fault.c:44:17: error: no previous prototype for 'do_page_fault' [-Werror=missing-prototypes]
+>> arch/openrisc/mm/tlb.c:188:13: error: no previous prototype for 'tlb_init' [-Werror=missing-prototypes]
 >
-> I do not like repeating the function names.
->
-> Could you try "static + __used" as in
-> arch/x86/kernel/asm-offsets.c ?
+> I'll try to get these fixed for 6.6.  I was looking at them recently but did not
+> actually make any changes and just put on my TODO.  Your series moves it up in
+> priority and it should be easy to get the fixes out.
 
-Sure, that should work, I had not noticed x86 doing it like this
-and I agree it's slightly nicer.
+Thanks!
 
-In this case, Thomas Bogendoerfer already merged my patch for MIPS
-in 6.5. The loongarch file I change here is a copy of the same file,
-so we probably want them to stay consistent, either keeping my
-change for now, or reworking mips along the same lines.
+Since we already have the majority of architecture maintainers stepping
+in to fix the warnings, I wonder if I should just drop my patch 16/17
+completely and let the others handle it as well rather than shutting up
+the warnings. Only the asm-offsets change is really needed to compile
+test most of the kernel even with CONFIG_WERROR, and without that this
+is just some harmless output.
 
     Arnd
