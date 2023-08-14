@@ -2,58 +2,58 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 6A905C001DB
-	for <linux-ia64@archiver.kernel.org>; Mon, 14 Aug 2023 06:10:14 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id A3BAFC04A94
+	for <linux-ia64@archiver.kernel.org>; Mon, 14 Aug 2023 06:17:19 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S229948AbjHNGJl (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Mon, 14 Aug 2023 02:09:41 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:39006 "EHLO
+        id S232858AbjHNGQs (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Mon, 14 Aug 2023 02:16:48 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:53550 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S233753AbjHNGJX (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Mon, 14 Aug 2023 02:09:23 -0400
+        with ESMTP id S230072AbjHNGQc (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Mon, 14 Aug 2023 02:16:32 -0400
 Received: from mx0b-001b2d01.pphosted.com (mx0b-001b2d01.pphosted.com [148.163.158.5])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 02C2F19B5;
-        Sun, 13 Aug 2023 23:08:55 -0700 (PDT)
-Received: from pps.filterd (m0353722.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.17.1.19/8.17.1.19) with ESMTP id 37E63R5h005710;
-        Mon, 14 Aug 2023 06:08:49 GMT
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 02503F4;
+        Sun, 13 Aug 2023 23:16:31 -0700 (PDT)
+Received: from pps.filterd (m0356516.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.17.1.19/8.17.1.19) with ESMTP id 37E6Bkb0022430;
+        Mon, 14 Aug 2023 06:15:33 GMT
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=ibm.com; h=from : to : cc : subject
  : date : message-id : in-reply-to : references : mime-version :
  content-transfer-encoding; s=pp1;
- bh=+LEqgbgJrJJaX+HpQ83fqIFwJ69ofoMpd+GcuOiWZ9U=;
- b=TLRcDwZeasuwyWQRCrgVxPoq4CCsE83o0LYj97uXFZtwlgTDbwqq/drjAqYi0OAq3Goi
- gD9kpTiV9EvxMRoOPcyQLAvSPD+H3prM1XPjBjKZCPCLRsXHuBuk99HtHWnsJZVyCUQd
- gTq3WSukfUyemTwoCEIM5dSFjFVGjTFTvzx5nw5HGectFGxmoO3DbFLEWMV658uTZnMC
- oULA7QjFjKBFao+HUKdr9JbXP7Q0B5b7uN+Lajrtt9O8obogJ52djGOH0TKYfHb7Ew+C
- hMx6OL2jtxExMnAZXkMulKumX/dkV9IVz3xqZE8kc52yi9hHwRFjRHL50Qc2XZedP4m4 tg== 
+ bh=Z4fU+YYJUASo5wHESwfoB5sizpj1SLIP29KWGgkn9p4=;
+ b=ZPGpBSRRsNQxbfXUWXytkgZrJ5puMr/YQbuBo+/jSurFUpKLtg/etEjz9yAmMYAAfQE6
+ eCbslPsNPoQSZif2h+3C1AHCSkYWao3s9tqN1hkW7oaXGeV+3driaG4hXAH3j2ekU+FT
+ vZzZwNy+ULyTpBmEgB2RWW4EBGopQ8n0RkoW8xFa9tqWTFdT2y8T9i7vBHYlsJ4yDP/Q
+ pMJRL5J0GM8ukZRHhW10f+X4u63xjFiY3s3nIIcqukdtZhZ2A/l6wemZA7BIrYuWb7Zi
+ psuZquyiGAvbti6n+4JFda3MZnK4jS2tstcuZHUtcbKonQCIBsopnEKJg6ZQVCRdEzEv pw== 
 Received: from ppma13.dal12v.mail.ibm.com (dd.9e.1632.ip4.static.sl-reverse.com [50.22.158.221])
-        by mx0a-001b2d01.pphosted.com (PPS) with ESMTPS id 3sfenqrfc7-1
+        by mx0a-001b2d01.pphosted.com (PPS) with ESMTPS id 3sfek2g7kk-10
         (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NOT);
-        Mon, 14 Aug 2023 06:08:48 +0000
+        Mon, 14 Aug 2023 06:15:33 +0000
 Received: from pps.filterd (ppma13.dal12v.mail.ibm.com [127.0.0.1])
-        by ppma13.dal12v.mail.ibm.com (8.17.1.19/8.17.1.19) with ESMTP id 37E4x8N4013240;
+        by ppma13.dal12v.mail.ibm.com (8.17.1.19/8.17.1.19) with ESMTP id 37E4vifS013413;
         Mon, 14 Aug 2023 06:07:25 GMT
-Received: from smtprelay05.fra02v.mail.ibm.com ([9.218.2.225])
-        by ppma13.dal12v.mail.ibm.com (PPS) with ESMTPS id 3sepmj97cc-1
+Received: from smtprelay04.fra02v.mail.ibm.com ([9.218.2.228])
+        by ppma13.dal12v.mail.ibm.com (PPS) with ESMTPS id 3sepmj97ca-1
         (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NOT);
         Mon, 14 Aug 2023 06:07:25 +0000
-Received: from smtpav01.fra02v.mail.ibm.com (smtpav01.fra02v.mail.ibm.com [10.20.54.100])
-        by smtprelay05.fra02v.mail.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id 37E67NrD2818690
+Received: from smtpav05.fra02v.mail.ibm.com (smtpav05.fra02v.mail.ibm.com [10.20.54.104])
+        by smtprelay04.fra02v.mail.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id 37E67NI936897134
         (version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK);
         Mon, 14 Aug 2023 06:07:23 GMT
-Received: from smtpav01.fra02v.mail.ibm.com (unknown [127.0.0.1])
-        by IMSVA (Postfix) with ESMTP id 4ADA72004E;
+Received: from smtpav05.fra02v.mail.ibm.com (unknown [127.0.0.1])
+        by IMSVA (Postfix) with ESMTP id 58B5C2004F;
         Mon, 14 Aug 2023 06:07:23 +0000 (GMT)
-Received: from smtpav01.fra02v.mail.ibm.com (unknown [127.0.0.1])
-        by IMSVA (Postfix) with ESMTP id C06572004B;
+Received: from smtpav05.fra02v.mail.ibm.com (unknown [127.0.0.1])
+        by IMSVA (Postfix) with ESMTP id CCA0D2004E;
         Mon, 14 Aug 2023 06:07:22 +0000 (GMT)
 Received: from ozlabs.au.ibm.com (unknown [9.192.253.14])
-        by smtpav01.fra02v.mail.ibm.com (Postfix) with ESMTP;
+        by smtpav05.fra02v.mail.ibm.com (Postfix) with ESMTP;
         Mon, 14 Aug 2023 06:07:22 +0000 (GMT)
 Received: from bgray-lenovo-p15.ozlabs.ibm.com (haven.au.ibm.com [9.192.254.114])
         (using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
         (No client certificate requested)
-        by ozlabs.au.ibm.com (Postfix) with ESMTPSA id B71006064A;
+        by ozlabs.au.ibm.com (Postfix) with ESMTPSA id BDE9A60648;
         Mon, 14 Aug 2023 16:07:17 +1000 (AEST)
 From:   Benjamin Gray <bgray@linux.ibm.com>
 To:     linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org,
@@ -62,25 +62,25 @@ To:     linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org,
 Cc:     abbotti@mev.co.uk, hsweeten@visionengravers.com,
         jan.kiszka@siemens.com, kbingham@kernel.org, mykolal@fb.com,
         Benjamin Gray <bgray@linux.ibm.com>
-Subject: [PATCH 6/8] tools/power: fix Python string escapes
-Date:   Mon, 14 Aug 2023 16:07:02 +1000
-Message-ID: <20230814060704.79655-7-bgray@linux.ibm.com>
+Subject: [PATCH 8/8] selftests/bpf: fix Python string escapes in f-strings
+Date:   Mon, 14 Aug 2023 16:07:04 +1000
+Message-ID: <20230814060704.79655-9-bgray@linux.ibm.com>
 X-Mailer: git-send-email 2.41.0
 In-Reply-To: <20230814060704.79655-1-bgray@linux.ibm.com>
 References: <20230814060704.79655-1-bgray@linux.ibm.com>
 MIME-Version: 1.0
 Content-Transfer-Encoding: 8bit
 X-TM-AS-GCONF: 00
-X-Proofpoint-GUID: hl6PiBnu7GQCT8PUV4NKLnXO2JONskZ5
-X-Proofpoint-ORIG-GUID: hl6PiBnu7GQCT8PUV4NKLnXO2JONskZ5
+X-Proofpoint-GUID: FPckdZT2o3A_ZwQtcMaL8l2LrUWOqdaj
+X-Proofpoint-ORIG-GUID: FPckdZT2o3A_ZwQtcMaL8l2LrUWOqdaj
 X-Proofpoint-Virus-Version: vendor=baseguard
  engine=ICAP:2.0.267,Aquarius:18.0.957,Hydra:6.0.591,FMLib:17.11.176.26
  definitions=2023-08-13_24,2023-08-10_01,2023-05-22_02
-X-Proofpoint-Spam-Details: rule=outbound_notspam policy=outbound score=0 bulkscore=0 impostorscore=0
- mlxscore=0 malwarescore=0 mlxlogscore=999 spamscore=0 phishscore=0
- clxscore=1015 suspectscore=0 adultscore=0 lowpriorityscore=0
- priorityscore=1501 classifier=spam adjust=0 reason=mlx scancount=1
- engine=8.12.0-2306200000 definitions=main-2308140055
+X-Proofpoint-Spam-Details: rule=outbound_notspam policy=outbound score=0 adultscore=0
+ lowpriorityscore=0 mlxlogscore=999 spamscore=0 mlxscore=0 phishscore=0
+ bulkscore=0 impostorscore=0 malwarescore=0 priorityscore=1501
+ clxscore=1015 suspectscore=0 classifier=spam adjust=0 reason=mlx
+ scancount=1 engine=8.12.0-2306200000 definitions=main-2308140055
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
@@ -93,61 +93,49 @@ Fix these now to get ahead of it before it's an error.
 
 Signed-off-by: Benjamin Gray <bgray@linux.ibm.com>
 ---
- tools/power/pm-graph/bootgraph.py | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ tools/testing/selftests/bpf/test_bpftool_synctypes.py | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/tools/power/pm-graph/bootgraph.py b/tools/power/pm-graph/bootgraph.py
-index f96f50e0c336..e983c4e71d77 100755
---- a/tools/power/pm-graph/bootgraph.py
-+++ b/tools/power/pm-graph/bootgraph.py
-@@ -77,12 +77,12 @@ class SystemValues(aslib.SystemValues):
- 			fp.close()
- 		self.testdir = datetime.now().strftime('boot-%y%m%d-%H%M%S')
- 	def kernelVersion(self, msg):
--		m = re.match('^[Ll]inux *[Vv]ersion *(?P<v>\S*) .*', msg)
-+		m = re.match('^[Ll]inux *[Vv]ersion *(?P<v>\\S*) .*', msg)
- 		if m:
- 			return m.group('v')
- 		return 'unknown'
- 	def checkFtraceKernelVersion(self):
--		m = re.match('^(?P<x>[0-9]*)\.(?P<y>[0-9]*)\.(?P<z>[0-9]*).*', self.kernel)
-+		m = re.match('^(?P<x>[0-9]*)\\.(?P<y>[0-9]*)\\.(?P<z>[0-9]*).*', self.kernel)
- 		if m:
- 			val = tuple(map(int, m.groups()))
- 			if val >= (4, 10, 0):
-@@ -324,7 +324,7 @@ def parseKernelLog():
- 		idx = line.find('[')
- 		if idx > 1:
- 			line = line[idx:]
--		m = re.match('[ \t]*(\[ *)(?P<ktime>[0-9\.]*)(\]) (?P<msg>.*)', line)
-+		m = re.match('[ \t]*(\\[ *)(?P<ktime>[0-9\\.]*)(\\]) (?P<msg>.*)', line)
- 		if(not m):
- 			continue
- 		ktime = float(m.group('ktime'))
-@@ -336,20 +336,20 @@ def parseKernelLog():
- 			if(not sysvals.stamp['kernel']):
- 				sysvals.stamp['kernel'] = sysvals.kernelVersion(msg)
- 			continue
--		m = re.match('.* setting system clock to (?P<d>[0-9\-]*)[ A-Z](?P<t>[0-9:]*) UTC.*', msg)
-+		m = re.match('.* setting system clock to (?P<d>[0-9\\-]*)[ A-Z](?P<t>[0-9:]*) UTC.*', msg)
- 		if(m):
- 			bt = datetime.strptime(m.group('d')+' '+m.group('t'), '%Y-%m-%d %H:%M:%S')
- 			bt = bt - timedelta(seconds=int(ktime))
- 			data.boottime = bt.strftime('%Y-%m-%d_%H:%M:%S')
- 			sysvals.stamp['time'] = bt.strftime('%B %d %Y, %I:%M:%S %p')
- 			continue
--		m = re.match('^calling *(?P<f>.*)\+.* @ (?P<p>[0-9]*)', msg)
-+		m = re.match('^calling *(?P<f>.*)\\+.* @ (?P<p>[0-9]*)', msg)
- 		if(m):
- 			func = m.group('f')
- 			pid = int(m.group('p'))
- 			devtemp[func] = (ktime, pid)
- 			continue
--		m = re.match('^initcall *(?P<f>.*)\+.* returned (?P<r>.*) after (?P<t>.*) usecs', msg)
-+		m = re.match('^initcall *(?P<f>.*)\\+.* returned (?P<r>.*) after (?P<t>.*) usecs', msg)
- 		if(m):
- 			data.valid = True
- 			data.end = ktime
+diff --git a/tools/testing/selftests/bpf/test_bpftool_synctypes.py b/tools/testing/selftests/bpf/test_bpftool_synctypes.py
+index b21bc1a35bf4..a93144b3b2b0 100755
+--- a/tools/testing/selftests/bpf/test_bpftool_synctypes.py
++++ b/tools/testing/selftests/bpf/test_bpftool_synctypes.py
+@@ -66,7 +66,7 @@ class ArrayParser(BlockParser):
+ 
+     def __init__(self, reader, array_name):
+         self.array_name = array_name
+-        self.start_marker = re.compile(f'(static )?const bool {self.array_name}\[.*\] = {{\n')
++        self.start_marker = re.compile(f'(static )?const bool {self.array_name}\\[.*\\] = {{\n')
+         super().__init__(reader)
+ 
+     def search_block(self):
+@@ -226,7 +226,7 @@ class FileExtractor(object):
+ 
+         @block_name: name of the blog to parse, 'TYPE' in the example
+         """
+-        start_marker = re.compile(f'\*{block_name}\* := {{')
++        start_marker = re.compile(f'\\*{block_name}\\* := {{')
+         pattern = re.compile('\\*\\*([\\w/-]+)\\*\\*')
+         end_marker = re.compile('}\n')
+         return self.__get_description_list(start_marker, pattern, end_marker)
+@@ -245,7 +245,7 @@ class FileExtractor(object):
+ 
+         @block_name: name of the blog to parse, 'TYPE' in the example
+         """
+-        start_marker = re.compile(f'"\s*{block_name} := {{')
++        start_marker = re.compile(f'"\\s*{block_name} := {{')
+         pattern = re.compile('([\\w/]+) [|}]')
+         end_marker = re.compile('}')
+         return self.__get_description_list(start_marker, pattern, end_marker)
+@@ -264,7 +264,7 @@ class FileExtractor(object):
+ 
+         @macro: macro starting the block, 'HELP_SPEC_OPTIONS' in the example
+         """
+-        start_marker = re.compile(f'"\s*{macro}\s*" [|}}]')
++        start_marker = re.compile(f'"\\s*{macro}\\s*" [|}}]')
+         pattern = re.compile('([\\w-]+) ?(?:\\||}[ }\\]])')
+         end_marker = re.compile('}\\\\n')
+         return self.__get_description_list(start_marker, pattern, end_marker)
 -- 
 2.41.0
 
