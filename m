@@ -2,140 +2,110 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id A3BAFC04A94
-	for <linux-ia64@archiver.kernel.org>; Mon, 14 Aug 2023 06:17:19 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 4F3DFC001DB
+	for <linux-ia64@archiver.kernel.org>; Mon, 14 Aug 2023 13:36:54 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S232858AbjHNGQs (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Mon, 14 Aug 2023 02:16:48 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:53550 "EHLO
+        id S229523AbjHNNgW (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Mon, 14 Aug 2023 09:36:22 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:53716 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S230072AbjHNGQc (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Mon, 14 Aug 2023 02:16:32 -0400
-Received: from mx0b-001b2d01.pphosted.com (mx0b-001b2d01.pphosted.com [148.163.158.5])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 02503F4;
-        Sun, 13 Aug 2023 23:16:31 -0700 (PDT)
-Received: from pps.filterd (m0356516.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.17.1.19/8.17.1.19) with ESMTP id 37E6Bkb0022430;
-        Mon, 14 Aug 2023 06:15:33 GMT
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=ibm.com; h=from : to : cc : subject
- : date : message-id : in-reply-to : references : mime-version :
- content-transfer-encoding; s=pp1;
- bh=Z4fU+YYJUASo5wHESwfoB5sizpj1SLIP29KWGgkn9p4=;
- b=ZPGpBSRRsNQxbfXUWXytkgZrJ5puMr/YQbuBo+/jSurFUpKLtg/etEjz9yAmMYAAfQE6
- eCbslPsNPoQSZif2h+3C1AHCSkYWao3s9tqN1hkW7oaXGeV+3driaG4hXAH3j2ekU+FT
- vZzZwNy+ULyTpBmEgB2RWW4EBGopQ8n0RkoW8xFa9tqWTFdT2y8T9i7vBHYlsJ4yDP/Q
- pMJRL5J0GM8ukZRHhW10f+X4u63xjFiY3s3nIIcqukdtZhZ2A/l6wemZA7BIrYuWb7Zi
- psuZquyiGAvbti6n+4JFda3MZnK4jS2tstcuZHUtcbKonQCIBsopnEKJg6ZQVCRdEzEv pw== 
-Received: from ppma13.dal12v.mail.ibm.com (dd.9e.1632.ip4.static.sl-reverse.com [50.22.158.221])
-        by mx0a-001b2d01.pphosted.com (PPS) with ESMTPS id 3sfek2g7kk-10
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NOT);
-        Mon, 14 Aug 2023 06:15:33 +0000
-Received: from pps.filterd (ppma13.dal12v.mail.ibm.com [127.0.0.1])
-        by ppma13.dal12v.mail.ibm.com (8.17.1.19/8.17.1.19) with ESMTP id 37E4vifS013413;
-        Mon, 14 Aug 2023 06:07:25 GMT
-Received: from smtprelay04.fra02v.mail.ibm.com ([9.218.2.228])
-        by ppma13.dal12v.mail.ibm.com (PPS) with ESMTPS id 3sepmj97ca-1
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NOT);
-        Mon, 14 Aug 2023 06:07:25 +0000
-Received: from smtpav05.fra02v.mail.ibm.com (smtpav05.fra02v.mail.ibm.com [10.20.54.104])
-        by smtprelay04.fra02v.mail.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id 37E67NI936897134
-        (version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK);
-        Mon, 14 Aug 2023 06:07:23 GMT
-Received: from smtpav05.fra02v.mail.ibm.com (unknown [127.0.0.1])
-        by IMSVA (Postfix) with ESMTP id 58B5C2004F;
-        Mon, 14 Aug 2023 06:07:23 +0000 (GMT)
-Received: from smtpav05.fra02v.mail.ibm.com (unknown [127.0.0.1])
-        by IMSVA (Postfix) with ESMTP id CCA0D2004E;
-        Mon, 14 Aug 2023 06:07:22 +0000 (GMT)
-Received: from ozlabs.au.ibm.com (unknown [9.192.253.14])
-        by smtpav05.fra02v.mail.ibm.com (Postfix) with ESMTP;
-        Mon, 14 Aug 2023 06:07:22 +0000 (GMT)
-Received: from bgray-lenovo-p15.ozlabs.ibm.com (haven.au.ibm.com [9.192.254.114])
+        with ESMTP id S231666AbjHNNgM (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Mon, 14 Aug 2023 09:36:12 -0400
+Received: from ms.lwn.net (ms.lwn.net [45.79.88.28])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id A7D9010C6;
+        Mon, 14 Aug 2023 06:35:58 -0700 (PDT)
+Received: from localhost (unknown [IPv6:2601:281:8300:73::5f6])
         (using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
         (No client certificate requested)
-        by ozlabs.au.ibm.com (Postfix) with ESMTPSA id BDE9A60648;
-        Mon, 14 Aug 2023 16:07:17 +1000 (AEST)
-From:   Benjamin Gray <bgray@linux.ibm.com>
-To:     linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org,
-        linux-doc@vger.kernel.org, bpf@vger.kernel.org,
-        linux-pm@vger.kernel.org
+        by ms.lwn.net (Postfix) with ESMTPSA id 383902DC;
+        Mon, 14 Aug 2023 13:35:58 +0000 (UTC)
+DKIM-Filter: OpenDKIM Filter v2.11.0 ms.lwn.net 383902DC
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=lwn.net; s=20201203;
+        t=1692020158; bh=TTfv8kyCp+lhTXNlRfFTNBLGGFbAUEW/7RUG2jpU/lA=;
+        h=From:To:Cc:Subject:In-Reply-To:References:Date:From;
+        b=jzVnUWEeH0OBts9ZGWMVY16Ee4OZCCdCOllpzYuGjxL2jP5/bu/ssntiDH3y3nvBD
+         O3PU2D2PG03RjZqrNKvt0hHAsxKlebT0FKBtNE/5Einys6RC8fL2/mhuV+4ZsRS4Fi
+         a1tBF3Z1jeSC7fr59WzGvWbWK1SuGttXXinXdOHWPlQWz4sI56/PIeLxA0Y4CjzO+2
+         ipWPJPL3ZqW9/aCH+MxhAoy+aOiUadLGpDgZCdmtKaZdyBmbaivIebZ0tAxxcYZFZ3
+         E0jRRBCVYi/gt/OkTIVEJjmnRO4NkzwPhEVjRXQMcDpQP8jdRna6CNq6uqF2JPhGW6
+         uiKiS9d0+HSXg==
+From:   Jonathan Corbet <corbet@lwn.net>
+To:     Benjamin Gray <bgray@linux.ibm.com>, linux-kernel@vger.kernel.org,
+        linux-ia64@vger.kernel.org, linux-doc@vger.kernel.org,
+        bpf@vger.kernel.org, linux-pm@vger.kernel.org
 Cc:     abbotti@mev.co.uk, hsweeten@visionengravers.com,
         jan.kiszka@siemens.com, kbingham@kernel.org, mykolal@fb.com,
         Benjamin Gray <bgray@linux.ibm.com>
-Subject: [PATCH 8/8] selftests/bpf: fix Python string escapes in f-strings
-Date:   Mon, 14 Aug 2023 16:07:04 +1000
-Message-ID: <20230814060704.79655-9-bgray@linux.ibm.com>
-X-Mailer: git-send-email 2.41.0
-In-Reply-To: <20230814060704.79655-1-bgray@linux.ibm.com>
+Subject: Re: [PATCH 2/8] Documentation/sphinx: fix Python string escapes
+In-Reply-To: <20230814060704.79655-3-bgray@linux.ibm.com>
 References: <20230814060704.79655-1-bgray@linux.ibm.com>
+ <20230814060704.79655-3-bgray@linux.ibm.com>
+Date:   Mon, 14 Aug 2023 07:35:57 -0600
+Message-ID: <87jztxwxtu.fsf@meer.lwn.net>
 MIME-Version: 1.0
-Content-Transfer-Encoding: 8bit
-X-TM-AS-GCONF: 00
-X-Proofpoint-GUID: FPckdZT2o3A_ZwQtcMaL8l2LrUWOqdaj
-X-Proofpoint-ORIG-GUID: FPckdZT2o3A_ZwQtcMaL8l2LrUWOqdaj
-X-Proofpoint-Virus-Version: vendor=baseguard
- engine=ICAP:2.0.267,Aquarius:18.0.957,Hydra:6.0.591,FMLib:17.11.176.26
- definitions=2023-08-13_24,2023-08-10_01,2023-05-22_02
-X-Proofpoint-Spam-Details: rule=outbound_notspam policy=outbound score=0 adultscore=0
- lowpriorityscore=0 mlxlogscore=999 spamscore=0 mlxscore=0 phishscore=0
- bulkscore=0 impostorscore=0 malwarescore=0 priorityscore=1501
- clxscore=1015 suspectscore=0 classifier=spam adjust=0 reason=mlx
- scancount=1 engine=8.12.0-2306200000 definitions=main-2308140055
+Content-Type: text/plain
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-Python 3.6 introduced a DeprecationWarning for invalid escape sequences.
-This is upgraded to a SyntaxWarning in Python 3.12, and will eventually
-be a syntax error.
+Benjamin Gray <bgray@linux.ibm.com> writes:
 
-Fix these now to get ahead of it before it's an error.
+> Python 3.6 introduced a DeprecationWarning for invalid escape sequences.
+> This is upgraded to a SyntaxWarning in Python 3.12, and will eventually
+> be a syntax error.
+>
+> Fix these now to get ahead of it before it's an error.
+>
+> Signed-off-by: Benjamin Gray <bgray@linux.ibm.com>
+> ---
+>  Documentation/sphinx/cdomain.py             | 2 +-
+>  Documentation/sphinx/kernel_abi.py          | 2 +-
+>  Documentation/sphinx/kernel_feat.py         | 2 +-
+>  Documentation/sphinx/kerneldoc.py           | 2 +-
+>  Documentation/sphinx/maintainers_include.py | 8 ++++----
+>  5 files changed, 8 insertions(+), 8 deletions(-)
 
-Signed-off-by: Benjamin Gray <bgray@linux.ibm.com>
----
- tools/testing/selftests/bpf/test_bpftool_synctypes.py | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+So I am the maintainer for this stuff...is there a reason you didn't
+copy me on this work?
 
-diff --git a/tools/testing/selftests/bpf/test_bpftool_synctypes.py b/tools/testing/selftests/bpf/test_bpftool_synctypes.py
-index b21bc1a35bf4..a93144b3b2b0 100755
---- a/tools/testing/selftests/bpf/test_bpftool_synctypes.py
-+++ b/tools/testing/selftests/bpf/test_bpftool_synctypes.py
-@@ -66,7 +66,7 @@ class ArrayParser(BlockParser):
- 
-     def __init__(self, reader, array_name):
-         self.array_name = array_name
--        self.start_marker = re.compile(f'(static )?const bool {self.array_name}\[.*\] = {{\n')
-+        self.start_marker = re.compile(f'(static )?const bool {self.array_name}\\[.*\\] = {{\n')
-         super().__init__(reader)
- 
-     def search_block(self):
-@@ -226,7 +226,7 @@ class FileExtractor(object):
- 
-         @block_name: name of the blog to parse, 'TYPE' in the example
-         """
--        start_marker = re.compile(f'\*{block_name}\* := {{')
-+        start_marker = re.compile(f'\\*{block_name}\\* := {{')
-         pattern = re.compile('\\*\\*([\\w/-]+)\\*\\*')
-         end_marker = re.compile('}\n')
-         return self.__get_description_list(start_marker, pattern, end_marker)
-@@ -245,7 +245,7 @@ class FileExtractor(object):
- 
-         @block_name: name of the blog to parse, 'TYPE' in the example
-         """
--        start_marker = re.compile(f'"\s*{block_name} := {{')
-+        start_marker = re.compile(f'"\\s*{block_name} := {{')
-         pattern = re.compile('([\\w/]+) [|}]')
-         end_marker = re.compile('}')
-         return self.__get_description_list(start_marker, pattern, end_marker)
-@@ -264,7 +264,7 @@ class FileExtractor(object):
- 
-         @macro: macro starting the block, 'HELP_SPEC_OPTIONS' in the example
-         """
--        start_marker = re.compile(f'"\s*{macro}\s*" [|}}]')
-+        start_marker = re.compile(f'"\\s*{macro}\\s*" [|}}]')
-         pattern = re.compile('([\\w-]+) ?(?:\\||}[ }\\]])')
-         end_marker = re.compile('}\\\\n')
-         return self.__get_description_list(start_marker, pattern, end_marker)
--- 
-2.41.0
+> diff --git a/Documentation/sphinx/cdomain.py b/Documentation/sphinx/cdomain.py
+> index ca8ac9e59ded..dbdc74bd0772 100644
+> --- a/Documentation/sphinx/cdomain.py
+> +++ b/Documentation/sphinx/cdomain.py
+> @@ -93,7 +93,7 @@ def markup_ctype_refs(match):
+>  #
+>  RE_expr = re.compile(r':c:(expr|texpr):`([^\`]+)`')
+>  def markup_c_expr(match):
+> -    return '\ ``' + match.group(2) + '``\ '
+> +    return '\\ ``' + match.group(2) + '``\\ '
 
+I have to wonder about this one; I doubt the intent was to insert a
+literal backslash.  I have to fire up my ancient build environment to
+even try this, but even if it's right...
+
+>  #
+>  # Parse Sphinx 3.x C markups, replacing them by backward-compatible ones
+> diff --git a/Documentation/sphinx/kernel_abi.py b/Documentation/sphinx/kernel_abi.py
+> index b5feb5b1d905..b9f026f016fd 100644
+> --- a/Documentation/sphinx/kernel_abi.py
+> +++ b/Documentation/sphinx/kernel_abi.py
+> @@ -138,7 +138,7 @@ class KernelCmd(Directive):
+>                  code_block += "\n    " + l
+>              lines = code_block + "\n\n"
+>  
+> -        line_regex = re.compile("^\.\. LINENO (\S+)\#([0-9]+)$")
+> +        line_regex = re.compile("^\\.\\. LINENO (\\S+)\\#([0-9]+)$")
+
+All of these really just want to be raw strings - a much more minimal
+fix that makes the result quite a bit more readable:
+
+     line_regex = re.compile(r"^\.\. LINENO (\S+)\#([0-9]+)$")
+                             ^
+                             |
+  ---------------------------+
+
+That, I think, is how these should be fixed.
+
+Thanks,
+
+jon
