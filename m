@@ -2,58 +2,58 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 3D63AC04A94
+	by smtp.lore.kernel.org (Postfix) with ESMTP id B88CEC04FE2
 	for <linux-ia64@archiver.kernel.org>; Mon, 14 Aug 2023 06:08:38 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S232958AbjHNGIG (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Mon, 14 Aug 2023 02:08:06 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:38940 "EHLO
+        id S233552AbjHNGIH (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Mon, 14 Aug 2023 02:08:07 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:38968 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S233554AbjHNGHk (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Mon, 14 Aug 2023 02:07:40 -0400
+        with ESMTP id S233570AbjHNGHl (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Mon, 14 Aug 2023 02:07:41 -0400
 Received: from mx0b-001b2d01.pphosted.com (mx0b-001b2d01.pphosted.com [148.163.158.5])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id B3824130;
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id ED89D10CE;
         Sun, 13 Aug 2023 23:07:39 -0700 (PDT)
 Received: from pps.filterd (m0353725.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.17.1.19/8.17.1.19) with ESMTP id 37E5wDIA008544;
-        Mon, 14 Aug 2023 06:07:31 GMT
+        by mx0a-001b2d01.pphosted.com (8.17.1.19/8.17.1.19) with ESMTP id 37E5wBcp008423;
+        Mon, 14 Aug 2023 06:07:25 GMT
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=ibm.com; h=from : to : cc : subject
  : date : message-id : in-reply-to : references : mime-version :
  content-transfer-encoding; s=pp1;
- bh=RakeFN8xdX8Q8mJzFizh+TfMadxF+rWy8YJcONZPKd8=;
- b=qlLINEA/LIhOGERVCv4wD5gbiy5cLRUg0qDIOYITL/nqa0oo0oMxRWO/uSorpBIdQYq6
- ZPNgmLyC6D7loUN95NH+UtuxcslSurDJl9nVsG6zkUd2LCqpeB9u8brzM/gYKKcovmBe
- OcARaawfEoN+qJEjBZn23QpQa732A8le4F7ya9Bmgb4ibfhrKLq+Ymc3YUgQirhzu/3r
- IYCtpZgjEaXLuPm9N+bv0WPaz6cVsx3RTD4rz/wKTutVJbMQ3pgul0W/wK5PnZVsoJfV
- RhW4usk64BxMx+yLPES7FDIM+D96ZqQOqK9OZaINRezg6ahsZ977rIkZqH2cfRupBa+d /Q== 
-Received: from ppma11.dal12v.mail.ibm.com (db.9e.1632.ip4.static.sl-reverse.com [50.22.158.219])
-        by mx0a-001b2d01.pphosted.com (PPS) with ESMTPS id 3sfekc04ny-1
+ bh=4buwukZ5Q5s/sczhLVm9BL/btmO7r3lPwlubrVtFnXA=;
+ b=qQfnr+E58ivI+hFJYR9ebjzXXAhIj/10neBMkV+3nbOoVDqcX/XxtB2eC9XEhRx0TV6F
+ yfDi5+YpZgIU9H4xMDFByx/XpH5QAzYcoNlIezptFSqnkK1l2SR3OdWBDZdltCfALPRB
+ 6iXnlUlDUZhwLZL8Kkl2C+mtsnyO0QToab/VNw87adR0kI8RHXf76Uzold5/MiSnc2Q5
+ ryHAjrL11Di4Cc4KsJ0Z/0zoZIqs+J2xmCj8lxyD3Zt896omzdxQ1NY0F1bqWQygNTQb
+ Z1k0CjvWLllQN27nXDKQTued+O8lvbqKfutGGYaOgn1dJbDIAXKTo1GtIZAuJRcclZ1M fA== 
+Received: from ppma23.wdc07v.mail.ibm.com (5d.69.3da9.ip4.static.sl-reverse.com [169.61.105.93])
+        by mx0a-001b2d01.pphosted.com (PPS) with ESMTPS id 3sfekc04ff-1
         (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NOT);
-        Mon, 14 Aug 2023 06:07:29 +0000
-Received: from pps.filterd (ppma11.dal12v.mail.ibm.com [127.0.0.1])
-        by ppma11.dal12v.mail.ibm.com (8.17.1.19/8.17.1.19) with ESMTP id 37E5KPEF018831;
-        Mon, 14 Aug 2023 06:07:26 GMT
-Received: from smtprelay05.fra02v.mail.ibm.com ([9.218.2.225])
-        by ppma11.dal12v.mail.ibm.com (PPS) with ESMTPS id 3seq4111ct-1
+        Mon, 14 Aug 2023 06:07:25 +0000
+Received: from pps.filterd (ppma23.wdc07v.mail.ibm.com [127.0.0.1])
+        by ppma23.wdc07v.mail.ibm.com (8.17.1.19/8.17.1.19) with ESMTP id 37E4CvM5007832;
+        Mon, 14 Aug 2023 06:07:23 GMT
+Received: from smtprelay06.fra02v.mail.ibm.com ([9.218.2.230])
+        by ppma23.wdc07v.mail.ibm.com (PPS) with ESMTPS id 3senwjsg1v-1
         (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NOT);
-        Mon, 14 Aug 2023 06:07:26 +0000
-Received: from smtpav01.fra02v.mail.ibm.com (smtpav01.fra02v.mail.ibm.com [10.20.54.100])
-        by smtprelay05.fra02v.mail.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id 37E67Nli15270542
+        Mon, 14 Aug 2023 06:07:23 +0000
+Received: from smtpav03.fra02v.mail.ibm.com (smtpav03.fra02v.mail.ibm.com [10.20.54.102])
+        by smtprelay06.fra02v.mail.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id 37E67LKx43843858
         (version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK);
-        Mon, 14 Aug 2023 06:07:24 GMT
-Received: from smtpav01.fra02v.mail.ibm.com (unknown [127.0.0.1])
-        by IMSVA (Postfix) with ESMTP id BD3BF2004E;
-        Mon, 14 Aug 2023 06:07:23 +0000 (GMT)
-Received: from smtpav01.fra02v.mail.ibm.com (unknown [127.0.0.1])
-        by IMSVA (Postfix) with ESMTP id C09D82004D;
-        Mon, 14 Aug 2023 06:07:22 +0000 (GMT)
+        Mon, 14 Aug 2023 06:07:21 GMT
+Received: from smtpav03.fra02v.mail.ibm.com (unknown [127.0.0.1])
+        by IMSVA (Postfix) with ESMTP id 5B76520040;
+        Mon, 14 Aug 2023 06:07:21 +0000 (GMT)
+Received: from smtpav03.fra02v.mail.ibm.com (unknown [127.0.0.1])
+        by IMSVA (Postfix) with ESMTP id 60C7A2004B;
+        Mon, 14 Aug 2023 06:07:20 +0000 (GMT)
 Received: from ozlabs.au.ibm.com (unknown [9.192.253.14])
-        by smtpav01.fra02v.mail.ibm.com (Postfix) with ESMTP;
-        Mon, 14 Aug 2023 06:07:22 +0000 (GMT)
+        by smtpav03.fra02v.mail.ibm.com (Postfix) with ESMTP;
+        Mon, 14 Aug 2023 06:07:20 +0000 (GMT)
 Received: from bgray-lenovo-p15.ozlabs.ibm.com (haven.au.ibm.com [9.192.254.114])
         (using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
         (No client certificate requested)
-        by ozlabs.au.ibm.com (Postfix) with ESMTPSA id BA40B6064E;
+        by ozlabs.au.ibm.com (Postfix) with ESMTPSA id A9D4C603C2;
         Mon, 14 Aug 2023 16:07:17 +1000 (AEST)
 From:   Benjamin Gray <bgray@linux.ibm.com>
 To:     linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org,
@@ -62,17 +62,17 @@ To:     linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org,
 Cc:     abbotti@mev.co.uk, hsweeten@visionengravers.com,
         jan.kiszka@siemens.com, kbingham@kernel.org, mykolal@fb.com,
         Benjamin Gray <bgray@linux.ibm.com>
-Subject: [PATCH 7/8] selftests/bpf: fix Python string escapes
-Date:   Mon, 14 Aug 2023 16:07:03 +1000
-Message-ID: <20230814060704.79655-8-bgray@linux.ibm.com>
+Subject: [PATCH 2/8] Documentation/sphinx: fix Python string escapes
+Date:   Mon, 14 Aug 2023 16:06:58 +1000
+Message-ID: <20230814060704.79655-3-bgray@linux.ibm.com>
 X-Mailer: git-send-email 2.41.0
 In-Reply-To: <20230814060704.79655-1-bgray@linux.ibm.com>
 References: <20230814060704.79655-1-bgray@linux.ibm.com>
 MIME-Version: 1.0
 Content-Transfer-Encoding: 8bit
 X-TM-AS-GCONF: 00
-X-Proofpoint-GUID: Fbc1edc-jH_FGc-4Wk-eSSGZXYc1ES_k
-X-Proofpoint-ORIG-GUID: Fbc1edc-jH_FGc-4Wk-eSSGZXYc1ES_k
+X-Proofpoint-GUID: VRzP-0K8w31oeuVqJAmrHynY3iRijDCP
+X-Proofpoint-ORIG-GUID: VRzP-0K8w31oeuVqJAmrHynY3iRijDCP
 X-Proofpoint-Virus-Version: vendor=baseguard
  engine=ICAP:2.0.267,Aquarius:18.0.957,Hydra:6.0.591,FMLib:17.11.176.26
  definitions=2023-08-13_24,2023-08-10_01,2023-05-22_02
@@ -93,101 +93,101 @@ Fix these now to get ahead of it before it's an error.
 
 Signed-off-by: Benjamin Gray <bgray@linux.ibm.com>
 ---
- .../selftests/bpf/test_bpftool_synctypes.py    | 18 +++++++++---------
- tools/testing/selftests/bpf/test_offload.py    |  2 +-
- 2 files changed, 10 insertions(+), 10 deletions(-)
+ Documentation/sphinx/cdomain.py             | 2 +-
+ Documentation/sphinx/kernel_abi.py          | 2 +-
+ Documentation/sphinx/kernel_feat.py         | 2 +-
+ Documentation/sphinx/kerneldoc.py           | 2 +-
+ Documentation/sphinx/maintainers_include.py | 8 ++++----
+ 5 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/tools/testing/selftests/bpf/test_bpftool_synctypes.py b/tools/testing/selftests/bpf/test_bpftool_synctypes.py
-index 0cfece7ff4f8..b21bc1a35bf4 100755
---- a/tools/testing/selftests/bpf/test_bpftool_synctypes.py
-+++ b/tools/testing/selftests/bpf/test_bpftool_synctypes.py
-@@ -80,7 +80,7 @@ class ArrayParser(BlockParser):
-         Parse a block and return data as a dictionary. Items to extract must be
-         on separate lines in the file.
-         """
--        pattern = re.compile('\[(BPF_\w*)\]\s*= (true|false),?$')
-+        pattern = re.compile('\\[(BPF_\\w*)\\]\\s*= (true|false),?$')
-         entries = set()
-         while True:
-             line = self.reader.readline()
-@@ -178,7 +178,7 @@ class FileExtractor(object):
-         @enum_name: name of the enum to parse
-         """
-         start_marker = re.compile(f'enum {enum_name} {{\n')
--        pattern = re.compile('^\s*(BPF_\w+),?(\s+/\*.*\*/)?$')
-+        pattern = re.compile('^\\s*(BPF_\\w+),?(\\s+/\\*.*\\*/)?$')
-         end_marker = re.compile('^};')
-         parser = BlockParser(self.reader)
-         parser.search_block(start_marker)
-@@ -227,7 +227,7 @@ class FileExtractor(object):
-         @block_name: name of the blog to parse, 'TYPE' in the example
-         """
-         start_marker = re.compile(f'\*{block_name}\* := {{')
--        pattern = re.compile('\*\*([\w/-]+)\*\*')
-+        pattern = re.compile('\\*\\*([\\w/-]+)\\*\\*')
-         end_marker = re.compile('}\n')
-         return self.__get_description_list(start_marker, pattern, end_marker)
+diff --git a/Documentation/sphinx/cdomain.py b/Documentation/sphinx/cdomain.py
+index ca8ac9e59ded..dbdc74bd0772 100644
+--- a/Documentation/sphinx/cdomain.py
++++ b/Documentation/sphinx/cdomain.py
+@@ -93,7 +93,7 @@ def markup_ctype_refs(match):
+ #
+ RE_expr = re.compile(r':c:(expr|texpr):`([^\`]+)`')
+ def markup_c_expr(match):
+-    return '\ ``' + match.group(2) + '``\ '
++    return '\\ ``' + match.group(2) + '``\\ '
  
-@@ -246,7 +246,7 @@ class FileExtractor(object):
-         @block_name: name of the blog to parse, 'TYPE' in the example
-         """
-         start_marker = re.compile(f'"\s*{block_name} := {{')
--        pattern = re.compile('([\w/]+) [|}]')
-+        pattern = re.compile('([\\w/]+) [|}]')
-         end_marker = re.compile('}')
-         return self.__get_description_list(start_marker, pattern, end_marker)
+ #
+ # Parse Sphinx 3.x C markups, replacing them by backward-compatible ones
+diff --git a/Documentation/sphinx/kernel_abi.py b/Documentation/sphinx/kernel_abi.py
+index b5feb5b1d905..b9f026f016fd 100644
+--- a/Documentation/sphinx/kernel_abi.py
++++ b/Documentation/sphinx/kernel_abi.py
+@@ -138,7 +138,7 @@ class KernelCmd(Directive):
+                 code_block += "\n    " + l
+             lines = code_block + "\n\n"
  
-@@ -265,7 +265,7 @@ class FileExtractor(object):
-         @macro: macro starting the block, 'HELP_SPEC_OPTIONS' in the example
-         """
-         start_marker = re.compile(f'"\s*{macro}\s*" [|}}]')
--        pattern = re.compile('([\w-]+) ?(?:\||}[ }\]])')
-+        pattern = re.compile('([\\w-]+) ?(?:\\||}[ }\\]])')
-         end_marker = re.compile('}\\\\n')
-         return self.__get_description_list(start_marker, pattern, end_marker)
+-        line_regex = re.compile("^\.\. LINENO (\S+)\#([0-9]+)$")
++        line_regex = re.compile("^\\.\\. LINENO (\\S+)\\#([0-9]+)$")
+         ln = 0
+         n = 0
+         f = fname
+diff --git a/Documentation/sphinx/kernel_feat.py b/Documentation/sphinx/kernel_feat.py
+index 27b701ed3681..d17adc1a367a 100644
+--- a/Documentation/sphinx/kernel_feat.py
++++ b/Documentation/sphinx/kernel_feat.py
+@@ -104,7 +104,7 @@ class KernelFeat(Directive):
  
-@@ -284,7 +284,7 @@ class FileExtractor(object):
-         @block_name: name of the blog to parse, 'TYPE' in the example
-         """
-         start_marker = re.compile(f'local {block_name}=\'')
--        pattern = re.compile('(?:.*=\')?([\w/]+)')
-+        pattern = re.compile('(?:.*=\')?([\\w/]+)')
-         end_marker = re.compile('\'$')
-         return self.__get_description_list(start_marker, pattern, end_marker)
+         lines = self.runCmd(cmd, shell=True, cwd=cwd, env=shell_env)
  
-@@ -316,7 +316,7 @@ class MainHeaderFileExtractor(SourceFileExtractor):
-             {'-p', '-d', '--pretty', '--debug', '--json', '-j'}
-         """
-         start_marker = re.compile(f'"OPTIONS :=')
--        pattern = re.compile('([\w-]+) ?(?:\||}[ }\]"])')
-+        pattern = re.compile('([\\w-]+) ?(?:\\||}[ }\\]"])')
-         end_marker = re.compile('#define')
+-        line_regex = re.compile("^\.\. FILE (\S+)$")
++        line_regex = re.compile("^\\.\\. FILE (\\S+)$")
  
-         parser = InlineListParser(self.reader)
-@@ -338,8 +338,8 @@ class ManSubstitutionsExtractor(SourceFileExtractor):
+         out_lines = ""
  
-             {'-p', '-d', '--pretty', '--debug', '--json', '-j'}
-         """
--        start_marker = re.compile('\|COMMON_OPTIONS\| replace:: {')
--        pattern = re.compile('\*\*([\w/-]+)\*\*')
-+        start_marker = re.compile('\\|COMMON_OPTIONS\\| replace:: {')
-+        pattern = re.compile('\\*\\*([\\w/-]+)\\*\\*')
-         end_marker = re.compile('}$')
+diff --git a/Documentation/sphinx/kerneldoc.py b/Documentation/sphinx/kerneldoc.py
+index 9395892c7ba3..d6ec34ce2232 100644
+--- a/Documentation/sphinx/kerneldoc.py
++++ b/Documentation/sphinx/kerneldoc.py
+@@ -130,7 +130,7 @@ class KernelDocDirective(Directive):
+             result = ViewList()
  
-         parser = InlineListParser(self.reader)
-diff --git a/tools/testing/selftests/bpf/test_offload.py b/tools/testing/selftests/bpf/test_offload.py
-index 40cba8d368d9..f7cee0d1d36e 100755
---- a/tools/testing/selftests/bpf/test_offload.py
-+++ b/tools/testing/selftests/bpf/test_offload.py
-@@ -429,7 +429,7 @@ class NetdevSim:
-     def __init__(self, nsimdev, port_index, ifname):
-         # In case udev renamed the netdev to according to new schema,
-         # check if the name matches the port_index.
--        nsimnamere = re.compile("eni\d+np(\d+)")
-+        nsimnamere = re.compile("eni\\d+np(\\d+)")
-         match = nsimnamere.match(ifname)
-         if match and int(match.groups()[0]) != port_index + 1:
-             raise Exception("netdevice name mismatches the expected one")
+             lineoffset = 0;
+-            line_regex = re.compile("^\.\. LINENO ([0-9]+)$")
++            line_regex = re.compile("^\\.\\. LINENO ([0-9]+)$")
+             for line in lines:
+                 match = line_regex.search(line)
+                 if match:
+diff --git a/Documentation/sphinx/maintainers_include.py b/Documentation/sphinx/maintainers_include.py
+index 328b3631a585..73be47963153 100755
+--- a/Documentation/sphinx/maintainers_include.py
++++ b/Documentation/sphinx/maintainers_include.py
+@@ -77,7 +77,7 @@ class MaintainersInclude(Include):
+             line = line.rstrip()
+ 
+             # Linkify all non-wildcard refs to ReST files in Documentation/.
+-            pat = '(Documentation/([^\s\?\*]*)\.rst)'
++            pat = '(Documentation/([^\\s\\?\\*]*)\\.rst)'
+             m = re.search(pat, line)
+             if m:
+                 # maintainers.rst is in a subdirectory, so include "../".
+@@ -90,11 +90,11 @@ class MaintainersInclude(Include):
+                 output = "| %s" % (line.replace("\\", "\\\\"))
+                 # Look for and record field letter to field name mappings:
+                 #   R: Designated *reviewer*: FullName <address@domain>
+-                m = re.search("\s(\S):\s", line)
++                m = re.search("\\s(\\S):\\s", line)
+                 if m:
+                     field_letter = m.group(1)
+                 if field_letter and not field_letter in fields:
+-                    m = re.search("\*([^\*]+)\*", line)
++                    m = re.search("\\*([^\\*]+)\\*", line)
+                     if m:
+                         fields[field_letter] = m.group(1)
+             elif subsystems:
+@@ -112,7 +112,7 @@ class MaintainersInclude(Include):
+                     field_content = ""
+ 
+                     # Collapse whitespace in subsystem name.
+-                    heading = re.sub("\s+", " ", line)
++                    heading = re.sub("\\s+", " ", line)
+                     output = output + "%s\n%s" % (heading, "~" * len(heading))
+                     field_prev = ""
+                 else:
 -- 
 2.41.0
 
