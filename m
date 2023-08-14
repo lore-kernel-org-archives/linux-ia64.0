@@ -2,110 +2,174 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 4F3DFC001DB
-	for <linux-ia64@archiver.kernel.org>; Mon, 14 Aug 2023 13:36:54 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id C3CAEC41513
+	for <linux-ia64@archiver.kernel.org>; Mon, 14 Aug 2023 23:27:40 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S229523AbjHNNgW (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Mon, 14 Aug 2023 09:36:22 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:53716 "EHLO
+        id S229818AbjHNX1H (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Mon, 14 Aug 2023 19:27:07 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:54744 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S231666AbjHNNgM (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Mon, 14 Aug 2023 09:36:12 -0400
-Received: from ms.lwn.net (ms.lwn.net [45.79.88.28])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id A7D9010C6;
-        Mon, 14 Aug 2023 06:35:58 -0700 (PDT)
-Received: from localhost (unknown [IPv6:2601:281:8300:73::5f6])
-        (using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+        with ESMTP id S233479AbjHNX0u (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Mon, 14 Aug 2023 19:26:50 -0400
+Received: from mx0a-001b2d01.pphosted.com (mx0a-001b2d01.pphosted.com [148.163.156.1])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 22A81BE;
+        Mon, 14 Aug 2023 16:26:49 -0700 (PDT)
+Received: from pps.filterd (m0353729.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.17.1.19/8.17.1.19) with ESMTP id 37EN3FYO029924;
+        Mon, 14 Aug 2023 23:26:40 GMT
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=ibm.com; h=message-id : date :
+ subject : to : cc : references : from : in-reply-to : content-type :
+ content-transfer-encoding : mime-version; s=pp1;
+ bh=LbOGZMmhNlVa4ttclSQNtMPwN4Io1A6KXK/1M1+rEYc=;
+ b=UR2z69B7Lvy9Vs3FWl2PX62cWJxF93RykR98OH9jfrahT+junQisll8dKd7o3VraRuo7
+ ewqCdTw2YfqgwTMk3g0o9J6uGSVE9DFfByQYGuT/p+H/nqAez6gkOYzjP87/j3q0UAmE
+ 89EvYiXG1YIQ3mb7G/FRfLY0lLogE8t8VfkkydAzCSoLIi5FU/usLvwj6dUvNMa0fNNE
+ EGu43O0X1sGG2oi8kdfs8FCIt9eKlCGTGdJ/6OKS/w+QtiiNR7pdQdjP4UjcVAO3hsLS
+ JenqCniFfxgtedyi7a8/Dsj53oyhrVEtyGej2hCfVC4MKvdZ5M/l/HqqTdNdGCxngXiV Eg== 
+Received: from ppma12.dal12v.mail.ibm.com (dc.9e.1632.ip4.static.sl-reverse.com [50.22.158.220])
+        by mx0a-001b2d01.pphosted.com (PPS) with ESMTPS id 3sfwkj0ech-1
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NOT);
+        Mon, 14 Aug 2023 23:26:39 +0000
+Received: from pps.filterd (ppma12.dal12v.mail.ibm.com [127.0.0.1])
+        by ppma12.dal12v.mail.ibm.com (8.17.1.19/8.17.1.19) with ESMTP id 37EMpf77003495;
+        Mon, 14 Aug 2023 23:26:38 GMT
+Received: from smtprelay07.fra02v.mail.ibm.com ([9.218.2.229])
+        by ppma12.dal12v.mail.ibm.com (PPS) with ESMTPS id 3semds8wr2-1
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NOT);
+        Mon, 14 Aug 2023 23:26:37 +0000
+Received: from smtpav07.fra02v.mail.ibm.com (smtpav07.fra02v.mail.ibm.com [10.20.54.106])
+        by smtprelay07.fra02v.mail.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id 37ENQaXd46924218
+        (version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK);
+        Mon, 14 Aug 2023 23:26:36 GMT
+Received: from smtpav07.fra02v.mail.ibm.com (unknown [127.0.0.1])
+        by IMSVA (Postfix) with ESMTP id 404272004B;
+        Mon, 14 Aug 2023 23:26:36 +0000 (GMT)
+Received: from smtpav07.fra02v.mail.ibm.com (unknown [127.0.0.1])
+        by IMSVA (Postfix) with ESMTP id 42C4820040;
+        Mon, 14 Aug 2023 23:26:35 +0000 (GMT)
+Received: from ozlabs.au.ibm.com (unknown [9.192.253.14])
+        by smtpav07.fra02v.mail.ibm.com (Postfix) with ESMTP;
+        Mon, 14 Aug 2023 23:26:35 +0000 (GMT)
+Received: from [10.61.2.107] (haven.au.ibm.com [9.192.254.114])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
         (No client certificate requested)
-        by ms.lwn.net (Postfix) with ESMTPSA id 383902DC;
-        Mon, 14 Aug 2023 13:35:58 +0000 (UTC)
-DKIM-Filter: OpenDKIM Filter v2.11.0 ms.lwn.net 383902DC
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=lwn.net; s=20201203;
-        t=1692020158; bh=TTfv8kyCp+lhTXNlRfFTNBLGGFbAUEW/7RUG2jpU/lA=;
-        h=From:To:Cc:Subject:In-Reply-To:References:Date:From;
-        b=jzVnUWEeH0OBts9ZGWMVY16Ee4OZCCdCOllpzYuGjxL2jP5/bu/ssntiDH3y3nvBD
-         O3PU2D2PG03RjZqrNKvt0hHAsxKlebT0FKBtNE/5Einys6RC8fL2/mhuV+4ZsRS4Fi
-         a1tBF3Z1jeSC7fr59WzGvWbWK1SuGttXXinXdOHWPlQWz4sI56/PIeLxA0Y4CjzO+2
-         ipWPJPL3ZqW9/aCH+MxhAoy+aOiUadLGpDgZCdmtKaZdyBmbaivIebZ0tAxxcYZFZ3
-         E0jRRBCVYi/gt/OkTIVEJjmnRO4NkzwPhEVjRXQMcDpQP8jdRna6CNq6uqF2JPhGW6
-         uiKiS9d0+HSXg==
-From:   Jonathan Corbet <corbet@lwn.net>
-To:     Benjamin Gray <bgray@linux.ibm.com>, linux-kernel@vger.kernel.org,
+        by ozlabs.au.ibm.com (Postfix) with ESMTPSA id BBBF3602FC;
+        Tue, 15 Aug 2023 09:26:30 +1000 (AEST)
+Message-ID: <ab85e604-b7ba-dbbe-53c2-2454e145d829@linux.ibm.com>
+Date:   Tue, 15 Aug 2023 09:26:10 +1000
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
+ Thunderbird/102.13.0
+Subject: Re: [PATCH 2/8] Documentation/sphinx: fix Python string escapes
+To:     Jonathan Corbet <corbet@lwn.net>, linux-kernel@vger.kernel.org,
         linux-ia64@vger.kernel.org, linux-doc@vger.kernel.org,
         bpf@vger.kernel.org, linux-pm@vger.kernel.org
 Cc:     abbotti@mev.co.uk, hsweeten@visionengravers.com,
-        jan.kiszka@siemens.com, kbingham@kernel.org, mykolal@fb.com,
-        Benjamin Gray <bgray@linux.ibm.com>
-Subject: Re: [PATCH 2/8] Documentation/sphinx: fix Python string escapes
-In-Reply-To: <20230814060704.79655-3-bgray@linux.ibm.com>
+        jan.kiszka@siemens.com, kbingham@kernel.org, mykolal@fb.com
 References: <20230814060704.79655-1-bgray@linux.ibm.com>
- <20230814060704.79655-3-bgray@linux.ibm.com>
-Date:   Mon, 14 Aug 2023 07:35:57 -0600
-Message-ID: <87jztxwxtu.fsf@meer.lwn.net>
+ <20230814060704.79655-3-bgray@linux.ibm.com> <87jztxwxtu.fsf@meer.lwn.net>
+Content-Language: en-US, en-AU
+From:   Benjamin Gray <bgray@linux.ibm.com>
+In-Reply-To: <87jztxwxtu.fsf@meer.lwn.net>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+X-TM-AS-GCONF: 00
+X-Proofpoint-GUID: fMeSr82h78OcmSFLpK5YKZdGHM_Cfxs6
+X-Proofpoint-ORIG-GUID: fMeSr82h78OcmSFLpK5YKZdGHM_Cfxs6
+Content-Transfer-Encoding: 7bit
+X-Proofpoint-UnRewURL: 0 URL was un-rewritten
 MIME-Version: 1.0
-Content-Type: text/plain
+X-Proofpoint-Virus-Version: vendor=baseguard
+ engine=ICAP:2.0.267,Aquarius:18.0.957,Hydra:6.0.591,FMLib:17.11.176.26
+ definitions=2023-08-14_18,2023-08-10_01,2023-05-22_02
+X-Proofpoint-Spam-Details: rule=outbound_notspam policy=outbound score=0 phishscore=0 spamscore=0
+ adultscore=0 clxscore=1011 lowpriorityscore=0 malwarescore=0 mlxscore=0
+ impostorscore=0 priorityscore=1501 suspectscore=0 bulkscore=0
+ mlxlogscore=999 classifier=spam adjust=0 reason=mlx scancount=1
+ engine=8.12.0-2306200000 definitions=main-2308140211
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-Benjamin Gray <bgray@linux.ibm.com> writes:
+On 14/8/23 11:35 pm, Jonathan Corbet wrote:
+> Benjamin Gray <bgray@linux.ibm.com> writes:
+> 
+>> Python 3.6 introduced a DeprecationWarning for invalid escape sequences.
+>> This is upgraded to a SyntaxWarning in Python 3.12, and will eventually
+>> be a syntax error.
+>>
+>> Fix these now to get ahead of it before it's an error.
+>>
+>> Signed-off-by: Benjamin Gray <bgray@linux.ibm.com>
+>> ---
+>>   Documentation/sphinx/cdomain.py             | 2 +-
+>>   Documentation/sphinx/kernel_abi.py          | 2 +-
+>>   Documentation/sphinx/kernel_feat.py         | 2 +-
+>>   Documentation/sphinx/kerneldoc.py           | 2 +-
+>>   Documentation/sphinx/maintainers_include.py | 8 ++++----
+>>   5 files changed, 8 insertions(+), 8 deletions(-)
+> 
+> So I am the maintainer for this stuff...is there a reason you didn't
+> copy me on this work?
 
-> Python 3.6 introduced a DeprecationWarning for invalid escape sequences.
-> This is upgraded to a SyntaxWarning in Python 3.12, and will eventually
-> be a syntax error.
->
-> Fix these now to get ahead of it before it's an error.
->
-> Signed-off-by: Benjamin Gray <bgray@linux.ibm.com>
-> ---
->  Documentation/sphinx/cdomain.py             | 2 +-
->  Documentation/sphinx/kernel_abi.py          | 2 +-
->  Documentation/sphinx/kernel_feat.py         | 2 +-
->  Documentation/sphinx/kerneldoc.py           | 2 +-
->  Documentation/sphinx/maintainers_include.py | 8 ++++----
->  5 files changed, 8 insertions(+), 8 deletions(-)
+Sorry, I thought the list linux-doc@vger.kernel.org itself was enough. I 
+haven't done a cross tree series before, I was a bit adverse to CC'ing 
+everyone that appears as a maintainer for every patch.
 
-So I am the maintainer for this stuff...is there a reason you didn't
-copy me on this work?
+> 
+>> diff --git a/Documentation/sphinx/cdomain.py b/Documentation/sphinx/cdomain.py
+>> index ca8ac9e59ded..dbdc74bd0772 100644
+>> --- a/Documentation/sphinx/cdomain.py
+>> +++ b/Documentation/sphinx/cdomain.py
+>> @@ -93,7 +93,7 @@ def markup_ctype_refs(match):
+>>   #
+>>   RE_expr = re.compile(r':c:(expr|texpr):`([^\`]+)`')
+>>   def markup_c_expr(match):
+>> -    return '\ ``' + match.group(2) + '``\ '
+>> +    return '\\ ``' + match.group(2) + '``\\ '
+> 
+> I have to wonder about this one; I doubt the intent was to insert a
+> literal backslash.  I have to fire up my ancient build environment to
+> even try this, but even if it's right...
 
-> diff --git a/Documentation/sphinx/cdomain.py b/Documentation/sphinx/cdomain.py
-> index ca8ac9e59ded..dbdc74bd0772 100644
-> --- a/Documentation/sphinx/cdomain.py
-> +++ b/Documentation/sphinx/cdomain.py
-> @@ -93,7 +93,7 @@ def markup_ctype_refs(match):
->  #
->  RE_expr = re.compile(r':c:(expr|texpr):`([^\`]+)`')
->  def markup_c_expr(match):
-> -    return '\ ``' + match.group(2) + '``\ '
-> +    return '\\ ``' + match.group(2) + '``\\ '
+Yeah, there is even a file that just has a syntax error. I don't have a 
+way to verify the original script was correct, but I have verified this 
+series doesn't change the parsed AST.
 
-I have to wonder about this one; I doubt the intent was to insert a
-literal backslash.  I have to fire up my ancient build environment to
-even try this, but even if it's right...
+In this case though, it's generating reST, so it might just be 
+conservatively guarding against generating bad markup[1]
 
->  #
->  # Parse Sphinx 3.x C markups, replacing them by backward-compatible ones
-> diff --git a/Documentation/sphinx/kernel_abi.py b/Documentation/sphinx/kernel_abi.py
-> index b5feb5b1d905..b9f026f016fd 100644
-> --- a/Documentation/sphinx/kernel_abi.py
-> +++ b/Documentation/sphinx/kernel_abi.py
-> @@ -138,7 +138,7 @@ class KernelCmd(Directive):
->                  code_block += "\n    " + l
->              lines = code_block + "\n\n"
->  
-> -        line_regex = re.compile("^\.\. LINENO (\S+)\#([0-9]+)$")
-> +        line_regex = re.compile("^\\.\\. LINENO (\\S+)\\#([0-9]+)$")
+[1]: 
+https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#inline-markup 
 
-All of these really just want to be raw strings - a much more minimal
-fix that makes the result quite a bit more readable:
 
-     line_regex = re.compile(r"^\.\. LINENO (\S+)\#([0-9]+)$")
-                             ^
-                             |
-  ---------------------------+
+>>   #
+>>   # Parse Sphinx 3.x C markups, replacing them by backward-compatible ones
+>> diff --git a/Documentation/sphinx/kernel_abi.py b/Documentation/sphinx/kernel_abi.py
+>> index b5feb5b1d905..b9f026f016fd 100644
+>> --- a/Documentation/sphinx/kernel_abi.py
+>> +++ b/Documentation/sphinx/kernel_abi.py
+>> @@ -138,7 +138,7 @@ class KernelCmd(Directive):
+>>                   code_block += "\n    " + l
+>>               lines = code_block + "\n\n"
+>>   
+>> -        line_regex = re.compile("^\.\. LINENO (\S+)\#([0-9]+)$")
+>> +        line_regex = re.compile("^\\.\\. LINENO (\\S+)\\#([0-9]+)$")
+> 
+> All of these really just want to be raw strings - a much more minimal
+> fix that makes the result quite a bit more readable:
+> 
+>       line_regex = re.compile(r"^\.\. LINENO (\S+)\#([0-9]+)$")
+>                               ^
+>                               |
+>    ---------------------------+
+> 
+> That, I think, is how these should be fixed.
 
-That, I think, is how these should be fixed.
+Yup, I mentioned that at the end of the cover letter. I can automate and 
+verify the conversion, but automating what _should_ be treated as a 
+'regex' string is fuzzier. Checking if there's a `re.*(` prefix on the 
+string should work for most though. I'll give it a shot.
 
-Thanks,
+> Thanks,
+> 
+> jon
 
-jon
