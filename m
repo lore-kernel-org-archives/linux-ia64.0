@@ -2,133 +2,199 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 8FAA4C001DE
-	for <linux-ia64@archiver.kernel.org>; Tue, 15 Aug 2023 07:44:06 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 24DD9C0729B
+	for <linux-ia64@archiver.kernel.org>; Wed, 16 Aug 2023 14:40:22 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S235353AbjHOHne (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Tue, 15 Aug 2023 03:43:34 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:41858 "EHLO
+        id S1343728AbjHPOjt (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Wed, 16 Aug 2023 10:39:49 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:37220 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S235392AbjHOHnG (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Tue, 15 Aug 2023 03:43:06 -0400
-Received: from mail-oa1-x34.google.com (mail-oa1-x34.google.com [IPv6:2001:4860:4864:20::34])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 5D00510CE;
-        Tue, 15 Aug 2023 00:43:05 -0700 (PDT)
-Received: by mail-oa1-x34.google.com with SMTP id 586e51a60fabf-1c4c5375329so1889078fac.2;
-        Tue, 15 Aug 2023 00:43:05 -0700 (PDT)
+        with ESMTP id S1343738AbjHPOjS (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Wed, 16 Aug 2023 10:39:18 -0400
+Received: from mail-pg1-x532.google.com (mail-pg1-x532.google.com [IPv6:2607:f8b0:4864:20::532])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 7A7442721
+        for <linux-ia64@vger.kernel.org>; Wed, 16 Aug 2023 07:38:49 -0700 (PDT)
+Received: by mail-pg1-x532.google.com with SMTP id 41be03b00d2f7-5654051b27fso4978090a12.0
+        for <linux-ia64@vger.kernel.org>; Wed, 16 Aug 2023 07:38:49 -0700 (PDT)
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=gmail.com; s=20221208; t=1692085384; x=1692690184;
-        h=cc:to:subject:message-id:date:from:references:in-reply-to
-         :mime-version:from:to:cc:subject:date:message-id:reply-to;
-        bh=dopEln9VPZxL0Iq2JZLCcr+rwxXbLb8d+hQCQTunBsQ=;
-        b=sXpXbQ7X0/LnTySjZDkaO9nHDDYr/pU3abQLw5n+GIKm504OloCtIss+QlRkXMojYd
-         lnsMof65iO5zpZY4PDmzq4MvCqh87E7X54BHvQSyyEBEsvQLKlRcO9PFHOwnoC26UxSi
-         0EOZolvVtmL/fjRleZjuvqGddQNE1ZoIFWROwVG2UGNYm6q4+PQ4gJr4l2gvaDj98KI7
-         LNthh1PBVu5kZzVpkcc4O5PE+NiDnj53oYq5p6Usr6X7mva8914eox15YAr9OxM1pcMm
-         bfXnNogduAOX/QmakZMZx8O5v4D5wLTjB0DaOjr43HLmAUvjt7TZ5afaza86l8WrDnrm
-         0KsQ==
-X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20221208; t=1692085384; x=1692690184;
-        h=cc:to:subject:message-id:date:from:references:in-reply-to
-         :mime-version:x-gm-message-state:from:to:cc:subject:date:message-id
+        d=dabbelt-com.20221208.gappssmtp.com; s=20221208; t=1692196728; x=1692801528;
+        h=content-transfer-encoding:mime-version:message-id:to:from:cc
+         :in-reply-to:subject:date:from:to:cc:subject:date:message-id
          :reply-to;
-        bh=dopEln9VPZxL0Iq2JZLCcr+rwxXbLb8d+hQCQTunBsQ=;
-        b=bdQXnNepZ4e9BvfawTiXgATk/eX6+aJzblPoBT7uxHIN96XFCtOTS9hJuq5jzzgh6V
-         PINNZ+8KqbTjhzrRz5dVfb0ZT9pMVdCBW+WufLwd4x9OgbdQisA/H7oC60O7zvSL39sg
-         Zr9765Q/MPboEnMCALSmaIFf4wV9ntbbGfQKvSJhlrLv72u2jIVLd17EiQMT8ZIMLAo6
-         2Sdt8HJDO2ZI9SVcW/o4VmTWDR91cMFBVSBXXK1CnftPhfu7gbJfjugYC401LByKx0mq
-         tgid0mQUIxCqypu/eu8nnlouIjNSmY9eety4pFuEzz1QF7ATa2L1zvfoYB2WxnBsUe2/
-         9/cA==
-X-Gm-Message-State: AOJu0YxaP86Um2V+XGj7w+wbBTUhGKxeoAeYgPLaAK8trTxIl3Yz6NYQ
-        YPxLUy0dh3Or/XNH1BLHU4DLHXKKyhoA9a7EPwk=
-X-Google-Smtp-Source: AGHT+IH21/5w6crwWPD7vIv/j0w3adsBN5eHck6Oh1Qn4awi8woAnlWJm3VwnpYegg1T9u8cFeJOGx/7gnb2bXKv5QE=
-X-Received: by 2002:a05:6870:15d5:b0:1bf:9f6:b810 with SMTP id
- k21-20020a05687015d500b001bf09f6b810mr11562135oad.36.1692085384532; Tue, 15
- Aug 2023 00:43:04 -0700 (PDT)
-MIME-Version: 1.0
-Received: by 2002:ac9:745a:0:b0:4f0:1250:dd51 with HTTP; Tue, 15 Aug 2023
- 00:43:04 -0700 (PDT)
-In-Reply-To: <CAHk-=whbOEhPUL1m8Ua-+-E7kJXED4xa+duzRF-wJKR84NAPWg@mail.gmail.com>
-References: <202308151426.97be5bd8-oliver.sang@intel.com> <CAHk-=whbOEhPUL1m8Ua-+-E7kJXED4xa+duzRF-wJKR84NAPWg@mail.gmail.com>
-From:   Mateusz Guzik <mjguzik@gmail.com>
-Date:   Tue, 15 Aug 2023 09:43:04 +0200
-Message-ID: <CAGudoHFFdFa=0y0XSEMNF4eucngxHKs7tby3rf32A-Wn1cqivQ@mail.gmail.com>
-Subject: Re: [linus:master] [locking] c8afaa1b0f: stress-ng.zero.ops_per_sec
- 6.3% improvement
-To:     Linus Torvalds <torvalds@linux-foundation.org>
-Cc:     kernel test robot <oliver.sang@intel.com>, oe-lkp@lists.linux.dev,
-        lkp@intel.com, linux-kernel@vger.kernel.org,
-        linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org,
-        linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org,
-        linux-fsdevel@vger.kernel.org, ying.huang@intel.com,
-        feng.tang@intel.com, fengwei.yin@intel.com
-Content-Type: text/plain; charset="UTF-8"
+        bh=z7kyCuHl1t/gCCGpNTbA3hwFj/lf6SuaKvtbsxGuDBs=;
+        b=dZxL0Ptmo/RfqSZAnaNdMqEON3wvqTtz9rCCZbGwRlxrXd7njXeZ9MC0HoDMQnzbMm
+         Mbp7gkbEr8As7DndYa19Nv36eYd2hToSSCFzF826MiTxJFQPanB3TDkisU5ug1n2xO0x
+         lqvfBU8gjYGcjvzm7z1KhnYi76zAKQMvLjSkKN8VKcgO7yrfcLxnnczFGmL7s8fYvGKe
+         iupXY/7su7eB4Qp8Ot15WegMitq0aXkC7C2B4amBqtpQq9iCTqbSvz7oVYvokSqAF4SL
+         qE7Cmnt2iThlim9z5xca3mEZ27llu2nfrUpa7hwX8WY7UkN0OSfjH/LjoRTW/fMpY9+M
+         GNdA==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20221208; t=1692196728; x=1692801528;
+        h=content-transfer-encoding:mime-version:message-id:to:from:cc
+         :in-reply-to:subject:date:x-gm-message-state:from:to:cc:subject:date
+         :message-id:reply-to;
+        bh=z7kyCuHl1t/gCCGpNTbA3hwFj/lf6SuaKvtbsxGuDBs=;
+        b=cnNoP0NQNsh1sXD+j65tzNqFVd4+G0BMFrJZ8KUkNsmnKJEPs17sCSAA6kSEl3cNS0
+         2A93jxuJj+yJc2OURfY4VEEgWZdgMQR74dzoBANgzTta3uKoIBgiGTcSHz9u7HPFUBGQ
+         c0CJrHer+TqQ7QHQrGWr1i5jqyOqet/GcA0Ik23bzLXeFi/ovaOe98e7Gr8SXzkk0YFp
+         Ayii10lXahBaUBifQVD8jXLmUA1LHPq7X9ep60Zt7a36452ZWkrQtZ9cxaUb4ailHaBB
+         I7SZGNDA7z771Twpi6RNOdt2XaiGQMA8H0Od+Bv/o3bgYDGrSrBJIXIxJMorr8CkZVgw
+         qpSw==
+X-Gm-Message-State: AOJu0YxJPiaxpB8b8/y33VYnv3TKGmhxY/q2YFrEYhWSFRRJdds/mjcZ
+        T9OSz/azVm57bY85ZWiTvoEWBw==
+X-Google-Smtp-Source: AGHT+IG9lm23RRLom/xb7C80klG2aDXB0ZwUgcZV4fsV/hyXYHdBd19S4I3YH9SwHqrCXPj4TdemSQ==
+X-Received: by 2002:a17:90a:f982:b0:26b:4e59:57e7 with SMTP id cq2-20020a17090af98200b0026b4e5957e7mr1730234pjb.43.1692196727793;
+        Wed, 16 Aug 2023 07:38:47 -0700 (PDT)
+Received: from localhost ([135.180.227.0])
+        by smtp.gmail.com with ESMTPSA id gi23-20020a17090b111700b0025645ce761dsm13120399pjb.35.2023.08.16.07.38.46
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Wed, 16 Aug 2023 07:38:47 -0700 (PDT)
+Date:   Wed, 16 Aug 2023 07:38:47 -0700 (PDT)
+X-Google-Original-Date: Wed, 16 Aug 2023 07:38:45 PDT (-0700)
+Subject:     Re: [PATCH 00/17] -Wmissing-prototype warning fixes
+In-Reply-To: <20230810141947.1236730-1-arnd@kernel.org>
+CC:     akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+        Arnd Bergmann <arnd@arndb.de>, mattst88@gmail.com,
+        vgupta@kernel.org, linux@armlinux.org.uk,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will@kernel.org>, guoren@kernel.org,
+        bcain@quicinc.com, chenhuacai@kernel.org, kernel@xen0n.name,
+        geert@linux-m68k.org, monstr@monstr.eu, tsbogend@alpha.franken.de,
+        dinguyen@kernel.org, jonas@southpole.se,
+        stefan.kristiansson@saunalahti.fi, shorne@gmail.com,
+        James.Bottomley@HansenPartnership.com, deller@gmx.de,
+        mpe@ellerman.id.au, christophe.leroy@csgroup.eu, hca@linux.ibm.com,
+        glaubitz@physik.fu-berlin.de, x86@kernel.org, bp@alien8.de,
+        jcmvbkbc@gmail.com, axboe@kernel.dk, sudipm.mukherjee@gmail.com,
+        martin.petersen@oracle.com, richard@nod.at, bhelgaas@google.com,
+        masahiroy@kernel.org, nathan@kernel.org, ndesaulniers@google.com,
+        linux@roeck-us.net, Stephen Rothwell <sfr@canb.auug.org.au>,
+        linux-next@vger.kernel.org, linux-alpha@vger.kernel.org,
+        linux-snps-arc@lists.infradead.org,
+        linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org,
+        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+        loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org,
+        linux-mips@vger.kernel.org, linux-openrisc@vger.kernel.org,
+        linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org,
+        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
+        linux-block@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-mtd@lists.infradead.org, linux-trace-kernel@vger.kernel.org,
+        linux-pci@vger.kernel.org, linux-kbuild@vger.kernel.org
+From:   Palmer Dabbelt <palmer@dabbelt.com>
+To:     arnd@kernel.org
+Message-ID: <mhng-ce493a2d-71e9-440f-84d0-522a4f694bbe@palmer-ri-x1c9>
+Mime-Version: 1.0 (MHng)
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On 8/15/23, Linus Torvalds <torvalds@linux-foundation.org> wrote:
-> On Tue, 15 Aug 2023 at 07:12, kernel test robot <oliver.sang@intel.com>
-> wrote:
->>
->> kernel test robot noticed a 6.3% improvement of stress-ng.zero.ops_per_sec
->> on:
+On Thu, 10 Aug 2023 07:19:18 PDT (-0700), arnd@kernel.org wrote:
+> From: Arnd Bergmann <arnd@arndb.de>
 >
-> WTF? That's ridiculous. Why would that even test new_inode() at all?
-> And why would it make any difference anyway to prefetch a new inode?
-> The 'zero' test claims to just read /dev/zero in a loop...
+> Most of the patches I sent so far for the -Wmissing-prototype warnings
+> have made it into linux-next now. There are a few that I'm resending
+> now as nobody has picked them up, and then a number of fixes that I
+> found while test-building across all architectures rather than just the
+> ones I usually test.
 >
-> [ Goes looking ]
+> The first 15 patches in this series should be uncontroversial, so
+> I expect that either a subsystem maintainer or Andrew Morton can
+> apply these directly.
 >
+> For the last two patches, these might still need some debate about how
+> to handle them. I added a Kconfig option to turn off most of the missing
+> prototype warnings in the architectures that nobody has fixed yet,
+> see patch 16 for those. The last patch does cause some known warnings
+> and likely unknown ones for architectures other than x86 and arm,
+> so applying it now will bring new problems, but not applying it also
+> means that new warnings creep in, so I think this is mainly a question
+> of what the best timing is for having this in linux-next.
+>
+> Arnd Bergmann (17):
+>   [RESEND] jffs2: mark __jffs2_dbg_superblock_counts() static
+>   [RESEND] irq_work: consolidate arch_irq_work_raise prototypes
+>   [RESEND] ida: make 'ida_dump' static
+>   pci: sysfs: move declarations to linux/pci.h
+>   swim3: mark swim3_init() static
+>   macintosh/ams: mark ams_init() static
+>   scsi: qlogicpti: mark qlogicpti_info() static
+>   microblaze: mark flush_dcache_folio() inline
+>   parport: gsc: mark init function static
+>   zorro: include zorro.h in names.c
+>   scsi: gvp11: remove unused gvp11_setup() function
+>   time: make sysfs_get_uname() function visible in header
+>   stackleak: add declarations for global functions
+>   kprobes: unify kprobes_exceptions_nofify() prototypes
+>   arch: fix asm-offsets.c building with -Wmissing-prototypes
+>   [RFC] arch: turn -Wmissing-prototypes off conditionally
+>   [RFC] Makefile.extrawarn: turn on missing-prototypes again
+>
+>  arch/alpha/Kbuild                        |  2 ++
+>  arch/alpha/include/asm/pci.h             |  3 ---
+>  arch/alpha/kernel/asm-offsets.c          |  2 +-
+>  arch/alpha/lib/Makefile                  |  1 +
+>  arch/arc/Kbuild                          |  2 ++
+>  arch/arc/include/asm/kprobes.h           |  3 ---
+>  arch/arm/include/asm/irq_work.h          |  2 --
+>  arch/arm/include/asm/kprobes.h           |  2 --
+>  arch/arm64/include/asm/irq_work.h        |  2 --
+>  arch/arm64/include/asm/kprobes.h         |  2 --
+>  arch/csky/Kbuild                         |  2 ++
+>  arch/csky/include/asm/irq_work.h         |  2 +-
+>  arch/hexagon/Kbuild                      |  2 ++
+>  arch/ia64/Kbuild                         |  2 ++
+>  arch/ia64/include/asm/kprobes.h          |  2 --
+>  arch/ia64/kernel/asm-offsets.c           |  2 +-
+>  arch/ia64/lib/Makefile                   |  1 +
+>  arch/loongarch/Kbuild                    |  2 ++
+>  arch/loongarch/kernel/asm-offsets.c      | 12 ++++++++++++
+>  arch/m68k/Kbuild                         |  2 ++
+>  arch/m68k/lib/Makefile                   |  1 +
+>  arch/microblaze/Kbuild                   |  2 ++
+>  arch/microblaze/include/asm/cacheflush.h |  2 +-
+>  arch/mips/Kbuild                         |  2 ++
+>  arch/mips/boot/compressed/Makefile       |  3 ++-
+>  arch/mips/include/asm/kprobes.h          |  2 --
+>  arch/nios2/Kbuild                        |  2 ++
+>  arch/nios2/lib/Makefile                  |  1 +
+>  arch/openrisc/Kbuild                     |  2 ++
+>  arch/parisc/Kbuild                       |  2 ++
+>  arch/parisc/lib/Makefile                 |  1 +
+>  arch/powerpc/include/asm/irq_work.h      |  1 -
+>  arch/powerpc/include/asm/kprobes.h       |  2 --
+>  arch/riscv/include/asm/irq_work.h        |  2 +-
+>  arch/s390/include/asm/irq_work.h         |  2 --
+>  arch/s390/include/asm/kprobes.h          |  2 --
+>  arch/sh/Kbuild                           |  2 ++
+>  arch/sh/boot/compressed/Makefile         |  1 +
+>  arch/sh/include/asm/kprobes.h            |  2 --
+>  arch/sparc/Kbuild                        |  2 ++
+>  arch/sparc/include/asm/kprobes.h         |  2 --
+>  arch/sparc/kernel/asm-offsets.c          | 13 ++-----------
+>  arch/sparc/lib/Makefile                  |  1 +
+>  arch/sparc/prom/Makefile                 |  1 +
+>  arch/x86/include/asm/irq_work.h          |  1 -
+>  arch/x86/include/asm/kprobes.h           |  2 --
+>  arch/xtensa/Kbuild                       |  2 ++
+>  arch/xtensa/boot/lib/Makefile            |  2 ++
+>  drivers/block/swim3.c                    |  2 +-
+>  drivers/macintosh/ams/ams-core.c         |  2 +-
+>  drivers/parport/parport_gsc.c            |  2 +-
+>  drivers/scsi/gvp11.c                     |  5 -----
+>  drivers/scsi/qlogicpti.c                 |  2 +-
+>  drivers/zorro/names.c                    |  1 +
+>  fs/jffs2/debug.c                         |  2 +-
+>  include/linux/irq_work.h                 |  3 +++
+>  include/linux/kprobes.h                  |  4 ++++
+>  include/linux/pci.h                      |  5 +++++
+>  include/linux/stackleak.h                |  6 ++++++
+>  init/Kconfig                             | 10 ++++++++++
+>  kernel/time/tick-internal.h              |  3 ++-
+>  lib/test_ida.c                           |  2 +-
+>  scripts/Makefile.extrawarn               |  5 +++--
+>  63 files changed, 101 insertions(+), 63 deletions(-)
 
-Ye man, I was puzzled myself but just figured it out and was about to respond ;)
-
-# bpftrace -e 'kprobe:new_inode { @[kstack()] = count(); }'
-Attaching 1 probe...
-
-@[
-    new_inode+1
-    shmem_get_inode+137
-    __shmem_file_setup+195
-    shmem_zero_setup+46
-    mmap_region+1937
-    do_mmap+956
-    vm_mmap_pgoff+224
-    do_syscall_64+46
-    entry_SYSCALL_64_after_hwframe+115
-]: 2689570
-
-the bench is doing this *A LOT* and this looks so fishy, for the bench
-itself and the kernel doing it, but I'm not going to dig into any of
-that.
-
->>      39.35            -0.3       39.09
->> perf-profile.calltrace.cycles-pp.inode_sb_list_add.new_inode.shmem_get_inode.__shmem_file_setup.shmem_zero_setup
->
-> Ahh. It also does the mmap side, and the shared case ends up always
-> creating a new inode.
->
-> And while the test only tests *reading* and the mmap is read-only, the
-> /dev/zero file descriptor was opened for writing too, for a different
-> part of a test.
->
-> So even though the mapping is never written to, MAYWRITE is set, and
-> so the /dev/zero mapping is done as a shared memory mapping and we
-> can't do it as just a private one.
->
-> That's kind of stupid and looks unintentional, but whatever.
->
-> End result: that benchmark ends up being at least partly (and a fairly
-> noticeable part) a shmem setup benchmark, for no actual good reason.
->
-> Oh well. I certainly don't mind the removal apparently then also
-> helping some odd benchmark case, but I don't think this translates to
-> anything real. Very random.
->
->                     Linus
->
-
-
--- 
-Mateusz Guzik <mjguzik gmail.com>
+Acked-by: Palmer Dabbelt <palmer@rivosinc.com> # RISC-V
