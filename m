@@ -2,151 +2,75 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 2B7A0C3DA54
-	for <linux-ia64@archiver.kernel.org>; Thu, 17 Aug 2023 16:39:40 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 64FDEC3DA5C
+	for <linux-ia64@archiver.kernel.org>; Thu, 17 Aug 2023 16:54:26 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S229650AbjHQQjI (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Thu, 17 Aug 2023 12:39:08 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:55938 "EHLO
+        id S1352104AbjHQQxv (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Thu, 17 Aug 2023 12:53:51 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:56848 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1353711AbjHQQit (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Thu, 17 Aug 2023 12:38:49 -0400
-Received: from us-smtp-delivery-124.mimecast.com (us-smtp-delivery-124.mimecast.com [170.10.129.124])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 3B73AF7
-        for <linux-ia64@vger.kernel.org>; Thu, 17 Aug 2023 09:38:02 -0700 (PDT)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=redhat.com;
-        s=mimecast20190719; t=1692290281;
-        h=from:from:reply-to:subject:subject:date:date:message-id:message-id:
-         to:to:cc:cc:mime-version:mime-version:content-type:content-type;
-        bh=1tfx1R3/Udl4zZfQafPn1bbHLrkQF1hlwhkrlHQ6ihA=;
-        b=VN+/nA1h+R8p5YWge1ZrkTTQ9gwHqcLhBFnAq4H69t3iJzhCqTQ3HbOUJNf3/x59Z/gfqP
-        KRY1zrVpRCv6HACsDHFVNuP+/kRF7ms3LsyxyvX48MV+GUj72asQ4RN4ssq/hNMxDYPUhb
-        kvb1e7eSaie6zg7ryodOslrLAKzEDWw=
-Received: from mimecast-mx02.redhat.com (66.187.233.73 [66.187.233.73]) by
- relay.mimecast.com with ESMTP with STARTTLS (version=TLSv1.2,
- cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id
- us-mta-681-8QPQOt-_OIuuCpJe-AGeXQ-1; Thu, 17 Aug 2023 12:37:56 -0400
-X-MC-Unique: 8QPQOt-_OIuuCpJe-AGeXQ-1
-Received: from smtp.corp.redhat.com (int-mx06.intmail.prod.int.rdu2.redhat.com [10.11.54.6])
-        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        by mimecast-mx02.redhat.com (Postfix) with ESMTPS id 7B4E529ABA1D;
-        Thu, 17 Aug 2023 16:37:55 +0000 (UTC)
-Received: from dhcp-27-174.brq.redhat.com (unknown [10.45.224.39])
-        by smtp.corp.redhat.com (Postfix) with SMTP id A6E3B2166B2D;
-        Thu, 17 Aug 2023 16:37:53 +0000 (UTC)
-Received: by dhcp-27-174.brq.redhat.com (nbSMTP-1.00) for uid 1000
-        oleg@redhat.com; Thu, 17 Aug 2023 18:37:11 +0200 (CEST)
-Date:   Thu, 17 Aug 2023 18:37:08 +0200
-From:   Oleg Nesterov <oleg@redhat.com>
-To:     Andrew Morton <akpm@linux-foundation.org>,
-        "Eric W. Biederman" <ebiederm@xmission.com>
-Cc:     Jiri Slaby <jirislaby@kernel.org>,
+        with ESMTP id S1351737AbjHQQx3 (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Thu, 17 Aug 2023 12:53:29 -0400
+Received: from mail-pg1-x52d.google.com (mail-pg1-x52d.google.com [IPv6:2607:f8b0:4864:20::52d])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 09F81171F
+        for <linux-ia64@vger.kernel.org>; Thu, 17 Aug 2023 09:53:28 -0700 (PDT)
+Received: by mail-pg1-x52d.google.com with SMTP id 41be03b00d2f7-565439b6b3fso26813a12.2
+        for <linux-ia64@vger.kernel.org>; Thu, 17 Aug 2023 09:53:28 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=chromium.org; s=google; t=1692291207; x=1692896007;
+        h=in-reply-to:content-disposition:mime-version:references:message-id
+         :subject:cc:to:from:date:from:to:cc:subject:date:message-id:reply-to;
+        bh=wd2eEJ8bKVLE4jt9D8MWLfi2bLdIG89C4XSDUA4XuM4=;
+        b=mEGHcVfvJ1Ie/DKOGJ3cn4M75JEBivLZpO+OsJ8xCiLQ1GJQQMl36SlQjVy5cWWoaq
+         QCelzu3Ao/JQ4pT9CBZGSIUuqXTpzHjc5tspYcUQlnZQeOLtgEczpE44hcHTy8fe+Cmp
+         Ys7Fq1A1PBZe8vZ8xA4v38u9i5nGqrAggwr6Y=
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20221208; t=1692291207; x=1692896007;
+        h=in-reply-to:content-disposition:mime-version:references:message-id
+         :subject:cc:to:from:date:x-gm-message-state:from:to:cc:subject:date
+         :message-id:reply-to;
+        bh=wd2eEJ8bKVLE4jt9D8MWLfi2bLdIG89C4XSDUA4XuM4=;
+        b=CFj7qY3VlgZQUuojWMaIBKxYST1xNiya24YpCHS0YwTDvcYQkgR9jQJzrBhvRyZh0i
+         //5rfPzooiMNrevbuwQV0hwpOeIkKyMyfwBNCqGO8r6BYbVEc0nwJRp9ewPjf2wnqqZ/
+         vLcAlo+Ak1I6PaAQ0ttc0ryXAKOG4IvIepSnhO5bgqubsTY0vmpf1PMLHTKoKE0lEP5d
+         4RzEI5CEtSk6tK6cUYhe5vHDxZ6pq49abRhhREAX4TRBEaNJHTXl5RCHWCQa+lSQVtMN
+         NpMsMYMg2WKtkRnkE1LG5PWpu8zTmPPrYGjfzDqtQoX/U/eZDXDFwgpgvtoVWEDFDFjc
+         7gJw==
+X-Gm-Message-State: AOJu0YwtsX38OJz6nQ9ZWEcL/F1tNxDEFTGLu6linwfZ4Ck9FRxw+je7
+        R/wwBbXsEuVCvI7WLD6oIafIQQ==
+X-Google-Smtp-Source: AGHT+IEBtVDJzAH7jjK/Tzl/XqL8sfAWLGYo2+wPKkU1O+/+nEh6rMeDF/flz5bgJyCIwogSa+XEHQ==
+X-Received: by 2002:a05:6a20:3a83:b0:13e:b7e9:1a71 with SMTP id d3-20020a056a203a8300b0013eb7e91a71mr263073pzh.14.1692291207506;
+        Thu, 17 Aug 2023 09:53:27 -0700 (PDT)
+Received: from www.outflux.net (198-0-35-241-static.hfc.comcastbusiness.net. [198.0.35.241])
+        by smtp.gmail.com with ESMTPSA id u8-20020aa78488000000b00687227dd8f1sm13085118pfn.122.2023.08.17.09.53.26
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Thu, 17 Aug 2023 09:53:26 -0700 (PDT)
+Date:   Thu, 17 Aug 2023 09:53:26 -0700
+From:   Kees Cook <keescook@chromium.org>
+To:     Oleg Nesterov <oleg@redhat.com>
+Cc:     Andrew Morton <akpm@linux-foundation.org>,
+        "Eric W. Biederman" <ebiederm@xmission.com>,
+        Jiri Slaby <jirislaby@kernel.org>,
         Christian Brauner <brauner@kernel.org>,
-        Kees Cook <keescook@chromium.org>, linux-ia64@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Subject: [PATCH] kill do_each_thread()
-Message-ID: <20230817163708.GA8248@redhat.com>
+        linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Subject: Re: [PATCH] kill do_each_thread()
+Message-ID: <202308170953.ECBAA9A@keescook>
+References: <20230817163708.GA8248@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
-User-Agent: Mutt/1.5.24 (2015-08-30)
-X-Scanned-By: MIMEDefang 3.1 on 10.11.54.6
+In-Reply-To: <20230817163708.GA8248@redhat.com>
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-Eric has pointed out that we still have 3 users of do_each_thread().
-Change them to use for_each_process_thread() and kill this helper.
+On Thu, Aug 17, 2023 at 06:37:08PM +0200, Oleg Nesterov wrote:
+> Eric has pointed out that we still have 3 users of do_each_thread().
+> Change them to use for_each_process_thread() and kill this helper.
+> 
+> Signed-off-by: Oleg Nesterov <oleg@redhat.com>
 
-Signed-off-by: Oleg Nesterov <oleg@redhat.com>
----
- arch/ia64/kernel/mca.c       | 4 ++--
- drivers/tty/tty_io.c         | 4 ++--
- fs/fs_struct.c               | 4 ++--
- include/linux/sched/signal.h | 7 -------
- 4 files changed, 6 insertions(+), 13 deletions(-)
+Reviewed-by: Kees Cook <keescook@chromium.org>
 
-diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
-index 92ede80d17fe..2671688d349a 100644
---- a/arch/ia64/kernel/mca.c
-+++ b/arch/ia64/kernel/mca.c
-@@ -1630,10 +1630,10 @@ default_monarch_init_process(struct notifier_block *self, unsigned long val, voi
- 	}
- 	printk("\n\n");
- 	if (read_trylock(&tasklist_lock)) {
--		do_each_thread (g, t) {
-+		for_each_process_thread(g, t) {
- 			printk("\nBacktrace of pid %d (%s)\n", t->pid, t->comm);
- 			show_stack(t, NULL, KERN_DEFAULT);
--		} while_each_thread (g, t);
-+		}
- 		read_unlock(&tasklist_lock);
- 	}
- 	/* FIXME: This will not restore zapped printk locks. */
-diff --git a/drivers/tty/tty_io.c b/drivers/tty/tty_io.c
-index 63db04b9113a..27d8e3a1aace 100644
---- a/drivers/tty/tty_io.c
-+++ b/drivers/tty/tty_io.c
-@@ -3031,7 +3031,7 @@ void __do_SAK(struct tty_struct *tty)
- 	} while_each_pid_task(session, PIDTYPE_SID, p);
- 
- 	/* Now kill any processes that happen to have the tty open */
--	do_each_thread(g, p) {
-+	for_each_process_thread(g, p) {
- 		if (p->signal->tty == tty) {
- 			tty_notice(tty, "SAK: killed process %d (%s): by controlling tty\n",
- 				   task_pid_nr(p), p->comm);
-@@ -3048,7 +3048,7 @@ void __do_SAK(struct tty_struct *tty)
- 					PIDTYPE_SID);
- 		}
- 		task_unlock(p);
--	} while_each_thread(g, p);
-+	}
- 	read_unlock(&tasklist_lock);
- 	put_pid(session);
- }
-diff --git a/fs/fs_struct.c b/fs/fs_struct.c
-index 04b3f5b9c629..64c2d0814ed6 100644
---- a/fs/fs_struct.c
-+++ b/fs/fs_struct.c
-@@ -62,7 +62,7 @@ void chroot_fs_refs(const struct path *old_root, const struct path *new_root)
- 	int count = 0;
- 
- 	read_lock(&tasklist_lock);
--	do_each_thread(g, p) {
-+	for_each_process_thread(g, p) {
- 		task_lock(p);
- 		fs = p->fs;
- 		if (fs) {
-@@ -79,7 +79,7 @@ void chroot_fs_refs(const struct path *old_root, const struct path *new_root)
- 			spin_unlock(&fs->lock);
- 		}
- 		task_unlock(p);
--	} while_each_thread(g, p);
-+	}
- 	read_unlock(&tasklist_lock);
- 	while (count--)
- 		path_put(old_root);
-diff --git a/include/linux/sched/signal.h b/include/linux/sched/signal.h
-index 669e8cff40c7..0deebe2ab07d 100644
---- a/include/linux/sched/signal.h
-+++ b/include/linux/sched/signal.h
-@@ -648,13 +648,6 @@ extern void flush_itimer_signals(void);
- 
- extern bool current_is_single_threaded(void);
- 
--/*
-- * Careful: do_each_thread/while_each_thread is a double loop so
-- *          'break' will not work as expected - use goto instead.
-- */
--#define do_each_thread(g, t) \
--	for (g = t = &init_task ; (g = t = next_task(g)) != &init_task ; ) do
--
- #define while_each_thread(g, t) \
- 	while ((t = next_thread(t)) != g)
- 
 -- 
-2.25.1.362.g51ebf55
-
-
+Kees Cook
