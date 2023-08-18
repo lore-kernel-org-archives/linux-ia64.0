@@ -2,72 +2,98 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 12472C05052
-	for <linux-ia64@archiver.kernel.org>; Fri, 18 Aug 2023 06:05:36 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 46E13C678DC
+	for <linux-ia64@archiver.kernel.org>; Fri, 18 Aug 2023 08:18:57 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S1357898AbjHRGFD (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Fri, 18 Aug 2023 02:05:03 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:49652 "EHLO
+        id S1352395AbjHRISZ (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Fri, 18 Aug 2023 04:18:25 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:50526 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1357717AbjHRGEg (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Fri, 18 Aug 2023 02:04:36 -0400
-Received: from mail-ej1-f46.google.com (mail-ej1-f46.google.com [209.85.218.46])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id D11BE30E9;
-        Thu, 17 Aug 2023 23:04:34 -0700 (PDT)
-Received: by mail-ej1-f46.google.com with SMTP id a640c23a62f3a-99bdeae1d0aso64910666b.1;
-        Thu, 17 Aug 2023 23:04:34 -0700 (PDT)
-X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20221208; t=1692338673; x=1692943473;
-        h=content-transfer-encoding:in-reply-to:subject:from:references:cc:to
-         :content-language:user-agent:mime-version:date:message-id
-         :x-gm-message-state:from:to:cc:subject:date:message-id:reply-to;
-        bh=c2pHGRjubj9loM4rlnSBB8B0NBJEkF4e8IGQOJotz1E=;
-        b=E49aNMoyhSGprnWWvLncKuA3lsjC0FoDWBxAVtUWUWIhHKFV1hjHqKPmr46nkZu5lx
-         LUM6BfK3xUhdeUygbQK13fJSx8VcntzzfyCykwsCcG4JPS6nvy+zIZaEgCsbgIfop4zy
-         TB0PbkvqUS9iY1ATZVmHAe7uSR49mWmKG7j+jfTAjewVH6L6UU2miHg1stnqPA9oAv0J
-         mdzlCSmA4XTRK12kc6WSgYnETiNHftFEMetgcal9FHYa0eBo159wzr5kZqKdbZuPdvIu
-         ptNvfEc78NDhZuBhi450X2XhDyl/pxW9Kriy3ZWlO+VzxGCWYj94lj7kkQaciJbh/2Tl
-         WGGw==
-X-Gm-Message-State: AOJu0Ywo73eFHXI8fMjiPBbje8a6EhcVR9gDJCPFDDfV15US9muJ3AIM
-        zeQqQy/eNdzDs85GJy9Y3gs=
-X-Google-Smtp-Source: AGHT+IFyDqYKYpdUEqIE4zH8QDMlDuxP5lTa6oRNWYNxSC75jtLr7Y/tZRARUOxviPWlVJLzTV7YIQ==
-X-Received: by 2002:a17:906:3d32:b0:99e:f3b:2f7d with SMTP id l18-20020a1709063d3200b0099e0f3b2f7dmr1033218ejf.74.1692338672907;
-        Thu, 17 Aug 2023 23:04:32 -0700 (PDT)
-Received: from [192.168.1.58] (185-219-167-24-static.vivo.cz. [185.219.167.24])
-        by smtp.gmail.com with ESMTPSA id l3-20020a1709061c4300b009882e53a42csm754990ejg.81.2023.08.17.23.04.32
-        (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);
-        Thu, 17 Aug 2023 23:04:32 -0700 (PDT)
-Message-ID: <d92e7938-49e0-3b4c-89ab-77dcd15b8676@kernel.org>
-Date:   Fri, 18 Aug 2023 08:04:31 +0200
-MIME-Version: 1.0
-User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
- Thunderbird/102.14.0
-Content-Language: en-US
-To:     Oleg Nesterov <oleg@redhat.com>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        "Eric W. Biederman" <ebiederm@xmission.com>
-Cc:     Christian Brauner <brauner@kernel.org>,
+        with ESMTP id S1358555AbjHRISE (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Fri, 18 Aug 2023 04:18:04 -0400
+Received: from us-smtp-delivery-124.mimecast.com (us-smtp-delivery-124.mimecast.com [170.10.133.124])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 718252D7D
+        for <linux-ia64@vger.kernel.org>; Fri, 18 Aug 2023 01:17:23 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=redhat.com;
+        s=mimecast20190719; t=1692346642;
+        h=from:from:reply-to:subject:subject:date:date:message-id:message-id:
+         to:to:cc:cc:mime-version:mime-version:content-type:content-type:
+         in-reply-to:in-reply-to:references:references;
+        bh=nQKXLKH2L3l0y0ESLluKceN5qNLk28AqzUrRAq+W0Fg=;
+        b=gVA2Qkn4ruK1ef9fUY3H5h81GyIRgZGRHB0bidGWoSr0P48hqgLPJ/7bRbKjGoY8I7ewiu
+        7/VbKsE1Mtp+ve6334oMp9idRS5t3lTmQ+5n/HYozJ4zO8xpP9kdushFgOkE9EHoGed0NG
+        QpcnqsCzrXI9H/DvuyfOS4xWsFdZKTs=
+Received: from mimecast-mx02.redhat.com (66.187.233.73 [66.187.233.73]) by
+ relay.mimecast.com with ESMTP with STARTTLS (version=TLSv1.2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id
+ us-mta-62-YPI4836hMFCBhJroaZwHJA-1; Fri, 18 Aug 2023 04:17:10 -0400
+X-MC-Unique: YPI4836hMFCBhJroaZwHJA-1
+Received: from smtp.corp.redhat.com (int-mx01.intmail.prod.int.rdu2.redhat.com [10.11.54.1])
+        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
+        (No client certificate requested)
+        by mimecast-mx02.redhat.com (Postfix) with ESMTPS id AE6C93C1014E;
+        Fri, 18 Aug 2023 08:17:09 +0000 (UTC)
+Received: from dhcp-27-174.brq.redhat.com (unknown [10.45.224.14])
+        by smtp.corp.redhat.com (Postfix) with SMTP id E9C6440C207B;
+        Fri, 18 Aug 2023 08:17:07 +0000 (UTC)
+Received: by dhcp-27-174.brq.redhat.com (nbSMTP-1.00) for uid 1000
+        oleg@redhat.com; Fri, 18 Aug 2023 10:16:25 +0200 (CEST)
+Date:   Fri, 18 Aug 2023 10:16:17 +0200
+From:   Oleg Nesterov <oleg@redhat.com>
+To:     Jiri Slaby <jirislaby@kernel.org>
+Cc:     Andrew Morton <akpm@linux-foundation.org>,
+        "Eric W. Biederman" <ebiederm@xmission.com>,
+        Christian Brauner <brauner@kernel.org>,
         Kees Cook <keescook@chromium.org>, linux-ia64@vger.kernel.org,
         linux-kernel@vger.kernel.org
-References: <20230817163708.GA8248@redhat.com>
-From:   Jiri Slaby <jirislaby@kernel.org>
 Subject: Re: [PATCH] kill do_each_thread()
-In-Reply-To: <20230817163708.GA8248@redhat.com>
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+Message-ID: <20230818081617.GA5339@redhat.com>
+References: <20230817163708.GA8248@redhat.com>
+ <d92e7938-49e0-3b4c-89ab-77dcd15b8676@kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+In-Reply-To: <d92e7938-49e0-3b4c-89ab-77dcd15b8676@kernel.org>
+User-Agent: Mutt/1.5.24 (2015-08-30)
+X-Scanned-By: MIMEDefang 3.1 on 10.11.54.1
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On 17. 08. 23, 18:37, Oleg Nesterov wrote:
-> Eric has pointed out that we still have 3 users of do_each_thread().
-> Change them to use for_each_process_thread() and kill this helper.
+On 08/18, Jiri Slaby wrote:
+>
+> On 17. 08. 23, 18:37, Oleg Nesterov wrote:
+> >Eric has pointed out that we still have 3 users of do_each_thread().
+> >Change them to use for_each_process_thread() and kill this helper.
+>
+> Is there any change in behavior?
 
-Is there any change in behavior? Why is for_each_process_thread() better 
-than do_each_thread()?
+No.
 
-thanks,
--- 
-js
-suse labs
+Well, there is a subtle change, after do_each_thread/while_each_thread
+g == t == &init_task, while after for_each_process_thread() they both
+point to nowhere, but this doesn't matter.
+
+> Why is for_each_process_thread() better than do_each_thread()?
+
+Say, for_each_process_thread() is rcu safe, do_each_thread() is not.
+
+And certainly
+
+	for_each_process_thread(p, t) {
+		do_something(p, t);
+	}
+
+looks better than
+
+	do_each_thread(p, t) {
+		do_something(p, t);
+	} while_each_thread(p, t);
+
+And again, there are only 3 users of this awkward helper left.
+It should have been killed years ago and in fact I thought it
+had already been killed. It uses while_each_thread() which needs
+some changes.
+
+Oleg.
 
