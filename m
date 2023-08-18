@@ -2,98 +2,105 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 46E13C678DC
-	for <linux-ia64@archiver.kernel.org>; Fri, 18 Aug 2023 08:18:57 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 256C1C678DC
+	for <linux-ia64@archiver.kernel.org>; Fri, 18 Aug 2023 08:26:35 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S1352395AbjHRISZ (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Fri, 18 Aug 2023 04:18:25 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:50526 "EHLO
+        id S235759AbjHRI0D (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Fri, 18 Aug 2023 04:26:03 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:57716 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1358555AbjHRISE (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Fri, 18 Aug 2023 04:18:04 -0400
-Received: from us-smtp-delivery-124.mimecast.com (us-smtp-delivery-124.mimecast.com [170.10.133.124])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 718252D7D
-        for <linux-ia64@vger.kernel.org>; Fri, 18 Aug 2023 01:17:23 -0700 (PDT)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=redhat.com;
-        s=mimecast20190719; t=1692346642;
-        h=from:from:reply-to:subject:subject:date:date:message-id:message-id:
-         to:to:cc:cc:mime-version:mime-version:content-type:content-type:
-         in-reply-to:in-reply-to:references:references;
-        bh=nQKXLKH2L3l0y0ESLluKceN5qNLk28AqzUrRAq+W0Fg=;
-        b=gVA2Qkn4ruK1ef9fUY3H5h81GyIRgZGRHB0bidGWoSr0P48hqgLPJ/7bRbKjGoY8I7ewiu
-        7/VbKsE1Mtp+ve6334oMp9idRS5t3lTmQ+5n/HYozJ4zO8xpP9kdushFgOkE9EHoGed0NG
-        QpcnqsCzrXI9H/DvuyfOS4xWsFdZKTs=
-Received: from mimecast-mx02.redhat.com (66.187.233.73 [66.187.233.73]) by
- relay.mimecast.com with ESMTP with STARTTLS (version=TLSv1.2,
- cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id
- us-mta-62-YPI4836hMFCBhJroaZwHJA-1; Fri, 18 Aug 2023 04:17:10 -0400
-X-MC-Unique: YPI4836hMFCBhJroaZwHJA-1
-Received: from smtp.corp.redhat.com (int-mx01.intmail.prod.int.rdu2.redhat.com [10.11.54.1])
-        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        by mimecast-mx02.redhat.com (Postfix) with ESMTPS id AE6C93C1014E;
-        Fri, 18 Aug 2023 08:17:09 +0000 (UTC)
-Received: from dhcp-27-174.brq.redhat.com (unknown [10.45.224.14])
-        by smtp.corp.redhat.com (Postfix) with SMTP id E9C6440C207B;
-        Fri, 18 Aug 2023 08:17:07 +0000 (UTC)
-Received: by dhcp-27-174.brq.redhat.com (nbSMTP-1.00) for uid 1000
-        oleg@redhat.com; Fri, 18 Aug 2023 10:16:25 +0200 (CEST)
-Date:   Fri, 18 Aug 2023 10:16:17 +0200
-From:   Oleg Nesterov <oleg@redhat.com>
-To:     Jiri Slaby <jirislaby@kernel.org>
+        with ESMTP id S1358580AbjHRIZc (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Fri, 18 Aug 2023 04:25:32 -0400
+Received: from mail-ej1-f48.google.com (mail-ej1-f48.google.com [209.85.218.48])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 9330926BC;
+        Fri, 18 Aug 2023 01:25:29 -0700 (PDT)
+Received: by mail-ej1-f48.google.com with SMTP id a640c23a62f3a-99c0290f0a8so73413066b.1;
+        Fri, 18 Aug 2023 01:25:29 -0700 (PDT)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20221208; t=1692347128; x=1692951928;
+        h=content-transfer-encoding:in-reply-to:from:references:cc:to
+         :content-language:subject:user-agent:mime-version:date:message-id
+         :x-gm-message-state:from:to:cc:subject:date:message-id:reply-to;
+        bh=HdxVuDGK8MNRwBUbE5pBkgRN8LmLA9dHWsOb6JtW7fk=;
+        b=hyMYTyB15QeH0MphahI8LDwZ/wGnNqazKuQNCnkmsREA1/14Taa8VWl0WoZg2KCPtC
+         vp4+wRMs78oUyUe/QhJbnCprxd+WL23P6HEReA8Sd73yjh9id3887bc3bSCdlKdjmJK4
+         xfhYEayKfA4OpquCU2tnFZBoDXDPFP71PNLPPPdmorHqwESW3O5hoi4nxuyL/esFAh+o
+         Hk+oX++EbHTDzMuGw4XQ8A03VB0ewnaNu38YcnY4N454hfDsgIXdIi6EbA86gtGCbTU5
+         oKfX5gNNu/v/ITFSwwtQwLqUHGYW2rwWrjOEnnAI8W92nUwPq7IIefY/Dn/t3B5ZWPpA
+         PgOQ==
+X-Gm-Message-State: AOJu0Yzua2fPFLQpltjOihLc8kNY3YqLkzZnjYShVrWy0rleHGaB/8m3
+        aRSk8WiMS5mD+ixj2KrGqTE=
+X-Google-Smtp-Source: AGHT+IETgkkCpm1zCgUOvhPbG5ueBOdWPYtQvU11v5LQ1Lh7TCGI61XJORJav3wM5h5fVhzlLTBOMw==
+X-Received: by 2002:a17:907:7845:b0:99d:73c2:7141 with SMTP id lb5-20020a170907784500b0099d73c27141mr1303901ejc.72.1692347127618;
+        Fri, 18 Aug 2023 01:25:27 -0700 (PDT)
+Received: from ?IPV6:2a0b:e7c0:0:107::aaaa:59? ([2a0b:e7c0:0:107::aaaa:59])
+        by smtp.gmail.com with ESMTPSA id v8-20020a1709060b4800b0099bc8db97bcsm881336ejg.131.2023.08.18.01.25.26
+        (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);
+        Fri, 18 Aug 2023 01:25:27 -0700 (PDT)
+Message-ID: <c6c86d68-dcae-2397-a3f3-aca7bff93d6c@kernel.org>
+Date:   Fri, 18 Aug 2023 10:25:26 +0200
+MIME-Version: 1.0
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
+ Thunderbird/102.14.0
+Subject: Re: [PATCH] kill do_each_thread()
+Content-Language: en-US
+To:     Oleg Nesterov <oleg@redhat.com>
 Cc:     Andrew Morton <akpm@linux-foundation.org>,
         "Eric W. Biederman" <ebiederm@xmission.com>,
         Christian Brauner <brauner@kernel.org>,
         Kees Cook <keescook@chromium.org>, linux-ia64@vger.kernel.org,
         linux-kernel@vger.kernel.org
-Subject: Re: [PATCH] kill do_each_thread()
-Message-ID: <20230818081617.GA5339@redhat.com>
 References: <20230817163708.GA8248@redhat.com>
  <d92e7938-49e0-3b4c-89ab-77dcd15b8676@kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-In-Reply-To: <d92e7938-49e0-3b4c-89ab-77dcd15b8676@kernel.org>
-User-Agent: Mutt/1.5.24 (2015-08-30)
-X-Scanned-By: MIMEDefang 3.1 on 10.11.54.1
+ <20230818081617.GA5339@redhat.com>
+From:   Jiri Slaby <jirislaby@kernel.org>
+In-Reply-To: <20230818081617.GA5339@redhat.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On 08/18, Jiri Slaby wrote:
->
-> On 17. 08. 23, 18:37, Oleg Nesterov wrote:
-> >Eric has pointed out that we still have 3 users of do_each_thread().
-> >Change them to use for_each_process_thread() and kill this helper.
->
-> Is there any change in behavior?
+On 18. 08. 23, 10:16, Oleg Nesterov wrote:
+> On 08/18, Jiri Slaby wrote:
+>>
+>> On 17. 08. 23, 18:37, Oleg Nesterov wrote:
+>>> Eric has pointed out that we still have 3 users of do_each_thread().
+>>> Change them to use for_each_process_thread() and kill this helper.
+>>
+>> Is there any change in behavior?
+> 
+> No.
+> 
+> Well, there is a subtle change, after do_each_thread/while_each_thread
+> g == t == &init_task, while after for_each_process_thread() they both
+> point to nowhere, but this doesn't matter.
+> 
+>> Why is for_each_process_thread() better than do_each_thread()?
+> 
+> Say, for_each_process_thread() is rcu safe, do_each_thread() is not.
+> 
+> And certainly
+> 
+> 	for_each_process_thread(p, t) {
+> 		do_something(p, t);
+> 	}
+> 
+> looks better than
+> 
+> 	do_each_thread(p, t) {
+> 		do_something(p, t);
+> 	} while_each_thread(p, t);
+> 
+> And again, there are only 3 users of this awkward helper left.
+> It should have been killed years ago and in fact I thought it
+> had already been killed. It uses while_each_thread() which needs
+> some changes.
 
-No.
+Sounds like a perfect commit log now... Unless squashed to the patch, it 
+will be Linked at least. Thanks for explanation.
 
-Well, there is a subtle change, after do_each_thread/while_each_thread
-g == t == &init_task, while after for_each_process_thread() they both
-point to nowhere, but this doesn't matter.
-
-> Why is for_each_process_thread() better than do_each_thread()?
-
-Say, for_each_process_thread() is rcu safe, do_each_thread() is not.
-
-And certainly
-
-	for_each_process_thread(p, t) {
-		do_something(p, t);
-	}
-
-looks better than
-
-	do_each_thread(p, t) {
-		do_something(p, t);
-	} while_each_thread(p, t);
-
-And again, there are only 3 users of this awkward helper left.
-It should have been killed years ago and in fact I thought it
-had already been killed. It uses while_each_thread() which needs
-some changes.
-
-Oleg.
+-- 
+js
+suse labs
 
