@@ -2,481 +2,408 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id E7E6BC7113C
-	for <linux-ia64@archiver.kernel.org>; Fri, 18 Aug 2023 14:21:03 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 40365EE49A6
+	for <linux-ia64@archiver.kernel.org>; Sun, 20 Aug 2023 00:18:31 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S1377743AbjHROUf (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Fri, 18 Aug 2023 10:20:35 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:48926 "EHLO
+        id S229593AbjHTAR7 (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Sat, 19 Aug 2023 20:17:59 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:60776 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1377715AbjHROUO (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Fri, 18 Aug 2023 10:20:14 -0400
-Received: from mail.loongson.cn (mail.loongson.cn [114.242.206.163])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTP id D35093AA4;
-        Fri, 18 Aug 2023 07:20:07 -0700 (PDT)
-Received: from loongson.cn (unknown [10.20.42.43])
-        by gateway (Coremail) with SMTP id _____8Dx_+sPft9kSOQZAA--.52188S3;
-        Fri, 18 Aug 2023 22:19:59 +0800 (CST)
-Received: from [10.20.42.43] (unknown [10.20.42.43])
-        by localhost.localdomain (Coremail) with SMTP id AQAAf8DxfSPPfd9k0KpdAA--.50667S3;
-        Fri, 18 Aug 2023 22:18:56 +0800 (CST)
-Message-ID: <1af49baf-05e8-8cc8-c5b7-766db5a4acad@loongson.cn>
-Date:   Fri, 18 Aug 2023 22:18:55 +0800
+        with ESMTP id S229674AbjHTAR5 (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Sat, 19 Aug 2023 20:17:57 -0400
+Received: from dfw.source.kernel.org (dfw.source.kernel.org [139.178.84.217])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 1523488CE9;
+        Sat, 19 Aug 2023 16:34:02 -0700 (PDT)
+Received: from smtp.kernel.org (relay.kernel.org [52.25.139.140])
+        (using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+         key-exchange X25519 server-signature RSA-PSS (2048 bits))
+        (No client certificate requested)
+        by dfw.source.kernel.org (Postfix) with ESMTPS id A929661A5C;
+        Sat, 19 Aug 2023 23:34:01 +0000 (UTC)
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id 0238DC433CA;
+        Sat, 19 Aug 2023 23:33:59 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=kernel.org;
+        s=k20201202; t=1692488041;
+        bh=JFhA8y871vv+gRtTcPjd9V7hXE56sCKpW0Vj8S1748E=;
+        h=From:To:Cc:Subject:Date:In-Reply-To:References:From;
+        b=DKO9KLcyBESyHV5iuYqMVkQhzDHq8YAPi1uEoCKavq2tdIxRG1lOlcpEZty1plKYK
+         cvjDXVhm0Q+9efwybvbdTRJa9sSR+t7W6jT4CulLPJcuEOJezK0zQvjmrmk9zJmDdE
+         OIThQhaGtDa9lmsMo7ciFoLBZvkYzr7cdsKMx6rrs1b+Hr+VelhUQpANV4/jILNd8K
+         SetHh7xHsayX62uCNaSnZ9o/rZ/IhwvYqOwLU+U9SCfvCP6x3pftrHIZNbamnCHb68
+         YDbY3BFle/2KkzG8Ubxd/Xf4TiKa9yPBoN0Y29dlW5IAUZmJeb27euy7QXuEYzd5ZG
+         XcFEV2p3pWgzA==
+From:   Masahiro Yamada <masahiroy@kernel.org>
+To:     linux-kbuild@vger.kernel.org
+Cc:     linux-arch@vger.kernel.org, Masahiro Yamada <masahiroy@kernel.org>,
+        linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Subject: [PATCH 3/6] ia64: replace #include <asm/export.h> with #include <linux/export.h>
+Date:   Sun, 20 Aug 2023 08:33:50 +0900
+Message-Id: <20230819233353.3683813-3-masahiroy@kernel.org>
+X-Mailer: git-send-email 2.39.2
+In-Reply-To: <20230819233353.3683813-1-masahiroy@kernel.org>
+References: <20230819233353.3683813-1-masahiroy@kernel.org>
 MIME-Version: 1.0
-User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
- Thunderbird/102.13.0
-Subject: Re: [06/12] arch: Declare screen_info in <asm/screen_info.h>
-Content-Language: en-US
-From:   suijingfeng <suijingfeng@loongson.cn>
-To:     Thomas Zimmermann <tzimmermann@suse.de>, arnd@arndb.de,
-        deller@gmx.de, daniel@ffwll.ch, airlied@gmail.com
-Cc:     linux-hyperv@vger.kernel.org, linux-efi@vger.kernel.org,
-        linux-ia64@vger.kernel.org,
-        Anshuman Khandual <anshuman.khandual@arm.com>,
-        linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
-        linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org,
-        linux-mips@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>,
-        Rich Felker <dalias@libc.org>, Guo Ren <guoren@kernel.org>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        "H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org,
-        linux-riscv@lists.infradead.org, Will Deacon <will@kernel.org>,
-        WANG Xuerui <kernel@xen0n.name>, linux-arch@vger.kernel.org,
-        "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>,
-        Yoshinori Sato <ysato@users.sourceforge.jp>,
-        linux-hexagon@vger.kernel.org, linux-staging@lists.linux.dev,
-        Russell King <linux@armlinux.org.uk>,
-        linux-csky@vger.kernel.org, Ard Biesheuvel <ardb@kernel.org>,
-        Dave Hansen <dave.hansen@linux.intel.com>,
-        Ingo Molnar <mingo@redhat.com>,
-        Geert Uytterhoeven <geert@linux-m68k.org>,
-        Sami Tolvanen <samitolvanen@google.com>,
-        Juerg Haefliger <juerg.haefliger@canonical.com>,
-        Matt Turner <mattst88@gmail.com>,
-        Huacai Chen <chenhuacai@kernel.org>,
-        Albert Ou <aou@eecs.berkeley.edu>,
-        Kees Cook <keescook@chromium.org>,
-        "Paul E. McKenney" <paulmck@kernel.org>,
-        Chris Zankel <chris@zankel.net>,
-        Frederic Weisbecker <frederic@kernel.org>,
-        Richard Henderson <richard.henderson@linaro.org>,
-        Nicholas Piggin <npiggin@gmail.com>,
-        Niklas Schnelle <schnelle@linux.ibm.com>,
-        "Russell King (Oracle)" <rmk+kernel@armlinux.org.uk>,
-        Ivan Kokshaysky <ink@jurassic.park.msu.ru>,
-        loongarch@lists.linux.dev,
-        Paul Walmsley <paul.walmsley@sifive.com>,
-        Thomas Gleixner <tglx@linutronix.de>, Zi Yan <ziy@nvidia.com>,
-        linux-arm-kernel@lists.infradead.org,
-        Brian Cain <bcain@quicinc.com>,
-        Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
-        Sebastian Reichel <sebastian.reichel@collabora.com>,
-        linux-kernel@vger.kernel.org, Dinh Nguyen <dinguyen@kernel.org>,
-        Palmer Dabbelt <palmer@dabbelt.com>,
-        "Mike Rapoport (IBM)" <rppt@kernel.org>,
-        linux-alpha@vger.kernel.org, Borislav Petkov <bp@alien8.de>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Christophe Leroy <christophe.leroy@csgroup.eu>,
-        linuxppc-dev@lists.ozlabs.org,
-        "David S. Miller" <davem@davemloft.net>, x86@kernel.org
-References: <20230629121952.10559-7-tzimmermann@suse.de>
- <924934b8-d2ca-c1ea-b357-202c2f995adc@loongson.cn>
-In-Reply-To: <924934b8-d2ca-c1ea-b357-202c2f995adc@loongson.cn>
-Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 8bit
-X-CM-TRANSID: AQAAf8DxfSPPfd9k0KpdAA--.50667S3
-X-CM-SenderInfo: xvxlyxpqjiv03j6o00pqjv00gofq/
-X-Coremail-Antispam: 1Uk129KBj9fXoWfJr4Uur48Ar1kZr4DZF4xuFX_yoW8WFyfAo
-        W7K3WUZF45Xr42gr4xGwn8GFZxJr1Ykrs3JrW8GrnxJF15tF45J348tryjyay5Jry8Kr1U
-        Gr45WrZxAa4UAr1rl-sFpf9Il3svdjkaLaAFLSUrUUUUvb8apTn2vfkv8UJUUUU8wcxFpf
-        9Il3svdxBIdaVrn0xqx4xG64xvF2IEw4CE5I8CrVC2j2Jv73VFW2AGmfu7bjvjm3AaLaJ3
-        UjIYCTnIWjp_UUUOv7kC6x804xWl14x267AKxVW8JVW5JwAFc2x0x2IEx4CE42xK8VAvwI
-        8IcIk0rVWrJVCq3wAFIxvE14AKwVWUXVWUAwA2ocxC64kIII0Yj41l84x0c7CEw4AK67xG
-        Y2AK021l84ACjcxK6xIIjxv20xvE14v26F1j6w1UM28EF7xvwVC0I7IYx2IY6xkF7I0E14
-        v26r4UJVWxJr1l84ACjcxK6I8E87Iv67AKxVW8Jr0_Cr1UM28EF7xvwVC2z280aVCY1x02
-        67AKxVW8Jr0_Cr1UM2kKe7AKxVWrXVW3AwAS0I0E0xvYzxvE52x082IY62kv0487Mc804V
-        CY07AIYIkI8VC2zVCFFI0UMc02F40EFcxC0VAKzVAqx4xG6I80ewAv7VC0I7IYx2IY67AK
-        xVW3AVW8Xw1lYx0Ex4A2jsIE14v26r4UJVWxJr1lOx8S6xCaFVCjc4AY6r1j6r4UM4x0Y4
-        8IcVAKI48JM4IIrI8v6xkF7I0E4cxCY480cwCYjI0SjxkI62AI1cAE67vIY487MxkF7I0E
-        n4kS14v26rWY6Fy7MxAIw28IcxkI7VAKI48JMxC20s026xCaFVCjc4AY6r1j6r4UMxCIbc
-        kI1I0E14v26Fy26r43JwC20s026c02F40E14v26r1j6r18MI8I3I0E7480Y4vE14v26r10
-        6r1rMI8E67AF67kF1VAFwI0_Wrv_Gr1UMIIYrxkI7VAKI48JMIIF0xvE2Ix0cI8IcVAFwI
-        0_Ar0_tr1lIxAIcVC0I7IYx2IY6xkF7I0E14v26r4UJVWxJr1lIxAIcVCF04k26cxKx2IY
-        s7xG6r1j6r1xMIIF0xvEx4A2jsIE14v26r4UJVWxJr1lIxAIcVC2z280aVCY1x0267AKxV
-        W8Jr0_Cr1UYxBIdaVFxhVjvjDU0xZFpf9x07bjZ2-UUUUU=
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
+Commit ddb5cdbafaaa ("kbuild: generate KSYMTAB entries by modpost")
+deprecated <asm/export.h>, which is now a wrapper of <linux/export.h>.
 
-On 2023/8/18 22:04, suijingfeng wrote:
-> Hi,
->
->
-> Why this patch get dropped in the end?
->
-> Since the global screen_info is an arch-specific thing,
-> Whenever an arch-neutral module or subsystem references the global 
-> screen_info,
-> There are some complaints from either compile testing robot.
+Replace #include <asm/export.h> with #include <linux/export.h>.
 
+After all the <asm/export.h> lines are converted, <asm/export.h> and
+<asm-generic/export.h> will be removed.
 
-There are some complaints from either compile testing robot or domain 
-specific reviewers who doubt why you select the CONFIG_SYSFB not 
-CONFIG_VT or CONFIG_EFI.
+Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
+---
 
+ arch/ia64/kernel/entry.S          | 3 +--
+ arch/ia64/kernel/esi_stub.S       | 2 +-
+ arch/ia64/kernel/head.S           | 3 +--
+ arch/ia64/kernel/ivt.S            | 3 +--
+ arch/ia64/kernel/pal.S            | 2 +-
+ arch/ia64/lib/clear_page.S        | 2 +-
+ arch/ia64/lib/clear_user.S        | 2 +-
+ arch/ia64/lib/copy_page.S         | 2 +-
+ arch/ia64/lib/copy_page_mck.S     | 2 +-
+ arch/ia64/lib/copy_user.S         | 2 +-
+ arch/ia64/lib/flush.S             | 3 +--
+ arch/ia64/lib/idiv32.S            | 2 +-
+ arch/ia64/lib/idiv64.S            | 2 +-
+ arch/ia64/lib/ip_fast_csum.S      | 2 +-
+ arch/ia64/lib/memcpy.S            | 2 +-
+ arch/ia64/lib/memcpy_mck.S        | 2 +-
+ arch/ia64/lib/memset.S            | 2 +-
+ arch/ia64/lib/strlen.S            | 2 +-
+ arch/ia64/lib/strncpy_from_user.S | 2 +-
+ arch/ia64/lib/strnlen_user.S      | 2 +-
+ arch/ia64/lib/xor.S               | 2 +-
+ 21 files changed, 21 insertions(+), 25 deletions(-)
 
-> Well, a programmer may handle it by using the CONFIG_SYSFB guard,
-> but it is not as precise as what this patch provided.
->
-> Personally, I think this patch is still valuable.
-> I suggest either forcing all other architectures to export screen_info,
-> like the X86 and IA64 arch does, after all the screen_info is a good 
-> thing.
-> or provide the fine-control version like this patch does.
->
-
-Because all of the three tokens(CONFIG_SYSFB not CONFIG_VT or CONFIG_EFI.)
-
-have no direct relationship with the global screen_info if an arch is 
-not mentioned first.
-
-
-
-> On 2023/6/29 19:45, Thomas Zimmermann wrote:
->> The variable screen_info does not exist on all architectures. Declare
->> it in <asm-generic/screen_info.h>. All architectures that do declare it
->> will provide it via <asm/screen_info.h>.
->>
->> Add the Kconfig token ARCH_HAS_SCREEN_INFO to guard against access on
->> architectures that don't provide screen_info.
->>
->> Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
->> Cc: Richard Henderson <richard.henderson@linaro.org>
->> Cc: Ivan Kokshaysky <ink@jurassic.park.msu.ru>
->> Cc: Matt Turner <mattst88@gmail.com>
->> Cc: Russell King <linux@armlinux.org.uk>
->> Cc: Catalin Marinas <catalin.marinas@arm.com>
->> Cc: Will Deacon <will@kernel.org>
->> Cc: Guo Ren <guoren@kernel.org>
->> Cc: Brian Cain <bcain@quicinc.com>
->> Cc: Huacai Chen <chenhuacai@kernel.org>
->> Cc: WANG Xuerui <kernel@xen0n.name>
->> Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
->> Cc: Dinh Nguyen <dinguyen@kernel.org>
->> Cc: Michael Ellerman <mpe@ellerman.id.au>
->> Cc: Nicholas Piggin <npiggin@gmail.com>
->> Cc: Christophe Leroy <christophe.leroy@csgroup.eu>
->> Cc: Paul Walmsley <paul.walmsley@sifive.com>
->> Cc: Palmer Dabbelt <palmer@dabbelt.com>
->> Cc: Albert Ou <aou@eecs.berkeley.edu>
->> Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
->> Cc: Rich Felker <dalias@libc.org>
->> Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
->> Cc: "David S. Miller" <davem@davemloft.net>
->> Cc: Thomas Gleixner <tglx@linutronix.de>
->> Cc: Ingo Molnar <mingo@redhat.com>
->> Cc: Borislav Petkov <bp@alien8.de>
->> Cc: Dave Hansen <dave.hansen@linux.intel.com>
->> Cc: x86@kernel.org
->> Cc: "H. Peter Anvin" <hpa@zytor.com>
->> Cc: Chris Zankel <chris@zankel.net>
->> Cc: Max Filippov <jcmvbkbc@gmail.com>
->> Cc: Helge Deller <deller@gmx.de>
->> Cc: Arnd Bergmann <arnd@arndb.de>
->> Cc: Kees Cook <keescook@chromium.org>
->> Cc: "Paul E. McKenney" <paulmck@kernel.org>
->> Cc: Peter Zijlstra <peterz@infradead.org>
->> Cc: Frederic Weisbecker <frederic@kernel.org>
->> Cc: Andrew Morton <akpm@linux-foundation.org>
->> Cc: Ard Biesheuvel <ardb@kernel.org>
->> Cc: Sami Tolvanen <samitolvanen@google.com>
->> Cc: Juerg Haefliger <juerg.haefliger@canonical.com>
->> Cc: Geert Uytterhoeven <geert@linux-m68k.org>
->> Cc: Anshuman Khandual <anshuman.khandual@arm.com>
->> Cc: Niklas Schnelle <schnelle@linux.ibm.com>
->> Cc: "Russell King (Oracle)" <rmk+kernel@armlinux.org.uk>
->> Cc: Linus Walleij <linus.walleij@linaro.org>
->> Cc: Sebastian Reichel <sebastian.reichel@collabora.com>
->> Cc: "Mike Rapoport (IBM)" <rppt@kernel.org>
->> Cc: "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>
->> Cc: Zi Yan <ziy@nvidia.com>
->> Acked-by: WANG Xuerui <git@xen0n.name> # loongarch
->> ---
->>   arch/Kconfig                      |  6 ++++++
->>   arch/alpha/Kconfig                |  1 +
->>   arch/arm/Kconfig                  |  1 +
->>   arch/arm64/Kconfig                |  1 +
->>   arch/csky/Kconfig                 |  1 +
->>   arch/hexagon/Kconfig              |  1 +
->>   arch/ia64/Kconfig                 |  1 +
->>   arch/loongarch/Kconfig            |  1 +
->>   arch/mips/Kconfig                 |  1 +
->>   arch/nios2/Kconfig                |  1 +
->>   arch/powerpc/Kconfig              |  1 +
->>   arch/riscv/Kconfig                |  1 +
->>   arch/sh/Kconfig                   |  1 +
->>   arch/sparc/Kconfig                |  1 +
->>   arch/x86/Kconfig                  |  1 +
->>   arch/xtensa/Kconfig               |  1 +
->>   drivers/video/Kconfig             |  3 +++
->>   include/asm-generic/Kbuild        |  1 +
->>   include/asm-generic/screen_info.h | 12 ++++++++++++
->>   include/linux/screen_info.h       |  2 +-
->>   20 files changed, 38 insertions(+), 1 deletion(-)
->>   create mode 100644 include/asm-generic/screen_info.h
->>
->> diff --git a/arch/Kconfig b/arch/Kconfig
->> index 205fd23e0cada..2f58293fd7bcb 100644
->> --- a/arch/Kconfig
->> +++ b/arch/Kconfig
->> @@ -1466,6 +1466,12 @@ config ARCH_HAS_NONLEAF_PMD_YOUNG
->>         address translations. Page table walkers that clear the 
->> accessed bit
->>         may use this capability to reduce their search space.
->>   +config ARCH_HAS_SCREEN_INFO
->> +    bool
->> +    help
->> +      Selected by architectures that provide a global instance of
->> +      screen_info.
->> +
->>   source "kernel/gcov/Kconfig"
->>     source "scripts/gcc-plugins/Kconfig"
->> diff --git a/arch/alpha/Kconfig b/arch/alpha/Kconfig
->> index a5c2b1aa46b02..d749011d88b14 100644
->> --- a/arch/alpha/Kconfig
->> +++ b/arch/alpha/Kconfig
->> @@ -4,6 +4,7 @@ config ALPHA
->>       default y
->>       select ARCH_32BIT_USTAT_F_TINODE
->>       select ARCH_HAS_CURRENT_STACK_POINTER
->> +    select ARCH_HAS_SCREEN_INFO
->>       select ARCH_MIGHT_HAVE_PC_PARPORT
->>       select ARCH_MIGHT_HAVE_PC_SERIO
->>       select ARCH_NO_PREEMPT
->> diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
->> index 0fb4b218f6658..a9d01ee67a90e 100644
->> --- a/arch/arm/Kconfig
->> +++ b/arch/arm/Kconfig
->> @@ -15,6 +15,7 @@ config ARM
->>       select ARCH_HAS_MEMBARRIER_SYNC_CORE
->>       select ARCH_HAS_NON_OVERLAPPING_ADDRESS_SPACE
->>       select ARCH_HAS_PTE_SPECIAL if ARM_LPAE
->> +    select ARCH_HAS_SCREEN_INFO
->>       select ARCH_HAS_SETUP_DMA_OPS
->>       select ARCH_HAS_SET_MEMORY
->>       select ARCH_STACKWALK
->> diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
->> index 343e1e1cae10a..21addc4715bb3 100644
->> --- a/arch/arm64/Kconfig
->> +++ b/arch/arm64/Kconfig
->> @@ -36,6 +36,7 @@ config ARM64
->>       select ARCH_HAS_NON_OVERLAPPING_ADDRESS_SPACE
->>       select ARCH_HAS_PTE_DEVMAP
->>       select ARCH_HAS_PTE_SPECIAL
->> +    select ARCH_HAS_SCREEN_INFO
->>       select ARCH_HAS_SETUP_DMA_OPS
->>       select ARCH_HAS_SET_DIRECT_MAP
->>       select ARCH_HAS_SET_MEMORY
->> diff --git a/arch/csky/Kconfig b/arch/csky/Kconfig
->> index 4df1f8c9d170b..28444e581fc1f 100644
->> --- a/arch/csky/Kconfig
->> +++ b/arch/csky/Kconfig
->> @@ -10,6 +10,7 @@ config CSKY
->>       select ARCH_USE_QUEUED_RWLOCKS
->>       select ARCH_USE_QUEUED_SPINLOCKS
->>       select ARCH_HAS_CURRENT_STACK_POINTER
->> +    select ARCH_HAS_SCREEN_INFO
->>       select ARCH_INLINE_READ_LOCK if !PREEMPTION
->>       select ARCH_INLINE_READ_LOCK_BH if !PREEMPTION
->>       select ARCH_INLINE_READ_LOCK_IRQ if !PREEMPTION
->> diff --git a/arch/hexagon/Kconfig b/arch/hexagon/Kconfig
->> index 54eadf2651786..cc683c0a43d34 100644
->> --- a/arch/hexagon/Kconfig
->> +++ b/arch/hexagon/Kconfig
->> @@ -5,6 +5,7 @@ comment "Linux Kernel Configuration for Hexagon"
->>   config HEXAGON
->>       def_bool y
->>       select ARCH_32BIT_OFF_T
->> +    select ARCH_HAS_SCREEN_INFO
->>       select ARCH_HAS_SYNC_DMA_FOR_DEVICE
->>       select ARCH_NO_PREEMPT
->>       select DMA_GLOBAL_POOL
->> diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
->> index e79f15e32a451..8b1e785e6d53d 100644
->> --- a/arch/ia64/Kconfig
->> +++ b/arch/ia64/Kconfig
->> @@ -10,6 +10,7 @@ config IA64
->>       bool
->>       select ARCH_BINFMT_ELF_EXTRA_PHDRS
->>       select ARCH_HAS_DMA_MARK_CLEAN
->> +    select ARCH_HAS_SCREEN_INFO
->>       select ARCH_HAS_STRNCPY_FROM_USER
->>       select ARCH_HAS_STRNLEN_USER
->>       select ARCH_MIGHT_HAVE_PC_PARPORT
->> diff --git a/arch/loongarch/Kconfig b/arch/loongarch/Kconfig
->> index d38b066fc931b..6aab2fb7753da 100644
->> --- a/arch/loongarch/Kconfig
->> +++ b/arch/loongarch/Kconfig
->> @@ -13,6 +13,7 @@ config LOONGARCH
->>       select ARCH_HAS_FORTIFY_SOURCE
->>       select ARCH_HAS_NMI_SAFE_THIS_CPU_OPS
->>       select ARCH_HAS_PTE_SPECIAL
->> +    select ARCH_HAS_SCREEN_INFO
->>       select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
->>       select ARCH_INLINE_READ_LOCK if !PREEMPTION
->>       select ARCH_INLINE_READ_LOCK_BH if !PREEMPTION
->> diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
->> index 675a8660cb85a..c0ae09789cb6d 100644
->> --- a/arch/mips/Kconfig
->> +++ b/arch/mips/Kconfig
->> @@ -10,6 +10,7 @@ config MIPS
->>       select ARCH_HAS_KCOV
->>       select ARCH_HAS_NON_OVERLAPPING_ADDRESS_SPACE if !EVA
->>       select ARCH_HAS_PTE_SPECIAL if !(32BIT && CPU_HAS_RIXI)
->> +    select ARCH_HAS_SCREEN_INFO
->>       select ARCH_HAS_STRNCPY_FROM_USER
->>       select ARCH_HAS_STRNLEN_USER
->>       select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
->> diff --git a/arch/nios2/Kconfig b/arch/nios2/Kconfig
->> index e5936417d3cd3..7183eea282212 100644
->> --- a/arch/nios2/Kconfig
->> +++ b/arch/nios2/Kconfig
->> @@ -3,6 +3,7 @@ config NIOS2
->>       def_bool y
->>       select ARCH_32BIT_OFF_T
->>       select ARCH_HAS_DMA_PREP_COHERENT
->> +    select ARCH_HAS_SCREEN_INFO
->>       select ARCH_HAS_SYNC_DMA_FOR_CPU
->>       select ARCH_HAS_SYNC_DMA_FOR_DEVICE
->>       select ARCH_HAS_DMA_SET_UNCACHED
->> diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
->> index bff5820b7cda1..b1acad3076180 100644
->> --- a/arch/powerpc/Kconfig
->> +++ b/arch/powerpc/Kconfig
->> @@ -148,6 +148,7 @@ config PPC
->>       select ARCH_HAS_PTE_DEVMAP        if PPC_BOOK3S_64
->>       select ARCH_HAS_PTE_SPECIAL
->>       select ARCH_HAS_SCALED_CPUTIME        if 
->> VIRT_CPU_ACCOUNTING_NATIVE && PPC_BOOK3S_64
->> +    select ARCH_HAS_SCREEN_INFO
->>       select ARCH_HAS_SET_MEMORY
->>       select ARCH_HAS_STRICT_KERNEL_RWX    if (PPC_BOOK3S || PPC_8xx 
->> || 40x) && !HIBERNATION
->>       select ARCH_HAS_STRICT_KERNEL_RWX    if PPC_85xx && 
->> !HIBERNATION && !RANDOMIZE_BASE
->> diff --git a/arch/riscv/Kconfig b/arch/riscv/Kconfig
->> index 5966ad97c30c3..b5a48f8424af9 100644
->> --- a/arch/riscv/Kconfig
->> +++ b/arch/riscv/Kconfig
->> @@ -29,6 +29,7 @@ config RISCV
->>       select ARCH_HAS_NON_OVERLAPPING_ADDRESS_SPACE
->>       select ARCH_HAS_PMEM_API
->>       select ARCH_HAS_PTE_SPECIAL
->> +    select ARCH_HAS_SCREEN_INFO
->>       select ARCH_HAS_SET_DIRECT_MAP if MMU
->>       select ARCH_HAS_SET_MEMORY if MMU
->>       select ARCH_HAS_STRICT_KERNEL_RWX if MMU && !XIP_KERNEL
->> diff --git a/arch/sh/Kconfig b/arch/sh/Kconfig
->> index 04b9550cf0070..001f5149952b4 100644
->> --- a/arch/sh/Kconfig
->> +++ b/arch/sh/Kconfig
->> @@ -10,6 +10,7 @@ config SUPERH
->>       select ARCH_HAS_GIGANTIC_PAGE
->>       select ARCH_HAS_GCOV_PROFILE_ALL
->>       select ARCH_HAS_PTE_SPECIAL
->> +    select ARCH_HAS_SCREEN_INFO
->>       select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
->>       select ARCH_HIBERNATION_POSSIBLE if MMU
->>       select ARCH_MIGHT_HAVE_PC_PARPORT
->> diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
->> index 8535e19062f65..e4bfb80b48cfe 100644
->> --- a/arch/sparc/Kconfig
->> +++ b/arch/sparc/Kconfig
->> @@ -13,6 +13,7 @@ config 64BIT
->>   config SPARC
->>       bool
->>       default y
->> +    select ARCH_HAS_SCREEN_INFO
->>       select ARCH_MIGHT_HAVE_PC_PARPORT if SPARC64 && PCI
->>       select ARCH_MIGHT_HAVE_PC_SERIO
->>       select DMA_OPS
->> diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
->> index 53bab123a8ee4..d7c2bf4ee403d 100644
->> --- a/arch/x86/Kconfig
->> +++ b/arch/x86/Kconfig
->> @@ -91,6 +91,7 @@ config X86
->>       select ARCH_HAS_NONLEAF_PMD_YOUNG    if PGTABLE_LEVELS > 2
->>       select ARCH_HAS_UACCESS_FLUSHCACHE    if X86_64
->>       select ARCH_HAS_COPY_MC            if X86_64
->> +    select ARCH_HAS_SCREEN_INFO
->>       select ARCH_HAS_SET_MEMORY
->>       select ARCH_HAS_SET_DIRECT_MAP
->>       select ARCH_HAS_STRICT_KERNEL_RWX
->> diff --git a/arch/xtensa/Kconfig b/arch/xtensa/Kconfig
->> index 3c6e5471f025b..c6cbd7459939c 100644
->> --- a/arch/xtensa/Kconfig
->> +++ b/arch/xtensa/Kconfig
->> @@ -8,6 +8,7 @@ config XTENSA
->>       select ARCH_HAS_DMA_PREP_COHERENT if MMU
->>       select ARCH_HAS_GCOV_PROFILE_ALL
->>       select ARCH_HAS_KCOV
->> +    select ARCH_HAS_SCREEN_INFO
->>       select ARCH_HAS_SYNC_DMA_FOR_CPU if MMU
->>       select ARCH_HAS_SYNC_DMA_FOR_DEVICE if MMU
->>       select ARCH_HAS_DMA_SET_UNCACHED if MMU
->> diff --git a/drivers/video/Kconfig b/drivers/video/Kconfig
->> index 8b2b9ac37c3df..d4a72bea56be0 100644
->> --- a/drivers/video/Kconfig
->> +++ b/drivers/video/Kconfig
->> @@ -21,6 +21,9 @@ config STI_CORE
->>   config VIDEO_CMDLINE
->>       bool
->>   +config ARCH_HAS_SCREEN_INFO
->> +    bool
->> +
->>   config VIDEO_NOMODESET
->>       bool
->>       default n
->> diff --git a/include/asm-generic/Kbuild b/include/asm-generic/Kbuild
->> index 941be574bbe00..5e5d4158a4b4b 100644
->> --- a/include/asm-generic/Kbuild
->> +++ b/include/asm-generic/Kbuild
->> @@ -47,6 +47,7 @@ mandatory-y += percpu.h
->>   mandatory-y += pgalloc.h
->>   mandatory-y += preempt.h
->>   mandatory-y += rwonce.h
->> +mandatory-y += screen_info.h
->>   mandatory-y += sections.h
->>   mandatory-y += serial.h
->>   mandatory-y += shmparam.h
->> diff --git a/include/asm-generic/screen_info.h 
->> b/include/asm-generic/screen_info.h
->> new file mode 100644
->> index 0000000000000..6fd0e50fabfcd
->> --- /dev/null
->> +++ b/include/asm-generic/screen_info.h
->> @@ -0,0 +1,12 @@
->> +/* SPDX-License-Identifier: GPL-2.0 */
->> +
->> +#ifndef _ASM_GENERIC_SCREEN_INFO_H
->> +#define _ASM_GENERIC_SCREEN_INFO_H
->> +
->> +#include <uapi/linux/screen_info.h>
->> +
->> +#if defined(CONFIG_ARCH_HAS_SCREEN_INFO)
->> +extern struct screen_info screen_info;
->> +#endif
->> +
->> +#endif /* _ASM_GENERIC_SCREEN_INFO_H */
->> diff --git a/include/linux/screen_info.h b/include/linux/screen_info.h
->> index eab7081392d50..c764b9a51c24b 100644
->> --- a/include/linux/screen_info.h
->> +++ b/include/linux/screen_info.h
->> @@ -4,6 +4,6 @@
->>     #include <uapi/linux/screen_info.h>
->>   -extern struct screen_info screen_info;
->> +#include <asm/screen_info.h>
->>     #endif /* _SCREEN_INFO_H */
+diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
+index 5eba3fb2e311..ac06d44b9b27 100644
+--- a/arch/ia64/kernel/entry.S
++++ b/arch/ia64/kernel/entry.S
+@@ -37,7 +37,7 @@
+  *	pNonSys:	!pSys
+  */
+ 
+-
++#include <linux/export.h>
+ #include <linux/pgtable.h>
+ #include <asm/asmmacro.h>
+ #include <asm/cache.h>
+@@ -49,7 +49,6 @@
+ #include <asm/thread_info.h>
+ #include <asm/unistd.h>
+ #include <asm/ftrace.h>
+-#include <asm/export.h>
+ 
+ #include "minstate.h"
+ 
+diff --git a/arch/ia64/kernel/esi_stub.S b/arch/ia64/kernel/esi_stub.S
+index 821e68d10598..9928c5b2957c 100644
+--- a/arch/ia64/kernel/esi_stub.S
++++ b/arch/ia64/kernel/esi_stub.S
+@@ -34,9 +34,9 @@
+ #define PSR_BITS_TO_SET							\
+ 	(IA64_PSR_BN)
+ 
++#include <linux/export.h>
+ #include <asm/processor.h>
+ #include <asm/asmmacro.h>
+-#include <asm/export.h>
+ 
+ /*
+  * Inputs:
+diff --git a/arch/ia64/kernel/head.S b/arch/ia64/kernel/head.S
+index c096500590e9..85c8a57da402 100644
+--- a/arch/ia64/kernel/head.S
++++ b/arch/ia64/kernel/head.S
+@@ -20,7 +20,7 @@
+  *   Support for CPU Hotplug
+  */
+ 
+-
++#include <linux/export.h>
+ #include <linux/pgtable.h>
+ #include <asm/asmmacro.h>
+ #include <asm/fpu.h>
+@@ -33,7 +33,6 @@
+ #include <asm/mca_asm.h>
+ #include <linux/init.h>
+ #include <linux/linkage.h>
+-#include <asm/export.h>
+ 
+ #ifdef CONFIG_HOTPLUG_CPU
+ #define SAL_PSR_BITS_TO_SET				\
+diff --git a/arch/ia64/kernel/ivt.S b/arch/ia64/kernel/ivt.S
+index 7a418e324d30..da90c49df628 100644
+--- a/arch/ia64/kernel/ivt.S
++++ b/arch/ia64/kernel/ivt.S
+@@ -47,7 +47,7 @@
+  * Table is based upon EAS2.6 (Oct 1999)
+  */
+ 
+-
++#include <linux/export.h>
+ #include <linux/pgtable.h>
+ #include <asm/asmmacro.h>
+ #include <asm/break.h>
+@@ -58,7 +58,6 @@
+ #include <asm/thread_info.h>
+ #include <asm/unistd.h>
+ #include <asm/errno.h>
+-#include <asm/export.h>
+ 
+ #if 0
+ # define PSR_DEFAULT_BITS	psr.ac
+diff --git a/arch/ia64/kernel/pal.S b/arch/ia64/kernel/pal.S
+index 06d01a070aae..fb6db6966f70 100644
+--- a/arch/ia64/kernel/pal.S
++++ b/arch/ia64/kernel/pal.S
+@@ -13,9 +13,9 @@
+  * 05/24/2000 eranian Added support for physical mode static calls
+  */
+ 
++#include <linux/export.h>
+ #include <asm/asmmacro.h>
+ #include <asm/processor.h>
+-#include <asm/export.h>
+ 
+ 	.data
+ pal_entry_point:
+diff --git a/arch/ia64/lib/clear_page.S b/arch/ia64/lib/clear_page.S
+index 65b75085c8f4..ba0dd2538fa5 100644
+--- a/arch/ia64/lib/clear_page.S
++++ b/arch/ia64/lib/clear_page.S
+@@ -10,9 +10,9 @@
+  * 3/08/02 davidm	Some more tweaking
+  */
+ 
++#include <linux/export.h>
+ #include <asm/asmmacro.h>
+ #include <asm/page.h>
+-#include <asm/export.h>
+ 
+ #ifdef CONFIG_ITANIUM
+ # define L3_LINE_SIZE	64	// Itanium L3 line size
+diff --git a/arch/ia64/lib/clear_user.S b/arch/ia64/lib/clear_user.S
+index a28f39d349eb..1d9e45ccf8e5 100644
+--- a/arch/ia64/lib/clear_user.S
++++ b/arch/ia64/lib/clear_user.S
+@@ -12,8 +12,8 @@
+  *	Stephane Eranian <eranian@hpl.hp.com>
+  */
+ 
++#include <linux/export.h>
+ #include <asm/asmmacro.h>
+-#include <asm/export.h>
+ 
+ //
+ // arguments
+diff --git a/arch/ia64/lib/copy_page.S b/arch/ia64/lib/copy_page.S
+index 176f857c522e..c0a0e6b2af00 100644
+--- a/arch/ia64/lib/copy_page.S
++++ b/arch/ia64/lib/copy_page.S
+@@ -15,9 +15,9 @@
+  *
+  * 4/06/01 davidm	Tuned to make it perform well both for cached and uncached copies.
+  */
++#include <linux/export.h>
+ #include <asm/asmmacro.h>
+ #include <asm/page.h>
+-#include <asm/export.h>
+ 
+ #define PIPE_DEPTH	3
+ #define EPI		p[PIPE_DEPTH-1]
+diff --git a/arch/ia64/lib/copy_page_mck.S b/arch/ia64/lib/copy_page_mck.S
+index d6fd56e4f1c1..5e8bb4b4b535 100644
+--- a/arch/ia64/lib/copy_page_mck.S
++++ b/arch/ia64/lib/copy_page_mck.S
+@@ -60,9 +60,9 @@
+  *	to fetch the second-half of the L2 cache line into L1, and the tX words are copied in
+  *	an order that avoids bank conflicts.
+  */
++#include <linux/export.h>
+ #include <asm/asmmacro.h>
+ #include <asm/page.h>
+-#include <asm/export.h>
+ 
+ #define PREFETCH_DIST	8		// McKinley sustains 16 outstanding L2 misses (8 ld, 8 st)
+ 
+diff --git a/arch/ia64/lib/copy_user.S b/arch/ia64/lib/copy_user.S
+index f681556c6b86..8daab72cfe77 100644
+--- a/arch/ia64/lib/copy_user.S
++++ b/arch/ia64/lib/copy_user.S
+@@ -30,8 +30,8 @@
+  *	- fix extraneous stop bit introduced by the EX() macro.
+  */
+ 
++#include <linux/export.h>
+ #include <asm/asmmacro.h>
+-#include <asm/export.h>
+ 
+ //
+ // Tuneable parameters
+diff --git a/arch/ia64/lib/flush.S b/arch/ia64/lib/flush.S
+index 8573d59c9ed1..f8e795fe45cb 100644
+--- a/arch/ia64/lib/flush.S
++++ b/arch/ia64/lib/flush.S
+@@ -8,9 +8,8 @@
+  * 05/28/05 Zoltan Menyhart	Dynamic stride size
+  */
+ 
++#include <linux/export.h>
+ #include <asm/asmmacro.h>
+-#include <asm/export.h>
+-
+ 
+ 	/*
+ 	 * flush_icache_range(start,end)
+diff --git a/arch/ia64/lib/idiv32.S b/arch/ia64/lib/idiv32.S
+index def92b708e6e..83586fbc51ff 100644
+--- a/arch/ia64/lib/idiv32.S
++++ b/arch/ia64/lib/idiv32.S
+@@ -15,8 +15,8 @@
+  * (http://www.goodreads.com/book/show/2019887.Ia_64_and_Elementary_Functions)
+  */
+ 
++#include <linux/export.h>
+ #include <asm/asmmacro.h>
+-#include <asm/export.h>
+ 
+ #ifdef MODULO
+ # define OP	mod
+diff --git a/arch/ia64/lib/idiv64.S b/arch/ia64/lib/idiv64.S
+index a8ba3bd3d4d8..5c9113691f72 100644
+--- a/arch/ia64/lib/idiv64.S
++++ b/arch/ia64/lib/idiv64.S
+@@ -15,8 +15,8 @@
+  * (http://www.goodreads.com/book/show/2019887.Ia_64_and_Elementary_Functions)
+  */
+ 
++#include <linux/export.h>
+ #include <asm/asmmacro.h>
+-#include <asm/export.h>
+ 
+ #ifdef MODULO
+ # define OP	mod
+diff --git a/arch/ia64/lib/ip_fast_csum.S b/arch/ia64/lib/ip_fast_csum.S
+index dc9e6e6fe876..fcc0b812ce2e 100644
+--- a/arch/ia64/lib/ip_fast_csum.S
++++ b/arch/ia64/lib/ip_fast_csum.S
+@@ -13,8 +13,8 @@
+  * Copyright (C) 2002, 2006 Ken Chen <kenneth.w.chen@intel.com>
+  */
+ 
++#include <linux/export.h>
+ #include <asm/asmmacro.h>
+-#include <asm/export.h>
+ 
+ /*
+  * Since we know that most likely this function is called with buf aligned
+diff --git a/arch/ia64/lib/memcpy.S b/arch/ia64/lib/memcpy.S
+index 91a625fddbf0..35c9069a8345 100644
+--- a/arch/ia64/lib/memcpy.S
++++ b/arch/ia64/lib/memcpy.S
+@@ -14,8 +14,8 @@
+  *	Stephane Eranian <eranian@hpl.hp.com>
+  *	David Mosberger-Tang <davidm@hpl.hp.com>
+  */
++#include <linux/export.h>
+ #include <asm/asmmacro.h>
+-#include <asm/export.h>
+ 
+ GLOBAL_ENTRY(memcpy)
+ 
+diff --git a/arch/ia64/lib/memcpy_mck.S b/arch/ia64/lib/memcpy_mck.S
+index cc4e6ac914b6..c0d4362217ae 100644
+--- a/arch/ia64/lib/memcpy_mck.S
++++ b/arch/ia64/lib/memcpy_mck.S
+@@ -14,9 +14,9 @@
+  * Copyright (C) 2002 Intel Corp.
+  * Copyright (C) 2002 Ken Chen <kenneth.w.chen@intel.com>
+  */
++#include <linux/export.h>
+ #include <asm/asmmacro.h>
+ #include <asm/page.h>
+-#include <asm/export.h>
+ 
+ #define EK(y...) EX(y)
+ 
+diff --git a/arch/ia64/lib/memset.S b/arch/ia64/lib/memset.S
+index 07a8b92c6496..552c5c7e4d06 100644
+--- a/arch/ia64/lib/memset.S
++++ b/arch/ia64/lib/memset.S
+@@ -18,8 +18,8 @@
+    Since a stf.spill f0 can store 16B in one go, we use this instruction
+    to get peak speed when value = 0.  */
+ 
++#include <linux/export.h>
+ #include <asm/asmmacro.h>
+-#include <asm/export.h>
+ #undef ret
+ 
+ #define dest		in0
+diff --git a/arch/ia64/lib/strlen.S b/arch/ia64/lib/strlen.S
+index d66de5966974..1f4a46c15127 100644
+--- a/arch/ia64/lib/strlen.S
++++ b/arch/ia64/lib/strlen.S
+@@ -17,8 +17,8 @@
+  * 09/24/99 S.Eranian add speculation recovery code
+  */
+ 
++#include <linux/export.h>
+ #include <asm/asmmacro.h>
+-#include <asm/export.h>
+ 
+ //
+ //
+diff --git a/arch/ia64/lib/strncpy_from_user.S b/arch/ia64/lib/strncpy_from_user.S
+index 49eb81b69cd2..a287169bd953 100644
+--- a/arch/ia64/lib/strncpy_from_user.S
++++ b/arch/ia64/lib/strncpy_from_user.S
+@@ -17,8 +17,8 @@
+  *			 by Andreas Schwab <schwab@suse.de>).
+  */
+ 
++#include <linux/export.h>
+ #include <asm/asmmacro.h>
+-#include <asm/export.h>
+ 
+ GLOBAL_ENTRY(__strncpy_from_user)
+ 	alloc r2=ar.pfs,3,0,0,0
+diff --git a/arch/ia64/lib/strnlen_user.S b/arch/ia64/lib/strnlen_user.S
+index 4b684d4da106..a7eb56e840a9 100644
+--- a/arch/ia64/lib/strnlen_user.S
++++ b/arch/ia64/lib/strnlen_user.S
+@@ -13,8 +13,8 @@
+  * Copyright (C) 1999, 2001 David Mosberger-Tang <davidm@hpl.hp.com>
+  */
+ 
++#include <linux/export.h>
+ #include <asm/asmmacro.h>
+-#include <asm/export.h>
+ 
+ GLOBAL_ENTRY(__strnlen_user)
+ 	.prologue
+diff --git a/arch/ia64/lib/xor.S b/arch/ia64/lib/xor.S
+index 5413dafe6b2e..6e2a69662c06 100644
+--- a/arch/ia64/lib/xor.S
++++ b/arch/ia64/lib/xor.S
+@@ -5,8 +5,8 @@
+  * Optimized RAID-5 checksumming functions for IA-64.
+  */
+ 
++#include <linux/export.h>
+ #include <asm/asmmacro.h>
+-#include <asm/export.h>
+ 
+ GLOBAL_ENTRY(xor_ia64_2)
+ 	.prologue
+-- 
+2.39.2
 
