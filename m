@@ -2,252 +2,139 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 5360AEE49A8
-	for <linux-ia64@archiver.kernel.org>; Tue, 22 Aug 2023 06:34:06 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id CBFDCC88CB2
+	for <linux-ia64@archiver.kernel.org>; Fri, 25 Aug 2023 01:18:46 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S232433AbjHVGeG (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Tue, 22 Aug 2023 02:34:06 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:41158 "EHLO
+        id S238719AbjHYBSQ (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Thu, 24 Aug 2023 21:18:16 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:57446 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S233049AbjHVGeE (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Tue, 22 Aug 2023 02:34:04 -0400
-Received: from smtp-out1.suse.de (smtp-out1.suse.de [IPv6:2001:67c:2178:6::1c])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id D45E1E47;
-        Mon, 21 Aug 2023 23:33:36 -0700 (PDT)
-Received: from relay2.suse.de (relay2.suse.de [149.44.160.134])
-        by smtp-out1.suse.de (Postfix) with ESMTP id 01FC422C44;
-        Tue, 22 Aug 2023 06:33:03 +0000 (UTC)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=suse.de; s=susede2_rsa;
-        t=1692685983; h=from:from:reply-to:date:date:message-id:message-id:to:to:cc:cc:
-         mime-version:mime-version:content-type:content-type:
-         in-reply-to:in-reply-to:references:references;
-        bh=0LefrGrfWIlUUodSIRfdXfGvUMxOpn3Da/x1z7+TACM=;
-        b=dcW/Td18f6Fki4csXaJVH2kX+joGxDMOht06LwZTOfNsgqpMfncIfcqoPyYT4pr6k4mnSU
-        M0TGSwt1po685EhpFFg+MsGQqwUnObFIRiO2wfy913FH+/Lel6/Fb2dOKqsq92KJa+2uD1
-        Bu3YIapaL9IWtKzXxWr75rikpNrC41E=
-DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=suse.de;
-        s=susede2_ed25519; t=1692685983;
-        h=from:from:reply-to:date:date:message-id:message-id:to:to:cc:cc:
-         mime-version:mime-version:content-type:content-type:
-         in-reply-to:in-reply-to:references:references;
-        bh=0LefrGrfWIlUUodSIRfdXfGvUMxOpn3Da/x1z7+TACM=;
-        b=rG0JjH04TqT5CksLvToAlLn8tIAFYWH057rgn75zDtNS/jv7ATjOlZlbjVPfguARFEVAuk
-        XrENx1kzxGQ4t0Cg==
-Received: from kitsune.suse.cz (kitsune.suse.cz [10.100.12.127])
-        (using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-        (No client certificate requested)
-        by relay2.suse.de (Postfix) with ESMTPS id 4B5DF2C143;
-        Tue, 22 Aug 2023 06:32:58 +0000 (UTC)
-Date:   Tue, 22 Aug 2023 08:32:57 +0200
-From:   Michal =?iso-8859-1?Q?Such=E1nek?= <msuchanek@suse.de>
-To:     "Leizhen (ThunderTown)" <thunder.leizhen@huawei.com>
-Cc:     Eric DeVolder <eric.devolder@oracle.com>, linux@armlinux.org.uk,
-        catalin.marinas@arm.com, will@kernel.org, chenhuacai@kernel.org,
-        geert@linux-m68k.org, tsbogend@alpha.franken.de,
-        James.Bottomley@hansenpartnership.com, deller@gmx.de,
-        ysato@users.sourceforge.jp, dalias@libc.org,
-        glaubitz@physik.fu-berlin.de, tglx@linutronix.de, mingo@redhat.com,
-        bp@alien8.de, dave.hansen@linux.intel.com, x86@kernel.org,
-        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-ia64@vger.kernel.org, loongarch@lists.linux.dev,
-        linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org,
+        with ESMTP id S241603AbjHYBSB (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Thu, 24 Aug 2023 21:18:01 -0400
+Received: from mx0a-00069f02.pphosted.com (mx0a-00069f02.pphosted.com [205.220.165.32])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id A240A212A;
+        Thu, 24 Aug 2023 18:17:40 -0700 (PDT)
+Received: from pps.filterd (m0246617.ppops.net [127.0.0.1])
+        by mx0b-00069f02.pphosted.com (8.17.1.19/8.17.1.19) with ESMTP id 37OJESPU018518;
+        Fri, 25 Aug 2023 01:13:39 GMT
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=oracle.com; h=from : to : cc :
+ subject : date : message-id : in-reply-to : references : mime-version :
+ content-type : content-transfer-encoding; s=corp-2023-03-30;
+ bh=uhEjckime6bsF1xq0dmnY+LwEHiDmuGwjHJQ7hVpFpk=;
+ b=xT4JwIyBXmmvopnLoTqXTVQDIyq4jGSov+rjFGn7JrEsFJ0nGwiZ57rChZOcNtxS8gnd
+ 32i9D/0gBNdAu6wmrSv4Tj5XGTtiOMTcrD7d8d7sIx9zu+UBUHmYA/WieiP0xKAeu3gF
+ eHe1MsKPNrAZDzygQo0FmmEXELlSaZ2xMctwoLvlgndq1xchpQqBIi92sT4g6z/NC03I
+ Sq45+sJdryY0Xt3UtsdNEeUPJQQwXRC0pKx/6zSsrk8N0z228cv46+9188htxHxgrJuH
+ O19AK6RPcqphkoDDRpvAZZx3qvPOulLbxkXwvTBtVM7s38ELpJEo9mWBxT45N4g00a45 fg== 
+Received: from iadpaimrmta01.imrmtpd1.prodappiadaev1.oraclevcn.com (iadpaimrmta01.appoci.oracle.com [130.35.100.223])
+        by mx0b-00069f02.pphosted.com (PPS) with ESMTPS id 3sn20cncv4-1
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK);
+        Fri, 25 Aug 2023 01:13:39 +0000
+Received: from pps.filterd (iadpaimrmta01.imrmtpd1.prodappiadaev1.oraclevcn.com [127.0.0.1])
+        by iadpaimrmta01.imrmtpd1.prodappiadaev1.oraclevcn.com (8.17.1.19/8.17.1.19) with ESMTP id 37P0OVwl036065;
+        Fri, 25 Aug 2023 01:13:38 GMT
+Received: from pps.reinject (localhost [127.0.0.1])
+        by iadpaimrmta01.imrmtpd1.prodappiadaev1.oraclevcn.com (PPS) with ESMTPS id 3sn1ywqfhv-1
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK);
+        Fri, 25 Aug 2023 01:13:38 +0000
+Received: from iadpaimrmta01.imrmtpd1.prodappiadaev1.oraclevcn.com (iadpaimrmta01.imrmtpd1.prodappiadaev1.oraclevcn.com [127.0.0.1])
+        by pps.reinject (8.17.1.5/8.17.1.5) with ESMTP id 37P1DVDv019787;
+        Fri, 25 Aug 2023 01:13:36 GMT
+Received: from ca-mkp2.ca.oracle.com.com (mpeterse-ol9.allregionaliads.osdevelopmeniad.oraclevcn.com [100.100.251.135])
+        by iadpaimrmta01.imrmtpd1.prodappiadaev1.oraclevcn.com (PPS) with ESMTP id 3sn1ywqf8n-3;
+        Fri, 25 Aug 2023 01:13:36 +0000
+From:   "Martin K. Petersen" <martin.petersen@oracle.com>
+To:     Andrew Morton <akpm@linux-foundation.org>,
+        linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@kernel.org>
+Cc:     "Martin K . Petersen" <martin.petersen@oracle.com>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Matt Turner <mattst88@gmail.com>,
+        Vineet Gupta <vgupta@kernel.org>,
+        Russell King <linux@armlinux.org.uk>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>,
+        Brian Cain <bcain@quicinc.com>,
+        Huacai Chen <chenhuacai@kernel.org>,
+        WANG Xuerui <kernel@xen0n.name>,
+        Geert Uytterhoeven <geert@linux-m68k.org>,
+        Michal Simek <monstr@monstr.eu>,
+        Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
+        Dinh Nguyen <dinguyen@kernel.org>,
+        Jonas Bonn <jonas@southpole.se>,
+        Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>,
+        Stafford Horne <shorne@gmail.com>,
+        "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>,
+        Helge Deller <deller@gmx.de>,
+        Michael Ellerman <mpe@ellerman.id.au>,
+        Christophe Leroy <christophe.leroy@csgroup.eu>,
+        Palmer Dabbelt <palmer@dabbelt.com>,
+        Heiko Carstens <hca@linux.ibm.com>,
+        John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
+        x86@kernel.org, Borislav Petkov <bp@alien8.de>,
+        Max Filippov <jcmvbkbc@gmail.com>,
+        Jens Axboe <axboe@kernel.dk>,
+        Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
+        Richard Weinberger <richard@nod.at>,
+        Bjorn Helgaas <bhelgaas@google.com>,
+        Masahiro Yamada <masahiroy@kernel.org>,
+        Nathan Chancellor <nathan@kernel.org>,
+        Nick Desaulniers <ndesaulniers@google.com>,
+        Guenter Roeck <linux@roeck-us.net>,
+        Stephen Rothwell <sfr@canb.auug.org.au>,
+        linux-next@vger.kernel.org, linux-alpha@vger.kernel.org,
+        linux-snps-arc@lists.infradead.org,
+        linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org,
+        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+        loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org,
+        linux-mips@vger.kernel.org, linux-openrisc@vger.kernel.org,
         linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
         linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org,
-        linux-sh@vger.kernel.org, peterz@infradead.org,
-        linus.walleij@linaro.org, hpa@zytor.com, kernel@xen0n.name,
-        ardb@kernel.org, tsi@tuyoix.net, agordeev@linux.ibm.com,
-        paulmck@kernel.org, bhe@redhat.com, masahiroy@kernel.org,
-        konrad.wilk@oracle.com, sebastian.reichel@collabora.com,
-        samitolvanen@google.com, ojeda@kernel.org,
-        juerg.haefliger@canonical.com, borntraeger@linux.ibm.com,
-        frederic@kernel.org, arnd@arndb.de, mhiramat@kernel.org,
-        aou@eecs.berkeley.edu, keescook@chromium.org, gor@linux.ibm.com,
-        anshuman.khandual@arm.com, hca@linux.ibm.com, xin3.li@intel.com,
-        npiggin@gmail.com, rmk+kernel@armlinux.org.uk,
-        paul.walmsley@sifive.com, boris.ostrovsky@oracle.com,
-        ziy@nvidia.com, hbathini@linux.ibm.com, gregkh@linuxfoundation.org,
-        kirill.shutemov@linux.intel.com, ndesaulniers@google.com,
-        sourabhjain@linux.ibm.com, palmer@dabbelt.com, svens@linux.ibm.com,
-        tj@kernel.org, akpm@linux-foundation.org, rppt@kernel.org
-Subject: Re: [PATCH v6 02/14] x86/kexec: refactor for kernel/Kconfig.kexec
-Message-ID: <20230822063257.GI8826@kitsune.suse.cz>
-References: <20230712161545.87870-1-eric.devolder@oracle.com>
- <20230712161545.87870-3-eric.devolder@oracle.com>
- <d8ddd4bd-fbc9-dbe9-f5c3-daf8d89aa46d@huawei.com>
+        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
+        linux-block@vger.kernel.org, linux-scsi@vger.kernel.org,
+        linux-mtd@lists.infradead.org, linux-trace-kernel@vger.kernel.org,
+        linux-pci@vger.kernel.org, linux-kbuild@vger.kernel.org
+Subject: Re: (subset) [PATCH 00/17] -Wmissing-prototype warning fixes
+Date:   Thu, 24 Aug 2023 21:12:49 -0400
+Message-Id: <169292577153.789945.11297239773543112051.b4-ty@oracle.com>
+X-Mailer: git-send-email 2.40.1
+In-Reply-To: <20230810141947.1236730-1-arnd@kernel.org>
+References: <20230810141947.1236730-1-arnd@kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-In-Reply-To: <d8ddd4bd-fbc9-dbe9-f5c3-daf8d89aa46d@huawei.com>
-User-Agent: Mutt/1.10.1 (2018-07-13)
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+X-Proofpoint-Virus-Version: vendor=baseguard
+ engine=ICAP:2.0.267,Aquarius:18.0.957,Hydra:6.0.601,FMLib:17.11.176.26
+ definitions=2023-08-25_01,2023-08-24_01,2023-05-22_02
+X-Proofpoint-Spam-Details: rule=notspam policy=default score=0 bulkscore=0 suspectscore=0
+ malwarescore=0 spamscore=0 phishscore=0 mlxlogscore=743 adultscore=0
+ mlxscore=0 classifier=spam adjust=0 reason=mlx scancount=1
+ engine=8.12.0-2308100000 definitions=main-2308250009
+X-Proofpoint-ORIG-GUID: hGRzDyXS3lW8hFg00DNeS65JseMhr6Xt
+X-Proofpoint-GUID: hGRzDyXS3lW8hFg00DNeS65JseMhr6Xt
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-Hello,
+On Thu, 10 Aug 2023 16:19:18 +0200, Arnd Bergmann wrote:
 
-On Thu, Jul 13, 2023 at 07:13:57PM +0800, Leizhen (ThunderTown) wrote:
+> Most of the patches I sent so far for the -Wmissing-prototype warnings
+> have made it into linux-next now. There are a few that I'm resending
+> now as nobody has picked them up, and then a number of fixes that I
+> found while test-building across all architectures rather than just the
+> ones I usually test.
 > 
+> The first 15 patches in this series should be uncontroversial, so
+> I expect that either a subsystem maintainer or Andrew Morton can
+> apply these directly.
 > 
-> On 2023/7/13 0:15, Eric DeVolder wrote:
-> > The kexec and crash kernel options are provided in the common
-> > kernel/Kconfig.kexec. Utilize the common options and provide
-> > the ARCH_SUPPORTS_ and ARCH_SELECTS_ entries to recreate the
-> > equivalent set of KEXEC and CRASH options.
-> > 
-> > Signed-off-by: Eric DeVolder <eric.devolder@oracle.com>
-> > ---
-> >  arch/x86/Kconfig | 92 ++++++++++--------------------------------------
-> >  1 file changed, 19 insertions(+), 73 deletions(-)
-> > 
-> > diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-> > index 7422db409770..9767a343f7c2 100644
-> > --- a/arch/x86/Kconfig
-> > +++ b/arch/x86/Kconfig
-> > @@ -2040,88 +2040,34 @@ config EFI_RUNTIME_MAP
-> >  
-> >  source "kernel/Kconfig.hz"
-> >  
-> > -config KEXEC
-> > -	bool "kexec system call"
-> > -	select KEXEC_CORE
-> > -	help
-> > -	  kexec is a system call that implements the ability to shutdown your
-> > -	  current kernel, and to start another kernel.  It is like a reboot
-> > -	  but it is independent of the system firmware.   And like a reboot
-> > -	  you can start any kernel with it, not just Linux.
-> > -
-> > -	  The name comes from the similarity to the exec system call.
-> > -
-> > -	  It is an ongoing process to be certain the hardware in a machine
-> > -	  is properly shutdown, so do not be surprised if this code does not
-> > -	  initially work for you.  As of this writing the exact hardware
-> > -	  interface is strongly in flux, so no good recommendation can be
-> > -	  made.
-> > -
-> > -config KEXEC_FILE
-> > -	bool "kexec file based system call"
-> > -	select KEXEC_CORE
-> > -	select HAVE_IMA_KEXEC if IMA
-> > -	depends on X86_64
-> > -	depends on CRYPTO=y
-> > -	depends on CRYPTO_SHA256=y
-> > -	help
-> > -	  This is new version of kexec system call. This system call is
-> > -	  file based and takes file descriptors as system call argument
-> > -	  for kernel and initramfs as opposed to list of segments as
-> > -	  accepted by previous system call.
-> > +config ARCH_SUPPORTS_KEXEC
-> > +	def_bool y
-> 
-> In v5, Joel Fernandes seems to suggest you change it to the following form:
+> [...]
 
-It's unfortunate that the suggestion did not make it to the mailinglist.
+Applied to 6.6/scsi-queue, thanks!
 
-> In arch/Kconfig:
-> +config ARCH_SUPPORTS_KEXEC
-> +	bool
-> 
-> In arch/x86/Kconfig:
-> config X86
-> 	... ...
-> +	select ARCH_SUPPORTS_KEXEC
-> 
-> In arch/arm64/Kconfig:
-> config ARM64
-> 	... ...
-> +	select ARCH_SUPPORTS_KEXEC if PM_SLEEP_SMP
+[07/17] scsi: qlogicpti: mark qlogicpti_info() static
+        https://git.kernel.org/mkp/scsi/c/71cc486335c4
+[11/17] scsi: gvp11: remove unused gvp11_setup() function
+        https://git.kernel.org/mkp/scsi/c/bfaa4a0ce1bb
 
-Which might work for this case
-
-> 
-> etc..
-> 
-> You can refer to ARCH_HAS_DEBUG_VIRTUAL.
-> 
-> >  
-> > -config ARCH_HAS_KEXEC_PURGATORY
-> > -	def_bool KEXEC_FILE
-> > +config ARCH_SUPPORTS_KEXEC_FILE
-> > +	def_bool X86_64 && CRYPTO && CRYPTO_SHA256
-> >  
-> > -config KEXEC_SIG
-> > -	bool "Verify kernel signature during kexec_file_load() syscall"
-> > +config ARCH_SELECTS_KEXEC_FILE
-> > +	def_bool y
-> >  	depends on KEXEC_FILE
-> > -	help
-> > +	select HAVE_IMA_KEXEC if IMA
-
-but not this case, at least not this trivially.
-
-Than for consistency it looks better to keep as is.
-
-Thanks
-
-Michal
-
-> >  
-> > -	  This option makes the kexec_file_load() syscall check for a valid
-> > -	  signature of the kernel image.  The image can still be loaded without
-> > -	  a valid signature unless you also enable KEXEC_SIG_FORCE, though if
-> > -	  there's a signature that we can check, then it must be valid.
-> > +config ARCH_HAS_KEXEC_PURGATORY
-> > +	def_bool KEXEC_FILE
-> >  
-> > -	  In addition to this option, you need to enable signature
-> > -	  verification for the corresponding kernel image type being
-> > -	  loaded in order for this to work.
-> > +config ARCH_SUPPORTS_KEXEC_SIG
-> > +	def_bool y
-> >  
-> > -config KEXEC_SIG_FORCE
-> > -	bool "Require a valid signature in kexec_file_load() syscall"
-> > -	depends on KEXEC_SIG
-> > -	help
-> > -	  This option makes kernel signature verification mandatory for
-> > -	  the kexec_file_load() syscall.
-> > +config ARCH_SUPPORTS_KEXEC_SIG_FORCE
-> > +	def_bool y
-> >  
-> > -config KEXEC_BZIMAGE_VERIFY_SIG
-> > -	bool "Enable bzImage signature verification support"
-> > -	depends on KEXEC_SIG
-> > -	depends on SIGNED_PE_FILE_VERIFICATION
-> > -	select SYSTEM_TRUSTED_KEYRING
-> > -	help
-> > -	  Enable bzImage signature verification support.
-> > +config ARCH_SUPPORTS_KEXEC_BZIMAGE_VERIFY_SIG
-> > +	def_bool y
-> >  
-> > -config CRASH_DUMP
-> > -	bool "kernel crash dumps"
-> > -	depends on X86_64 || (X86_32 && HIGHMEM)
-> > -	help
-> > -	  Generate crash dump after being started by kexec.
-> > -	  This should be normally only set in special crash dump kernels
-> > -	  which are loaded in the main kernel with kexec-tools into
-> > -	  a specially reserved region and then later executed after
-> > -	  a crash by kdump/kexec. The crash dump kernel must be compiled
-> > -	  to a memory address not used by the main kernel or BIOS using
-> > -	  PHYSICAL_START, or it must be built as a relocatable image
-> > -	  (CONFIG_RELOCATABLE=y).
-> > -	  For more details see Documentation/admin-guide/kdump/kdump.rst
-> > +config ARCH_SUPPORTS_KEXEC_JUMP
-> > +	def_bool y
-> >  
-> > -config KEXEC_JUMP
-> > -	bool "kexec jump"
-> > -	depends on KEXEC && HIBERNATION
-> > -	help
-> > -	  Jump between original kernel and kexeced kernel and invoke
-> > -	  code in physical address mode via KEXEC
-> > +config ARCH_SUPPORTS_CRASH_DUMP
-> > +	def_bool X86_64 || (X86_32 && HIGHMEM)
-> >  
-> >  config PHYSICAL_START
-> >  	hex "Physical address where the kernel is loaded" if (EXPERT || CRASH_DUMP)
-> > 
-> 
-> -- 
-> Regards,
->   Zhen Lei
+-- 
+Martin K. Petersen	Oracle Linux Engineering
