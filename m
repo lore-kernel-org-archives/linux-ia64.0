@@ -2,58 +2,61 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 5FF54C83F19
-	for <linux-ia64@archiver.kernel.org>; Mon, 28 Aug 2023 06:43:56 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 4D2E5C83F17
+	for <linux-ia64@archiver.kernel.org>; Mon, 28 Aug 2023 08:09:40 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S229509AbjH1GnV convert rfc822-to-8bit (ORCPT
-        <rfc822;linux-ia64@archiver.kernel.org>);
-        Mon, 28 Aug 2023 02:43:21 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:36010 "EHLO
+        id S229936AbjH1IJI (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Mon, 28 Aug 2023 04:09:08 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:55294 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S229507AbjH1Gm4 (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Mon, 28 Aug 2023 02:42:56 -0400
-Received: from mail-yw1-f174.google.com (mail-yw1-f174.google.com [209.85.128.174])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 38B22C4;
-        Sun, 27 Aug 2023 23:42:54 -0700 (PDT)
-Received: by mail-yw1-f174.google.com with SMTP id 00721157ae682-58ca499456dso35642847b3.1;
-        Sun, 27 Aug 2023 23:42:54 -0700 (PDT)
+        with ESMTP id S229937AbjH1IIj (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Mon, 28 Aug 2023 04:08:39 -0400
+Received: from mail-pl1-x629.google.com (mail-pl1-x629.google.com [IPv6:2607:f8b0:4864:20::629])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 391921BB;
+        Mon, 28 Aug 2023 01:08:02 -0700 (PDT)
+Received: by mail-pl1-x629.google.com with SMTP id d9443c01a7336-1bf1935f6c2so19085105ad.1;
+        Mon, 28 Aug 2023 01:08:02 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=gmail.com; s=20221208; t=1693210077; x=1693814877;
+        h=content-transfer-encoding:in-reply-to:mime-version:user-agent:date
+         :message-id:from:cc:references:to:subject:from:to:cc:subject:date
+         :message-id:reply-to;
+        bh=pnrE6dyfVAprK/xFUC60jFewyVljQRt3NNtTMulp0V0=;
+        b=LVg55P2ejT0BJXH9H1+hgJHcBL2A+IF5g+KpwZsnJ2WoqXmcrL9ZfEfa3T6fNEdxE+
+         ga2nqaZ+gZjmffBcNuVnaXDtmvodkJeUEflTba5i6j/rIlhBduWdBgZRPVnHwy+erFMo
+         Q2sF5ZgAuDt+03EKZEd8qEogPdBU5cTg8EccDlTx6cSnC2QLYfomUfDCZyZGJl19L0Ry
+         zfDO9BgqWN0KlkikpK3fWA7KZvQWChySAj+L6JXiUhVTo7xH2gRnW3f4Al2lAGJTZzAW
+         5ZruNkogVGDYB3ptB7Tk7PeewBGyh+fZdTDyBJ7/jPzoGq3RnYeGV17VCUydj0j+5OXO
+         MJDA==
 X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20221208; t=1693204973; x=1693809773;
-        h=content-transfer-encoding:cc:to:subject:message-id:date:from
-         :in-reply-to:references:mime-version:x-gm-message-state:from:to:cc
-         :subject:date:message-id:reply-to;
-        bh=1ZAs6BPn0UEnVbrYLaaDeF3O9l7Iturm7FWJFQ5jda0=;
-        b=VAz5SDZnSv/j4h6SjG4uBv8sOT0HChvsC1/jJgIQymXVjMucFLcusx1WPA5CWMaW4O
-         MaqjxMuTCIiFvFr5nIgrOxTqh2L/nVlazbCQgK6V+u6eTrU21RWq+nCzAx6EOz8QRJh2
-         oxG7ltFhQ6dZ4mRdnecCxhGpVB9FUF4jIy6Xnr09PO5FHfs0gYqM0qFVFwUYRSAC2Mex
-         OXIux5OM34WtFn1QAcGXvpYYjHluYItgsqQhUvJ7HcA/Ljnj00FinMQxGV3EXDWLGSon
-         HdEwXybrMl/OIVwdC3zrujq8ACFZZPs7Ag97MtpZSuB84rDn8exZHRVce+TdfHrZRizE
-         tpkA==
-X-Gm-Message-State: AOJu0YxMvHtIySreGZUxGNS0Aj6gbLZeGwc5gaBPrbkL3/02tJMdbBOk
-        J8zV0oAqwt18awLH3ZLcnkePgv2u0PTbxA==
-X-Google-Smtp-Source: AGHT+IEmYuCZ2oQNMpW7RRwA17Ofyq/MfcmWHEuG57kibh5t95/QQvu+3sCttxs8+iZ3o97wiO+7kA==
-X-Received: by 2002:a25:42cc:0:b0:d77:94d6:aa6f with SMTP id p195-20020a2542cc000000b00d7794d6aa6fmr14827618yba.15.1693204973092;
-        Sun, 27 Aug 2023 23:42:53 -0700 (PDT)
-Received: from mail-yb1-f179.google.com (mail-yb1-f179.google.com. [209.85.219.179])
-        by smtp.gmail.com with ESMTPSA id 184-20020a2504c1000000b00c64533e4e20sm1554144ybe.33.2023.08.27.23.42.51
-        (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);
-        Sun, 27 Aug 2023 23:42:51 -0700 (PDT)
-Received: by mail-yb1-f179.google.com with SMTP id 3f1490d57ef6-d780bca9275so2580309276.1;
-        Sun, 27 Aug 2023 23:42:51 -0700 (PDT)
-X-Received: by 2002:a25:8502:0:b0:d7a:e348:1e47 with SMTP id
- w2-20020a258502000000b00d7ae3481e47mr3956815ybk.36.1693204971245; Sun, 27 Aug
- 2023 23:42:51 -0700 (PDT)
-MIME-Version: 1.0
-References: <20230810141947.1236730-1-arnd@kernel.org> <169292577153.789945.11297239773543112051.b4-ty@oracle.com>
- <3956e2a4-c545-1212-e95f-3cf61a60d6a4@gmail.com> <CAMuHMdWC2S330_Vb_NTHTDC=BakBsw4ouP-eFJv0erV1-jmvTQ@mail.gmail.com>
- <130b3b57-edb0-184d-5b5f-69b013715773@gmail.com>
-In-Reply-To: <130b3b57-edb0-184d-5b5f-69b013715773@gmail.com>
-From:   Geert Uytterhoeven <geert@linux-m68k.org>
-Date:   Mon, 28 Aug 2023 08:42:39 +0200
-X-Gmail-Original-Message-ID: <CAMuHMdUkZmkBSksvaGcDCKz2tsgkwyWgDa+WwCJm2UxFMCj1jw@mail.gmail.com>
-Message-ID: <CAMuHMdUkZmkBSksvaGcDCKz2tsgkwyWgDa+WwCJm2UxFMCj1jw@mail.gmail.com>
+        d=1e100.net; s=20221208; t=1693210077; x=1693814877;
+        h=content-transfer-encoding:in-reply-to:mime-version:user-agent:date
+         :message-id:from:cc:references:to:subject:x-gm-message-state:from:to
+         :cc:subject:date:message-id:reply-to;
+        bh=pnrE6dyfVAprK/xFUC60jFewyVljQRt3NNtTMulp0V0=;
+        b=kx2AbQTuZzgjqeFlKchv8jO7AJiM7c3VlC8NfaV+q52q9T+J75VLbGGUz5p1FsAl6M
+         /1UmeHL7uXBzA4bhtcaDeQ5M2p/QC2/RjV8f3Ggekio2VHKQrQ/fMVVdVob1tp/nPETL
+         aaV3cMvyHQ9X3cxTrAvdEUIi2Mwh4dHPjNQdAWloEG87p0SAw9gwcJhOE9t8TbSEHqAQ
+         /MjskPjAjLoKi64Vc2l/+8ISC0SUk5acxV0xnIXImrtLWQYon8khxhuWz3lx0t1GoaDM
+         1gKRsR04XkdyvcqBlD3sIQSj8s3DReR/TCbdQLODL4RCOKBX61FDo4x0nMIu3/ij/ynI
+         KPVQ==
+X-Gm-Message-State: AOJu0YxXEuACwavoq7XtdyCkfFO+zXU8Ht0PMWp6kK2NrFqIyFDMqx0o
+        80v+MhYvCUFcG6ybUpGrgxBDzLvYkMTO1A==
+X-Google-Smtp-Source: AGHT+IHEN6rjlzubXIy3DuU1iYHuYGfJmUDj7MCrRMJIjxExjNAtfO/xrf/2cugqJ3sCcKtAmuhffg==
+X-Received: by 2002:a17:903:41d1:b0:1bf:193a:70b6 with SMTP id u17-20020a17090341d100b001bf193a70b6mr38374653ple.5.1693210077452;
+        Mon, 28 Aug 2023 01:07:57 -0700 (PDT)
+Received: from [10.1.1.24] (125-236-136-221-fibre.sparkbb.co.nz. [125.236.136.221])
+        by smtp.gmail.com with ESMTPSA id x19-20020a170902ea9300b001bc445e2497sm6610519plb.79.2023.08.28.01.07.30
+        (version=TLS1_2 cipher=ECDHE-ECDSA-AES128-GCM-SHA256 bits=128/128);
+        Mon, 28 Aug 2023 01:07:57 -0700 (PDT)
 Subject: Re: (subset) [PATCH 00/17] -Wmissing-prototype warning fixes
-To:     Michael Schmitz <schmitzmic@gmail.com>
+To:     Geert Uytterhoeven <geert@linux-m68k.org>
+References: <20230810141947.1236730-1-arnd@kernel.org>
+ <169292577153.789945.11297239773543112051.b4-ty@oracle.com>
+ <3956e2a4-c545-1212-e95f-3cf61a60d6a4@gmail.com>
+ <CAMuHMdWC2S330_Vb_NTHTDC=BakBsw4ouP-eFJv0erV1-jmvTQ@mail.gmail.com>
+ <130b3b57-edb0-184d-5b5f-69b013715773@gmail.com>
+ <CAMuHMdUkZmkBSksvaGcDCKz2tsgkwyWgDa+WwCJm2UxFMCj1jw@mail.gmail.com>
 Cc:     "Martin K. Petersen" <martin.petersen@oracle.com>,
         Andrew Morton <akpm@linux-foundation.org>,
         linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@kernel.org>,
@@ -102,27 +105,41 @@ Cc:     "Martin K. Petersen" <martin.petersen@oracle.com>,
         linux-block@vger.kernel.org, linux-scsi@vger.kernel.org,
         linux-mtd@lists.infradead.org, linux-trace-kernel@vger.kernel.org,
         linux-pci@vger.kernel.org, linux-kbuild@vger.kernel.org
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
+From:   Michael Schmitz <schmitzmic@gmail.com>
+Message-ID: <dbed3311-6b8e-a396-7e9e-2747902c5d6a@gmail.com>
+Date:   Mon, 28 Aug 2023 20:07:27 +1200
+User-Agent: Mozilla/5.0 (X11; Linux ppc; rv:45.0) Gecko/20100101
+ Icedove/45.4.0
+MIME-Version: 1.0
+In-Reply-To: <CAMuHMdUkZmkBSksvaGcDCKz2tsgkwyWgDa+WwCJm2UxFMCj1jw@mail.gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On Sat, Aug 26, 2023 at 12:44 AM Michael Schmitz <schmitzmic@gmail.com> wrote:
-> (Incidentally - did you ever publish the m68k full history tree anywhere
-> in git?)
+Hi Geert,
 
-You mean the gitified version of the Linux/m68k CVS tree Ralf created
-for me because my machine wasn't powerful enough?
-No, and I should look into doing that...
+Am 28.08.2023 um 18:42 schrieb Geert Uytterhoeven:
+> On Sat, Aug 26, 2023 at 12:44 AM Michael Schmitz <schmitzmic@gmail.com> wrote:
+>> (Incidentally - did you ever publish the m68k full history tree anywhere
+>> in git?)
+>
+> You mean the gitified version of the Linux/m68k CVS tree Ralf created
+> for me because my machine wasn't powerful enough?
 
-Gr{oetje,eeting}s,
+The very same ...
 
-                        Geert
+> No, and I should look into doing that...
 
--- 
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+No pressure!
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+Cheers,
+
+	Michael
+
+>
+> Gr{oetje,eeting}s,
+>
+>                         Geert
+>
