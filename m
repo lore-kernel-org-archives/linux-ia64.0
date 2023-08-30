@@ -2,144 +2,133 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 4D2E5C83F17
-	for <linux-ia64@archiver.kernel.org>; Mon, 28 Aug 2023 08:09:40 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id D7C76C83F14
+	for <linux-ia64@archiver.kernel.org>; Wed, 30 Aug 2023 20:18:59 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S229936AbjH1IJI (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Mon, 28 Aug 2023 04:09:08 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:55294 "EHLO
+        id S235625AbjH3UTA (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Wed, 30 Aug 2023 16:19:00 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:41116 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S229937AbjH1IIj (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Mon, 28 Aug 2023 04:08:39 -0400
-Received: from mail-pl1-x629.google.com (mail-pl1-x629.google.com [IPv6:2607:f8b0:4864:20::629])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 391921BB;
-        Mon, 28 Aug 2023 01:08:02 -0700 (PDT)
-Received: by mail-pl1-x629.google.com with SMTP id d9443c01a7336-1bf1935f6c2so19085105ad.1;
-        Mon, 28 Aug 2023 01:08:02 -0700 (PDT)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=gmail.com; s=20221208; t=1693210077; x=1693814877;
-        h=content-transfer-encoding:in-reply-to:mime-version:user-agent:date
-         :message-id:from:cc:references:to:subject:from:to:cc:subject:date
-         :message-id:reply-to;
-        bh=pnrE6dyfVAprK/xFUC60jFewyVljQRt3NNtTMulp0V0=;
-        b=LVg55P2ejT0BJXH9H1+hgJHcBL2A+IF5g+KpwZsnJ2WoqXmcrL9ZfEfa3T6fNEdxE+
-         ga2nqaZ+gZjmffBcNuVnaXDtmvodkJeUEflTba5i6j/rIlhBduWdBgZRPVnHwy+erFMo
-         Q2sF5ZgAuDt+03EKZEd8qEogPdBU5cTg8EccDlTx6cSnC2QLYfomUfDCZyZGJl19L0Ry
-         zfDO9BgqWN0KlkikpK3fWA7KZvQWChySAj+L6JXiUhVTo7xH2gRnW3f4Al2lAGJTZzAW
-         5ZruNkogVGDYB3ptB7Tk7PeewBGyh+fZdTDyBJ7/jPzoGq3RnYeGV17VCUydj0j+5OXO
-         MJDA==
-X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20221208; t=1693210077; x=1693814877;
-        h=content-transfer-encoding:in-reply-to:mime-version:user-agent:date
-         :message-id:from:cc:references:to:subject:x-gm-message-state:from:to
-         :cc:subject:date:message-id:reply-to;
-        bh=pnrE6dyfVAprK/xFUC60jFewyVljQRt3NNtTMulp0V0=;
-        b=kx2AbQTuZzgjqeFlKchv8jO7AJiM7c3VlC8NfaV+q52q9T+J75VLbGGUz5p1FsAl6M
-         /1UmeHL7uXBzA4bhtcaDeQ5M2p/QC2/RjV8f3Ggekio2VHKQrQ/fMVVdVob1tp/nPETL
-         aaV3cMvyHQ9X3cxTrAvdEUIi2Mwh4dHPjNQdAWloEG87p0SAw9gwcJhOE9t8TbSEHqAQ
-         /MjskPjAjLoKi64Vc2l/+8ISC0SUk5acxV0xnIXImrtLWQYon8khxhuWz3lx0t1GoaDM
-         1gKRsR04XkdyvcqBlD3sIQSj8s3DReR/TCbdQLODL4RCOKBX61FDo4x0nMIu3/ij/ynI
-         KPVQ==
-X-Gm-Message-State: AOJu0YxXEuACwavoq7XtdyCkfFO+zXU8Ht0PMWp6kK2NrFqIyFDMqx0o
-        80v+MhYvCUFcG6ybUpGrgxBDzLvYkMTO1A==
-X-Google-Smtp-Source: AGHT+IHEN6rjlzubXIy3DuU1iYHuYGfJmUDj7MCrRMJIjxExjNAtfO/xrf/2cugqJ3sCcKtAmuhffg==
-X-Received: by 2002:a17:903:41d1:b0:1bf:193a:70b6 with SMTP id u17-20020a17090341d100b001bf193a70b6mr38374653ple.5.1693210077452;
-        Mon, 28 Aug 2023 01:07:57 -0700 (PDT)
-Received: from [10.1.1.24] (125-236-136-221-fibre.sparkbb.co.nz. [125.236.136.221])
-        by smtp.gmail.com with ESMTPSA id x19-20020a170902ea9300b001bc445e2497sm6610519plb.79.2023.08.28.01.07.30
-        (version=TLS1_2 cipher=ECDHE-ECDSA-AES128-GCM-SHA256 bits=128/128);
-        Mon, 28 Aug 2023 01:07:57 -0700 (PDT)
-Subject: Re: (subset) [PATCH 00/17] -Wmissing-prototype warning fixes
-To:     Geert Uytterhoeven <geert@linux-m68k.org>
-References: <20230810141947.1236730-1-arnd@kernel.org>
- <169292577153.789945.11297239773543112051.b4-ty@oracle.com>
- <3956e2a4-c545-1212-e95f-3cf61a60d6a4@gmail.com>
- <CAMuHMdWC2S330_Vb_NTHTDC=BakBsw4ouP-eFJv0erV1-jmvTQ@mail.gmail.com>
- <130b3b57-edb0-184d-5b5f-69b013715773@gmail.com>
- <CAMuHMdUkZmkBSksvaGcDCKz2tsgkwyWgDa+WwCJm2UxFMCj1jw@mail.gmail.com>
-Cc:     "Martin K. Petersen" <martin.petersen@oracle.com>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@kernel.org>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Matt Turner <mattst88@gmail.com>,
-        Vineet Gupta <vgupta@kernel.org>,
-        Russell King <linux@armlinux.org.uk>,
+        with ESMTP id S235340AbjH3UTA (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Wed, 30 Aug 2023 16:19:00 -0400
+Received: from pandora.armlinux.org.uk (unknown [IPv6:2001:4d48:ad52:32c8:5054:ff:fe00:142])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id C25813C00;
+        Wed, 30 Aug 2023 13:18:35 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
+        d=armlinux.org.uk; s=pandora-2019; h=Sender:In-Reply-To:Content-Type:
+        MIME-Version:References:Message-ID:Subject:Cc:To:From:Date:Reply-To:
+        Content-Transfer-Encoding:Content-ID:Content-Description:Resent-Date:
+        Resent-From:Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:List-Id:
+        List-Help:List-Unsubscribe:List-Subscribe:List-Post:List-Owner:List-Archive;
+        bh=tjJFXRrC0i86SOlwgDvPcsbn6f+wSEMk3Zmh190DkJ8=; b=xHP24Y/i/tnQDk79l2uTYI3JHj
+        lP0dtLRHCqayWm9bwkWjvNBtOs2R78CGLNGRim6gTaqJdL9BQbQbPYRb8WzQfWr/W1m+DqFTYAxnd
+        UgYr/Ps3inemlF6uvLKaDCx6hdvKtYA+rS+1e+8yq0sDlf272aPTceyNM6nFrDtIBAXi1lmKmdLGC
+        OVTtKny5z2AlHOVKvX8jRMy9wls2UDe9xMULQPdWgcRKBOF0EQ7r0K++CljbtmGhf33Q/DwK57Dwz
+        hhPbnLA8vITgdB8scOlAI9dQksSfLKbM1f3OwNJopUziqpurdNxtdUZeLhCfGFBXrpkZLtwlK0vTR
+        Ps3dkCoQ==;
+Received: from shell.armlinux.org.uk ([fd8f:7570:feb6:1:5054:ff:fe00:4ec]:52236)
+        by pandora.armlinux.org.uk with esmtpsa  (TLS1.3) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+        (Exim 4.96)
+        (envelope-from <linux@armlinux.org.uk>)
+        id 1qbPyO-0001ww-2C;
+        Wed, 30 Aug 2023 19:31:24 +0100
+Received: from linux by shell.armlinux.org.uk with local (Exim 4.94.2)
+        (envelope-from <linux@shell.armlinux.org.uk>)
+        id 1qbPyJ-0005vm-NG; Wed, 30 Aug 2023 19:31:19 +0100
+Date:   Wed, 30 Aug 2023 19:31:19 +0100
+From:   "Russell King (Oracle)" <linux@armlinux.org.uk>
+To:     James Morse <james.morse@arm.com>
+Cc:     linux-pm@vger.kernel.org, loongarch@lists.linux.dev,
+        kvmarm@lists.linux.dev, kvm@vger.kernel.org,
+        linux-acpi@vger.kernel.org, linux-arch@vger.kernel.org,
+        linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, x86@kernel.org,
+        Marc Zyngier <maz@kernel.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Lorenzo Pieralisi <lpieralisi@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Sudeep Holla <sudeep.holla@arm.com>,
+        Borislav Petkov <bp@alien8.de>, H Peter Anvin <hpa@zytor.com>,
+        Dave Hansen <dave.hansen@linux.intel.com>,
+        Ingo Molnar <mingo@redhat.com>, Will Deacon <will@kernel.org>,
         Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will@kernel.org>, Guo Ren <guoren@kernel.org>,
-        Brian Cain <bcain@quicinc.com>,
         Huacai Chen <chenhuacai@kernel.org>,
+        Suzuki K Poulose <suzuki.poulose@arm.com>,
+        Oliver Upton <oliver.upton@linux.dev>,
+        Len Brown <lenb@kernel.org>,
+        Rafael Wysocki <rafael@kernel.org>,
         WANG Xuerui <kernel@xen0n.name>,
-        Michal Simek <monstr@monstr.eu>,
-        Thomas Bogendoerfer <tsbogend@alpha.franken.de>,
-        Dinh Nguyen <dinguyen@kernel.org>,
-        Jonas Bonn <jonas@southpole.se>,
-        Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>,
-        Stafford Horne <shorne@gmail.com>,
-        "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>,
-        Helge Deller <deller@gmx.de>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        Christophe Leroy <christophe.leroy@csgroup.eu>,
-        Palmer Dabbelt <palmer@dabbelt.com>,
-        Heiko Carstens <hca@linux.ibm.com>,
-        John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
-        x86@kernel.org, Borislav Petkov <bp@alien8.de>,
-        Max Filippov <jcmvbkbc@gmail.com>,
-        Jens Axboe <axboe@kernel.dk>,
-        Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
-        Richard Weinberger <richard@nod.at>,
-        Bjorn Helgaas <bhelgaas@google.com>,
-        Masahiro Yamada <masahiroy@kernel.org>,
-        Nathan Chancellor <nathan@kernel.org>,
-        Nick Desaulniers <ndesaulniers@google.com>,
-        Guenter Roeck <linux@roeck-us.net>,
-        Stephen Rothwell <sfr@canb.auug.org.au>,
-        linux-next@vger.kernel.org, linux-alpha@vger.kernel.org,
-        linux-snps-arc@lists.infradead.org,
-        linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org,
-        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
-        loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org,
-        linux-mips@vger.kernel.org, linux-openrisc@vger.kernel.org,
-        linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org,
-        linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
-        linux-block@vger.kernel.org, linux-scsi@vger.kernel.org,
-        linux-mtd@lists.infradead.org, linux-trace-kernel@vger.kernel.org,
-        linux-pci@vger.kernel.org, linux-kbuild@vger.kernel.org
-From:   Michael Schmitz <schmitzmic@gmail.com>
-Message-ID: <dbed3311-6b8e-a396-7e9e-2747902c5d6a@gmail.com>
-Date:   Mon, 28 Aug 2023 20:07:27 +1200
-User-Agent: Mozilla/5.0 (X11; Linux ppc; rv:45.0) Gecko/20100101
- Icedove/45.4.0
+        Salil Mehta <salil.mehta@huawei.com>,
+        Jean-Philippe Brucker <jean-philippe@linaro.org>
+Subject: Re: [RFC PATCH 02/32] ACPI: Move ACPI_HOTPLUG_CPU to be enabled per
+ architecture
+Message-ID: <ZO+K9+C+RgNeZ7Nq@shell.armlinux.org.uk>
+References: <20230203135043.409192-1-james.morse@arm.com>
+ <20230203135043.409192-3-james.morse@arm.com>
 MIME-Version: 1.0
-In-Reply-To: <CAMuHMdUkZmkBSksvaGcDCKz2tsgkwyWgDa+WwCJm2UxFMCj1jw@mail.gmail.com>
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+In-Reply-To: <20230203135043.409192-3-james.morse@arm.com>
+Sender: Russell King (Oracle) <linux@armlinux.org.uk>
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-Hi Geert,
+On Fri, Feb 03, 2023 at 01:50:13PM +0000, James Morse wrote:
+> --- a/arch/ia64/Kconfig
+> +++ b/arch/ia64/Kconfig
+> @@ -15,6 +15,7 @@ config IA64
+>  	select ARCH_MIGHT_HAVE_PC_PARPORT
+>  	select ARCH_MIGHT_HAVE_PC_SERIO
+>  	select ACPI
+> +	select ACPI_HOTPLUG_CPU if ACPI
+> --- a/arch/loongarch/Kconfig
+> +++ b/arch/loongarch/Kconfig
+> @@ -5,6 +5,7 @@ config LOONGARCH
+>  	select ACPI
+>  	select ACPI_GENERIC_GSI if ACPI
+>  	select ACPI_MCFG if ACPI
+> +	select ACPI_HOTPLUG_CPU if ACPI
+> --- a/arch/x86/Kconfig
+> +++ b/arch/x86/Kconfig
+> @@ -59,6 +59,7 @@ config X86
+>  	#
+>  	select ACPI_LEGACY_TABLES_LOOKUP	if ACPI
+>  	select ACPI_SYSTEM_POWER_STATES_SUPPORT	if ACPI
+> +	select ACPI_HOTPLUG_CPU			if ACPI
+> --- a/drivers/acpi/Kconfig
+> +++ b/drivers/acpi/Kconfig
+> @@ -309,7 +309,6 @@ config ACPI_HOTPLUG_CPU
+>  	bool
+>  	depends on ACPI_PROCESSOR && HOTPLUG_CPU
+>  	select ACPI_CONTAINER
+> -	default y
 
-Am 28.08.2023 um 18:42 schrieb Geert Uytterhoeven:
-> On Sat, Aug 26, 2023 at 12:44 AM Michael Schmitz <schmitzmic@gmail.com> wrote:
->> (Incidentally - did you ever publish the m68k full history tree anywhere
->> in git?)
->
-> You mean the gitified version of the Linux/m68k CVS tree Ralf created
-> for me because my machine wasn't powerful enough?
+When selecting the symbol, it's a good idea to ensure that its
+dependencies are satisfied. So here, ACPI_HOTPLUG_CPU depends on
+ACPI_PROCESSOR and HOTPLUG_CPU.
 
-The very same ...
+For x86, you're selecting ACPI_HOTPLUG_CPU if ACPI is enabled,
+and ACPI can be freely enabled. HOTPLUG_CPU depends on SMP,
+which is also a freely selectable option. Lastly,
+ACPI_PROCESSOR depends on X86 || IA64 || ARM64 || LOONGARCH,
+and is a user selectable, defaulting-y option if ACPI is
+enabled.
 
-> No, and I should look into doing that...
+So, shouldn't the x86 select be:
 
-No pressure!
+	select ACPI_HOTPLUG_CPU if ACPI_PROCESSOR && HOTPLUG_CPU
 
-Cheers,
+?
 
-	Michael
+I suspect similar issues exist for the other architecture Kconfig files
+modified above.
 
->
-> Gr{oetje,eeting}s,
->
->                         Geert
->
+This seems to also be in the latest rfc too, which is why I'm bringing
+it up.
+
+Thanks.
+
+-- 
+RMK's Patch system: https://www.armlinux.org.uk/developer/patches/
+FTTP is here! 80Mbps down 10Mbps up. Decent connectivity at last!
