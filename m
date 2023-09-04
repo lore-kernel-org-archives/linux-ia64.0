@@ -2,94 +2,63 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 15B67C83F3F
-	for <linux-ia64@archiver.kernel.org>; Mon,  4 Sep 2023 06:50:14 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 90F2ECA0FFC
+	for <linux-ia64@archiver.kernel.org>; Tue,  5 Sep 2023 16:21:43 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S238673AbjIDGuP convert rfc822-to-8bit (ORCPT
-        <rfc822;linux-ia64@archiver.kernel.org>);
-        Mon, 4 Sep 2023 02:50:15 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:50984 "EHLO
+        id S1344620AbjIEQVO (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Tue, 5 Sep 2023 12:21:14 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:34974 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S229579AbjIDGuO (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Mon, 4 Sep 2023 02:50:14 -0400
-Received: from mail-yw1-f169.google.com (mail-yw1-f169.google.com [209.85.128.169])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id B71B2109;
-        Sun,  3 Sep 2023 23:50:11 -0700 (PDT)
-Received: by mail-yw1-f169.google.com with SMTP id 00721157ae682-58cd9d9dbf5so15252247b3.0;
-        Sun, 03 Sep 2023 23:50:11 -0700 (PDT)
-X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20221208; t=1693810211; x=1694415011;
-        h=content-transfer-encoding:cc:to:subject:message-id:date:from
-         :in-reply-to:references:mime-version:x-gm-message-state:from:to:cc
-         :subject:date:message-id:reply-to;
-        bh=3rK9iNlhM9qm2dLN2U9ruHBYs+JWxgylVxpO0f1W8IM=;
-        b=EnQw6OPmlxZD5Z0kW5XnJqBecMlspYL4JVu1kmCzuxVSIbHzWNui761SedU8kNWUQW
-         gxcHdvLd/e8lBbmGtA4SSho8FW0J+ObjbVvduRaJhdMgz5+CJEWKBsDLE2DVbrm+Z6Qw
-         FfqazM6ng2k/72qaGd0hRnlfHO6afWCD7RQE570GM0zKS6m6vGsJuhga3Axu1nV1REnO
-         od/toa6p+PUfFCvsOvaAywkdO0o0ZIsHPejZNzMviHgxFxlbq7YDLBKPJb7UAtiE09At
-         Ly5WXaddH6gM8EWGHqFd+/cqPLIHMxSHrpJNzXOXClvDDPIzS/LUpily77qP9XolDsKB
-         QewQ==
-X-Gm-Message-State: AOJu0YwiiHkdIuEZgHof7OvnSKnIb6u7lH8mtoLSkbdXjZ6OQgOw2KKY
-        JgBWsShNgrGLMy4ULAAd+EsCKoqvjrvWhw==
-X-Google-Smtp-Source: AGHT+IFEi632q5pwab44tv3exkUF3p7vca5QHIZ6OdcFpzEOX5ggp25JIQD9KB+Wjv6+/iXKKagxZw==
-X-Received: by 2002:a81:9a14:0:b0:583:7564:49de with SMTP id r20-20020a819a14000000b00583756449demr1154630ywg.3.1693810210726;
-        Sun, 03 Sep 2023 23:50:10 -0700 (PDT)
-Received: from mail-yb1-f182.google.com (mail-yb1-f182.google.com. [209.85.219.182])
-        by smtp.gmail.com with ESMTPSA id v184-20020a8185c1000000b005843155e284sm2518573ywf.49.2023.09.03.23.50.09
-        (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);
-        Sun, 03 Sep 2023 23:50:09 -0700 (PDT)
-Received: by mail-yb1-f182.google.com with SMTP id 3f1490d57ef6-d7bae413275so2754423276.0;
-        Sun, 03 Sep 2023 23:50:09 -0700 (PDT)
-X-Received: by 2002:a25:a1a9:0:b0:d7b:a78e:6b2d with SMTP id
- a38-20020a25a1a9000000b00d7ba78e6b2dmr12488603ybi.20.1693810209384; Sun, 03
- Sep 2023 23:50:09 -0700 (PDT)
+        with ESMTP id S1354068AbjIEJeU (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Tue, 5 Sep 2023 05:34:20 -0400
+X-Greylist: delayed 4353 seconds by postgrey-1.37 at lindbergh.monkeyblade.net; Tue, 05 Sep 2023 02:34:17 PDT
+Received: from mail.equinoxrise.pl (mail.equinoxrise.pl [217.61.112.157])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 2A6291A8
+        for <linux-ia64@vger.kernel.org>; Tue,  5 Sep 2023 02:34:17 -0700 (PDT)
+Received: by mail.equinoxrise.pl (Postfix, from userid 1002)
+        id 08E7A83549; Mon,  4 Sep 2023 09:41:21 +0200 (CEST)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=equinoxrise.pl;
+        s=mail; t=1693813389;
+        bh=v6OgBfK5dN7P5dQ0wCu59rOfZaiqziJeLNblJ8dOcGI=;
+        h=Date:From:To:Subject:From;
+        b=nkr6Z4OGs4XPLTTf0Lt2CEIsIRHHlfJHnyPJXsxorYJ2t35DAe185c1qArjw9vp9r
+         nwJ9dbTNlSOVsS6z8oyuMSF4Ps9TlVs6KQBRqtwUcUi3QINWbtkdvd+T3cSJWT4sa+
+         w88BKP+TWoXkXW73Cl5wxcJ4Ukswdo/xOTRSDTtqjrhyPo5gUHF5ayn03MSnFlPeVw
+         ihnByz6dvkdULd5NnuS+qTAShmUwe8DzBJLwkuityRzYlPH5XyPocYpYNU9WwjA3b+
+         gX2Bp8QgARr1p3lrJTtDna+1VB5WPxawps/kYztLmAUUPkHLWNsQF2vd3sTbB2BE6C
+         mPjNAU9epP7cQ==
+Received: by mail.equinoxrise.pl for <linux-ia64@vger.kernel.org>; Mon,  4 Sep 2023 07:40:34 GMT
+Message-ID: <20230904084500-0.1.7.r62.0.xgjgdog2fg@equinoxrise.pl>
+Date:   Mon,  4 Sep 2023 07:40:34 GMT
+From:   "Mateusz Talaga" <mateusz.talaga@equinoxrise.pl>
+To:     <linux-ia64@vger.kernel.org>
+Subject: Prezentacja
+X-Mailer: mail.equinoxrise.pl
 MIME-Version: 1.0
-References: <20230901142659.31787-1-tzimmermann@suse.de> <20230901142659.31787-5-tzimmermann@suse.de>
-In-Reply-To: <20230901142659.31787-5-tzimmermann@suse.de>
-From:   Geert Uytterhoeven <geert@linux-m68k.org>
-Date:   Mon, 4 Sep 2023 08:49:57 +0200
-X-Gmail-Original-Message-ID: <CAMuHMdV+0P40QpPcLeuSAd0HJ_Z2uPpmhyBKXnxoOQibtGAVFg@mail.gmail.com>
-Message-ID: <CAMuHMdV+0P40QpPcLeuSAd0HJ_Z2uPpmhyBKXnxoOQibtGAVFg@mail.gmail.com>
-Subject: Re: [PATCH 4/4] fbdev: Replace fb_pgprotect() with fb_pgprot_device()
-To:     Thomas Zimmermann <tzimmermann@suse.de>
-Cc:     mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu,
-        arnd@arndb.de, deller@gmx.de, linuxppc-dev@lists.ozlabs.org,
-        linux-fbdev@vger.kernel.org, linux-ia64@vger.kernel.org,
-        linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org,
-        sparclinux@vger.kernel.org, dri-devel@lists.freedesktop.org,
-        linux-arch@vger.kernel.org
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
+Content-Transfer-Encoding: quoted-printable
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On Sat, Sep 2, 2023 at 11:13 AM Thomas Zimmermann <tzimmermann@suse.de> wrote:
-> Rename the fbdev mmap helper fb_pgprotect() to fb_pgprot_device().
-> The helper sets VMA page-access flags for framebuffers in device I/O
-> memory. The new name follows pgprot_device(), which does the same for
-> arbitrary devices.
->
-> Also clean up the helper's parameters and return value. Instead of
-> the VMA instance, pass the individial parameters separately: existing
-> page-access flags, the VMAs start and end addresses and the offset
-> in the underlying device memory rsp file. Return the new page-access
-> flags. These changes align fb_pgprot_device() closer with pgprot_device.
->
-> Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+Dzie=C5=84 dobry!
 
->  arch/m68k/include/asm/fb.h           | 19 ++++++++++---------
+Czy m=C3=B3g=C5=82bym przedstawi=C4=87 rozwi=C4=85zanie, kt=C3=B3re umo=C5=
+=BCliwia monitoring ka=C5=BCdego auta w czasie rzeczywistym w tym jego po=
+zycj=C4=99, zu=C5=BCycie paliwa i przebieg?
 
-Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Dodatkowo nasze narz=C4=99dzie minimalizuje koszty utrzymania samochod=C3=
+=B3w, skraca czas przejazd=C3=B3w, a tak=C5=BCe tworzenie planu tras czy =
+dostaw.
+
+Z naszej wiedzy i do=C5=9Bwiadczenia korzysta ju=C5=BC ponad 49 tys. Klie=
+nt=C3=B3w. Monitorujemy 809 000 pojazd=C3=B3w na ca=C5=82ym =C5=9Bwiecie,=
+ co jest nasz=C4=85 najlepsz=C4=85 wizyt=C3=B3wk=C4=85.
+
+Bardzo prosz=C4=99 o e-maila zwrotnego, je=C5=9Bli mogliby=C5=9Bmy wsp=C3=
+=B3lnie om=C3=B3wi=C4=87 potencja=C5=82 wykorzystania takiego rozwi=C4=85=
+zania w Pa=C5=84stwa firmie.
 
 
-Gr{oetje,eeting}s,
-
-                        Geert
-
--- 
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+Pozdrawiam
+Mateusz Talaga
