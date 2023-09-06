@@ -2,109 +2,103 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 68A30EB8FDE
-	for <linux-ia64@archiver.kernel.org>; Wed,  6 Sep 2023 14:45:13 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 2A0E7EB8FDE
+	for <linux-ia64@archiver.kernel.org>; Wed,  6 Sep 2023 14:48:09 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S239282AbjIFOpP (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Wed, 6 Sep 2023 10:45:15 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:59498 "EHLO
+        id S241921AbjIFOsL (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Wed, 6 Sep 2023 10:48:11 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:42078 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S237678AbjIFOpP (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Wed, 6 Sep 2023 10:45:15 -0400
-Received: from mgamail.intel.com (mgamail.intel.com [192.55.52.151])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 26769172C;
-        Wed,  6 Sep 2023 07:45:11 -0700 (PDT)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple;
-  d=intel.com; i=@intel.com; q=dns/txt; s=Intel;
-  t=1694011511; x=1725547511;
-  h=message-id:date:mime-version:subject:to:cc:references:
-   from:in-reply-to:content-transfer-encoding;
-  bh=HKIKo8gJxS6xNqAxkMxzWOKQ5+W7pcHDwu58cyKSvBQ=;
-  b=OOuPPinN4LxTy7L0QxtKdAySp8/EiQe3KsxeBqvNZ4pYOObCfFXJVc9B
-   dZpxbTWTNjEh0PvN54sMULJmc6lXBdVHI5ZCSP7Y+sOT4KCxglAK2kGZF
-   2HjQPUsmgsj/ZyUdu4sTIBAq5BqFSKE36RpUoHFrymA8gfaxlSTmq3sYP
-   67uid6ayaMNcqgpTyvDH8+zPoXChcIS91y5fJPCZS9mK1d8Gw9+cqt2uv
-   BA4bipRwXIQ5N+I/RKGea4iyuSLtJijMhobzHfNDLH0wH0CUguIIGn8M+
-   nv+ZjiKqlkt3I/IecfWUxJPpwWkYlTuQN3CsWxEV2sAUFA9Kc+Ihd2CMM
-   w==;
-X-IronPort-AV: E=McAfee;i="6600,9927,10825"; a="357393634"
-X-IronPort-AV: E=Sophos;i="6.02,232,1688454000"; 
-   d="scan'208";a="357393634"
-Received: from orsmga008.jf.intel.com ([10.7.209.65])
-  by fmsmga107.fm.intel.com with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 06 Sep 2023 07:45:10 -0700
-X-ExtLoop1: 1
-X-IronPort-AV: E=McAfee;i="6600,9927,10825"; a="770777884"
-X-IronPort-AV: E=Sophos;i="6.02,232,1688454000"; 
-   d="scan'208";a="770777884"
-Received: from lmgabald-mobl2.amr.corp.intel.com (HELO [10.212.242.149]) ([10.212.242.149])
-  by orsmga008-auth.jf.intel.com with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 06 Sep 2023 07:45:09 -0700
-Message-ID: <d0d30ad4-7837-b0c4-39f4-3e317e35a41b@intel.com>
-Date:   Wed, 6 Sep 2023 07:45:09 -0700
+        with ESMTP id S234843AbjIFOsJ (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Wed, 6 Sep 2023 10:48:09 -0400
+Received: from smtp-out1.suse.de (smtp-out1.suse.de [195.135.220.28])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id E8A1B172C;
+        Wed,  6 Sep 2023 07:48:04 -0700 (PDT)
+Received: from imap2.suse-dmz.suse.de (imap2.suse-dmz.suse.de [192.168.254.74])
+        (using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+         key-exchange X25519 server-signature ECDSA (P-521) server-digest SHA512)
+        (No client certificate requested)
+        by smtp-out1.suse.de (Postfix) with ESMTPS id A75D122432;
+        Wed,  6 Sep 2023 14:48:03 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=suse.de; s=susede2_rsa;
+        t=1694011683; h=from:from:reply-to:date:date:message-id:message-id:to:to:cc:cc:
+         mime-version:mime-version:
+         content-transfer-encoding:content-transfer-encoding:
+         in-reply-to:in-reply-to:references:references;
+        bh=1WzZFokcrlW6NGGGLWd4i7Dg6KUabGpzZ6FiqlxPoi4=;
+        b=TwC2rHXizbdCLcuc98kBNbY1jPzrJH8MUQ4VjQ26oB+ROml5otTq2AfT5GtpArLlOwGnht
+        IQy9B+Jfxu2tfWgd4Lw2ZQTYf1zPfGZ597QOFz6AKfgrenZZMsGUIPSHjF0iIRJfqnvV4J
+        xMZb5M9XnRlBS4pzz82B3DJdxuiPAlQ=
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=suse.de;
+        s=susede2_ed25519; t=1694011683;
+        h=from:from:reply-to:date:date:message-id:message-id:to:to:cc:cc:
+         mime-version:mime-version:
+         content-transfer-encoding:content-transfer-encoding:
+         in-reply-to:in-reply-to:references:references;
+        bh=1WzZFokcrlW6NGGGLWd4i7Dg6KUabGpzZ6FiqlxPoi4=;
+        b=Mc2/HGFn9HSuEP4H4Q5LcaFNnrKaCB1DbKsiLnnyglv9zCM0QPDt/cUM+rpbZCweIcrHIS
+        PQ8ERS9CmBjknJBA==
+Received: from imap2.suse-dmz.suse.de (imap2.suse-dmz.suse.de [192.168.254.74])
+        (using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+         key-exchange X25519 server-signature ECDSA (P-521) server-digest SHA512)
+        (No client certificate requested)
+        by imap2.suse-dmz.suse.de (Postfix) with ESMTPS id 6269613921;
+        Wed,  6 Sep 2023 14:48:03 +0000 (UTC)
+Received: from dovecot-director2.suse.de ([192.168.254.65])
+        by imap2.suse-dmz.suse.de with ESMTPSA
+        id WBgyFyOR+GSNSgAAMHmgww
+        (envelope-from <tzimmermann@suse.de>); Wed, 06 Sep 2023 14:48:03 +0000
+From:   Thomas Zimmermann <tzimmermann@suse.de>
+To:     mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu,
+        arnd@arndb.de, deller@gmx.de
+Cc:     linuxppc-dev@lists.ozlabs.org, linux-fbdev@vger.kernel.org,
+        linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org,
+        linux-mips@vger.kernel.org, sparclinux@vger.kernel.org,
+        dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org,
+        Thomas Zimmermann <tzimmermann@suse.de>
+Subject: [PATCH v2 1/5] fbdev: Avoid file argument in fb_pgprotect()
+Date:   Wed,  6 Sep 2023 16:35:02 +0200
+Message-ID: <20230906144801.25297-2-tzimmermann@suse.de>
+X-Mailer: git-send-email 2.42.0
+In-Reply-To: <20230906144801.25297-1-tzimmermann@suse.de>
+References: <20230906144801.25297-1-tzimmermann@suse.de>
 MIME-Version: 1.0
-User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
- Thunderbird/102.15.0
-Subject: Re: [PATCH 3/8] arch/x86: Remove sentinel elem from ctl_table arrays
-Content-Language: en-US
-To:     j.granados@samsung.com, Luis Chamberlain <mcgrof@kernel.org>,
-        willy@infradead.org, josh@joshtriplett.org,
-        Kees Cook <keescook@chromium.org>,
-        Iurii Zaikin <yzaikin@google.com>,
-        Heiko Carstens <hca@linux.ibm.com>,
-        Vasily Gorbik <gor@linux.ibm.com>,
-        Alexander Gordeev <agordeev@linux.ibm.com>,
-        Christian Borntraeger <borntraeger@linux.ibm.com>,
-        Sven Schnelle <svens@linux.ibm.com>,
-        Gerald Schaefer <gerald.schaefer@linux.ibm.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>,
-        Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org,
-        "H. Peter Anvin" <hpa@zytor.com>,
-        Andy Lutomirski <luto@kernel.org>,
-        Paul Walmsley <paul.walmsley@sifive.com>,
-        Palmer Dabbelt <palmer@dabbelt.com>,
-        Albert Ou <aou@eecs.berkeley.edu>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        Nicholas Piggin <npiggin@gmail.com>,
-        Christophe Leroy <christophe.leroy@csgroup.eu>,
-        Guo Ren <guoren@kernel.org>
-Cc:     linux-fsdevel@vger.kernel.org, linux-s390@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-riscv@lists.infradead.org, linuxppc-dev@lists.ozlabs.org,
-        linux-ia64@vger.kernel.org, linux-csky@vger.kernel.org
-References: <20230906-jag-sysctl_remove_empty_elem_arch-v1-0-3935d4854248@samsung.com>
- <20230906-jag-sysctl_remove_empty_elem_arch-v1-3-3935d4854248@samsung.com>
-From:   Dave Hansen <dave.hansen@intel.com>
-In-Reply-To: <20230906-jag-sysctl_remove_empty_elem_arch-v1-3-3935d4854248@samsung.com>
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
+Content-Transfer-Encoding: 8bit
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On 9/6/23 03:03, Joel Granados via B4 Relay wrote:
-> This commit comes at the tail end of a greater effort to remove the
-> empty elements at the end of the ctl_table arrays (sentinels) which
-> will reduce the overall build time size of the kernel and run time
-> memory bloat by ~64 bytes per sentinel (further information Link :
-> https://lore.kernel.org/all/ZO5Yx5JFogGi%2FcBo@bombadil.infradead.org/)
-> 
-> Remove sentinel element from sld_sysctl and itmt_kern_table.
+Only PowerPC's fb_pgprotect() needs the file argument, although
+the implementation does not use it. Pass NULL to the internal
+helper in preparation of further updates. A later patch will remove
+the file parameter from fb_pgprotect().
 
-There's a *LOT* of content to read for a reviewer to figure out what's
-going on here between all the links.  I would have appreciated one more
-sentence here, maybe:
+While at it, replace the shift operation with PHYS_PFN().
 
-	This is now safe because the sysctl registration code
-	(register_sysctl()) implicitly uses ARRAY_SIZE() in addition
-	to checking for a sentinel.
+Suggested-by: Christophe Leroy <christophe.leroy@csgroup.eu>
+Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+---
+ arch/powerpc/include/asm/fb.h | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-That needs to be more prominent _somewhere_.  Maybe here, or maybe in
-the cover letter, but _somewhere_.
+diff --git a/arch/powerpc/include/asm/fb.h b/arch/powerpc/include/asm/fb.h
+index 5f1a2e5f7654..61e3b8806db6 100644
+--- a/arch/powerpc/include/asm/fb.h
++++ b/arch/powerpc/include/asm/fb.h
+@@ -9,7 +9,12 @@
+ static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+ 				unsigned long off)
+ {
+-	vma->vm_page_prot = phys_mem_access_prot(file, off >> PAGE_SHIFT,
++	/*
++	 * PowerPC's implementation of phys_mem_access_prot() does
++	 * not use the file argument. Set it to NULL in preparation
++	 * of later updates to the interface.
++	 */
++	vma->vm_page_prot = phys_mem_access_prot(NULL, PHYS_PFN(off),
+ 						 vma->vm_end - vma->vm_start,
+ 						 vma->vm_page_prot);
+ }
+-- 
+2.42.0
 
-That said, feel free to add this to the two x86 patches:
-
-Acked-by: Dave Hansen <dave.hansen@linux.intel.com> # for x86
