@@ -2,52 +2,52 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id C8177EE1474
-	for <linux-ia64@archiver.kernel.org>; Wed,  6 Sep 2023 14:48:12 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 91C82EE146F
+	for <linux-ia64@archiver.kernel.org>; Wed,  6 Sep 2023 14:48:11 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S241983AbjIFOsO (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Wed, 6 Sep 2023 10:48:14 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:41994 "EHLO
+        id S241974AbjIFOsN (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Wed, 6 Sep 2023 10:48:13 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:42022 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S241916AbjIFOsK (ORCPT
+        with ESMTP id S241919AbjIFOsK (ORCPT
         <rfc822;linux-ia64@vger.kernel.org>); Wed, 6 Sep 2023 10:48:10 -0400
-Received: from smtp-out2.suse.de (smtp-out2.suse.de [IPv6:2001:67c:2178:6::1d])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id D90541989;
+Received: from smtp-out1.suse.de (smtp-out1.suse.de [195.135.220.28])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 65E0A173F;
         Wed,  6 Sep 2023 07:48:05 -0700 (PDT)
 Received: from imap2.suse-dmz.suse.de (imap2.suse-dmz.suse.de [192.168.254.74])
         (using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
          key-exchange X25519 server-signature ECDSA (P-521) server-digest SHA512)
         (No client certificate requested)
-        by smtp-out2.suse.de (Postfix) with ESMTPS id 8DC601F74C;
-        Wed,  6 Sep 2023 14:48:04 +0000 (UTC)
+        by smtp-out1.suse.de (Postfix) with ESMTPS id F14C222436;
+        Wed,  6 Sep 2023 14:48:03 +0000 (UTC)
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=suse.de; s=susede2_rsa;
-        t=1694011684; h=from:from:reply-to:date:date:message-id:message-id:to:to:cc:cc:
+        t=1694011683; h=from:from:reply-to:date:date:message-id:message-id:to:to:cc:cc:
          mime-version:mime-version:
          content-transfer-encoding:content-transfer-encoding:
          in-reply-to:in-reply-to:references:references;
-        bh=8aaAz+vsYOeQGMWGQXGbY9byeUAKGEp9znJt6iNq3jk=;
-        b=g54dXVU8m1XrISNH1YiTnCuCt0Q4neVzNm45tvEY+WEzvLbBKcPGTs5+fwnu2nLcHxoOkG
-        1cBT/zBu6VmJAtLGOcw606wawDgYGxzk1yxnG2y2YGF/QA493rBG+k7RR2tpyk3jDYGUEv
-        AR7gyg51RPGj05qJp6WaeFG50JFy2mg=
+        bh=Bp3+EvNnqgMHHidbPKt1TOwu0+31lb+svFgrrlpQjas=;
+        b=w0g8f9KRsSxudhGVL9cLq7m1lQlyPLvIltbC6M7yC0GsNh8VfkD1+Y8wj1Te43KWQQzUlz
+        +JOZDrz5xlyN/xCwU1FD8Y16R9gQabaEjIdmag34R7Qx4MMsu4Rn3MxFngj6jWK46JnYu5
+        /YlxiIGlkFX34kD4DYyk/s9hdrHxK+M=
 DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=suse.de;
-        s=susede2_ed25519; t=1694011684;
+        s=susede2_ed25519; t=1694011683;
         h=from:from:reply-to:date:date:message-id:message-id:to:to:cc:cc:
          mime-version:mime-version:
          content-transfer-encoding:content-transfer-encoding:
          in-reply-to:in-reply-to:references:references;
-        bh=8aaAz+vsYOeQGMWGQXGbY9byeUAKGEp9znJt6iNq3jk=;
-        b=olI2MpDR5RuTmdxDI7fbtJOfMUEuQ6K1m/LI4CG+tbfVD0OoDiT/CWlGrHIdOysFq2tUQJ
-        fbFCcX5ltaf2MVBA==
+        bh=Bp3+EvNnqgMHHidbPKt1TOwu0+31lb+svFgrrlpQjas=;
+        b=ntl2Y+nYnXvfH9D+NJAQDZBnZVLDwE1adNefgh/ZI11sl5xkiw5v95qraOkilo55b1N/PG
+        vo3kBuCxfZXZPoCA==
 Received: from imap2.suse-dmz.suse.de (imap2.suse-dmz.suse.de [192.168.254.74])
         (using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
          key-exchange X25519 server-signature ECDSA (P-521) server-digest SHA512)
         (No client certificate requested)
-        by imap2.suse-dmz.suse.de (Postfix) with ESMTPS id 4D22B1346C;
-        Wed,  6 Sep 2023 14:48:04 +0000 (UTC)
+        by imap2.suse-dmz.suse.de (Postfix) with ESMTPS id AC7D31346C;
+        Wed,  6 Sep 2023 14:48:03 +0000 (UTC)
 Received: from dovecot-director2.suse.de ([192.168.254.65])
         by imap2.suse-dmz.suse.de with ESMTPSA
-        id 0HrpESSR+GSNSgAAMHmgww
-        (envelope-from <tzimmermann@suse.de>); Wed, 06 Sep 2023 14:48:04 +0000
+        id EEMpKSOR+GSNSgAAMHmgww
+        (envelope-from <tzimmermann@suse.de>); Wed, 06 Sep 2023 14:48:03 +0000
 From:   Thomas Zimmermann <tzimmermann@suse.de>
 To:     mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu,
         arnd@arndb.de, deller@gmx.de
@@ -56,9 +56,9 @@ Cc:     linuxppc-dev@lists.ozlabs.org, linux-fbdev@vger.kernel.org,
         linux-mips@vger.kernel.org, sparclinux@vger.kernel.org,
         dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org,
         Thomas Zimmermann <tzimmermann@suse.de>
-Subject: [PATCH v2 4/5] arch/powerpc: Remove file parameter from phys_mem_access_prot code
-Date:   Wed,  6 Sep 2023 16:35:05 +0200
-Message-ID: <20230906144801.25297-5-tzimmermann@suse.de>
+Subject: [PATCH v2 2/5] fbdev: Replace fb_pgprotect() with fb_pgprot_device()
+Date:   Wed,  6 Sep 2023 16:35:03 +0200
+Message-ID: <20230906144801.25297-3-tzimmermann@suse.de>
 X-Mailer: git-send-email 2.42.0
 In-Reply-To: <20230906144801.25297-1-tzimmermann@suse.de>
 References: <20230906144801.25297-1-tzimmermann@suse.de>
@@ -68,135 +68,277 @@ Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-Remove 'file' parameter from struct machdep_calls.phys_mem_access_prot
-and its implementation in pci_phys_mem_access_prot(). The file is not
-used on PowerPC. By removing it, a later patch can simplify fbdev's
-mmap code, which uses phys_mem_access_prot() on PowerPC.
+Rename the fbdev mmap helper fb_pgprotect() to fb_pgprot_device().
+The helper sets VMA page-access flags for framebuffers in device I/O
+memory. The new name follows pgprot_device(), which does the same for
+arbitrary devices.
+
+Also clean up the helper's parameters and return value. Instead of
+the VMA instance, pass the individial parameters separately: existing
+page-access flags, the VMAs start and end addresses and the offset
+in the underlying device memory rsp file. Return the new page-access
+flags. These changes align fb_pgprot_device() closer with pgprot_device.
 
 Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
 ---
- arch/powerpc/include/asm/book3s/pgtable.h | 10 ++++++++--
- arch/powerpc/include/asm/machdep.h        |  3 +--
- arch/powerpc/include/asm/nohash/pgtable.h | 10 ++++++++--
- arch/powerpc/include/asm/pci.h            |  4 +---
- arch/powerpc/kernel/pci-common.c          |  3 +--
- arch/powerpc/mm/mem.c                     |  8 ++++----
- 6 files changed, 23 insertions(+), 15 deletions(-)
+ arch/ia64/include/asm/fb.h           | 15 +++++++--------
+ arch/m68k/include/asm/fb.h           | 19 ++++++++++---------
+ arch/mips/include/asm/fb.h           | 11 +++++------
+ arch/powerpc/include/asm/fb.h        | 13 +++++--------
+ arch/sparc/include/asm/fb.h          | 15 +++++++++------
+ arch/x86/include/asm/fb.h            | 10 ++++++----
+ arch/x86/video/fbdev.c               | 15 ++++++++-------
+ drivers/video/fbdev/core/fb_chrdev.c |  3 ++-
+ include/asm-generic/fb.h             | 12 ++++++------
+ 9 files changed, 58 insertions(+), 55 deletions(-)
 
-diff --git a/arch/powerpc/include/asm/book3s/pgtable.h b/arch/powerpc/include/asm/book3s/pgtable.h
-index d18b748ea3ae..84e36a572641 100644
---- a/arch/powerpc/include/asm/book3s/pgtable.h
-+++ b/arch/powerpc/include/asm/book3s/pgtable.h
-@@ -20,9 +20,15 @@ extern void set_pte_at(struct mm_struct *mm, unsigned long addr, pte_t *ptep,
- extern int ptep_set_access_flags(struct vm_area_struct *vma, unsigned long address,
- 				 pte_t *ptep, pte_t entry, int dirty);
+diff --git a/arch/ia64/include/asm/fb.h b/arch/ia64/include/asm/fb.h
+index 1717b26fd423..2fbad4a9fc15 100644
+--- a/arch/ia64/include/asm/fb.h
++++ b/arch/ia64/include/asm/fb.h
+@@ -8,17 +8,16 @@
  
-+extern pgprot_t __phys_mem_access_prot(unsigned long pfn, unsigned long size,
-+				       pgprot_t vma_prot);
-+
- struct file;
--extern pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
--				     unsigned long size, pgprot_t vma_prot);
-+static inline pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
-+					    unsigned long size, pgprot_t vma_prot)
-+{
-+	return __phys_mem_access_prot(pfn, size, vma_prot);
-+}
- #define __HAVE_PHYS_MEM_ACCESS_PROT
- 
- void __update_mmu_cache(struct vm_area_struct *vma, unsigned long address, pte_t *ptep);
-diff --git a/arch/powerpc/include/asm/machdep.h b/arch/powerpc/include/asm/machdep.h
-index 933465ed4c43..d31a5ec1550d 100644
---- a/arch/powerpc/include/asm/machdep.h
-+++ b/arch/powerpc/include/asm/machdep.h
-@@ -106,8 +106,7 @@ struct machdep_calls {
- 	int		(*pci_get_legacy_ide_irq)(struct pci_dev *dev, int channel);
- 
- 	/* Get access protection for /dev/mem */
--	pgprot_t	(*phys_mem_access_prot)(struct file *file,
--						unsigned long pfn,
-+	pgprot_t	(*phys_mem_access_prot)(unsigned long pfn,
- 						unsigned long size,
- 						pgprot_t vma_prot);
- 
-diff --git a/arch/powerpc/include/asm/nohash/pgtable.h b/arch/powerpc/include/asm/nohash/pgtable.h
-index a6caaaab6f92..90366b0b3ad9 100644
---- a/arch/powerpc/include/asm/nohash/pgtable.h
-+++ b/arch/powerpc/include/asm/nohash/pgtable.h
-@@ -246,9 +246,15 @@ extern int ptep_set_access_flags(struct vm_area_struct *vma, unsigned long addre
- 
- #define pgprot_writecombine pgprot_noncached_wc
- 
-+extern pgprot_t __phys_mem_access_prot(unsigned long pfn, unsigned long size,
-+				       pgprot_t vma_prot);
-+
- struct file;
--extern pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
--				     unsigned long size, pgprot_t vma_prot);
-+static inline pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
-+					    unsigned long size, pgprot_t vma_prot)
-+{
-+	return __phys_mem_access_prot(pfn, size, vma_prot);
-+}
- #define __HAVE_PHYS_MEM_ACCESS_PROT
- 
- #ifdef CONFIG_HUGETLB_PAGE
-diff --git a/arch/powerpc/include/asm/pci.h b/arch/powerpc/include/asm/pci.h
-index 289f1ec85bc5..34ed4d51c546 100644
---- a/arch/powerpc/include/asm/pci.h
-+++ b/arch/powerpc/include/asm/pci.h
-@@ -104,9 +104,7 @@ extern void of_scan_pci_bridge(struct pci_dev *dev);
- extern void of_scan_bus(struct device_node *node, struct pci_bus *bus);
- extern void of_rescan_bus(struct device_node *node, struct pci_bus *bus);
+ #include <asm/page.h>
  
 -struct file;
--extern pgprot_t	pci_phys_mem_access_prot(struct file *file,
--					 unsigned long pfn,
-+extern pgprot_t	pci_phys_mem_access_prot(unsigned long pfn,
- 					 unsigned long size,
- 					 pgprot_t prot);
- 
-diff --git a/arch/powerpc/kernel/pci-common.c b/arch/powerpc/kernel/pci-common.c
-index e88d7c9feeec..73f12a17e572 100644
---- a/arch/powerpc/kernel/pci-common.c
-+++ b/arch/powerpc/kernel/pci-common.c
-@@ -521,8 +521,7 @@ int pci_iobar_pfn(struct pci_dev *pdev, int bar, struct vm_area_struct *vma)
-  * PCI device, it tries to find the PCI device first and calls the
-  * above routine
-  */
--pgprot_t pci_phys_mem_access_prot(struct file *file,
--				  unsigned long pfn,
-+pgprot_t pci_phys_mem_access_prot(unsigned long pfn,
- 				  unsigned long size,
- 				  pgprot_t prot)
+-
+-static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+-				unsigned long off)
++static inline pgprot_t fb_pgprot_device(pgprot_t prot,
++					unsigned long vm_start, unsigned long vm_end,
++					unsigned long offset)
  {
-diff --git a/arch/powerpc/mm/mem.c b/arch/powerpc/mm/mem.c
-index 8b121df7b08f..03aadf657d15 100644
---- a/arch/powerpc/mm/mem.c
-+++ b/arch/powerpc/mm/mem.c
-@@ -34,18 +34,18 @@ unsigned long long memory_limit;
- unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)] __page_aligned_bss;
- EXPORT_SYMBOL(empty_zero_page);
- 
--pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
--			      unsigned long size, pgprot_t vma_prot)
-+pgprot_t __phys_mem_access_prot(unsigned long pfn, unsigned long size,
-+				pgprot_t vma_prot)
- {
- 	if (ppc_md.phys_mem_access_prot)
--		return ppc_md.phys_mem_access_prot(file, pfn, size, vma_prot);
-+		return ppc_md.phys_mem_access_prot(pfn, size, vma_prot);
- 
- 	if (!page_is_ram(pfn))
- 		vma_prot = pgprot_noncached(vma_prot);
- 
- 	return vma_prot;
+-	if (efi_range_is_wc(vma->vm_start, vma->vm_end - vma->vm_start))
+-		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
++	if (efi_range_is_wc(vm_start, vm_end - vm_start))
++		return pgprot_writecombine(prot);
+ 	else
+-		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
++		return pgprot_noncached(prot);
  }
--EXPORT_SYMBOL(phys_mem_access_prot);
-+EXPORT_SYMBOL(__phys_mem_access_prot);
+-#define fb_pgprotect fb_pgprotect
++#define fb_pgprot_device fb_pgprot_device
  
- #ifdef CONFIG_MEMORY_HOTPLUG
- static DEFINE_MUTEX(linear_mapping_mutex);
+ static inline void fb_memcpy_fromio(void *to, const volatile void __iomem *from, size_t n)
+ {
+diff --git a/arch/m68k/include/asm/fb.h b/arch/m68k/include/asm/fb.h
+index 24273fc7ad91..4acdf5b62871 100644
+--- a/arch/m68k/include/asm/fb.h
++++ b/arch/m68k/include/asm/fb.h
+@@ -5,26 +5,27 @@
+ #include <asm/page.h>
+ #include <asm/setup.h>
+ 
+-struct file;
+-
+-static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+-				unsigned long off)
++static inline pgprot_t fb_pgprot_device(pgprot_t prot,
++					unsigned long vm_start, unsigned long vm_end,
++					unsigned long offset)
+ {
+ #ifdef CONFIG_MMU
+ #ifdef CONFIG_SUN3
+-	pgprot_val(vma->vm_page_prot) |= SUN3_PAGE_NOCACHE;
++	pgprot_val(prot) |= SUN3_PAGE_NOCACHE;
+ #else
+ 	if (CPU_IS_020_OR_030)
+-		pgprot_val(vma->vm_page_prot) |= _PAGE_NOCACHE030;
++		pgprot_val(prot) |= _PAGE_NOCACHE030;
+ 	if (CPU_IS_040_OR_060) {
+-		pgprot_val(vma->vm_page_prot) &= _CACHEMASK040;
++		pgprot_val(prot) &= _CACHEMASK040;
+ 		/* Use no-cache mode, serialized */
+-		pgprot_val(vma->vm_page_prot) |= _PAGE_NOCACHE_S;
++		pgprot_val(prot) |= _PAGE_NOCACHE_S;
+ 	}
+ #endif /* CONFIG_SUN3 */
+ #endif /* CONFIG_MMU */
++
++	return prot;
+ }
+-#define fb_pgprotect fb_pgprotect
++#define fb_pgprot_device fb_pgprot_device
+ 
+ #include <asm-generic/fb.h>
+ 
+diff --git a/arch/mips/include/asm/fb.h b/arch/mips/include/asm/fb.h
+index 18b7226403ba..98e63d14a71f 100644
+--- a/arch/mips/include/asm/fb.h
++++ b/arch/mips/include/asm/fb.h
+@@ -3,14 +3,13 @@
+ 
+ #include <asm/page.h>
+ 
+-struct file;
+-
+-static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+-				unsigned long off)
++static inline pgprot_t fb_pgprot_device(pgprot_t prot,
++					unsigned long vm_start, unsigned long vm_end,
++					unsigned long offset)
+ {
+-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
++	return pgprot_noncached(prot);
+ }
+-#define fb_pgprotect fb_pgprotect
++#define fb_pgprot_device fb_pgprot_device
+ 
+ /*
+  * MIPS doesn't define __raw_ I/O macros, so the helpers
+diff --git a/arch/powerpc/include/asm/fb.h b/arch/powerpc/include/asm/fb.h
+index 61e3b8806db6..3c7486323178 100644
+--- a/arch/powerpc/include/asm/fb.h
++++ b/arch/powerpc/include/asm/fb.h
+@@ -2,23 +2,20 @@
+ #ifndef _ASM_FB_H_
+ #define _ASM_FB_H_
+ 
+-#include <linux/fs.h>
+-
+ #include <asm/page.h>
+ 
+-static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+-				unsigned long off)
++static inline pgprot_t fb_pgprot_device(pgprot_t prot,
++					unsigned long vm_start, unsigned long vm_end,
++					unsigned long offset)
+ {
+ 	/*
+ 	 * PowerPC's implementation of phys_mem_access_prot() does
+ 	 * not use the file argument. Set it to NULL in preparation
+ 	 * of later updates to the interface.
+ 	 */
+-	vma->vm_page_prot = phys_mem_access_prot(NULL, PHYS_PFN(off),
+-						 vma->vm_end - vma->vm_start,
+-						 vma->vm_page_prot);
++	return phys_mem_access_prot(NULL, PHYS_PFN(offset), vm_end - vm_start, prot);
+ }
+-#define fb_pgprotect fb_pgprotect
++#define fb_pgprot_device fb_pgprot_device
+ 
+ #include <asm-generic/fb.h>
+ 
+diff --git a/arch/sparc/include/asm/fb.h b/arch/sparc/include/asm/fb.h
+index 572ecd3e1cc4..dc0fa30d11f3 100644
+--- a/arch/sparc/include/asm/fb.h
++++ b/arch/sparc/include/asm/fb.h
+@@ -4,15 +4,18 @@
+ 
+ #include <linux/io.h>
+ 
++#include <asm/page.h>
++
+ struct fb_info;
+-struct file;
+-struct vm_area_struct;
+ 
+ #ifdef CONFIG_SPARC32
+-static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+-				unsigned long off)
+-{ }
+-#define fb_pgprotect fb_pgprotect
++static inline pgprot_t fb_pgprot_device(pgprot_t prot,
++					unsigned long vm_start, unsigned long vm_end,
++					unsigned long offset)
++{
++	return prot;
++}
++#define fb_pgprot_device fb_pgprot_device
+ #endif
+ 
+ int fb_is_primary_device(struct fb_info *info);
+diff --git a/arch/x86/include/asm/fb.h b/arch/x86/include/asm/fb.h
+index 23873da8fb77..511aedb23d66 100644
+--- a/arch/x86/include/asm/fb.h
++++ b/arch/x86/include/asm/fb.h
+@@ -2,12 +2,14 @@
+ #ifndef _ASM_X86_FB_H
+ #define _ASM_X86_FB_H
+ 
++#include <asm/page.h>
++
+ struct fb_info;
+-struct file;
+-struct vm_area_struct;
+ 
+-void fb_pgprotect(struct file *file, struct vm_area_struct *vma, unsigned long off);
+-#define fb_pgprotect fb_pgprotect
++pgprot_t fb_pgprot_device(pgprot_t prot,
++			  unsigned long vm_start, unsigned long vm_end,
++			  unsigned long offset);
++#define fb_pgprot_device fb_pgprot_device
+ 
+ int fb_is_primary_device(struct fb_info *info);
+ #define fb_is_primary_device fb_is_primary_device
+diff --git a/arch/x86/video/fbdev.c b/arch/x86/video/fbdev.c
+index 49a0452402e9..c7f247d91386 100644
+--- a/arch/x86/video/fbdev.c
++++ b/arch/x86/video/fbdev.c
+@@ -13,16 +13,17 @@
+ #include <linux/vgaarb.h>
+ #include <asm/fb.h>
+ 
+-void fb_pgprotect(struct file *file, struct vm_area_struct *vma, unsigned long off)
++pgprot_t fb_pgprot_device(pgprot_t prot,
++			  unsigned long vm_start, unsigned long vm_end,
++			  unsigned long offset)
+ {
+-	unsigned long prot;
+-
+-	prot = pgprot_val(vma->vm_page_prot) & ~_PAGE_CACHE_MASK;
++	pgprot_val(prot) &= ~_PAGE_CACHE_MASK;
+ 	if (boot_cpu_data.x86 > 3)
+-		pgprot_val(vma->vm_page_prot) =
+-			prot | cachemode2protval(_PAGE_CACHE_MODE_UC_MINUS);
++		pgprot_val(prot) |= cachemode2protval(_PAGE_CACHE_MODE_UC_MINUS);
++
++	return prot;
+ }
+-EXPORT_SYMBOL(fb_pgprotect);
++EXPORT_SYMBOL(fb_pgprot_device);
+ 
+ int fb_is_primary_device(struct fb_info *info)
+ {
+diff --git a/drivers/video/fbdev/core/fb_chrdev.c b/drivers/video/fbdev/core/fb_chrdev.c
+index eadb81f53a82..100a92b2c3b7 100644
+--- a/drivers/video/fbdev/core/fb_chrdev.c
++++ b/drivers/video/fbdev/core/fb_chrdev.c
+@@ -365,7 +365,8 @@ static int fb_mmap(struct file *file, struct vm_area_struct *vma)
+ 	mutex_unlock(&info->mm_lock);
+ 
+ 	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
+-	fb_pgprotect(file, vma, start);
++	vma->vm_page_prot = fb_pgprot_device(vma->vm_page_prot, vma->vm_start,
++					     vma->vm_end, start);
+ 
+ 	return vm_iomap_memory(vma, start, len);
+ }
+diff --git a/include/asm-generic/fb.h b/include/asm-generic/fb.h
+index bb7ee9c70e60..876e1bef7859 100644
+--- a/include/asm-generic/fb.h
++++ b/include/asm-generic/fb.h
+@@ -12,14 +12,14 @@
+ #include <linux/pgtable.h>
+ 
+ struct fb_info;
+-struct file;
+ 
+-#ifndef fb_pgprotect
+-#define fb_pgprotect fb_pgprotect
+-static inline void fb_pgprotect(struct file *file, struct vm_area_struct *vma,
+-				unsigned long off)
++#ifndef fb_pgprot_device
++#define fb_pgprot_device fb_pgprot_device
++static inline pgprot_t fb_pgprot_device(pgprot_t prot,
++					unsigned long vm_start, unsigned long vm_end,
++					unsigned long offset)
+ {
+-	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
++	return pgprot_writecombine(prot);
+ }
+ #endif
+ 
 -- 
 2.42.0
 
