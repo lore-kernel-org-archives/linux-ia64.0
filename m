@@ -2,41 +2,41 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 3D05EEB8FB7
-	for <linux-ia64@archiver.kernel.org>; Wed,  6 Sep 2023 10:04:20 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 65671EB8FB6
+	for <linux-ia64@archiver.kernel.org>; Wed,  6 Sep 2023 10:04:33 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S238493AbjIFKEW (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Wed, 6 Sep 2023 06:04:22 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:43824 "EHLO
+        id S238593AbjIFKEf (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Wed, 6 Sep 2023 06:04:35 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:43840 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S238430AbjIFKEN (ORCPT
+        with ESMTP id S235639AbjIFKEN (ORCPT
         <rfc822;linux-ia64@vger.kernel.org>); Wed, 6 Sep 2023 06:04:13 -0400
 Received: from smtp.kernel.org (relay.kernel.org [52.25.139.140])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 6D1D310F6;
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 43707E64;
         Wed,  6 Sep 2023 03:04:09 -0700 (PDT)
-Received: by smtp.kernel.org (Postfix) with ESMTPS id EE7CEC433BD;
+Received: by smtp.kernel.org (Postfix) with ESMTPS id C79FFC43395;
         Wed,  6 Sep 2023 10:04:08 +0000 (UTC)
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=kernel.org;
-        s=k20201202; t=1693994649;
-        bh=4qu6gNf1P779rn1wd4BnvavbHAx8Qh/H9OngrcT0avw=;
+        s=k20201202; t=1693994648;
+        bh=6qyahIWMDqGumydP6jatTEqBGZFg9bKWNldP/JMCBf4=;
         h=From:Date:Subject:References:In-Reply-To:To:Cc:Reply-To:From;
-        b=BTOvay+ljaBED9elt4djmeJQK4mwQhiBE2AFfBF+/Wba07j+eCNKbDlUWbg3RpBDw
-         hGmvsrZBZRQN6ojN6QuRL90gXHQ+S77viY+Jvpn1Zazw8J4hBnNjQ1X6wDu6RGm2aX
-         AT3/yya8ZgE+dq5MrLZZAwB8zm9nJjCGkcw+6J4Ums1J4F21+rxmhb8CnLXJ2qN9Dk
-         UNa5hTht1yl2vR5HK/8m2/4Us34yldYRFwpdsUf+oLFdiPUgJMas4iJPFr0DnvYDET
-         cdKEB0Q9J7lPiBpgo3FsBxD/iR4gzuy6loxD29M4zow3QzJOcIO4xsZUdExd/kTpTg
-         xhBKv1/AiWH2g==
+        b=WDKQgCGk1ewitC2ljOHvuoZfX0PunKpEPswAKjvOM4mw6dld7GWu4qkxJRJUBAZ+D
+         CE7SALO/Y0Rs3HnRxEWzMYjiwHbneecI+B2QCfDT8Z9TE8cRvCn19CBHrYrrEF8ZE5
+         AiAJmUIbGgc6VDlemn+Ou79kmuLsMIaZr3Ck8h9C09+TVMmgDHE6EWIIZ8hcltmePZ
+         XPs7vdU1DPjNirlWDGYFSEOC5CPGZpKtYTccRddwUe0Z3zpJL5YpMoTrdcMhr1ZjgF
+         FmsDrh4EbHHkGC+0sbrqRTmcV3KMSE9zKjJqHiCXONTChGKVfv7RWgJEy22GCNCagG
+         Ipmt14Py4IoXA==
 Received: from aws-us-west-2-korg-lkml-1.web.codeaurora.org (localhost.localdomain [127.0.0.1])
-        by smtp.lore.kernel.org (Postfix) with ESMTP id D673BEB8FB6;
+        by smtp.lore.kernel.org (Postfix) with ESMTP id AD86DEB8FA5;
         Wed,  6 Sep 2023 10:04:08 +0000 (UTC)
 From:   Joel Granados via B4 Relay 
         <devnull+j.granados.samsung.com@kernel.org>
-Date:   Wed, 06 Sep 2023 12:03:25 +0200
-Subject: [PATCH 4/8] x86 vdso: rm sentinel element from ctl_table array
+Date:   Wed, 06 Sep 2023 12:03:23 +0200
+Subject: [PATCH 2/8] arm: Remove sentinel elem from ctl_table arrays
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Message-Id: <20230906-jag-sysctl_remove_empty_elem_arch-v1-4-3935d4854248@samsung.com>
+Message-Id: <20230906-jag-sysctl_remove_empty_elem_arch-v1-2-3935d4854248@samsung.com>
 References: <20230906-jag-sysctl_remove_empty_elem_arch-v1-0-3935d4854248@samsung.com>
 In-Reply-To: <20230906-jag-sysctl_remove_empty_elem_arch-v1-0-3935d4854248@samsung.com>
 To:     Luis Chamberlain <mcgrof@kernel.org>, willy@infradead.org,
@@ -70,18 +70,18 @@ Cc:     linux-fsdevel@vger.kernel.org, linux-s390@vger.kernel.org,
         linux-ia64@vger.kernel.org, linux-csky@vger.kernel.org,
         Joel Granados <j.granados@samsung.com>
 X-Mailer: b4 0.13-dev-86aa5
-X-Developer-Signature: v=1; a=openpgp-sha256; l=1000;
+X-Developer-Signature: v=1; a=openpgp-sha256; l=4110;
  i=j.granados@samsung.com; h=from:subject:message-id;
- bh=vL1EzsjYbFXKFrtK9nHJVvAi8tmBe++iatkzXK58byA=;
- b=owEB7QES/pANAwAKAbqXzVK3lkFPAcsmYgBk+E6VLWSScWJxr1IbmgKPa1RZW7ObxI6WU/TSb
- /w1xzkBrsGJAbMEAAEKAB0WIQSuRwlXJeYxJc7LJ5C6l81St5ZBTwUCZPhOlQAKCRC6l81St5ZB
- T411C/4nYVxay01MI0fYlh2tXeRCZT4XrLhFpLHSsLO88W+1QBZQtZ8gO2vM+93YWSmHFkQoCsR
- KcoJwZ+EkkMf8WsQfME5NZZe9QqAWa0BuN3fag7YtX7JeDKjC5MraH/M3Zm35qVZ29hSCd/4mDY
- 8DDTvWypGbwepR7WT38A30v9LrG80iOyooAB06kaGaxwXBA3ii+b2P6VHUVMlvMLuWkUOyok6/z
- nA2x0x83Wvsq170HlyQKHOBwap14ZhJ6OPoFSyTWUr6U983PpnqsfDmTcYgdE+OARYk8x4Ngmcx
- IRZjjJbvj2Sm+tgS6ENeITYZVJd8V0y0m8MU6xbC9ZLpoWEJGxj6JLAvO/ZSPaiRekoLloMAteJ
- es6duh9rqCsTesV5rsulOZIo6tufJTM0rY9CFw8vaGH/f/Kt3xBuSdy2fhgoBSo+hfeoGpSsKyE
- sbPcJ2atpAF8XbaZ3GdfKliG0jmCzxzi14sxh9li2gbxkwNwKNDKPBCYFUWsOqoMQezN8=
+ bh=kRRgU9TB4640um/mWRntJEhdx6NG5ds+BwxX9jXrRXA=;
+ b=owEB7QES/pANAwAKAbqXzVK3lkFPAcsmYgBk+E6Ur2J0kuQcNZObNxMe0aJ2hWc7iqqapxvuF
+ OwJdlhaURSJAbMEAAEKAB0WIQSuRwlXJeYxJc7LJ5C6l81St5ZBTwUCZPhOlAAKCRC6l81St5ZB
+ T1yUC/4yflkwsD8iS/7Czi88MHtKqSjX9ywAVic2vtw9U3RHdGW1Cpc9iSXsTYtOI/FHD7Wtnb3
+ fSLNGEliGcqaGR9KNJbwTfnCFZg7LquUXjT2ecnK7FdliQNOvehRbMkkJUj5awgq/g14eC4cpPq
+ 27uxAt9wOVU35+G1zNJybSMVlhYlRBFX+Mt9XlFB6zLXeAyIR5TMidTAiw9EHNQ1UpP24K14cd+
+ XBTab+hvuXZ8gu4koUQS+ASkCRBVn6VdA5ZWeh5w5YoiPemdG4r5vfIDDl4oz6RQ5Ysm9Iq5swx
+ 9sByh27nj7dLaFs+8N59sQoSiICG4FKxxj9V9N94wAmol2bpNdFqQSYq+RQnMvet1FsUWpHUrdY
+ +Q4tMhoT1vzhKpOmX+5dZ23riHPK7gEC+nRb2wBafDrBrk+zirIqkyMaN0iULzIVKo8ffkoweDy
+ 6Tz91Srx2S1YeBzrf1azOZwHUho/4ZRuirvEAjww3hnI2HniWQj7Oud+TjCR8MwiCFOqg=
 X-Developer-Key: i=j.granados@samsung.com; a=openpgp;
  fpr=F1F8E46D30F0F6C4A45FF4465895FAAC338C6E77
 X-Endpoint-Received: by B4 Relay for j.granados@samsung.com/default with auth_id=70
@@ -99,27 +99,123 @@ will reduce the overall build time size of the kernel and run time
 memory bloat by ~64 bytes per sentinel (further information Link :
 https://lore.kernel.org/all/ZO5Yx5JFogGi%2FcBo@bombadil.infradead.org/)
 
-Remove sentinel element from abi_table2.
+Removed the sentinel as well as the explicit size from ctl_isa_vars. The
+size is redundant as the initialization sets it.
+Changed insn_emulation->sysctl from a 2 element array of struct
+ctl_table to a simple struct. This has no consequence for the sysctl
+registration as it is forwarded as a pointer.
+Removed sentinel from sve_defatul_vl_table, sme_default_vl_table,
+tagged_addr_sysctl_table and armv8_pmu_sysctl_table.
 
 Signed-off-by: Joel Granados <j.granados@samsung.com>
 ---
- arch/x86/entry/vdso/vdso32-setup.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ arch/arm/kernel/isa.c                | 4 ++--
+ arch/arm64/kernel/armv8_deprecated.c | 8 +++-----
+ arch/arm64/kernel/fpsimd.c           | 6 ++----
+ arch/arm64/kernel/process.c          | 3 +--
+ drivers/perf/arm_pmuv3.c             | 3 +--
+ 5 files changed, 9 insertions(+), 15 deletions(-)
 
-diff --git a/arch/x86/entry/vdso/vdso32-setup.c b/arch/x86/entry/vdso/vdso32-setup.c
-index f3b3cacbcbb0..37b761802181 100644
---- a/arch/x86/entry/vdso/vdso32-setup.c
-+++ b/arch/x86/entry/vdso/vdso32-setup.c
-@@ -66,8 +66,7 @@ static struct ctl_table abi_table2[] = {
+diff --git a/arch/arm/kernel/isa.c b/arch/arm/kernel/isa.c
+index 20218876bef2..0b9c28077092 100644
+--- a/arch/arm/kernel/isa.c
++++ b/arch/arm/kernel/isa.c
+@@ -16,7 +16,7 @@
+ 
+ static unsigned int isa_membase, isa_portbase, isa_portshift;
+ 
+-static struct ctl_table ctl_isa_vars[4] = {
++static struct ctl_table ctl_isa_vars[] = {
+ 	{
+ 		.procname	= "membase",
+ 		.data		= &isa_membase, 
+@@ -35,7 +35,7 @@ static struct ctl_table ctl_isa_vars[4] = {
+ 		.maxlen		= sizeof(isa_portshift),
+ 		.mode		= 0444,
+ 		.proc_handler	= proc_dointvec,
+-	}, {}
++	}
+ };
+ 
+ static struct ctl_table_header *isa_sysctl_header;
+diff --git a/arch/arm64/kernel/armv8_deprecated.c b/arch/arm64/kernel/armv8_deprecated.c
+index e459cfd33711..dd6ce86d4332 100644
+--- a/arch/arm64/kernel/armv8_deprecated.c
++++ b/arch/arm64/kernel/armv8_deprecated.c
+@@ -52,10 +52,8 @@ struct insn_emulation {
+ 	int min;
+ 	int max;
+ 
+-	/*
+-	 * sysctl for this emulation + a sentinal entry.
+-	 */
+-	struct ctl_table sysctl[2];
++	/* sysctl for this emulation */
++	struct ctl_table sysctl;
+ };
+ 
+ #define ARM_OPCODE_CONDTEST_FAIL   0
+@@ -558,7 +556,7 @@ static void __init register_insn_emulation(struct insn_emulation *insn)
+ 	update_insn_emulation_mode(insn, INSN_UNDEF);
+ 
+ 	if (insn->status != INSN_UNAVAILABLE) {
+-		sysctl = &insn->sysctl[0];
++		sysctl = &insn->sysctl;
+ 
+ 		sysctl->mode = 0644;
+ 		sysctl->maxlen = sizeof(int);
+diff --git a/arch/arm64/kernel/fpsimd.c b/arch/arm64/kernel/fpsimd.c
+index 91e44ac7150f..db3ad1ba8272 100644
+--- a/arch/arm64/kernel/fpsimd.c
++++ b/arch/arm64/kernel/fpsimd.c
+@@ -588,8 +588,7 @@ static struct ctl_table sve_default_vl_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= vec_proc_do_default_vl,
+ 		.extra1		= &vl_info[ARM64_VEC_SVE],
+-	},
+-	{ }
++	}
+ };
+ 
+ static int __init sve_sysctl_init(void)
+@@ -612,8 +611,7 @@ static struct ctl_table sme_default_vl_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= vec_proc_do_default_vl,
+ 		.extra1		= &vl_info[ARM64_VEC_SME],
+-	},
+-	{ }
++	}
+ };
+ 
+ static int __init sme_sysctl_init(void)
+diff --git a/arch/arm64/kernel/process.c b/arch/arm64/kernel/process.c
+index 0fcc4eb1a7ab..48861cdc3aae 100644
+--- a/arch/arm64/kernel/process.c
++++ b/arch/arm64/kernel/process.c
+@@ -723,8 +723,7 @@ static struct ctl_table tagged_addr_sysctl_table[] = {
  		.proc_handler	= proc_dointvec_minmax,
  		.extra1		= SYSCTL_ZERO,
  		.extra2		= SYSCTL_ONE,
 -	},
--	{}
+-	{ }
 +	}
  };
  
- static __init int ia32_binfmt_init(void)
+ static int __init tagged_addr_init(void)
+diff --git a/drivers/perf/arm_pmuv3.c b/drivers/perf/arm_pmuv3.c
+index e5a2ac4155f6..c4aa6a8d1b05 100644
+--- a/drivers/perf/arm_pmuv3.c
++++ b/drivers/perf/arm_pmuv3.c
+@@ -1172,8 +1172,7 @@ static struct ctl_table armv8_pmu_sysctl_table[] = {
+ 		.proc_handler	= armv8pmu_proc_user_access_handler,
+ 		.extra1		= SYSCTL_ZERO,
+ 		.extra2		= SYSCTL_ONE,
+-	},
+-	{ }
++	}
+ };
+ 
+ static void armv8_pmu_register_sysctl_table(void)
 
 -- 
 2.30.2
