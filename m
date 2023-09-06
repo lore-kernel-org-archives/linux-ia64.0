@@ -2,111 +2,135 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id A907AEE14D7
-	for <linux-ia64@archiver.kernel.org>; Wed,  6 Sep 2023 20:01:29 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 193D2EE14C3
+	for <linux-ia64@archiver.kernel.org>; Wed,  6 Sep 2023 21:58:59 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S243736AbjIFUB3 (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Wed, 6 Sep 2023 16:01:29 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:35672 "EHLO
+        id S244898AbjIFV7B (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Wed, 6 Sep 2023 17:59:01 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:32996 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S243867AbjIFUA7 (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Wed, 6 Sep 2023 16:00:59 -0400
-X-Greylist: delayed 447 seconds by postgrey-1.37 at lindbergh.monkeyblade.net; Wed, 06 Sep 2023 13:00:53 PDT
-Received: from new4-smtp.messagingengine.com (new4-smtp.messagingengine.com [66.111.4.230])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id D12A719A2;
-        Wed,  6 Sep 2023 13:00:53 -0700 (PDT)
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.47])
-        by mailnew.nyi.internal (Postfix) with ESMTP id A7AB858128A;
-        Wed,  6 Sep 2023 15:53:23 -0400 (EDT)
-Received: from imap51 ([10.202.2.101])
-  by compute6.internal (MEProxy); Wed, 06 Sep 2023 15:53:23 -0400
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=arndb.de; h=cc
-        :cc:content-type:content-type:date:date:from:from:in-reply-to
-        :in-reply-to:message-id:mime-version:references:reply-to:sender
-        :subject:subject:to:to; s=fm1; t=1694030003; x=1694037203; bh=VH
-        oiOAVzKFrc1qoVv7v9Mr1BrXqTyFKUxLZW2/6sh7A=; b=B9YGq+m+TaGkZYwKEv
-        mwtpybd3N+c0fMrFAnCMSThlV38UxHGUZar4YL61wnZ8hebh7VNwhdEot1JcM314
-        t90DsstQsCqV320qKAeQxaOy7tIjIN6MM/i7+eNgzBWjvsQZqPhhSdxBflKsD8i4
-        ZRmBezwM15eJWbtMRS/w4aPfiuZYSuhzLqNmuw0oqg7NEL0rlnGLcZEyGKEzrxEN
-        G08pXwkhHEmxCZCmVwpMqwrwJ4jOuXUkafTKfsioh4wptnHthM/+o0QpCzaVlAt5
-        p2HsVsrVY9rdSP1XPW2+akPPpXdZ+NhnO5DN6OVHV68jOgT0d4LVctgdofyw14lg
-        P1wQ==
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=
-        messagingengine.com; h=cc:cc:content-type:content-type:date:date
-        :feedback-id:feedback-id:from:from:in-reply-to:in-reply-to
-        :message-id:mime-version:references:reply-to:sender:subject
-        :subject:to:to:x-me-proxy:x-me-proxy:x-me-sender:x-me-sender
-        :x-sasl-enc; s=fm1; t=1694030003; x=1694037203; bh=VHoiOAVzKFrc1
-        qoVv7v9Mr1BrXqTyFKUxLZW2/6sh7A=; b=0eyhXlcs6SwaXsTsohvaVHSDkEW5t
-        pf9IsSwsFxNCmJrnjsC1r2Ar4uKNxAccIwEZcHP0Glfwt7Pk+h/JnKu5+mRrT8Kq
-        IhOhf9SukEJcq9eb/lSO1m3E0oyB542WZP6lVYMF9zXLOsG7pFDQA7FcQlbIGsWO
-        v/7uE15f2PEQTL46VW9VAMeDZf2i5MRnBuAxMk289lztpWbEepsINFs8crl/i4pi
-        cZ6D7fyA0rWRODs/fQ5p4A4vUmfV2n21gu6zI9vyGqm0BY+5Rsgd482HgncvaExW
-        Sz8l5d7mijRz1HFOBAzL8e10OB5UlqpB6CLhAj7KXk+bFmgGbRpuCuFfg==
-X-ME-Sender: <xms:stj4ZMFT5bUXIujyx8rG3XMkkz8xGkw5hclkerDPojseR-OAKoh2EQ>
-    <xme:stj4ZFUrxldM_py_4Cti_MuQgJweGk5z0Yka0QIrf8JQxP8NlU6tdbgihMPfx7dbz
-    agIOq8G_U8LGbygxoU>
-X-ME-Proxy-Cause: gggruggvucftvghtrhhoucdtuddrgedviedrudehfedgudegudcutefuodetggdotefrod
-    ftvfcurfhrohhfihhlvgemucfhrghsthforghilhdpqfgfvfdpuffrtefokffrpgfnqfgh
-    necuuegrihhlohhuthemuceftddtnecusecvtfgvtghiphhivghnthhsucdlqddutddtmd
-    enucfjughrpefofgggkfgjfhffhffvvefutgesthdtredtreertdenucfhrhhomhepfdet
-    rhhnugcuuegvrhhgmhgrnhhnfdcuoegrrhhnugesrghrnhgusgdruggvqeenucggtffrrg
-    htthgvrhhnpeffheeugeetiefhgeethfejgfdtuefggeejleehjeeutefhfeeggefhkedt
-    keetffenucevlhhushhtvghrufhiiigvpedtnecurfgrrhgrmhepmhgrihhlfhhrohhmpe
-    grrhhnugesrghrnhgusgdruggv
-X-ME-Proxy: <xmx:stj4ZGIpCwrWbQMuQnRKui1vq0jlD_Hw-xaxveFWC1c7nV6BvZOFpg>
-    <xmx:stj4ZOEWKrXyPg7eu5ukVGzSe0cetY7fwF7mwZBQdjSY6eR8XT8jvQ>
-    <xmx:stj4ZCWoKWWomrXTKgZTmEmwM7RaOCq6OifEZR2NKWwutIUZbzo0SQ>
-    <xmx:s9j4ZLONDqSf7o5Z4aSE1onERACQAtFksbMuJmduHrqscQGtXIS0jA>
-Feedback-ID: i56a14606:Fastmail
-Received: by mailuser.nyi.internal (Postfix, from userid 501)
-        id AE25DB60089; Wed,  6 Sep 2023 15:53:22 -0400 (EDT)
-X-Mailer: MessagingEngine.com Webmail Interface
-User-Agent: Cyrus-JMAP/3.9.0-alpha0-711-g440737448e-fm-20230828.001-g44073744
-Mime-Version: 1.0
-Message-Id: <8865aa0a-ec40-41ca-a77e-9172cec49f07@app.fastmail.com>
-In-Reply-To: <20230906144801.25297-3-tzimmermann@suse.de>
-References: <20230906144801.25297-1-tzimmermann@suse.de>
- <20230906144801.25297-3-tzimmermann@suse.de>
-Date:   Wed, 06 Sep 2023 15:53:02 -0400
-From:   "Arnd Bergmann" <arnd@arndb.de>
-To:     "Thomas Zimmermann" <tzimmermann@suse.de>,
-        "Michael Ellerman" <mpe@ellerman.id.au>,
-        "Nicholas Piggin" <npiggin@gmail.com>,
-        "Christophe Leroy" <christophe.leroy@csgroup.eu>,
-        "Helge Deller" <deller@gmx.de>
-Cc:     linuxppc-dev@lists.ozlabs.org, linux-fbdev@vger.kernel.org,
-        linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org,
-        linux-mips@vger.kernel.org, sparclinux@vger.kernel.org,
-        dri-devel@lists.freedesktop.org,
-        Linux-Arch <linux-arch@vger.kernel.org>
-Subject: Re: [PATCH v2 2/5] fbdev: Replace fb_pgprotect() with fb_pgprot_device()
-Content-Type: text/plain
+        with ESMTP id S235690AbjIFV7A (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Wed, 6 Sep 2023 17:59:00 -0400
+Received: from mail-wr1-x435.google.com (mail-wr1-x435.google.com [IPv6:2a00:1450:4864:20::435])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 051E1172E;
+        Wed,  6 Sep 2023 14:58:57 -0700 (PDT)
+Received: by mail-wr1-x435.google.com with SMTP id ffacd0b85a97d-31c5cac3ae2so305517f8f.3;
+        Wed, 06 Sep 2023 14:58:56 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=gmail.com; s=20221208; t=1694037535; x=1694642335; darn=vger.kernel.org;
+        h=in-reply-to:content-disposition:mime-version:references:message-id
+         :subject:cc:to:from:date:sender:from:to:cc:subject:date:message-id
+         :reply-to;
+        bh=fUEsUDVRFl9we3IvMz1iDQ5wrm80qIsR/HrhiCU8qwU=;
+        b=kQYYj8qGkAuKLI7d7WD/+tivDtKxDqsaxAp5uA1cWYaszSsU8X4wq7G/BRiEfObbIM
+         Mla4HSaUaYMxmefL4xy4/uRsxwItsqUPonRO8CoIDEd/WJbwkdTjWXCks1DNeEa9g3nU
+         5kvQnDvM92aoYi5Io67y37m26h+eV5mHTh5DlVdDxj99/asYPAVJXk+8XBJYGANIYUBl
+         YHtySgm9W2Z8G9YZnUANJysNaozE+kj6hdVaJC/hZVh1LgEqW9Z41R8EKrhtj783uRop
+         1B7PHOk6L0ueIJ5lTEt4GCDk8QlmrQMEUt5nhEQM0uIx8hWq29k7oQAglztfmGg3HShx
+         0NNQ==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20221208; t=1694037535; x=1694642335;
+        h=in-reply-to:content-disposition:mime-version:references:message-id
+         :subject:cc:to:from:date:sender:x-gm-message-state:from:to:cc
+         :subject:date:message-id:reply-to;
+        bh=fUEsUDVRFl9we3IvMz1iDQ5wrm80qIsR/HrhiCU8qwU=;
+        b=YUSbc0rTygLZ5FnH359Jl2n7x6o8ySCb3SC+UIV7tZH+u7g1ieJE7zLPFgbNBN5D9P
+         JEBM7Fz+7FZRFg0t1IuWZSHwEFgTIFw2/dqBNScAtidirPlhiKkTt9eI4/xnUiteJPoU
+         4IT/Yg0VKrrUihcMJyG+qMVRgIDf+KneYPDYRiPdBiGAj3g1VK5y/XuulsadfR8TM/xN
+         UXTxr/l1lq7qybRL6cQhWVPcosIgLFrN1AXXQ4OSLXf9UlXUWYF2Xa/JtN0yEAyhhAJ/
+         tss50SZf3X1eXlTNjNdtXs1kgP/D8gGFlNy/f6SzXHsEkPMtdT0fOnwzeR0YBsATViZp
+         THcA==
+X-Gm-Message-State: AOJu0YxTzhFXU/yPUb9ksfDR0viFF1k19UA7AV2BwowdaryM9O7jAAKV
+        H0A2fCl2unEJ2EvuxWKFJ4Q=
+X-Google-Smtp-Source: AGHT+IG5nMeuL/VoGmcwCLwFLhOfCIhRsiIb9391lHp1yY958vfciaCR4r3uuUZhhDYYQHGkLNQJgQ==
+X-Received: by 2002:a5d:604b:0:b0:30e:3da5:46e5 with SMTP id j11-20020a5d604b000000b0030e3da546e5mr3830642wrt.59.1694037535283;
+        Wed, 06 Sep 2023 14:58:55 -0700 (PDT)
+Received: from gmail.com (1F2EF6A2.nat.pool.telekom.hu. [31.46.246.162])
+        by smtp.gmail.com with ESMTPSA id n10-20020adffe0a000000b003140f47224csm21447397wrr.15.2023.09.06.14.58.48
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Wed, 06 Sep 2023 14:58:50 -0700 (PDT)
+Sender: Ingo Molnar <mingo.kernel.org@gmail.com>
+Date:   Wed, 6 Sep 2023 23:58:47 +0200
+From:   Ingo Molnar <mingo@kernel.org>
+To:     Dave Hansen <dave.hansen@intel.com>
+Cc:     j.granados@samsung.com, Luis Chamberlain <mcgrof@kernel.org>,
+        willy@infradead.org, josh@joshtriplett.org,
+        Kees Cook <keescook@chromium.org>,
+        Iurii Zaikin <yzaikin@google.com>,
+        Heiko Carstens <hca@linux.ibm.com>,
+        Vasily Gorbik <gor@linux.ibm.com>,
+        Alexander Gordeev <agordeev@linux.ibm.com>,
+        Christian Borntraeger <borntraeger@linux.ibm.com>,
+        Sven Schnelle <svens@linux.ibm.com>,
+        Gerald Schaefer <gerald.schaefer@linux.ibm.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>,
+        Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org,
+        "H. Peter Anvin" <hpa@zytor.com>,
+        Andy Lutomirski <luto@kernel.org>,
+        Paul Walmsley <paul.walmsley@sifive.com>,
+        Palmer Dabbelt <palmer@dabbelt.com>,
+        Albert Ou <aou@eecs.berkeley.edu>,
+        Michael Ellerman <mpe@ellerman.id.au>,
+        Nicholas Piggin <npiggin@gmail.com>,
+        Christophe Leroy <christophe.leroy@csgroup.eu>,
+        Guo Ren <guoren@kernel.org>, linux-fsdevel@vger.kernel.org,
+        linux-s390@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org,
+        linux-riscv@lists.infradead.org, linuxppc-dev@lists.ozlabs.org,
+        linux-ia64@vger.kernel.org, linux-csky@vger.kernel.org
+Subject: Re: [PATCH 3/8] arch/x86: Remove sentinel elem from ctl_table arrays
+Message-ID: <ZPj2F4retSgg3vAj@gmail.com>
+References: <20230906-jag-sysctl_remove_empty_elem_arch-v1-0-3935d4854248@samsung.com>
+ <20230906-jag-sysctl_remove_empty_elem_arch-v1-3-3935d4854248@samsung.com>
+ <d0d30ad4-7837-b0c4-39f4-3e317e35a41b@intel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+In-Reply-To: <d0d30ad4-7837-b0c4-39f4-3e317e35a41b@intel.com>
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On Wed, Sep 6, 2023, at 10:35, Thomas Zimmermann wrote:
-> Rename the fbdev mmap helper fb_pgprotect() to fb_pgprot_device().
-> The helper sets VMA page-access flags for framebuffers in device I/O
-> memory. The new name follows pgprot_device(), which does the same for
-> arbitrary devices.
->
-> Also clean up the helper's parameters and return value. Instead of
-> the VMA instance, pass the individial parameters separately: existing
-> page-access flags, the VMAs start and end addresses and the offset
-> in the underlying device memory rsp file. Return the new page-access
-> flags. These changes align fb_pgprot_device() closer with pgprot_device.
->
-> Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
 
-This makes sense as a cleanup, but I'm not sure the new naming is helpful.
+* Dave Hansen <dave.hansen@intel.com> wrote:
 
-The 'pgprot_device' permissions are based on Arm's memory attributes,
-which have slightly different behavior for "device", "uncached" and
-"writecombine" mappings. I think simply calling this one pgprot_fb()
-or fb_pgprot() would be less confusing, since depending on the architecture
-it appears to give either uncached or writecombine mappings but not
-"device" on the architectures where this is different.
+> On 9/6/23 03:03, Joel Granados via B4 Relay wrote:
+> > This commit comes at the tail end of a greater effort to remove the
+> > empty elements at the end of the ctl_table arrays (sentinels) which
+> > will reduce the overall build time size of the kernel and run time
+> > memory bloat by ~64 bytes per sentinel (further information Link :
+> > https://lore.kernel.org/all/ZO5Yx5JFogGi%2FcBo@bombadil.infradead.org/)
+> > 
+> > Remove sentinel element from sld_sysctl and itmt_kern_table.
+> 
+> There's a *LOT* of content to read for a reviewer to figure out what's
+> going on here between all the links.  I would have appreciated one more
+> sentence here, maybe:
+> 
+> 	This is now safe because the sysctl registration code
+> 	(register_sysctl()) implicitly uses ARRAY_SIZE() in addition
+> 	to checking for a sentinel.
+> 
+> That needs to be more prominent _somewhere_.  Maybe here, or maybe in
+> the cover letter, but _somewhere_.
+> 
+> That said, feel free to add this to the two x86 patches:
+> 
+> Acked-by: Dave Hansen <dave.hansen@linux.intel.com> # for x86
 
-      Arnd
+Absolutely needs to be in the title as well, something like:
+
+   arch/x86: Remove now superfluous sentinel elem from ctl_table arrays
+
+With that propagated into the whole series:
+
+   Reviewed-by: Ingo Molnar <mingo@kernel.org>
+
+Thanks,
+
+	Ingo
