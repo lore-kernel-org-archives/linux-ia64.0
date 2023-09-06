@@ -2,45 +2,52 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id ECDE3EB8FB7
-	for <linux-ia64@archiver.kernel.org>; Wed,  6 Sep 2023 10:04:50 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 68A30EB8FDE
+	for <linux-ia64@archiver.kernel.org>; Wed,  6 Sep 2023 14:45:13 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S235639AbjIFKEw (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Wed, 6 Sep 2023 06:04:52 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:43898 "EHLO
+        id S239282AbjIFOpP (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Wed, 6 Sep 2023 10:45:15 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:59498 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S238492AbjIFKEV (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Wed, 6 Sep 2023 06:04:21 -0400
-Received: from smtp.kernel.org (relay.kernel.org [52.25.139.140])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id E414A10F9;
-        Wed,  6 Sep 2023 03:04:10 -0700 (PDT)
-Received: by smtp.kernel.org (Postfix) with ESMTPS id 30DD3C4AF6A;
-        Wed,  6 Sep 2023 10:04:09 +0000 (UTC)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=kernel.org;
-        s=k20201202; t=1693994649;
-        bh=h0a5x4tcjiRLI8hBcyPKIVxtaEtL9PHUZfFV4ZC2g6Y=;
-        h=From:Date:Subject:References:In-Reply-To:To:Cc:Reply-To:From;
-        b=AvJt7V+5voaWDvo82nQl2Rw6T11YgG4afxMzvHyyxnIcmbw5kcK+qFHjnW+PHVU9B
-         Fud0JMe7TPH4Dvn3AjYKpKOCUO5S9e51+dz2SDencAHrwF1i9D46Wmg24VdR4+7UV+
-         ZX1WaMuOCtLFE4IKchvqCBSri48qndIH5Aa8ttMHybFQYfEhJrWDJ4OetnUnOKh0x6
-         OgS59PEZQX22SqHGJamFivJGssHHrFozSancic+89UND9ML4CQuhR5X5ptvW3chOKY
-         QUCym4fANBCGPbSEV1PMnHEH8unlrog1mxFAxGSmPPC/rDJ6Xcd7waqLVWeHxVDr8h
-         0y90e1GdV1nkA==
-Received: from aws-us-west-2-korg-lkml-1.web.codeaurora.org (localhost.localdomain [127.0.0.1])
-        by smtp.lore.kernel.org (Postfix) with ESMTP id 1C85AEB8FB9;
-        Wed,  6 Sep 2023 10:04:09 +0000 (UTC)
-From:   Joel Granados via B4 Relay 
-        <devnull+j.granados.samsung.com@kernel.org>
-Date:   Wed, 06 Sep 2023 12:03:28 +0200
-Subject: [PATCH 7/8] ia64: Remove sentinel element from ctl_table array
+        with ESMTP id S237678AbjIFOpP (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Wed, 6 Sep 2023 10:45:15 -0400
+Received: from mgamail.intel.com (mgamail.intel.com [192.55.52.151])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 26769172C;
+        Wed,  6 Sep 2023 07:45:11 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple;
+  d=intel.com; i=@intel.com; q=dns/txt; s=Intel;
+  t=1694011511; x=1725547511;
+  h=message-id:date:mime-version:subject:to:cc:references:
+   from:in-reply-to:content-transfer-encoding;
+  bh=HKIKo8gJxS6xNqAxkMxzWOKQ5+W7pcHDwu58cyKSvBQ=;
+  b=OOuPPinN4LxTy7L0QxtKdAySp8/EiQe3KsxeBqvNZ4pYOObCfFXJVc9B
+   dZpxbTWTNjEh0PvN54sMULJmc6lXBdVHI5ZCSP7Y+sOT4KCxglAK2kGZF
+   2HjQPUsmgsj/ZyUdu4sTIBAq5BqFSKE36RpUoHFrymA8gfaxlSTmq3sYP
+   67uid6ayaMNcqgpTyvDH8+zPoXChcIS91y5fJPCZS9mK1d8Gw9+cqt2uv
+   BA4bipRwXIQ5N+I/RKGea4iyuSLtJijMhobzHfNDLH0wH0CUguIIGn8M+
+   nv+ZjiKqlkt3I/IecfWUxJPpwWkYlTuQN3CsWxEV2sAUFA9Kc+Ihd2CMM
+   w==;
+X-IronPort-AV: E=McAfee;i="6600,9927,10825"; a="357393634"
+X-IronPort-AV: E=Sophos;i="6.02,232,1688454000"; 
+   d="scan'208";a="357393634"
+Received: from orsmga008.jf.intel.com ([10.7.209.65])
+  by fmsmga107.fm.intel.com with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 06 Sep 2023 07:45:10 -0700
+X-ExtLoop1: 1
+X-IronPort-AV: E=McAfee;i="6600,9927,10825"; a="770777884"
+X-IronPort-AV: E=Sophos;i="6.02,232,1688454000"; 
+   d="scan'208";a="770777884"
+Received: from lmgabald-mobl2.amr.corp.intel.com (HELO [10.212.242.149]) ([10.212.242.149])
+  by orsmga008-auth.jf.intel.com with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 06 Sep 2023 07:45:09 -0700
+Message-ID: <d0d30ad4-7837-b0c4-39f4-3e317e35a41b@intel.com>
+Date:   Wed, 6 Sep 2023 07:45:09 -0700
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Message-Id: <20230906-jag-sysctl_remove_empty_elem_arch-v1-7-3935d4854248@samsung.com>
-References: <20230906-jag-sysctl_remove_empty_elem_arch-v1-0-3935d4854248@samsung.com>
-In-Reply-To: <20230906-jag-sysctl_remove_empty_elem_arch-v1-0-3935d4854248@samsung.com>
-To:     Luis Chamberlain <mcgrof@kernel.org>, willy@infradead.org,
-        josh@joshtriplett.org, Kees Cook <keescook@chromium.org>,
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
+ Thunderbird/102.15.0
+Subject: Re: [PATCH 3/8] arch/x86: Remove sentinel elem from ctl_table arrays
+Content-Language: en-US
+To:     j.granados@samsung.com, Luis Chamberlain <mcgrof@kernel.org>,
+        willy@infradead.org, josh@joshtriplett.org,
+        Kees Cook <keescook@chromium.org>,
         Iurii Zaikin <yzaikin@google.com>,
         Heiko Carstens <hca@linux.ibm.com>,
         Vasily Gorbik <gor@linux.ibm.com>,
@@ -67,59 +74,37 @@ To:     Luis Chamberlain <mcgrof@kernel.org>, willy@infradead.org,
 Cc:     linux-fsdevel@vger.kernel.org, linux-s390@vger.kernel.org,
         linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
         linux-riscv@lists.infradead.org, linuxppc-dev@lists.ozlabs.org,
-        linux-ia64@vger.kernel.org, linux-csky@vger.kernel.org,
-        Joel Granados <j.granados@samsung.com>
-X-Mailer: b4 0.13-dev-86aa5
-X-Developer-Signature: v=1; a=openpgp-sha256; l=904; i=j.granados@samsung.com;
- h=from:subject:message-id; bh=KVD0r38Cili5TZDRzSBYSSUVuCqs3hfxf9D58EVeiJs=;
- b=owEB7QES/pANAwAKAbqXzVK3lkFPAcsmYgBk+E6WE//Xcwga/1NK2RLvtOot92IMQidneKT5p
- v+BAfqJ9cuJAbMEAAEKAB0WIQSuRwlXJeYxJc7LJ5C6l81St5ZBTwUCZPhOlgAKCRC6l81St5ZB
- TydxC/9h8/rccF341foOCgTiAME0wS/e9CbIyL0MBWHLnGQcnYp+RhqdOL0GqHAz726Be1j15kO
- v6YfgptJJw0OJvMP2WWim+xDgOYuBwfWffbIOEjiAZuahyU2itf1YdleanEZfHhbUqci//oJqSh
- 0ajDFBrA+FJKGxCR89VZ01mvGJI5OzswbPnBN32NY4P6KwIE5UoxBLOyxfcT7EtwIQWKpqTk8Pk
- Tulducj2tt8/hPjMNRJetxGELK6ZaYDuLeG7JX3IXgv06/gZXR08QuTLJXmTBEC7oy80w8isUKr
- hY3CrAwd+3lFltSZdYchIvP73k94L3GvSEJz/G4tAoYa/ULVVQw5ClmPo4Se9AmCl7KWNCFFxk3
- YU67Wru1bC8mqE+BTU32baxgXb4PMz/bRGO5NXF5C2K7CYClJy4ZobHb94Ib7QdkgbMhGjwyBoE
- AxKe/dAVVCRcQ7EK66c3SmG+78AEf84jHaVHhmR0xjp7NumHR5XRJFCWi13YS3+jpgjhc=
-X-Developer-Key: i=j.granados@samsung.com; a=openpgp;
- fpr=F1F8E46D30F0F6C4A45FF4465895FAAC338C6E77
-X-Endpoint-Received: by B4 Relay for j.granados@samsung.com/default with auth_id=70
-X-Original-From: Joel Granados <j.granados@samsung.com>
-Reply-To: <j.granados@samsung.com>
+        linux-ia64@vger.kernel.org, linux-csky@vger.kernel.org
+References: <20230906-jag-sysctl_remove_empty_elem_arch-v1-0-3935d4854248@samsung.com>
+ <20230906-jag-sysctl_remove_empty_elem_arch-v1-3-3935d4854248@samsung.com>
+From:   Dave Hansen <dave.hansen@intel.com>
+In-Reply-To: <20230906-jag-sysctl_remove_empty_elem_arch-v1-3-3935d4854248@samsung.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-From: Joel Granados <j.granados@samsung.com>
+On 9/6/23 03:03, Joel Granados via B4 Relay wrote:
+> This commit comes at the tail end of a greater effort to remove the
+> empty elements at the end of the ctl_table arrays (sentinels) which
+> will reduce the overall build time size of the kernel and run time
+> memory bloat by ~64 bytes per sentinel (further information Link :
+> https://lore.kernel.org/all/ZO5Yx5JFogGi%2FcBo@bombadil.infradead.org/)
+> 
+> Remove sentinel element from sld_sysctl and itmt_kern_table.
 
-This commit comes at the tail end of a greater effort to remove the
-empty elements at the end of the ctl_table arrays (sentinels) which
-will reduce the overall build time size of the kernel and run time
-memory bloat by ~64 bytes per sentinel (further information Link :
-https://lore.kernel.org/all/ZO5Yx5JFogGi%2FcBo@bombadil.infradead.org/)
+There's a *LOT* of content to read for a reviewer to figure out what's
+going on here between all the links.  I would have appreciated one more
+sentence here, maybe:
 
-Remove sentinel from kdump_ctl_table.
+	This is now safe because the sysctl registration code
+	(register_sysctl()) implicitly uses ARRAY_SIZE() in addition
+	to checking for a sentinel.
 
-Signed-off-by: Joel Granados <j.granados@samsung.com>
----
- arch/ia64/kernel/crash.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+That needs to be more prominent _somewhere_.  Maybe here, or maybe in
+the cover letter, but _somewhere_.
 
-diff --git a/arch/ia64/kernel/crash.c b/arch/ia64/kernel/crash.c
-index 88b3ce3e66cd..fbf8893a570c 100644
---- a/arch/ia64/kernel/crash.c
-+++ b/arch/ia64/kernel/crash.c
-@@ -231,8 +231,7 @@ static struct ctl_table kdump_ctl_table[] = {
- 		.maxlen = sizeof(int),
- 		.mode = 0644,
- 		.proc_handler = proc_dointvec,
--	},
--	{ }
-+	}
- };
- #endif
- 
+That said, feel free to add this to the two x86 patches:
 
--- 
-2.30.2
-
+Acked-by: Dave Hansen <dave.hansen@linux.intel.com> # for x86
