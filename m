@@ -2,164 +2,219 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 0B6D2EC8743
-	for <linux-ia64@archiver.kernel.org>; Thu,  7 Sep 2023 17:01:12 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id F09C6EC874D
+	for <linux-ia64@archiver.kernel.org>; Thu,  7 Sep 2023 18:26:31 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S238901AbjIGRBM (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Thu, 7 Sep 2023 13:01:12 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:38146 "EHLO
+        id S239695AbjIGS0d (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Thu, 7 Sep 2023 14:26:33 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:54240 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S241011AbjIGRAz (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Thu, 7 Sep 2023 13:00:55 -0400
-Received: from smtp-out2.suse.de (smtp-out2.suse.de [IPv6:2001:67c:2178:6::1d])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id A3B1B1FD4;
-        Thu,  7 Sep 2023 10:00:29 -0700 (PDT)
-Received: from imap2.suse-dmz.suse.de (imap2.suse-dmz.suse.de [192.168.254.74])
-        (using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
-         key-exchange X25519 server-signature ECDSA (P-521) server-digest SHA512)
-        (No client certificate requested)
-        by smtp-out2.suse.de (Postfix) with ESMTPS id 718DC1F894;
-        Thu,  7 Sep 2023 06:49:16 +0000 (UTC)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=suse.de; s=susede2_rsa;
-        t=1694069356; h=from:from:reply-to:date:date:message-id:message-id:to:to:cc:cc:
-         mime-version:mime-version:content-type:content-type:
-         in-reply-to:in-reply-to:references:references;
-        bh=Tmj3YHu3EiPuUc2HxOOZqAmbdUq5Gwk17anV60bvF+8=;
-        b=yU5vier603aXq694itOfrhcjO0QSHPRLF/lueeHBJRSFUC3ta/5WKm18iCH7aRInx50Y+P
-        dlMhxITKyHPvX7XYfZO1ZbjPB2vCg0rpYfZ3c3LfWzbuYpPHxgIL6/rmdCV96ZMwIYptlc
-        2oKsah8Sk+Q1z216oGZcPV1/w+fHjzI=
-DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=suse.de;
-        s=susede2_ed25519; t=1694069356;
-        h=from:from:reply-to:date:date:message-id:message-id:to:to:cc:cc:
-         mime-version:mime-version:content-type:content-type:
-         in-reply-to:in-reply-to:references:references;
-        bh=Tmj3YHu3EiPuUc2HxOOZqAmbdUq5Gwk17anV60bvF+8=;
-        b=iW1d0smaEK2EyWUqniHZl4q0Puf5OimB6EzUPBXkH3k0urRlYwtK2wxMIBgTEFdPvs65/2
-        9I7N9s+LaZpvbcCQ==
-Received: from imap2.suse-dmz.suse.de (imap2.suse-dmz.suse.de [192.168.254.74])
-        (using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
-         key-exchange X25519 server-signature ECDSA (P-521) server-digest SHA512)
-        (No client certificate requested)
-        by imap2.suse-dmz.suse.de (Postfix) with ESMTPS id 2DBCA1358B;
-        Thu,  7 Sep 2023 06:49:16 +0000 (UTC)
-Received: from dovecot-director2.suse.de ([192.168.254.65])
-        by imap2.suse-dmz.suse.de with ESMTPSA
-        id DNAbCmxy+WTFegAAMHmgww
-        (envelope-from <tzimmermann@suse.de>); Thu, 07 Sep 2023 06:49:16 +0000
-Message-ID: <fc126f04-64f1-3403-2e12-54c723c68855@suse.de>
-Date:   Thu, 7 Sep 2023 08:49:15 +0200
-MIME-Version: 1.0
-User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
- Thunderbird/102.14.0
-Subject: Re: [PATCH v2 2/5] fbdev: Replace fb_pgprotect() with
- fb_pgprot_device()
-Content-Language: en-US
-To:     Arnd Bergmann <arnd@arndb.de>,
+        with ESMTP id S236306AbjIGS0b (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Thu, 7 Sep 2023 14:26:31 -0400
+Received: from mailout1.w1.samsung.com (mailout1.w1.samsung.com [210.118.77.11])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 2AEC7A8;
+        Thu,  7 Sep 2023 11:26:27 -0700 (PDT)
+Received: from eucas1p1.samsung.com (unknown [182.198.249.206])
+        by mailout1.w1.samsung.com (KnoxPortal) with ESMTP id 20230907073821euoutp01002074b8606e62b1296829278d0af8f5~Cjchfey8w0992609926euoutp01n;
+        Thu,  7 Sep 2023 07:38:21 +0000 (GMT)
+DKIM-Filter: OpenDKIM Filter v2.11.0 mailout1.w1.samsung.com 20230907073821euoutp01002074b8606e62b1296829278d0af8f5~Cjchfey8w0992609926euoutp01n
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=samsung.com;
+        s=mail20170921; t=1694072301;
+        bh=BXg5O6SPZ8P1tGzXTPI/wb0rr63NnHvgAcD+Vug4myU=;
+        h=Date:From:To:CC:Subject:In-Reply-To:References:From;
+        b=CUBouVPc62jGHERVpVmLNya0vV9VQdPLQBWVNVnHrtfwrdzTJHvq4udyRdm86GlYS
+         Kh7OLqiWje+o7JbiXygKFpsEtup2xm2FJXQkNZ6IPuAEqlyEEQO0CMvhV1rBOdgpUm
+         YnpycD6F/uWg0AqL1Gm2H+2rr/bM6gRuVGAELQug=
+Received: from eusmges3new.samsung.com (unknown [203.254.199.245]) by
+        eucas1p2.samsung.com (KnoxPortal) with ESMTP id
+        20230907073820eucas1p2cea3f66d64ae8ae736c4734b87434645~Cjcg45TxF2457924579eucas1p2m;
+        Thu,  7 Sep 2023 07:38:20 +0000 (GMT)
+Received: from eucas1p2.samsung.com ( [182.198.249.207]) by
+        eusmges3new.samsung.com (EUCPMTA) with SMTP id EA.FA.37758.CED79F46; Thu,  7
+        Sep 2023 08:38:20 +0100 (BST)
+Received: from eusmtrp2.samsung.com (unknown [182.198.249.139]) by
+        eucas1p1.samsung.com (KnoxPortal) with ESMTPA id
+        20230907073820eucas1p15d62f2cb2f0b6e47279f8840e7d1c468~CjcgYTmvn2390823908eucas1p1Z;
+        Thu,  7 Sep 2023 07:38:20 +0000 (GMT)
+Received: from eusmgms1.samsung.com (unknown [182.198.249.179]) by
+        eusmtrp2.samsung.com (KnoxPortal) with ESMTP id
+        20230907073820eusmtrp218fd55524709f7729da4cdaf1fb21500~CjcgXEsNT0114801148eusmtrp2x;
+        Thu,  7 Sep 2023 07:38:20 +0000 (GMT)
+X-AuditID: cbfec7f5-7ffff7000002937e-51-64f97dec075b
+Received: from eusmtip1.samsung.com ( [203.254.199.221]) by
+        eusmgms1.samsung.com (EUCPMTA) with SMTP id BC.E9.10549.CED79F46; Thu,  7
+        Sep 2023 08:38:20 +0100 (BST)
+Received: from CAMSVWEXC02.scsc.local (unknown [106.1.227.72]) by
+        eusmtip1.samsung.com (KnoxPortal) with ESMTPA id
+        20230907073820eusmtip1522243b150116f1fd23668e31649b0f5~CjcgImOqA2199121991eusmtip1X;
+        Thu,  7 Sep 2023 07:38:20 +0000 (GMT)
+Received: from localhost (106.210.248.249) by CAMSVWEXC02.scsc.local
+        (2002:6a01:e348::6a01:e348) with Microsoft SMTP Server (TLS) id 15.0.1497.2;
+        Thu, 7 Sep 2023 08:38:19 +0100
+Date:   Thu, 7 Sep 2023 09:38:18 +0200
+From:   Joel Granados <j.granados@samsung.com>
+To:     Dave Hansen <dave.hansen@intel.com>
+CC:     Luis Chamberlain <mcgrof@kernel.org>, <willy@infradead.org>,
+        <josh@joshtriplett.org>, Kees Cook <keescook@chromium.org>,
+        Iurii Zaikin <yzaikin@google.com>,
+        Heiko Carstens <hca@linux.ibm.com>,
+        Vasily Gorbik <gor@linux.ibm.com>,
+        Alexander Gordeev <agordeev@linux.ibm.com>,
+        Christian Borntraeger <borntraeger@linux.ibm.com>,
+        Sven Schnelle <svens@linux.ibm.com>,
+        Gerald Schaefer <gerald.schaefer@linux.ibm.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>,
+        Dave Hansen <dave.hansen@linux.intel.com>, <x86@kernel.org>,
+        "H. Peter Anvin" <hpa@zytor.com>,
+        Andy Lutomirski <luto@kernel.org>,
+        Paul Walmsley <paul.walmsley@sifive.com>,
+        Palmer Dabbelt <palmer@dabbelt.com>,
+        Albert Ou <aou@eecs.berkeley.edu>,
         Michael Ellerman <mpe@ellerman.id.au>,
         Nicholas Piggin <npiggin@gmail.com>,
         Christophe Leroy <christophe.leroy@csgroup.eu>,
-        Helge Deller <deller@gmx.de>
-Cc:     linuxppc-dev@lists.ozlabs.org, linux-fbdev@vger.kernel.org,
-        linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org,
-        linux-mips@vger.kernel.org, sparclinux@vger.kernel.org,
-        dri-devel@lists.freedesktop.org,
-        Linux-Arch <linux-arch@vger.kernel.org>
-References: <20230906144801.25297-1-tzimmermann@suse.de>
- <20230906144801.25297-3-tzimmermann@suse.de>
- <8865aa0a-ec40-41ca-a77e-9172cec49f07@app.fastmail.com>
-From:   Thomas Zimmermann <tzimmermann@suse.de>
-In-Reply-To: <8865aa0a-ec40-41ca-a77e-9172cec49f07@app.fastmail.com>
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="------------TEh4cvhQbs1k527ukntUhmr1"
+        Guo Ren <guoren@kernel.org>, <linux-fsdevel@vger.kernel.org>,
+        <linux-s390@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linux-arm-kernel@lists.infradead.org>,
+        <linux-riscv@lists.infradead.org>, <linuxppc-dev@lists.ozlabs.org>,
+        <linux-ia64@vger.kernel.org>, <linux-csky@vger.kernel.org>
+Subject: Re: [PATCH 3/8] arch/x86: Remove sentinel elem from ctl_table
+ arrays
+Message-ID: <20230907073818.n5dcc7sqpvzkpeaa@localhost>
+MIME-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+        protocol="application/pgp-signature"; boundary="vbdr6hobr7rarecx"
+Content-Disposition: inline
+In-Reply-To: <d0d30ad4-7837-b0c4-39f4-3e317e35a41b@intel.com>
+X-Originating-IP: [106.210.248.249]
+X-ClientProxiedBy: CAMSVWEXC01.scsc.local (2002:6a01:e347::6a01:e347) To
+        CAMSVWEXC02.scsc.local (2002:6a01:e348::6a01:e348)
+X-Brightmail-Tracker: H4sIAAAAAAAAA2WTe0xTVxzHc+697S1l4LWgPYEFBZlGUETm3DEbsi1u3sRlG4uJ2bIJVe7A
+        AC1rZaAZsQ5UYEigPAwFoUAsyGu1hSqPTtZtNDxWxCIwV5kKC5T3QMAGVtfuusxk/31+v+/v
+        +3uc5PBwQSHpwzslPs1IxaKEAC6f0HfZ+3fPpNljQh3Te9GNXhsXtawpSTT2l5GLljQOLppX
+        5wBkVUyQaNH2EKBJzSWA5tOPozvKFQ6aNJwn0HR5HUDFN4TomUqC+r5NRNqxIQ7SX8vAUIeh
+        m0ALmXMcZGkr4yL9UgYX5VWm48hYZABobdXBQf1tjRx0bXgAQyN5fwB0t1OFoWa5c7p9coRA
+        NksOji4qNyD1d40k0mmLcJRhfQ2tPXV2e6oZ4yB16wdvbadXL+QSdEN5A6AtQwM4XSofIOjl
+        X80YPWOzEfSPmU9IusomJ+hW5QOSVmmTaV1tEF3dYcPo+9PhtLYui0vPmc0knVfVCT4Sfsp/
+        M4ZJOPUVI91zMJofl99yD0/q2ZSqNJeRcqAQZAMeD1L7oO52QDZw4wmoWgAVJVuyAd/JTwDs
+        0LTgbLAEYOlKIcdV5TLcfPgDhxVqAJwYLeaydmdVYfcBlpsBvP6zyMUEFQhv9U0BF3OpXbB/
+        xoq72JvaAXuu15CuRjjVz4dZj6swl+BFfQiXlFn/TPOgXoeNlnGM5Y2wu2SccDFOpcLLleuE
+        6wSc8oU1Dp4r7UaFw7sl5YBddBvsumwlWE6DPc33MdcsSOncoW22FGOFQ3BR3oyz7AWnTM0k
+        yy/DZ60Vzw0FAN52LJBsUA+g+vzyc/cbMGNwnGQf8m04Vv0Fi55wZHYju6cnVOiv4GzaA2Ze
+        FLDG7bB+dIbIA9uUL1ymfOEy5X+XseldUNW+yP1fOhiqK6dxlsNhU9M8oQJkHRAyybLEWEb2
+        qphJCZGJEmXJ4tiQk5JELXB+ll6HafkWqJ36M8QIMB4wgkCn+bGm/g7wIcQSMRPg7TG3ZSVG
+        4BEjOnOWkUqipMkJjMwIfHlEgNAjOLz7pICKFZ1m4hkmiZH+q2I8Nx85lvRJ/qzQP/NC9Ijv
+        98KqWEurJd8vxRSZ+zHZWSA+azGWa+8JUzV57dE5OT6W/V6msLb3tGkVzOZDj7yOhg5G6Op+
+        vzrf93Wr/6ajfE5XweGeY9UK8y87uWWRRblb+VrZleKoI5M71BUnwhpklev700fFB5vOBKrj
+        Lz3Q7YyXZXvzygwTue96HvPPC3KETgvnPzvnN3bk5nG/NM2qfUXcLqxPt872p1iHwwy76wrn
+        flpPSTh8Ljc4cmip3a8yali/uMFu9Xwlrn5N9dI7NVtN9uCIwfc3/9aWs6Atk3QkKdquVun3
+        nPjSnfnmc/cIgcS0fsAgjzMX9D4KFuwbWq3wXp+wBBCyONHeIFwqE/0Nr1kOa6cEAAA=
+X-Brightmail-Tracker: H4sIAAAAAAAAA2WSe0xTVxzHPffe3hYSsmuh4wqauYqaMCktUDgQi9sSx2Vzi3N/ba66Dm54
+        SFtsKdFtTAwMEIF1TmQt8tyoG/IsrAMmC1SjwwdYqrUuoB0PSymBMd4B6wp1mcn++5zv73w/
+        5+TksFB2Ox7ASpFl0AqZJI2Le2O3XDeGQ6ayVhL552wEbL3lwOHPq1omHH1qxOFciwuHM7oi
+        AIfO2Znwb4cNwImWfABnco7Au9pFBpzoPo1BZ2U9gBda/eGzajm8fVYK9aMWBjTU5SLwSncf
+        Bv8qmGZAc9dFHBrmcnGorslBobG0G8DVJRcDDnQ1MmDdAxMCrepxAAd7qhHYnu0+fWXCikGH
+        uQiFedqXoK65kQnb9KUozB0SwtVlt225ZZQBdZ3vvb6LWvqqBKMaKhsAZbaYUKo824RRCw/7
+        EWrK4cCoqwXzTKrWkY1RndphJlWtV1FtPwZT319xINQfThGlrz+DU9P9/UxKXdsDDvp/xNur
+        kKsy6O3JcmWGiHtYAMN4gmjIC4uI5gnCo8QxYUJuaOzeRDotJZNWhMZ+wkv+WqNF0n/nnCgv
+        9M8GanYh8GKRRAT5i62XUQi8WWyiDpCGMR3qGWwlW+fvMzzsS65ZCnHPpllAmr+rQTyLdkAO
+        VT/eaGBEENlxexKsM07sIQemhjZyP2I3efOnS8z1Akrc8SafNLZsaH2Jd8n7j54x19mHiCIb
+        zWPPrfUIuXCt+flgM9mnGcPWGSUyybIZsztnuTmQvORircdehIgc1FQCz1V3kNeLhzAPZ5Fz
+        T58ANfDVvmDSvmDS/mfyxMGk1eVA/he/RupqnKiHRWRT0wxWDZj1wI9WKaVJUqWAp5RIlSpZ
+        Ei9BLtUD95c1XF9p6wCVk7M8I0BYwAiC3M2Rlst3QQAmk8torp/P9CuLiWyfRMnJz2iF/KhC
+        lUYrjUDofsZv0ABOgtz9/2UZRwWRfKEgIjKaL4yODOf6+8SnF0jYRJIkgz5G0+m04t8ewvIK
+        yEZ+jcO7y17uWbLdsCJvBx45n3/Id5+uYPSkxqrZNm4czLnpDIwaOTVQ1iDa+WdRb3EMj1M1
+        92XdSI7LlB915ouOsd0LRZc/eMOQFzi+P5U6vj3+LZFCFGfPPCCMqTBYfPfd8f88kBcecqqk
+        rzs+Xdxcpz7NepT6cfHx5v49izuLw89eTEy/Wr42Pf1mYwW/lNWZWWET/yAti+VnbbOYUuG8
+        Yy3u/Am/UcuOY+/0bmre+lBjs0+Kug47f7OzQ8HB8Qv7N+mFH3IeLD/O4VvzOCoFbt+1Jbnk
+        mhgJEd+rLZ89dE8XNGxxVm3p6k1JqCpgpG7+tJczfsDY5EK5drHJ59v3X+ViymSJIBhVKCX/
+        ABZq0BhHBAAA
+X-CMS-MailID: 20230907073820eucas1p15d62f2cb2f0b6e47279f8840e7d1c468
+X-Msg-Generator: CA
+X-RootMTR: 20230906144515eucas1p286690ee141d507d7d3a72cd8afa28408
+X-EPHeader: CA
+CMS-TYPE: 201P
+X-CMS-RootMailID: 20230906144515eucas1p286690ee141d507d7d3a72cd8afa28408
+References: <20230906-jag-sysctl_remove_empty_elem_arch-v1-0-3935d4854248@samsung.com>
+        <20230906-jag-sysctl_remove_empty_elem_arch-v1-3-3935d4854248@samsung.com>
+        <CGME20230906144515eucas1p286690ee141d507d7d3a72cd8afa28408@eucas1p2.samsung.com>
+        <d0d30ad4-7837-b0c4-39f4-3e317e35a41b@intel.com>
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---------------TEh4cvhQbs1k527ukntUhmr1
-Content-Type: multipart/mixed; boundary="------------LMUVyb40kina8IJoOFeFeOP2";
- protected-headers="v1"
-From: Thomas Zimmermann <tzimmermann@suse.de>
-To: Arnd Bergmann <arnd@arndb.de>, Michael Ellerman <mpe@ellerman.id.au>,
- Nicholas Piggin <npiggin@gmail.com>,
- Christophe Leroy <christophe.leroy@csgroup.eu>, Helge Deller <deller@gmx.de>
-Cc: linuxppc-dev@lists.ozlabs.org, linux-fbdev@vger.kernel.org,
- linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org,
- linux-mips@vger.kernel.org, sparclinux@vger.kernel.org,
- dri-devel@lists.freedesktop.org, Linux-Arch <linux-arch@vger.kernel.org>
-Message-ID: <fc126f04-64f1-3403-2e12-54c723c68855@suse.de>
-Subject: Re: [PATCH v2 2/5] fbdev: Replace fb_pgprotect() with
- fb_pgprot_device()
-References: <20230906144801.25297-1-tzimmermann@suse.de>
- <20230906144801.25297-3-tzimmermann@suse.de>
- <8865aa0a-ec40-41ca-a77e-9172cec49f07@app.fastmail.com>
-In-Reply-To: <8865aa0a-ec40-41ca-a77e-9172cec49f07@app.fastmail.com>
+--vbdr6hobr7rarecx
+Content-Type: text/plain; charset="us-ascii"
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
---------------LMUVyb40kina8IJoOFeFeOP2
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: base64
+On Wed, Sep 06, 2023 at 07:45:09AM -0700, Dave Hansen wrote:
+> On 9/6/23 03:03, Joel Granados via B4 Relay wrote:
+> > This commit comes at the tail end of a greater effort to remove the
+> > empty elements at the end of the ctl_table arrays (sentinels) which
+> > will reduce the overall build time size of the kernel and run time
+> > memory bloat by ~64 bytes per sentinel (further information Link :
+> > https://lore.kernel.org/all/ZO5Yx5JFogGi%2FcBo@bombadil.infradead.org/)
+> >=20
+> > Remove sentinel element from sld_sysctl and itmt_kern_table.
+>=20
+> There's a *LOT* of content to read for a reviewer to figure out what's
+> going on here between all the links.  I would have appreciated one more
+> sentence here, maybe:
+>=20
+> 	This is now safe because the sysctl registration code
+> 	(register_sysctl()) implicitly uses ARRAY_SIZE() in addition
+> 	to checking for a sentinel.
+Thx for the feedback. This is a great sentence to add at the end of the
+first paragraph instead of the link. I'll add it with a few changes as
+there are more than just one register function and the use of ARRAY_SIZE
+is implicit most of the time.
 
-SGkgQXJuZA0KDQpBbSAwNi4wOS4yMyB1bSAyMTo1MyBzY2hyaWViIEFybmQgQmVyZ21hbm46
-DQo+IE9uIFdlZCwgU2VwIDYsIDIwMjMsIGF0IDEwOjM1LCBUaG9tYXMgWmltbWVybWFubiB3
-cm90ZToNCj4+IFJlbmFtZSB0aGUgZmJkZXYgbW1hcCBoZWxwZXIgZmJfcGdwcm90ZWN0KCkg
-dG8gZmJfcGdwcm90X2RldmljZSgpLg0KPj4gVGhlIGhlbHBlciBzZXRzIFZNQSBwYWdlLWFj
-Y2VzcyBmbGFncyBmb3IgZnJhbWVidWZmZXJzIGluIGRldmljZSBJL08NCj4+IG1lbW9yeS4g
-VGhlIG5ldyBuYW1lIGZvbGxvd3MgcGdwcm90X2RldmljZSgpLCB3aGljaCBkb2VzIHRoZSBz
-YW1lIGZvcg0KPj4gYXJiaXRyYXJ5IGRldmljZXMuDQo+Pg0KPj4gQWxzbyBjbGVhbiB1cCB0
-aGUgaGVscGVyJ3MgcGFyYW1ldGVycyBhbmQgcmV0dXJuIHZhbHVlLiBJbnN0ZWFkIG9mDQo+
-PiB0aGUgVk1BIGluc3RhbmNlLCBwYXNzIHRoZSBpbmRpdmlkaWFsIHBhcmFtZXRlcnMgc2Vw
-YXJhdGVseTogZXhpc3RpbmcNCj4+IHBhZ2UtYWNjZXNzIGZsYWdzLCB0aGUgVk1BcyBzdGFy
-dCBhbmQgZW5kIGFkZHJlc3NlcyBhbmQgdGhlIG9mZnNldA0KPj4gaW4gdGhlIHVuZGVybHlp
-bmcgZGV2aWNlIG1lbW9yeSByc3AgZmlsZS4gUmV0dXJuIHRoZSBuZXcgcGFnZS1hY2Nlc3MN
-Cj4+IGZsYWdzLiBUaGVzZSBjaGFuZ2VzIGFsaWduIGZiX3BncHJvdF9kZXZpY2UoKSBjbG9z
-ZXIgd2l0aCBwZ3Byb3RfZGV2aWNlLg0KPj4NCj4+IFNpZ25lZC1vZmYtYnk6IFRob21hcyBa
-aW1tZXJtYW5uIDx0emltbWVybWFubkBzdXNlLmRlPg0KPiANCj4gVGhpcyBtYWtlcyBzZW5z
-ZSBhcyBhIGNsZWFudXAsIGJ1dCBJJ20gbm90IHN1cmUgdGhlIG5ldyBuYW1pbmcgaXMgaGVs
-cGZ1bC4NCj4gDQo+IFRoZSAncGdwcm90X2RldmljZScgcGVybWlzc2lvbnMgYXJlIGJhc2Vk
-IG9uIEFybSdzIG1lbW9yeSBhdHRyaWJ1dGVzLA0KPiB3aGljaCBoYXZlIHNsaWdodGx5IGRp
-ZmZlcmVudCBiZWhhdmlvciBmb3IgImRldmljZSIsICJ1bmNhY2hlZCIgYW5kDQo+ICJ3cml0
-ZWNvbWJpbmUiIG1hcHBpbmdzLiBJIHRoaW5rIHNpbXBseSBjYWxsaW5nIHRoaXMgb25lIHBn
-cHJvdF9mYigpDQo+IG9yIGZiX3BncHJvdCgpIHdvdWxkIGJlIGxlc3MgY29uZnVzaW5nLCBz
-aW5jZSBkZXBlbmRpbmcgb24gdGhlIGFyY2hpdGVjdHVyZQ0KPiBpdCBhcHBlYXJzIHRvIGdp
-dmUgZWl0aGVyIHVuY2FjaGVkIG9yIHdyaXRlY29tYmluZSBtYXBwaW5ncyBidXQgbm90DQo+
-ICJkZXZpY2UiIG9uIHRoZSBhcmNoaXRlY3R1cmVzIHdoZXJlIHRoaXMgaXMgZGlmZmVyZW50
-Lg0KDQpJIHNlZS4gVGhhbmtzIGZvciB0aGUgaW5mby4gSSBsaWtlIHBncHJvdF9mYigpIG1h
-eWJlIA0KcGdwcm90X2ZyYW1lYnVmZmVyKCkuIEknbGwgdXBkYXRlIHRoZSBwYXRjaHNldC4N
-Cg0KT25lIHRoaW5nIEkndmUgYmVlbiB3b25kZXJpbmcgaXMgd2hldGhlciBJIHNob3VsZCBh
-dHRlbXB0IHRvIGludGVncmF0ZSANCnRoZSBoZWxwZXJzIGluIDxhc20vZmIuaD4gaW4gdGhl
-IHJlZ3VsYXIgYXNtIGhlYWRlcnMuIFNvIHRoZSBwZ3Byb3QgY29kZSANCndvdWxkIGdvIGlu
-dG8gcGd0YWJsZS5oLCB0aGUgSS9PIGZ1bmN0aW9ucyB3b3VsZCBnbyBpbnRvIGlvLmguIFRo
-ZSBJL08gDQpmdW5jdGlvbnMgY291bGQgdGhlbiBiZSBjYWxsZWQgcmVhZGJfZmIoKSwgd3Jp
-dGVsX2ZiKCksIG1lbWNweV90b2ZiKCkgDQphbmQgc28gb24uIFdvdWxkIHlvdSBwcmVmZXIg
-dGhhdCBvciByYXRoZXIgbm90Pw0KDQpCZXN0IHJlZ2FyZHMNClRob21hcw0KDQo+IA0KPiAg
-ICAgICAgQXJuZA0KDQotLSANClRob21hcyBaaW1tZXJtYW5uDQpHcmFwaGljcyBEcml2ZXIg
-RGV2ZWxvcGVyDQpTVVNFIFNvZnR3YXJlIFNvbHV0aW9ucyBHZXJtYW55IEdtYkgNCkZyYW5r
-ZW5zdHJhc3NlIDE0NiwgOTA0NjEgTnVlcm5iZXJnLCBHZXJtYW55DQpHRjogSXZvIFRvdGV2
-LCBBbmRyZXcgTXllcnMsIEFuZHJldyBNY0RvbmFsZCwgQm91ZGllbiBNb2VybWFuDQpIUkIg
-MzY4MDkgKEFHIE51ZXJuYmVyZykNCg==
+  This is now safe because the sysctl registration code
+  (register_sysctl() and friends) use the array size in addition to
+  checking for a sentinel.
 
---------------LMUVyb40kina8IJoOFeFeOP2--
+I have changed my cover letter in case I send a V2 and for the other
+batches that are coming after the architecture one.
 
---------------TEh4cvhQbs1k527ukntUhmr1
-Content-Type: application/pgp-signature; name="OpenPGP_signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="OpenPGP_signature"
+>=20
+> That needs to be more prominent _somewhere_.  Maybe here, or maybe in
+> the cover letter, but _somewhere_.
+This is also a good point. I think having it in both the cover letter
+and each of the commits is an added value.
+
+>=20
+> That said, feel free to add this to the two x86 patches:
+>=20
+> Acked-by: Dave Hansen <dave.hansen@linux.intel.com> # for x86
+
+Best
+
+--=20
+
+Joel Granados
+
+--vbdr6hobr7rarecx
+Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-wsF5BAABCAAjFiEExndm/fpuMUdwYFFolh/E3EQov+AFAmT5cmsFAwAAAAAACgkQlh/E3EQov+AQ
-9hAAnu8YqJbF8kuGEVKqu7BhEZrJ9Yg8lVBP8+c6r7PW6z5NYHSXwtGmySIopyd4c4C6RiUDOq0f
-gI96wa8Ze85a2vVyPMg0vAJxt94DgCURK37L+tMo/jgRP5uTUuRNwSEYURjpsMT4Zbjc1jNgz5b4
-CP7SZuXBRIj8JAP/SPbpHoo+j8m3PNLcpEZjlk+H81zy7s4kLFftw3bBaB6Lu8TBfYCFKIwuGmjJ
-p55XdNWIbj8q8S6Hhh5DN2lFf6qz7p1DRysLVL8q0dtoyXifftoxU8C7baO0/IM2do6tbNucY+9U
-WJRa+UkMasd314eJ4H+F9oSbKG2hrRJAv98eg1Wbf/+VRylJCYa5HsdHHWCGAoBtxUuK1HqarqvF
-Rrqw/Zt1qsEKHNzlzzq9Qlm15+9n5z6FnbXJgUzkApr20orOHu2DLf9FkUNGDOmykOQfNfWC+I0k
-x5dEx6KxgKUhekd4Q8kiaT/EeqMOV+F31TvezVRo9VuM9uRH2WqtH3LS+9T+NzNQx/+aG9WdrcVM
-cWPvt+RifTXdXPhpZA6pKAOe049mKxkdC6iQp0A9L1YB4QP6iNYgR7wqVvQunMCfoQPJcIo9n4aL
-MmcPjtLmozw7BV3fBCeMuWrk41msZ7qbrAyvOrDuMjQtnYMp6cEeLZOcUHk96uZze9DH8vxZat0Q
-FY4=
-=9dZp
+iQGzBAABCgAdFiEErkcJVyXmMSXOyyeQupfNUreWQU8FAmT5fecACgkQupfNUreW
+QU9Bhgv8DyTYJvCgE8sg+/Ap/JjJPKvGWZBDXfBIHFzHCpKXizcVg8yYUJfBl62v
+KxZtrKUrKnByfeqeUsYLmdzZVgYNpru/Ds1piqa9nr2dEYtnxCeV2Vl+GduB0J/O
++XHzHnLZMldSfYdwmJ9hIsT0YoyiPZAQYKTvHfk2XhDx7oXaN83xqZwiQ/4KevGG
+hFHCDjYjn2NaD6+DtaZj7g3l+GUApVap07K6jTaWNLScoQsQ3ew89jYA/qvUuXJ8
+uiCeTLZhu1bCSSr0wAwrb9+PTwhgIABI/dP7UXnXXF/CNfsAacPnLTVYXwSFI18e
+cGsApL10swjpqwPITulSjYS0kVIcX7OYWTknodCBRpIebCshB0JftTXxnrTY007M
+FEKIDMwER++/mXSU3R7Oj18AWp4/IBNYcNIw9ajYmdbK9MdhVyLu2g83dVTDaWFA
+zwKLH+vJXrgAk+uQBlFo8mCvuGPBk9fHv2kmG/kjufz8X560KHQVxkPGPj8V0k9E
+387iV6oU
+=1yPf
 -----END PGP SIGNATURE-----
 
---------------TEh4cvhQbs1k527ukntUhmr1--
+--vbdr6hobr7rarecx--
