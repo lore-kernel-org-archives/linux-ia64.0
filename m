@@ -2,90 +2,122 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 2DF62EC875E
-	for <linux-ia64@archiver.kernel.org>; Thu,  7 Sep 2023 22:16:08 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 673B6EE57E0
+	for <linux-ia64@archiver.kernel.org>; Fri,  8 Sep 2023 09:02:21 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S232200AbjIGWQK (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Thu, 7 Sep 2023 18:16:10 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:59932 "EHLO
+        id S239533AbjIHJCX (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Fri, 8 Sep 2023 05:02:23 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:43978 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S237664AbjIGWQJ (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Thu, 7 Sep 2023 18:16:09 -0400
-Received: from mgamail.intel.com (mgamail.intel.com [134.134.136.126])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 51AE11BD5
-        for <linux-ia64@vger.kernel.org>; Thu,  7 Sep 2023 15:16:06 -0700 (PDT)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple;
-  d=intel.com; i=@intel.com; q=dns/txt; s=Intel;
-  t=1694124966; x=1725660966;
-  h=date:from:to:cc:subject:message-id:mime-version;
-  bh=4b4lyxIV/a+GwUu9bLZLE7kHovIKqrEIgLWgm2AvXzw=;
-  b=VyWOFx5OGX+EBVRIQlrcIjeaEvKzyBEvaxCgCFWA5z7CWF++C5Odgz7l
-   yNtarCegdodYAZXMM4BVb1tFcQnFRoLFIDIhWEsSVDuzF0/kwdblnodvb
-   Col/oPAXfVq5s1NTFztygtlWS7o1ViYTU8waTcZFUOVXw1HuyNjek1vce
-   QGmrKRyBu7eeH5O9LsKQHwhM8pbUyTQx226oe5x3+80DFBs8eO/tpVRyP
-   kSW8I3e84eWEyFbCu8FfIqld8X/2SaF0HjSjieqNrGbS5z+W+5RNqfxxX
-   YNufxZjw+bujuNbQMyh7p6L48MJd4MQH78Z/tsYUOCW4k7OAxHO+jDfI2
-   A==;
-X-IronPort-AV: E=McAfee;i="6600,9927,10826"; a="362553513"
-X-IronPort-AV: E=Sophos;i="6.02,236,1688454000"; 
-   d="scan'208";a="362553513"
-Received: from orsmga007.jf.intel.com ([10.7.209.58])
-  by orsmga106.jf.intel.com with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 07 Sep 2023 15:15:35 -0700
-X-ExtLoop1: 1
-X-IronPort-AV: E=McAfee;i="6600,9927,10826"; a="735693008"
-X-IronPort-AV: E=Sophos;i="6.02,236,1688454000"; 
-   d="scan'208";a="735693008"
-Received: from lkp-server01.sh.intel.com (HELO 59b3c6e06877) ([10.239.97.150])
-  by orsmga007.jf.intel.com with ESMTP; 07 Sep 2023 15:15:34 -0700
-Received: from kbuild by 59b3c6e06877 with local (Exim 4.96)
-        (envelope-from <lkp@intel.com>)
-        id 1qeNHg-0001dT-1G;
-        Thu, 07 Sep 2023 22:15:32 +0000
-Date:   Fri, 8 Sep 2023 06:15:03 +0800
-From:   kernel test robot <lkp@intel.com>
-To:     Tony Luck <tony.luck@intel.com>
-Cc:     llvm@lists.linux.dev, oe-kbuild-all@lists.linux.dev,
-        linux-ia64@vger.kernel.org
-Subject: [aegl:resctrl2_v65 3/4] fs/resctrl2/arch/x86/amd_smba.c:243:32:
- warning: unused variable 'smba_feature'
-Message-ID: <202309080600.4w3asiAW-lkp@intel.com>
+        with ESMTP id S229844AbjIHJCX (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Fri, 8 Sep 2023 05:02:23 -0400
+Received: from smtp.kernel.org (relay.kernel.org [52.25.139.140])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 47B341BC8;
+        Fri,  8 Sep 2023 02:02:19 -0700 (PDT)
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id E9FA3C433C9;
+        Fri,  8 Sep 2023 09:02:18 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=kernel.org;
+        s=k20201202; t=1694163739;
+        bh=rRKEvIB0lVb2uGUWPoA0+XeAQvNtg/fARJrpqhmZI3E=;
+        h=References:In-Reply-To:From:Date:Subject:To:Cc:From;
+        b=bOXNj24SHdKL79z6qfM1jz0YMFFEnZqcAWfQGXW2LdIVaQDbeY0DQhD5/JprtiyDj
+         5D1k99+9Ug9dFN3lpUVgUMFb+noK4GaCPvJKFCJwg7T2e2+JUsNC8ryA59UAI/MjA+
+         nhZly7RSUCbgUDXu5rbOkRxYN7fIeaweU9f951Eubr4hYUupmCp3r0d0X0xr56GoG7
+         TSWC4FWPFYAvPS4fSD21+7m/TJTDKv1lgcMSbfjITw67g2TtEjYcmoKItUG7Y97Hw0
+         VZNeNKEm7ZluvzqobouSn1v3ioXDS3dPfdRUJCnjtDuu6e2FCsvfTpz6bPkSMQxquU
+         qkfRaTdEcE2/w==
+Received: by mail-ej1-f54.google.com with SMTP id a640c23a62f3a-99c4923195dso225185366b.2;
+        Fri, 08 Sep 2023 02:02:18 -0700 (PDT)
+X-Gm-Message-State: AOJu0YzYmmn3N0eJ86RY5UVSHuEGe+d4IgMAB/ImN5j7vzi/Vz9f9yFn
+        iUsjCB6DYZbEYE+aeyfhtgSAlHG1MfyORDaVyE4=
+X-Google-Smtp-Source: AGHT+IHIxkho9CXfRVQdHREUP1Ny9xnSRZ4p9AxmPd+t8Z6hWpbhNEsJKkVWz7HAOHHA2nwechuLx9pmYabZgwNqZ0U=
+X-Received: by 2002:a17:906:18aa:b0:9a1:c42e:5e5e with SMTP id
+ c10-20020a17090618aa00b009a1c42e5e5emr1264248ejf.42.1694163717201; Fri, 08
+ Sep 2023 02:01:57 -0700 (PDT)
 MIME-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+References: <20230906-jag-sysctl_remove_empty_elem_arch-v1-0-3935d4854248@samsung.com>
+ <20230906-jag-sysctl_remove_empty_elem_arch-v1-8-3935d4854248@samsung.com>
+In-Reply-To: <20230906-jag-sysctl_remove_empty_elem_arch-v1-8-3935d4854248@samsung.com>
+From:   Guo Ren <guoren@kernel.org>
+Date:   Fri, 8 Sep 2023 17:01:44 +0800
+X-Gmail-Original-Message-ID: <CAJF2gTRFrd4zs_8vv5-n5p_+GYxnTJcRBtYDJaMZQQMOVKKOTw@mail.gmail.com>
+Message-ID: <CAJF2gTRFrd4zs_8vv5-n5p_+GYxnTJcRBtYDJaMZQQMOVKKOTw@mail.gmail.com>
+Subject: Re: [PATCH 8/8] c-sky: rm sentinel element from ctl_talbe array
+To:     j.granados@samsung.com
+Cc:     Luis Chamberlain <mcgrof@kernel.org>, willy@infradead.org,
+        josh@joshtriplett.org, Kees Cook <keescook@chromium.org>,
+        Iurii Zaikin <yzaikin@google.com>,
+        Heiko Carstens <hca@linux.ibm.com>,
+        Vasily Gorbik <gor@linux.ibm.com>,
+        Alexander Gordeev <agordeev@linux.ibm.com>,
+        Christian Borntraeger <borntraeger@linux.ibm.com>,
+        Sven Schnelle <svens@linux.ibm.com>,
+        Gerald Schaefer <gerald.schaefer@linux.ibm.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>,
+        Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org,
+        "H. Peter Anvin" <hpa@zytor.com>,
+        Andy Lutomirski <luto@kernel.org>,
+        Paul Walmsley <paul.walmsley@sifive.com>,
+        Palmer Dabbelt <palmer@dabbelt.com>,
+        Albert Ou <aou@eecs.berkeley.edu>,
+        Michael Ellerman <mpe@ellerman.id.au>,
+        Nicholas Piggin <npiggin@gmail.com>,
+        Christophe Leroy <christophe.leroy@csgroup.eu>,
+        linux-fsdevel@vger.kernel.org, linux-s390@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-riscv@lists.infradead.org, linuxppc-dev@lists.ozlabs.org,
+        linux-ia64@vger.kernel.org, linux-csky@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-tree:   https://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git resctrl2_v65
-head:   13c888afbee9f7da0a4a969617dea9889da9d711
-commit: 75c85a7905a138996d3d1309cc87798db5979de0 [3/4] resctrl2: AMD Slow Memory Bandwidth Allocation
-config: x86_64-randconfig-r011-20230908 (https://download.01.org/0day-ci/archive/20230908/202309080600.4w3asiAW-lkp@intel.com/config)
-compiler: clang version 16.0.4 (https://github.com/llvm/llvm-project.git ae42196bc493ffe877a7e3dff8be32035dea4d07)
-reproduce (this is a W=1 build): (https://download.01.org/0day-ci/archive/20230908/202309080600.4w3asiAW-lkp@intel.com/reproduce)
+Acked-by: Guo Ren <guoren@kernel.org>
 
-If you fix the issue in a separate patch/commit (i.e. not just a new version of
-the same patch/commit), kindly add following tags
-| Reported-by: kernel test robot <lkp@intel.com>
-| Closes: https://lore.kernel.org/oe-kbuild-all/202309080600.4w3asiAW-lkp@intel.com/
+On Wed, Sep 6, 2023 at 6:04=E2=80=AFPM Joel Granados via B4 Relay
+<devnull+j.granados.samsung.com@kernel.org> wrote:
+>
+> From: Joel Granados <j.granados@samsung.com>
+>
+> This commit comes at the tail end of a greater effort to remove the
+> empty elements at the end of the ctl_table arrays (sentinels) which
+> will reduce the overall build time size of the kernel and run time
+> memory bloat by ~64 bytes per sentinel (further information Link :
+> https://lore.kernel.org/all/ZO5Yx5JFogGi%2FcBo@bombadil.infradead.org/)
+>
+> Remove sentinel from alignment_tbl ctl_table array.
+>
+> Signed-off-by: Joel Granados <j.granados@samsung.com>
+> ---
+>  arch/csky/abiv1/alignment.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+>
+> diff --git a/arch/csky/abiv1/alignment.c b/arch/csky/abiv1/alignment.c
+> index b60259daed1b..0d75ce7b0328 100644
+> --- a/arch/csky/abiv1/alignment.c
+> +++ b/arch/csky/abiv1/alignment.c
+> @@ -328,8 +328,7 @@ static struct ctl_table alignment_tbl[5] =3D {
+>                 .maxlen =3D sizeof(align_usr_count),
+>                 .mode =3D 0666,
+>                 .proc_handler =3D &proc_dointvec
+> -       },
+> -       {}
+> +       }
+>  };
+>
+>  static int __init csky_alignment_init(void)
+>
+> --
+> 2.30.2
+>
 
-All warnings (new ones prefixed by >>):
 
->> fs/resctrl2/arch/x86/amd_smba.c:243:32: warning: unused variable 'smba_feature' [-Wunused-const-variable]
-   static const struct x86_cpu_id smba_feature[] = {
-                                  ^
-   1 warning generated.
-
-
-vim +/smba_feature +243 fs/resctrl2/arch/x86/amd_smba.c
-
-   242	
- > 243	static const struct x86_cpu_id smba_feature[] = {
-   244		X86_MATCH_FEATURE(X86_FEATURE_SMBA, 0),
-   245		{ },
-   246	};
-   247	MODULE_DEVICE_TABLE(x86cpu, smba_feature);
-   248	
-
--- 
-0-DAY CI Kernel Test Service
-https://github.com/intel/lkp-tests/wiki
+--=20
+Best Regards
+ Guo Ren
