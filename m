@@ -2,122 +2,103 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 673B6EE57E0
-	for <linux-ia64@archiver.kernel.org>; Fri,  8 Sep 2023 09:02:21 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id A377EEEB56F
+	for <linux-ia64@archiver.kernel.org>; Fri,  8 Sep 2023 20:35:32 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S239533AbjIHJCX (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Fri, 8 Sep 2023 05:02:23 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:43978 "EHLO
+        id S231203AbjIHUff (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Fri, 8 Sep 2023 16:35:35 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:41848 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S229844AbjIHJCX (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Fri, 8 Sep 2023 05:02:23 -0400
-Received: from smtp.kernel.org (relay.kernel.org [52.25.139.140])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 47B341BC8;
-        Fri,  8 Sep 2023 02:02:19 -0700 (PDT)
-Received: by smtp.kernel.org (Postfix) with ESMTPSA id E9FA3C433C9;
-        Fri,  8 Sep 2023 09:02:18 +0000 (UTC)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=kernel.org;
-        s=k20201202; t=1694163739;
-        bh=rRKEvIB0lVb2uGUWPoA0+XeAQvNtg/fARJrpqhmZI3E=;
-        h=References:In-Reply-To:From:Date:Subject:To:Cc:From;
-        b=bOXNj24SHdKL79z6qfM1jz0YMFFEnZqcAWfQGXW2LdIVaQDbeY0DQhD5/JprtiyDj
-         5D1k99+9Ug9dFN3lpUVgUMFb+noK4GaCPvJKFCJwg7T2e2+JUsNC8ryA59UAI/MjA+
-         nhZly7RSUCbgUDXu5rbOkRxYN7fIeaweU9f951Eubr4hYUupmCp3r0d0X0xr56GoG7
-         TSWC4FWPFYAvPS4fSD21+7m/TJTDKv1lgcMSbfjITw67g2TtEjYcmoKItUG7Y97Hw0
-         VZNeNKEm7ZluvzqobouSn1v3ioXDS3dPfdRUJCnjtDuu6e2FCsvfTpz6bPkSMQxquU
-         qkfRaTdEcE2/w==
-Received: by mail-ej1-f54.google.com with SMTP id a640c23a62f3a-99c4923195dso225185366b.2;
-        Fri, 08 Sep 2023 02:02:18 -0700 (PDT)
-X-Gm-Message-State: AOJu0YzYmmn3N0eJ86RY5UVSHuEGe+d4IgMAB/ImN5j7vzi/Vz9f9yFn
-        iUsjCB6DYZbEYE+aeyfhtgSAlHG1MfyORDaVyE4=
-X-Google-Smtp-Source: AGHT+IHIxkho9CXfRVQdHREUP1Ny9xnSRZ4p9AxmPd+t8Z6hWpbhNEsJKkVWz7HAOHHA2nwechuLx9pmYabZgwNqZ0U=
-X-Received: by 2002:a17:906:18aa:b0:9a1:c42e:5e5e with SMTP id
- c10-20020a17090618aa00b009a1c42e5e5emr1264248ejf.42.1694163717201; Fri, 08
- Sep 2023 02:01:57 -0700 (PDT)
+        with ESMTP id S232256AbjIHUfe (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Fri, 8 Sep 2023 16:35:34 -0400
+Received: from mgamail.intel.com (mgamail.intel.com [134.134.136.65])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id DAD8B9C
+        for <linux-ia64@vger.kernel.org>; Fri,  8 Sep 2023 13:35:30 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple;
+  d=intel.com; i=@intel.com; q=dns/txt; s=Intel;
+  t=1694205330; x=1725741330;
+  h=date:from:to:cc:subject:message-id:mime-version;
+  bh=vLs4ovqLgPDQZTWOuUcZtRYlMDIzpxU5Z3TIdNTNres=;
+  b=GGqCQtighPkQRP0sZJPhkwyjph3yZz2d9CTTUD+22rHuEhLfGFy2OebK
+   HR6lS8aSjSkX11NEkpPJ7K4LWOVnS70ymAs7RLkv+ap6MLHSge7otWw/F
+   L7hUcKQl0pH3LJiK0xJsPE2mshbwygoRP8aP8bcS38WBOACd8OcETuB3g
+   78/4/onC4ao1740ITV1/DWyvgHKC0VTYYlZHGt2Cz/9xa+8JnufzMk8oV
+   jl4mJcYnbcGnTdBllbVjMEiUsa26GJ1oP/ttOzNggd2Ovqguf1NkYHknM
+   iPxJis9CIIV5G0Dw3aEWhNm20NgFt0N016n5km0ZtFQNoMJE9BqvyehAA
+   w==;
+X-IronPort-AV: E=McAfee;i="6600,9927,10827"; a="381563063"
+X-IronPort-AV: E=Sophos;i="6.02,237,1688454000"; 
+   d="scan'208";a="381563063"
+Received: from fmsmga007.fm.intel.com ([10.253.24.52])
+  by orsmga103.jf.intel.com with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 08 Sep 2023 13:35:29 -0700
+X-ExtLoop1: 1
+X-IronPort-AV: E=McAfee;i="6600,9927,10827"; a="745733376"
+X-IronPort-AV: E=Sophos;i="6.02,237,1688454000"; 
+   d="scan'208";a="745733376"
+Received: from lkp-server01.sh.intel.com (HELO 59b3c6e06877) ([10.239.97.150])
+  by fmsmga007.fm.intel.com with ESMTP; 08 Sep 2023 13:35:29 -0700
+Received: from kbuild by 59b3c6e06877 with local (Exim 4.96)
+        (envelope-from <lkp@intel.com>)
+        id 1qeiCM-0002ac-2y;
+        Fri, 08 Sep 2023 20:35:26 +0000
+Date:   Sat, 9 Sep 2023 04:34:41 +0800
+From:   kernel test robot <lkp@intel.com>
+To:     Tony Luck <tony.luck@intel.com>
+Cc:     oe-kbuild-all@lists.linux.dev, linux-ia64@vger.kernel.org
+Subject: [aegl:resctrl2_v65 2/4] fs/resctrl2/arch/x86/rdt_l3_cat.c:571:32:
+ warning: 'cat_feature' defined but not used
+Message-ID: <202309090453.79L6LZbv-lkp@intel.com>
 MIME-Version: 1.0
-References: <20230906-jag-sysctl_remove_empty_elem_arch-v1-0-3935d4854248@samsung.com>
- <20230906-jag-sysctl_remove_empty_elem_arch-v1-8-3935d4854248@samsung.com>
-In-Reply-To: <20230906-jag-sysctl_remove_empty_elem_arch-v1-8-3935d4854248@samsung.com>
-From:   Guo Ren <guoren@kernel.org>
-Date:   Fri, 8 Sep 2023 17:01:44 +0800
-X-Gmail-Original-Message-ID: <CAJF2gTRFrd4zs_8vv5-n5p_+GYxnTJcRBtYDJaMZQQMOVKKOTw@mail.gmail.com>
-Message-ID: <CAJF2gTRFrd4zs_8vv5-n5p_+GYxnTJcRBtYDJaMZQQMOVKKOTw@mail.gmail.com>
-Subject: Re: [PATCH 8/8] c-sky: rm sentinel element from ctl_talbe array
-To:     j.granados@samsung.com
-Cc:     Luis Chamberlain <mcgrof@kernel.org>, willy@infradead.org,
-        josh@joshtriplett.org, Kees Cook <keescook@chromium.org>,
-        Iurii Zaikin <yzaikin@google.com>,
-        Heiko Carstens <hca@linux.ibm.com>,
-        Vasily Gorbik <gor@linux.ibm.com>,
-        Alexander Gordeev <agordeev@linux.ibm.com>,
-        Christian Borntraeger <borntraeger@linux.ibm.com>,
-        Sven Schnelle <svens@linux.ibm.com>,
-        Gerald Schaefer <gerald.schaefer@linux.ibm.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>,
-        Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org,
-        "H. Peter Anvin" <hpa@zytor.com>,
-        Andy Lutomirski <luto@kernel.org>,
-        Paul Walmsley <paul.walmsley@sifive.com>,
-        Palmer Dabbelt <palmer@dabbelt.com>,
-        Albert Ou <aou@eecs.berkeley.edu>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        Nicholas Piggin <npiggin@gmail.com>,
-        Christophe Leroy <christophe.leroy@csgroup.eu>,
-        linux-fsdevel@vger.kernel.org, linux-s390@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-riscv@lists.infradead.org, linuxppc-dev@lists.ozlabs.org,
-        linux-ia64@vger.kernel.org, linux-csky@vger.kernel.org
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-Acked-by: Guo Ren <guoren@kernel.org>
+tree:   https://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git resctrl2_v65
+head:   13c888afbee9f7da0a4a969617dea9889da9d711
+commit: 48b1b4708de24b0c1dff810db00317c3fdcf7bab [2/4] resctrl2: Arch x86 modules for most of the legacy control/monitor functions
+config: i386-randconfig-054-20230909 (https://download.01.org/0day-ci/archive/20230909/202309090453.79L6LZbv-lkp@intel.com/config)
+compiler: gcc-12 (Debian 12.2.0-14) 12.2.0
+reproduce (this is a W=1 build): (https://download.01.org/0day-ci/archive/20230909/202309090453.79L6LZbv-lkp@intel.com/reproduce)
 
-On Wed, Sep 6, 2023 at 6:04=E2=80=AFPM Joel Granados via B4 Relay
-<devnull+j.granados.samsung.com@kernel.org> wrote:
->
-> From: Joel Granados <j.granados@samsung.com>
->
-> This commit comes at the tail end of a greater effort to remove the
-> empty elements at the end of the ctl_table arrays (sentinels) which
-> will reduce the overall build time size of the kernel and run time
-> memory bloat by ~64 bytes per sentinel (further information Link :
-> https://lore.kernel.org/all/ZO5Yx5JFogGi%2FcBo@bombadil.infradead.org/)
->
-> Remove sentinel from alignment_tbl ctl_table array.
->
-> Signed-off-by: Joel Granados <j.granados@samsung.com>
-> ---
->  arch/csky/abiv1/alignment.c | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
->
-> diff --git a/arch/csky/abiv1/alignment.c b/arch/csky/abiv1/alignment.c
-> index b60259daed1b..0d75ce7b0328 100644
-> --- a/arch/csky/abiv1/alignment.c
-> +++ b/arch/csky/abiv1/alignment.c
-> @@ -328,8 +328,7 @@ static struct ctl_table alignment_tbl[5] =3D {
->                 .maxlen =3D sizeof(align_usr_count),
->                 .mode =3D 0666,
->                 .proc_handler =3D &proc_dointvec
-> -       },
-> -       {}
-> +       }
->  };
->
->  static int __init csky_alignment_init(void)
->
-> --
-> 2.30.2
->
+If you fix the issue in a separate patch/commit (i.e. not just a new version of
+the same patch/commit), kindly add following tags
+| Reported-by: kernel test robot <lkp@intel.com>
+| Closes: https://lore.kernel.org/oe-kbuild-all/202309090453.79L6LZbv-lkp@intel.com/
+
+All warnings (new ones prefixed by >>):
+
+>> fs/resctrl2/arch/x86/rdt_l3_cat.c:571:32: warning: 'cat_feature' defined but not used [-Wunused-const-variable=]
+     571 | static const struct x86_cpu_id cat_feature[] = {
+         |                                ^~~~~~~~~~~
+--
+>> fs/resctrl2/arch/x86/rdt_mbm_local_rate.c:55:32: warning: 'mon_feature' defined but not used [-Wunused-const-variable=]
+      55 | static const struct x86_cpu_id mon_feature[] = {
+         |                                ^~~~~~~~~~~
+--
+>> fs/resctrl2/arch/x86/rdt_l3_mba.c:247:32: warning: 'mba_feature' defined but not used [-Wunused-const-variable=]
+     247 | static const struct x86_cpu_id mba_feature[] = {
+         |                                ^~~~~~~~~~~
 
 
---=20
-Best Regards
- Guo Ren
+vim +/cat_feature +571 fs/resctrl2/arch/x86/rdt_l3_cat.c
+
+   569	
+   570	#if !defined(CDP) && !defined(PSEUDO_LOCK)
+ > 571	static const struct x86_cpu_id cat_feature[] = {
+   572	#if CACHE_LEVEL == 3
+   573		X86_MATCH_FEATURE(X86_FEATURE_CAT_L3, 0),
+   574	#endif
+   575	#if CACHE_LEVEL == 2
+   576		X86_MATCH_FEATURE(X86_FEATURE_CAT_L2, 0),
+   577	#endif
+   578		{ }
+   579	};
+   580	MODULE_DEVICE_TABLE(x86cpu, cat_feature);
+   581	#endif
+   582	
+
+-- 
+0-DAY CI Kernel Test Service
+https://github.com/intel/lkp-tests/wiki
