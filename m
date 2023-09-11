@@ -2,308 +2,833 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id D91C3CA0EC7
-	for <linux-ia64@archiver.kernel.org>; Mon, 11 Sep 2023 22:34:16 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 1D522CA0EC7
+	for <linux-ia64@archiver.kernel.org>; Mon, 11 Sep 2023 22:34:30 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S240025AbjIKWZb (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Mon, 11 Sep 2023 18:25:31 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:33278 "EHLO
+        id S237702AbjIKWZg (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Mon, 11 Sep 2023 18:25:36 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:36522 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S239420AbjIKOUF (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Mon, 11 Sep 2023 10:20:05 -0400
-Received: from FRA01-MR2-obe.outbound.protection.outlook.com (mail-mr2fra01on2044.outbound.protection.outlook.com [40.107.9.44])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 36D94CF0;
-        Mon, 11 Sep 2023 07:19:59 -0700 (PDT)
-ARC-Seal: i=1; a=rsa-sha256; s=arcselector9901; d=microsoft.com; cv=none;
- b=X2fH3nFS++iIycerXqrPB+pu4nb5pqb980MQDREMpD0FcFQ3Ez4Ia1cZsRbFDaJHMB18wnTYPQu8ZP4eQ9dbIs1vMwyZq1Ds2c0+fLg9fzvhRlI7f4t3Xx4Vp7UcRtiCaF25zLLQc4zqlW1pIHWSQ5BdxJy0ddQ6LBxCvXcxuJBlBPmuWOZSjZBbT259noOVN3Gzz08ojxx2M/KoFqOwEXSGORsZWQ4SQ/j3aVnVreuCcPRQ3x0/6Kv1KcHY/UMRaIYqV2jjLK9tIuVVaKKz9KUeeWxGo1ouMQEtE9X7B4MCrBMojQR2Y/Amx8at1WaFsme7rYVAfwkLr58YG8ZLnw==
-ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
- s=arcselector9901;
- h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
- bh=kd0xPwrHVtPHgOlha+Gp2xDY6d79uQgYU/8jxHY7M7s=;
- b=eCGHj/E7oFQXRoQfZ+3f1S7Mvj9J/TUDqwu1M30jiEFSt8SE+D7ybEJukijjmv0Ktyv57RMc5LQimtG6PjX6eZFHLxzPDZH8N1paE2HqqyFnBTW6bi56ED8p/T5P91tkOuK4cqygwZYnd3VTjEQXXuldb9OT6XZnmAiYLKkKpZW1xkAC6xf7/tIjjagQ1AtOlbf6NcPW0j0IurZARGr4eomzxeYtR1MpauYIc7VeSgbQq5dcpXbHHxpZrkRap2DV4Opel9Mkz9+hA6KeUp1X6zrgQ+CCOEJ4lf2/la8Fim9XnZCzO9YD2y8YLnR78pFWkzs6itJnu7KBpqcC0Uk9zQ==
-ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
- smtp.mailfrom=csgroup.eu; dmarc=pass action=none header.from=csgroup.eu;
- dkim=pass header.d=csgroup.eu; arc=none
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=csgroup.eu;
- s=selector2;
- h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
- bh=kd0xPwrHVtPHgOlha+Gp2xDY6d79uQgYU/8jxHY7M7s=;
- b=dFa1gd44G15hKDBrRT9oBCzC3ogGfGRojtsyVucZmoGKd5MWavAyqUDD5ww6XUAlA6A727HBh2bA+mz1z2XYe3+RHYqNZ4osc076my75lad5WDcgwudXBkSzUR0eKWLAYXycR7/1lgD5WuK5rN4s88emzcJwwtVI0pDEWJc22YEFoDvNzC+mX9/MAej7B2FHDTQI/WH6iWNMkJGuTo0PD/D5b9HcKyw1O6dyTh7GrYK/UlsRCphmLAbi2+GrSgToyI8h7erIhjuv/A7Cy6v/MGcKa2KrWeYbg+/ZzCHuFsL3y77yjkO7ZKz8Jk+uiBcvXZIrWMVZlQg03h3MY/HXPA==
-Received: from MRZP264MB2988.FRAP264.PROD.OUTLOOK.COM (2603:10a6:501:31::15)
- by MRZP264MB3145.FRAP264.PROD.OUTLOOK.COM (2603:10a6:501:1a::11) with
- Microsoft SMTP Server (version=TLS1_2,
- cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.6768.35; Mon, 11 Sep
- 2023 14:19:56 +0000
-Received: from MRZP264MB2988.FRAP264.PROD.OUTLOOK.COM
- ([fe80::2820:d3a6:1cdf:c60e]) by MRZP264MB2988.FRAP264.PROD.OUTLOOK.COM
- ([fe80::2820:d3a6:1cdf:c60e%7]) with mapi id 15.20.6768.029; Mon, 11 Sep 2023
- 14:19:56 +0000
-From:   Christophe Leroy <christophe.leroy@csgroup.eu>
-To:     Thomas Zimmermann <tzimmermann@suse.de>,
-        "mpe@ellerman.id.au" <mpe@ellerman.id.au>,
-        "npiggin@gmail.com" <npiggin@gmail.com>,
-        "arnd@arndb.de" <arnd@arndb.de>, "deller@gmx.de" <deller@gmx.de>
-CC:     "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-        "linux-fbdev@vger.kernel.org" <linux-fbdev@vger.kernel.org>,
-        "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>,
-        "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>,
-        "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>,
-        "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>,
-        "dri-devel@lists.freedesktop.org" <dri-devel@lists.freedesktop.org>,
-        "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>
-Subject: Re: [PATCH v3 2/5] fbdev: Replace fb_pgprotect() with
- fb_pgprot_device()
-Thread-Topic: [PATCH v3 2/5] fbdev: Replace fb_pgprotect() with
- fb_pgprot_device()
-Thread-Index: AQHZ5LFdfpOesIAaFEa/NRSCtRcnZ7AVrK+A
-Date:   Mon, 11 Sep 2023 14:19:56 +0000
-Message-ID: <1fac068f-f13c-71f4-c9bb-bb331d2d1c04@csgroup.eu>
-References: <20230911131033.27745-1-tzimmermann@suse.de>
- <20230911131033.27745-3-tzimmermann@suse.de>
-In-Reply-To: <20230911131033.27745-3-tzimmermann@suse.de>
-Accept-Language: fr-FR, en-US
-Content-Language: fr-FR
-X-MS-Has-Attach: 
-X-MS-TNEF-Correlator: 
-user-agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
- Thunderbird/102.13.0
-authentication-results: dkim=none (message not signed)
- header.d=none;dmarc=none action=none header.from=csgroup.eu;
-x-ms-publictraffictype: Email
-x-ms-traffictypediagnostic: MRZP264MB2988:EE_|MRZP264MB3145:EE_
-x-ms-office365-filtering-correlation-id: d21eeafd-688b-44a6-efbb-08dbb2d22c62
-x-ms-exchange-senderadcheck: 1
-x-ms-exchange-antispam-relay: 0
-x-microsoft-antispam: BCL:0;
-x-microsoft-antispam-message-info: GaPUTQD4e8wkM5GggPDWYB2sCS7igO1WagiF2jpEjXW0zz5aeiAEj1yghPZGBJLeLIJV+eVskoHpEfSNyNrN+DA5C9DtUoXlspCM9DHSaE4Zp7Kxv/syN/Da3q5N4TggP2V/ZpKQRwZvoUYIONT0JBVXqreheN+iuyXV9gqN39PZ2gK0JYtvpJMovYBX2eqiw5Zch62HpbjH4+GqsFfYMFJQT2OeFvzF2gsRbyLcTjw7+Re+FVt8h3gD16zElxrZzwOjZnjv4lVULmSxKqtu7Y2pZiP1k6mtWo6n4vPtCw4mVrhuoWo8YX/O7anaKXICwy18sNgRaUp6DssBzC0/BUaQ75sCFah7boaumVEL93FGY94o0VHlXMh6DuJOS3rYxWSE3lmEYWY98ZAkIE27xaJEKpis1eGsvLDiC0ziILiOrTBRASNLj1LjysuqIc+mc4HZyYNoyNy2DRiXIG+Gm46VaJwvD3Cs27UuolOO1pkxQooUPEU8Cb6Z2DWLyGKkIxkKvBRrC2yI0nk2Ifb4BgTjGcDqTMoeiDD/wpzohkFRwqha0bylHQpcMyUPe8mnSXw0sUaGyxKN/+EMqJgGNa95SMCnNqHaDwY/1o/Pi5cwIDR7/TWmsM634Y3dW7OPWGppkJTQcptiNHLtRdv0INNzaWkYwQ+lVcykgt7MMPEW3ubHGGOS+hbkDCpEh8Bz
-x-forefront-antispam-report: CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:MRZP264MB2988.FRAP264.PROD.OUTLOOK.COM;PTR:;CAT:NONE;SFS:(13230031)(396003)(39850400004)(136003)(346002)(366004)(376002)(186009)(1800799009)(451199024)(41300700001)(122000001)(6486002)(6506007)(71200400001)(6512007)(478600001)(83380400001)(66574015)(2906002)(2616005)(7416002)(26005)(76116006)(54906003)(64756008)(66446008)(44832011)(66476007)(66946007)(66556008)(91956017)(316002)(110136005)(5660300002)(4326008)(8936002)(8676002)(36756003)(86362001)(31696002)(38100700002)(38070700005)(31686004)(43740500002)(45980500001);DIR:OUT;SFP:1101;
-x-ms-exchange-antispam-messagedata-chunkcount: 1
-x-ms-exchange-antispam-messagedata-0: =?utf-8?B?NEpSVmpETXdGM0hmeEJIVEQ3Tjl3L2p0VmxhRVFOMENnVmF2d25yODFrWHZx?=
- =?utf-8?B?WVZKQ1NQalp0Y1psS1hSMTRCT0l1QW5SZ1F6TVJDREhpRnFXK1NkNmlrNm51?=
- =?utf-8?B?QVpPNkxkTzREd21qbUNkdDczL1NNdXJSWCtLVUhGb1R0UHJUcHdqRGtMQ0lZ?=
- =?utf-8?B?Vk94UmRzYkx4QjFpN1R1YnAyUnBxNWs1NnUvaVRRU25KblBicVJRUThvYzRw?=
- =?utf-8?B?Q0x0Z3dtUzlSSmJucGgzZnJDN253QWJ1RDI4T0FkcTVXdlphOHhaazcwczBJ?=
- =?utf-8?B?azFBVlR2RkpoWlJaRmlXM3pGdDh6RTdFWGV2MTBhRDFvMG16RXo0WEE4VGp5?=
- =?utf-8?B?YnI5ZWt6TXpVNVNueTltaGlDdFBFejVoK0FXM3VNMmNoYjZ2ZVl3ZFZodC9t?=
- =?utf-8?B?ZGI4cW45SXdLNWZqeU9JOElqQVlHODF4VlA2UHFBdU84WE5ENlI3TDdXVjZ6?=
- =?utf-8?B?ZnRrUE11WW1hNUdYQ1VGMHBBYVhTeGdLdlpPbmFVTnhOdXlmSGxYanc1QnJ0?=
- =?utf-8?B?MjZpK1FaYk5nWGhpWjU0OWlCR2pPanZENFFTTDFXNlNmTlN6M2FUZFY1dS95?=
- =?utf-8?B?ZmpOZmhMN0ZSNHA1VXRyUFNxUllDaHVCQTNRWHhZVUJiWVpNV242SmRiNjRq?=
- =?utf-8?B?QldxWWNqZ2pnUjlMTU16YTlZZElBNkVnMXNQN1VFcUlpNnRkOUxSY3oyNGFw?=
- =?utf-8?B?N0xyVlBFeVVhQWdwL1V6aDRQNHhhYkxnVDN4N25wSlZhdXJoQmdjUUtvTElj?=
- =?utf-8?B?TjNwcVJKVFUzNmRPck1JZFZDc1Rmamw4NGgxSUYyZC9pWndOUVkzeTAxZHN2?=
- =?utf-8?B?MGtCWTFSS3JrSXlMZXE2c1paTDhHZjNHbEtpVkpuMG5GZmFIeHJ6aXNOdm1M?=
- =?utf-8?B?c0VteTlkSFI4VURWdHljQUwwaXlYT2lrejExcFVtbERCcGpIVE5IN3RSZ0R5?=
- =?utf-8?B?RE1OZE82cjZoU292SUdYMWVXcmlGeVdIV0FZMFVNNjkxZzVidXhtWmF5b0ha?=
- =?utf-8?B?MkhheEdWNVE0c1hwZ25XT3k3VUZJbE9YMVNTS1h1TGxYQ2RQQ3F1OGxXSjFh?=
- =?utf-8?B?aUZ5VUNpWHppUVZEZElEb3hCcHI4aVZsNVpMM1B2WDNVRzhDMHJ4TWlBRU04?=
- =?utf-8?B?UmJlaC9LdG11ZlpFTk0rbWhHVHo4dkc1UFV2WnhPU1phMUJ1TmsydWtkNTgz?=
- =?utf-8?B?TDRKb2dYN3JVOFg2bXBsLzVYR3lPK1E0UW5LeDlFcnFINW9wR1FPb2djbUNh?=
- =?utf-8?B?TWpia0RvWW0xa21yenFYUlEzTmUvUGF0VDVMMndVbmV1c1V6bjR5TDZtU2JR?=
- =?utf-8?B?S3FWcWpGR25xcGdzbzZCV21WREZrb2tQM1JrVEJ3VWRHVXNFMGc5RnJiNGlB?=
- =?utf-8?B?UUxLRUNXdnBrMzdJKzBnQ0tFaFo1RkRHRE1wS3BJRzY2UzNYK3JvUk8wZy9x?=
- =?utf-8?B?U0kxYXVCZ3BhMFpaRDFSbmF4VlB3V29LTk13TWUxR1NBZXNSZkxDYzJPelBH?=
- =?utf-8?B?c1AyTWRvRUc3TmErMW1CTnVlZU8yNGdCdkxiMlNhQmNaNFdzS016ZlZaSDZ3?=
- =?utf-8?B?RlFFNWZNOWZiSkZHaHhobWNHWE9LTlA4SytvYlJ3dThGMnozSit5RDVSN0Iy?=
- =?utf-8?B?bk4wUG9kbGkrbHMvV0M5bCtPMkYvZVQ0c2I3NXhVU0NZaEQyT2JleXBteDVT?=
- =?utf-8?B?bEVLbG1CTm00c2pJczd3b1FhOEFTcENwRTNUaExkK2JxbDdNNjVHSFJOUHBC?=
- =?utf-8?B?Ym14cU5hMEwwSzh3c1h2NjBuYW9jRVdPbXE0cVFSMkxMSHJmVUpCc0tENmU3?=
- =?utf-8?B?bTR4NVJYZkpoc0VLOTNGby9IOUZyTkVKK2NLcTFHYktwSld4d3pzazhVVFVR?=
- =?utf-8?B?UmI2a004N0ovandXdi9EZ2ROaUVyTjZiZEhmT3UyajVua2c5bTA5cTBIZkNI?=
- =?utf-8?B?U0MzTlVQcHhuTTZ3NWlqWkcrY0UzdW9pajlqQXVmOEhKVmRLVk9pSWxwLzdv?=
- =?utf-8?B?RXlJckptaEM2OE5xS0x2dG82MjJDMUJIYmFPWFhMRWdDWFpoallLMGV0YW4z?=
- =?utf-8?B?THRtN2pCVXBRU20yTnJLQWZ6Zk53SHdoS3dhQlRRMmZtUlRVWUt3TllEVWh5?=
- =?utf-8?Q?G2O2JVSqq6+bXrIgvXkzVCws3?=
-Content-Type: text/plain; charset="utf-8"
-Content-ID: <9B845480321E2C40ACA8A8A6E61E5327@FRAP264.PROD.OUTLOOK.COM>
-Content-Transfer-Encoding: base64
-MIME-Version: 1.0
-X-OriginatorOrg: csgroup.eu
-X-MS-Exchange-CrossTenant-AuthAs: Internal
-X-MS-Exchange-CrossTenant-AuthSource: MRZP264MB2988.FRAP264.PROD.OUTLOOK.COM
-X-MS-Exchange-CrossTenant-Network-Message-Id: d21eeafd-688b-44a6-efbb-08dbb2d22c62
-X-MS-Exchange-CrossTenant-originalarrivaltime: 11 Sep 2023 14:19:56.0570
- (UTC)
-X-MS-Exchange-CrossTenant-fromentityheader: Hosted
-X-MS-Exchange-CrossTenant-id: 9914def7-b676-4fda-8815-5d49fb3b45c8
-X-MS-Exchange-CrossTenant-mailboxtype: HOSTED
-X-MS-Exchange-CrossTenant-userprincipalname: 06CG1rAIT/X4NOTTG72Bx1dM9zqGBWPaZlYNwZJAzZgCmQ2oVm/uJWrw4VYfxo7QsMiPpNjbTRzr1+o0XpeKJhJZxjrV+c5I484HEto2chk=
-X-MS-Exchange-Transport-CrossTenantHeadersStamped: MRZP264MB3145
+        with ESMTP id S242907AbjIKQcJ (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Mon, 11 Sep 2023 12:32:09 -0400
+Received: from mail-yw1-x114a.google.com (mail-yw1-x114a.google.com [IPv6:2607:f8b0:4864:20::114a])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 81176CC
+        for <linux-ia64@vger.kernel.org>; Mon, 11 Sep 2023 09:32:02 -0700 (PDT)
+Received: by mail-yw1-x114a.google.com with SMTP id 00721157ae682-59b5884836cso34533357b3.0
+        for <linux-ia64@vger.kernel.org>; Mon, 11 Sep 2023 09:32:02 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=google.com; s=20230601; t=1694449921; x=1695054721; darn=vger.kernel.org;
+        h=cc:to:from:subject:message-id:mime-version:date:from:to:cc:subject
+         :date:message-id:reply-to;
+        bh=mHLN+SMELErq8NgbX+bWLla9aSkKS6TEW0Qn9B3vB4Q=;
+        b=yre0lNuzQXXA4Vk3RrOsVAj8Lux8CbFn8ljSqSf2p8guIrIob5wF/HV+0Fgov6yVBr
+         tiGrO9Xec4Qcd0ZFRKDIW1IZpMIT0Xy6P2DKy5sXuI8qbnJuk79rS0OwXZbe4fcwb3BJ
+         gCZueJmj/RYH8A5RagW659rgx+SFI4sCj1ECGyQyiZbgoOpooblX62MVj2QE/Cc6d80V
+         NDs75g8S6wS76ljqZmG0nYgiJtappguFG1V8pJC/aI7fVqCgkzKGKqp/NlOQI2M14C8C
+         5Kiy2VFt0BHcYg/SnZPTzcJRveBa2zDCG4naxqvFmcb1hWywhaHHM6QE+V1/F3y20Njg
+         XW+g==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1694449921; x=1695054721;
+        h=cc:to:from:subject:message-id:mime-version:date:x-gm-message-state
+         :from:to:cc:subject:date:message-id:reply-to;
+        bh=mHLN+SMELErq8NgbX+bWLla9aSkKS6TEW0Qn9B3vB4Q=;
+        b=dGpsJIJ/K0Rvr5ntX+s4gn9O0Eue0ApIHT5MFAeRYtS3SwABmaLQnZ2qvbC48z9LAk
+         b0YHNGslakCmnejIlrcmdSNZnqS48qn4x2uNoXClTJsotrw079xSTZrhPPDVzFwIU5OZ
+         iwiykvW039Ots7Pax3c0HkLmEcib8quJLXrbb71bnekgzjfmiWismRyrnm4qeTMk+LPE
+         C+yua7tRm11sqMO8GSfYJM2G/z1hOVxcLMrhHivB29bCTbLuLVeCfrOKC10tOtLTkZsf
+         kvB036yiiiO0TE0a39mm67dtNDTgKCzJvgzDJhVfNfz1WS5Kt3RdGqjHIdjfGOjxdYV6
+         +yWw==
+X-Gm-Message-State: AOJu0YzA0k70OGuP8sn+e0gODFzJc6Yz+RUkOVWQQ5T0iJeWAMSr4Dhx
+        RrKs1TmObgTIY/nfqfvH5dPV1THt
+X-Google-Smtp-Source: AGHT+IEfgCZymDKz2Wy5t7xwAXIsjqdkr6F37zeaAQWwt3xy8NIFEadgY/aKYwkcpfARB7xzhUImZ8HE
+X-Received: from palermo.c.googlers.com ([fda3:e722:ac3:cc00:28:9cb1:c0a8:118a])
+ (user=ardb job=sendgmr) by 2002:a81:b102:0:b0:584:41b7:30e7 with SMTP id
+ p2-20020a81b102000000b0058441b730e7mr251246ywh.0.1694449921674; Mon, 11 Sep
+ 2023 09:32:01 -0700 (PDT)
+Date:   Mon, 11 Sep 2023 16:31:30 +0000
+Mime-Version: 1.0
+X-Developer-Key: i=ardb@kernel.org; a=openpgp; fpr=F43D03328115A198C90016883D200E9CA6329909
+X-Developer-Signature: v=1; a=openpgp-sha256; l=43630; i=ardb@kernel.org;
+ h=from:subject; bh=uyDqg0e7hM/FSfOWaYxin+XRIIpfQrujW7kb8sFhSKY=;
+ b=owGbwMvMwCFmkMcZplerG8N4Wi2JIeW/w6MLlkLlO5lm8uzmz+4udIq79v9S7/Qam2BNv2Dtp
+ xM7bzV0lLIwiHEwyIopsgjM/vtu5+mJUrXOs2Rh5rAygQxh4OIUgIn8esHwP1XkmL1MeUhgbePO
+ 3Zo/Enp7U45Gyk2R+5qjY9+/jMmriZFh30lR82Ph3t8axfUmhjUdkFaZ0pl8UGFRhLZaWGSO4Bx uAA==
+X-Mailer: git-send-email 2.42.0.283.g2d96d420d3-goog
+Message-ID: <20230911163129.3777603-2-ardb@google.com>
+Subject: [GIT PULL] Remove Itanium support
+From:   Ard Biesheuvel <ardb@google.com>
+To:     arnd@arndb.de
+Cc:     linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org,
+        Ard Biesheuvel <ardb@kernel.org>,
+        John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
+        "Rafael J . Wysocki" <rafael.j.wysocki@intel.com>,
+        Jonathan Corbet <corbet@lwn.net>
+Content-Type: text/plain; charset="UTF-8"
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-DQpMZSAxMS8wOS8yMDIzIMOgIDE1OjA4LCBUaG9tYXMgWmltbWVybWFubiBhIMOpY3JpdMKgOg0K
-PiBSZW5hbWUgdGhlIGZiZGV2IG1tYXAgaGVscGVyIGZiX3BncHJvdGVjdCgpIHRvIHBncHJvdF9m
-cmFtZWJ1ZmZlcigpLg0KPiBUaGUgaGVscGVyIHNldHMgVk1BIHBhZ2UtYWNjZXNzIGZsYWdzIGZv
-ciBmcmFtZWJ1ZmZlcnMgaW4gZGV2aWNlIEkvTw0KPiBtZW1vcnkuDQo+IA0KPiBBbHNvIGNsZWFu
-IHVwIHRoZSBoZWxwZXIncyBwYXJhbWV0ZXJzIGFuZCByZXR1cm4gdmFsdWUuIEluc3RlYWQgb2YN
-Cj4gdGhlIFZNQSBpbnN0YW5jZSwgcGFzcyB0aGUgaW5kaXZpZGlhbCBwYXJhbWV0ZXJzIHNlcGFy
-YXRlbHk6IGV4aXN0aW5nDQo+IHBhZ2UtYWNjZXNzIGZsYWdzLCB0aGUgVk1BcyBzdGFydCBhbmQg
-ZW5kIGFkZHJlc3NlcyBhbmQgdGhlIG9mZnNldA0KPiBpbiB0aGUgdW5kZXJseWluZyBkZXZpY2Ug
-bWVtb3J5IHJzcCBmaWxlLiBSZXR1cm4gdGhlIG5ldyBwYWdlLWFjY2Vzcw0KPiBmbGFncy4gVGhl
-c2UgY2hhbmdlcyBhbGlnbiBwZ3Byb3RfZnJhbWVidWZmZXIoKSB3aXRoIG90aGVyIHBncHJvdF8o
-KQ0KPiBmdW5jdGlvbnMuDQo+IA0KPiB2MzoNCj4gCSogcmVuYW1lIGZiX3BncHJvdGVjdCgpIHRv
-IHBncHJvdF9mcmFtZWJ1ZmZlcigpIChBcm5kKQ0KDQpUaGVuIG1heWJlIHRoZSBTdWJqZWN0OiBu
-ZWVkcyB0byBiZSBjaGFuZ2VkIGFzIHdlbGwuDQoNCj4gDQo+IFNpZ25lZC1vZmYtYnk6IFRob21h
-cyBaaW1tZXJtYW5uIDx0emltbWVybWFubkBzdXNlLmRlPg0KPiAtLS0NCj4gICBhcmNoL2lhNjQv
-aW5jbHVkZS9hc20vZmIuaCAgICAgICAgICAgfCAxNSArKysrKysrLS0tLS0tLS0NCj4gICBhcmNo
-L202OGsvaW5jbHVkZS9hc20vZmIuaCAgICAgICAgICAgfCAxOSArKysrKysrKysrLS0tLS0tLS0t
-DQo+ICAgYXJjaC9taXBzL2luY2x1ZGUvYXNtL2ZiLmggICAgICAgICAgIHwgMTEgKysrKystLS0t
-LS0NCj4gICBhcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vZmIuaCAgICAgICAgfCAxMyArKysrKy0t
-LS0tLS0tDQo+ICAgYXJjaC9zcGFyYy9pbmNsdWRlL2FzbS9mYi5oICAgICAgICAgIHwgMTUgKysr
-KysrKysrLS0tLS0tDQo+ICAgYXJjaC94ODYvaW5jbHVkZS9hc20vZmIuaCAgICAgICAgICAgIHwg
-MTAgKysrKysrLS0tLQ0KPiAgIGFyY2gveDg2L3ZpZGVvL2ZiZGV2LmMgICAgICAgICAgICAgICB8
-IDE1ICsrKysrKysrLS0tLS0tLQ0KPiAgIGRyaXZlcnMvdmlkZW8vZmJkZXYvY29yZS9mYl9jaHJk
-ZXYuYyB8ICAzICsrLQ0KPiAgIGluY2x1ZGUvYXNtLWdlbmVyaWMvZmIuaCAgICAgICAgICAgICB8
-IDEyICsrKysrKy0tLS0tLQ0KPiAgIDkgZmlsZXMgY2hhbmdlZCwgNTggaW5zZXJ0aW9ucygrKSwg
-NTUgZGVsZXRpb25zKC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEvYXJjaC9pYTY0L2luY2x1ZGUvYXNt
-L2ZiLmggYi9hcmNoL2lhNjQvaW5jbHVkZS9hc20vZmIuaA0KPiBpbmRleCAxNzE3YjI2ZmQ0MjNm
-Li43ZmNlMGQ1NDIzNTkwIDEwMDY0NA0KPiAtLS0gYS9hcmNoL2lhNjQvaW5jbHVkZS9hc20vZmIu
-aA0KPiArKysgYi9hcmNoL2lhNjQvaW5jbHVkZS9hc20vZmIuaA0KPiBAQCAtOCwxNyArOCwxNiBA
-QA0KPiAgIA0KPiAgICNpbmNsdWRlIDxhc20vcGFnZS5oPg0KPiAgIA0KPiAtc3RydWN0IGZpbGU7
-DQo+IC0NCj4gLXN0YXRpYyBpbmxpbmUgdm9pZCBmYl9wZ3Byb3RlY3Qoc3RydWN0IGZpbGUgKmZp
-bGUsIHN0cnVjdCB2bV9hcmVhX3N0cnVjdCAqdm1hLA0KPiAtCQkJCXVuc2lnbmVkIGxvbmcgb2Zm
-KQ0KPiArc3RhdGljIGlubGluZSBwZ3Byb3RfdCBwZ3Byb3RfZnJhbWVidWZmZXIocGdwcm90X3Qg
-cHJvdCwNCj4gKwkJCQkJICB1bnNpZ25lZCBsb25nIHZtX3N0YXJ0LCB1bnNpZ25lZCBsb25nIHZt
-X2VuZCwNCj4gKwkJCQkJICB1bnNpZ25lZCBsb25nIG9mZnNldCkNCj4gICB7DQo+IC0JaWYgKGVm
-aV9yYW5nZV9pc193Yyh2bWEtPnZtX3N0YXJ0LCB2bWEtPnZtX2VuZCAtIHZtYS0+dm1fc3RhcnQp
-KQ0KPiAtCQl2bWEtPnZtX3BhZ2VfcHJvdCA9IHBncHJvdF93cml0ZWNvbWJpbmUodm1hLT52bV9w
-YWdlX3Byb3QpOw0KPiArCWlmIChlZmlfcmFuZ2VfaXNfd2Modm1fc3RhcnQsIHZtX2VuZCAtIHZt
-X3N0YXJ0KSkNCj4gKwkJcmV0dXJuIHBncHJvdF93cml0ZWNvbWJpbmUocHJvdCk7DQo+ICAgCWVs
-c2UNCj4gLQkJdm1hLT52bV9wYWdlX3Byb3QgPSBwZ3Byb3Rfbm9uY2FjaGVkKHZtYS0+dm1fcGFn
-ZV9wcm90KTsNCj4gKwkJcmV0dXJuIHBncHJvdF9ub25jYWNoZWQocHJvdCk7DQo+ICAgfQ0KPiAt
-I2RlZmluZSBmYl9wZ3Byb3RlY3QgZmJfcGdwcm90ZWN0DQo+ICsjZGVmaW5lIHBncHJvdF9mcmFt
-ZWJ1ZmZlciBwZ3Byb3RfZnJhbWVidWZmZXINCj4gICANCj4gICBzdGF0aWMgaW5saW5lIHZvaWQg
-ZmJfbWVtY3B5X2Zyb21pbyh2b2lkICp0bywgY29uc3Qgdm9sYXRpbGUgdm9pZCBfX2lvbWVtICpm
-cm9tLCBzaXplX3QgbikNCj4gICB7DQo+IGRpZmYgLS1naXQgYS9hcmNoL202OGsvaW5jbHVkZS9h
-c20vZmIuaCBiL2FyY2gvbTY4ay9pbmNsdWRlL2FzbS9mYi5oDQo+IGluZGV4IDI0MjczZmM3YWQ5
-MTcuLjk5NDFiNzQzNGI2OTYgMTAwNjQ0DQo+IC0tLSBhL2FyY2gvbTY4ay9pbmNsdWRlL2FzbS9m
-Yi5oDQo+ICsrKyBiL2FyY2gvbTY4ay9pbmNsdWRlL2FzbS9mYi5oDQo+IEBAIC01LDI2ICs1LDI3
-IEBADQo+ICAgI2luY2x1ZGUgPGFzbS9wYWdlLmg+DQo+ICAgI2luY2x1ZGUgPGFzbS9zZXR1cC5o
-Pg0KPiAgIA0KPiAtc3RydWN0IGZpbGU7DQo+IC0NCj4gLXN0YXRpYyBpbmxpbmUgdm9pZCBmYl9w
-Z3Byb3RlY3Qoc3RydWN0IGZpbGUgKmZpbGUsIHN0cnVjdCB2bV9hcmVhX3N0cnVjdCAqdm1hLA0K
-PiAtCQkJCXVuc2lnbmVkIGxvbmcgb2ZmKQ0KPiArc3RhdGljIGlubGluZSBwZ3Byb3RfdCBwZ3By
-b3RfZnJhbWVidWZmZXIocGdwcm90X3QgcHJvdCwNCj4gKwkJCQkJICB1bnNpZ25lZCBsb25nIHZt
-X3N0YXJ0LCB1bnNpZ25lZCBsb25nIHZtX2VuZCwNCj4gKwkJCQkJICB1bnNpZ25lZCBsb25nIG9m
-ZnNldCkNCj4gICB7DQo+ICAgI2lmZGVmIENPTkZJR19NTVUNCj4gICAjaWZkZWYgQ09ORklHX1NV
-TjMNCj4gLQlwZ3Byb3RfdmFsKHZtYS0+dm1fcGFnZV9wcm90KSB8PSBTVU4zX1BBR0VfTk9DQUNI
-RTsNCj4gKwlwZ3Byb3RfdmFsKHByb3QpIHw9IFNVTjNfUEFHRV9OT0NBQ0hFOw0KPiAgICNlbHNl
-DQo+ICAgCWlmIChDUFVfSVNfMDIwX09SXzAzMCkNCj4gLQkJcGdwcm90X3ZhbCh2bWEtPnZtX3Bh
-Z2VfcHJvdCkgfD0gX1BBR0VfTk9DQUNIRTAzMDsNCj4gKwkJcGdwcm90X3ZhbChwcm90KSB8PSBf
-UEFHRV9OT0NBQ0hFMDMwOw0KPiAgIAlpZiAoQ1BVX0lTXzA0MF9PUl8wNjApIHsNCj4gLQkJcGdw
-cm90X3ZhbCh2bWEtPnZtX3BhZ2VfcHJvdCkgJj0gX0NBQ0hFTUFTSzA0MDsNCj4gKwkJcGdwcm90
-X3ZhbChwcm90KSAmPSBfQ0FDSEVNQVNLMDQwOw0KPiAgIAkJLyogVXNlIG5vLWNhY2hlIG1vZGUs
-IHNlcmlhbGl6ZWQgKi8NCj4gLQkJcGdwcm90X3ZhbCh2bWEtPnZtX3BhZ2VfcHJvdCkgfD0gX1BB
-R0VfTk9DQUNIRV9TOw0KPiArCQlwZ3Byb3RfdmFsKHByb3QpIHw9IF9QQUdFX05PQ0FDSEVfUzsN
-Cj4gICAJfQ0KPiAgICNlbmRpZiAvKiBDT05GSUdfU1VOMyAqLw0KPiAgICNlbmRpZiAvKiBDT05G
-SUdfTU1VICovDQo+ICsNCj4gKwlyZXR1cm4gcHJvdDsNCj4gICB9DQo+IC0jZGVmaW5lIGZiX3Bn
-cHJvdGVjdCBmYl9wZ3Byb3RlY3QNCj4gKyNkZWZpbmUgcGdwcm90X2ZyYW1lYnVmZmVyIHBncHJv
-dF9mcmFtZWJ1ZmZlcg0KPiAgIA0KPiAgICNpbmNsdWRlIDxhc20tZ2VuZXJpYy9mYi5oPg0KPiAg
-IA0KPiBkaWZmIC0tZ2l0IGEvYXJjaC9taXBzL2luY2x1ZGUvYXNtL2ZiLmggYi9hcmNoL21pcHMv
-aW5jbHVkZS9hc20vZmIuaA0KPiBpbmRleCAxOGI3MjI2NDAzYmFkLi5kOThkNjY4MWQ2NGVjIDEw
-MDY0NA0KPiAtLS0gYS9hcmNoL21pcHMvaW5jbHVkZS9hc20vZmIuaA0KPiArKysgYi9hcmNoL21p
-cHMvaW5jbHVkZS9hc20vZmIuaA0KPiBAQCAtMywxNCArMywxMyBAQA0KPiAgIA0KPiAgICNpbmNs
-dWRlIDxhc20vcGFnZS5oPg0KPiAgIA0KPiAtc3RydWN0IGZpbGU7DQo+IC0NCj4gLXN0YXRpYyBp
-bmxpbmUgdm9pZCBmYl9wZ3Byb3RlY3Qoc3RydWN0IGZpbGUgKmZpbGUsIHN0cnVjdCB2bV9hcmVh
-X3N0cnVjdCAqdm1hLA0KPiAtCQkJCXVuc2lnbmVkIGxvbmcgb2ZmKQ0KPiArc3RhdGljIGlubGlu
-ZSBwZ3Byb3RfdCBwZ3Byb3RfZnJhbWVidWZmZXIocGdwcm90X3QgcHJvdCwNCj4gKwkJCQkJICB1
-bnNpZ25lZCBsb25nIHZtX3N0YXJ0LCB1bnNpZ25lZCBsb25nIHZtX2VuZCwNCj4gKwkJCQkJICB1
-bnNpZ25lZCBsb25nIG9mZnNldCkNCj4gICB7DQo+IC0Jdm1hLT52bV9wYWdlX3Byb3QgPSBwZ3By
-b3Rfbm9uY2FjaGVkKHZtYS0+dm1fcGFnZV9wcm90KTsNCj4gKwlyZXR1cm4gcGdwcm90X25vbmNh
-Y2hlZChwcm90KTsNCj4gICB9DQo+IC0jZGVmaW5lIGZiX3BncHJvdGVjdCBmYl9wZ3Byb3RlY3QN
-Cj4gKyNkZWZpbmUgcGdwcm90X2ZyYW1lYnVmZmVyIHBncHJvdF9mcmFtZWJ1ZmZlcg0KPiAgIA0K
-PiAgIC8qDQo+ICAgICogTUlQUyBkb2Vzbid0IGRlZmluZSBfX3Jhd18gSS9PIG1hY3Jvcywgc28g
-dGhlIGhlbHBlcnMNCj4gZGlmZiAtLWdpdCBhL2FyY2gvcG93ZXJwYy9pbmNsdWRlL2FzbS9mYi5o
-IGIvYXJjaC9wb3dlcnBjL2luY2x1ZGUvYXNtL2ZiLmgNCj4gaW5kZXggNjFlM2I4ODA2ZGI2OS4u
-M2NlY2YxNGQ1MWRlOCAxMDA2NDQNCj4gLS0tIGEvYXJjaC9wb3dlcnBjL2luY2x1ZGUvYXNtL2Zi
-LmgNCj4gKysrIGIvYXJjaC9wb3dlcnBjL2luY2x1ZGUvYXNtL2ZiLmgNCj4gQEAgLTIsMjMgKzIs
-MjAgQEANCj4gICAjaWZuZGVmIF9BU01fRkJfSF8NCj4gICAjZGVmaW5lIF9BU01fRkJfSF8NCj4g
-ICANCj4gLSNpbmNsdWRlIDxsaW51eC9mcy5oPg0KPiAtDQo+ICAgI2luY2x1ZGUgPGFzbS9wYWdl
-Lmg+DQo+ICAgDQo+IC1zdGF0aWMgaW5saW5lIHZvaWQgZmJfcGdwcm90ZWN0KHN0cnVjdCBmaWxl
-ICpmaWxlLCBzdHJ1Y3Qgdm1fYXJlYV9zdHJ1Y3QgKnZtYSwNCj4gLQkJCQl1bnNpZ25lZCBsb25n
-IG9mZikNCj4gK3N0YXRpYyBpbmxpbmUgcGdwcm90X3QgcGdwcm90X2ZyYW1lYnVmZmVyKHBncHJv
-dF90IHByb3QsDQo+ICsJCQkJCSAgdW5zaWduZWQgbG9uZyB2bV9zdGFydCwgdW5zaWduZWQgbG9u
-ZyB2bV9lbmQsDQo+ICsJCQkJCSAgdW5zaWduZWQgbG9uZyBvZmZzZXQpDQo+ICAgew0KPiAgIAkv
-Kg0KPiAgIAkgKiBQb3dlclBDJ3MgaW1wbGVtZW50YXRpb24gb2YgcGh5c19tZW1fYWNjZXNzX3By
-b3QoKSBkb2VzDQo+ICAgCSAqIG5vdCB1c2UgdGhlIGZpbGUgYXJndW1lbnQuIFNldCBpdCB0byBO
-VUxMIGluIHByZXBhcmF0aW9uDQo+ICAgCSAqIG9mIGxhdGVyIHVwZGF0ZXMgdG8gdGhlIGludGVy
-ZmFjZS4NCj4gICAJICovDQo+IC0Jdm1hLT52bV9wYWdlX3Byb3QgPSBwaHlzX21lbV9hY2Nlc3Nf
-cHJvdChOVUxMLCBQSFlTX1BGTihvZmYpLA0KPiAtCQkJCQkJIHZtYS0+dm1fZW5kIC0gdm1hLT52
-bV9zdGFydCwNCj4gLQkJCQkJCSB2bWEtPnZtX3BhZ2VfcHJvdCk7DQo+ICsJcmV0dXJuIHBoeXNf
-bWVtX2FjY2Vzc19wcm90KE5VTEwsIFBIWVNfUEZOKG9mZnNldCksIHZtX2VuZCAtIHZtX3N0YXJ0
-LCBwcm90KTsNCj4gICB9DQo+IC0jZGVmaW5lIGZiX3BncHJvdGVjdCBmYl9wZ3Byb3RlY3QNCj4g
-KyNkZWZpbmUgcGdwcm90X2ZyYW1lYnVmZmVyIHBncHJvdF9mcmFtZWJ1ZmZlcg0KPiAgIA0KPiAg
-ICNpbmNsdWRlIDxhc20tZ2VuZXJpYy9mYi5oPg0KPiAgIA0KPiBkaWZmIC0tZ2l0IGEvYXJjaC9z
-cGFyYy9pbmNsdWRlL2FzbS9mYi5oIGIvYXJjaC9zcGFyYy9pbmNsdWRlL2FzbS9mYi5oDQo+IGlu
-ZGV4IDU3MmVjZDNlMWNjNDguLjI0NDQwYzBmZGE0OTAgMTAwNjQ0DQo+IC0tLSBhL2FyY2gvc3Bh
-cmMvaW5jbHVkZS9hc20vZmIuaA0KPiArKysgYi9hcmNoL3NwYXJjL2luY2x1ZGUvYXNtL2ZiLmgN
-Cj4gQEAgLTQsMTUgKzQsMTggQEANCj4gICANCj4gICAjaW5jbHVkZSA8bGludXgvaW8uaD4NCj4g
-ICANCj4gKyNpbmNsdWRlIDxhc20vcGFnZS5oPg0KPiArDQo+ICAgc3RydWN0IGZiX2luZm87DQo+
-IC1zdHJ1Y3QgZmlsZTsNCj4gLXN0cnVjdCB2bV9hcmVhX3N0cnVjdDsNCj4gICANCj4gICAjaWZk
-ZWYgQ09ORklHX1NQQVJDMzINCj4gLXN0YXRpYyBpbmxpbmUgdm9pZCBmYl9wZ3Byb3RlY3Qoc3Ry
-dWN0IGZpbGUgKmZpbGUsIHN0cnVjdCB2bV9hcmVhX3N0cnVjdCAqdm1hLA0KPiAtCQkJCXVuc2ln
-bmVkIGxvbmcgb2ZmKQ0KPiAteyB9DQo+IC0jZGVmaW5lIGZiX3BncHJvdGVjdCBmYl9wZ3Byb3Rl
-Y3QNCj4gK3N0YXRpYyBpbmxpbmUgcGdwcm90X3QgcGdwcm90X2ZyYW1lYnVmZmVyKHBncHJvdF90
-IHByb3QsDQo+ICsJCQkJCSAgdW5zaWduZWQgbG9uZyB2bV9zdGFydCwgdW5zaWduZWQgbG9uZyB2
-bV9lbmQsDQo+ICsJCQkJCSAgdW5zaWduZWQgbG9uZyBvZmZzZXQpDQo+ICt7DQo+ICsJcmV0dXJu
-IHByb3Q7DQo+ICt9DQo+ICsjZGVmaW5lIHBncHJvdF9mcmFtZWJ1ZmZlciBwZ3Byb3RfZnJhbWVi
-dWZmZXINCj4gICAjZW5kaWYNCj4gICANCj4gICBpbnQgZmJfaXNfcHJpbWFyeV9kZXZpY2Uoc3Ry
-dWN0IGZiX2luZm8gKmluZm8pOw0KPiBkaWZmIC0tZ2l0IGEvYXJjaC94ODYvaW5jbHVkZS9hc20v
-ZmIuaCBiL2FyY2gveDg2L2luY2x1ZGUvYXNtL2ZiLmgNCj4gaW5kZXggMjM4NzNkYThmYjc3Yy4u
-YzNiOTU4MmRlN2VmZCAxMDA2NDQNCj4gLS0tIGEvYXJjaC94ODYvaW5jbHVkZS9hc20vZmIuaA0K
-PiArKysgYi9hcmNoL3g4Ni9pbmNsdWRlL2FzbS9mYi5oDQo+IEBAIC0yLDEyICsyLDE0IEBADQo+
-ICAgI2lmbmRlZiBfQVNNX1g4Nl9GQl9IDQo+ICAgI2RlZmluZSBfQVNNX1g4Nl9GQl9IDQo+ICAg
-DQo+ICsjaW5jbHVkZSA8YXNtL3BhZ2UuaD4NCj4gKw0KPiAgIHN0cnVjdCBmYl9pbmZvOw0KPiAt
-c3RydWN0IGZpbGU7DQo+IC1zdHJ1Y3Qgdm1fYXJlYV9zdHJ1Y3Q7DQo+ICAgDQo+IC12b2lkIGZi
-X3BncHJvdGVjdChzdHJ1Y3QgZmlsZSAqZmlsZSwgc3RydWN0IHZtX2FyZWFfc3RydWN0ICp2bWEs
-IHVuc2lnbmVkIGxvbmcgb2ZmKTsNCj4gLSNkZWZpbmUgZmJfcGdwcm90ZWN0IGZiX3BncHJvdGVj
-dA0KPiArcGdwcm90X3QgcGdwcm90X2ZyYW1lYnVmZmVyKHBncHJvdF90IHByb3QsDQo+ICsJCQkg
-ICAgdW5zaWduZWQgbG9uZyB2bV9zdGFydCwgdW5zaWduZWQgbG9uZyB2bV9lbmQsDQo+ICsJCQkg
-ICAgdW5zaWduZWQgbG9uZyBvZmZzZXQpOw0KPiArI2RlZmluZSBwZ3Byb3RfZnJhbWVidWZmZXIg
-cGdwcm90X2ZyYW1lYnVmZmVyDQo+ICAgDQo+ICAgaW50IGZiX2lzX3ByaW1hcnlfZGV2aWNlKHN0
-cnVjdCBmYl9pbmZvICppbmZvKTsNCj4gICAjZGVmaW5lIGZiX2lzX3ByaW1hcnlfZGV2aWNlIGZi
-X2lzX3ByaW1hcnlfZGV2aWNlDQo+IGRpZmYgLS1naXQgYS9hcmNoL3g4Ni92aWRlby9mYmRldi5j
-IGIvYXJjaC94ODYvdmlkZW8vZmJkZXYuYw0KPiBpbmRleCA0OWEwNDUyNDAyZTk3Li4xZGQ2NTI4
-Y2M5NDdjIDEwMDY0NA0KPiAtLS0gYS9hcmNoL3g4Ni92aWRlby9mYmRldi5jDQo+ICsrKyBiL2Fy
-Y2gveDg2L3ZpZGVvL2ZiZGV2LmMNCj4gQEAgLTEzLDE2ICsxMywxNyBAQA0KPiAgICNpbmNsdWRl
-IDxsaW51eC92Z2FhcmIuaD4NCj4gICAjaW5jbHVkZSA8YXNtL2ZiLmg+DQo+ICAgDQo+IC12b2lk
-IGZiX3BncHJvdGVjdChzdHJ1Y3QgZmlsZSAqZmlsZSwgc3RydWN0IHZtX2FyZWFfc3RydWN0ICp2
-bWEsIHVuc2lnbmVkIGxvbmcgb2ZmKQ0KPiArcGdwcm90X3QgcGdwcm90X2ZyYW1lYnVmZmVyKHBn
-cHJvdF90IHByb3QsDQo+ICsJCQkgICAgdW5zaWduZWQgbG9uZyB2bV9zdGFydCwgdW5zaWduZWQg
-bG9uZyB2bV9lbmQsDQo+ICsJCQkgICAgdW5zaWduZWQgbG9uZyBvZmZzZXQpDQo+ICAgew0KPiAt
-CXVuc2lnbmVkIGxvbmcgcHJvdDsNCj4gLQ0KPiAtCXByb3QgPSBwZ3Byb3RfdmFsKHZtYS0+dm1f
-cGFnZV9wcm90KSAmIH5fUEFHRV9DQUNIRV9NQVNLOw0KPiArCXBncHJvdF92YWwocHJvdCkgJj0g
-fl9QQUdFX0NBQ0hFX01BU0s7DQo+ICAgCWlmIChib290X2NwdV9kYXRhLng4NiA+IDMpDQo+IC0J
-CXBncHJvdF92YWwodm1hLT52bV9wYWdlX3Byb3QpID0NCj4gLQkJCXByb3QgfCBjYWNoZW1vZGUy
-cHJvdHZhbChfUEFHRV9DQUNIRV9NT0RFX1VDX01JTlVTKTsNCj4gKwkJcGdwcm90X3ZhbChwcm90
-KSB8PSBjYWNoZW1vZGUycHJvdHZhbChfUEFHRV9DQUNIRV9NT0RFX1VDX01JTlVTKTsNCj4gKw0K
-PiArCXJldHVybiBwcm90Ow0KPiAgIH0NCj4gLUVYUE9SVF9TWU1CT0woZmJfcGdwcm90ZWN0KTsN
-Cj4gK0VYUE9SVF9TWU1CT0wocGdwcm90X2ZyYW1lYnVmZmVyKTsNCj4gICANCj4gICBpbnQgZmJf
-aXNfcHJpbWFyeV9kZXZpY2Uoc3RydWN0IGZiX2luZm8gKmluZm8pDQo+ICAgew0KPiBkaWZmIC0t
-Z2l0IGEvZHJpdmVycy92aWRlby9mYmRldi9jb3JlL2ZiX2NocmRldi5jIGIvZHJpdmVycy92aWRl
-by9mYmRldi9jb3JlL2ZiX2NocmRldi5jDQo+IGluZGV4IGVhZGI4MWY1M2E4MjEuLjMyYTczMTVi
-NGI2ZGQgMTAwNjQ0DQo+IC0tLSBhL2RyaXZlcnMvdmlkZW8vZmJkZXYvY29yZS9mYl9jaHJkZXYu
-Yw0KPiArKysgYi9kcml2ZXJzL3ZpZGVvL2ZiZGV2L2NvcmUvZmJfY2hyZGV2LmMNCj4gQEAgLTM2
-NSw3ICszNjUsOCBAQCBzdGF0aWMgaW50IGZiX21tYXAoc3RydWN0IGZpbGUgKmZpbGUsIHN0cnVj
-dCB2bV9hcmVhX3N0cnVjdCAqdm1hKQ0KPiAgIAltdXRleF91bmxvY2soJmluZm8tPm1tX2xvY2sp
-Ow0KPiAgIA0KPiAgIAl2bWEtPnZtX3BhZ2VfcHJvdCA9IHZtX2dldF9wYWdlX3Byb3Qodm1hLT52
-bV9mbGFncyk7DQo+IC0JZmJfcGdwcm90ZWN0KGZpbGUsIHZtYSwgc3RhcnQpOw0KPiArCXZtYS0+
-dm1fcGFnZV9wcm90ID0gcGdwcm90X2ZyYW1lYnVmZmVyKHZtYS0+dm1fcGFnZV9wcm90LCB2bWEt
-PnZtX3N0YXJ0LA0KPiArCQkJCQkgICAgICAgdm1hLT52bV9lbmQsIHN0YXJ0KTsNCj4gICANCj4g
-ICAJcmV0dXJuIHZtX2lvbWFwX21lbW9yeSh2bWEsIHN0YXJ0LCBsZW4pOw0KPiAgIH0NCj4gZGlm
-ZiAtLWdpdCBhL2luY2x1ZGUvYXNtLWdlbmVyaWMvZmIuaCBiL2luY2x1ZGUvYXNtLWdlbmVyaWMv
-ZmIuaA0KPiBpbmRleCBiYjdlZTljNzBlNjAzLi42Y2NhYmI0MDBhYTY2IDEwMDY0NA0KPiAtLS0g
-YS9pbmNsdWRlL2FzbS1nZW5lcmljL2ZiLmgNCj4gKysrIGIvaW5jbHVkZS9hc20tZ2VuZXJpYy9m
-Yi5oDQo+IEBAIC0xMiwxNCArMTIsMTQgQEANCj4gICAjaW5jbHVkZSA8bGludXgvcGd0YWJsZS5o
-Pg0KPiAgIA0KPiAgIHN0cnVjdCBmYl9pbmZvOw0KPiAtc3RydWN0IGZpbGU7DQo+ICAgDQo+IC0j
-aWZuZGVmIGZiX3BncHJvdGVjdA0KPiAtI2RlZmluZSBmYl9wZ3Byb3RlY3QgZmJfcGdwcm90ZWN0
-DQo+IC1zdGF0aWMgaW5saW5lIHZvaWQgZmJfcGdwcm90ZWN0KHN0cnVjdCBmaWxlICpmaWxlLCBz
-dHJ1Y3Qgdm1fYXJlYV9zdHJ1Y3QgKnZtYSwNCj4gLQkJCQl1bnNpZ25lZCBsb25nIG9mZikNCj4g
-KyNpZm5kZWYgcGdwcm90X2ZyYW1lYnVmZmVyDQo+ICsjZGVmaW5lIHBncHJvdF9mcmFtZWJ1ZmZl
-ciBwZ3Byb3RfZnJhbWVidWZmZXINCj4gK3N0YXRpYyBpbmxpbmUgcGdwcm90X3QgcGdwcm90X2Zy
-YW1lYnVmZmVyKHBncHJvdF90IHByb3QsDQo+ICsJCQkJCSAgdW5zaWduZWQgbG9uZyB2bV9zdGFy
-dCwgdW5zaWduZWQgbG9uZyB2bV9lbmQsDQo+ICsJCQkJCSAgdW5zaWduZWQgbG9uZyBvZmZzZXQp
-DQo+ICAgew0KPiAtCXZtYS0+dm1fcGFnZV9wcm90ID0gcGdwcm90X3dyaXRlY29tYmluZSh2bWEt
-PnZtX3BhZ2VfcHJvdCk7DQo+ICsJcmV0dXJuIHBncHJvdF93cml0ZWNvbWJpbmUocHJvdCk7DQo+
-ICAgfQ0KPiAgICNlbmRpZg0KPiAgIA0K
+From: Ard Biesheuvel <ardb@kernel.org>
+
+Hello Arnd,
+
+Please pull the series below, which provides a fix for the ia64 build (which
+is currently broken), and subsequently removes it, based on the timeline
+proposed by the Debian/ia64 maintainer (details in the second patch).
+
+https://git.kernel.org/pub/scm/linux/kernel/git/ardb/linux.git/log/?h=remove-ia64
+
+The following changes since commit 0bb80ecc33a8fb5a682236443c1e740d5c917d1d:
+
+  Linux 6.6-rc1 (2023-09-10 16:28:41 -0700)
+
+are available in the Git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/ardb/linux.git tags/tag-remove-ia64
+
+for you to fetch changes up to 944834901adc94b3a44d1dd153eb739a937e52d2:
+
+  Documentation: Drop or replace remaining mentions of IA64 (2023-09-11 08:13:18 +0000)
+
+----------------------------------------------------------------
+Remove IA-64 architecture support
+
+Fix the IA-64 build before removing the architecture support completely.
+This makes v6.6 LTS the final Linux release with IA-64/Itanium support.
+
+----------------------------------------------------------------
+
+Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Cc: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
+Cc: Jonathan Corbet <corbet@lwn.net>
+
+Ard Biesheuvel (6):
+      acpi: Provide ia64 dummy implementation of acpi_proc_quirk_mwait_check()
+      arch: Remove Itanium (IA-64) architecture
+      kernel: Drop IA64 support from sig_fault handlers
+      Documentation: Drop IA64 from feature descriptions
+      lib/raid6: Drop IA64 support
+      Documentation: Drop or replace remaining mentions of IA64
+
+ Documentation/ABI/testing/sysfs-devices-system-cpu |    3 -
+ .../ABI/testing/sysfs-firmware-dmi-entries         |    2 +-
+ Documentation/admin-guide/kdump/kdump.rst          |   37 +-
+ Documentation/admin-guide/kdump/vmcoreinfo.rst     |   30 -
+ Documentation/admin-guide/kernel-parameters.txt    |    8 +-
+ Documentation/admin-guide/mm/memory-hotplug.rst    |    2 +-
+ Documentation/admin-guide/sysctl/kernel.rst        |   23 +-
+ Documentation/arch/ia64/aliasing.rst               |  246 ---
+ Documentation/arch/ia64/efirtc.rst                 |  144 --
+ Documentation/arch/ia64/err_inject.rst             | 1067 ---------
+ Documentation/arch/ia64/features.rst               |    3 -
+ Documentation/arch/ia64/fsys.rst                   |  303 ---
+ Documentation/arch/ia64/ia64.rst                   |   49 -
+ Documentation/arch/ia64/index.rst                  |   19 -
+ Documentation/arch/ia64/irq-redir.rst              |   80 -
+ Documentation/arch/ia64/mca.rst                    |  198 --
+ Documentation/arch/ia64/serial.rst                 |  165 --
+ Documentation/arch/index.rst                       |    1 -
+ Documentation/block/ioprio.rst                     |    3 -
+ Documentation/core-api/cpu_hotplug.rst             |    6 -
+ Documentation/core-api/debugging-via-ohci1394.rst  |    6 +-
+ .../features/core/cBPF-JIT/arch-support.txt        |    1 -
+ .../features/core/eBPF-JIT/arch-support.txt        |    1 -
+ .../core/generic-idle-thread/arch-support.txt      |    1 -
+ .../features/core/jump-labels/arch-support.txt     |    1 -
+ .../core/thread-info-in-task/arch-support.txt      |    1 -
+ .../features/core/tracehook/arch-support.txt       |    1 -
+ .../features/debug/KASAN/arch-support.txt          |    1 -
+ .../debug/debug-vm-pgtable/arch-support.txt        |    1 -
+ .../debug/gcov-profile-all/arch-support.txt        |    1 -
+ Documentation/features/debug/kcov/arch-support.txt |    1 -
+ Documentation/features/debug/kgdb/arch-support.txt |    1 -
+ .../features/debug/kmemleak/arch-support.txt       |    1 -
+ .../debug/kprobes-on-ftrace/arch-support.txt       |    1 -
+ .../features/debug/kprobes/arch-support.txt        |    1 -
+ .../features/debug/kretprobes/arch-support.txt     |    1 -
+ .../features/debug/optprobes/arch-support.txt      |    1 -
+ .../features/debug/stackprotector/arch-support.txt |    1 -
+ .../features/debug/uprobes/arch-support.txt        |    1 -
+ .../debug/user-ret-profiler/arch-support.txt       |    1 -
+ .../features/io/dma-contiguous/arch-support.txt    |    1 -
+ .../locking/cmpxchg-local/arch-support.txt         |    1 -
+ .../features/locking/lockdep/arch-support.txt      |    1 -
+ .../locking/queued-rwlocks/arch-support.txt        |    1 -
+ .../locking/queued-spinlocks/arch-support.txt      |    1 -
+ .../features/perf/kprobes-event/arch-support.txt   |    1 -
+ .../features/perf/perf-regs/arch-support.txt       |    1 -
+ .../features/perf/perf-stackdump/arch-support.txt  |    1 -
+ .../sched/membarrier-sync-core/arch-support.txt    |    1 -
+ .../features/sched/numa-balancing/arch-support.txt |    1 -
+ .../seccomp/seccomp-filter/arch-support.txt        |    1 -
+ .../time/arch-tick-broadcast/arch-support.txt      |    1 -
+ .../features/time/clockevents/arch-support.txt     |    1 -
+ .../time/context-tracking/arch-support.txt         |    1 -
+ .../features/time/irq-time-acct/arch-support.txt   |    1 -
+ .../features/time/virt-cpuacct/arch-support.txt    |    1 -
+ .../features/vm/ELF-ASLR/arch-support.txt          |    1 -
+ .../features/vm/PG_uncached/arch-support.txt       |    1 -
+ Documentation/features/vm/THP/arch-support.txt     |    1 -
+ Documentation/features/vm/TLB/arch-support.txt     |    1 -
+ .../features/vm/huge-vmap/arch-support.txt         |    1 -
+ .../features/vm/ioremap_prot/arch-support.txt      |    1 -
+ .../features/vm/pte_special/arch-support.txt       |    1 -
+ Documentation/kbuild/makefiles.rst                 |    2 +-
+ .../device_drivers/ethernet/neterion/s2io.rst      |    4 +-
+ Documentation/scheduler/sched-arch.rst             |    4 +-
+ Documentation/trace/kprobes.rst                    |    1 -
+ Documentation/translations/zh_CN/arch/index.rst    |    1 -
+ .../translations/zh_CN/core-api/cpu_hotplug.rst    |    6 -
+ .../translations/zh_CN/scheduler/sched-arch.rst    |    5 +-
+ MAINTAINERS                                        |   11 -
+ Makefile                                           |    4 +-
+ arch/Kconfig                                       |    1 -
+ arch/ia64/Kbuild                                   |    3 -
+ arch/ia64/Kconfig                                  |  394 ----
+ arch/ia64/Kconfig.debug                            |   55 -
+ arch/ia64/Makefile                                 |   82 -
+ arch/ia64/configs/bigsur_defconfig                 |  102 -
+ arch/ia64/configs/generic_defconfig                |  206 --
+ arch/ia64/configs/gensparse_defconfig              |  184 --
+ arch/ia64/configs/tiger_defconfig                  |  169 --
+ arch/ia64/configs/zx1_defconfig                    |  148 --
+ arch/ia64/hp/common/Makefile                       |   10 -
+ arch/ia64/hp/common/aml_nfw.c                      |  232 --
+ arch/ia64/hp/common/sba_iommu.c                    | 2155 ------------------
+ arch/ia64/include/asm/Kbuild                       |    6 -
+ arch/ia64/include/asm/acenv.h                      |   49 -
+ arch/ia64/include/asm/acpi-ext.h                   |   17 -
+ arch/ia64/include/asm/acpi.h                       |  110 -
+ arch/ia64/include/asm/asm-offsets.h                |    1 -
+ arch/ia64/include/asm/asm-prototypes.h             |   30 -
+ arch/ia64/include/asm/asmmacro.h                   |  136 --
+ arch/ia64/include/asm/atomic.h                     |  216 --
+ arch/ia64/include/asm/barrier.h                    |   79 -
+ arch/ia64/include/asm/bitops.h                     |  453 ----
+ arch/ia64/include/asm/bug.h                        |   19 -
+ arch/ia64/include/asm/cache.h                      |   30 -
+ arch/ia64/include/asm/cacheflush.h                 |   39 -
+ arch/ia64/include/asm/checksum.h                   |   63 -
+ arch/ia64/include/asm/clocksource.h                |   11 -
+ arch/ia64/include/asm/cmpxchg.h                    |   33 -
+ arch/ia64/include/asm/cpu.h                        |   23 -
+ arch/ia64/include/asm/cputime.h                    |   21 -
+ arch/ia64/include/asm/current.h                    |   18 -
+ arch/ia64/include/asm/cyclone.h                    |   16 -
+ arch/ia64/include/asm/delay.h                      |   89 -
+ arch/ia64/include/asm/device.h                     |   14 -
+ arch/ia64/include/asm/div64.h                      |    1 -
+ arch/ia64/include/asm/dma-mapping.h                |   16 -
+ arch/ia64/include/asm/dma.h                        |   17 -
+ arch/ia64/include/asm/dmi.h                        |   15 -
+ arch/ia64/include/asm/early_ioremap.h              |   11 -
+ arch/ia64/include/asm/efi.h                        |   13 -
+ arch/ia64/include/asm/elf.h                        |  233 --
+ arch/ia64/include/asm/emergency-restart.h          |    6 -
+ arch/ia64/include/asm/esi.h                        |   30 -
+ arch/ia64/include/asm/exception.h                  |   23 -
+ arch/ia64/include/asm/extable.h                    |   12 -
+ arch/ia64/include/asm/fb.h                         |   43 -
+ arch/ia64/include/asm/fpswa.h                      |   74 -
+ arch/ia64/include/asm/ftrace.h                     |   28 -
+ arch/ia64/include/asm/futex.h                      |  109 -
+ arch/ia64/include/asm/gcc_intrin.h                 |   13 -
+ arch/ia64/include/asm/hardirq.h                    |   27 -
+ arch/ia64/include/asm/hugetlb.h                    |   34 -
+ arch/ia64/include/asm/hw_irq.h                     |  167 --
+ arch/ia64/include/asm/idle.h                       |    8 -
+ arch/ia64/include/asm/intrinsics.h                 |   13 -
+ arch/ia64/include/asm/io.h                         |  271 ---
+ arch/ia64/include/asm/iommu.h                      |   22 -
+ arch/ia64/include/asm/iosapic.h                    |  106 -
+ arch/ia64/include/asm/irq.h                        |   37 -
+ arch/ia64/include/asm/irq_regs.h                   |    1 -
+ arch/ia64/include/asm/irq_remapping.h              |    5 -
+ arch/ia64/include/asm/irqflags.h                   |   95 -
+ arch/ia64/include/asm/kdebug.h                     |   45 -
+ arch/ia64/include/asm/kexec.h                      |   46 -
+ arch/ia64/include/asm/kprobes.h                    |  116 -
+ arch/ia64/include/asm/kregs.h                      |  166 --
+ arch/ia64/include/asm/libata-portmap.h             |    9 -
+ arch/ia64/include/asm/linkage.h                    |   19 -
+ arch/ia64/include/asm/local.h                      |    1 -
+ arch/ia64/include/asm/mca.h                        |  185 --
+ arch/ia64/include/asm/mca_asm.h                    |  245 ---
+ arch/ia64/include/asm/meminit.h                    |   59 -
+ arch/ia64/include/asm/mman.h                       |   18 -
+ arch/ia64/include/asm/mmiowb.h                     |   17 -
+ arch/ia64/include/asm/mmu.h                        |   14 -
+ arch/ia64/include/asm/mmu_context.h                |  194 --
+ arch/ia64/include/asm/mmzone.h                     |   35 -
+ arch/ia64/include/asm/module.h                     |   35 -
+ arch/ia64/include/asm/module.lds.h                 |   14 -
+ arch/ia64/include/asm/msidef.h                     |   43 -
+ arch/ia64/include/asm/native/inst.h                |  119 -
+ arch/ia64/include/asm/native/irq.h                 |   20 -
+ arch/ia64/include/asm/native/patchlist.h           |   24 -
+ arch/ia64/include/asm/nodedata.h                   |   63 -
+ arch/ia64/include/asm/numa.h                       |   83 -
+ arch/ia64/include/asm/page.h                       |  208 --
+ arch/ia64/include/asm/pal.h                        | 1827 ---------------
+ arch/ia64/include/asm/param.h                      |   18 -
+ arch/ia64/include/asm/parport.h                    |   20 -
+ arch/ia64/include/asm/patch.h                      |   28 -
+ arch/ia64/include/asm/pci.h                        |   66 -
+ arch/ia64/include/asm/percpu.h                     |   53 -
+ arch/ia64/include/asm/pgalloc.h                    |   64 -
+ arch/ia64/include/asm/pgtable.h                    |  545 -----
+ arch/ia64/include/asm/processor.h                  |  660 ------
+ arch/ia64/include/asm/ptrace.h                     |  146 --
+ arch/ia64/include/asm/sal.h                        |  919 --------
+ arch/ia64/include/asm/sections.h                   |   33 -
+ arch/ia64/include/asm/serial.h                     |   17 -
+ arch/ia64/include/asm/shmparam.h                   |   13 -
+ arch/ia64/include/asm/signal.h                     |   33 -
+ arch/ia64/include/asm/smp.h                        |  103 -
+ arch/ia64/include/asm/sn/intr.h                    |   15 -
+ arch/ia64/include/asm/sn/sn_sal.h                  |  124 --
+ arch/ia64/include/asm/sparsemem.h                  |   28 -
+ arch/ia64/include/asm/spinlock.h                   |  265 ---
+ arch/ia64/include/asm/spinlock_types.h             |   22 -
+ arch/ia64/include/asm/string.h                     |   22 -
+ arch/ia64/include/asm/switch_to.h                  |   71 -
+ arch/ia64/include/asm/syscall.h                    |   65 -
+ arch/ia64/include/asm/thread_info.h                |  131 --
+ arch/ia64/include/asm/timex.h                      |   47 -
+ arch/ia64/include/asm/tlb.h                        |   50 -
+ arch/ia64/include/asm/tlbflush.h                   |  128 --
+ arch/ia64/include/asm/topology.h                   |   56 -
+ arch/ia64/include/asm/types.h                      |   32 -
+ arch/ia64/include/asm/uaccess.h                    |  265 ---
+ arch/ia64/include/asm/uncached.h                   |    9 -
+ arch/ia64/include/asm/unistd.h                     |   38 -
+ arch/ia64/include/asm/unwind.h                     |  234 --
+ arch/ia64/include/asm/user.h                       |   53 -
+ arch/ia64/include/asm/ustack.h                     |   12 -
+ arch/ia64/include/asm/uv/uv.h                      |   30 -
+ arch/ia64/include/asm/uv/uv_hub.h                  |  315 ---
+ arch/ia64/include/asm/uv/uv_mmrs.h                 |  825 -------
+ arch/ia64/include/asm/vermagic.h                   |   15 -
+ arch/ia64/include/asm/vga.h                        |   26 -
+ arch/ia64/include/asm/vmalloc.h                    |    4 -
+ arch/ia64/include/asm/xor.h                        |   30 -
+ arch/ia64/include/asm/xtp.h                        |   46 -
+ arch/ia64/include/uapi/asm/Kbuild                  |    2 -
+ arch/ia64/include/uapi/asm/auxvec.h                |   14 -
+ arch/ia64/include/uapi/asm/bitsperlong.h           |    9 -
+ arch/ia64/include/uapi/asm/break.h                 |   23 -
+ arch/ia64/include/uapi/asm/byteorder.h             |    7 -
+ arch/ia64/include/uapi/asm/cmpxchg.h               |  138 --
+ arch/ia64/include/uapi/asm/fcntl.h                 |   15 -
+ arch/ia64/include/uapi/asm/fpu.h                   |   67 -
+ arch/ia64/include/uapi/asm/gcc_intrin.h            |  619 ------
+ arch/ia64/include/uapi/asm/ia64regs.h              |  101 -
+ arch/ia64/include/uapi/asm/intrinsics.h            |   82 -
+ arch/ia64/include/uapi/asm/mman.h                  |   17 -
+ arch/ia64/include/uapi/asm/param.h                 |   30 -
+ arch/ia64/include/uapi/asm/posix_types.h           |    9 -
+ arch/ia64/include/uapi/asm/ptrace.h                |  248 ---
+ arch/ia64/include/uapi/asm/ptrace_offsets.h        |  269 ---
+ arch/ia64/include/uapi/asm/resource.h              |    8 -
+ arch/ia64/include/uapi/asm/rse.h                   |   67 -
+ arch/ia64/include/uapi/asm/setup.h                 |   25 -
+ arch/ia64/include/uapi/asm/sigcontext.h            |   71 -
+ arch/ia64/include/uapi/asm/siginfo.h               |   28 -
+ arch/ia64/include/uapi/asm/signal.h                |   98 -
+ arch/ia64/include/uapi/asm/stat.h                  |   52 -
+ arch/ia64/include/uapi/asm/statfs.h                |   21 -
+ arch/ia64/include/uapi/asm/swab.h                  |   35 -
+ arch/ia64/include/uapi/asm/types.h                 |   32 -
+ arch/ia64/include/uapi/asm/ucontext.h              |   13 -
+ arch/ia64/include/uapi/asm/unistd.h                |   22 -
+ arch/ia64/include/uapi/asm/ustack.h                |   13 -
+ arch/ia64/install.sh                               |   30 -
+ arch/ia64/kernel/.gitignore                        |    3 -
+ arch/ia64/kernel/Makefile                          |   46 -
+ arch/ia64/kernel/Makefile.gate                     |   29 -
+ arch/ia64/kernel/acpi-ext.c                        |  101 -
+ arch/ia64/kernel/acpi.c                            |  909 --------
+ arch/ia64/kernel/asm-offsets.c                     |  289 ---
+ arch/ia64/kernel/audit.c                           |   63 -
+ arch/ia64/kernel/brl_emu.c                         |  217 --
+ arch/ia64/kernel/crash.c                           |  257 ---
+ arch/ia64/kernel/crash_dump.c                      |   27 -
+ arch/ia64/kernel/cyclone.c                         |  125 --
+ arch/ia64/kernel/dma-mapping.c                     |    9 -
+ arch/ia64/kernel/efi.c                             | 1360 ------------
+ arch/ia64/kernel/efi_stub.S                        |   87 -
+ arch/ia64/kernel/elfcore.c                         |   77 -
+ arch/ia64/kernel/entry.S                           | 1427 ------------
+ arch/ia64/kernel/entry.h                           |   83 -
+ arch/ia64/kernel/err_inject.c                      |  273 ---
+ arch/ia64/kernel/esi.c                             |  193 --
+ arch/ia64/kernel/esi_stub.S                        |   99 -
+ arch/ia64/kernel/fsys.S                            |  837 -------
+ arch/ia64/kernel/fsyscall_gtod_data.h              |   30 -
+ arch/ia64/kernel/ftrace.c                          |  196 --
+ arch/ia64/kernel/gate-data.S                       |    3 -
+ arch/ia64/kernel/gate.S                            |  380 ----
+ arch/ia64/kernel/gate.lds.S                        |  108 -
+ arch/ia64/kernel/head.S                            | 1167 ----------
+ arch/ia64/kernel/iosapic.c                         | 1137 ----------
+ arch/ia64/kernel/irq.c                             |  181 --
+ arch/ia64/kernel/irq.h                             |    3 -
+ arch/ia64/kernel/irq_ia64.c                        |  645 ------
+ arch/ia64/kernel/irq_lsapic.c                      |   45 -
+ arch/ia64/kernel/ivt.S                             | 1688 --------------
+ arch/ia64/kernel/kprobes.c                         |  911 --------
+ arch/ia64/kernel/machine_kexec.c                   |  163 --
+ arch/ia64/kernel/mca.c                             | 2111 ------------------
+ arch/ia64/kernel/mca_asm.S                         | 1123 ----------
+ arch/ia64/kernel/mca_drv.c                         |  796 -------
+ arch/ia64/kernel/mca_drv.h                         |  123 --
+ arch/ia64/kernel/mca_drv_asm.S                     |   56 -
+ arch/ia64/kernel/minstate.h                        |  251 ---
+ arch/ia64/kernel/module.c                          |  959 --------
+ arch/ia64/kernel/msi_ia64.c                        |  198 --
+ arch/ia64/kernel/numa.c                            |   73 -
+ arch/ia64/kernel/pal.S                             |  306 ---
+ arch/ia64/kernel/palinfo.c                         |  942 --------
+ arch/ia64/kernel/patch.c                           |  237 --
+ arch/ia64/kernel/pci-dma.c                         |   33 -
+ arch/ia64/kernel/perfmon_itanium.h                 |  116 -
+ arch/ia64/kernel/process.c                         |  611 ------
+ arch/ia64/kernel/ptrace.c                          | 2012 -----------------
+ arch/ia64/kernel/relocate_kernel.S                 |  321 ---
+ arch/ia64/kernel/sal.c                             |  400 ----
+ arch/ia64/kernel/salinfo.c                         |  646 ------
+ arch/ia64/kernel/setup.c                           | 1081 ---------
+ arch/ia64/kernel/sigframe.h                        |   26 -
+ arch/ia64/kernel/signal.c                          |  412 ----
+ arch/ia64/kernel/smp.c                             |  335 ---
+ arch/ia64/kernel/smpboot.c                         |  839 -------
+ arch/ia64/kernel/stacktrace.c                      |   40 -
+ arch/ia64/kernel/sys_ia64.c                        |  197 --
+ arch/ia64/kernel/syscalls/Makefile                 |   32 -
+ arch/ia64/kernel/syscalls/syscall.tbl              |  375 ----
+ arch/ia64/kernel/time.c                            |  463 ----
+ arch/ia64/kernel/topology.c                        |  410 ----
+ arch/ia64/kernel/traps.c                           |  612 ------
+ arch/ia64/kernel/unaligned.c                       | 1560 -------------
+ arch/ia64/kernel/uncached.c                        |  273 ---
+ arch/ia64/kernel/unwind.c                          | 2320 --------------------
+ arch/ia64/kernel/unwind_decoder.c                  |  460 ----
+ arch/ia64/kernel/unwind_i.h                        |  165 --
+ arch/ia64/kernel/vmlinux.lds.S                     |  224 --
+ arch/ia64/lib/Makefile                             |   48 -
+ arch/ia64/lib/checksum.c                           |  102 -
+ arch/ia64/lib/clear_page.S                         |   79 -
+ arch/ia64/lib/clear_user.S                         |  212 --
+ arch/ia64/lib/copy_page.S                          |  101 -
+ arch/ia64/lib/copy_page_mck.S                      |  188 --
+ arch/ia64/lib/copy_user.S                          |  613 ------
+ arch/ia64/lib/csum_partial_copy.c                  |   98 -
+ arch/ia64/lib/do_csum.S                            |  324 ---
+ arch/ia64/lib/flush.S                              |  119 -
+ arch/ia64/lib/idiv32.S                             |   86 -
+ arch/ia64/lib/idiv64.S                             |   83 -
+ arch/ia64/lib/io.c                                 |   51 -
+ arch/ia64/lib/ip_fast_csum.S                       |  148 --
+ arch/ia64/lib/memcpy.S                             |  304 ---
+ arch/ia64/lib/memcpy_mck.S                         |  659 ------
+ arch/ia64/lib/memset.S                             |  365 ---
+ arch/ia64/lib/strlen.S                             |  195 --
+ arch/ia64/lib/strncpy_from_user.S                  |   47 -
+ arch/ia64/lib/strnlen_user.S                       |   48 -
+ arch/ia64/lib/xor.S                                |  181 --
+ arch/ia64/mm/Makefile                              |   11 -
+ arch/ia64/mm/contig.c                              |  208 --
+ arch/ia64/mm/discontig.c                           |  635 ------
+ arch/ia64/mm/extable.c                             |   24 -
+ arch/ia64/mm/fault.c                               |  251 ---
+ arch/ia64/mm/hugetlbpage.c                         |  186 --
+ arch/ia64/mm/init.c                                |  532 -----
+ arch/ia64/mm/ioremap.c                             |   94 -
+ arch/ia64/mm/numa.c                                |   80 -
+ arch/ia64/mm/tlb.c                                 |  591 -----
+ arch/ia64/pci/Makefile                             |    5 -
+ arch/ia64/pci/fixup.c                              |   80 -
+ arch/ia64/pci/pci.c                                |  576 -----
+ arch/ia64/scripts/check-gas                        |   16 -
+ arch/ia64/scripts/check-gas-asm.S                  |    2 -
+ arch/ia64/scripts/check-model.c                    |    1 -
+ arch/ia64/scripts/check-segrel.S                   |    5 -
+ arch/ia64/scripts/check-segrel.lds                 |   13 -
+ arch/ia64/scripts/check-serialize.S                |    2 -
+ arch/ia64/scripts/check-text-align.S               |    7 -
+ arch/ia64/scripts/toolchain-flags                  |   54 -
+ arch/ia64/scripts/unwcheck.py                      |   65 -
+ arch/ia64/uv/Makefile                              |   12 -
+ arch/ia64/uv/kernel/Makefile                       |   12 -
+ arch/ia64/uv/kernel/setup.c                        |  120 -
+ drivers/acpi/Kconfig                               |    6 +-
+ drivers/acpi/numa/Kconfig                          |    4 +-
+ drivers/acpi/osl.c                                 |    2 +-
+ drivers/char/Kconfig                               |    4 +-
+ drivers/char/Makefile                              |    1 -
+ drivers/char/agp/Kconfig                           |   16 +-
+ drivers/char/agp/Makefile                          |    2 -
+ drivers/char/agp/hp-agp.c                          |  550 -----
+ drivers/char/agp/i460-agp.c                        |  659 ------
+ drivers/char/hpet.c                                |   30 -
+ drivers/char/hw_random/Kconfig                     |    2 +-
+ drivers/char/mem.c                                 |   12 -
+ drivers/char/mspec.c                               |  295 ---
+ drivers/cpufreq/Kconfig                            |   11 -
+ drivers/cpufreq/Makefile                           |    1 -
+ drivers/cpufreq/ia64-acpi-cpufreq.c                |  353 ---
+ drivers/firmware/Kconfig                           |   24 -
+ drivers/firmware/Makefile                          |    1 -
+ drivers/firmware/efi/Kconfig                       |    6 +-
+ drivers/firmware/efi/efi.c                         |   13 +-
+ drivers/firmware/pcdp.c                            |  135 --
+ drivers/firmware/pcdp.h                            |  108 -
+ drivers/gpu/drm/drm_ioc32.c                        |    4 +-
+ drivers/input/serio/i8042.h                        |    2 +-
+ drivers/iommu/Kconfig                              |    4 +-
+ drivers/iommu/intel/Kconfig                        |    2 +-
+ drivers/media/cec/platform/Kconfig                 |    2 +-
+ drivers/misc/Kconfig                               |    2 +-
+ drivers/misc/sgi-gru/gru.h                         |    4 +-
+ drivers/misc/sgi-gru/gru_instructions.h            |   12 +-
+ drivers/misc/sgi-gru/grufile.c                     |   72 -
+ drivers/misc/sgi-gru/gruhandles.c                  |    6 -
+ drivers/misc/sgi-gru/grumain.c                     |    4 -
+ drivers/misc/sgi-xp/xp.h                           |    2 +-
+ drivers/misc/sgi-xp/xp_uv.c                        |   24 -
+ drivers/misc/sgi-xp/xpc_main.c                     |   31 -
+ drivers/misc/sgi-xp/xpc_uv.c                       |   85 -
+ drivers/net/ethernet/broadcom/tg3.c                |    2 +-
+ drivers/net/ethernet/brocade/bna/bnad.h            |    1 -
+ .../net/ethernet/qlogic/netxen/netxen_nic_main.c   |    2 -
+ drivers/pci/vgaarb.c                               |    2 +-
+ drivers/tty/serial/8250/Kconfig                    |    2 +-
+ drivers/tty/vt/keyboard.c                          |    2 +-
+ drivers/video/fbdev/Kconfig                        |    2 +-
+ drivers/watchdog/Kconfig                           |    2 +-
+ fs/Kconfig                                         |    2 +-
+ fs/afs/main.c                                      |    2 -
+ fs/xfs/xfs_ioctl32.h                               |    2 +-
+ include/linux/acpi.h                               |    9 +-
+ include/linux/efi.h                                |    7 -
+ include/linux/mm.h                                 |    2 -
+ include/linux/moduleparam.h                        |    2 +-
+ include/linux/raid/pq.h                            |    2 -
+ include/linux/sched/signal.h                       |   17 +-
+ include/trace/events/mmflags.h                     |    2 +-
+ include/uapi/asm-generic/siginfo.h                 |    5 -
+ init/Kconfig                                       |    2 +-
+ kernel/cpu.c                                       |    3 -
+ kernel/fork.c                                      |    2 +-
+ kernel/sched/core.c                                |   29 +-
+ kernel/signal.c                                    |   25 +-
+ kernel/sysctl.c                                    |    9 -
+ lib/Kconfig.debug                                  |    2 +-
+ lib/decompress_unxz.c                              |    3 -
+ lib/raid6/Makefile                                 |    4 +-
+ lib/raid6/algos.c                                  |    4 -
+ lib/raid6/int.uc                                   |    9 -
+ lib/xz/Kconfig                                     |    5 -
+ mm/mmap.c                                          |    6 +-
+ tools/arch/ia64/include/asm/barrier.h              |   59 -
+ tools/arch/ia64/include/uapi/asm/bitsperlong.h     |    9 -
+ tools/arch/ia64/include/uapi/asm/mman.h            |    7 -
+ usr/include/Makefile                               |    6 -
+ 424 files changed, 74 insertions(+), 65172 deletions(-)
+ delete mode 100644 Documentation/arch/ia64/aliasing.rst
+ delete mode 100644 Documentation/arch/ia64/efirtc.rst
+ delete mode 100644 Documentation/arch/ia64/err_inject.rst
+ delete mode 100644 Documentation/arch/ia64/features.rst
+ delete mode 100644 Documentation/arch/ia64/fsys.rst
+ delete mode 100644 Documentation/arch/ia64/ia64.rst
+ delete mode 100644 Documentation/arch/ia64/index.rst
+ delete mode 100644 Documentation/arch/ia64/irq-redir.rst
+ delete mode 100644 Documentation/arch/ia64/mca.rst
+ delete mode 100644 Documentation/arch/ia64/serial.rst
+ delete mode 100644 arch/ia64/Kbuild
+ delete mode 100644 arch/ia64/Kconfig
+ delete mode 100644 arch/ia64/Kconfig.debug
+ delete mode 100644 arch/ia64/Makefile
+ delete mode 100644 arch/ia64/configs/bigsur_defconfig
+ delete mode 100644 arch/ia64/configs/generic_defconfig
+ delete mode 100644 arch/ia64/configs/gensparse_defconfig
+ delete mode 100644 arch/ia64/configs/tiger_defconfig
+ delete mode 100644 arch/ia64/configs/zx1_defconfig
+ delete mode 100644 arch/ia64/hp/common/Makefile
+ delete mode 100644 arch/ia64/hp/common/aml_nfw.c
+ delete mode 100644 arch/ia64/hp/common/sba_iommu.c
+ delete mode 100644 arch/ia64/include/asm/Kbuild
+ delete mode 100644 arch/ia64/include/asm/acenv.h
+ delete mode 100644 arch/ia64/include/asm/acpi-ext.h
+ delete mode 100644 arch/ia64/include/asm/acpi.h
+ delete mode 100644 arch/ia64/include/asm/asm-offsets.h
+ delete mode 100644 arch/ia64/include/asm/asm-prototypes.h
+ delete mode 100644 arch/ia64/include/asm/asmmacro.h
+ delete mode 100644 arch/ia64/include/asm/atomic.h
+ delete mode 100644 arch/ia64/include/asm/barrier.h
+ delete mode 100644 arch/ia64/include/asm/bitops.h
+ delete mode 100644 arch/ia64/include/asm/bug.h
+ delete mode 100644 arch/ia64/include/asm/cache.h
+ delete mode 100644 arch/ia64/include/asm/cacheflush.h
+ delete mode 100644 arch/ia64/include/asm/checksum.h
+ delete mode 100644 arch/ia64/include/asm/clocksource.h
+ delete mode 100644 arch/ia64/include/asm/cmpxchg.h
+ delete mode 100644 arch/ia64/include/asm/cpu.h
+ delete mode 100644 arch/ia64/include/asm/cputime.h
+ delete mode 100644 arch/ia64/include/asm/current.h
+ delete mode 100644 arch/ia64/include/asm/cyclone.h
+ delete mode 100644 arch/ia64/include/asm/delay.h
+ delete mode 100644 arch/ia64/include/asm/device.h
+ delete mode 100644 arch/ia64/include/asm/div64.h
+ delete mode 100644 arch/ia64/include/asm/dma-mapping.h
+ delete mode 100644 arch/ia64/include/asm/dma.h
+ delete mode 100644 arch/ia64/include/asm/dmi.h
+ delete mode 100644 arch/ia64/include/asm/early_ioremap.h
+ delete mode 100644 arch/ia64/include/asm/efi.h
+ delete mode 100644 arch/ia64/include/asm/elf.h
+ delete mode 100644 arch/ia64/include/asm/emergency-restart.h
+ delete mode 100644 arch/ia64/include/asm/esi.h
+ delete mode 100644 arch/ia64/include/asm/exception.h
+ delete mode 100644 arch/ia64/include/asm/extable.h
+ delete mode 100644 arch/ia64/include/asm/fb.h
+ delete mode 100644 arch/ia64/include/asm/fpswa.h
+ delete mode 100644 arch/ia64/include/asm/ftrace.h
+ delete mode 100644 arch/ia64/include/asm/futex.h
+ delete mode 100644 arch/ia64/include/asm/gcc_intrin.h
+ delete mode 100644 arch/ia64/include/asm/hardirq.h
+ delete mode 100644 arch/ia64/include/asm/hugetlb.h
+ delete mode 100644 arch/ia64/include/asm/hw_irq.h
+ delete mode 100644 arch/ia64/include/asm/idle.h
+ delete mode 100644 arch/ia64/include/asm/intrinsics.h
+ delete mode 100644 arch/ia64/include/asm/io.h
+ delete mode 100644 arch/ia64/include/asm/iommu.h
+ delete mode 100644 arch/ia64/include/asm/iosapic.h
+ delete mode 100644 arch/ia64/include/asm/irq.h
+ delete mode 100644 arch/ia64/include/asm/irq_regs.h
+ delete mode 100644 arch/ia64/include/asm/irq_remapping.h
+ delete mode 100644 arch/ia64/include/asm/irqflags.h
+ delete mode 100644 arch/ia64/include/asm/kdebug.h
+ delete mode 100644 arch/ia64/include/asm/kexec.h
+ delete mode 100644 arch/ia64/include/asm/kprobes.h
+ delete mode 100644 arch/ia64/include/asm/kregs.h
+ delete mode 100644 arch/ia64/include/asm/libata-portmap.h
+ delete mode 100644 arch/ia64/include/asm/linkage.h
+ delete mode 100644 arch/ia64/include/asm/local.h
+ delete mode 100644 arch/ia64/include/asm/mca.h
+ delete mode 100644 arch/ia64/include/asm/mca_asm.h
+ delete mode 100644 arch/ia64/include/asm/meminit.h
+ delete mode 100644 arch/ia64/include/asm/mman.h
+ delete mode 100644 arch/ia64/include/asm/mmiowb.h
+ delete mode 100644 arch/ia64/include/asm/mmu.h
+ delete mode 100644 arch/ia64/include/asm/mmu_context.h
+ delete mode 100644 arch/ia64/include/asm/mmzone.h
+ delete mode 100644 arch/ia64/include/asm/module.h
+ delete mode 100644 arch/ia64/include/asm/module.lds.h
+ delete mode 100644 arch/ia64/include/asm/msidef.h
+ delete mode 100644 arch/ia64/include/asm/native/inst.h
+ delete mode 100644 arch/ia64/include/asm/native/irq.h
+ delete mode 100644 arch/ia64/include/asm/native/patchlist.h
+ delete mode 100644 arch/ia64/include/asm/nodedata.h
+ delete mode 100644 arch/ia64/include/asm/numa.h
+ delete mode 100644 arch/ia64/include/asm/page.h
+ delete mode 100644 arch/ia64/include/asm/pal.h
+ delete mode 100644 arch/ia64/include/asm/param.h
+ delete mode 100644 arch/ia64/include/asm/parport.h
+ delete mode 100644 arch/ia64/include/asm/patch.h
+ delete mode 100644 arch/ia64/include/asm/pci.h
+ delete mode 100644 arch/ia64/include/asm/percpu.h
+ delete mode 100644 arch/ia64/include/asm/pgalloc.h
+ delete mode 100644 arch/ia64/include/asm/pgtable.h
+ delete mode 100644 arch/ia64/include/asm/processor.h
+ delete mode 100644 arch/ia64/include/asm/ptrace.h
+ delete mode 100644 arch/ia64/include/asm/sal.h
+ delete mode 100644 arch/ia64/include/asm/sections.h
+ delete mode 100644 arch/ia64/include/asm/serial.h
+ delete mode 100644 arch/ia64/include/asm/shmparam.h
+ delete mode 100644 arch/ia64/include/asm/signal.h
+ delete mode 100644 arch/ia64/include/asm/smp.h
+ delete mode 100644 arch/ia64/include/asm/sn/intr.h
+ delete mode 100644 arch/ia64/include/asm/sn/sn_sal.h
+ delete mode 100644 arch/ia64/include/asm/sparsemem.h
+ delete mode 100644 arch/ia64/include/asm/spinlock.h
+ delete mode 100644 arch/ia64/include/asm/spinlock_types.h
+ delete mode 100644 arch/ia64/include/asm/string.h
+ delete mode 100644 arch/ia64/include/asm/switch_to.h
+ delete mode 100644 arch/ia64/include/asm/syscall.h
+ delete mode 100644 arch/ia64/include/asm/thread_info.h
+ delete mode 100644 arch/ia64/include/asm/timex.h
+ delete mode 100644 arch/ia64/include/asm/tlb.h
+ delete mode 100644 arch/ia64/include/asm/tlbflush.h
+ delete mode 100644 arch/ia64/include/asm/topology.h
+ delete mode 100644 arch/ia64/include/asm/types.h
+ delete mode 100644 arch/ia64/include/asm/uaccess.h
+ delete mode 100644 arch/ia64/include/asm/uncached.h
+ delete mode 100644 arch/ia64/include/asm/unistd.h
+ delete mode 100644 arch/ia64/include/asm/unwind.h
+ delete mode 100644 arch/ia64/include/asm/user.h
+ delete mode 100644 arch/ia64/include/asm/ustack.h
+ delete mode 100644 arch/ia64/include/asm/uv/uv.h
+ delete mode 100644 arch/ia64/include/asm/uv/uv_hub.h
+ delete mode 100644 arch/ia64/include/asm/uv/uv_mmrs.h
+ delete mode 100644 arch/ia64/include/asm/vermagic.h
+ delete mode 100644 arch/ia64/include/asm/vga.h
+ delete mode 100644 arch/ia64/include/asm/vmalloc.h
+ delete mode 100644 arch/ia64/include/asm/xor.h
+ delete mode 100644 arch/ia64/include/asm/xtp.h
+ delete mode 100644 arch/ia64/include/uapi/asm/Kbuild
+ delete mode 100644 arch/ia64/include/uapi/asm/auxvec.h
+ delete mode 100644 arch/ia64/include/uapi/asm/bitsperlong.h
+ delete mode 100644 arch/ia64/include/uapi/asm/break.h
+ delete mode 100644 arch/ia64/include/uapi/asm/byteorder.h
+ delete mode 100644 arch/ia64/include/uapi/asm/cmpxchg.h
+ delete mode 100644 arch/ia64/include/uapi/asm/fcntl.h
+ delete mode 100644 arch/ia64/include/uapi/asm/fpu.h
+ delete mode 100644 arch/ia64/include/uapi/asm/gcc_intrin.h
+ delete mode 100644 arch/ia64/include/uapi/asm/ia64regs.h
+ delete mode 100644 arch/ia64/include/uapi/asm/intrinsics.h
+ delete mode 100644 arch/ia64/include/uapi/asm/mman.h
+ delete mode 100644 arch/ia64/include/uapi/asm/param.h
+ delete mode 100644 arch/ia64/include/uapi/asm/posix_types.h
+ delete mode 100644 arch/ia64/include/uapi/asm/ptrace.h
+ delete mode 100644 arch/ia64/include/uapi/asm/ptrace_offsets.h
+ delete mode 100644 arch/ia64/include/uapi/asm/resource.h
+ delete mode 100644 arch/ia64/include/uapi/asm/rse.h
+ delete mode 100644 arch/ia64/include/uapi/asm/setup.h
+ delete mode 100644 arch/ia64/include/uapi/asm/sigcontext.h
+ delete mode 100644 arch/ia64/include/uapi/asm/siginfo.h
+ delete mode 100644 arch/ia64/include/uapi/asm/signal.h
+ delete mode 100644 arch/ia64/include/uapi/asm/stat.h
+ delete mode 100644 arch/ia64/include/uapi/asm/statfs.h
+ delete mode 100644 arch/ia64/include/uapi/asm/swab.h
+ delete mode 100644 arch/ia64/include/uapi/asm/types.h
+ delete mode 100644 arch/ia64/include/uapi/asm/ucontext.h
+ delete mode 100644 arch/ia64/include/uapi/asm/unistd.h
+ delete mode 100644 arch/ia64/include/uapi/asm/ustack.h
+ delete mode 100755 arch/ia64/install.sh
+ delete mode 100644 arch/ia64/kernel/.gitignore
+ delete mode 100644 arch/ia64/kernel/Makefile
+ delete mode 100644 arch/ia64/kernel/Makefile.gate
+ delete mode 100644 arch/ia64/kernel/acpi-ext.c
+ delete mode 100644 arch/ia64/kernel/acpi.c
+ delete mode 100644 arch/ia64/kernel/asm-offsets.c
+ delete mode 100644 arch/ia64/kernel/audit.c
+ delete mode 100644 arch/ia64/kernel/brl_emu.c
+ delete mode 100644 arch/ia64/kernel/crash.c
+ delete mode 100644 arch/ia64/kernel/crash_dump.c
+ delete mode 100644 arch/ia64/kernel/cyclone.c
+ delete mode 100644 arch/ia64/kernel/dma-mapping.c
+ delete mode 100644 arch/ia64/kernel/efi.c
+ delete mode 100644 arch/ia64/kernel/efi_stub.S
+ delete mode 100644 arch/ia64/kernel/elfcore.c
+ delete mode 100644 arch/ia64/kernel/entry.S
+ delete mode 100644 arch/ia64/kernel/entry.h
+ delete mode 100644 arch/ia64/kernel/err_inject.c
+ delete mode 100644 arch/ia64/kernel/esi.c
+ delete mode 100644 arch/ia64/kernel/esi_stub.S
+ delete mode 100644 arch/ia64/kernel/fsys.S
+ delete mode 100644 arch/ia64/kernel/fsyscall_gtod_data.h
+ delete mode 100644 arch/ia64/kernel/ftrace.c
+ delete mode 100644 arch/ia64/kernel/gate-data.S
+ delete mode 100644 arch/ia64/kernel/gate.S
+ delete mode 100644 arch/ia64/kernel/gate.lds.S
+ delete mode 100644 arch/ia64/kernel/head.S
+ delete mode 100644 arch/ia64/kernel/iosapic.c
+ delete mode 100644 arch/ia64/kernel/irq.c
+ delete mode 100644 arch/ia64/kernel/irq.h
+ delete mode 100644 arch/ia64/kernel/irq_ia64.c
+ delete mode 100644 arch/ia64/kernel/irq_lsapic.c
+ delete mode 100644 arch/ia64/kernel/ivt.S
+ delete mode 100644 arch/ia64/kernel/kprobes.c
+ delete mode 100644 arch/ia64/kernel/machine_kexec.c
+ delete mode 100644 arch/ia64/kernel/mca.c
+ delete mode 100644 arch/ia64/kernel/mca_asm.S
+ delete mode 100644 arch/ia64/kernel/mca_drv.c
+ delete mode 100644 arch/ia64/kernel/mca_drv.h
+ delete mode 100644 arch/ia64/kernel/mca_drv_asm.S
+ delete mode 100644 arch/ia64/kernel/minstate.h
+ delete mode 100644 arch/ia64/kernel/module.c
+ delete mode 100644 arch/ia64/kernel/msi_ia64.c
+ delete mode 100644 arch/ia64/kernel/numa.c
+ delete mode 100644 arch/ia64/kernel/pal.S
+ delete mode 100644 arch/ia64/kernel/palinfo.c
+ delete mode 100644 arch/ia64/kernel/patch.c
+ delete mode 100644 arch/ia64/kernel/pci-dma.c
+ delete mode 100644 arch/ia64/kernel/perfmon_itanium.h
+ delete mode 100644 arch/ia64/kernel/process.c
+ delete mode 100644 arch/ia64/kernel/ptrace.c
+ delete mode 100644 arch/ia64/kernel/relocate_kernel.S
+ delete mode 100644 arch/ia64/kernel/sal.c
+ delete mode 100644 arch/ia64/kernel/salinfo.c
+ delete mode 100644 arch/ia64/kernel/setup.c
+ delete mode 100644 arch/ia64/kernel/sigframe.h
+ delete mode 100644 arch/ia64/kernel/signal.c
+ delete mode 100644 arch/ia64/kernel/smp.c
+ delete mode 100644 arch/ia64/kernel/smpboot.c
+ delete mode 100644 arch/ia64/kernel/stacktrace.c
+ delete mode 100644 arch/ia64/kernel/sys_ia64.c
+ delete mode 100644 arch/ia64/kernel/syscalls/Makefile
+ delete mode 100644 arch/ia64/kernel/syscalls/syscall.tbl
+ delete mode 100644 arch/ia64/kernel/time.c
+ delete mode 100644 arch/ia64/kernel/topology.c
+ delete mode 100644 arch/ia64/kernel/traps.c
+ delete mode 100644 arch/ia64/kernel/unaligned.c
+ delete mode 100644 arch/ia64/kernel/uncached.c
+ delete mode 100644 arch/ia64/kernel/unwind.c
+ delete mode 100644 arch/ia64/kernel/unwind_decoder.c
+ delete mode 100644 arch/ia64/kernel/unwind_i.h
+ delete mode 100644 arch/ia64/kernel/vmlinux.lds.S
+ delete mode 100644 arch/ia64/lib/Makefile
+ delete mode 100644 arch/ia64/lib/checksum.c
+ delete mode 100644 arch/ia64/lib/clear_page.S
+ delete mode 100644 arch/ia64/lib/clear_user.S
+ delete mode 100644 arch/ia64/lib/copy_page.S
+ delete mode 100644 arch/ia64/lib/copy_page_mck.S
+ delete mode 100644 arch/ia64/lib/copy_user.S
+ delete mode 100644 arch/ia64/lib/csum_partial_copy.c
+ delete mode 100644 arch/ia64/lib/do_csum.S
+ delete mode 100644 arch/ia64/lib/flush.S
+ delete mode 100644 arch/ia64/lib/idiv32.S
+ delete mode 100644 arch/ia64/lib/idiv64.S
+ delete mode 100644 arch/ia64/lib/io.c
+ delete mode 100644 arch/ia64/lib/ip_fast_csum.S
+ delete mode 100644 arch/ia64/lib/memcpy.S
+ delete mode 100644 arch/ia64/lib/memcpy_mck.S
+ delete mode 100644 arch/ia64/lib/memset.S
+ delete mode 100644 arch/ia64/lib/strlen.S
+ delete mode 100644 arch/ia64/lib/strncpy_from_user.S
+ delete mode 100644 arch/ia64/lib/strnlen_user.S
+ delete mode 100644 arch/ia64/lib/xor.S
+ delete mode 100644 arch/ia64/mm/Makefile
+ delete mode 100644 arch/ia64/mm/contig.c
+ delete mode 100644 arch/ia64/mm/discontig.c
+ delete mode 100644 arch/ia64/mm/extable.c
+ delete mode 100644 arch/ia64/mm/fault.c
+ delete mode 100644 arch/ia64/mm/hugetlbpage.c
+ delete mode 100644 arch/ia64/mm/init.c
+ delete mode 100644 arch/ia64/mm/ioremap.c
+ delete mode 100644 arch/ia64/mm/numa.c
+ delete mode 100644 arch/ia64/mm/tlb.c
+ delete mode 100644 arch/ia64/pci/Makefile
+ delete mode 100644 arch/ia64/pci/fixup.c
+ delete mode 100644 arch/ia64/pci/pci.c
+ delete mode 100755 arch/ia64/scripts/check-gas
+ delete mode 100644 arch/ia64/scripts/check-gas-asm.S
+ delete mode 100644 arch/ia64/scripts/check-model.c
+ delete mode 100644 arch/ia64/scripts/check-segrel.S
+ delete mode 100644 arch/ia64/scripts/check-segrel.lds
+ delete mode 100644 arch/ia64/scripts/check-serialize.S
+ delete mode 100644 arch/ia64/scripts/check-text-align.S
+ delete mode 100755 arch/ia64/scripts/toolchain-flags
+ delete mode 100644 arch/ia64/scripts/unwcheck.py
+ delete mode 100644 arch/ia64/uv/Makefile
+ delete mode 100644 arch/ia64/uv/kernel/Makefile
+ delete mode 100644 arch/ia64/uv/kernel/setup.c
+ delete mode 100644 drivers/char/agp/hp-agp.c
+ delete mode 100644 drivers/char/agp/i460-agp.c
+ delete mode 100644 drivers/char/mspec.c
+ delete mode 100644 drivers/cpufreq/ia64-acpi-cpufreq.c
+ delete mode 100644 drivers/firmware/pcdp.c
+ delete mode 100644 drivers/firmware/pcdp.h
+ delete mode 100644 tools/arch/ia64/include/asm/barrier.h
+ delete mode 100644 tools/arch/ia64/include/uapi/asm/bitsperlong.h
+ delete mode 100644 tools/arch/ia64/include/uapi/asm/mman.h
