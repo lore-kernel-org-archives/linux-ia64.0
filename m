@@ -2,88 +2,110 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 96315EEB570
-	for <linux-ia64@archiver.kernel.org>; Fri,  8 Sep 2023 23:05:41 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 029F9CA0ECB
+	for <linux-ia64@archiver.kernel.org>; Mon, 11 Sep 2023 22:26:45 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S1343908AbjIHXFo (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Fri, 8 Sep 2023 19:05:44 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:51996 "EHLO
+        id S244466AbjIKWZP (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Mon, 11 Sep 2023 18:25:15 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:36628 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1344706AbjIHXFn (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Fri, 8 Sep 2023 19:05:43 -0400
-Received: from mgamail.intel.com (mgamail.intel.com [134.134.136.31])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id B2E4D1FEB
-        for <linux-ia64@vger.kernel.org>; Fri,  8 Sep 2023 16:05:36 -0700 (PDT)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple;
-  d=intel.com; i=@intel.com; q=dns/txt; s=Intel;
-  t=1694214336; x=1725750336;
-  h=date:from:to:cc:subject:message-id:mime-version;
-  bh=ZtwfvzMYTm05m+TJSjnBo4oZPPsXdXbRTm5U1Q+0M1c=;
-  b=VFVNH8j2m1Cug63hQ1UC59fLFbeSaHRHiW8S3OP0Vcr/36U1gM4rE/e/
-   pJ3wj3mjqeKM53YbLJ6etbFKA37WiaFHUmMBDdqg5d7Nl5AmClbLdTe1V
-   y8jtXtRdJ9uU4wR3xbYN1VjV9MbdxlqtY3NpAo07QLbiC6FZ11xAi5vhN
-   n0fTmfgPrcDOiLT9a+Z6qsf8VIzqzLGHaVKvV5heU8r0npo0W/+WD41iH
-   qmQE5n5o9GJ4hx6arqRUawMV81b62KOEdydAq+82KGD4FeHK/yd+JGU61
-   M3z8o/PWfgnA/cc/fo3yOats0HWfYZMwueGDXMZAaXWRffw+8eamrGO1J
-   w==;
-X-IronPort-AV: E=McAfee;i="6600,9927,10827"; a="441777933"
-X-IronPort-AV: E=Sophos;i="6.02,238,1688454000"; 
-   d="scan'208";a="441777933"
-Received: from fmsmga008.fm.intel.com ([10.253.24.58])
-  by orsmga104.jf.intel.com with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 08 Sep 2023 16:05:36 -0700
-X-ExtLoop1: 1
-X-IronPort-AV: E=McAfee;i="6600,9927,10827"; a="808173202"
-X-IronPort-AV: E=Sophos;i="6.02,238,1688454000"; 
-   d="scan'208";a="808173202"
-Received: from lkp-server01.sh.intel.com (HELO 59b3c6e06877) ([10.239.97.150])
-  by fmsmga008.fm.intel.com with ESMTP; 08 Sep 2023 16:05:34 -0700
-Received: from kbuild by 59b3c6e06877 with local (Exim 4.96)
-        (envelope-from <lkp@intel.com>)
-        id 1qekXc-0002hm-1x;
-        Fri, 08 Sep 2023 23:05:32 +0000
-Date:   Sat, 9 Sep 2023 07:05:07 +0800
-From:   kernel test robot <lkp@intel.com>
-To:     Tony Luck <tony.luck@intel.com>
-Cc:     oe-kbuild-all@lists.linux.dev, linux-ia64@vger.kernel.org
-Subject: [aegl:resctrl2_v65 3/4] fs/resctrl2/arch/x86/amd_smba.c:243:32:
- warning: 'smba_feature' defined but not used
-Message-ID: <202309090740.o2jakl2Y-lkp@intel.com>
+        with ESMTP id S237698AbjIKNKo (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Mon, 11 Sep 2023 09:10:44 -0400
+Received: from smtp-out2.suse.de (smtp-out2.suse.de [IPv6:2001:67c:2178:6::1d])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id C80E0E5;
+        Mon, 11 Sep 2023 06:10:39 -0700 (PDT)
+Received: from imap2.suse-dmz.suse.de (imap2.suse-dmz.suse.de [192.168.254.74])
+        (using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+         key-exchange X25519 server-signature ECDSA (P-521) server-digest SHA512)
+        (No client certificate requested)
+        by smtp-out2.suse.de (Postfix) with ESMTPS id 7F4371F38D;
+        Mon, 11 Sep 2023 13:10:38 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=suse.de; s=susede2_rsa;
+        t=1694437838; h=from:from:reply-to:date:date:message-id:message-id:to:to:cc:cc:
+         mime-version:mime-version:  content-transfer-encoding:content-transfer-encoding;
+        bh=ASbyR99UMd/GpgOphqagCa5xz32ee14KtoXTx/EckP4=;
+        b=avGBHvPPQjOqqnxwk3IMg3tHBklSOmTgAjIAQSXLxes6rAwFfIH5I9/uOVNorKNJZX0/ip
+        oHY9gWPgPTISWjJZeu8z2tIz7rZwILBO6YKJ2qn5cwaiwh0A1db0p/tjxerQALD/1LzYuq
+        dDSCnMYHHSKUmskMVRHQnO9lNj/hhnU=
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=suse.de;
+        s=susede2_ed25519; t=1694437838;
+        h=from:from:reply-to:date:date:message-id:message-id:to:to:cc:cc:
+         mime-version:mime-version:  content-transfer-encoding:content-transfer-encoding;
+        bh=ASbyR99UMd/GpgOphqagCa5xz32ee14KtoXTx/EckP4=;
+        b=CUXZP9mjsSzuyAShgY03xkAoSrCLTTPiZcpRkO9s6Qu6lHZH0uN5fwZt5DhP1WSVHLMZwn
+        c3qIeir8UQ2tRCCg==
+Received: from imap2.suse-dmz.suse.de (imap2.suse-dmz.suse.de [192.168.254.74])
+        (using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+         key-exchange X25519 server-signature ECDSA (P-521) server-digest SHA512)
+        (No client certificate requested)
+        by imap2.suse-dmz.suse.de (Postfix) with ESMTPS id 377E213780;
+        Mon, 11 Sep 2023 13:10:38 +0000 (UTC)
+Received: from dovecot-director2.suse.de ([192.168.254.65])
+        by imap2.suse-dmz.suse.de with ESMTPSA
+        id NlWuDM4R/2SCIwAAMHmgww
+        (envelope-from <tzimmermann@suse.de>); Mon, 11 Sep 2023 13:10:38 +0000
+From:   Thomas Zimmermann <tzimmermann@suse.de>
+To:     mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu,
+        arnd@arndb.de, deller@gmx.de
+Cc:     linuxppc-dev@lists.ozlabs.org, linux-fbdev@vger.kernel.org,
+        linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org,
+        linux-mips@vger.kernel.org, sparclinux@vger.kernel.org,
+        dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org,
+        Thomas Zimmermann <tzimmermann@suse.de>
+Subject: [PATCH v3 0/5] ppc, fbdev: Clean up fbdev mmap helper
+Date:   Mon, 11 Sep 2023 15:08:30 +0200
+Message-ID: <20230911131033.27745-1-tzimmermann@suse.de>
+X-Mailer: git-send-email 2.42.0
 MIME-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Content-Transfer-Encoding: 8bit
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-tree:   https://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git resctrl2_v65
-head:   13c888afbee9f7da0a4a969617dea9889da9d711
-commit: 75c85a7905a138996d3d1309cc87798db5979de0 [3/4] resctrl2: AMD Slow Memory Bandwidth Allocation
-config: i386-randconfig-054-20230909 (https://download.01.org/0day-ci/archive/20230909/202309090740.o2jakl2Y-lkp@intel.com/config)
-compiler: gcc-12 (Debian 12.2.0-14) 12.2.0
-reproduce (this is a W=1 build): (https://download.01.org/0day-ci/archive/20230909/202309090740.o2jakl2Y-lkp@intel.com/reproduce)
+Clean up and rename fb_pgprotect() to work without struct file. Then
+refactor the implementation for PowerPC. This change has been discussed
+at [1] in the context of refactoring fbdev's mmap code.
 
-If you fix the issue in a separate patch/commit (i.e. not just a new version of
-the same patch/commit), kindly add following tags
-| Reported-by: kernel test robot <lkp@intel.com>
-| Closes: https://lore.kernel.org/oe-kbuild-all/202309090740.o2jakl2Y-lkp@intel.com/
+The first two patches update fbdev and replace fbdev's fb_pgprotect()
+with pgprot_framebuffer() on all architectures. The new helper's stream-
+lined interface enables more refactoring within fbdev's mmap
+implementation.
 
-All warnings (new ones prefixed by >>):
+Patches 3 to 5 adapt PowerPC's internal interfaces to provide
+phys_mem_access_prot() that works without struct file. Neither the
+architecture code or fbdev helpers need the parameter.
 
->> fs/resctrl2/arch/x86/amd_smba.c:243:32: warning: 'smba_feature' defined but not used [-Wunused-const-variable=]
-     243 | static const struct x86_cpu_id smba_feature[] = {
-         |                                ^~~~~~~~~~~~
+v3:
+	* rename fb_pgrotect() to pgprot_framebuffer() (Arnd)
+v2:
+	* reorder patches to simplify merging (Michael)
 
+[1] https://lore.kernel.org/linuxppc-dev/5501ba80-bdb0-6344-16b0-0466a950f82c@suse.com/
 
-vim +/smba_feature +243 fs/resctrl2/arch/x86/amd_smba.c
+Thomas Zimmermann (5):
+  fbdev: Avoid file argument in fb_pgprotect()
+  fbdev: Replace fb_pgprotect() with fb_pgprot_device()
+  arch/powerpc: Remove trailing whitespaces
+  arch/powerpc: Remove file parameter from phys_mem_access_prot code
+  arch/powerpc: Call internal __phys_mem_access_prot() in fbdev code
 
-   242	
- > 243	static const struct x86_cpu_id smba_feature[] = {
-   244		X86_MATCH_FEATURE(X86_FEATURE_SMBA, 0),
-   245		{ },
-   246	};
-   247	MODULE_DEVICE_TABLE(x86cpu, smba_feature);
-   248	
+ arch/ia64/include/asm/fb.h                | 15 +++++++--------
+ arch/m68k/include/asm/fb.h                | 19 ++++++++++---------
+ arch/mips/include/asm/fb.h                | 11 +++++------
+ arch/powerpc/include/asm/book3s/pgtable.h | 10 ++++++++--
+ arch/powerpc/include/asm/fb.h             | 13 +++++--------
+ arch/powerpc/include/asm/machdep.h        | 13 ++++++-------
+ arch/powerpc/include/asm/nohash/pgtable.h | 10 ++++++++--
+ arch/powerpc/include/asm/pci.h            |  4 +---
+ arch/powerpc/kernel/pci-common.c          |  3 +--
+ arch/powerpc/mm/mem.c                     |  8 ++++----
+ arch/sparc/include/asm/fb.h               | 15 +++++++++------
+ arch/x86/include/asm/fb.h                 | 10 ++++++----
+ arch/x86/video/fbdev.c                    | 15 ++++++++-------
+ drivers/video/fbdev/core/fb_chrdev.c      |  3 ++-
+ include/asm-generic/fb.h                  | 12 ++++++------
+ 15 files changed, 86 insertions(+), 75 deletions(-)
 
 -- 
-0-DAY CI Kernel Test Service
-https://github.com/intel/lkp-tests/wiki
+2.42.0
+
