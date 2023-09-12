@@ -2,130 +2,93 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 8A844CA0EEB
-	for <linux-ia64@archiver.kernel.org>; Tue, 12 Sep 2023 15:34:14 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id D3D1ECA0ED2
+	for <linux-ia64@archiver.kernel.org>; Tue, 12 Sep 2023 17:01:50 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S236412AbjILPeR (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Tue, 12 Sep 2023 11:34:17 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:41332 "EHLO
+        id S236201AbjILRBx (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Tue, 12 Sep 2023 13:01:53 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:48044 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S236405AbjILPeB (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Tue, 12 Sep 2023 11:34:01 -0400
-Received: from mail-qt1-x82e.google.com (mail-qt1-x82e.google.com [IPv6:2607:f8b0:4864:20::82e])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 7C10010F1
-        for <linux-ia64@vger.kernel.org>; Tue, 12 Sep 2023 08:33:57 -0700 (PDT)
-Received: by mail-qt1-x82e.google.com with SMTP id d75a77b69052e-4121788397fso31176181cf.0
-        for <linux-ia64@vger.kernel.org>; Tue, 12 Sep 2023 08:33:57 -0700 (PDT)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=google.com; s=20230601; t=1694532836; x=1695137636; darn=vger.kernel.org;
-        h=content-transfer-encoding:cc:to:subject:message-id:date:from
-         :in-reply-to:references:mime-version:from:to:cc:subject:date
-         :message-id:reply-to;
-        bh=jn3gYV6z0mHJzWuz6G6eyUwdrkRbzHbTqw/XH7fEH4s=;
-        b=jXSW4sr0/V0TjTygldTr884ibK6jtHHyYxRV6nM1uAsrYMhRGlPYT5IV8wxSASiQt3
-         etjGNSVMhu9OE3YJ6Taca3oX5YOEBO8AH1muDseBgwvJBZPgGW7wvFhhovPvA2VVvYvi
-         7cIYUxtFUbsyGMxzcfNUGm8QCKQfdVFW8dIzAKgcEcy3bStwurtLo3txAKaYJWHG2/Ds
-         jDpI9FyiEYuT9LF5bnbNrhBt4GdREQlewD7YDtkaJEYJ0Fmaw3Owsb0Y09JGEnu1fZqU
-         mkx7I0agpaYsSJFNrXWo8vL7ZONfceEepwrEp7sAQ5mlMZZf6vJC1p+akXVskBatrkUx
-         IFZA==
-X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20230601; t=1694532836; x=1695137636;
-        h=content-transfer-encoding:cc:to:subject:message-id:date:from
-         :in-reply-to:references:mime-version:x-gm-message-state:from:to:cc
-         :subject:date:message-id:reply-to;
-        bh=jn3gYV6z0mHJzWuz6G6eyUwdrkRbzHbTqw/XH7fEH4s=;
-        b=CIxOql64KgHaHtIdrWrk/LegbhKyMhIVB4W8wz+SdzE+7whBXilf8DcH7vL/Cj6jRf
-         qavVHmBDFYr9S9Y8cMdXkwgSo+l3eSc5OCbL9XTOIW6AL/f16++XF9FwqewHcRK3yStc
-         d4XMyFnlyuX9STSn3RXuNhP6TSTXBCFZbFwTcPIoe76hNtNnS74IndbWkXLIHtAXtahi
-         PBi+kRwAulT/H1IBQh0RawV6Rozky7gIXLdPeSuJicCnr1BPanYN1FCPIctpWwzvpgxN
-         qCUoi48e7rskVktuau5fn7GhK8X3X53tC+nTGpHZReZ4b4nBJNkIA/OsxyDU3OQfEGJC
-         Rv7A==
-X-Gm-Message-State: AOJu0Ywe//IDR2LJ3ueEwLp41WizmKfAewXTJugUpT0LdFADF6HcFNsw
-        KCQGYYba+wyAVWtgn7vtlFk03ZuJvAGFD0sZln62cwLPepMmfeyN6L1a8A==
-X-Google-Smtp-Source: AGHT+IE0Ca2qfQkE6enrGukSoNDCb1OXtuL9IDZszmjiWUcu3f+9cYN/mXNgIzl2i4wDmR90/hv9yYRTETUzcz21Ipg=
-X-Received: by 2002:ad4:5d4b:0:b0:635:da80:e53a with SMTP id
- jk11-20020ad45d4b000000b00635da80e53amr4483115qvb.12.1694532836379; Tue, 12
- Sep 2023 08:33:56 -0700 (PDT)
+        with ESMTP id S233392AbjILRBu (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Tue, 12 Sep 2023 13:01:50 -0400
+Received: from foss.arm.com (foss.arm.com [217.140.110.172])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTP id 2A4FA1724;
+        Tue, 12 Sep 2023 10:01:45 -0700 (PDT)
+Received: from usa-sjc-imap-foss1.foss.arm.com (unknown [10.121.207.14])
+        by usa-sjc-mx-foss1.foss.arm.com (Postfix) with ESMTP id 0FF04C15;
+        Tue, 12 Sep 2023 10:02:22 -0700 (PDT)
+Received: from [10.1.197.60] (eglon.cambridge.arm.com [10.1.197.60])
+        by usa-sjc-imap-foss1.foss.arm.com (Postfix) with ESMTPSA id 5A3F43F738;
+        Tue, 12 Sep 2023 10:01:38 -0700 (PDT)
+Message-ID: <1ca1fb8f-1dec-74a3-ee44-94609f6aba2c@arm.com>
+Date:   Tue, 12 Sep 2023 18:01:28 +0100
 MIME-Version: 1.0
-References: <20230912060801.95533-1-bgray@linux.ibm.com> <20230912060801.95533-2-bgray@linux.ibm.com>
-In-Reply-To: <20230912060801.95533-2-bgray@linux.ibm.com>
-From:   Nick Desaulniers <ndesaulniers@google.com>
-Date:   Tue, 12 Sep 2023 08:33:42 -0700
-Message-ID: <CAKwvOdkP1uwU0Cq9541zf309tudfFdbu-10Xo3h+g07-k=Fg4A@mail.gmail.com>
-Subject: Re: [PATCH v2 1/7] ia64: fix Python string escapes
-To:     Benjamin Gray <bgray@linux.ibm.com>,
-        Ard Biesheuvel <ardb@kernel.org>
-Cc:     linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-doc@vger.kernel.org, llvm@lists.linux.dev,
-        linux-pm@vger.kernel.org, bpf@vger.kernel.org,
-        linux-kselftest@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>,
-        Ian Abbott <abbotti@mev.co.uk>,
-        H Hartley Sweeten <hsweeten@visionengravers.com>,
-        Nathan Chancellor <nathan@kernel.org>,
-        Tom Rix <trix@redhat.com>, Jan Kiszka <jan.kiszka@siemens.com>,
-        Kieran Bingham <kbingham@kernel.org>,
-        Peter Zijlstra <peterz@infradead.org>,
-        Ingo Molnar <mingo@redhat.com>,
-        Arnaldo Carvalho de Melo <acme@kernel.org>,
+User-Agent: Mozilla/5.0 (X11; Linux aarch64; rv:102.0) Gecko/20100101
+ Thunderbird/102.11.0
+Subject: Re: [RFC PATCH 00/32] ACPI/arm64: add support for virtual cpuhotplug
+Content-Language: en-GB
+To:     Gavin Shan <gshan@redhat.com>, linux-pm@vger.kernel.org,
+        loongarch@lists.linux.dev, kvmarm@lists.linux.dev,
+        kvm@vger.kernel.org, linux-acpi@vger.kernel.org,
+        linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        x86@kernel.org
+Cc:     Marc Zyngier <maz@kernel.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Lorenzo Pieralisi <lpieralisi@kernel.org>,
         Mark Rutland <mark.rutland@arm.com>,
-        Alexander Shishkin <alexander.shishkin@linux.intel.com>,
-        Jiri Olsa <jolsa@kernel.org>,
-        Namhyung Kim <namhyung@kernel.org>,
-        Ian Rogers <irogers@google.com>,
-        Adrian Hunter <adrian.hunter@intel.com>,
-        linux-perf-users@vger.kernel.org,
-        Todd E Brandt <todd.e.brandt@linux.intel.com>,
-        Andrii Nakryiko <andrii@kernel.org>,
-        Mykola Lysenko <mykolal@fb.com>, Shuah Khan <shuah@kernel.org>
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+        Sudeep Holla <sudeep.holla@arm.com>,
+        Borislav Petkov <bp@alien8.de>, H Peter Anvin <hpa@zytor.com>,
+        Dave Hansen <dave.hansen@linux.intel.com>,
+        Ingo Molnar <mingo@redhat.com>, Will Deacon <will@kernel.org>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Huacai Chen <chenhuacai@kernel.org>,
+        Suzuki K Poulose <suzuki.poulose@arm.com>,
+        Oliver Upton <oliver.upton@linux.dev>,
+        Len Brown <lenb@kernel.org>,
+        Rafael Wysocki <rafael@kernel.org>,
+        WANG Xuerui <kernel@xen0n.name>,
+        Salil Mehta <salil.mehta@huawei.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Jean-Philippe Brucker <jean-philippe@linaro.org>
+References: <20230203135043.409192-1-james.morse@arm.com>
+ <41dd71ab-a6a7-fd93-73ec-64a6b0ca468e@redhat.com>
+From:   James Morse <james.morse@arm.com>
+In-Reply-To: <41dd71ab-a6a7-fd93-73ec-64a6b0ca468e@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On Mon, Sep 11, 2023 at 11:08=E2=80=AFPM Benjamin Gray <bgray@linux.ibm.com=
-> wrote:
->
-> Python 3.6 introduced a DeprecationWarning for invalid escape sequences.
-> This is upgraded to a SyntaxWarning in Python 3.12, and will eventually
-> be a syntax error.
->
-> Fix these now to get ahead of it before it's an error.
->
-> Signed-off-by: Benjamin Gray <bgray@linux.ibm.com>
-> ---
->  arch/ia64/scripts/unwcheck.py | 2 +-
+Hi Gavin,
 
-Ard is proposing removing this script, along with the rest of the architect=
-ure:
-https://lore.kernel.org/linux-arch/20230911163129.3777603-2-ardb@google.com=
-/
+On 29/03/2023 03:35, Gavin Shan wrote:
+> On 2/3/23 9:50 PM, James Morse wrote:
 
-So this change can be dropped.
+>> If folk want to play along at home, you'll need a copy of Qemu that supports this.
+>> https://github.com/salil-mehta/qemu.git
+>> salil/virt-cpuhp-armv8/rfc-v1-port29092022.psci.present
+>>
+>> You'll need to fix the numbers of KVM_CAP_ARM_HVC_TO_USER and KVM_CAP_ARM_PSCI_TO_USER
+>> to match your host kernel. Replace your '-smp' argument with something like:
+>> | -smp cpus=1,maxcpus=3,cores=3,threads=1,sockets=1
+>>
+>> then feed the following to the Qemu montior;
+>> | (qemu) device_add driver=host-arm-cpu,core-id=1,id=cpu1
+>> | (qemu) device_del cpu1
+>>
+>>
+>> This series is based on v6.2-rc3, and can be retrieved from:
+>> https://git.kernel.org/pub/scm/linux/kernel/git/morse/linux.git/ virtual_cpu_hotplug/rfc/v1
 
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/arch/ia64/scripts/unwcheck.py b/arch/ia64/scripts/unwcheck.p=
-y
-> index 9581742f0db2..adc24152d3b9 100644
-> --- a/arch/ia64/scripts/unwcheck.py
-> +++ b/arch/ia64/scripts/unwcheck.py
-> @@ -21,7 +21,7 @@ if len(sys.argv) !=3D 2:
->
->  readelf =3D os.getenv("READELF", "readelf")
->
-> -start_pattern =3D re.compile("<([^>]*)>: \[0x([0-9a-f]+)-0x([0-9a-f]+)\]=
-")
-> +start_pattern =3D re.compile(r"<([^>]*)>: \[0x([0-9a-f]+)-0x([0-9a-f]+)\=
-]")
->  rlen_pattern  =3D re.compile(".*rlen=3D([0-9]+)")
->
->  def check_func (func, slots, rlen_sum):
-> --
-> 2.41.0
->
+> I give it a try, but the hot-added CPU needs to be put into online
+> state manually. I'm not sure if it's expected or not.
+
+This is expected. If you want the CPUs to be brought online automatically, you can add
+udev rules to do that.
 
 
---=20
 Thanks,
-~Nick Desaulniers
+
+James
