@@ -2,42 +2,42 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 1F484CA552A
-	for <linux-ia64@archiver.kernel.org>; Wed, 13 Sep 2023 09:11:46 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 13584CA5517
+	for <linux-ia64@archiver.kernel.org>; Wed, 13 Sep 2023 09:11:50 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S239329AbjIMJLt (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Wed, 13 Sep 2023 05:11:49 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:40540 "EHLO
+        id S239287AbjIMJLw (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Wed, 13 Sep 2023 05:11:52 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:42190 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S239282AbjIMJLf (ORCPT
+        with ESMTP id S239301AbjIMJLf (ORCPT
         <rfc822;linux-ia64@vger.kernel.org>); Wed, 13 Sep 2023 05:11:35 -0400
 Received: from smtp.kernel.org (relay.kernel.org [52.25.139.140])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 729F2199D;
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id C1CC51BC2;
         Wed, 13 Sep 2023 02:11:31 -0700 (PDT)
-Received: by smtp.kernel.org (Postfix) with ESMTPS id E67F9C43140;
-        Wed, 13 Sep 2023 09:11:30 +0000 (UTC)
+Received: by smtp.kernel.org (Postfix) with ESMTPS id 57508C433C7;
+        Wed, 13 Sep 2023 09:11:31 +0000 (UTC)
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=kernel.org;
         s=k20201202; t=1694596291;
-        bh=+SkCefiM7Rz9hJ2ASpY5uKrkxunp6sYmL4qvl9Jz50Q=;
+        bh=bOZkXiICk5VZpusCoN35GJ6eTXBzdL14nNNGQMgELT4=;
         h=From:Date:Subject:References:In-Reply-To:To:Cc:Reply-To:From;
-        b=gQL36KbYmOA45/H39/FvcupQB6qfrDZng60uDuBXUxWaVxxrzg/UKE47G+gCnNPRR
-         B2yDI0DVivTessUVRqrfj2VVT4ROhCycxHsndPRgtCAdDIq2sppQfQbzguD84NiuXK
-         aIDW0dFH86hqI6G7Iy+PY717epHL8OL+fDIADn9V16d7ecHn1nanZtGr0AbMDpADzu
-         1lOmjqbbNveXQzDyzlfveXxXBXZK+zaI7klOXYCKxEEquOuSWLb2YNUbnYC//si/Sx
-         FFlcpGe4Jq84kfWHNSz1PzxPaw7pvfkmHeRHg65usb91LmQG6DQk4w//c0YuBLUHqU
-         YdVxmP3YnAvhw==
+        b=RlASjPY2GnbaWVrb8C1c2XTqKSCQcR3wM+WD0rWbAqNQa0hrvj4juZxzK7y8tQpjE
+         iGk8MKGIbzVS/F3WrvRjSyh/L8hsZnZZ4p+KlgFQZ8Hwo4whrYU/pKszEWl6fY64OU
+         4YMZekgvBNU/bvXB6Im6rGmLV6zOldi94zZoM4HClQ2UIn2J7jCjctainlXCFSR8XR
+         JHvatfKnc3gPYFDgz+fjr9E6exVWiTEk5a9gWlai7ZAFRWpLMOh/HRCHFfBPtQTm+A
+         c2L6bZwUJmhK5Nk6cWH5Sqo3hwPWlFELEnKgyrHhaD9LzXOx58u8mso+VE6DVKGytv
+         t/hY6M/RQ9j1Q==
 Received: from aws-us-west-2-korg-lkml-1.web.codeaurora.org (localhost.localdomain [127.0.0.1])
-        by smtp.lore.kernel.org (Postfix) with ESMTP id D3EE6CA5512;
-        Wed, 13 Sep 2023 09:11:30 +0000 (UTC)
+        by smtp.lore.kernel.org (Postfix) with ESMTP id 3E680CA5512;
+        Wed, 13 Sep 2023 09:11:31 +0000 (UTC)
 From:   Joel Granados via B4 Relay 
         <devnull+j.granados.samsung.com@kernel.org>
-Date:   Wed, 13 Sep 2023 11:10:59 +0200
-Subject: [PATCH v2 5/8] riscv: Remove now superfluous sentinel element from
- ctl_table array
+Date:   Wed, 13 Sep 2023 11:11:02 +0200
+Subject: [PATCH v2 8/8] c-sky: Remove now superfluous sentinel element from
+ ctl_talbe array
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Message-Id: <20230913-jag-sysctl_remove_empty_elem_arch-v2-5-d1bd13a29bae@samsung.com>
+Message-Id: <20230913-jag-sysctl_remove_empty_elem_arch-v2-8-d1bd13a29bae@samsung.com>
 References: <20230913-jag-sysctl_remove_empty_elem_arch-v2-0-d1bd13a29bae@samsung.com>
 In-Reply-To: <20230913-jag-sysctl_remove_empty_elem_arch-v2-0-d1bd13a29bae@samsung.com>
 To:     Luis Chamberlain <mcgrof@kernel.org>, willy@infradead.org,
@@ -71,18 +71,18 @@ Cc:     linux-fsdevel@vger.kernel.org, linux-s390@vger.kernel.org,
         linux-ia64@vger.kernel.org, linux-csky@vger.kernel.org,
         Joel Granados <j.granados@samsung.com>
 X-Mailer: b4 0.13-dev-86aa5
-X-Developer-Signature: v=1; a=openpgp-sha256; l=1121;
+X-Developer-Signature: v=1; a=openpgp-sha256; l=1142;
  i=j.granados@samsung.com; h=from:subject:message-id;
- bh=YhYzwXNIWrnF46Hw4PUNmR1n0YDZHud48ce/eV4ICtM=;
- b=owEB7QES/pANAwAKAbqXzVK3lkFPAcsmYgBlAXy//n7ybButdcC1NW+b5s25y/I6ZQweSJCGh
- 5gWlZN+rfSJAbMEAAEKAB0WIQSuRwlXJeYxJc7LJ5C6l81St5ZBTwUCZQF8vwAKCRC6l81St5ZB
- T0xoC/4wdx9HmCnkncq1uWYaaqcyWjEZ35dLKxLJD3hzf/ogL5WosG7ygHccjr2kZiIWlrfPljQ
- 50/YL1hLTWb0I2pfklTFc00C7w2A5drVX0YdXTYIui01X2eEnBSUHduH1yu3tPXdaiQF5zGua3E
- 7QRf0mYcdd8CkzKVVDleL1CNNJeIwv7bmio60kk856IPoD9H4b3GY6P5hy3kKB6OgiAmtHNw6gE
- pb7dQmic7iu92C8FquKnX32eimC31sE1iXR+kNcxjzh4x9wlUcWSeWJO50YBYvoFGyUTrclf6rV
- xV/PibvMKixJVXrklbCFIN/sB3tX5JzBr7E+94z0APKSJglMieYLuePE2T5eAONF+T9Hyyq335r
- neRaxNxnzDvk+hJQFH8px9C/D2Zz/8/O8WgypJsF8PMx2Hlk4hFvXgblyn1EJ6tzUdl+LmMezkf
- g4sNYIJ5nu9elX9Iov8I8UaXEm8qyUkMbYkHWWOM41dweBJs8QPFRyoxoSEOymAokMhSg=
+ bh=wn/rmW3LIVUgnMCXZeG4YCvpOL/L6xf4mRBtbNQZAbw=;
+ b=owEB7QES/pANAwAKAbqXzVK3lkFPAcsmYgBlAXzA5GlVzE7/rd8wut1u+0NMuuB0vDP4Kt9LJ
+ CObib6trt2JAbMEAAEKAB0WIQSuRwlXJeYxJc7LJ5C6l81St5ZBTwUCZQF8wAAKCRC6l81St5ZB
+ T7gBC/0fKA9pIG80ye+KDiog5k/fFGEVpxa0scNjVDBIe34baOOBslhh9jCq5CeB6uS1kVSU8Zn
+ sjCTPhX7uROr2GobSknXdT2qiVTrWtW8NdWR3znWuML6pp2goXpp7VQ5PfPQPNQAIs2ngYHlj9p
+ 7FW8hAkzcNwT6mqabdmRJMooE0YrdZsCrd5jPmeEL/99JURiW3raS0VU83iQqdBU57HKiKeaBUy
+ 65feFTdijevoe0tiAIAR1yLbNxCRQaIhP5bm9HKReoJ6SafGlqLSgEnuK+DF219m74LC1P8STid
+ 2dL95GtrdfAHhnwsPbDzH8tDtS75AInDIQRDRmWXXhDhz1F933gR4hoM5ZuukuU9+Vm0Us46tPN
+ oSUTy1W85exYjVAmyyJ+md1EciwwRIgs5r9SReWyR/ztn/tCLNJX4MXiSPVX7P7Ld8m/XPeGx6W
+ XvmwG5dS4Rv/dkz7R3snlRwS/qIsk0Cy7ohma1e73jaGvq0kBmcvxntJQTS6I/eu84yrw=
 X-Developer-Key: i=j.granados@samsung.com; a=openpgp;
  fpr=F1F8E46D30F0F6C4A45FF4465895FAAC338C6E77
 X-Endpoint-Received: by B4 Relay for j.granados@samsung.com/default with auth_id=70
@@ -100,29 +100,30 @@ will reduce the overall build time size of the kernel and run time
 memory bloat by ~64 bytes per sentinel (further information Link :
 https://lore.kernel.org/all/ZO5Yx5JFogGi%2FcBo@bombadil.infradead.org/)
 
-Remove sentinel element from riscv_v_default_vstate_table. This removal
-is safe because register_sysctl implicitly uses ARRAY_SIZE() in addition
-to checking for the sentinel.
+Remove sentinel from alignment_tbl ctl_table array. This removal is safe
+because register_sysctl_init implicitly uses ARRAY_SIZE() in addition to
+checking for the sentinel.
 
+Acked-by: Guo Ren <guoren@kernel.org>
 Signed-off-by: Joel Granados <j.granados@samsung.com>
 ---
- arch/riscv/kernel/vector.c | 3 +--
+ arch/csky/abiv1/alignment.c | 3 +--
  1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/arch/riscv/kernel/vector.c b/arch/riscv/kernel/vector.c
-index 8d92fb6c522c..a1ae68b2ac0f 100644
---- a/arch/riscv/kernel/vector.c
-+++ b/arch/riscv/kernel/vector.c
-@@ -254,8 +254,7 @@ static struct ctl_table riscv_v_default_vstate_table[] = {
- 		.maxlen		= sizeof(riscv_v_implicit_uacc),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dobool,
+diff --git a/arch/csky/abiv1/alignment.c b/arch/csky/abiv1/alignment.c
+index b60259daed1b..0d75ce7b0328 100644
+--- a/arch/csky/abiv1/alignment.c
++++ b/arch/csky/abiv1/alignment.c
+@@ -328,8 +328,7 @@ static struct ctl_table alignment_tbl[5] = {
+ 		.maxlen = sizeof(align_usr_count),
+ 		.mode = 0666,
+ 		.proc_handler = &proc_dointvec
 -	},
--	{ }
+-	{}
 +	}
  };
  
- static int __init riscv_v_sysctl_init(void)
+ static int __init csky_alignment_init(void)
 
 -- 
 2.30.2
