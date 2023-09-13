@@ -2,45 +2,44 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 9225DCA551C
-	for <linux-ia64@archiver.kernel.org>; Wed, 13 Sep 2023 09:11:44 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 5D741CA5522
+	for <linux-ia64@archiver.kernel.org>; Wed, 13 Sep 2023 09:11:45 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S239277AbjIMJLr (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Wed, 13 Sep 2023 05:11:47 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:42162 "EHLO
+        id S239320AbjIMJLs (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Wed, 13 Sep 2023 05:11:48 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:42172 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S239294AbjIMJLe (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Wed, 13 Sep 2023 05:11:34 -0400
+        with ESMTP id S239298AbjIMJLf (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Wed, 13 Sep 2023 05:11:35 -0400
 Received: from smtp.kernel.org (relay.kernel.org [52.25.139.140])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id ECD2B19B3;
-        Wed, 13 Sep 2023 02:11:30 -0700 (PDT)
-Received: by smtp.kernel.org (Postfix) with ESMTPS id 823C4C433C7;
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 3A4EB19BD;
+        Wed, 13 Sep 2023 02:11:31 -0700 (PDT)
+Received: by smtp.kernel.org (Postfix) with ESMTPS id C6B92C433B8;
         Wed, 13 Sep 2023 09:11:30 +0000 (UTC)
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=kernel.org;
         s=k20201202; t=1694596290;
-        bh=IF6j2/SpYlg2pfwUX2eh+AoPnu93Roh0uk49wRv/q+Y=;
-        h=From:Subject:Date:To:Cc:Reply-To:From;
-        b=o3v1Q0AfOS98gJRgbnbYgSFhJATKnAvbBJjBxbwn9AC7FIEBGLlRtFYi99uY7nV4M
-         JOrf5t82biXrDRr5EtdvK+2PcQaxHhjxkGalXZv2hecWcXdCDwFhL87diGF2fVkeet
-         hjTXvYIbY+7pJUzqsIqnJvSsGclXxVeTaR8f6C0Yk8gK9U+4jKKLuglOz2AzNyuXSs
-         e/lLStT/8DRe6NSajTHgAS0KheQv7Tjs5EtrJFsypzCdY6XXee66vdGFDGY7SAr/J5
-         jzK7lIj5Ba8XNKS7W/DjrohUJqxf7pVpNo4bANYheFqqLnDB74eVT/Lh4JDaSsNWqg
-         V8eya7i54N8NA==
+        bh=RibUDN9R+mVe2Lz6B7/1/Dio8c9tfQM7q2jS6jar4RM=;
+        h=From:Date:Subject:References:In-Reply-To:To:Cc:Reply-To:From;
+        b=PRyNez8Os2r73tRnPuMkOsNStqVtl6GUBe6Dtb4wua2O3Z2WQDaETz0xSqQNi0+ZV
+         k2J0Xhph6ulihlVMPwEtUV2BhzROmRMIgvZhoiby/ePvz1kzvaOq8PGLsXVJIjYS2c
+         EiE6iQYMTpD1X1viQDoQEQvVUz5uB9EZIQw5DF2iYLn2CFh+6K6qJqyXAmpkeEU/dh
+         gzJX1VlKpU12g3dzx78JvFg99ONL1+sghX3CBQ2fQN2kaRBTHw4Q/yzIWAilVs06EX
+         uEUVoRY60WHnICf2u7H/R3oV7Sqnk+gSe27Xv/CilA2UYLUBl3yPoUjspuVD7WsiHI
+         x6nRiaIdPIfow==
 Received: from aws-us-west-2-korg-lkml-1.web.codeaurora.org (localhost.localdomain [127.0.0.1])
-        by smtp.lore.kernel.org (Postfix) with ESMTP id 5E9D1CA5518;
+        by smtp.lore.kernel.org (Postfix) with ESMTP id ADEC5CA5518;
         Wed, 13 Sep 2023 09:11:30 +0000 (UTC)
 From:   Joel Granados via B4 Relay 
         <devnull+j.granados.samsung.com@kernel.org>
-Subject: [PATCH v2 0/8] sysctl: Remove sentinel elements from arch
-Date:   Wed, 13 Sep 2023 11:10:54 +0200
-Message-Id: <20230913-jag-sysctl_remove_empty_elem_arch-v2-0-d1bd13a29bae@samsung.com>
+Date:   Wed, 13 Sep 2023 11:10:57 +0200
+Subject: [PATCH v2 3/8] arch/x86: Remove now superfluous sentinel elem from
+ ctl_table arrays
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-X-B4-Tracking: v=1; b=H4sIAJ58AWUC/42NQQ6CMBAAv0L2bE0phYAn/2FIU8sKNZSSLjYSw
- t+tJN49zhxmNiAMFgku2QYBoyXrpwTilIEZ9NQjs11iEFwUvOGSPXXPaCWzjCqg8xEVunlZFY7
- olA5mYHXe3bmusDJGQurMAR/2fTxubeLB0uLDeixj/rW/evVHPeaMs6Ipyk7WpRSyvpJ29Jr6s
- /EO2n3fPyJm99bUAAAA
+Message-Id: <20230913-jag-sysctl_remove_empty_elem_arch-v2-3-d1bd13a29bae@samsung.com>
+References: <20230913-jag-sysctl_remove_empty_elem_arch-v2-0-d1bd13a29bae@samsung.com>
+In-Reply-To: <20230913-jag-sysctl_remove_empty_elem_arch-v2-0-d1bd13a29bae@samsung.com>
 To:     Luis Chamberlain <mcgrof@kernel.org>, willy@infradead.org,
         josh@joshtriplett.org, Kees Cook <keescook@chromium.org>,
         Iurii Zaikin <yzaikin@google.com>,
@@ -73,18 +72,18 @@ Cc:     linux-fsdevel@vger.kernel.org, linux-s390@vger.kernel.org,
         Joel Granados <j.granados@samsung.com>,
         Ingo Molnar <mingo@kernel.org>
 X-Mailer: b4 0.13-dev-86aa5
-X-Developer-Signature: v=1; a=openpgp-sha256; l=8698;
+X-Developer-Signature: v=1; a=openpgp-sha256; l=1714;
  i=j.granados@samsung.com; h=from:subject:message-id;
- bh=KIqswrAVMdhaWb/JbcZcIzXf/NYrgSb7sP/BTqWOdYY=;
- b=owEB7QES/pANAwAKAbqXzVK3lkFPAcsmYgBlAXy963a+0HLyfnoYmbG27az0WEoNmgVTomdUX
- Hr6xAbPgcuJAbMEAAEKAB0WIQSuRwlXJeYxJc7LJ5C6l81St5ZBTwUCZQF8vQAKCRC6l81St5ZB
- T8o4C/0Zq95HrASlp0txb2/xovzLqmJ9WEKkTKx2USnCrRDjlxRQmgR5U7DmMUuohQFIV+0KR9S
- vyHAWw53ehtrNqeX++6LB6slyNaFUJeY4mDs/l3MjRAzWhYJ7yWZV51U77MLeFn1YuiScWaHIo2
- xXk6mQ8R6ZUUpXKkYIhsfH5ozGwLJYGChNF6/1UhfehOaYd5mUAhzy4RMsHC97fAlUTQtfxW1NT
- dUPcHF6ZSfLHD2MDKITxxbWh+qZgAXSgibDGmOaM8Tmo1axwGvXqJxSez/zax7kUPjPJ3WT6hb4
- rbWXkzRkT7XJg9dGYAhWhjGHDk1bqcDMOCLkLDw+PfhYXUKSpBDtmoRrKD6kThbn+IelfgDr9Yt
- RISkf0KOqi8SKPATEEMtz/SScWjBavkqQvxZe3tIOoEb+ezASWYTlcBKSbiHSOTFjxLXc+Gp29Y
- jdNYL0jmq2y5Y6G4u+FXOrVCfHlFsP/QKZ14pwBmq9CpPV3G5eg2foyffZMFJXmfqiwS4=
+ bh=/mE3FCrO8N9N5ocA17o8WorvC+93ienB9ASm3953JX0=;
+ b=owEB7QES/pANAwAKAbqXzVK3lkFPAcsmYgBlAXy+P6IyIJVAiVruEBhUNPQKqpELjF18dzfN2
+ Sau5oc9p9+JAbMEAAEKAB0WIQSuRwlXJeYxJc7LJ5C6l81St5ZBTwUCZQF8vgAKCRC6l81St5ZB
+ TzOGC/wKtjbMwVyYSrKGZCdpsS8BeR6Sb+Sw1O/9MDzjfyeDErxvdriTX+K97uSfafn9EC9VkE4
+ 3+Dp5zJgbrSjxpxaY2pQf/y4ZqY0JxZ0XcLRBRaXvXHA4u/m2ZyMGMCFwXPcQ0TxgJJaeL7z1M2
+ e0gVVu0zh/JY3KgtFwL3m+F2xqoPO5vSfr0CQMtxeGtoCRzB7GaeJOZKfjaNfg9MTQ9pd97hzBv
+ IUrCdqoOJomMpsFaPQH7XD/nTx/PznAIXJTILEYG3Q5+bJd8wNgyEu2FJqYY5PJrl4XgVS1lxo1
+ kU6vP6K1K5MEB4/41nrGXYIbQaG5xcCKIJ6aaIe5MI7VPHkPALZYq34tMa04Rb6q1qZlNVGmgln
+ zZrnVgpFSoN7JFJig1ruKLb7yTIGrMX/dyYqV4XGkG5Tf7fyvC4WTycYJB590I/V2P9s9jSr8xv
+ 9FPq+RexsVQK5qYHFtthR/GrgPD5lrwWhuEzkCp0GM7f7Kh9f4hEAmQ+CxP14FEa65FCw=
 X-Developer-Key: i=j.granados@samsung.com; a=openpgp;
  fpr=F1F8E46D30F0F6C4A45FF4465895FAAC338C6E77
 X-Endpoint-Received: by B4 Relay for j.granados@samsung.com/default with auth_id=70
@@ -96,191 +95,53 @@ X-Mailing-List: linux-ia64@vger.kernel.org
 
 From: Joel Granados <j.granados@samsung.com>
 
-What?
-These commits remove the sentinel element (last empty element) from the
-sysctl arrays of all the files under the "arch/" directory that use a
-sysctl array for registration. The merging of the preparation patches
-(in https://lore.kernel.org/all/ZO5Yx5JFogGi%2FcBo@bombadil.infradead.org/)
-to mainline allows us to just remove sentinel elements without changing
-behavior. This is now safe because the sysctl registration code
-(register_sysctl() and friends) use the array size in addition to
-checking for a sentinel ([1] for more info).
+This commit comes at the tail end of a greater effort to remove the
+empty elements at the end of the ctl_table arrays (sentinels) which
+will reduce the overall build time size of the kernel and run time
+memory bloat by ~64 bytes per sentinel (further information Link :
+https://lore.kernel.org/all/ZO5Yx5JFogGi%2FcBo@bombadil.infradead.org/)
 
-These commits are part of a bigger set (bigger patchset here
-https://github.com/Joelgranados/linux/tree/tag/sysctl_remove_empty_elem_V4)
-that remove the ctl_table sentinel. The idea is to make the review
-process easier by chunking the 52 commits into manageable pieces. By
-sending out one chunk at a time, they can be reviewed separately without
-noise from parallel sets. After the "arch/" commits in this set are
-reviewed, I will continue with drivers/*, fs/*, kernel/*, net/* and
-miscellaneous. The final set will remove the unneeded check for
-->procname == NULL.
+Remove sentinel element from sld_sysctl and itmt_kern_table. This
+removal is safe because register_sysctl_init and register_sysctl
+implicitly use the array size in addition to checking for the sentinel.
 
-Why?
-By removing the sysctl sentinel elements we avoid kernel bloat as
-ctl_table arrays get moved out of kernel/sysctl.c into their own
-respective subsystems. This move was started long ago to avoid merge
-conflicts; the sentinel removal bit came after Mathew Wilcox suggested
-it to avoid bloating the kernel by one element as arrays moved out. This
-patchset will reduce the overall build time size of the kernel and run
-time memory bloat by about ~64 bytes per declared ctl_table array. I
-have consolidated some links that shed light on the history of this
-effort [2].
-
-V2:
-* Added clarification both in the commit messages and the coverletter as
-  to why this patch is safe to apply.
-* Added {Acked,Reviewed,Tested}-by from list
-* Link to v1: https://lore.kernel.org/r/20230906-jag-sysctl_remove_empty_elem_arch-v1-0-3935d4854248@samsung.com
-
-Testing:
-* Ran sysctl selftests (./tools/testing/selftests/sysctl/sysctl.sh)
-* Ran this through 0-day with no errors or warnings
-
-Size saving after removing all sentinels:
-  A consequence of eventually removing all the sentinels (64 bytes per
-  sentinel) is the bytes we save. These are *not* numbers that we will
-  get after this patch set; these are the numbers that we will get after
-  removing all the sentinels. I included them here because they are
-  relevant and to get an idea of just how much memory we are talking
-  about.
-    * bloat-o-meter:
-        - The "yesall" configuration results save 9158 bytes (bloat-o-meter output here
-          https://lore.kernel.org/all/20230621091000.424843-1-j.granados@samsung.com/)
-        - The "tiny" config + CONFIG_SYSCTL save 1215 bytes (bloat-o-meter output here
-          https://lore.kernel.org/all/20230809105006.1198165-1-j.granados@samsung.com/)
-    * memory usage:
-        we save some bytes in main memory as well. In my testing kernel
-        I measured a difference of 7296 bytes. I include the way to
-        measure in [3]
-
-Size saving after this patchset:
-  Here I give the values that I measured for the architecture that I'm
-  running (x86_64). This can give an approximation of how many bytes are
-  saved for each arch. I won't publish for all the archs because I don't
-  have access to all of them.
-    * bloat-o-meter
-        - The "yesall" config saves 192 bytes (bloat-o-meter output [4])
-        - The "tiny" config saves 64 bytes (bloat-o-meter output [5])
-    * memory usage:
-        In this case there were no bytes saved. To measure it comment the
-        printk in `new_dir` and uncomment the if conditional in `new_links`
-        [3].
-
-Comments/feedback greatly appreciated
-
-Best
-Joel
-
-[1]
-https://lore.kernel.org/all/20230809105006.1198165-1-j.granados@samsung.com/
-
-[2]
-Links Related to the ctl_table sentinel removal:
-* Good summary from Luis sent with the "pull request" for the
-  preparation patches.
-  https://lore.kernel.org/all/ZO5Yx5JFogGi%2FcBo@bombadil.infradead.org/
-* Another very good summary from Luis.
-  https://lore.kernel.org/all/ZMFizKFkVxUFtSqa@bombadil.infradead.org/
-* This is a patch set that replaces register_sysctl_table with register_sysctl
-  https://lore.kernel.org/all/20230302204612.782387-1-mcgrof@kernel.org/
-* Patch set to deprecate register_sysctl_paths()
-  https://lore.kernel.org/all/20230302202826.776286-1-mcgrof@kernel.org/
-* Here there is an explicit expectation for the removal of the sentinel element.
-  https://lore.kernel.org/all/20230321130908.6972-1-frank.li@vivo.com
-* The "ARRAY_SIZE" approach was mentioned (proposed?) in this thread
-  https://lore.kernel.org/all/20220220060626.15885-1-tangmeng@uniontech.com
-
-[3]
-To measure the in memory savings apply this on top of this patchset.
-
-"
-diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
-index c88854df0b62..e0073a627bac 100644
---- a/fs/proc/proc_sysctl.c
-+++ b/fs/proc/proc_sysctl.c
-@@ -976,6 +976,8 @@ static struct ctl_dir *new_dir(struct ctl_table_set *set,
-        table[0].procname = new_name;
-        table[0].mode = S_IFDIR|S_IRUGO|S_IXUGO;
-        init_header(&new->header, set->dir.header.root, set, node, table, 1);
-+       // Counts additional sentinel used for each new dir.
-+       printk("%ld sysctl saved mem kzalloc \n", sizeof(struct ctl_table));
-
-        return new;
- }
-@@ -1199,6 +1201,9 @@ static struct ctl_table_header *new_links(struct ctl_dir *dir, struct ctl_table_
-                link_name += len;
-                link++;
-        }
-+       // Counts additional sentinel used for each new registration
-+       //if ((head->ctl_table + head->ctl_table_size)->procname)
-+               printk("%ld sysctl saved mem kzalloc \n", sizeof(struct ctl_table));
-        init_header(links, dir->header.root, dir->header.set, node, link_table,
-                    head->ctl_table_size);
-        links->nreg = nr_entries;
-"
-and then run the following bash script in the kernel:
-
-accum=0
-for n in $(dmesg | grep kzalloc | awk '{print $3}') ; do
-    echo $n
-    accum=$(calc "$accum + $n")
-done
-echo $accum
-
-[4]
-add/remove: 0/0 grow/shrink: 0/3 up/down: 0/-192 (-192)
-Function                                     old     new   delta
-sld_sysctls                                  128      64     -64
-itmt_kern_table                              128      64     -64
-abi_table2                                   128      64     -64
-Total: Before=429173594, After=429173402, chg -0.00%
-
-[5]
-add/remove: 0/0 grow/shrink: 1/0 up/down: 64/0 (64)
-Function                                     old     new   delta
-sld_sysctls                                   64     128     +64
-Total: Before=1886119, After=1886183, chg +0.00%
-
+Reviewed-by: Ingo Molnar <mingo@kernel.org>
+Acked-by: Dave Hansen <dave.hansen@linux.intel.com> # for x86
 Signed-off-by: Joel Granados <j.granados@samsung.com>
-
 ---
+ arch/x86/kernel/cpu/intel.c | 3 +--
+ arch/x86/kernel/itmt.c      | 3 +--
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
----
-Joel Granados (8):
-      S390: Remove now superfluous sentinel elem from ctl_table arrays
-      arm: Remove now superfluous sentinel elem from ctl_table arrays
-      arch/x86: Remove now superfluous sentinel elem from ctl_table arrays
-      x86/vdso: Remove now superfluous sentinel element from ctl_table array
-      riscv: Remove now superfluous sentinel element from ctl_table array
-      powerpc: Remove now superfluous sentinel element from ctl_table arrays
-      ia64: Remove now superfluous sentinel element from ctl_table array
-      c-sky: Remove now superfluous sentinel element from ctl_talbe array
+diff --git a/arch/x86/kernel/cpu/intel.c b/arch/x86/kernel/cpu/intel.c
+index be4045628fd3..e63391b82624 100644
+--- a/arch/x86/kernel/cpu/intel.c
++++ b/arch/x86/kernel/cpu/intel.c
+@@ -1015,8 +1015,7 @@ static struct ctl_table sld_sysctls[] = {
+ 		.proc_handler	= proc_douintvec_minmax,
+ 		.extra1         = SYSCTL_ZERO,
+ 		.extra2         = SYSCTL_ONE,
+-	},
+-	{}
++	}
+ };
+ 
+ static int __init sld_mitigate_sysctl_init(void)
+diff --git a/arch/x86/kernel/itmt.c b/arch/x86/kernel/itmt.c
+index ee4fe8cdb857..5f2ccff38297 100644
+--- a/arch/x86/kernel/itmt.c
++++ b/arch/x86/kernel/itmt.c
+@@ -73,8 +73,7 @@ static struct ctl_table itmt_kern_table[] = {
+ 		.proc_handler	= sched_itmt_update_handler,
+ 		.extra1		= SYSCTL_ZERO,
+ 		.extra2		= SYSCTL_ONE,
+-	},
+-	{}
++	}
+ };
+ 
+ static struct ctl_table_header *itmt_sysctl_header;
 
- arch/arm/kernel/isa.c                     | 4 ++--
- arch/arm64/kernel/armv8_deprecated.c      | 8 +++-----
- arch/arm64/kernel/fpsimd.c                | 6 ++----
- arch/arm64/kernel/process.c               | 3 +--
- arch/csky/abiv1/alignment.c               | 3 +--
- arch/ia64/kernel/crash.c                  | 3 +--
- arch/powerpc/kernel/idle.c                | 3 +--
- arch/powerpc/platforms/pseries/mobility.c | 3 +--
- arch/riscv/kernel/vector.c                | 3 +--
- arch/s390/appldata/appldata_base.c        | 6 ++----
- arch/s390/kernel/debug.c                  | 3 +--
- arch/s390/kernel/topology.c               | 3 +--
- arch/s390/mm/cmm.c                        | 3 +--
- arch/s390/mm/pgalloc.c                    | 3 +--
- arch/x86/entry/vdso/vdso32-setup.c        | 3 +--
- arch/x86/kernel/cpu/intel.c               | 3 +--
- arch/x86/kernel/itmt.c                    | 3 +--
- drivers/perf/arm_pmuv3.c                  | 3 +--
- 18 files changed, 23 insertions(+), 43 deletions(-)
----
-base-commit: 708283abf896dd4853e673cc8cba70acaf9bf4ea
-change-id: 20230904-jag-sysctl_remove_empty_elem_arch-81db0a6e6cc4
-
-Best regards,
 -- 
-Joel Granados <j.granados@samsung.com>
+2.30.2
 
