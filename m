@@ -2,107 +2,204 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 857DECA5504
-	for <linux-ia64@archiver.kernel.org>; Wed, 13 Sep 2023 08:10:39 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 09170CA5518
+	for <linux-ia64@archiver.kernel.org>; Wed, 13 Sep 2023 09:11:44 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S238808AbjIMIKm convert rfc822-to-8bit (ORCPT
-        <rfc822;linux-ia64@archiver.kernel.org>);
-        Wed, 13 Sep 2023 04:10:42 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:50040 "EHLO
+        id S239260AbjIMJLq (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Wed, 13 Sep 2023 05:11:46 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:42168 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S238777AbjIMIKF (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Wed, 13 Sep 2023 04:10:05 -0400
-Received: from mail-yw1-f175.google.com (mail-yw1-f175.google.com [209.85.128.175])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 6424719B4;
-        Wed, 13 Sep 2023 01:09:24 -0700 (PDT)
-Received: by mail-yw1-f175.google.com with SMTP id 00721157ae682-59bbdb435bfso6342307b3.3;
-        Wed, 13 Sep 2023 01:09:24 -0700 (PDT)
-X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20230601; t=1694592563; x=1695197363;
-        h=content-transfer-encoding:cc:to:subject:message-id:date:from
-         :in-reply-to:references:mime-version:x-gm-message-state:from:to:cc
-         :subject:date:message-id:reply-to;
-        bh=uCz1YqPLlml0me4QSAkCQsY8FV1Cudx91zoZbXBVMOA=;
-        b=BeElRkB1CATd6mKPq8RoLrRadz6xAOfpPbZUjhJx+t+OvoODubPyT7xtzMrwXDquuY
-         EqM72LdAfemAyocjOLzauU4WeD8Spk644nCSFWeNKHEiW7FVf9qtjOBaqF7usX/H4WI3
-         tmzY/jGNLEiQUYUALASJTJLMyplXy/5Ge5xVaAw4KBnFT5m3bHgqq/GjDDqE/vbKzNNn
-         5GLnEvJwr0xHD1ppdAUB8qf4XVrLc3D0si/ZDyW6FPUEhVzTT3I8fphWghju6iilZPCx
-         2r+tgYB+ejvBNyWyRzJ3ZVAeRbQ1pFnW9dpA3Gu9qRqMFIeCN4Zt0BnzHARSaStb6fvn
-         Gzsg==
-X-Gm-Message-State: AOJu0YxG8mRZKy37YSJj0nLTpWUyDTO6VVKoS5hsMkge7rShJbwbq35i
-        ZarEv/7cEPaLP/8Aeztlt6hFPj+JFd8YgA==
-X-Google-Smtp-Source: AGHT+IFO+rvt4ojVBQ2tebVg0XDEybdj1FyTPO36buG4UjXjdMhv6eYEqWKAgfV6plEnsus/Iyw4yg==
-X-Received: by 2002:a81:6c04:0:b0:594:e4d1:bd7e with SMTP id h4-20020a816c04000000b00594e4d1bd7emr1644354ywc.5.1694592563414;
-        Wed, 13 Sep 2023 01:09:23 -0700 (PDT)
-Received: from mail-yb1-f179.google.com (mail-yb1-f179.google.com. [209.85.219.179])
-        by smtp.gmail.com with ESMTPSA id x83-20020a0dd556000000b0058c4e33b2d6sm3002279ywd.90.2023.09.13.01.09.22
-        (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);
-        Wed, 13 Sep 2023 01:09:22 -0700 (PDT)
-Received: by mail-yb1-f179.google.com with SMTP id 3f1490d57ef6-d7d50ba994eso5677604276.1;
-        Wed, 13 Sep 2023 01:09:22 -0700 (PDT)
-X-Received: by 2002:a25:9844:0:b0:d81:4e98:4f5c with SMTP id
- k4-20020a259844000000b00d814e984f5cmr1178332ybo.47.1694592562230; Wed, 13 Sep
- 2023 01:09:22 -0700 (PDT)
+        with ESMTP id S239293AbjIMJLe (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Wed, 13 Sep 2023 05:11:34 -0400
+Received: from smtp.kernel.org (relay.kernel.org [52.25.139.140])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 052E019B4;
+        Wed, 13 Sep 2023 02:11:31 -0700 (PDT)
+Received: by smtp.kernel.org (Postfix) with ESMTPS id 950DBC433C8;
+        Wed, 13 Sep 2023 09:11:30 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=kernel.org;
+        s=k20201202; t=1694596290;
+        bh=H3CwHEhNAyk3n0UEs1hZGB7AhfptCwREoqm5y63roFw=;
+        h=From:Date:Subject:References:In-Reply-To:To:Cc:Reply-To:From;
+        b=uNRdoHOM4Yy9XfI0S4sYj9kdaC7LNMOK9NsSNCJ2QaOJN3NAg41eArEg9vdpIPeO2
+         jRejQzWuJcEGHJ3Z+BrJaaHm/TYbXsaNJ8y+1No37kaY/NXSPVLRNmLhD2pafcVuJp
+         eDxGqPPW+2WJOkZ9+WJdneYd52dtWk5xg+sKiySZxiyaq/i9uac+L7PmyGHqNE8BTp
+         kyhRDDkg+l8JooozVeUPPvNuBppDrekDV/1BBGj8uxlw/eZZLYkBo4lM+wFh8Vvf/q
+         Fs1W4tZ1qjML4CxWegQ2k3O37VHHzhq4j8YZV4HweKF7r9nVJv/amgSLV1Z8BwoyJO
+         Rsw1vcuckhsaw==
+Received: from aws-us-west-2-korg-lkml-1.web.codeaurora.org (localhost.localdomain [127.0.0.1])
+        by smtp.lore.kernel.org (Postfix) with ESMTP id 750A5CA5512;
+        Wed, 13 Sep 2023 09:11:30 +0000 (UTC)
+From:   Joel Granados via B4 Relay 
+        <devnull+j.granados.samsung.com@kernel.org>
+Date:   Wed, 13 Sep 2023 11:10:55 +0200
+Subject: [PATCH v2 1/8] S390: Remove now superfluous sentinel elem from
+ ctl_table arrays
 MIME-Version: 1.0
-References: <20230912135050.17155-1-tzimmermann@suse.de> <20230912135050.17155-3-tzimmermann@suse.de>
-In-Reply-To: <20230912135050.17155-3-tzimmermann@suse.de>
-From:   Geert Uytterhoeven <geert@linux-m68k.org>
-Date:   Wed, 13 Sep 2023 10:09:10 +0200
-X-Gmail-Original-Message-ID: <CAMuHMdU66MLdWM9Qjk-2qmHUZA6F8L-W1iAoc73-HvSB1n-drg@mail.gmail.com>
-Message-ID: <CAMuHMdU66MLdWM9Qjk-2qmHUZA6F8L-W1iAoc73-HvSB1n-drg@mail.gmail.com>
-Subject: Re: [PATCH v4 2/5] fbdev: Replace fb_pgprotect() with pgprot_framebuffer()
-To:     Thomas Zimmermann <tzimmermann@suse.de>
-Cc:     mpe@ellerman.id.au, npiggin@gmail.com, christophe.leroy@csgroup.eu,
-        arnd@arndb.de, deller@gmx.de, linuxppc-dev@lists.ozlabs.org,
-        linux-fbdev@vger.kernel.org, linux-ia64@vger.kernel.org,
-        linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org,
-        sparclinux@vger.kernel.org, dri-devel@lists.freedesktop.org,
-        linux-arch@vger.kernel.org
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20230913-jag-sysctl_remove_empty_elem_arch-v2-1-d1bd13a29bae@samsung.com>
+References: <20230913-jag-sysctl_remove_empty_elem_arch-v2-0-d1bd13a29bae@samsung.com>
+In-Reply-To: <20230913-jag-sysctl_remove_empty_elem_arch-v2-0-d1bd13a29bae@samsung.com>
+To:     Luis Chamberlain <mcgrof@kernel.org>, willy@infradead.org,
+        josh@joshtriplett.org, Kees Cook <keescook@chromium.org>,
+        Iurii Zaikin <yzaikin@google.com>,
+        Heiko Carstens <hca@linux.ibm.com>,
+        Vasily Gorbik <gor@linux.ibm.com>,
+        Alexander Gordeev <agordeev@linux.ibm.com>,
+        Christian Borntraeger <borntraeger@linux.ibm.com>,
+        Sven Schnelle <svens@linux.ibm.com>,
+        Gerald Schaefer <gerald.schaefer@linux.ibm.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>,
+        Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org,
+        "H. Peter Anvin" <hpa@zytor.com>,
+        Andy Lutomirski <luto@kernel.org>,
+        Paul Walmsley <paul.walmsley@sifive.com>,
+        Palmer Dabbelt <palmer@dabbelt.com>,
+        Albert Ou <aou@eecs.berkeley.edu>,
+        Michael Ellerman <mpe@ellerman.id.au>,
+        Nicholas Piggin <npiggin@gmail.com>,
+        Christophe Leroy <christophe.leroy@csgroup.eu>,
+        Guo Ren <guoren@kernel.org>, Alexey Gladkov <legion@kernel.org>
+Cc:     linux-fsdevel@vger.kernel.org, linux-s390@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-riscv@lists.infradead.org, linuxppc-dev@lists.ozlabs.org,
+        linux-ia64@vger.kernel.org, linux-csky@vger.kernel.org,
+        Joel Granados <j.granados@samsung.com>
+X-Mailer: b4 0.13-dev-86aa5
+X-Developer-Signature: v=1; a=openpgp-sha256; l=3546;
+ i=j.granados@samsung.com; h=from:subject:message-id;
+ bh=8t5/t1UjTEoh22RD6/LMKGBxaNMtKZTo1ZzOcM0O9Sw=;
+ b=owEB7QES/pANAwAKAbqXzVK3lkFPAcsmYgBlAXy+z4yFdhLr6WiP8tCwA73LCgzUl2LQiBp3e
+ 8KfCXp5Hk+JAbMEAAEKAB0WIQSuRwlXJeYxJc7LJ5C6l81St5ZBTwUCZQF8vgAKCRC6l81St5ZB
+ T39XC/9Mr0P1F54PQlvniX0Mim7ddNKhNbGsP6rW1ZMhAbdUlffUIxwQ8UlkH15xP2veXT1xfkX
+ O7XQyq0gSlQFWR0PyvUepJ1bFb/hnmYZkJH5zaSQIAz3rHfdAc0f0ubHWxtHjtNYWyRsbREJMCS
+ /gl6GTsxm3eY252GIpPraCKkT8N0yU+z1nyUtDQRFMJB/zvLQ5muqx+kotHeDESp4flWjMH53WG
+ O7DYFpGOicrA6I7m/qCMlW206LeXYlKG1zChV+MCe9MZW+3ZGUavN0fdFH6B9YNji2Nb0ajxYyB
+ GgHX/gnRkpzdcFfP3o+f4EZ+BvRXYX1ZEWuBoc1RwOjYJActxmszhoc8il1vppycayQbRHi84nS
+ VTw9RvfEpqqh+M/1xHFqen11ims6drclhmBdD2ehR/Tu49WqDnCKYzkyldsuZ0KqCnZybNrBtKa
+ l75k/c45RHjB2Wz4IFls7jNHsNIScK2oeV1y2vSx4XZtkSG1l9v0PgnkyPwZ6z9aoOAwA=
+X-Developer-Key: i=j.granados@samsung.com; a=openpgp;
+ fpr=F1F8E46D30F0F6C4A45FF4465895FAAC338C6E77
+X-Endpoint-Received: by B4 Relay for j.granados@samsung.com/default with auth_id=70
+X-Original-From: Joel Granados <j.granados@samsung.com>
+Reply-To: <j.granados@samsung.com>
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-Hi Thomas,
+From: Joel Granados <j.granados@samsung.com>
 
-On Tue, Sep 12, 2023 at 5:32 PM Thomas Zimmermann <tzimmermann@suse.de> wrote:
-> Rename the fbdev mmap helper fb_pgprotect() to pgprot_framebuffer(
-> The helper sets VMA page-access flags for framebuffers in device I/O
-> memory.
->
-> Also clean up the helper's parameters and return value. Instead of
-> the VMA instance, pass the individial parameters separately: existing
-> page-access flags, the VMAs start and end addresses and the offset
-> in the underlying device memory rsp file. Return the new page-access
-> flags. These changes align pgprot_framebuffer() with other pgprot_()
-> functions.
->
-> v4:
->         * fix commit message (Christophe)
-> v3:
->         * rename fb_pgprotect() to pgprot_framebuffer() (Arnd)
->
-> Signed-off-by: Thomas Zimmermann <tzimmermann@suse.de>
+This commit comes at the tail end of a greater effort to remove the
+empty elements at the end of the ctl_table arrays (sentinels) which will
+reduce the overall build time size of the kernel and run time memory
+bloat by ~64 bytes per sentinel (further information Link :
+https://lore.kernel.org/all/ZO5Yx5JFogGi%2FcBo@bombadil.infradead.org/)
 
-Thanks for your patch!
+Remove the sentinel element from appldata_table, s390dbf_table,
+topology_ctl_table, cmm_table and page_table_sysctl. Reduced the memory
+allocation in appldata_register_ops by 1 effectively removing the
+sentinel from ops->ctl_table.
 
->  arch/m68k/include/asm/fb.h           | 19 ++++++++++---------
+This removal is safe because register_sysctl_sz and register_sysctl use
+the array size in addition to checking for the sentinel.
 
-Looks like you forgot to apply my
-Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
-given on v1.
+Tested-by: Alexander Gordeev <agordeev@linux.ibm.com>
+Acked-by: Heiko Carstens <hca@linux.ibm.com>
+Signed-off-by: Joel Granados <j.granados@samsung.com>
+---
+ arch/s390/appldata/appldata_base.c | 6 ++----
+ arch/s390/kernel/debug.c           | 3 +--
+ arch/s390/kernel/topology.c        | 3 +--
+ arch/s390/mm/cmm.c                 | 3 +--
+ arch/s390/mm/pgalloc.c             | 3 +--
+ 5 files changed, 6 insertions(+), 12 deletions(-)
 
-I didn't notice before, as I never received v2 and v3 due to the
-gmail/vger email issues.
+diff --git a/arch/s390/appldata/appldata_base.c b/arch/s390/appldata/appldata_base.c
+index 3b0994625652..872a644b1fd1 100644
+--- a/arch/s390/appldata/appldata_base.c
++++ b/arch/s390/appldata/appldata_base.c
+@@ -62,8 +62,7 @@ static struct ctl_table appldata_table[] = {
+ 		.procname	= "interval",
+ 		.mode		= S_IRUGO | S_IWUSR,
+ 		.proc_handler	= appldata_interval_handler,
+-	},
+-	{ },
++	}
+ };
+ 
+ /*
+@@ -351,8 +350,7 @@ int appldata_register_ops(struct appldata_ops *ops)
+ 	if (ops->size > APPLDATA_MAX_REC_SIZE)
+ 		return -EINVAL;
+ 
+-	/* The last entry must be an empty one */
+-	ops->ctl_table = kcalloc(2, sizeof(struct ctl_table), GFP_KERNEL);
++	ops->ctl_table = kcalloc(1, sizeof(struct ctl_table), GFP_KERNEL);
+ 	if (!ops->ctl_table)
+ 		return -ENOMEM;
+ 
+diff --git a/arch/s390/kernel/debug.c b/arch/s390/kernel/debug.c
+index a85e0c3e7027..150e2bfff0b3 100644
+--- a/arch/s390/kernel/debug.c
++++ b/arch/s390/kernel/debug.c
+@@ -977,8 +977,7 @@ static struct ctl_table s390dbf_table[] = {
+ 		.maxlen		= sizeof(int),
+ 		.mode		= S_IRUGO | S_IWUSR,
+ 		.proc_handler	= s390dbf_procactive,
+-	},
+-	{ }
++	}
+ };
+ 
+ static struct ctl_table_header *s390dbf_sysctl_header;
+diff --git a/arch/s390/kernel/topology.c b/arch/s390/kernel/topology.c
+index 68adf1de8888..9dcfac416669 100644
+--- a/arch/s390/kernel/topology.c
++++ b/arch/s390/kernel/topology.c
+@@ -635,8 +635,7 @@ static struct ctl_table topology_ctl_table[] = {
+ 		.procname	= "topology",
+ 		.mode		= 0644,
+ 		.proc_handler	= topology_ctl_handler,
+-	},
+-	{ },
++	}
+ };
+ 
+ static int __init topology_init(void)
+diff --git a/arch/s390/mm/cmm.c b/arch/s390/mm/cmm.c
+index f47515313226..8937aa7090b3 100644
+--- a/arch/s390/mm/cmm.c
++++ b/arch/s390/mm/cmm.c
+@@ -331,8 +331,7 @@ static struct ctl_table cmm_table[] = {
+ 		.procname	= "cmm_timeout",
+ 		.mode		= 0644,
+ 		.proc_handler	= cmm_timeout_handler,
+-	},
+-	{ }
++	}
+ };
+ 
+ #ifdef CONFIG_CMM_IUCV
+diff --git a/arch/s390/mm/pgalloc.c b/arch/s390/mm/pgalloc.c
+index 07fc660a24aa..e8cecd31715f 100644
+--- a/arch/s390/mm/pgalloc.c
++++ b/arch/s390/mm/pgalloc.c
+@@ -29,8 +29,7 @@ static struct ctl_table page_table_sysctl[] = {
+ 		.proc_handler	= proc_dointvec_minmax,
+ 		.extra1		= SYSCTL_ZERO,
+ 		.extra2		= SYSCTL_ONE,
+-	},
+-	{ }
++	}
+ };
+ 
+ static int __init page_table_register_sysctl(void)
 
-Gr{oetje,eeting}s,
+-- 
+2.30.2
 
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
