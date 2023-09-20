@@ -2,109 +2,84 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 527E8C00454
-	for <linux-ia64@archiver.kernel.org>; Wed, 20 Sep 2023 15:07:15 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 37896C05025
+	for <linux-ia64@archiver.kernel.org>; Wed, 20 Sep 2023 21:01:42 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S235388AbjITPHT (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Wed, 20 Sep 2023 11:07:19 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:48772 "EHLO
+        id S229490AbjITVBp (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Wed, 20 Sep 2023 17:01:45 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:48630 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S235264AbjITPHS (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Wed, 20 Sep 2023 11:07:18 -0400
-Received: from out5-smtp.messagingengine.com (out5-smtp.messagingengine.com [66.111.4.29])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 2A719AF;
-        Wed, 20 Sep 2023 08:07:12 -0700 (PDT)
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.47])
-        by mailout.nyi.internal (Postfix) with ESMTP id DE07F5C01BB;
-        Wed, 20 Sep 2023 11:07:08 -0400 (EDT)
-Received: from imap51 ([10.202.2.101])
-  by compute6.internal (MEProxy); Wed, 20 Sep 2023 11:07:08 -0400
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=arndb.de; h=cc
-        :cc:content-type:content-type:date:date:from:from:in-reply-to
-        :in-reply-to:message-id:mime-version:references:reply-to:sender
-        :subject:subject:to:to; s=fm1; t=1695222428; x=1695308828; bh=ms
-        4LUioRCx9g5Fcd6Nj2Z553BmfY/nfNy++/9p0eMTE=; b=BHuLRfyyuipWu6am6/
-        M3C5KuEVtPRgHdnUSWE2tXf1NF5z/c0HjnG1qXb1WaGZu8Uq7k1Lq5DXx3SfUhLJ
-        +AGNDQ0Gvdy1xUAqZGHxFG0dPweDd4IWaDHtLa1Ju8frSZGFQNlRlxX/YTmR+QTm
-        FrxvvQHeQGOAH4tKQgxAP8/n/XDBfPur4ivYpz7AqfbRaoZFC/0DB/LRt6ogTvDK
-        ibhf89hk7VyhvpN4sS3aoNoWA5NNg9KqAE+6NjLPwBok0RZB1mJOs3iV6MFt/MH4
-        Dtvydol1NjIVeiH0yas9c7mbU50veoZbaGHU9IbQP2FByO/vbbLSQKTuw+/nHr+K
-        WV2g==
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=
-        messagingengine.com; h=cc:cc:content-type:content-type:date:date
-        :feedback-id:feedback-id:from:from:in-reply-to:in-reply-to
-        :message-id:mime-version:references:reply-to:sender:subject
-        :subject:to:to:x-me-proxy:x-me-proxy:x-me-sender:x-me-sender
-        :x-sasl-enc; s=fm2; t=1695222428; x=1695308828; bh=ms4LUioRCx9g5
-        Fcd6Nj2Z553BmfY/nfNy++/9p0eMTE=; b=qgZHhiyUGnQdiRx/usTNHt32rPNJr
-        9B5WYZMfGf4Wh7FyO6A52lomoJ9ynn4fijFhbL1uXxQvXbZqDqwI3RtNixlUDdBY
-        nr7g83/UKByMv2jpbfoqr0MMhEyLeVl4HTvngpxiAH2TNzYOuQTYsysj+12PQUhh
-        NfZeCSd5kQ2vll+YcV+q/+APQLD6yBY/5mJ6KzJ/VXaqAf54B8D5OfAW8ja+q4S8
-        OwObw1sDeIiXVgJxGcmw5NakTXzLLouS4lIeLJo/w8h5AT4kacfRuTF+izO/lkmJ
-        F56Yyuk075kXqXJcxdmlOPxlIIi+Xm++i+2jPz5jH6sqj1NLjf7H1eCog==
-X-ME-Sender: <xms:nAoLZYwrTKoT42bcnpXZ4-w53D73C76DbJIuYsMLzYvbbB86qR_ffQ>
-    <xme:nAoLZcRulMbaUjUAhbE-QFya1Gxyi5QzCzhATtS7FolBRFqxN9c07Aga3yV4Qoxiq
-    eWbYSyImVFth6dskDE>
-X-ME-Proxy-Cause: gggruggvucftvghtrhhoucdtuddrgedviedrudekfedgkeehucetufdoteggodetrfdotf
-    fvucfrrhhofhhilhgvmecuhfgrshhtofgrihhlpdfqfgfvpdfurfetoffkrfgpnffqhgen
-    uceurghilhhouhhtmecufedttdenucesvcftvggtihhpihgvnhhtshculddquddttddmne
-    cujfgurhepofgfggfkjghffffhvfevufgtsehttdertderredtnecuhfhrohhmpedftehr
-    nhguuceuvghrghhmrghnnhdfuceorghrnhgusegrrhhnuggsrdguvgeqnecuggftrfgrth
-    htvghrnhepffehueegteeihfegtefhjefgtdeugfegjeelheejueethfefgeeghfektdek
-    teffnecuvehluhhsthgvrhfuihiivgeptdenucfrrghrrghmpehmrghilhhfrhhomheprg
-    hrnhgusegrrhhnuggsrdguvg
-X-ME-Proxy: <xmx:nAoLZaWZx_TRLb7BjvQU3lpTtrt3jJpa0avXJjdRrHX-EzABxErB_A>
-    <xmx:nAoLZWgVBoycMfqp10qcSIzofTqfa999ofexvDZjpX2k4ORya7JL9g>
-    <xmx:nAoLZaBR9j0jFMUdPxCKTuDNgoxms16P9lFOofBz07ktzPmbvA4Yng>
-    <xmx:nAoLZe6LFDULF3sZ_R6NM9MvFBnTENxcVdrZ0bbn_jFL0BMhje4eJA>
-Feedback-ID: i56a14606:Fastmail
-Received: by mailuser.nyi.internal (Postfix, from userid 501)
-        id EC7C5B60089; Wed, 20 Sep 2023 11:07:07 -0400 (EDT)
-X-Mailer: MessagingEngine.com Webmail Interface
-User-Agent: Cyrus-JMAP/3.9.0-alpha0-761-gece9e40c48-fm-20230913.001-gece9e40c
+        with ESMTP id S229463AbjITVBo (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Wed, 20 Sep 2023 17:01:44 -0400
+Received: from bombadil.infradead.org (bombadil.infradead.org [IPv6:2607:7c80:54:3::133])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 9C2C3BB;
+        Wed, 20 Sep 2023 14:01:37 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
+        d=infradead.org; s=bombadil.20210309; h=Sender:In-Reply-To:Content-Type:
+        MIME-Version:References:Message-ID:Subject:Cc:To:From:Date:Reply-To:
+        Content-Transfer-Encoding:Content-ID:Content-Description;
+        bh=az/Js1qF679MHxIz4hhXazYZEbEi8gu09dkZtiwmuX0=; b=UvFQToudjIHsbXoBhoCpv/JCy5
+        q0xUgS0z5kAtDjmhlolxdXTv9bksN8Pf8xZWK/pHqcVzdRAOHmz/01zFL3BtMMR8cqsRGxs+pxnXI
+        BuLXY775HyQC8SyYkSmupfEcsbPlT9P9uqkxymu1Y2hKEO/3YUTfzgIglXw3YZV/FIigu2WnPoKgT
+        jR0K72e08akM941MjuMFG5p3zV1PUlT6c8L5oEhS1PdkM2ngJ0uoo0BCAEngPPSx4jpzWQRTa1pUO
+        4iFf5VdrG47kBUv1+FhEJS/K/GS8sWTh1J0gYywbvikVoKmcvntPLFZKBCIU6GzkfxnqIbVBhlfzQ
+        Pmu4VU4A==;
+Received: from mcgrof by bombadil.infradead.org with local (Exim 4.96 #2 (Red Hat Linux))
+        id 1qj4Jj-004CX6-2H;
+        Wed, 20 Sep 2023 21:01:04 +0000
+Date:   Wed, 20 Sep 2023 14:01:03 -0700
+From:   Luis Chamberlain <mcgrof@kernel.org>
+To:     j.granados@samsung.com
+Cc:     willy@infradead.org, josh@joshtriplett.org,
+        Kees Cook <keescook@chromium.org>,
+        Iurii Zaikin <yzaikin@google.com>,
+        Heiko Carstens <hca@linux.ibm.com>,
+        Vasily Gorbik <gor@linux.ibm.com>,
+        Alexander Gordeev <agordeev@linux.ibm.com>,
+        Christian Borntraeger <borntraeger@linux.ibm.com>,
+        Sven Schnelle <svens@linux.ibm.com>,
+        Gerald Schaefer <gerald.schaefer@linux.ibm.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>,
+        Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org,
+        "H. Peter Anvin" <hpa@zytor.com>,
+        Andy Lutomirski <luto@kernel.org>,
+        Paul Walmsley <paul.walmsley@sifive.com>,
+        Palmer Dabbelt <palmer@dabbelt.com>,
+        Albert Ou <aou@eecs.berkeley.edu>,
+        Michael Ellerman <mpe@ellerman.id.au>,
+        Nicholas Piggin <npiggin@gmail.com>,
+        Christophe Leroy <christophe.leroy@csgroup.eu>,
+        Guo Ren <guoren@kernel.org>,
+        Alexey Gladkov <legion@kernel.org>,
+        linux-fsdevel@vger.kernel.org, linux-s390@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-riscv@lists.infradead.org, linuxppc-dev@lists.ozlabs.org,
+        linux-ia64@vger.kernel.org, linux-csky@vger.kernel.org,
+        Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH v2 0/8] sysctl: Remove sentinel elements from arch
+Message-ID: <ZQtdj211q5PekVRc@bombadil.infradead.org>
+References: <20230913-jag-sysctl_remove_empty_elem_arch-v2-0-d1bd13a29bae@samsung.com>
 MIME-Version: 1.0
-Message-Id: <df784a58-23f8-43d2-8506-ab1d351da8fe@app.fastmail.com>
-In-Reply-To: <20230912135050.17155-1-tzimmermann@suse.de>
-References: <20230912135050.17155-1-tzimmermann@suse.de>
-Date:   Wed, 20 Sep 2023 11:06:48 -0400
-From:   "Arnd Bergmann" <arnd@arndb.de>
-To:     "Thomas Zimmermann" <tzimmermann@suse.de>,
-        "Michael Ellerman" <mpe@ellerman.id.au>,
-        "Nicholas Piggin" <npiggin@gmail.com>,
-        "Christophe Leroy" <christophe.leroy@csgroup.eu>,
-        "Helge Deller" <deller@gmx.de>
-Cc:     linuxppc-dev@lists.ozlabs.org, linux-fbdev@vger.kernel.org,
-        linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org,
-        linux-mips@vger.kernel.org, sparclinux@vger.kernel.org,
-        dri-devel@lists.freedesktop.org,
-        Linux-Arch <linux-arch@vger.kernel.org>
-Subject: Re: [PATCH v4 0/5] ppc, fbdev: Clean up fbdev mmap helper
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+In-Reply-To: <20230913-jag-sysctl_remove_empty_elem_arch-v2-0-d1bd13a29bae@samsung.com>
+Sender: Luis Chamberlain <mcgrof@infradead.org>
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On Tue, Sep 12, 2023, at 09:48, Thomas Zimmermann wrote:
-> Clean up and rename fb_pgprotect() to work without struct file. Then
-> refactor the implementation for PowerPC. This change has been discussed
-> at [1] in the context of refactoring fbdev's mmap code.
->
-> The first two patches update fbdev and replace fbdev's fb_pgprotect()
-> with pgprot_framebuffer() on all architectures. The new helper's stream-
-> lined interface enables more refactoring within fbdev's mmap
-> implementation.
->
-> Patches 3 to 5 adapt PowerPC's internal interfaces to provide
-> phys_mem_access_prot() that works without struct file. Neither the
-> architecture code or fbdev helpers need the parameter.
->
-> v4:
-> 	* fix commit message (Christophe)
-> v3:
-> 	* rename fb_pgrotect() to pgprot_framebuffer() (Arnd)
+On Wed, Sep 13, 2023 at 11:10:54AM +0200, Joel Granados via B4 Relay wrote:
+> V2:
+> * Added clarification both in the commit messages and the coverletter as
+>   to why this patch is safe to apply.
+> * Added {Acked,Reviewed,Tested}-by from list
+> * Link to v1: https://lore.kernel.org/r/20230906-jag-sysctl_remove_empty_elem_arch-v1-0-3935d4854248@samsung.com
 
-I had another look today, and everything look good to me now.
+Thanks! I've merged this onto sysctl-next.
 
-Whole series
-
-Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+  Luis
