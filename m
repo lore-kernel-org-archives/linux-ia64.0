@@ -2,84 +2,155 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 37896C05025
-	for <linux-ia64@archiver.kernel.org>; Wed, 20 Sep 2023 21:01:42 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id B4902E7D0A2
+	for <linux-ia64@archiver.kernel.org>; Thu, 21 Sep 2023 19:37:34 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S229490AbjITVBp (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Wed, 20 Sep 2023 17:01:45 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:48630 "EHLO
+        id S229606AbjIUThi (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Thu, 21 Sep 2023 15:37:38 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:43724 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S229463AbjITVBo (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Wed, 20 Sep 2023 17:01:44 -0400
-Received: from bombadil.infradead.org (bombadil.infradead.org [IPv6:2607:7c80:54:3::133])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 9C2C3BB;
-        Wed, 20 Sep 2023 14:01:37 -0700 (PDT)
-DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
-        d=infradead.org; s=bombadil.20210309; h=Sender:In-Reply-To:Content-Type:
-        MIME-Version:References:Message-ID:Subject:Cc:To:From:Date:Reply-To:
-        Content-Transfer-Encoding:Content-ID:Content-Description;
-        bh=az/Js1qF679MHxIz4hhXazYZEbEi8gu09dkZtiwmuX0=; b=UvFQToudjIHsbXoBhoCpv/JCy5
-        q0xUgS0z5kAtDjmhlolxdXTv9bksN8Pf8xZWK/pHqcVzdRAOHmz/01zFL3BtMMR8cqsRGxs+pxnXI
-        BuLXY775HyQC8SyYkSmupfEcsbPlT9P9uqkxymu1Y2hKEO/3YUTfzgIglXw3YZV/FIigu2WnPoKgT
-        jR0K72e08akM941MjuMFG5p3zV1PUlT6c8L5oEhS1PdkM2ngJ0uoo0BCAEngPPSx4jpzWQRTa1pUO
-        4iFf5VdrG47kBUv1+FhEJS/K/GS8sWTh1J0gYywbvikVoKmcvntPLFZKBCIU6GzkfxnqIbVBhlfzQ
-        Pmu4VU4A==;
-Received: from mcgrof by bombadil.infradead.org with local (Exim 4.96 #2 (Red Hat Linux))
-        id 1qj4Jj-004CX6-2H;
-        Wed, 20 Sep 2023 21:01:04 +0000
-Date:   Wed, 20 Sep 2023 14:01:03 -0700
-From:   Luis Chamberlain <mcgrof@kernel.org>
-To:     j.granados@samsung.com
-Cc:     willy@infradead.org, josh@joshtriplett.org,
-        Kees Cook <keescook@chromium.org>,
-        Iurii Zaikin <yzaikin@google.com>,
-        Heiko Carstens <hca@linux.ibm.com>,
-        Vasily Gorbik <gor@linux.ibm.com>,
-        Alexander Gordeev <agordeev@linux.ibm.com>,
-        Christian Borntraeger <borntraeger@linux.ibm.com>,
-        Sven Schnelle <svens@linux.ibm.com>,
-        Gerald Schaefer <gerald.schaefer@linux.ibm.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>,
-        Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org,
-        "H. Peter Anvin" <hpa@zytor.com>,
-        Andy Lutomirski <luto@kernel.org>,
-        Paul Walmsley <paul.walmsley@sifive.com>,
-        Palmer Dabbelt <palmer@dabbelt.com>,
-        Albert Ou <aou@eecs.berkeley.edu>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        Nicholas Piggin <npiggin@gmail.com>,
-        Christophe Leroy <christophe.leroy@csgroup.eu>,
-        Guo Ren <guoren@kernel.org>,
-        Alexey Gladkov <legion@kernel.org>,
-        linux-fsdevel@vger.kernel.org, linux-s390@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-riscv@lists.infradead.org, linuxppc-dev@lists.ozlabs.org,
-        linux-ia64@vger.kernel.org, linux-csky@vger.kernel.org,
-        Ingo Molnar <mingo@kernel.org>
-Subject: Re: [PATCH v2 0/8] sysctl: Remove sentinel elements from arch
-Message-ID: <ZQtdj211q5PekVRc@bombadil.infradead.org>
-References: <20230913-jag-sysctl_remove_empty_elem_arch-v2-0-d1bd13a29bae@samsung.com>
+        with ESMTP id S230018AbjIUThS (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Thu, 21 Sep 2023 15:37:18 -0400
+Received: from mout.web.de (mout.web.de [212.227.17.11])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 532E4EB474
+        for <linux-ia64@vger.kernel.org>; Thu, 21 Sep 2023 12:10:23 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=web.de; s=s29768273;
+ t=1695323421; x=1695928221; i=frank.scheiner@web.de;
+ bh=hgvKh8VZrdO3f35U01qaBwm/yh3eR4C0I948GxePHhY=;
+ h=X-UI-Sender-Class:Date:Subject:To:Cc:References:From:In-Reply-To;
+ b=KUODIfL/EQqq0vEPCX+bQubSxP8yfN3V46rrQ7fw+D9MlvIojPtVDjcdxw9ddTVgK9G3UE5XNO3
+ zyRs68F1VJge0o1iOn1FVyanzRJDpLh4l/m/qTh8hinbWyyTbhyDuIFRUy5K/8vT4KYEMMeqr5eno
+ 91lqRNCq4VVGGbrmXGNElD6cdk7elNAnMk9Xpenn7xXeiPqxyZ0aF3kn2IxY+wChmO59y/Ed8Ya/p
+ 2tNCrJ6+ry8aArtcPlbsrlhSbraeZy5Bag0pyQHXzsTIEkjpFibqfraQAxZ9bR+S353dooxP1Qoyq
+ Q5eLwspwiEYny/EYT7pU9qKpl0FHkHniasYQ==
+X-UI-Sender-Class: 814a7b36-bfc1-4dae-8640-3722d8ec6cd6
+Received: from [192.168.178.30] ([79.200.221.18]) by smtp.web.de (mrweb105
+ [213.165.67.124]) with ESMTPSA (Nemesis) id 1MrOhx-1rVVbK37mJ-00oVpw; Thu, 21
+ Sep 2023 14:07:37 +0200
+Message-ID: <cc4e2861-32f6-e063-70ec-e47f88e8de14@web.de>
+Date:   Thu, 21 Sep 2023 14:07:36 +0200
 MIME-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-In-Reply-To: <20230913-jag-sysctl_remove_empty_elem_arch-v2-0-d1bd13a29bae@samsung.com>
-Sender: Luis Chamberlain <mcgrof@infradead.org>
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
+ Thunderbird/102.15.1
+Subject: Re: Build regression since v6.6-rc1
+Content-Language: en-US
+To:     Ard Biesheuvel <ardb@kernel.org>
+Cc:     linux-ia64@vger.kernel.org, rafael.j.wysocki@intel.com,
+        michal.wilczynski@intel.com,
+        debian-ia64 <debian-ia64@lists.debian.org>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>,
+        Arnd Bergmann <arnd@arndb.de>
+References: <adc65a97-2479-8779-0e09-4ec2fe946cb2@web.de>
+ <CAMj1kXGDVWYJMHJay3j8P=EQMMv1cmSLRDoiDBrt1hdvZpOpww@mail.gmail.com>
+From:   Frank Scheiner <frank.scheiner@web.de>
+In-Reply-To: <CAMj1kXGDVWYJMHJay3j8P=EQMMv1cmSLRDoiDBrt1hdvZpOpww@mail.gmail.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: quoted-printable
+X-Provags-ID: V03:K1:QCuA3yAVK3FfHENFIskwUBDyJauoWY92tAZ/yL3DmC3lPjOOcxr
+ PPhsDqdKTIk+eKIaDJBiCH/X9QWAEdd7hRGN+zT9KbCAtlQzbY05lulNCdJzIvGcDrzcKoD
+ AIR1OcVlRDzQjNQ8yfjSVjaJ/J5v66N+oW3d3xgsQckG/5nQV5VUjqmG9pOnqsGRjfn67my
+ 43TPEOeDaiuiQNa7DwpCg==
+UI-OutboundReport: notjunk:1;M01:P0:Mzrj09DpT1k=;igxF9JR0aQbASO7nmeaOFiRVmtu
+ 61GLdILBuKIwf3DlWVn1vcKzE5KY3hbM3nR4Y6xR9fTxZu+PQHukf1P16JXL591xsJIDNZ+Wj
+ viFcFhZORlM6eXT6BMoEuTVq3OQCqcLx1/2OcLgtL3alHUc8/poSskWnKnYzpK+g3qeJnnE1a
+ zy1L9gLes9/KAQ9o7rMvk2fjvOw/FS2OuwAGuAUIPORfL255wFfiKzdrDMdarIyspcvh9bdmv
+ pvQ7zQwVIcgI3ZoTpb9yoTNwB3PLjhgiLOHKkNGC3UzXDr4PK+vM2HU6NN3fCG3J85SGVH5b8
+ 98FnPayadPFu37aEaOp8lyaGMpvYUcG4AWjfB5vEHitJ4HSXlD7DNGaTFzfbHaCnxVoUdxDtN
+ 87DIMR85CgOymRuA1R+DXqX069Wonkeh87y+s4t762nXNQKrvTWZru1/IkNPiizUtppB+qTok
+ XYy6nqvFRHPrbCq9FHJICx6SvL8PC1Fvddn8s/m4UFsOI9Ar04xNev1p089xcR4zOgS9dvB+U
+ uMXzRYMQu8Frkc/EJLIRGFyCNxWsktDUypk8onvtocntb0EpYF91uY/4Wu6yVuNtbkEpVgFqf
+ uKhMADYZ2twx6nQGK9Lz62TdMZ78t+XZR8gHx3pJPH2EGSV8B6ZqQccDKO2mg+CDEBjYboMbt
+ 5PlYfFEM883iP7Q3FWwADrH1RWA1CGORdJKu/jN0QKi94bxr0v253IuOKidkZmGcnZrCYWBbB
+ BWEQGAbfgSV+ZBsfcWMPK2ksU7czY9AZXq2ly3x86ljuw9P3/6Za5tfkOPcjV3iFcr8xdQ97A
+ 3t3mCWFh2g5b12v3AcnsQg7wOJCBqVjAy+MOKBJtLG7MxOF2WgHZNmdjXNGImtluALKm2x1C+
+ 6AErwHzJVYY/+X8BbmureKyLgfqElWLRLEoM/LrFqpoAl1IfoXWfwr6nq1ostvUuoTqf8wU23
+ KEX68EmdpyWZe9KB7zZufTPgRWc=
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-On Wed, Sep 13, 2023 at 11:10:54AM +0200, Joel Granados via B4 Relay wrote:
-> V2:
-> * Added clarification both in the commit messages and the coverletter as
->   to why this patch is safe to apply.
-> * Added {Acked,Reviewed,Tested}-by from list
-> * Link to v1: https://lore.kernel.org/r/20230906-jag-sysctl_remove_empty_elem_arch-v1-0-3935d4854248@samsung.com
+Hi Ard,
 
-Thanks! I've merged this onto sysctl-next.
+On 21.09.23 13:53, Ard Biesheuvel wrote:
+> Hello Frank,
+>
+> On Thu, 21 Sept 2023 at 10:15, Frank Scheiner <frank.scheiner@web.de> wr=
+ote:
+>>
+>> Dear all,
+>>
+>> since v6.6-rc1 (actually introduced with [1], specific commit on [2])
+>> the kernel build for ia64 fails like that:
+>>
+>> ```
+> ...
+>>
+>> Could one ([5]) or the other ([6]) please be included in v6.6 (or
+>> earlier) to "fix" the build problem for ia64?
+>>
+>
+> Do you mean by "fix" that the proposed fixes are just workarounds and
+> not proper fixes?
 
-  Luis
+Not really, or maybe a little... :-)
+
+> I don't think that is the case - the function in
+> question does nothing except apply a quirk for one specific x86
+> platform.
+
+...look, as I assumed and as you also say, the function is to "apply a
+quirk for one specific x86 platform". So wouldn't it be better to make
+that call only on x86 and leave ia64 untouched instead of putting a NOP
+there?
+
+I already wondered why no other architecture with ACPI failed to build?
+
+Cheers,
+Frank
+
+>
+> ...
+>> [5]:
+>> https://lore.kernel.org/lkml/CAJZ5v0hnNK4O_HyinvTp01YxXR7V4vzpMhf85yW9M=
+2=3D52-O2Fg@mail.gmail.com/
+>>
+>> [6]:
+>> https://git.kernel.org/pub/scm/linux/kernel/git/ardb/linux.git/commit/?=
+id=3Da0334bf78b95532cec54f56b53e8ae1bfe7e1ca1
+>
+> Either Arnd, Rafael or myself should send a PR to Linus to merge [6]
+> as a fix, as it is already queued up in -next for v6.7.
+>
+> Or perhaps Linus doesn't mind grabbing it from here:
+>
+> ------------8<--------------
+>
+> The following changes since commit 0bb80ecc33a8fb5a682236443c1e740d5c917=
+d1d:
+>
+>    Linux 6.6-rc1 (2023-09-10 16:28:41 -0700)
+>
+> are available in the Git repository at:
+>
+>    git://git.kernel.org/pub/scm/linux/kernel/git/ardb/linux.git
+> tags/fix-ia64-build-for-v6.6
+>
+> for you to fetch changes up to a0334bf78b95532cec54f56b53e8ae1bfe7e1ca1:
+>
+>    acpi: Provide ia64 dummy implementation of
+> acpi_proc_quirk_mwait_check() (2023-09-11 08:13:17 +0000)
+>
+> ----------------------------------------------------------------
+> Build fix for Itanium/ia64:
+>
+> - provide dummy implementation of acpi_proc_quirk_mwait_check() which
+>    was moved out of generic code into arch/x86, breaking the ia64 build
+>
+> ----------------------------------------------------------------
+> Ard Biesheuvel (1):
+>        acpi: Provide ia64 dummy implementation of acpi_proc_quirk_mwait_=
+check()
+>
+>   arch/ia64/kernel/acpi.c | 4 ++++
+>   1 file changed, 4 insertions(+)
