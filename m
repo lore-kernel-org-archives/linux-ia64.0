@@ -2,166 +2,174 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 19484E7D0AB
-	for <linux-ia64@archiver.kernel.org>; Thu, 21 Sep 2023 20:54:10 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id F3680CD4F27
+	for <linux-ia64@archiver.kernel.org>; Fri, 22 Sep 2023 07:41:04 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S232129AbjIUUyN (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Thu, 21 Sep 2023 16:54:13 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:45854 "EHLO
+        id S231572AbjIVHlI (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Fri, 22 Sep 2023 03:41:08 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:47290 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S232168AbjIUUx7 (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Thu, 21 Sep 2023 16:53:59 -0400
-Received: from mout.web.de (mout.web.de [217.72.192.78])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 7A3E344A3
-        for <linux-ia64@vger.kernel.org>; Thu, 21 Sep 2023 13:30:34 -0700 (PDT)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=web.de; s=s29768273;
- t=1695328233; x=1695933033; i=frank.scheiner@web.de;
- bh=uqexmd/8/WIuUgbE5S5knmgi50ue2ttB2Ok0/JhVhTo=;
- h=X-UI-Sender-Class:Date:To:Cc:From:Subject;
- b=XLW3MtcAVYCdRo0XoUjYAljCSykNHzxaGvqnhj3LCjqrC1YDQCARmBGX6LCt0+C53/D5KskHCZC
- Ql9oyIA2xAsSprtQTdFcrVWdTLFAmb683zzMwInpMMoJcm2MexorkVsNs1RCksZ3y16c5NDi5BcZ6
- c77ZlRcABoJC9kMUbVG5+rdZPDdctMAuIbtqdVkXCPNSln6I5H1lf9YVvlU66b4mifUnA8ojHSJpR
- CgyPU1XlxFaD/TKlwfMeJAVarsjD7zavpG9Qc+IRxqdm9pYeqhoMJnyGCKO5IYFWtNB+51HKZZ5GY
- XzsWpDxEhIFZgNvF5xboqVorEI7CNzsYb2wQ==
-X-UI-Sender-Class: 814a7b36-bfc1-4dae-8640-3722d8ec6cd6
-Received: from [192.168.178.30] ([79.200.221.18]) by smtp.web.de (mrweb105
- [213.165.67.124]) with ESMTPSA (Nemesis) id 1McZnj-1rFa761E5d-00cv2s; Thu, 21
- Sep 2023 12:14:37 +0200
-Message-ID: <adc65a97-2479-8779-0e09-4ec2fe946cb2@web.de>
-Date:   Thu, 21 Sep 2023 12:14:36 +0200
+        with ESMTP id S231254AbjIVHlI (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Fri, 22 Sep 2023 03:41:08 -0400
+Received: from smtp-out2.suse.de (smtp-out2.suse.de [195.135.220.29])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 5B586195;
+        Fri, 22 Sep 2023 00:40:58 -0700 (PDT)
+Received: from imap2.suse-dmz.suse.de (imap2.suse-dmz.suse.de [192.168.254.74])
+        (using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+         key-exchange X25519 server-signature ECDSA (P-521) server-digest SHA512)
+        (No client certificate requested)
+        by smtp-out2.suse.de (Postfix) with ESMTPS id 1DBF21F38A;
+        Fri, 22 Sep 2023 07:40:57 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=suse.de; s=susede2_rsa;
+        t=1695368457; h=from:from:reply-to:date:date:message-id:message-id:to:to:cc:cc:
+         mime-version:mime-version:content-type:content-type:
+         in-reply-to:in-reply-to:references:references:autocrypt:autocrypt;
+        bh=UzGwVSjCR+yrFPQyulO5JFw6QA4KG0lIL/Ovv19nuW0=;
+        b=q0wXyfa7VKohYeGvfMV9OwXzUerxqyyRSCMEIu1AzS19RbP/lgKdE7ADR1dJ7isHFduccz
+        PzycuR8DqGEoR7jcaRRmhAq3eVAmpABLzw1f4WUVxPGZjjFt5KIirgAzQrGTEQILav7mHX
+        FpBy6HejQqPlYiR3RMK4U9XHrXIWARM=
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed; d=suse.de;
+        s=susede2_ed25519; t=1695368457;
+        h=from:from:reply-to:date:date:message-id:message-id:to:to:cc:cc:
+         mime-version:mime-version:content-type:content-type:
+         in-reply-to:in-reply-to:references:references:autocrypt:autocrypt;
+        bh=UzGwVSjCR+yrFPQyulO5JFw6QA4KG0lIL/Ovv19nuW0=;
+        b=HJ8cMoVH3n0b50SM9KRefgE3ppqzlQ/byNBIh3g6Nl8D+bOk8Xfbm5PcA1IZARyxgLy1iU
+        rD+JOrvLST5UDGBA==
+Received: from imap2.suse-dmz.suse.de (imap2.suse-dmz.suse.de [192.168.254.74])
+        (using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+         key-exchange X25519 server-signature ECDSA (P-521) server-digest SHA512)
+        (No client certificate requested)
+        by imap2.suse-dmz.suse.de (Postfix) with ESMTPS id BA34B13478;
+        Fri, 22 Sep 2023 07:40:56 +0000 (UTC)
+Received: from dovecot-director2.suse.de ([192.168.254.65])
+        by imap2.suse-dmz.suse.de with ESMTPSA
+        id q1oJLAhFDWXuJAAAMHmgww
+        (envelope-from <tzimmermann@suse.de>); Fri, 22 Sep 2023 07:40:56 +0000
+Message-ID: <79b3dd76-7b3e-4be2-946a-6f20532f7ff8@suse.de>
+Date:   Fri, 22 Sep 2023 09:40:55 +0200
 MIME-Version: 1.0
-User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101
- Thunderbird/102.15.1
+User-Agent: Mozilla Thunderbird
+Subject: Re: [PATCH v4 1/5] fbdev: Avoid file argument in fb_pgprotect()
+To:     Javier Martinez Canillas <javierm@redhat.com>, mpe@ellerman.id.au,
+        npiggin@gmail.com, christophe.leroy@csgroup.eu, arnd@arndb.de,
+        deller@gmx.de
+Cc:     linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org,
+        linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org,
+        dri-devel@lists.freedesktop.org, linux-m68k@lists.linux-m68k.org,
+        sparclinux@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+References: <20230912135050.17155-1-tzimmermann@suse.de>
+ <20230912135050.17155-2-tzimmermann@suse.de>
+ <87il85l1d4.fsf@minerva.mail-host-address-is-not-set>
 Content-Language: en-US
-To:     linux-ia64@vger.kernel.org, rafael.j.wysocki@intel.com,
-        michal.wilczynski@intel.com
-Cc:     debian-ia64 <debian-ia64@lists.debian.org>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Ard Biesheuvel <ardb@kernel.org>,
-        John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-From:   Frank Scheiner <frank.scheiner@web.de>
-Subject: Build regression since v6.6-rc1
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: quoted-printable
-X-Provags-ID: V03:K1:/NN9h09uYIPy6adehyzyE8dZxdFKrfX7qndZ1xHqdeem/ydOqtJ
- YIiccC1v5PCAfN0s7b1vR3reQh5v4ssI4V5Y3/8s7HaKrslTfb5V59Rtj/GzpJ22J9PRdxq
- aY2PkLpBs+N/gvDkHkbh+Gzb2EWMX9G+g1tuFWBRyrU6GXqLfrJ9GxQcQSSP05ynvMs0YNk
- itnVEhHFCvxkBp1zn1wSw==
-UI-OutboundReport: notjunk:1;M01:P0:+dc1m2QEjSw=;5lmA29UAAml6jlQ1/QIeDKv3krX
- rS9/cnNdr+arURhnHtRQVRJ1RfW8mLdH3reLJWtsLAE+4KDVpI1Rr1Wwv7wj8+yuMCLu4qH1h
- ZmxSQIrivUB0fur/uA1UYrIvBhveG1KcPNN1LjIW04RUA6WFCjmLRll7iWwKNdFqxkh210aNW
- n2ZIEoyVkzzjDkvOsHiyxdE54ToQSmbCsUsJ6W2arqo9g/upAwDfSZIN7yCvUwOIV1rSCeb54
- Pdinw870AHn1L3VIIRUYTeiPqXzQjXmS0lEkUumJhmgyGSCNlcmdPeU8scvdDk+E98S3rnQ4O
- 4qH/A6XleFfCH+aeiZ8585HuIHLtyVwkLaANogZRVmF3emWubwG7CDeByqtodEIgWd9HPKrG6
- LQWe0vUEw/AmVFFD2NBU0OV5MrhgabwgtxpUkn5hPz0/pPQ5nF4NRWnwfQxdqRWcgvTysrCkE
- bzDJZaQPfTmuDxFdQYqtjh9SMdi2zdtdes0GTHw4V0kJQEeFxYmczRSKeBL6jsKSPrPOSMc3Q
- 9NXbU0JjDX+aflEiDizSN7eIgDbXyeauCppDJ87j4Dv5vbW2fxZnA5fM62XFtPvvjiPOzsM04
- Un3kkT3OHtA0qur17+nLFLe6GS0OQ/BKMMalD7Qi2KZJF+fMA1UBIoqULp5KKUyJsmT2OdQkF
- imXH2Lgi5tZqd8wFpEOKo39nCb5jc/jcOUvY+aDUdfko1DokbrJd90U5Dx8C7q/NIxf5ecHxu
- qLLaIFFTPISZI5rQ8IjR9cPujfQ+GZucqtjOLpUTQLdL8/iMWoflMixPfvgR+tNiKqYauewhu
- GE9AmHX0qPDcGGlz3hG+BL2TMRbs/XOwwP3N78yDT+FNDe9uxT34RU1SkSZdaT9K70phIugMj
- 9UJMHMe36y5fUeWg2AU+RI63ByXt0ZRX7nusVWE3vVUBkitwbBpsUAjnBzSRxE3sPGA0AY2xF
- GyiiEt7lYKgzpSMYRJrZRI8CgjU=
+From:   Thomas Zimmermann <tzimmermann@suse.de>
+Autocrypt: addr=tzimmermann@suse.de; keydata=
+ xsBNBFs50uABCADEHPidWt974CaxBVbrIBwqcq/WURinJ3+2WlIrKWspiP83vfZKaXhFYsdg
+ XH47fDVbPPj+d6tQrw5lPQCyqjwrCPYnq3WlIBnGPJ4/jreTL6V+qfKRDlGLWFjZcsrPJGE0
+ BeB5BbqP5erN1qylK9i3gPoQjXGhpBpQYwRrEyQyjuvk+Ev0K1Jc5tVDeJAuau3TGNgah4Yc
+ hdHm3bkPjz9EErV85RwvImQ1dptvx6s7xzwXTgGAsaYZsL8WCwDaTuqFa1d1jjlaxg6+tZsB
+ 9GluwvIhSezPgnEmimZDkGnZRRSFiGP8yjqTjjWuf0bSj5rUnTGiyLyRZRNGcXmu6hjlABEB
+ AAHNJ1Rob21hcyBaaW1tZXJtYW5uIDx0emltbWVybWFubkBzdXNlLmRlPsLAjgQTAQgAOAIb
+ AwULCQgHAgYVCgkICwIEFgIDAQIeAQIXgBYhBHIX+6yM6c9jRKFo5WgNwR1TC3ojBQJftODH
+ AAoJEGgNwR1TC3ojx1wH/0hKGWugiqDgLNXLRD/4TfHBEKmxIrmfu9Z5t7vwUKfwhFL6hqvo
+ lXPJJKQpQ2z8+X2vZm/slsLn7J1yjrOsoJhKABDi+3QWWSGkaGwRJAdPVVyJMfJRNNNIKwVb
+ U6B1BkX2XDKDGffF4TxlOpSQzdtNI/9gleOoUA8+jy8knnDYzjBNOZqLG2FuTdicBXblz0Mf
+ vg41gd9kCwYXDnD91rJU8tzylXv03E75NCaTxTM+FBXPmsAVYQ4GYhhgFt8S2UWMoaaABLDe
+ 7l5FdnLdDEcbmd8uLU2CaG4W2cLrUaI4jz2XbkcPQkqTQ3EB67hYkjiEE6Zy3ggOitiQGcqp
+ j//OwE0EWznS4AEIAMYmP4M/V+T5RY5at/g7rUdNsLhWv1APYrh9RQefODYHrNRHUE9eosYb
+ T6XMryR9hT8XlGOYRwKWwiQBoWSDiTMo/Xi29jUnn4BXfI2px2DTXwc22LKtLAgTRjP+qbU6
+ 3Y0xnQN29UGDbYgyyK51DW3H0If2a3JNsheAAK+Xc9baj0LGIc8T9uiEWHBnCH+RdhgATnWW
+ GKdDegUR5BkDfDg5O/FISymJBHx2Dyoklv5g4BzkgqTqwmaYzsl8UxZKvbaxq0zbehDda8lv
+ hFXodNFMAgTLJlLuDYOGLK2AwbrS3Sp0AEbkpdJBb44qVlGm5bApZouHeJ/+n+7r12+lqdsA
+ EQEAAcLAdgQYAQgAIAIbDBYhBHIX+6yM6c9jRKFo5WgNwR1TC3ojBQJftOH6AAoJEGgNwR1T
+ C3ojVSkIALpAPkIJPQoURPb1VWjh34l0HlglmYHvZszJWTXYwavHR8+k6Baa6H7ufXNQtThR
+ yIxJrQLW6rV5lm7TjhffEhxVCn37+cg0zZ3j7zIsSS0rx/aMwi6VhFJA5hfn3T0TtrijKP4A
+ SAQO9xD1Zk9/61JWk8OysuIh7MXkl0fxbRKWE93XeQBhIJHQfnc+YBLprdnxR446Sh8Wn/2D
+ Ya8cavuWf2zrB6cZurs048xe0UbSW5AOSo4V9M0jzYI4nZqTmPxYyXbm30Kvmz0rYVRaitYJ
+ 4kyYYMhuULvrJDMjZRvaNe52tkKAvMevcGdt38H4KSVXAylqyQOW5zvPc4/sq9c=
+In-Reply-To: <87il85l1d4.fsf@minerva.mail-host-address-is-not-set>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="------------WWtw0AZdar3TECEKBCRy3XTn"
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-Dear all,
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--------------WWtw0AZdar3TECEKBCRy3XTn
+Content-Type: multipart/mixed; boundary="------------8JZrsftAebvYOCedOF8WyKJL";
+ protected-headers="v1"
+From: Thomas Zimmermann <tzimmermann@suse.de>
+To: Javier Martinez Canillas <javierm@redhat.com>, mpe@ellerman.id.au,
+ npiggin@gmail.com, christophe.leroy@csgroup.eu, arnd@arndb.de, deller@gmx.de
+Cc: linux-arch@vger.kernel.org, linux-fbdev@vger.kernel.org,
+ linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org,
+ dri-devel@lists.freedesktop.org, linux-m68k@lists.linux-m68k.org,
+ sparclinux@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+Message-ID: <79b3dd76-7b3e-4be2-946a-6f20532f7ff8@suse.de>
+Subject: Re: [PATCH v4 1/5] fbdev: Avoid file argument in fb_pgprotect()
+References: <20230912135050.17155-1-tzimmermann@suse.de>
+ <20230912135050.17155-2-tzimmermann@suse.de>
+ <87il85l1d4.fsf@minerva.mail-host-address-is-not-set>
+In-Reply-To: <87il85l1d4.fsf@minerva.mail-host-address-is-not-set>
 
-since v6.6-rc1 (actually introduced with [1], specific commit on [2])
-the kernel build for ia64 fails like that:
+--------------8JZrsftAebvYOCedOF8WyKJL
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: base64
 
-```
-Making kernel...
-time make -j24
-LOCALVERSION=3D"-0bb80ecc33a8fb5a682236443c1e740d5c917d1d-ia64" ARCH=3Dia6=
-4
-CROSS_COMPILE=3Dia64-linux- all
-Mon Sep 11 06:24:43 PM CEST 2023
-[...]
-   LD [M]  net/sunrpc/sunrpc.ko
-ia64-linux-ld: drivers/acpi/acpi_processor.o: in function
-`acpi_early_processor_osc':
-/usr/src/linux-on-ramdisk/torvalds-linux/drivers/acpi/acpi_processor.c:596=
-:
-undefined reference to `acpi_proc_quirk_mwait_check'
-ia64-linux-ld: drivers/acpi/processor_pdc.o: in function
-`acpi_early_processor_set_pdc':
-/usr/src/linux-on-ramdisk/torvalds-linux/drivers/acpi/processor_pdc.c:113:
-undefined reference to `acpi_proc_quirk_mwait_check'
-make[2]: *** [scripts/Makefile.vmlinux:36: vmlinux] Error 1
-make[1]: *** [/usr/src/linux-on-ramdisk/torvalds-linux/Makefile:1165:
-vmlinux] Error 2
-make: *** [Makefile:234: __sub-make] Error 2
+SGkgSmF2aWVyDQoNCkFtIDIwLjA5LjIzIHVtIDEwOjAxIHNjaHJpZWIgSmF2aWVyIE1hcnRp
+bmV6IENhbmlsbGFzOg0KPiBUaG9tYXMgWmltbWVybWFubiA8dHppbW1lcm1hbm5Ac3VzZS5k
+ZT4gd3JpdGVzOg0KPiANCj4gSGVsbG8gVGhvbWFzLA0KPiANCj4+IE9ubHkgUG93ZXJQQydz
+IGZiX3BncHJvdGVjdCgpIG5lZWRzIHRoZSBmaWxlIGFyZ3VtZW50LCBhbHRob3VnaA0KPj4g
+dGhlIGltcGxlbWVudGF0aW9uIGRvZXMgbm90IHVzZSBpdC4gUGFzcyBOVUxMIHRvIHRoZSBp
+bnRlcm5hbA0KPiANCj4gQ2FuIHlvdSBwbGVhc2UgbWVudGlvbiB0aGUgZnVuY3Rpb24gdGhh
+dCdzIHRoZSBpbXBsZW1lbnRhdGlvbiBmb3INCg0KU3VyZQ0KDQo+IFBvd2VyUEMgPyBJZiBJ
+J20gbG9va2luZyBhdCB0aGUgY29kZSBjb3JyZWN0bHksIHRoYXQgZnVuY3Rpb24gaXMNCj4g
+cGh5c19tZW1fYWNjZXNzX3Byb3QoKSBkZWZpbmVkIGluIHRoZSBhcmNoL3Bvd2VycGMvbW0v
+bWVtLmMgZmlsZToNCj4gDQo+IHBncHJvdF90IHBoeXNfbWVtX2FjY2Vzc19wcm90KHN0cnVj
+dCBmaWxlICpmaWxlLCB1bnNpZ25lZCBsb25nIHBmbiwNCj4gCQkJICAgICAgdW5zaWduZWQg
+bG9uZyBzaXplLCBwZ3Byb3RfdCB2bWFfcHJvdCkNCj4gew0KPiAJaWYgKHBwY19tZC5waHlz
+X21lbV9hY2Nlc3NfcHJvdCkNCj4gCQlyZXR1cm4gcHBjX21kLnBoeXNfbWVtX2FjY2Vzc19w
+cm90KGZpbGUsIHBmbiwgc2l6ZSwgdm1hX3Byb3QpOw0KPiANCj4gCWlmICghcGFnZV9pc19y
+YW0ocGZuKSkNCj4gCQl2bWFfcHJvdCA9IHBncHJvdF9ub25jYWNoZWQodm1hX3Byb3QpOw0K
+PiANCj4gCXJldHVybiB2bWFfcHJvdDsNCj4gfQ0KPiANCj4gYW5kIGlmIHNldCwgcHBjX21k
+LnBoeXNfbWVtX2FjY2Vzc19wcm90IGlzIHBjaV9waHlzX21lbV9hY2Nlc3NfcHJvdCgpDQo+
+IHRoYXQgaXMgZGVmaW5lZCBpbiB0aGUgYXJjaC9wb3dlcnBjL2tlcm5lbC9wY2ktY29tbW9u
+LmMgc291cmNlIGZpbGU6DQo+IA0KPiBodHRwczovL2VsaXhpci5ib290bGluLmNvbS9saW51
+eC92Ni42LXJjMi9zb3VyY2UvYXJjaC9wb3dlcnBjL2tlcm5lbC9wY2ktY29tbW9uLmMjTDUy
+NA0KDQpZZXMsIHRoYXQncyBjb3JyZWN0LiBUaGUgb25seSB2YWx1ZSBmb3IgdGhhdCBmdW5j
+dGlvbiBwb2ludGVyIGFwcGVhcnMgdG8gDQpiZSBwY2lfcGh5c19tZW1fYWNjZXNzX3Byb3Qo
+KQ0KDQo+IA0KPiBUaGF0IGZ1bmN0aW9uIGluZGVlZCBkb2Vzbid0IHVzZSB0aGUgZmlsZSBh
+cmd1bWVudC4gU28geW91ciBwYXRjaCBsb29rcw0KPiBjb3JyZWN0IHRvIG1lLg0KPiANCj4g
+UmV2aWV3ZWQtYnk6IEphdmllciBNYXJ0aW5leiBDYW5pbGxhcyA8amF2aWVybUByZWRoYXQu
+Y29tPg0KDQpUaGFua3MNCg0KQmVzdCByZWdhcmRzDQpUaG9tYXMNCg0KPiANCg0KLS0gDQpU
+aG9tYXMgWmltbWVybWFubg0KR3JhcGhpY3MgRHJpdmVyIERldmVsb3Blcg0KU1VTRSBTb2Z0
+d2FyZSBTb2x1dGlvbnMgR2VybWFueSBHbWJIDQpGcmFua2Vuc3RyYXNzZSAxNDYsIDkwNDYx
+IE51ZXJuYmVyZywgR2VybWFueQ0KR0Y6IEl2byBUb3RldiwgQW5kcmV3IE15ZXJzLCBBbmRy
+ZXcgTWNEb25hbGQsIEJvdWRpZW4gTW9lcm1hbg0KSFJCIDM2ODA5IChBRyBOdWVybmJlcmcp
+DQo=
 
-real    3m25.286s
-user    69m26.895s
-sys    6m37.619s
-2
-```
+--------------8JZrsftAebvYOCedOF8WyKJL--
 
-[1]:
-https://github.com/torvalds/linux/commit/9bd0c413b90c6517b4a2fbedb74f50df3=
-421b50c
+--------------WWtw0AZdar3TECEKBCRy3XTn
+Content-Type: application/pgp-signature; name="OpenPGP_signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="OpenPGP_signature.asc"
 
-[2]: https://github.com/torvalds/linux/commit/0a0e2ea642f6
+-----BEGIN PGP SIGNATURE-----
 
-In short, the change introduced a function call ([3]) in effect for ia64
-without providing an implementation for that function for ia64. There's
-a discussion thread on [4] that also includes a patch ([5]) to "fix" the
-problem but that one unfortunately wasn't included in [1] or [2]:
+wsF5BAABCAAjFiEExndm/fpuMUdwYFFolh/E3EQov+AFAmUNRQgFAwAAAAAACgkQlh/E3EQov+D1
+wBAAkkU6MKDBuTUiaD5TKHmO7dXPKVu+AbeDL4Nke0dAJDVIT+UBb+vi1qxDQB8YYspeiMfvCzWG
+cgvmtKC2LLNIvGbNIgSr3lxDRjIVhAMtz2vgO46C3YYKmC+2yvbkf1kpPqO/RshwRPGSq1MaL10P
+945+zfGtItDzcX7eq3vaeyE+4NjnlHY4RAolQTyks2slRTKCEZ4yMhrf5gWegjGdLHWq+Z30mZht
+1s3wXdSHhpo29wiBcIkPHWCJHbmVafC+xAfbjvCu5H4oK8Ftj5/Ina3RCDxC9p3UaZ+t326qCNjJ
+nzWbrs4IP/eLt/tA3x0zfF914RJa8IobSscsWTWhM6Cth+vxh3h8P0IXgJAiU+T9WFTQL0beFmyq
+aeDDx0UFVbD74FrgyETElnCygHLpuwt7SGRSAncJcYHIqxYgrqIZj5+3PjTz2TLyzCy2HVtEzLJe
+c+aIxxt1A9DpBD2/FuoL2dnOg8wPHVDg1IW8eL5nnTI/H8V5APzplncFtAN+DFaKzU0Rh+hJX70O
+AZkJze0bICeSTuN9EG6wVMzo7fY+jN9WcWoA64sUd92rLr9PicSDovOn4DQKDKRikp1HOMHwGz1A
+U/VS8zMmskbqpUSuCDszZDUNJaP9DVC1GMZ2aJjiK3s0878gJNCOKxUyA/FgII+GJle1GwblCwJB
+DOs=
+=tnOC
+-----END PGP SIGNATURE-----
 
-```
-=2D--
-  drivers/acpi/internal.h |   14 ++++----------
-  1 file changed, 4 insertions(+), 10 deletions(-)
-
-Index: linux-pm/drivers/acpi/internal.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-=2D-- linux-pm.orig/drivers/acpi/internal.h
-+++ linux-pm/drivers/acpi/internal.h
-@@ -148,8 +148,11 @@ int acpi_wakeup_device_init(void);
-  #ifdef CONFIG_ARCH_MIGHT_HAVE_ACPI_PDC
-  void acpi_early_processor_control_setup(void);
-  void acpi_early_processor_set_pdc(void);
--
-+#ifdef CONFIG_X86
-  void acpi_proc_quirk_mwait_check(void);
-+#else
-+static inline void acpi_proc_quirk_mwait_check(void) {}
-+#endif
-  bool processor_physically_present(acpi_handle handle);
-  #else
-  static inline void acpi_early_processor_control_setup(void) {}
-
-```
-
-For me this patch solves the build problem for v6.6-rc1 and -rc2.
-There's also another patch available for that specific problem by Ard
-([6]) but I haven't seen this one included either up until 42dc814 and I
-also haven't tested this one.
-
-Could one ([5]) or the other ([6]) please be included in v6.6 (or
-earlier) to "fix" the build problem for ia64?
-
-Cheers,
-Frank
-
-
-[3]:
-https://github.com/torvalds/linux/commit/0a0e2ea642f6#diff-80c82874cec85e9=
-c2facf52535b929ec62284c001ab081bfd1c1d164bf2a1d66R179
-
-[4]:
-https://lore.kernel.org/lkml/c7a05a44-c0be-46c2-a21d-b242524d482b@roeck-us=
-.net/T/#u
-
-[5]:
-https://lore.kernel.org/lkml/CAJZ5v0hnNK4O_HyinvTp01YxXR7V4vzpMhf85yW9M2=
-=3D52-O2Fg@mail.gmail.com/
-
-[6]:
-https://git.kernel.org/pub/scm/linux/kernel/git/ardb/linux.git/commit/?id=
-=3Da0334bf78b95532cec54f56b53e8ae1bfe7e1ca1
+--------------WWtw0AZdar3TECEKBCRy3XTn--
