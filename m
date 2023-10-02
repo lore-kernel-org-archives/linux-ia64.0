@@ -2,42 +2,42 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 4A89AE784BB
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 0305BE7849A
 	for <linux-ia64@archiver.kernel.org>; Mon,  2 Oct 2023 11:29:23 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S236714AbjJBL3X (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Mon, 2 Oct 2023 07:29:23 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:53872 "EHLO
+        id S236719AbjJBL3Y (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Mon, 2 Oct 2023 07:29:24 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:53868 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S236701AbjJBL3W (ORCPT
+        with ESMTP id S236699AbjJBL3W (ORCPT
         <rfc822;linux-ia64@vger.kernel.org>); Mon, 2 Oct 2023 07:29:22 -0400
 Received: from smtp.kernel.org (relay.kernel.org [52.25.139.140])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id BD09493;
-        Mon,  2 Oct 2023 04:29:18 -0700 (PDT)
-Received: by smtp.kernel.org (Postfix) with ESMTPS id 210A2C116A3;
-        Mon,  2 Oct 2023 11:29:17 +0000 (UTC)
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 8BD07C4;
+        Mon,  2 Oct 2023 04:29:17 -0700 (PDT)
+Received: by smtp.kernel.org (Postfix) with ESMTPS id C2B8EC433C7;
+        Mon,  2 Oct 2023 11:29:16 +0000 (UTC)
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=kernel.org;
-        s=k20201202; t=1696246157;
-        bh=skQ+Ai7tcp9dXiq/DgDl+TKyDD3IP+bV8HjmFGpXK08=;
+        s=k20201202; t=1696246156;
+        bh=ZJT/h6KujIsYVdJAaw35ma6el/sMgxTmZwB8rPTK3Jw=;
         h=From:Date:Subject:References:In-Reply-To:To:Cc:Reply-To:From;
-        b=dJr+P0r3DDusuNwIUfIkHRqMKisVY8ugCo6g3pv77MEfqD0cJwsI7U4vH9wxII2xP
-         sPU5IPA7BLJU1IzYZ0bh4Z30rMklUAD/c4XTwMC+GS2L9l4LaaJ0puNtt5Hbl+jRL3
-         O8Wad/cfXGMZH54UKpMkxoKIrJhd0T/S5mr3NFjT1CMN1Uk9LgrVxB6k0ot37FB0lv
-         hrKu1MgTvNwrHMVWQnshAwLW+nKLCtn5tCis4EzI6V6Bsl1i9qfR225Bdl3JHiHjpN
-         CU1vEWyZCNms0kB+Z+H2agy/+OHE2mIDBSFzj6OyiIHoNl/Tx1kE8KQRcoXbIOpcg7
-         Gmvl/46j9yLSg==
+        b=H8AkdvIeEYjRYVGHhgh4jofXC6pRgfgRUn977wPUoBVixl7Ihv27IlVCkDkbzYgUw
+         JX3YmfESSQAA3wHuzCFfySd74tVQvryVpGAhB/4RNJZwz5kjyf0O9g4ZblOx1CSlFW
+         5cDEgwcBowAUng6+x/lrk5488XQ0u6ERILRg4fdsypnepBeNOyevQwqGkGrlZqZMRZ
+         0pUoDjC6Wh4lx8N2RvREMCpw/5KzB14bmOYvmc8urrphBg2fzpeHtc7lKSf2YNfjZT
+         UhyE56Yp5+vYnCRmjFygSZ8vRdyBxx3AYRkRt311hmSkSGw+ThguHUuzIsv0g7AmXS
+         cdDnGnTbBKgcg==
 Received: from aws-us-west-2-korg-lkml-1.web.codeaurora.org (localhost.localdomain [127.0.0.1])
-        by smtp.lore.kernel.org (Postfix) with ESMTP id 01DA3E784B5;
-        Mon,  2 Oct 2023 11:29:17 +0000 (UTC)
+        by smtp.lore.kernel.org (Postfix) with ESMTP id A2F57E7849A;
+        Mon,  2 Oct 2023 11:29:16 +0000 (UTC)
 From:   Joel Granados via B4 Relay 
         <devnull+j.granados.samsung.com@kernel.org>
-Date:   Mon, 02 Oct 2023 13:30:40 +0200
-Subject: [PATCH v3 5/7] riscv: Remove now superfluous sentinel element from
- ctl_table array
+Date:   Mon, 02 Oct 2023 13:30:36 +0200
+Subject: [PATCH v3 1/7] S390: Remove now superfluous sentinel elem from
+ ctl_table arrays
 MIME-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Message-Id: <20231002-jag-sysctl_remove_empty_elem_arch-v3-5-606da2840a7a@samsung.com>
+Message-Id: <20231002-jag-sysctl_remove_empty_elem_arch-v3-1-606da2840a7a@samsung.com>
 References: <20231002-jag-sysctl_remove_empty_elem_arch-v3-0-606da2840a7a@samsung.com>
 In-Reply-To: <20231002-jag-sysctl_remove_empty_elem_arch-v3-0-606da2840a7a@samsung.com>
 To:     Luis Chamberlain <mcgrof@kernel.org>, willy@infradead.org,
@@ -71,18 +71,18 @@ Cc:     linux-fsdevel@vger.kernel.org, linux-s390@vger.kernel.org,
         linux-ia64@vger.kernel.org, linux-csky@vger.kernel.org,
         Joel Granados <j.granados@samsung.com>
 X-Mailer: b4 0.13-dev-86aa5
-X-Developer-Signature: v=1; a=openpgp-sha256; l=1051;
+X-Developer-Signature: v=1; a=openpgp-sha256; l=3352;
  i=j.granados@samsung.com; h=from:subject:message-id;
- bh=9kAdzbJ0epk3/P6EpAV9vd4QjpNqWvr+n+FA2hz33XU=;
- b=owEB7QES/pANAwAKAbqXzVK3lkFPAcsmYgBlGqoUqzQP1ga/GoiJ0FClHtC0lD+GYjQLmhMIw
- G1+chIK9j6JAbMEAAEKAB0WIQSuRwlXJeYxJc7LJ5C6l81St5ZBTwUCZRqqFAAKCRC6l81St5ZB
- T8IJC/0aXv1UnFZ3T3wgTUKiHct/kuXoaLC4d8ZDBMbdNxt3Hju+Z0GvUVGvESI4+5BmjbKiCjI
- OEnLHgskb4UAwTZ//wbb0U3ij6vQ1u5zajvF7ViOx0F8h0Rc5ZF3eO5NQIGCVF7dm/01TLUPx9B
- SJTxpAQc7AAVf+Iepo1c8YPT+MZ2MS3an+30CfS7/N4vBeg0o0qAx1VOf5Ihzudw42VS0IYU9o7
- /1LEq92xg3EofmSBqdel0txihdsPFHX1w2sOoVOO90ES+0IL6EkLOfH1rgA8+/t/bd9Al1xxSQr
- sXufmyGj2nU9EV1Cprju+/HsFlFgXlVYvVq1fjdThtd2hq/jd08w2M0MSGTtpQwrzkQsrMd4uu7
- /HdpUWgSX8GyzVAgvtCLpJFHstU4EVN93y7tNGQezi1GAhg+CJHwTO3GcXzwUW7L0sUBNnSY4uY
- +khUbsBnsUzqYzHI/lYlxcFqilu/yYPcDPoEJsULfpVWj9i7DIxDXO3xAUaTzcw7JVThE=
+ bh=pn7bMLkI/eiDwqHrK4wsGA8iyiwVG5+tCRzjqhQHPj8=;
+ b=owEB7QES/pANAwAKAbqXzVK3lkFPAcsmYgBlGqoTD6OVG9z33/NcsqSkaUWni+BE/Ybac1ZbK
+ D1bCulrq+eJAbMEAAEKAB0WIQSuRwlXJeYxJc7LJ5C6l81St5ZBTwUCZRqqEwAKCRC6l81St5ZB
+ TwDYC/9wIAwjRpEE+yBz0V2sOLY6kH75yeL1P4jA+iE8PZylyyQ4a7Q8dvoM7DaRdzBzwm+UOho
+ QCKoGbsX1Zj06C25/5fCa/5HFwqZBRfRrQ97ynnEe0fsGmXQ6MhzDErFBe1s/lW6EmrJnn0df7g
+ uWO2RFOeND4Hdd55odOt7pkrsTqxtAMkTGhjQJVWrnrsy69EXJ/DmrjJxTn7x+UmSSN5pWrEed3
+ vUCje8uKasMyEUm20V8M6nAVZ6SlaefUBhwJDsnUIccjpR96uAVXpByYrbXZqvVOlPJovahzjX5
+ hmbdAm4hk9bkVLZkkGNfIlnkM/ynS1r7+X7z2huAe1ifp14shL8PpCcNO7t6kiw8K+4l1IjdQ5/
+ yKWU1MuOLlcsMLx15ZgcFep8d0UAE0W0EFfztbWJ9QDXLY5cpgNGfTzHANoZsiX25PesgriFHLP
+ jXdz1Yz0b/RR1QL7CbA0JRsDMWTsNyZeeD1zcG/iOPiIZTh313h1l4kk1TDYsdKznk1YU=
 X-Developer-Key: i=j.granados@samsung.com; a=openpgp;
  fpr=F1F8E46D30F0F6C4A45FF4465895FAAC338C6E77
 X-Endpoint-Received: by B4 Relay for j.granados@samsung.com/default with auth_id=70
@@ -95,32 +95,100 @@ X-Mailing-List: linux-ia64@vger.kernel.org
 From: Joel Granados <j.granados@samsung.com>
 
 This commit comes at the tail end of a greater effort to remove the
-empty elements at the end of the ctl_table arrays (sentinels) which
-will reduce the overall build time size of the kernel and run time
-memory bloat by ~64 bytes per sentinel (further information Link :
+empty elements at the end of the ctl_table arrays (sentinels) which will
+reduce the overall build time size of the kernel and run time memory
+bloat by ~64 bytes per sentinel (further information Link :
 https://lore.kernel.org/all/ZO5Yx5JFogGi%2FcBo@bombadil.infradead.org/)
 
-Remove sentinel element from riscv_v_default_vstate_table. This removal
-is safe because register_sysctl implicitly uses ARRAY_SIZE() in addition
-to checking for the sentinel.
+Remove the sentinel element from appldata_table, s390dbf_table,
+topology_ctl_table, cmm_table and page_table_sysctl. Reduced the memory
+allocation in appldata_register_ops by 1 effectively removing the
+sentinel from ops->ctl_table.
 
+This removal is safe because register_sysctl_sz and register_sysctl use
+the array size in addition to checking for the sentinel.
+
+Tested-by: Alexander Gordeev <agordeev@linux.ibm.com>
+Acked-by: Heiko Carstens <hca@linux.ibm.com>
 Signed-off-by: Joel Granados <j.granados@samsung.com>
 ---
- arch/riscv/kernel/vector.c | 1 -
- 1 file changed, 1 deletion(-)
+ arch/s390/appldata/appldata_base.c | 4 +---
+ arch/s390/kernel/debug.c           | 1 -
+ arch/s390/kernel/topology.c        | 1 -
+ arch/s390/mm/cmm.c                 | 1 -
+ arch/s390/mm/pgalloc.c             | 1 -
+ 5 files changed, 1 insertion(+), 7 deletions(-)
 
-diff --git a/arch/riscv/kernel/vector.c b/arch/riscv/kernel/vector.c
-index 8d92fb6c522c..578b6292487e 100644
---- a/arch/riscv/kernel/vector.c
-+++ b/arch/riscv/kernel/vector.c
-@@ -255,7 +255,6 @@ static struct ctl_table riscv_v_default_vstate_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dobool,
+diff --git a/arch/s390/appldata/appldata_base.c b/arch/s390/appldata/appldata_base.c
+index 3b0994625652..c2978cb03b36 100644
+--- a/arch/s390/appldata/appldata_base.c
++++ b/arch/s390/appldata/appldata_base.c
+@@ -63,7 +63,6 @@ static struct ctl_table appldata_table[] = {
+ 		.mode		= S_IRUGO | S_IWUSR,
+ 		.proc_handler	= appldata_interval_handler,
+ 	},
+-	{ },
+ };
+ 
+ /*
+@@ -351,8 +350,7 @@ int appldata_register_ops(struct appldata_ops *ops)
+ 	if (ops->size > APPLDATA_MAX_REC_SIZE)
+ 		return -EINVAL;
+ 
+-	/* The last entry must be an empty one */
+-	ops->ctl_table = kcalloc(2, sizeof(struct ctl_table), GFP_KERNEL);
++	ops->ctl_table = kcalloc(1, sizeof(struct ctl_table), GFP_KERNEL);
+ 	if (!ops->ctl_table)
+ 		return -ENOMEM;
+ 
+diff --git a/arch/s390/kernel/debug.c b/arch/s390/kernel/debug.c
+index a85e0c3e7027..85328a0ef3b6 100644
+--- a/arch/s390/kernel/debug.c
++++ b/arch/s390/kernel/debug.c
+@@ -978,7 +978,6 @@ static struct ctl_table s390dbf_table[] = {
+ 		.mode		= S_IRUGO | S_IWUSR,
+ 		.proc_handler	= s390dbf_procactive,
  	},
 -	{ }
  };
  
- static int __init riscv_v_sysctl_init(void)
+ static struct ctl_table_header *s390dbf_sysctl_header;
+diff --git a/arch/s390/kernel/topology.c b/arch/s390/kernel/topology.c
+index 68adf1de8888..be8467b25953 100644
+--- a/arch/s390/kernel/topology.c
++++ b/arch/s390/kernel/topology.c
+@@ -636,7 +636,6 @@ static struct ctl_table topology_ctl_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= topology_ctl_handler,
+ 	},
+-	{ },
+ };
+ 
+ static int __init topology_init(void)
+diff --git a/arch/s390/mm/cmm.c b/arch/s390/mm/cmm.c
+index f47515313226..f8b13f247646 100644
+--- a/arch/s390/mm/cmm.c
++++ b/arch/s390/mm/cmm.c
+@@ -332,7 +332,6 @@ static struct ctl_table cmm_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= cmm_timeout_handler,
+ 	},
+-	{ }
+ };
+ 
+ #ifdef CONFIG_CMM_IUCV
+diff --git a/arch/s390/mm/pgalloc.c b/arch/s390/mm/pgalloc.c
+index 07fc660a24aa..75e1039f2ec5 100644
+--- a/arch/s390/mm/pgalloc.c
++++ b/arch/s390/mm/pgalloc.c
+@@ -30,7 +30,6 @@ static struct ctl_table page_table_sysctl[] = {
+ 		.extra1		= SYSCTL_ZERO,
+ 		.extra2		= SYSCTL_ONE,
+ 	},
+-	{ }
+ };
+ 
+ static int __init page_table_register_sysctl(void)
 
 -- 
 2.30.2
