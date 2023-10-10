@@ -2,151 +2,85 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 8949FCD8CA9
-	for <linux-ia64@archiver.kernel.org>; Tue, 10 Oct 2023 16:24:03 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 059CFCD98CC
+	for <linux-ia64@archiver.kernel.org>; Tue, 10 Oct 2023 22:23:15 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S232335AbjJJQYC (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Tue, 10 Oct 2023 12:24:02 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:60126 "EHLO
+        id S229735AbjJJWXO (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Tue, 10 Oct 2023 18:23:14 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:40726 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S233799AbjJJQX5 (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Tue, 10 Oct 2023 12:23:57 -0400
-Received: from pandora.armlinux.org.uk (pandora.armlinux.org.uk [IPv6:2001:4d48:ad52:32c8:5054:ff:fe00:142])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 0AFA48E;
-        Tue, 10 Oct 2023 09:23:52 -0700 (PDT)
+        with ESMTP id S229769AbjJJWXO (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Tue, 10 Oct 2023 18:23:14 -0400
+Received: from bombadil.infradead.org (bombadil.infradead.org [IPv6:2607:7c80:54:3::133])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 51A148F;
+        Tue, 10 Oct 2023 15:23:10 -0700 (PDT)
 DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
-        d=armlinux.org.uk; s=pandora-2019; h=Sender:In-Reply-To:Content-Type:
+        d=infradead.org; s=bombadil.20210309; h=Sender:In-Reply-To:Content-Type:
         MIME-Version:References:Message-ID:Subject:Cc:To:From:Date:Reply-To:
-        Content-Transfer-Encoding:Content-ID:Content-Description:Resent-Date:
-        Resent-From:Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:List-Id:
-        List-Help:List-Unsubscribe:List-Subscribe:List-Post:List-Owner:List-Archive;
-        bh=jGruK/JRvPoRUKxXzmvtLrVi9bVZIlNLf9fCJALkLIM=; b=xMY47nv2HdLOE6LlA7OyP2LWey
-        S0evHCbenZWvVgxR4F8rWt5Ho69xVrBJhByY+bW91oJApLmVwsrjGcr2uN7gma91izQR31ewJ7anp
-        v3BAQE2H7edUk4krSzTVY/sH+Z7ymu/VGenzVTiL5Elnk0Ap4xfmeT21t2JGtV3VmipsVKiuqT3j8
-        hXipYGeQSRxOHG2qphtUxXdHpvY6yOS2DnND9IvBkjxwo0AZUxc5ZE05SBTBiStPXltyPdy8jeQJL
-        By2re7ZSo/L7fV9iuSIAB9+n3fnRuJPnSBvKj9LF/Wj5fUgqDIA5uwTJu7lAT7uRoewWW/jjwBR8y
-        ANwieyqA==;
-Received: from shell.armlinux.org.uk ([fd8f:7570:feb6:1:5054:ff:fe00:4ec]:37818)
-        by pandora.armlinux.org.uk with esmtpsa  (TLS1.3) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-        (Exim 4.96)
-        (envelope-from <linux@armlinux.org.uk>)
-        id 1qqFWH-00028u-29;
-        Tue, 10 Oct 2023 17:23:41 +0100
-Received: from linux by shell.armlinux.org.uk with local (Exim 4.94.2)
-        (envelope-from <linux@shell.armlinux.org.uk>)
-        id 1qqFWF-0007dT-D4; Tue, 10 Oct 2023 17:23:39 +0100
-Date:   Tue, 10 Oct 2023 17:23:39 +0100
-From:   "Russell King (Oracle)" <linux@armlinux.org.uk>
-To:     Thomas Gleixner <tglx@linutronix.de>,
-        Linus Torvalds <torvalds@linux-foundation.org>
-Cc:     linux-acpi@vger.kernel.org, James Morse <james.morse@arm.com>,
-        loongarch@lists.linux.dev, linux-arch@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        linux-pm@vger.kernel.org, Ingo Molnar <mingo@redhat.com>,
-        Jean-Philippe Brucker <jean-philippe@linaro.org>,
-        jianyong.wu@arm.com, justin.he@arm.com,
-        Borislav Petkov <bp@alien8.de>,
+        Content-Transfer-Encoding:Content-ID:Content-Description;
+        bh=9AGiLTlqtyIGaBzD7IOjNpQgtkRKRaKi8pUmOot2w4M=; b=tyglCR9LBh6Vl3Fph2HnHlHQtO
+        acIvmZrvWyjcuuE6PE8hvNLiuQT1GSN++6loqxNUa/o5kIe8nFkWTpBVvMOq2Ice63MgrMEtsq6S2
+        6KlEKbIJ9q/QxWOredRN8uJL63aL0nDdwWK/DwqQ4Yz0veLS/2jlIoU4k7H98/Nt1f/4/8sO6yAL+
+        PsMAkrf40vjdvyCGjv5QD/uKrfrNzKsyAV4i6aLBNtwtjTKECoSS3lPIT1seEL/UOPP9cY6UjRDTf
+        QZuMsYmPqnGLgN7YaMNW8aWr4wbw9yGiqe2il6HHywqVm1fmptxPJ4p2jowp8+fWw+2XPiIfvRybX
+        bdKpFW+A==;
+Received: from mcgrof by bombadil.infradead.org with local (Exim 4.96 #2 (Red Hat Linux))
+        id 1qqL7a-00EFUa-0R;
+        Tue, 10 Oct 2023 22:22:34 +0000
+Date:   Tue, 10 Oct 2023 15:22:34 -0700
+From:   Luis Chamberlain <mcgrof@kernel.org>
+To:     j.granados@samsung.com
+Cc:     willy@infradead.org, josh@joshtriplett.org,
+        Kees Cook <keescook@chromium.org>,
+        Iurii Zaikin <yzaikin@google.com>,
+        Heiko Carstens <hca@linux.ibm.com>,
+        Vasily Gorbik <gor@linux.ibm.com>,
+        Alexander Gordeev <agordeev@linux.ibm.com>,
+        Christian Borntraeger <borntraeger@linux.ibm.com>,
+        Sven Schnelle <svens@linux.ibm.com>,
+        Gerald Schaefer <gerald.schaefer@linux.ibm.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>,
         Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org,
-        Salil Mehta <salil.mehta@huawei.com>,
         "H. Peter Anvin" <hpa@zytor.com>,
-        Peter Zijlstra <peterz@infradead.org>,
-        linux-ia64@vger.kernel.org
-Subject: Re: [PATCH] cpu-hotplug: provide prototypes for arch CPU registration
-Message-ID: <ZSV6i4pnjQqvWuKp@shell.armlinux.org.uk>
-References: <E1qkoRr-0088Q8-Da@rmk-PC.armlinux.org.uk>
+        Andy Lutomirski <luto@kernel.org>,
+        Paul Walmsley <paul.walmsley@sifive.com>,
+        Palmer Dabbelt <palmer@dabbelt.com>,
+        Albert Ou <aou@eecs.berkeley.edu>,
+        Michael Ellerman <mpe@ellerman.id.au>,
+        Nicholas Piggin <npiggin@gmail.com>,
+        Christophe Leroy <christophe.leroy@csgroup.eu>,
+        Guo Ren <guoren@kernel.org>,
+        Alexey Gladkov <legion@kernel.org>,
+        linux-fsdevel@vger.kernel.org, linux-s390@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-riscv@lists.infradead.org, linuxppc-dev@lists.ozlabs.org,
+        linux-ia64@vger.kernel.org, linux-csky@vger.kernel.org,
+        Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH v3 0/7] sysctl: Remove sentinel elements from arch
+Message-ID: <ZSXOqoCRH0PiBiIG@bombadil.infradead.org>
+References: <20231002-jag-sysctl_remove_empty_elem_arch-v3-0-606da2840a7a@samsung.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
-In-Reply-To: <E1qkoRr-0088Q8-Da@rmk-PC.armlinux.org.uk>
-Sender: Russell King (Oracle) <linux@armlinux.org.uk>
+In-Reply-To: <20231002-jag-sysctl_remove_empty_elem_arch-v3-0-606da2840a7a@samsung.com>
+Sender: Luis Chamberlain <mcgrof@infradead.org>
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-Okay, I give up. 15 days, still no real progress. I don't see any point
-in submitting any further patches for the kernel outside of those areas
-that I maintain. Clearly no one cares enough to bother (a) properly
-reviewing the patch, (b) applying the patch that Thomas thought
-"makes tons of sense."
+On Mon, Oct 02, 2023 at 01:30:35PM +0200, Joel Granados via B4 Relay wrote:
+> V3:
+> * Removed the ia64 patch to avoid conflicts with the ia64 removal
+> * Rebased onto v6.6-rc4
+> * Kept/added the trailing comma for the ctl_table arrays. This was a comment
+>   that we received "drivers/*" patch set.
+> * Link to v2: https://lore.kernel.org/r/20230913-jag-sysctl_remove_empty_elem_arch-v2-0-d1bd13a29bae@samsung.com
 
-If patches that "makes tons of sense" just get ignored, then what does
-the future of the kernel hold? Crap, that's what, utter crap.
+Thanks! I replaced the v2 with this v3 on sysctl-next.
 
-As I said, it seems that the Linux kernel process is basically totally
-broken and rotten. If a six line patch that "makes tons of sense" can't
-be applied, then there's basically no hope what so ever.
-
-FFS.
-
-On Mon, Sep 25, 2023 at 05:28:39PM +0100, Russell King (Oracle) wrote:
-> Provide common prototypes for arch_register_cpu() and
-> arch_unregister_cpu(). These are called by acpi_processor.c, with
-> weak versions, so the prototype for this is already set. It is
-> generally not necessary for function prototypes to be conditional
-> on preprocessor macros.
-> 
-> Some architectures (e.g. Loongarch) are missing the prototype for this,
-> and rather than add it to Loongarch's asm/cpu.h, lets do the job once
-> for everyone.
-> 
-> Since this covers everyone, remove the now unnecessary prototypes in
-> asm/cpu.h, and we also need to remove the 'static' from one of ia64's
-> arch_register_cpu() definitions.
-> 
-> Signed-off-by: Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
-> ---
-> Changes since RFC v2:
->  - drop ia64 changes, as ia64 has already been removed.
-> 
->  arch/x86/include/asm/cpu.h  | 2 --
->  arch/x86/kernel/topology.c  | 2 +-
->  include/linux/cpu.h         | 2 ++
->  3 files changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/arch/x86/include/asm/cpu.h b/arch/x86/include/asm/cpu.h
-> index 3a233ebff712..25050d953eee 100644
-> --- a/arch/x86/include/asm/cpu.h
-> +++ b/arch/x86/include/asm/cpu.h
-> @@ -28,8 +28,6 @@ struct x86_cpu {
->  };
->  
->  #ifdef CONFIG_HOTPLUG_CPU
-> -extern int arch_register_cpu(int num);
-> -extern void arch_unregister_cpu(int);
->  extern void soft_restart_cpu(void);
->  #endif
->  
-> diff --git a/arch/x86/kernel/topology.c b/arch/x86/kernel/topology.c
-> index ca004e2e4469..0bab03130033 100644
-> --- a/arch/x86/kernel/topology.c
-> +++ b/arch/x86/kernel/topology.c
-> @@ -54,7 +54,7 @@ void arch_unregister_cpu(int num)
->  EXPORT_SYMBOL(arch_unregister_cpu);
->  #else /* CONFIG_HOTPLUG_CPU */
->  
-> -static int __init arch_register_cpu(int num)
-> +int __init arch_register_cpu(int num)
->  {
->  	return register_cpu(&per_cpu(cpu_devices, num).cpu, num);
->  }
-> diff --git a/include/linux/cpu.h b/include/linux/cpu.h
-> index 0abd60a7987b..eb768a866fe3 100644
-> --- a/include/linux/cpu.h
-> +++ b/include/linux/cpu.h
-> @@ -80,6 +80,8 @@ extern __printf(4, 5)
->  struct device *cpu_device_create(struct device *parent, void *drvdata,
->  				 const struct attribute_group **groups,
->  				 const char *fmt, ...);
-> +extern int arch_register_cpu(int cpu);
-> +extern void arch_unregister_cpu(int cpu);
->  #ifdef CONFIG_HOTPLUG_CPU
->  extern void unregister_cpu(struct cpu *cpu);
->  extern ssize_t arch_cpu_probe(const char *, size_t);
-> -- 
-> 2.30.2
-> 
-> 
-
--- 
-RMK's Patch system: https://www.armlinux.org.uk/developer/patches/
-FTTP is here! 80Mbps down 10Mbps up. Decent connectivity at last!
+  Luis
