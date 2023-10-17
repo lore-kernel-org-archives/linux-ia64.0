@@ -2,99 +2,125 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 0B2BDCD6E68
-	for <linux-ia64@archiver.kernel.org>; Wed, 11 Oct 2023 13:08:51 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id E7FB2CDB474
+	for <linux-ia64@archiver.kernel.org>; Tue, 17 Oct 2023 15:21:51 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S234918AbjJKNIu (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Wed, 11 Oct 2023 09:08:50 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:36610 "EHLO
+        id S1344302AbjJQPVv (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Tue, 17 Oct 2023 11:21:51 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:51546 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S232375AbjJKNIt (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Wed, 11 Oct 2023 09:08:49 -0400
-Received: from mail-lf1-x12c.google.com (mail-lf1-x12c.google.com [IPv6:2a00:1450:4864:20::12c])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 9A82AA9;
-        Wed, 11 Oct 2023 06:08:47 -0700 (PDT)
-Received: by mail-lf1-x12c.google.com with SMTP id 2adb3069b0e04-504a7f9204eso8363703e87.3;
-        Wed, 11 Oct 2023 06:08:47 -0700 (PDT)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=gmail.com; s=20230601; t=1697029726; x=1697634526; darn=vger.kernel.org;
-        h=content-transfer-encoding:cc:to:subject:message-id:date:from
-         :in-reply-to:references:mime-version:from:to:cc:subject:date
-         :message-id:reply-to;
-        bh=MYM9UN1cQM24eN/cx1yRvLKv4WydXJJTwKdXLA9EWM8=;
-        b=fdfGOIn6tWJIfLGDqKmVroC1PK/c37r2YuQcFBAanciQg7QFn8r+eDD7Quc6euRCGs
-         d9tT5RV33GZHiXceKzTN+4wYqMQ/PL/YwwHA80w8xSODcngfp2G2JCyyjv9RW3BLyAWk
-         VbxsiixST+GEHoTpjLYh3tEQb2pJsxHv+zPhhELKY2V7W+8Z1NixX/yQRiu6kgndT9Uc
-         Aado8LHwgb0N8v2SxYpFOXMTFxQQHFOnmK1zmYHdOAZVauRYoUuLrqvVHRovcc0zi8oN
-         AqgOzpEeqKtJpFhkuhxtHVsnXaLtsm7VhwXx+6b8pFUgTrrIeDorcicvAZ4oW+138OWI
-         B0aQ==
-X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20230601; t=1697029726; x=1697634526;
-        h=content-transfer-encoding:cc:to:subject:message-id:date:from
-         :in-reply-to:references:mime-version:x-gm-message-state:from:to:cc
-         :subject:date:message-id:reply-to;
-        bh=MYM9UN1cQM24eN/cx1yRvLKv4WydXJJTwKdXLA9EWM8=;
-        b=tzuB/xeWiIKVq18iXuAoC0VfNKqFyfkrfcDESImXO1UeqVnGL3GJk88xY0hai5aoEz
-         q3Iqo3/TpmVtr2+mA8Q9VIIz2F1071po5MHQpLlExuRGGPrKe/CihXut/0y73QFWgxtp
-         5Rf1i10YPECUipPe0hbIBE4LKMITv+Y2mc+uio0tQrIJVJm7CB82yAz1dcZfgLrxhGmB
-         z1lZPnJGEG6e2y+Nxz6M1VVtf2sTU9xHBuS5ZY2sH97Yb4QOa025Uo7rlqR8NJHqvrMI
-         I6l+NbmoIBzfTpcs6vfutHqCX8tZfYjE2xvTLSlrXKEGQ2YW7BsEiMcjV7v2NnqJJ4JY
-         XgoA==
-X-Gm-Message-State: AOJu0YzIZrIZxvD/0yMhw/fC3LFT7dxcYGRfgLcinZEfJ8B0frevtYw3
-        3mKUIWP/ZBrfnutsZ28mj6NPrBPWmJP/VbRe/jQ=
-X-Google-Smtp-Source: AGHT+IEjN10vumMrnkaVLm49rRcsyi0oHpP0pF8gEAjsR7W/99v8G6qx2BYXKqogcr2nJ1Z3MXtFLamAEVvS47wud0A=
-X-Received: by 2002:ac2:4431:0:b0:503:258d:643c with SMTP id
- w17-20020ac24431000000b00503258d643cmr16419640lfl.21.1697029725500; Wed, 11
- Oct 2023 06:08:45 -0700 (PDT)
+        with ESMTP id S1344325AbjJQPVu (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Tue, 17 Oct 2023 11:21:50 -0400
+Received: from mout.web.de (mout.web.de [212.227.15.3])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id BEF7310C
+        for <linux-ia64@vger.kernel.org>; Tue, 17 Oct 2023 08:21:47 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=web.de; s=s29768273;
+        t=1697556086; x=1698160886; i=frank.scheiner@web.de;
+        bh=1CSl67BQYf7aAzTML7j89+wdZx0BHKDlU0Mq6uAlIu4=;
+        h=X-UI-Sender-Class:Date:From:Subject:Cc:To;
+        b=RZJY0qh6w55HHXjOSkxy8R90tLUib55R9WXjpq+YznnCQPYc3ouN+Sbh1Nb53jQV
+         jkMXOkE9OjK7+LVUXKseeEr/MZYjZ1EQOpAjwnWRGZhZVCYg0ma9cQrrk2ztf67kk
+         +0Ftmsr9riBL/Ylc4Y5S2OgCoK7mT0t7ok37vjs+qKl5xvAvds4bxu9JGfADVWGXX
+         F17/eWCxE5qynemAhqo9RDvVW8nnRKUWXCbHClh6TxXS2TJrIOey6aAPVrTt4ihbO
+         EINQcD+VBLWcA1gny0hC14UWq/ldLnho8MBW2ek+Ju1vGX59O5EgRI8+54/ANBQq4
+         6rZorUcJNekfZfzYVQ==
+X-UI-Sender-Class: 814a7b36-bfc1-4dae-8640-3722d8ec6cd6
+Received: from [192.168.178.30] ([87.155.236.78]) by smtp.web.de (mrweb005
+ [213.165.67.108]) with ESMTPSA (Nemesis) id 1MFauo-1qkVTP3uQg-00H830; Tue, 17
+ Oct 2023 17:21:26 +0200
+Message-ID: <87cbede6-a1fe-4d66-9156-df92c51e132f@web.de>
+Date:   Tue, 17 Oct 2023 17:21:24 +0200
 MIME-Version: 1.0
-References: <E1qkoRr-0088Q8-Da@rmk-PC.armlinux.org.uk> <ZSV6i4pnjQqvWuKp@shell.armlinux.org.uk>
- <87o7h5l5xr.ffs@tglx>
-In-Reply-To: <87o7h5l5xr.ffs@tglx>
-From:   =?UTF-8?B?VG9tw6HFoSBHbG96YXI=?= <tglozar@gmail.com>
-Date:   Wed, 11 Oct 2023 15:08:34 +0200
-Message-ID: <CAHtyXDdr_R_Moypb3ieFs54RRGu+zqHS46WrjEvWCFtT0KZRaQ@mail.gmail.com>
-Subject: Re: [PATCH] cpu-hotplug: provide prototypes for arch CPU registration
-To:     Thomas Gleixner <tglx@linutronix.de>
-Cc:     "Russell King (Oracle)" <linux@armlinux.org.uk>,
+User-Agent: Mozilla Thunderbird
+Content-Language: en-US
+From:   Frank Scheiner <frank.scheiner@web.de>
+Subject: Linux/ia64: An update
+Cc:     =?UTF-8?B?VG9tw6HFoSBHbG96YXI=?= <tglozar@gmail.com>,
         Linus Torvalds <torvalds@linux-foundation.org>,
-        linux-acpi@vger.kernel.org, James Morse <james.morse@arm.com>,
-        loongarch@lists.linux.dev, linux-arch@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        linux-pm@vger.kernel.org, Ingo Molnar <mingo@redhat.com>,
-        Jean-Philippe Brucker <jean-philippe@linaro.org>,
-        jianyong.wu@arm.com, justin.he@arm.com,
-        Borislav Petkov <bp@alien8.de>,
-        Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org,
-        Salil Mehta <salil.mehta@huawei.com>,
-        "H. Peter Anvin" <hpa@zytor.com>,
-        Peter Zijlstra <peterz@infradead.org>,
-        linux-ia64@vger.kernel.org
-Content-Type: text/plain; charset="UTF-8"
+        aurel32@debian.org, debian-ia64 <debian-ia64@lists.debian.org>,
+        ia64@gentoo.org
+To:     linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: quoted-printable
+X-Provags-ID: V03:K1:kNFjR9VnW8wFoMbjhNqz/N/GEG3Hhc+8XTVA66gTU9G1q1NVneK
+ brd4fniZnFkj/uO8eg/3qoTmHUgiOYDzTgOk1WjbwyF4PTbV0xFC8jzcac6jv4/NdmVsLGe
+ zmLxf+iTysWit2wmUoAhDhrYp6mtNE4iFhoNPALWdV6qVeT3YPcLE/9gDMnS8rccyGydWOr
+ dFGO/95ojZ/dZO2zonUqQ==
+UI-OutboundReport: notjunk:1;M01:P0:RA4p2CswWdg=;QNqfvSdVuXGfzKyvHIQx51Dszfy
+ zHflvIp27U2RDwdC8oQOhyWK67s278zvUhAhEuBeLEQvzRIMrZ3+o/yk40dmfCv3b8b6tio8o
+ ERgWc1SJmBtl+ieYtH7CYZm5pkuXkkJ4YWWzRJjx2GFGbnWM9tocS+S3IVUIWMbFCRARnlCJa
+ 0tIiVfVL5gGT8oNbfSdpjTMolu5CiJOOnAVItymjh1Rd92KPmkSOIor6zEeHsq7GS5L9iZhHz
+ duOUBByino6ZvDFMGza5vYw+0AO50TnWwNstHQ8M7HorSJwNfjZonQAU8dD9h+XPmgWjwC3sM
+ G631MHhVix8M/H8cZCpaETN0jvMryCYvJBZOzABF1SRbHxknP4YgQTfcGVI6lbLrP03+ffDJa
+ Tgnwz+1sL9M83C6N3sQRCY0d+SUqiNLaANE2XiGcsllpf8z5ODEbcYMp/8xQ6qJlBW44pWQjE
+ +3WIrvC/j9EGfNV7BIZhxFOzMIIEIcqllQhXQK1subbbuSFMJSfLjzdpVFnAmDz6cSE0hW1US
+ SAeItDwf6q8G0nOIPkUpWJts7mZt1nYkQw4klRzMNAloWGexbVjHWcWWuXQ8YVychasfrDDKy
+ Em9cEJQfzW3VcJdqg9CJpRlulI1/8TkGOwOUfDlyLSE3aZJx6cGLAOYTJhl3ZRX4hkWJL5v8E
+ T8A09JtvZyAU44kjOhDAwBfjXjLXqTm5g6aWfZyY5VqgIaO0W2HsQXcOaBzvwdIHprA/m/Kaj
+ w+tSPSBKOKmlpto7aiHZAizsKEvcOWvupk4TaktWjw5hR1C/Ref9EBWMCa9I8jhEcnoBOwtyL
+ Ai7Cwh8EEt3LKGcw2l5TXR5dQsyF4GE6Q3FJMCWS9rJKORiheQWwKJFxfx3R17L2wPGbxsw2y
+ M5isn9Qao3U6fT54HWeuEVW6ijEhPJrILqGDT25tvrq+8PYIzAR1uDSJvxwYqA21BtzqUd0XS
+ PxjbbGlgvlzxGz1Kpqd2LKjKteI=
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-Hello Thomas,
+Dear all,
 
-st 11. 10. 2023 v 14:06 odes=C3=ADlatel Thomas Gleixner <tglx@linutronix.de=
-> napsal:
->
-> Sorry for the wrong information about ia64. The removal did not happen
-> because someone stepped up as a possible maintainer.
->
+consider this an update to [1].
 
-Does that mean that the removal patch will be reverted soon in
-asm-generic and linux-next? Both have no ia64 as of now, and there are
-already a few patches without ia64 part (e,g,
-https://git.kernel.org/pub/scm/linux/kernel/git/arnd/asm-generic.git/commit=
-/?id=3D2fd0ebad27bcd4c8fc61c61a98d4283c47054bcf).
-Without the revert, patches affecting ia64 will conflict.
+[1]:
+https://lore.kernel.org/linux-ia64/cb4faf4f-1efc-5ae7-c8f7-7aad9c2a4d73@we=
+b.de/T/#u
 
-I am the person who volunteered to maintain the architecture. If the
-removal was indeed cancelled, me and Frank Scheiner can start testing
-and reviewing patches affecting ia64.
+So about two weeks later and another two v6.6 release candidates (5 and
+6) tested successfully on the following machines:
 
-Thanks,
+* rx2620 (w/2 x Montecito)
+* rx4640 (w/2 x Madison)
+* 2 x rx2660 (w/2 x Montecito, w/1 x Montvale)
+* rx6600 (w/4 x Montvale)*
+* rx2800 i2 (w/1 x Tukwila)
 
-Tomas
+This doesn't look like a broken architecture, does it?
+
+*) As I haven't yet found out why exactly the breakage (mentioned in
+[1]) happens for the rx6600, I just reverted the problematic commit
+(61167ad) to check if anything else could hinder its operation. And that
+is not the case. As 61167ad seems to not break any other systems or
+architectures, I want to give it a little more time and sprinkle some
+printks around where it breaks, before giving up on this and contact the
+author for help.
+
+In addition I'm looking into testing patches dropped for ia64, e.g. [2]
+- which worked for me - and with v6.6-rc6 also [3] - which was merged
+with ddf2085 and which also worked for me (see above).
+
+[2]:
+https://lore.kernel.org/linux-ia64/d43037ee-bb7f-0cdc-a14d-8cddca8bb373@we=
+b.de/
+
+[3]:
+https://lore.kernel.org/linux-ia64/E1qgnh2-007ZRZ-WD@rmk-PC.armlinux.org.u=
+k/
+
+****
+
+Outside of the kernel - but still relevant for distributions - work was
+done for the glibc, too: Tomas discovered a seemingly long forgotten
+patch for ia64 by Aurelien Jarno that was adapted to the current state
+of the glibc sources and extended with own changes. In total this
+enabled 50 unsupported tests, lowered the number of failed tests by 30,
+and increased the total number of passing tests by 83 - don't ask me how
+`make check` calculates the last number ;-). See [4] for details, since
+then we could increase the number of passing tests further.
+
+[4]: https://sourceware.org/bugzilla/show_bug.cgi?id=3D10163#c6
+
+Considering that math "errors" like those (e.g. for `tanf(INFINITY)`)
+are there in the glibc for more than 10 years, our progress in just
+three weeks into it is not bad. We are working on getting the remaining
+errors fixed, too.
+
+Cheers,
+Frank
