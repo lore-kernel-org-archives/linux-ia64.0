@@ -2,125 +2,124 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id E7FB2CDB474
-	for <linux-ia64@archiver.kernel.org>; Tue, 17 Oct 2023 15:21:51 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 6A2E2C41513
+	for <linux-ia64@archiver.kernel.org>; Wed, 18 Oct 2023 10:49:05 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S1344302AbjJQPVv (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Tue, 17 Oct 2023 11:21:51 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:51546 "EHLO
+        id S230232AbjJRKtF (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Wed, 18 Oct 2023 06:49:05 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:33426 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1344325AbjJQPVu (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Tue, 17 Oct 2023 11:21:50 -0400
-Received: from mout.web.de (mout.web.de [212.227.15.3])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id BEF7310C
-        for <linux-ia64@vger.kernel.org>; Tue, 17 Oct 2023 08:21:47 -0700 (PDT)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=web.de; s=s29768273;
-        t=1697556086; x=1698160886; i=frank.scheiner@web.de;
-        bh=1CSl67BQYf7aAzTML7j89+wdZx0BHKDlU0Mq6uAlIu4=;
-        h=X-UI-Sender-Class:Date:From:Subject:Cc:To;
-        b=RZJY0qh6w55HHXjOSkxy8R90tLUib55R9WXjpq+YznnCQPYc3ouN+Sbh1Nb53jQV
-         jkMXOkE9OjK7+LVUXKseeEr/MZYjZ1EQOpAjwnWRGZhZVCYg0ma9cQrrk2ztf67kk
-         +0Ftmsr9riBL/Ylc4Y5S2OgCoK7mT0t7ok37vjs+qKl5xvAvds4bxu9JGfADVWGXX
-         F17/eWCxE5qynemAhqo9RDvVW8nnRKUWXCbHClh6TxXS2TJrIOey6aAPVrTt4ihbO
-         EINQcD+VBLWcA1gny0hC14UWq/ldLnho8MBW2ek+Ju1vGX59O5EgRI8+54/ANBQq4
-         6rZorUcJNekfZfzYVQ==
-X-UI-Sender-Class: 814a7b36-bfc1-4dae-8640-3722d8ec6cd6
-Received: from [192.168.178.30] ([87.155.236.78]) by smtp.web.de (mrweb005
- [213.165.67.108]) with ESMTPSA (Nemesis) id 1MFauo-1qkVTP3uQg-00H830; Tue, 17
- Oct 2023 17:21:26 +0200
-Message-ID: <87cbede6-a1fe-4d66-9156-df92c51e132f@web.de>
-Date:   Tue, 17 Oct 2023 17:21:24 +0200
+        with ESMTP id S230057AbjJRKtE (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Wed, 18 Oct 2023 06:49:04 -0400
+Received: from gandalf.ozlabs.org (mail.ozlabs.org [IPv6:2404:9400:2221:ea00::3])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id D6092FF;
+        Wed, 18 Oct 2023 03:49:01 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=ellerman.id.au;
+        s=201909; t=1697626140;
+        bh=3xWcji3oXjlN4cFukeLMtXQkcjmbOBmNuowH8WPgpqg=;
+        h=From:To:Cc:Subject:In-Reply-To:References:Date:From;
+        b=dSMsP/ETZci4Y90jENdqAUbUV4tg7l7t750Pe69hZMYUPqmlGGYZkb6yRIl8yDLFf
+         /omnvBNpejjy8tnAf/mOpBbMrR0m2tpZeWAfIeIIRQdypgILcreVGx4IvLCdwQvtHi
+         ZLDfUBUHEZFWV0Sla+UsS3dgFaDp0Zi9UHQoIcVWG8W1mpO4ksfZXApbK6uUIpJJCt
+         ji5wtK6EjMbdd8GGudB8lG6dgOxPSl5YTC/nwHljwzatAAGxmIg931O54qvU7biaSQ
+         2NZO2VolvUQmPCrtOlhRbYg15rfUsekBU39vQAMSXRUJLifgfmaFy0H70KXYAwXBsZ
+         EZVZNNGZ9KphA==
+Received: from authenticated.ozlabs.org (localhost [127.0.0.1])
+        (using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+         key-exchange X25519 server-signature RSA-PSS (4096 bits) server-digest SHA256)
+        (No client certificate requested)
+        by mail.ozlabs.org (Postfix) with ESMTPSA id 4S9SJT6JZtz4xPX;
+        Wed, 18 Oct 2023 21:48:57 +1100 (AEDT)
+From:   Michael Ellerman <mpe@ellerman.id.au>
+To:     Thomas Zimmermann <tzimmermann@suse.de>, npiggin@gmail.com,
+        christophe.leroy@csgroup.eu, arnd@arndb.de, deller@gmx.de,
+        javierm@redhat.com
+Cc:     linuxppc-dev@lists.ozlabs.org, linux-fbdev@vger.kernel.org,
+        linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org,
+        linux-mips@vger.kernel.org, sparclinux@vger.kernel.org,
+        dri-devel@lists.freedesktop.org, linux-arch@vger.kernel.org
+Subject: Re: [PATCH v5 0/5] ppc, fbdev: Clean up fbdev mmap helper
+In-Reply-To: <de09143e-ab7f-4ccc-8a5a-50e0f48c1b40@suse.de>
+References: <20230922080636.26762-1-tzimmermann@suse.de>
+ <de09143e-ab7f-4ccc-8a5a-50e0f48c1b40@suse.de>
+Date:   Wed, 18 Oct 2023 21:48:54 +1100
+Message-ID: <87a5sg6wa1.fsf@mail.lhotse>
 MIME-Version: 1.0
-User-Agent: Mozilla Thunderbird
-Content-Language: en-US
-From:   Frank Scheiner <frank.scheiner@web.de>
-Subject: Linux/ia64: An update
-Cc:     =?UTF-8?B?VG9tw6HFoSBHbG96YXI=?= <tglozar@gmail.com>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        aurel32@debian.org, debian-ia64 <debian-ia64@lists.debian.org>,
-        ia64@gentoo.org
-To:     linux-ia64@vger.kernel.org
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: quoted-printable
-X-Provags-ID: V03:K1:kNFjR9VnW8wFoMbjhNqz/N/GEG3Hhc+8XTVA66gTU9G1q1NVneK
- brd4fniZnFkj/uO8eg/3qoTmHUgiOYDzTgOk1WjbwyF4PTbV0xFC8jzcac6jv4/NdmVsLGe
- zmLxf+iTysWit2wmUoAhDhrYp6mtNE4iFhoNPALWdV6qVeT3YPcLE/9gDMnS8rccyGydWOr
- dFGO/95ojZ/dZO2zonUqQ==
-UI-OutboundReport: notjunk:1;M01:P0:RA4p2CswWdg=;QNqfvSdVuXGfzKyvHIQx51Dszfy
- zHflvIp27U2RDwdC8oQOhyWK67s278zvUhAhEuBeLEQvzRIMrZ3+o/yk40dmfCv3b8b6tio8o
- ERgWc1SJmBtl+ieYtH7CYZm5pkuXkkJ4YWWzRJjx2GFGbnWM9tocS+S3IVUIWMbFCRARnlCJa
- 0tIiVfVL5gGT8oNbfSdpjTMolu5CiJOOnAVItymjh1Rd92KPmkSOIor6zEeHsq7GS5L9iZhHz
- duOUBByino6ZvDFMGza5vYw+0AO50TnWwNstHQ8M7HorSJwNfjZonQAU8dD9h+XPmgWjwC3sM
- G631MHhVix8M/H8cZCpaETN0jvMryCYvJBZOzABF1SRbHxknP4YgQTfcGVI6lbLrP03+ffDJa
- Tgnwz+1sL9M83C6N3sQRCY0d+SUqiNLaANE2XiGcsllpf8z5ODEbcYMp/8xQ6qJlBW44pWQjE
- +3WIrvC/j9EGfNV7BIZhxFOzMIIEIcqllQhXQK1subbbuSFMJSfLjzdpVFnAmDz6cSE0hW1US
- SAeItDwf6q8G0nOIPkUpWJts7mZt1nYkQw4klRzMNAloWGexbVjHWcWWuXQ8YVychasfrDDKy
- Em9cEJQfzW3VcJdqg9CJpRlulI1/8TkGOwOUfDlyLSE3aZJx6cGLAOYTJhl3ZRX4hkWJL5v8E
- T8A09JtvZyAU44kjOhDAwBfjXjLXqTm5g6aWfZyY5VqgIaO0W2HsQXcOaBzvwdIHprA/m/Kaj
- w+tSPSBKOKmlpto7aiHZAizsKEvcOWvupk4TaktWjw5hR1C/Ref9EBWMCa9I8jhEcnoBOwtyL
- Ai7Cwh8EEt3LKGcw2l5TXR5dQsyF4GE6Q3FJMCWS9rJKORiheQWwKJFxfx3R17L2wPGbxsw2y
- M5isn9Qao3U6fT54HWeuEVW6ijEhPJrILqGDT25tvrq+8PYIzAR1uDSJvxwYqA21BtzqUd0XS
- PxjbbGlgvlzxGz1Kpqd2LKjKteI=
+Content-Type: text/plain
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-Dear all,
+Thomas Zimmermann <tzimmermann@suse.de> writes:
+> FYI, I intent to merge patches 1 and 2 of this patchset into 
+> drm-misc-next. The updates for PowerPC can be merged through PPC trees 
+> later. Let me know if this does not work for you.
 
-consider this an update to [1].
+Hi Thomas,
 
-[1]:
-https://lore.kernel.org/linux-ia64/cb4faf4f-1efc-5ae7-c8f7-7aad9c2a4d73@we=
-b.de/T/#u
+Sorry for the late reply, I was on leave.
 
-So about two weeks later and another two v6.6 release candidates (5 and
-6) tested successfully on the following machines:
+Yeah that's fine.
 
-* rx2620 (w/2 x Montecito)
-* rx4640 (w/2 x Madison)
-* 2 x rx2660 (w/2 x Montecito, w/1 x Montvale)
-* rx6600 (w/4 x Montvale)*
-* rx2800 i2 (w/1 x Tukwila)
+cheers
 
-This doesn't look like a broken architecture, does it?
-
-*) As I haven't yet found out why exactly the breakage (mentioned in
-[1]) happens for the rx6600, I just reverted the problematic commit
-(61167ad) to check if anything else could hinder its operation. And that
-is not the case. As 61167ad seems to not break any other systems or
-architectures, I want to give it a little more time and sprinkle some
-printks around where it breaks, before giving up on this and contact the
-author for help.
-
-In addition I'm looking into testing patches dropped for ia64, e.g. [2]
-- which worked for me - and with v6.6-rc6 also [3] - which was merged
-with ddf2085 and which also worked for me (see above).
-
-[2]:
-https://lore.kernel.org/linux-ia64/d43037ee-bb7f-0cdc-a14d-8cddca8bb373@we=
-b.de/
-
-[3]:
-https://lore.kernel.org/linux-ia64/E1qgnh2-007ZRZ-WD@rmk-PC.armlinux.org.u=
-k/
-
-****
-
-Outside of the kernel - but still relevant for distributions - work was
-done for the glibc, too: Tomas discovered a seemingly long forgotten
-patch for ia64 by Aurelien Jarno that was adapted to the current state
-of the glibc sources and extended with own changes. In total this
-enabled 50 unsupported tests, lowered the number of failed tests by 30,
-and increased the total number of passing tests by 83 - don't ask me how
-`make check` calculates the last number ;-). See [4] for details, since
-then we could increase the number of passing tests further.
-
-[4]: https://sourceware.org/bugzilla/show_bug.cgi?id=3D10163#c6
-
-Considering that math "errors" like those (e.g. for `tanf(INFINITY)`)
-are there in the glibc for more than 10 years, our progress in just
-three weeks into it is not bad. We are working on getting the remaining
-errors fixed, too.
-
-Cheers,
-Frank
+> Am 22.09.23 um 10:04 schrieb Thomas Zimmermann:
+>> Clean up and rename fb_pgprotect() to work without struct file. Then
+>> refactor the implementation for PowerPC. This change has been discussed
+>> at [1] in the context of refactoring fbdev's mmap code.
+>> 
+>> The first two patches update fbdev and replace fbdev's fb_pgprotect()
+>> with pgprot_framebuffer() on all architectures. The new helper's stream-
+>> lined interface enables more refactoring within fbdev's mmap
+>> implementation.
+>> 
+>> Patches 3 to 5 adapt PowerPC's internal interfaces to provide
+>> phys_mem_access_prot() that works without struct file. Neither the
+>> architecture code or fbdev helpers need the parameter.
+>> 
+>> v5:
+>> 	* improve commit descriptions (Javier)
+>> 	* add missing tags (Geert)
+>> v4:
+>> 	* fix commit message (Christophe)
+>> v3:
+>> 	* rename fb_pgrotect() to pgprot_framebuffer() (Arnd)
+>> v2:
+>> 	* reorder patches to simplify merging (Michael)
+>> 
+>> [1] https://lore.kernel.org/linuxppc-dev/5501ba80-bdb0-6344-16b0-0466a950f82c@suse.com/
+>> 
+>> Thomas Zimmermann (5):
+>>    fbdev: Avoid file argument in fb_pgprotect()
+>>    fbdev: Replace fb_pgprotect() with pgprot_framebuffer()
+>>    arch/powerpc: Remove trailing whitespaces
+>>    arch/powerpc: Remove file parameter from phys_mem_access_prot code
+>>    arch/powerpc: Call internal __phys_mem_access_prot() in fbdev code
+>> 
+>>   arch/ia64/include/asm/fb.h                | 15 +++++++--------
+>>   arch/m68k/include/asm/fb.h                | 19 ++++++++++---------
+>>   arch/mips/include/asm/fb.h                | 11 +++++------
+>>   arch/powerpc/include/asm/book3s/pgtable.h | 10 ++++++++--
+>>   arch/powerpc/include/asm/fb.h             | 13 +++++--------
+>>   arch/powerpc/include/asm/machdep.h        | 13 ++++++-------
+>>   arch/powerpc/include/asm/nohash/pgtable.h | 10 ++++++++--
+>>   arch/powerpc/include/asm/pci.h            |  4 +---
+>>   arch/powerpc/kernel/pci-common.c          |  3 +--
+>>   arch/powerpc/mm/mem.c                     |  8 ++++----
+>>   arch/sparc/include/asm/fb.h               | 15 +++++++++------
+>>   arch/x86/include/asm/fb.h                 | 10 ++++++----
+>>   arch/x86/video/fbdev.c                    | 15 ++++++++-------
+>>   drivers/video/fbdev/core/fb_chrdev.c      |  3 ++-
+>>   include/asm-generic/fb.h                  | 12 ++++++------
+>>   15 files changed, 86 insertions(+), 75 deletions(-)
+>> 
+>> 
+>> base-commit: f8d21cb17a99b75862196036bb4bb93ee9637b74
+>
+> -- 
+> Thomas Zimmermann
+> Graphics Driver Developer
+> SUSE Software Solutions Germany GmbH
+> Frankenstrasse 146, 90461 Nuernberg, Germany
+> GF: Ivo Totev, Andrew Myers, Andrew McDonald, Boudien Moerman
+> HRB 36809 (AG Nuernberg)
