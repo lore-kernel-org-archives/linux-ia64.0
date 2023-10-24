@@ -2,135 +2,107 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id B4F50C25B6E
-	for <linux-ia64@archiver.kernel.org>; Tue, 24 Oct 2023 15:30:24 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id 4D28AC07545
+	for <linux-ia64@archiver.kernel.org>; Tue, 24 Oct 2023 15:43:02 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S234761AbjJXPaY (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Tue, 24 Oct 2023 11:30:24 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:40018 "EHLO
+        id S1343547AbjJXPnC (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Tue, 24 Oct 2023 11:43:02 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:35650 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S234838AbjJXP3w (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Tue, 24 Oct 2023 11:29:52 -0400
-Received: from pandora.armlinux.org.uk (pandora.armlinux.org.uk [IPv6:2001:4d48:ad52:32c8:5054:ff:fe00:142])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id E64241720;
-        Tue, 24 Oct 2023 08:19:11 -0700 (PDT)
-DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
-        d=armlinux.org.uk; s=pandora-2019; h=Date:Sender:Message-Id:Content-Type:
-        Content-Transfer-Encoding:MIME-Version:Subject:Cc:To:From:References:
-        In-Reply-To:Reply-To:Content-ID:Content-Description:Resent-Date:Resent-From:
-        Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:List-Id:List-Help:
-        List-Unsubscribe:List-Subscribe:List-Post:List-Owner:List-Archive;
-        bh=wObq1ZtL38GoyXrpykUfQ+L3NY/VXeUmDZFIelovoYM=; b=FZDrLbP5QGr0Bfm6ivhiO1LbjQ
-        Y4iafTUgbHLhkHP38WYvvVy6wgsx3XPMAkOraEF/gFnmpk/e9X8NZoY39Fs82GsEQOi/AN3hzJ2z/
-        AKclEoxu7/BMPGlEBiHrVD+WGnT9K6F7yHYlIdOhSJ2tG/uPgN7TE9h8GpOG9WAE91evCIgpZBP3I
-        fNhegreY0+W0QGkObxdbNBGb1DIqOBJzYV1rmlxYQLBApbk5ERid6ZuTH8skj0JKRp7i3gwXyHFeE
-        sSLJw4ITb6s22exlxYg9WpCPCaWm2XP1LB3GblSxuM+VwsqI4Bu6lJ4uGAL4IC/+A7rVLNhjbUQUr
-        pajifeoQ==;
-Received: from e0022681537dd.dyn.armlinux.org.uk ([fd8f:7570:feb6:1:222:68ff:fe15:37dd]:46028 helo=rmk-PC.armlinux.org.uk)
-        by pandora.armlinux.org.uk with esmtpsa  (TLS1.3) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-        (Exim 4.96)
-        (envelope-from <rmk@armlinux.org.uk>)
-        id 1qvJBO-0004WC-2a;
-        Tue, 24 Oct 2023 16:19:03 +0100
-Received: from rmk by rmk-PC.armlinux.org.uk with local (Exim 4.94.2)
-        (envelope-from <rmk@rmk-PC.armlinux.org.uk>)
-        id 1qvJBQ-00AqS8-8B; Tue, 24 Oct 2023 16:19:04 +0100
-In-Reply-To: <ZTffkAdOqL2pI2la@shell.armlinux.org.uk>
-References: <ZTffkAdOqL2pI2la@shell.armlinux.org.uk>
-From:   Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
-To:     linux-pm@vger.kernel.org, loongarch@lists.linux.dev,
+        with ESMTP id S234241AbjJXPnB (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Tue, 24 Oct 2023 11:43:01 -0400
+Received: from mgamail.intel.com (mgamail.intel.com [134.134.136.24])
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 77D4BA3;
+        Tue, 24 Oct 2023 08:42:59 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple;
+  d=intel.com; i=@intel.com; q=dns/txt; s=Intel;
+  t=1698162179; x=1729698179;
+  h=date:from:to:cc:subject:message-id:references:
+   mime-version:in-reply-to;
+  bh=TR0MsODDCDld/9hD7QPnERhiZ/gxH5leUiM0oaDfwbI=;
+  b=mwVzgn+5pw/LzBLPCXjnMT/FmEnuYa0rlpvb2Q/bvSJS41OQI5FFi5m7
+   30Lm3rSBC9e0FfQpUeRG6c4qMqv/ZMSuzsCqpWt4b5+xTtvF8Zsm7ssby
+   YgV3UmamB4JuZScqA1oKNb2B206VpyeclqpO+jogJuoPDqoZIfw7W6AkR
+   9hGojjKAu8Ul8lM/oIXXNscpb3UGxu51TYb6J1EqFAoBMqq47awDljmGU
+   vwaTo20gJnJPUHvMl3/gZrmAnsc9w/9RcmEUEScs17NH84qaAH6qGl/2P
+   GL6EcdsuJmwYSoo/jDkY1Dv8aDjRjYivDOiRxu53hnDwmC9nDjRjJHQPe
+   w==;
+X-IronPort-AV: E=McAfee;i="6600,9927,10873"; a="389946496"
+X-IronPort-AV: E=Sophos;i="6.03,248,1694761200"; 
+   d="scan'208";a="389946496"
+Received: from fmsmga005.fm.intel.com ([10.253.24.32])
+  by orsmga102.jf.intel.com with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 24 Oct 2023 08:36:50 -0700
+X-ExtLoop1: 1
+X-IronPort-AV: E=McAfee;i="6600,9927,10873"; a="1089891583"
+X-IronPort-AV: E=Sophos;i="6.03,248,1694761200"; 
+   d="scan'208";a="1089891583"
+Received: from smile.fi.intel.com ([10.237.72.54])
+  by fmsmga005.fm.intel.com with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 24 Oct 2023 08:32:44 -0700
+Received: from andy by smile.fi.intel.com with local (Exim 4.97-RC3)
+        (envelope-from <andriy.shevchenko@linux.intel.com>)
+        id 1qvJOa-00000008Jsh-3eUI;
+        Tue, 24 Oct 2023 18:32:40 +0300
+Date:   Tue, 24 Oct 2023 18:32:40 +0300
+From:   Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To:     Russell King <rmk+kernel@armlinux.org.uk>
+Cc:     linux-pm@vger.kernel.org, loongarch@lists.linux.dev,
         linux-acpi@vger.kernel.org, linux-arch@vger.kernel.org,
         linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
         linux-riscv@lists.infradead.org, kvmarm@lists.linux.dev,
         x86@kernel.org, linux-csky@vger.kernel.org,
         linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org,
-        linux-parisc@vger.kernel.org
-Cc:     Salil Mehta <salil.mehta@huawei.com>,
+        linux-parisc@vger.kernel.org, Salil Mehta <salil.mehta@huawei.com>,
         Jean-Philippe Brucker <jean-philippe@linaro.org>,
         jianyong.wu@arm.com, justin.he@arm.com,
         James Morse <james.morse@arm.com>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Lorenzo Pieralisi <lpieralisi@kernel.org>
-Subject: [PATCH 34/39] arm64: psci: Ignore DENIED CPUs
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        "Rafael J. Wysocki" <rafael@kernel.org>,
+        Yury Norov <yury.norov@gmail.com>,
+        Rasmus Villemoes <linux@rasmusvillemoes.dk>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH 38/39] cpumask: Add enabled cpumask for present CPUs that
+ can be brought online
+Message-ID: <ZTfjmM3nmeh+D5w/@smile.fi.intel.com>
+References: <ZTffkAdOqL2pI2la@shell.armlinux.org.uk>
+ <E1qvJBk-00AqSW-R8@rmk-PC.armlinux.org.uk>
 MIME-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
-Content-Transfer-Encoding: 8bit
-Content-Type: text/plain; charset="utf-8"
-Message-Id: <E1qvJBQ-00AqS8-8B@rmk-PC.armlinux.org.uk>
-Sender: Russell King <rmk@armlinux.org.uk>
-Date:   Tue, 24 Oct 2023 16:19:04 +0100
+In-Reply-To: <E1qvJBk-00AqSW-R8@rmk-PC.armlinux.org.uk>
+Organization: Intel Finland Oy - BIC 0357606-4 - Westendinkatu 7, 02160 Espoo
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-From: Jean-Philippe Brucker <jean-philippe@linaro.org>
+On Tue, Oct 24, 2023 at 04:19:24PM +0100, Russell King wrote:
+> From: James Morse <james.morse@arm.com>
+> 
+> The 'offline' file in sysfs shows all offline CPUs, including those
+> that aren't present. User-space is expected to remove not-present CPUs
+> from this list to learn which CPUs could be brought online.
+> 
+> CPUs can be present but not-enabled. These CPUs can't be brought online
+> until the firmware policy changes, which comes with an ACPI notification
+> that will register the CPUs.
+> 
+> With only the offline and present files, user-space is unable to
+> determine which CPUs it can try to bring online. Add a new CPU mask
+> that shows this based on all the registered CPUs.
 
-When a CPU is marked as disabled, but online capable in the MADT, PSCI
-applies some firmware policy to control when it can be brought online.
-PSCI returns DENIED to a CPU_ON request if this is not currently
-permitted. The OS can learn the current policy from the _STA enabled bit.
+...
 
-Handle the PSCI DENIED return code gracefully instead of printing an
-error.
+> +static ssize_t print_cpus_enabled(struct device *dev,
+> +				  struct device_attribute *attr, char *buf)
+> +{
+> +	return sysfs_emit(buf, "%*pbl\n", cpumask_pr_args(cpu_enabled_mask));
+> +}
+> +static DEVICE_ATTR(enabled, 0444, print_cpus_enabled, NULL);
 
-See https://developer.arm.com/documentation/den0022/f/?lang=en page 58.
+Hmm... DEVICE_ATTR_RO() ?
 
-Signed-off-by: Jean-Philippe Brucker <jean-philippe@linaro.org>
-[ morse: Rewrote commit message ]
-Signed-off-by: James Morse <james.morse@arm.com>
-Signed-off-by: Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
----
-Changes since RFC v2
- * Add specification reference
- * Use EPERM rather than EPROBE_DEFER
----
- arch/arm64/kernel/psci.c     | 2 +-
- arch/arm64/kernel/smp.c      | 3 ++-
- drivers/firmware/psci/psci.c | 2 ++
- 3 files changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/arch/arm64/kernel/psci.c b/arch/arm64/kernel/psci.c
-index 29a8e444db83..4fcc0cdd757b 100644
---- a/arch/arm64/kernel/psci.c
-+++ b/arch/arm64/kernel/psci.c
-@@ -40,7 +40,7 @@ static int cpu_psci_cpu_boot(unsigned int cpu)
- {
- 	phys_addr_t pa_secondary_entry = __pa_symbol(secondary_entry);
- 	int err = psci_ops.cpu_on(cpu_logical_map(cpu), pa_secondary_entry);
--	if (err)
-+	if (err && err != -EPROBE_DEFER)
- 		pr_err("failed to boot CPU%d (%d)\n", cpu, err);
- 
- 	return err;
-diff --git a/arch/arm64/kernel/smp.c b/arch/arm64/kernel/smp.c
-index 8c8f55721786..68ec7fbe166f 100644
---- a/arch/arm64/kernel/smp.c
-+++ b/arch/arm64/kernel/smp.c
-@@ -124,7 +124,8 @@ int __cpu_up(unsigned int cpu, struct task_struct *idle)
- 	/* Now bring the CPU into our world */
- 	ret = boot_secondary(cpu, idle);
- 	if (ret) {
--		pr_err("CPU%u: failed to boot: %d\n", cpu, ret);
-+		if (ret != -EPERM)
-+			pr_err("CPU%u: failed to boot: %d\n", cpu, ret);
- 		return ret;
- 	}
- 
-diff --git a/drivers/firmware/psci/psci.c b/drivers/firmware/psci/psci.c
-index d9629ff87861..ee82e7880d8c 100644
---- a/drivers/firmware/psci/psci.c
-+++ b/drivers/firmware/psci/psci.c
-@@ -218,6 +218,8 @@ static int __psci_cpu_on(u32 fn, unsigned long cpuid, unsigned long entry_point)
- 	int err;
- 
- 	err = invoke_psci_fn(fn, cpuid, entry_point, 0);
-+	if (err == PSCI_RET_DENIED)
-+		return -EPERM;
- 	return psci_to_linux_errno(err);
- }
- 
 -- 
-2.30.2
+With Best Regards,
+Andy Shevchenko
+
 
