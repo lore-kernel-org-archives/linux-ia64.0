@@ -2,39 +2,39 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id CD0BCC25B48
-	for <linux-ia64@archiver.kernel.org>; Tue, 24 Oct 2023 15:30:23 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id B4F50C25B6E
+	for <linux-ia64@archiver.kernel.org>; Tue, 24 Oct 2023 15:30:24 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S1344004AbjJXPaX (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Tue, 24 Oct 2023 11:30:23 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:47514 "EHLO
+        id S234761AbjJXPaY (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Tue, 24 Oct 2023 11:30:24 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:40018 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1343898AbjJXP35 (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Tue, 24 Oct 2023 11:29:57 -0400
+        with ESMTP id S234838AbjJXP3w (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Tue, 24 Oct 2023 11:29:52 -0400
 Received: from pandora.armlinux.org.uk (pandora.armlinux.org.uk [IPv6:2001:4d48:ad52:32c8:5054:ff:fe00:142])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id EF1472D52;
-        Tue, 24 Oct 2023 08:18:57 -0700 (PDT)
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id E64241720;
+        Tue, 24 Oct 2023 08:19:11 -0700 (PDT)
 DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
         d=armlinux.org.uk; s=pandora-2019; h=Date:Sender:Message-Id:Content-Type:
         Content-Transfer-Encoding:MIME-Version:Subject:Cc:To:From:References:
         In-Reply-To:Reply-To:Content-ID:Content-Description:Resent-Date:Resent-From:
         Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:List-Id:List-Help:
         List-Unsubscribe:List-Subscribe:List-Post:List-Owner:List-Archive;
-        bh=NNfCkWmd5LT0BAlRMwpLRo9og9wq6dyC/LO+q6jD+yw=; b=pyT8sDn3D1Na/0O83HIphO1Ygc
-        l6elglC6TwBupkx3TMPL6MHhd2AQ13+rYybnm0Z2pPCaFUuxwj82HJY+JIzqfk8mGsLNkv610UyCO
-        Mu8peZB3jHlW2munKziOBEfKGZwJcPj8n/tN4OL3S9fexilLt0PcraVsNGn/RbnYJMs6Gx+A/yVsV
-        8Yb4sXGt74xXlYc6UEszKMH3by5XWusgwOTbCfqzHtABHHLYkGpXAcRtU6UgpuhZrNXk2EdBkqfEC
-        gZrnaaFcBiIzZgVdZDiJT4aZixMrV3HtPxI0LxbVPyNoi1yiCfbQ6QuP6izPgBwNqRCmtL8esPEGk
-        gnU6KdQw==;
-Received: from e0022681537dd.dyn.armlinux.org.uk ([fd8f:7570:feb6:1:222:68ff:fe15:37dd]:44458 helo=rmk-PC.armlinux.org.uk)
+        bh=wObq1ZtL38GoyXrpykUfQ+L3NY/VXeUmDZFIelovoYM=; b=FZDrLbP5QGr0Bfm6ivhiO1LbjQ
+        Y4iafTUgbHLhkHP38WYvvVy6wgsx3XPMAkOraEF/gFnmpk/e9X8NZoY39Fs82GsEQOi/AN3hzJ2z/
+        AKclEoxu7/BMPGlEBiHrVD+WGnT9K6F7yHYlIdOhSJ2tG/uPgN7TE9h8GpOG9WAE91evCIgpZBP3I
+        fNhegreY0+W0QGkObxdbNBGb1DIqOBJzYV1rmlxYQLBApbk5ERid6ZuTH8skj0JKRp7i3gwXyHFeE
+        sSLJw4ITb6s22exlxYg9WpCPCaWm2XP1LB3GblSxuM+VwsqI4Bu6lJ4uGAL4IC/+A7rVLNhjbUQUr
+        pajifeoQ==;
+Received: from e0022681537dd.dyn.armlinux.org.uk ([fd8f:7570:feb6:1:222:68ff:fe15:37dd]:46028 helo=rmk-PC.armlinux.org.uk)
         by pandora.armlinux.org.uk with esmtpsa  (TLS1.3) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
         (Exim 4.96)
         (envelope-from <rmk@armlinux.org.uk>)
-        id 1qvJBE-0004VZ-1a;
-        Tue, 24 Oct 2023 16:18:52 +0100
+        id 1qvJBO-0004WC-2a;
+        Tue, 24 Oct 2023 16:19:03 +0100
 Received: from rmk by rmk-PC.armlinux.org.uk with local (Exim 4.94.2)
         (envelope-from <rmk@rmk-PC.armlinux.org.uk>)
-        id 1qvJBF-00AqRw-Us; Tue, 24 Oct 2023 16:18:54 +0100
+        id 1qvJBQ-00AqS8-8B; Tue, 24 Oct 2023 16:19:04 +0100
 In-Reply-To: <ZTffkAdOqL2pI2la@shell.armlinux.org.uk>
 References: <ZTffkAdOqL2pI2la@shell.armlinux.org.uk>
 From:   Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
@@ -49,82 +49,88 @@ Cc:     Salil Mehta <salil.mehta@huawei.com>,
         Jean-Philippe Brucker <jean-philippe@linaro.org>,
         jianyong.wu@arm.com, justin.he@arm.com,
         James Morse <james.morse@arm.com>,
-        Marc Zyngier <maz@kernel.org>,
-        Thomas Gleixner <tglx@linutronix.de>
-Subject: [PATCH 32/39] irqchip/gic-v3: Don't return errors from
- gic_acpi_match_gicc()
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Lorenzo Pieralisi <lpieralisi@kernel.org>
+Subject: [PATCH 34/39] arm64: psci: Ignore DENIED CPUs
 MIME-Version: 1.0
 Content-Disposition: inline
 Content-Transfer-Encoding: 8bit
 Content-Type: text/plain; charset="utf-8"
-Message-Id: <E1qvJBF-00AqRw-Us@rmk-PC.armlinux.org.uk>
+Message-Id: <E1qvJBQ-00AqS8-8B@rmk-PC.armlinux.org.uk>
 Sender: Russell King <rmk@armlinux.org.uk>
-Date:   Tue, 24 Oct 2023 16:18:53 +0100
+Date:   Tue, 24 Oct 2023 16:19:04 +0100
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
-From: James Morse <james.morse@arm.com>
+From: Jean-Philippe Brucker <jean-philippe@linaro.org>
 
-gic_acpi_match_gicc() is only called via gic_acpi_count_gicr_regions().
-It should only count the number of enabled redistributors, but it
-also tries to sanity check the GICC entry, currently returning an
-error if the Enabled bit is set, but the gicr_base_address is zero.
+When a CPU is marked as disabled, but online capable in the MADT, PSCI
+applies some firmware policy to control when it can be brought online.
+PSCI returns DENIED to a CPU_ON request if this is not currently
+permitted. The OS can learn the current policy from the _STA enabled bit.
 
-Adding support for the online-capable bit to the sanity check
-complicates it, for no benefit. The existing check implicitly
-depends on gic_acpi_count_gicr_regions() previous failing to find
-any GICR regions (as it is valid to have gicr_base_address of zero if
-the redistributors are described via a GICR entry).
+Handle the PSCI DENIED return code gracefully instead of printing an
+error.
 
-Instead of complicating the check, remove it. Failures that happen
-at this point cause the irqchip not to register, meaning no irqs
-can be requested. The kernel grinds to a panic() pretty quickly.
+See https://developer.arm.com/documentation/den0022/f/?lang=en page 58.
 
-Without the check, MADT tables that exhibit this problem are still
-caught by gic_populate_rdist(), which helpfully also prints what
-went wrong:
-| CPU4: mpidr 100 has no re-distributor!
-
+Signed-off-by: Jean-Philippe Brucker <jean-philippe@linaro.org>
+[ morse: Rewrote commit message ]
 Signed-off-by: James Morse <james.morse@arm.com>
-Reviewed-by: Gavin Shan <gshan@redhat.com>
 Signed-off-by: Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
 ---
- drivers/irqchip/irq-gic-v3.c | 18 ++++++------------
- 1 file changed, 6 insertions(+), 12 deletions(-)
+Changes since RFC v2
+ * Add specification reference
+ * Use EPERM rather than EPROBE_DEFER
+---
+ arch/arm64/kernel/psci.c     | 2 +-
+ arch/arm64/kernel/smp.c      | 3 ++-
+ drivers/firmware/psci/psci.c | 2 ++
+ 3 files changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/irqchip/irq-gic-v3.c b/drivers/irqchip/irq-gic-v3.c
-index d50d9414f471..e787e7bbb5a2 100644
---- a/drivers/irqchip/irq-gic-v3.c
-+++ b/drivers/irqchip/irq-gic-v3.c
-@@ -2428,21 +2428,15 @@ static int __init gic_acpi_match_gicc(union acpi_subtable_headers *header,
+diff --git a/arch/arm64/kernel/psci.c b/arch/arm64/kernel/psci.c
+index 29a8e444db83..4fcc0cdd757b 100644
+--- a/arch/arm64/kernel/psci.c
++++ b/arch/arm64/kernel/psci.c
+@@ -40,7 +40,7 @@ static int cpu_psci_cpu_boot(unsigned int cpu)
+ {
+ 	phys_addr_t pa_secondary_entry = __pa_symbol(secondary_entry);
+ 	int err = psci_ops.cpu_on(cpu_logical_map(cpu), pa_secondary_entry);
+-	if (err)
++	if (err && err != -EPROBE_DEFER)
+ 		pr_err("failed to boot CPU%d (%d)\n", cpu, err);
  
- 	/*
- 	 * If GICC is enabled and has valid gicr base address, then it means
--	 * GICR base is presented via GICC
-+	 * GICR base is presented via GICC. The redistributor is only known to
-+	 * be accessible if the GICC is marked as enabled. If this bit is not
-+	 * set, we'd need to add the redistributor at runtime, which isn't
-+	 * supported.
- 	 */
--	if (acpi_gicc_is_usable(gicc) && gicc->gicr_base_address) {
-+	if (gicc->flags & ACPI_MADT_ENABLED && gicc->gicr_base_address)
- 		acpi_data.enabled_rdists++;
--		return 0;
--	}
+ 	return err;
+diff --git a/arch/arm64/kernel/smp.c b/arch/arm64/kernel/smp.c
+index 8c8f55721786..68ec7fbe166f 100644
+--- a/arch/arm64/kernel/smp.c
++++ b/arch/arm64/kernel/smp.c
+@@ -124,7 +124,8 @@ int __cpu_up(unsigned int cpu, struct task_struct *idle)
+ 	/* Now bring the CPU into our world */
+ 	ret = boot_secondary(cpu, idle);
+ 	if (ret) {
+-		pr_err("CPU%u: failed to boot: %d\n", cpu, ret);
++		if (ret != -EPERM)
++			pr_err("CPU%u: failed to boot: %d\n", cpu, ret);
+ 		return ret;
+ 	}
  
--	/*
--	 * It's perfectly valid firmware can pass disabled GICC entry, driver
--	 * should not treat as errors, skip the entry instead of probe fail.
--	 */
--	if (!acpi_gicc_is_usable(gicc))
--		return 0;
--
--	return -ENODEV;
-+	return 0;
+diff --git a/drivers/firmware/psci/psci.c b/drivers/firmware/psci/psci.c
+index d9629ff87861..ee82e7880d8c 100644
+--- a/drivers/firmware/psci/psci.c
++++ b/drivers/firmware/psci/psci.c
+@@ -218,6 +218,8 @@ static int __psci_cpu_on(u32 fn, unsigned long cpuid, unsigned long entry_point)
+ 	int err;
+ 
+ 	err = invoke_psci_fn(fn, cpuid, entry_point, 0);
++	if (err == PSCI_RET_DENIED)
++		return -EPERM;
+ 	return psci_to_linux_errno(err);
  }
  
- static int __init gic_acpi_count_gicr_regions(void)
 -- 
 2.30.2
 
