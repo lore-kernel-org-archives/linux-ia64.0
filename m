@@ -2,39 +2,39 @@ Return-Path: <linux-ia64-owner@vger.kernel.org>
 X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
 	aws-us-west-2-korg-lkml-1.web.codeaurora.org
 Received: from vger.kernel.org (vger.kernel.org [23.128.96.18])
-	by smtp.lore.kernel.org (Postfix) with ESMTP id 07D0FC27C49
-	for <linux-ia64@archiver.kernel.org>; Tue, 24 Oct 2023 15:22:49 +0000 (UTC)
+	by smtp.lore.kernel.org (Postfix) with ESMTP id BB1DDC25B6F
+	for <linux-ia64@archiver.kernel.org>; Tue, 24 Oct 2023 15:23:05 +0000 (UTC)
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-        id S1343648AbjJXPWs (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
-        Tue, 24 Oct 2023 11:22:48 -0400
-Received: from lindbergh.monkeyblade.net ([23.128.96.19]:36316 "EHLO
+        id S234839AbjJXPXE (ORCPT <rfc822;linux-ia64@archiver.kernel.org>);
+        Tue, 24 Oct 2023 11:23:04 -0400
+Received: from lindbergh.monkeyblade.net ([23.128.96.19]:55546 "EHLO
         lindbergh.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S233846AbjJXPVi (ORCPT
-        <rfc822;linux-ia64@vger.kernel.org>); Tue, 24 Oct 2023 11:21:38 -0400
+        with ESMTP id S1343724AbjJXPWN (ORCPT
+        <rfc822;linux-ia64@vger.kernel.org>); Tue, 24 Oct 2023 11:22:13 -0400
 Received: from pandora.armlinux.org.uk (pandora.armlinux.org.uk [IPv6:2001:4d48:ad52:32c8:5054:ff:fe00:142])
-        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id B1A2F2736;
-        Tue, 24 Oct 2023 08:18:46 -0700 (PDT)
+        by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 5C4E7172C;
+        Tue, 24 Oct 2023 08:19:14 -0700 (PDT)
 DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
         d=armlinux.org.uk; s=pandora-2019; h=Date:Sender:Message-Id:Content-Type:
         Content-Transfer-Encoding:MIME-Version:Subject:Cc:To:From:References:
         In-Reply-To:Reply-To:Content-ID:Content-Description:Resent-Date:Resent-From:
         Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:List-Id:List-Help:
         List-Unsubscribe:List-Subscribe:List-Post:List-Owner:List-Archive;
-        bh=Ze2TRVkRqR4drLEJGzW55W0BbOj7xe/gYvcpwrw1jmo=; b=1BmU+vUn4GikmkewZzDHoWl5+Y
-        sptyk9FERjGoMsJAO6GSWaifU/ae1beO70C0qhMz/nh1TlRlNjHQGNfzuVFnpgQc8SNI3lVPnHrzc
-        62hKZW4Tsh4Vz1e1hdlkXksXJFqHADvVc26xFsLFrPR1P1OGFaFvTA/4YJHMAOLcEBlOqk0b7e9Ll
-        iG+Eq0iGfk5quCF6eH3dEmD5LSs8+y1u8epmvD+DHvWN+7tZrLt0FaOaSA7WDXeyIIovHpeAbhPZ7
-        za3T13nIB8VMDBLdyXJ1FN7n4bHMjDRWiRrupoRHFDuES2TMrfKpry5bGdvFd1vc/PPuKBInWP6Z6
-        EsOp6ZPA==;
-Received: from e0022681537dd.dyn.armlinux.org.uk ([fd8f:7570:feb6:1:222:68ff:fe15:37dd]:47602 helo=rmk-PC.armlinux.org.uk)
+        bh=12w7K7dO29MbxfP53Lft0Z7mBOdLwfFt1jxGUMo5HMk=; b=CcWYSHtl24jmYPLwVNHVjlq7N4
+        Az9LcXXkfoOTBLHiAFcg7vM5Xx08sBXtS538xT8Sv2pL/ULY5cdXRbkHqz2bCi/yC1pc/ACLn4yGc
+        Sex71CVUnTKNmOwoP2v84PbhSe9QpnC8RqK9eU6M9znWxlO+4n7Wgxeq3WG9FUbrFSoTiuRCP/W6G
+        TeGp5dYi/rCEzcdYNXju1XG8adI1tw1m1iASMqzrvBBamjDlu1jal6U+WzUcX/gi/BeI3lq+5ilhe
+        NNU3Gstt86zag54UZnTAKVb9jBx1KtD+pjnrdXIeBLeQ6iv+DNwvL3vT5A2hnLupfLdTC3LxQuXAC
+        VoAH4QUQ==;
+Received: from e0022681537dd.dyn.armlinux.org.uk ([fd8f:7570:feb6:1:222:68ff:fe15:37dd]:60314 helo=rmk-PC.armlinux.org.uk)
         by pandora.armlinux.org.uk with esmtpsa  (TLS1.3) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
         (Exim 4.96)
         (envelope-from <rmk@armlinux.org.uk>)
-        id 1qvJB4-0004V1-0d;
-        Tue, 24 Oct 2023 16:18:42 +0100
+        id 1qvJBT-0004WQ-31;
+        Tue, 24 Oct 2023 16:19:07 +0100
 Received: from rmk by rmk-PC.armlinux.org.uk with local (Exim 4.94.2)
         (envelope-from <rmk@rmk-PC.armlinux.org.uk>)
-        id 1qvJB5-00AqRk-M6; Tue, 24 Oct 2023 16:18:43 +0100
+        id 1qvJBV-00AqSE-Cu; Tue, 24 Oct 2023 16:19:09 +0100
 In-Reply-To: <ZTffkAdOqL2pI2la@shell.armlinux.org.uk>
 References: <ZTffkAdOqL2pI2la@shell.armlinux.org.uk>
 From:   Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
@@ -49,83 +49,104 @@ Cc:     Salil Mehta <salil.mehta@huawei.com>,
         Jean-Philippe Brucker <jean-philippe@linaro.org>,
         jianyong.wu@arm.com, justin.he@arm.com,
         James Morse <james.morse@arm.com>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will@kernel.org>
-Subject: [PATCH 30/39] arm64: acpi: Move get_cpu_for_acpi_id() to a header
+        "Rafael J. Wysocki" <rafael@kernel.org>,
+        Len Brown <lenb@kernel.org>
+Subject: [PATCH 35/39] ACPI: add support to register CPUs based on the _STA
+ enabled bit
 MIME-Version: 1.0
 Content-Disposition: inline
 Content-Transfer-Encoding: 8bit
 Content-Type: text/plain; charset="utf-8"
-Message-Id: <E1qvJB5-00AqRk-M6@rmk-PC.armlinux.org.uk>
+Message-Id: <E1qvJBV-00AqSE-Cu@rmk-PC.armlinux.org.uk>
 Sender: Russell King <rmk@armlinux.org.uk>
-Date:   Tue, 24 Oct 2023 16:18:43 +0100
+Date:   Tue, 24 Oct 2023 16:19:09 +0100
 Precedence: bulk
 List-ID: <linux-ia64.vger.kernel.org>
 X-Mailing-List: linux-ia64@vger.kernel.org
 
 From: James Morse <james.morse@arm.com>
 
-ACPI identifies CPUs by UID. get_cpu_for_acpi_id() maps the ACPI UID
-to the linux CPU number.
+acpi_processor_get_info() registers all present CPUs. Registering a
+CPU is what creates the sysfs entries and triggers the udev
+notifications.
 
-The helper to retrieve this mapping is only available in arm64's numa
-code.
+arm64 virtual machines that support 'virtual cpu hotplug' use the
+enabled bit to indicate whether the CPU can be brought online, as
+the existing ACPI tables require all hardware to be described and
+present.
 
-Move it to live next to get_acpi_id_for_cpu().
+If firmware describes a CPU as present, but disabled, skip the
+registration. Such CPUs are present, but can't be brought online for
+whatever reason. (e.g. firmware/hypervisor policy).
+
+Once firmware sets the enabled bit, the CPU can be registered and
+brought online by user-space. Online CPUs, or CPUs that are missing
+an _STA method must always be registered.
 
 Signed-off-by: James Morse <james.morse@arm.com>
-Reviewed-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
 Reviewed-by: Gavin Shan <gshan@redhat.com>
+Reviewed-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
 Signed-off-by: Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
 ---
- arch/arm64/include/asm/acpi.h | 11 +++++++++++
- arch/arm64/kernel/acpi_numa.c | 11 -----------
- 2 files changed, 11 insertions(+), 11 deletions(-)
+ drivers/acpi/acpi_processor.c | 31 ++++++++++++++++++++++++++++++-
+ 1 file changed, 30 insertions(+), 1 deletion(-)
 
-diff --git a/arch/arm64/include/asm/acpi.h b/arch/arm64/include/asm/acpi.h
-index 6792a1f83f2a..bc9a6656fc0c 100644
---- a/arch/arm64/include/asm/acpi.h
-+++ b/arch/arm64/include/asm/acpi.h
-@@ -119,6 +119,17 @@ static inline u32 get_acpi_id_for_cpu(unsigned int cpu)
- 	return	acpi_cpu_get_madt_gicc(cpu)->uid;
+diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processor.c
+index b7a94c1348b0..5dabb426481f 100644
+--- a/drivers/acpi/acpi_processor.c
++++ b/drivers/acpi/acpi_processor.c
+@@ -228,6 +228,32 @@ static int acpi_processor_make_present(struct acpi_processor *pr)
+ 	return ret;
  }
  
-+static inline int get_cpu_for_acpi_id(u32 uid)
++static int acpi_processor_make_enabled(struct acpi_processor *pr)
 +{
-+	int cpu;
++	unsigned long long sta;
++	acpi_status status;
++	bool present, enabled;
 +
-+	for (cpu = 0; cpu < nr_cpu_ids; cpu++)
-+		if (uid == get_acpi_id_for_cpu(cpu))
-+			return cpu;
++	if (!acpi_has_method(pr->handle, "_STA"))
++		return arch_register_cpu(pr->id);
 +
-+	return -EINVAL;
++	status = acpi_evaluate_integer(pr->handle, "_STA", NULL, &sta);
++	if (ACPI_FAILURE(status))
++		return -ENODEV;
++
++	present = sta & ACPI_STA_DEVICE_PRESENT;
++	enabled = sta & ACPI_STA_DEVICE_ENABLED;
++
++	if (cpu_online(pr->id) && (!present || !enabled)) {
++		pr_err_once(FW_BUG "CPU %u is online, but described as not present or disabled!\n", pr->id);
++		add_taint(TAINT_FIRMWARE_WORKAROUND, LOCKDEP_STILL_OK);
++	} else if (!present || !enabled) {
++		return -ENODEV;
++	}
++
++	return arch_register_cpu(pr->id);
 +}
 +
- static inline void arch_fix_phys_package_id(int num, u32 slot) { }
- void __init acpi_init_cpus(void);
- int apei_claim_sea(struct pt_regs *regs);
-diff --git a/arch/arm64/kernel/acpi_numa.c b/arch/arm64/kernel/acpi_numa.c
-index e51535a5f939..0c036a9a3c33 100644
---- a/arch/arm64/kernel/acpi_numa.c
-+++ b/arch/arm64/kernel/acpi_numa.c
-@@ -34,17 +34,6 @@ int __init acpi_numa_get_nid(unsigned int cpu)
- 	return acpi_early_node_map[cpu];
+ static int acpi_processor_get_info(struct acpi_device *device)
+ {
+ 	union acpi_object object = { 0 };
+@@ -318,7 +344,7 @@ static int acpi_processor_get_info(struct acpi_device *device)
+ 	 */
+ 	if (!invalid_logical_cpuid(pr->id) && cpu_present(pr->id) &&
+ 	    !get_cpu_device(pr->id)) {
+-		int ret = arch_register_cpu(pr->id);
++		int ret = acpi_processor_make_enabled(pr);
+ 
+ 		if (ret)
+ 			return ret;
+@@ -526,6 +552,9 @@ static void acpi_processor_post_eject(struct acpi_device *device)
+ 		acpi_processor_make_not_present(device);
+ 		return;
+ 	}
++
++	if (cpu_present(pr->id) && !(sta & ACPI_STA_DEVICE_ENABLED))
++		arch_unregister_cpu(pr->id);
  }
  
--static inline int get_cpu_for_acpi_id(u32 uid)
--{
--	int cpu;
--
--	for (cpu = 0; cpu < nr_cpu_ids; cpu++)
--		if (uid == get_acpi_id_for_cpu(cpu))
--			return cpu;
--
--	return -EINVAL;
--}
--
- static int __init acpi_parse_gicc_pxm(union acpi_subtable_headers *header,
- 				      const unsigned long end)
- {
+ #ifdef CONFIG_ARCH_MIGHT_HAVE_ACPI_PDC
 -- 
 2.30.2
 
