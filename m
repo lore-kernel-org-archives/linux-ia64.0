@@ -1,177 +1,100 @@
 Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=armlinux.org.uk header.i=@armlinux.org.uk header.b="eAF0KRxg"
-Received: from pandora.armlinux.org.uk (pandora.armlinux.org.uk [IPv6:2001:4d48:ad52:32c8:5054:ff:fe00:142])
-	by lindbergh.monkeyblade.net (Postfix) with ESMTPS id BFB6ECD;
-	Mon, 20 Nov 2023 01:58:11 -0800 (PST)
-DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
-	d=armlinux.org.uk; s=pandora-2019; h=Sender:In-Reply-To:
-	Content-Transfer-Encoding:Content-Type:MIME-Version:References:Message-ID:
-	Subject:Cc:To:From:Date:Reply-To:Content-ID:Content-Description:Resent-Date:
-	Resent-From:Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:List-Id:
-	List-Help:List-Unsubscribe:List-Subscribe:List-Post:List-Owner:List-Archive;
-	bh=RRH8ihRwgqqNWiOQXVgz2lSe5cF5QqM2TrvGcFPpVxQ=; b=eAF0KRxgbthRFbPQ6izZC3J3oy
-	NoICC18OIT3Qs7cMSCHEyKdPJVEqlqYYz46JeVVogCAoBWUhXiyxhy9SzyCivvREMDfvxXZSrMpqk
-	BHZ3abqeLK7FySm29lIYiV3szbHsZGZ0MEwL9YBdWcQ/tt0m9Epi+ARclf048DAo9sTRBExtXyU2Y
-	OWqc0bZ0sBPg5y7tECdJwrgrcIV0utpcws+XvnYsepZe+SO7zSvE1M0Dc3TnoMMhyx+qLFfvV/gAy
-	zBVN1YBhtJaSqBUjieLhtAr5Xh4FKBvt+x6MQT63nLwsYbtpT2WmNNA7nk4PLOb78D4oGUQs88/cg
-	AGe8pcpA==;
-Received: from shell.armlinux.org.uk ([fd8f:7570:feb6:1:5054:ff:fe00:4ec]:43368)
-	by pandora.armlinux.org.uk with esmtpsa  (TLS1.3) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	(Exim 4.96)
-	(envelope-from <linux@armlinux.org.uk>)
-	id 1r512Z-0005Gn-2Y;
-	Mon, 20 Nov 2023 09:58:05 +0000
-Received: from linux by shell.armlinux.org.uk with local (Exim 4.94.2)
-	(envelope-from <linux@shell.armlinux.org.uk>)
-	id 1r512Z-00034w-8Z; Mon, 20 Nov 2023 09:58:03 +0000
-Date: Mon, 20 Nov 2023 09:58:03 +0000
-From: "Russell King (Oracle)" <linux@armlinux.org.uk>
-To: Jianyong Wu <Jianyong.Wu@arm.com>
-Cc: "linux-pm@vger.kernel.org" <linux-pm@vger.kernel.org>,
-	"loongarch@lists.linux.dev" <loongarch@lists.linux.dev>,
-	"linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>,
-	"linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
-	"linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>,
-	"kvmarm@lists.linux.dev" <kvmarm@lists.linux.dev>,
-	"x86@kernel.org" <x86@kernel.org>,
-	"linux-csky@vger.kernel.org" <linux-csky@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>,
-	"linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>,
-	Salil Mehta <salil.mehta@huawei.com>,
-	Jean-Philippe Brucker <jean-philippe@linaro.org>,
-	Justin He <Justin.He@arm.com>, James Morse <James.Morse@arm.com>,
-	Catalin Marinas <Catalin.Marinas@arm.com>,
-	Will Deacon <will@kernel.org>, Mark Rutland <Mark.Rutland@arm.com>,
-	Lorenzo Pieralisi <lpieralisi@kernel.org>
-Subject: Re: [PATCH 34/39] arm64: psci: Ignore DENIED CPUs
-Message-ID: <ZVstq+vhQSP73Nua@shell.armlinux.org.uk>
-References: <ZTffkAdOqL2pI2la@shell.armlinux.org.uk>
- <E1qvJBQ-00AqS8-8B@rmk-PC.armlinux.org.uk>
- <DB9PR08MB7511B178CA811C412766FDBAF4B0A@DB9PR08MB7511.eurprd08.prod.outlook.com>
- <ZVsl1ZQ9JRXPf4qH@shell.armlinux.org.uk>
- <DB9PR08MB7511C8825028074748FBB967F4B4A@DB9PR08MB7511.eurprd08.prod.outlook.com>
+	dkim=pass (2048-bit key) header.d=cloudflare.com header.i=@cloudflare.com header.b="TJV+6/Hj"
+Received: from mail-pj1-x1031.google.com (mail-pj1-x1031.google.com [IPv6:2607:f8b0:4864:20::1031])
+	by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 1258CD2
+	for <linux-ia64@vger.kernel.org>; Mon, 20 Nov 2023 14:53:04 -0800 (PST)
+Received: by mail-pj1-x1031.google.com with SMTP id 98e67ed59e1d1-280165bba25so3348543a91.2
+        for <linux-ia64@vger.kernel.org>; Mon, 20 Nov 2023 14:53:04 -0800 (PST)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=cloudflare.com; s=google09082023; t=1700520783; x=1701125583; darn=vger.kernel.org;
+        h=cc:to:subject:message-id:date:from:mime-version:from:to:cc:subject
+         :date:message-id:reply-to;
+        bh=jj/vQll/FXoy8ynJ7Qc2odNrUXWiiF64P1hSHAKTnLo=;
+        b=TJV+6/Hjq4Mewn2fI8FIeDdxzYZ3UyjLy2g1qYqHn0qKm4X5Lai6NZRNtH5YJ98k1I
+         a6l7RGAy8lpggsIo5s8nb6WLFemAN7F8KRsKr0LKn4uZgW8J9rqWNUY4bMSvUIio7204
+         lQiUwoB54lkZvokSYE0NUY9Ui6mbjBtTp6dw5oDhSzvq+ASDN90KV2jxoowcLbHEewGL
+         D9E8G5H2+dWqZ967YfP02MaS+tqJznZLG2DUYr4BgvUHMq/W0Y5cayHWxgNFPAOQgF/s
+         oSq86P6Z52FcwSMa6/DUyc0mXeAjxFxDTtvYOuNm+tvst2a0Ds4ecgV0bWB6qd36dxr6
+         99IQ==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1700520783; x=1701125583;
+        h=cc:to:subject:message-id:date:from:mime-version:x-gm-message-state
+         :from:to:cc:subject:date:message-id:reply-to;
+        bh=jj/vQll/FXoy8ynJ7Qc2odNrUXWiiF64P1hSHAKTnLo=;
+        b=coWyKwvtlGrIsjUyQjBpeFGtyyKH+uK2j5tsgchKhWIVlGBkZZbfBaQU5OkQ7RhXKp
+         xQ6SMM8DMBaA3mLmhjIpSPpXgo42xSjSv+XUCLBFElGlyScYaNeaQXbsiseO4Hq62VDk
+         OGHjPL6+mNeQepVoCaj7LVlSXO9/LOgOmxrB7tyiHyXzxiAWFmSLoweYUZS6DvUtVm/S
+         7EEqyneOKQ3axTfij919/YBt1Sd09eOFmX3BWx5YRhJ1vxG8GdkrBdLRmhC25FU68z5J
+         UsZI9vP9uRv3sw0nKE57jGiahupC3WGCVYc8+VvjWlLBWsR5LIaNDnXJ7whIrFJHT6Q6
+         qJIQ==
+X-Gm-Message-State: AOJu0YxuroMjzjt7Q07q4G1pWN1oWxcMMnnAdpZxA92T91iUvFB3sn/+
+	whwIZ42/viIM53vGxKFUd1TaFLPOJW6anXbjNdpUjw==
+X-Google-Smtp-Source: AGHT+IFZPPhV0R/g5zHGb3q3Uo9IH7rXXP80OMq0eithxekw9SzGz9ATfztUful4gMY68aa6sJe0kX0Yn689XQCOKAw=
+X-Received: by 2002:a17:90b:1a89:b0:27d:2364:44f6 with SMTP id
+ ng9-20020a17090b1a8900b0027d236444f6mr7022804pjb.6.1700520783377; Mon, 20 Nov
+ 2023 14:53:03 -0800 (PST)
 Precedence: bulk
 X-Mailing-List: linux-ia64@vger.kernel.org
 List-Id: <linux-ia64.vger.kernel.org>
 List-Subscribe: <mailto:linux-ia64+subscribe@vger.kernel.org>
 List-Unsubscribe: <mailto:linux-ia64+unsubscribe@vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: 8bit
-In-Reply-To: <DB9PR08MB7511C8825028074748FBB967F4B4A@DB9PR08MB7511.eurprd08.prod.outlook.com>
-Sender: Russell King (Oracle) <linux@armlinux.org.uk>
+From: Ignat Korchagin <ignat@cloudflare.com>
+Date: Mon, 20 Nov 2023 22:52:52 +0000
+Message-ID: <CALrw=nHpRQQaQTP_jZfREgrQEMpS8jBF8JQCv4ygqXycE-StaA@mail.gmail.com>
+Subject: Potential config regression after 89cde455 ("kexec: consolidate kexec
+ and crash options into kernel/Kconfig.kexec")
+To: eric.devolder@oracle.com
+Cc: linux@armlinux.org.uk, catalin.marinas@arm.com, will@kernel.org, 
+	chenhuacai@kernel.org, geert@linux-m68k.org, tsbogend@alpha.franken.de, 
+	James Bottomley <James.Bottomley@hansenpartnership.com>, deller@gmx.de, 
+	ysato@users.sourceforge.jp, dalias@libc.org, glaubitz@physik.fu-berlin.de, 
+	Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, 
+	dave.hansen@linux.intel.com, x86@kernel.org, 
+	linux-kernel <linux-kernel@vger.kernel.org>, linux-arm-kernel@lists.infradead.org, 
+	linux-ia64@vger.kernel.org, loongarch@lists.linux.dev, 
+	linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, 
+	linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, 
+	linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, 
+	linux-sh@vger.kernel.org, kernel@xen0n.name, mpe@ellerman.id.au, 
+	npiggin@gmail.com, christophe.leroy@csgroup.eu, paul.walmsley@sifive.com, 
+	palmer@dabbelt.com, aou@eecs.berkeley.edu, hca@linux.ibm.com, 
+	gor@linux.ibm.com, agordeev@linux.ibm.com, borntraeger@linux.ibm.com, 
+	svens@linux.ibm.com, hpa@zytor.com, keescook@chromium.org, paulmck@kernel.org, 
+	Peter Zijlstra <peterz@infradead.org>, frederic@kernel.org, 
+	Andrew Morton <akpm@linux-foundation.org>, Ard Biesheuvel <ardb@kernel.org>, samitolvanen@google.com, 
+	juerg.haefliger@canonical.com, arnd@arndb.de, rmk+kernel@armlinux.org.uk, 
+	linus.walleij@linaro.org, sebastian.reichel@collabora.com, rppt@kernel.org, 
+	kirill.shutemov@linux.intel.com, anshuman.khandual@arm.com, ziy@nvidia.com, 
+	masahiroy@kernel.org, ndesaulniers@google.com, mhiramat@kernel.org, 
+	ojeda@kernel.org, thunder.leizhen@huawei.com, xin3.li@intel.com, 
+	tj@kernel.org, Greg KH <gregkh@linuxfoundation.org>, tsi@tuyoix.net, bhe@redhat.com, 
+	hbathini@linux.ibm.com, sourabhjain@linux.ibm.com, boris.ostrovsky@oracle.com, 
+	konrad.wilk@oracle.com, kernel-team <kernel-team@cloudflare.com>
+Content-Type: text/plain; charset="UTF-8"
 
-On Mon, Nov 20, 2023 at 09:36:05AM +0000, Jianyong Wu wrote:
-> 
-> 
-> > -----Original Message-----
-> > From: Russell King <linux@armlinux.org.uk>
-> > Sent: 2023年11月20日 17:25
-> > To: Jianyong Wu <Jianyong.Wu@arm.com>
-> > Cc: linux-pm@vger.kernel.org; loongarch@lists.linux.dev;
-> > linux-acpi@vger.kernel.org; linux-arch@vger.kernel.org;
-> > linux-kernel@vger.kernel.org; linux-arm-kernel@lists.infradead.org;
-> > linux-riscv@lists.infradead.org; kvmarm@lists.linux.dev; x86@kernel.org;
-> > linux-csky@vger.kernel.org; linux-doc@vger.kernel.org;
-> > linux-ia64@vger.kernel.org; linux-parisc@vger.kernel.org; Salil Mehta
-> > <salil.mehta@huawei.com>; Jean-Philippe Brucker <jean-philippe@linaro.org>;
-> > Justin He <Justin.He@arm.com>; James Morse <James.Morse@arm.com>;
-> > Catalin Marinas <Catalin.Marinas@arm.com>; Will Deacon <will@kernel.org>;
-> > Mark Rutland <Mark.Rutland@arm.com>; Lorenzo Pieralisi
-> > <lpieralisi@kernel.org>
-> > Subject: Re: [PATCH 34/39] arm64: psci: Ignore DENIED CPUs
-> > 
-> > On Thu, Nov 16, 2023 at 07:45:51AM +0000, Jianyong Wu wrote:
-> > > Hi Russell,
-> > >
-> > > One inline comment.
-> > ...
-> > > > Changes since RFC v2
-> > > >  * Add specification reference
-> > > >  * Use EPERM rather than EPROBE_DEFER
-> > ...
-> > > > @@ -40,7 +40,7 @@ static int cpu_psci_cpu_boot(unsigned int cpu)  {
-> > > >  	phys_addr_t pa_secondary_entry = __pa_symbol(secondary_entry);
-> > > >  	int err = psci_ops.cpu_on(cpu_logical_map(cpu), pa_secondary_entry);
-> > > > -	if (err)
-> > > > +	if (err && err != -EPROBE_DEFER)
-> > >
-> > > Should this be EPERM? As the following psci cpu_on op will return it.
-> > > I think you miss to change this when apply Jean-Philippe's patch.
-> > 
-> > It looks like James didn't properly update all places. Also,
-> > 
-> > > > diff --git a/drivers/firmware/psci/psci.c
-> > > > b/drivers/firmware/psci/psci.c index d9629ff87861..ee82e7880d8c
-> > > > 100644
-> > > > --- a/drivers/firmware/psci/psci.c
-> > > > +++ b/drivers/firmware/psci/psci.c
-> > > > @@ -218,6 +218,8 @@ static int __psci_cpu_on(u32 fn, unsigned long
-> > > > cpuid, unsigned long entry_point)
-> > > >  	int err;
-> > > >
-> > > >  	err = invoke_psci_fn(fn, cpuid, entry_point, 0);
-> > > > +	if (err == PSCI_RET_DENIED)
-> > > > +		return -EPERM;
-> > > >  	return psci_to_linux_errno(err);
-> > 
-> > This change is unnecessary - probably comes from when -EPROBE_DEFER was
-> > being used. psci_to_linux_errno() already does:
-> 
-> But may print lots of noise like:
-> 
-> [    0.008955] smp: Bringing up secondary CPUs ...
-> [    0.009661] psci: failed to boot CPU1 (-1)
-> [    0.010360] psci: failed to boot CPU2 (-1)
-> [    0.011164] psci: failed to boot CPU3 (-1)
-> [    0.011946] psci: failed to boot CPU4 (-1)
-> [    0.012764] psci: failed to boot CPU5 (-1)
-> [    0.013534] psci: failed to boot CPU6 (-1)
-> [    0.014349] psci: failed to boot CPU7 (-1)
-> [    0.014820] smp: Brought up 1 node, 1 CPU
-> 
-> Is this expected?
+Good day!
 
-Please read my email again, and take note of the _context_ above the
-places that I've commented. Context matters.
+We have recently started to evaluate Linux 6.6 and noticed that we
+cannot disable CONFIG_KEXEC anymore, but keep CONFIG_CRASH_DUMP
+enabled. It seems to be related to commit 89cde455 ("kexec:
+consolidate kexec and crash options into kernel/Kconfig.kexec"), where
+a CONFIG_KEXEC dependency was added to CONFIG_CRASH_DUMP.
 
-What I'm saying is that this change:
+In our current kernel (Linux 6.1) we only enable CONFIG_KEXEC_FILE
+with enforced signature check to support the kernel crash dumping
+functionality and would like to keep CONFIG_KEXEC disabled for
+security reasons [1].
 
- 	err = invoke_psci_fn(fn, cpuid, entry_point, 0);
-+	if (err == PSCI_RET_DENIED)
-+		return -EPERM;
- 	return psci_to_linux_errno(err);
+I was reading the long commit message, but the reason for adding
+CONFIG_KEXEC as a dependency for CONFIG_CRASH_DUMP evaded me. And I
+believe from the implementation perspective CONFIG_KEXEC_FILE should
+suffice here (as we successfully used it for crashdumps on Linux 6.1).
 
-Is unnecessary when psci_to_linux_errno() already does:
+Is there a reason for adding this dependency or is it just an
+oversight? Would some solution of requiring either CONFIG_KEXEC or
+CONFIG_KEXEC_FILE work here?
 
-static __always_inline int psci_to_linux_errno(int errno)
-{
-	switch (errno) {
-	...
-	case PSCI_RET_DENIED:
-		return -EPERM;
+Ignat
 
-So, a return of PSCI_RET_DENIED from invoke_psci_fn() above will
-_already_ be translated to -EPERM (which is -1) by
-psci_to_linux_errno(). There is no need to add that extra if()
-statement in __psci_cpu_on().
-
-I was _not_ saying that the entire patch was unnecessary.
-
-Context matters. That's why we include context in replies.
-
-Standard email etiquette (before Microsoft messed it up) is to quote the
-email that is being replied to, trimming hard irrelevant content, and to
-place the reply comments immediately below the original content to which
-the comments relate, to give the reply comments the context necessary
-for correct interpretation.
-
-Thanks.
-
--- 
-RMK's Patch system: https://www.armlinux.org.uk/developer/patches/
-FTTP is here! 80Mbps down 10Mbps up. Decent connectivity at last!
+[1]: https://mjg59.dreamwidth.org/28746.html
