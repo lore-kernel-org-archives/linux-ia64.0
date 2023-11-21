@@ -1,7 +1,7 @@
 Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=armlinux.org.uk header.i=@armlinux.org.uk header.b="JGDFqWok"
+	dkim=pass (2048-bit key) header.d=armlinux.org.uk header.i=@armlinux.org.uk header.b="aK8Z+bb3"
 Received: from pandora.armlinux.org.uk (pandora.armlinux.org.uk [IPv6:2001:4d48:ad52:32c8:5054:ff:fe00:142])
-	by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 65D0F1706;
+	by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 65BA4D7F;
 	Tue, 21 Nov 2023 05:44:44 -0800 (PST)
 DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
 	d=armlinux.org.uk; s=pandora-2019; h=Date:Sender:Message-Id:Content-Type:
@@ -9,24 +9,24 @@ DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
 	In-Reply-To:Reply-To:Content-ID:Content-Description:Resent-Date:Resent-From:
 	Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:List-Id:List-Help:
 	List-Unsubscribe:List-Subscribe:List-Post:List-Owner:List-Archive;
-	bh=hiJfEbpD9iK5AcJXMTBgMWFg83Hq4/GNPWe0X0U3LtI=; b=JGDFqWokgaRiKZzHoR/GM+LEs+
-	25yW1mgxdouCJk7khg7YCvIWYBR6V6xy8HsJCx098huXx/XC63aFPnjg9QXWJU7Vqe6xYMh2e/9nT
-	hoa7pz1gbWSzrzOHoMOcotZhEpHeWiINyLKEgdwd1SBCK6NhV3Bf91/XHrD4nYpDgdA/tZf0iUwm6
-	KMvdilbeAZvaj1QLCzNpIUPfSQq+vSpFdf6dsru86dHOlQBswiU+AbsdB5Hck+ZjWqX5/PWMz7xN4
-	sF/vPDFNictilXveT+MtaQhUC+1NUWvEBq3J+YvjXKSo2niS7wwdmdCRdZBOluQtctnrDkxRvHfw1
-	J8TD4OwA==;
-Received: from e0022681537dd.dyn.armlinux.org.uk ([fd8f:7570:feb6:1:222:68ff:fe15:37dd]:44206 helo=rmk-PC.armlinux.org.uk)
+	bh=NBEBqsxRM69zEZyAIr1RVA2X5y0uA8ns6dIxJb5hWFo=; b=aK8Z+bb3TgcPd5wkyjOnWMdsUr
+	CR/23xnuLXKcjxCRbrdd3D+ewu78B0gPfphwNcz1QIjrxiuoV0Ato8p1rSqUHB0MPsaEpBMouQIqn
+	xly3fPxymctQzSay2+f3oSgBodJsMNPMuryRSWF1zC3cDYTy62Mf76oQiEpNO+9TQY8igbZTcGDhT
+	gR6VtecfEH6lEtdyDkvGiPbIaEhtwWcpWrRCzCythPNCZEbbKOQ1f/q0IT1yfpQBJxGagkSAlpWJw
+	5TDxfPuFa+CKCDW2mbEddGk68g3+cZdPuhz9g3Kprk+hRGMOxntNOrNR12GV5oMW+1v4tMF+ufpUc
+	mvEc6SDQ==;
+Received: from e0022681537dd.dyn.armlinux.org.uk ([fd8f:7570:feb6:1:222:68ff:fe15:37dd]:44202 helo=rmk-PC.armlinux.org.uk)
 	by pandora.armlinux.org.uk with esmtpsa  (TLS1.3) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
 	(Exim 4.96)
 	(envelope-from <rmk@armlinux.org.uk>)
-	id 1r5R3K-00077t-28;
+	id 1r5R3K-00077s-1d;
 	Tue, 21 Nov 2023 13:44:34 +0000
 Received: from rmk by rmk-PC.armlinux.org.uk with local (Exim 4.94.2)
 	(envelope-from <rmk@rmk-PC.armlinux.org.uk>)
-	id 1r5R3M-00CszH-6r; Tue, 21 Nov 2023 13:44:36 +0000
+	id 1r5R3H-00CszC-2n; Tue, 21 Nov 2023 13:44:31 +0000
 In-Reply-To: <ZVyz/Ve5pPu8AWoA@shell.armlinux.org.uk>
 References: <ZVyz/Ve5pPu8AWoA@shell.armlinux.org.uk>
-From: "Russell King (Oracle)" <rmk+kernel@armlinux.org.uk>
+From: Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
 To: linux-pm@vger.kernel.org,
 	 loongarch@lists.linux.dev,
 	 linux-acpi@vger.kernel.org,
@@ -47,9 +47,10 @@ Cc: Salil Mehta <salil.mehta@huawei.com>,
 	 James Morse <james.morse@arm.com>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	"Rafael J. Wysocki" <rafael@kernel.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Peter Zijlstra <peterz@infradead.org>
-Subject: [PATCH 09/21] drivers: base: add arch_cpu_is_hotpluggable()
+	Paul Walmsley <paul.walmsley@sifive.com>,
+	Palmer Dabbelt <palmer@dabbelt.com>,
+	Albert Ou <aou@eecs.berkeley.edu>
+Subject: [PATCH 08/21] drivers: base: Implement weak arch_unregister_cpu()
 Precedence: bulk
 X-Mailing-List: linux-ia64@vger.kernel.org
 List-Id: <linux-ia64.vger.kernel.org>
@@ -59,58 +60,53 @@ MIME-Version: 1.0
 Content-Disposition: inline
 Content-Transfer-Encoding: 8bit
 Content-Type: text/plain; charset="utf-8"
-Message-Id: <E1r5R3M-00CszH-6r@rmk-PC.armlinux.org.uk>
+Message-Id: <E1r5R3H-00CszC-2n@rmk-PC.armlinux.org.uk>
 Sender: Russell King <rmk@armlinux.org.uk>
-Date: Tue, 21 Nov 2023 13:44:36 +0000
+Date: Tue, 21 Nov 2023 13:44:31 +0000
 
-The differences between architecture specific implementations of
-arch_register_cpu() are down to whether the CPU is hotpluggable or not.
-Rather than overriding the weak version of arch_register_cpu(), provide
-a function that can be used to provide this detail instead.
+From: James Morse <james.morse@arm.com>
 
+Add arch_unregister_cpu() to allow the ACPI machinery to call
+unregister_cpu(). This is enough for arm64, riscv and loongarch, but
+needs to be overridden by x86 and ia64 who need to do more work.
+
+CC: Jean-Philippe Brucker <jean-philippe@linaro.org>
+Signed-off-by: James Morse <james.morse@arm.com>
 Reviewed-by: Shaoqin Huang <shahuang@redhat.com>
 Signed-off-by: Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
 ---
- drivers/base/cpu.c  | 11 ++++++++++-
- include/linux/cpu.h |  1 +
- 2 files changed, 11 insertions(+), 1 deletion(-)
+An open question remains from the RFC v2 posting: should we provide a
+__weak stub for !HOTPLUG_CPU as well, since in later patches ACPI may
+reference this if the compiler doesn't optimise as we expect?
+
+Changes since v1:
+ * Added CONFIG_HOTPLUG_CPU ifdeffery around unregister_cpu
+Changes since RFC v2:
+ * Move earlier in the series
+---
+ drivers/base/cpu.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/base/cpu.c b/drivers/base/cpu.c
-index 58bb86091b34..221ffbeb1c9b 100644
+index 579064fda97b..58bb86091b34 100644
 --- a/drivers/base/cpu.c
 +++ b/drivers/base/cpu.c
-@@ -527,9 +527,18 @@ EXPORT_SYMBOL_GPL(cpu_is_hotpluggable);
- #ifdef CONFIG_GENERIC_CPU_DEVICES
- DEFINE_PER_CPU(struct cpu, cpu_devices);
- 
-+bool __weak arch_cpu_is_hotpluggable(int cpu)
-+{
-+	return false;
-+}
-+
- int __weak arch_register_cpu(int cpu)
+@@ -531,7 +531,14 @@ int __weak arch_register_cpu(int cpu)
  {
--	return register_cpu(&per_cpu(cpu_devices, cpu), cpu);
-+	struct cpu *c = &per_cpu(cpu_devices, cpu);
-+
-+	c->hotpluggable = arch_cpu_is_hotpluggable(cpu);
-+
-+	return register_cpu(c, cpu);
+ 	return register_cpu(&per_cpu(cpu_devices, cpu), cpu);
  }
+-#endif
++
++#ifdef CONFIG_HOTPLUG_CPU
++void __weak arch_unregister_cpu(int num)
++{
++	unregister_cpu(&per_cpu(cpu_devices, num));
++}
++#endif /* CONFIG_HOTPLUG_CPU */
++#endif /* CONFIG_GENERIC_CPU_DEVICES */
  
- #ifdef CONFIG_HOTPLUG_CPU
-diff --git a/include/linux/cpu.h b/include/linux/cpu.h
-index 1e982d63eae8..dcb89c987164 100644
---- a/include/linux/cpu.h
-+++ b/include/linux/cpu.h
-@@ -80,6 +80,7 @@ extern __printf(4, 5)
- struct device *cpu_device_create(struct device *parent, void *drvdata,
- 				 const struct attribute_group **groups,
- 				 const char *fmt, ...);
-+extern bool arch_cpu_is_hotpluggable(int cpu);
- extern int arch_register_cpu(int cpu);
- extern void arch_unregister_cpu(int cpu);
- #ifdef CONFIG_HOTPLUG_CPU
+ static void __init cpu_dev_register_generic(void)
+ {
 -- 
 2.30.2
 
