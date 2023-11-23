@@ -1,176 +1,257 @@
-Authentication-Results: smtp.subspace.kernel.org; dkim=none
-Received: from mail-oa1-f41.google.com (mail-oa1-f41.google.com [209.85.160.41])
-	by lindbergh.monkeyblade.net (Postfix) with ESMTPS id A4571BD;
-	Wed, 22 Nov 2023 12:16:50 -0800 (PST)
-Received: by mail-oa1-f41.google.com with SMTP id 586e51a60fabf-1f4b29abdbcso21055fac.0;
-        Wed, 22 Nov 2023 12:16:50 -0800 (PST)
-X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20230601; t=1700684210; x=1701289010;
-        h=content-transfer-encoding:cc:to:subject:message-id:date:from
-         :in-reply-to:references:mime-version:x-gm-message-state:from:to:cc
-         :subject:date:message-id:reply-to;
-        bh=U+AKNbPfGcSitF9DQBk43/GENfS9BTVC5pjwY2CWch8=;
-        b=Bu5pFWc2ETKxL65yawgTFd7QN/bAEYfIseyHUYG/wZv4J0cEI8nhynLHfTa7QvWgpn
-         UY6i6wsyCO4nqk7poMpH3gwZFogrqI2UlMoZKhy385XeLHqUGBy6p4Gj3K26HIjo5vbT
-         SFdIwNj1diF59CY/axcaC0cN3zzJUehQvNm7WSmq2Q3+sE0ji2i2enNeYb6w7XS33RN0
-         kC1unYUAdEH+y/gchfS7wg79HZqn6UjveITZ7SmkAOqx+ySIfBe05J3oJrMx2v5sTQhu
-         ACPcVkA83B2SibqwvK88yc7xy6DPcyQ4RlnlNZDvltTwmpQLhWw2KjJeHh8qpYJawe/7
-         CM+A==
-X-Gm-Message-State: AOJu0YwBcB68LlYn0Nia3sbFrGu7yDB2adf3QhBmPUfU8N4gDfZlEFcg
-	7Zyt40jhWHNXp1YmKF13Aa/UVAfIY6EGdYP8jrKalExF
-X-Google-Smtp-Source: AGHT+IEZOuwWL+O8Ns2NywQDonavCXvBHcgdxxi2QZSHFBHwzFPNR8Ac+xre6B7/Fz+/eqIGB2UbpAfb/c6ikknz6l8=
-X-Received: by 2002:a05:6871:7a0:b0:1e9:8a7e:5893 with SMTP id
- o32-20020a05687107a000b001e98a7e5893mr4323044oap.5.1700684209905; Wed, 22 Nov
- 2023 12:16:49 -0800 (PST)
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (1024-bit key) header.d=redhat.com header.i=@redhat.com header.b="dwv0s4Gw"
+Received: from us-smtp-delivery-124.mimecast.com (us-smtp-delivery-124.mimecast.com [170.10.129.124])
+	by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 6F4D0D46
+	for <linux-ia64@vger.kernel.org>; Thu, 23 Nov 2023 00:27:21 -0800 (PST)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=redhat.com;
+	s=mimecast20190719; t=1700728040;
+	h=from:from:reply-to:subject:subject:date:date:message-id:message-id:
+	 to:to:cc:cc:mime-version:mime-version:content-type:content-type:
+	 content-transfer-encoding:content-transfer-encoding:
+	 in-reply-to:in-reply-to:references:references;
+	bh=clHFl9DyukhU/KNoZLAq0QP1VqRYJXancPu2G75tCi0=;
+	b=dwv0s4GwYTTp3oANrUkSlik/LXGZ+viG81ul6mJUCDrdMLxs4VNpbR/6O+M8uCd/p1+3zJ
+	fovcJM0yaHQvVOUGtm7TXuVJ8luMXudaxZJichxx+Bv6xigso6XTH2u7fVV3luDymWx/w1
+	YgJPIH2JHFki0f7uHTo9fpLDkjgwpLE=
+Received: from mimecast-mx02.redhat.com (mimecast-mx02.redhat.com
+ [66.187.233.88]) by relay.mimecast.com with ESMTP with STARTTLS
+ (version=TLSv1.3, cipher=TLS_AES_256_GCM_SHA384) id
+ us-mta-141-xbU-EiHFNt2UCn3fOV12Bg-1; Thu, 23 Nov 2023 03:27:17 -0500
+X-MC-Unique: xbU-EiHFNt2UCn3fOV12Bg-1
+Received: from smtp.corp.redhat.com (int-mx04.intmail.prod.int.rdu2.redhat.com [10.11.54.4])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
+	(No client certificate requested)
+	by mimecast-mx02.redhat.com (Postfix) with ESMTPS id 574DB101A53B;
+	Thu, 23 Nov 2023 08:27:16 +0000 (UTC)
+Received: from localhost (unknown [10.72.112.97])
+	by smtp.corp.redhat.com (Postfix) with ESMTPS id 2C8B82026D4C;
+	Thu, 23 Nov 2023 08:27:12 +0000 (UTC)
+Date: Thu, 23 Nov 2023 16:27:09 +0800
+From: Baoquan He <bhe@redhat.com>
+To: Ignat Korchagin <ignat@cloudflare.com>
+Cc: eric_devolder@yahoo.com, linux@armlinux.org.uk, catalin.marinas@arm.com,
+	will@kernel.org, chenhuacai@kernel.org, geert@linux-m68k.org,
+	tsbogend@alpha.franken.de,
+	James Bottomley <James.Bottomley@hansenpartnership.com>,
+	deller@gmx.de, ysato@users.sourceforge.jp, dalias@libc.org,
+	glaubitz@physik.fu-berlin.de, Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>,
+	dave.hansen@linux.intel.com, x86@kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org,
+	loongarch@lists.linux.dev, linux-m68k@lists.linux-m68k.org,
+	linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org,
+	linux-s390@vger.kernel.org, linux-sh@vger.kernel.org,
+	kernel@xen0n.name, mpe@ellerman.id.au, npiggin@gmail.com,
+	christophe.leroy@csgroup.eu, paul.walmsley@sifive.com,
+	palmer@dabbelt.com, aou@eecs.berkeley.edu, hca@linux.ibm.com,
+	gor@linux.ibm.com, agordeev@linux.ibm.com,
+	borntraeger@linux.ibm.com, svens@linux.ibm.com, hpa@zytor.com,
+	keescook@chromium.org, paulmck@kernel.org,
+	Peter Zijlstra <peterz@infradead.org>, frederic@kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Ard Biesheuvel <ardb@kernel.org>, samitolvanen@google.com,
+	juerg.haefliger@canonical.com, arnd@arndb.de,
+	rmk+kernel@armlinux.org.uk, linus.walleij@linaro.org,
+	sebastian.reichel@collabora.com, rppt@kernel.org,
+	kirill.shutemov@linux.intel.com, anshuman.khandual@arm.com,
+	ziy@nvidia.com, masahiroy@kernel.org, ndesaulniers@google.com,
+	mhiramat@kernel.org, ojeda@kernel.org, thunder.leizhen@huawei.com,
+	xin3.li@intel.com, tj@kernel.org,
+	Greg KH <gregkh@linuxfoundation.org>, tsi@tuyoix.net,
+	hbathini@linux.ibm.com, sourabhjain@linux.ibm.com,
+	boris.ostrovsky@oracle.com, konrad.wilk@oracle.com,
+	kernel-team <kernel-team@cloudflare.com>
+Subject: Re: Potential config regression after 89cde455 ("kexec: consolidate
+ kexec and crash options into kernel/Kconfig.kexec")
+Message-ID: <ZV8M3aUTdt2BWaAP@MiWiFi-R3L-srv>
+References: <CALrw=nHpRQQaQTP_jZfREgrQEMpS8jBF8JQCv4ygqXycE-StaA@mail.gmail.com>
+ <ZVwMzXxWkgonIAfc@MiWiFi-R3L-srv>
+ <CALrw=nG8xsYw7XKyL_VMHtKiaBcQCKvC8UVp-C9-BdeN4A1Daw@mail.gmail.com>
+ <CALrw=nH-vcROja2W23rUKEEZMZhxsQiNB4P_ZZQ-XhPHAJGxrg@mail.gmail.com>
+ <ZV3LKVOokpx2WvKp@MiWiFi-R3L-srv>
+ <CALrw=nGadgbwuNAFacatz-agpGn9NvtgaCUXu73MzAzZq07k-g@mail.gmail.com>
 Precedence: bulk
 X-Mailing-List: linux-ia64@vger.kernel.org
 List-Id: <linux-ia64.vger.kernel.org>
 List-Subscribe: <mailto:linux-ia64+subscribe@vger.kernel.org>
 List-Unsubscribe: <mailto:linux-ia64+unsubscribe@vger.kernel.org>
 MIME-Version: 1.0
-References: <ZVyz/Ve5pPu8AWoA@shell.armlinux.org.uk> <E1r5R31-00Csyt-Jq@rmk-PC.armlinux.org.uk>
-In-Reply-To: <E1r5R31-00Csyt-Jq@rmk-PC.armlinux.org.uk>
-From: "Rafael J. Wysocki" <rafael@kernel.org>
-Date: Wed, 22 Nov 2023 21:16:39 +0100
-Message-ID: <CAJZ5v0iYRXh369M3XTM0V8Q9mWkAT2y+9pJMD7HMaGjgpvFEMw@mail.gmail.com>
-Subject: Re: [PATCH 05/21] ACPI: Move ACPI_HOTPLUG_CPU to be disabled on arm64
- and riscv
-To: Russell King <rmk+kernel@armlinux.org.uk>
-Cc: linux-pm@vger.kernel.org, loongarch@lists.linux.dev, 
-	linux-acpi@vger.kernel.org, linux-arch@vger.kernel.org, 
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
-	linux-riscv@lists.infradead.org, kvmarm@lists.linux.dev, x86@kernel.org, 
-	linux-csky@vger.kernel.org, linux-doc@vger.kernel.org, 
-	linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, 
-	Salil Mehta <salil.mehta@huawei.com>, Jean-Philippe Brucker <jean-philippe@linaro.org>, jianyong.wu@arm.com, 
-	justin.he@arm.com, James Morse <james.morse@arm.com>, 
-	Huacai Chen <chenhuacai@kernel.org>, WANG Xuerui <kernel@xen0n.name>, 
-	Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, 
-	Dave Hansen <dave.hansen@linux.intel.com>, "H. Peter Anvin" <hpa@zytor.com>, 
-	"Rafael J. Wysocki" <rafael@kernel.org>, Len Brown <lenb@kernel.org>, 
-	Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, 
-	Albert Ou <aou@eecs.berkeley.edu>
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: 8bit
+In-Reply-To: <CALrw=nGadgbwuNAFacatz-agpGn9NvtgaCUXu73MzAzZq07k-g@mail.gmail.com>
+X-Scanned-By: MIMEDefang 3.4.1 on 10.11.54.4
 
-On Tue, Nov 21, 2023 at 2:44=E2=80=AFPM Russell King <rmk+kernel@armlinux.o=
-rg.uk> wrote:
->
-> From: James Morse <james.morse@arm.com>
->
-> Neither arm64 nor riscv support physical hotadd of CPUs that were not
-> present at boot. For arm64 much of the platform description is in static
-> tables which do not have update methods. arm64 does support HOTPLUG_CPU,
-> which is backed by a firmware interface to turn CPUs on and off.
->
-> acpi_processor_hotadd_init() and acpi_processor_remove() are for adding
-> and removing CPUs that were not present at boot. arm64 systems that do th=
-is
-> are not supported as there is currently insufficient information in the
-> platform description. (e.g. did the GICR get removed too?)
->
-> arm64 currently relies on the MADT enabled flag check in map_gicc_mpidr()
-> to prevent CPUs that were not described as present at boot from being
-> added to the system. Similarly, riscv relies on the same check in
-> map_rintc_hartid(). Both architectures also rely on the weak 'always fail=
-s'
-> definitions of acpi_map_cpu() and arch_register_cpu().
->
-> Subsequent changes will redefine ACPI_HOTPLUG_CPU as making possible
-> CPUs present. Neither arm64 nor riscv support this.
->
-> Disable ACPI_HOTPLUG_CPU for arm64 and riscv by removing 'default y' and
-> selecting it on the other three ACPI architectures. This allows the weak
-> definitions of some symbols to be removed.
->
-> Signed-off-by: James Morse <james.morse@arm.com>
-> Reviewed-by: Shaoqin Huang <shahuang@redhat.com>
-> Reviewed-by: Gavin Shan <gshan@redhat.com>
-> Signed-off-by: Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
+On 11/22/23 at 09:47am, Ignat Korchagin wrote:
+> On Wed, Nov 22, 2023 at 9:34 AM Baoquan He <bhe@redhat.com> wrote:
+> >
+> > On 11/21/23 at 09:43am, Ignat Korchagin wrote:
+> > > On Tue, Nov 21, 2023 at 7:53 AM Ignat Korchagin <ignat@cloudflare.com> wrote:
+> > > >
+> > > > On Tue, Nov 21, 2023 at 1:50 AM Baoquan He <bhe@redhat.com> wrote:
+> > > > >
+> > > > > Eric DeVolder's Oracle mail address is not available anymore, add his
+> > > > > current mail address he told me.
+> > > >
+> > > > Thank you!
+> > > >
+> > > > > On 11/20/23 at 10:52pm, Ignat Korchagin wrote:
+> > > > > > Good day!
+> > > > > >
+> > > > > > We have recently started to evaluate Linux 6.6 and noticed that we
+> > > > > > cannot disable CONFIG_KEXEC anymore, but keep CONFIG_CRASH_DUMP
+> > > > > > enabled. It seems to be related to commit 89cde455 ("kexec:
+> > > > > > consolidate kexec and crash options into kernel/Kconfig.kexec"), where
+> > > > > > a CONFIG_KEXEC dependency was added to CONFIG_CRASH_DUMP.
+> > > > > >
+> > > > > > In our current kernel (Linux 6.1) we only enable CONFIG_KEXEC_FILE
+> > > > > > with enforced signature check to support the kernel crash dumping
+> > > > > > functionality and would like to keep CONFIG_KEXEC disabled for
+> > > > > > security reasons [1].
+> > > > > >
+> > > > > > I was reading the long commit message, but the reason for adding
+> > > > > > CONFIG_KEXEC as a dependency for CONFIG_CRASH_DUMP evaded me. And I
+> > > > > > believe from the implementation perspective CONFIG_KEXEC_FILE should
+> > > > > > suffice here (as we successfully used it for crashdumps on Linux 6.1).
+> > > > > >
+> > > > > > Is there a reason for adding this dependency or is it just an
+> > > > > > oversight? Would some solution of requiring either CONFIG_KEXEC or
+> > > > > > CONFIG_KEXEC_FILE work here?
+> > > > >
+> > > > > I searched the patch history, found Eric didn't add the dependency on
+> > > > > CONFIG_KEXEC at the beginning. Later a linux-next building failure with
+> > > > > randconfig was reported, in there CONFIG_CRASH_DUMP enabled, while
+> > > > > CONFIG_KEXEC is disabled. Finally Eric added the KEXEC dependency for
+> > > > > CRASH_DUMP. Please see below link for more details:
+> > > > >
+> > > > > https://lore.kernel.org/all/3e8eecd1-a277-2cfb-690e-5de2eb7b988e@oracle.com/T/#u
+> > > >
+> > > > Thank you for digging this up. However I'm still confused, because
+> > > > this is exactly how we configure Linux 6.1 (although we do have
+> > > > CONFIG_KEXEC_FILE enabled) and we don't have any problems. I believe
+> > > > we did not investigate this issue properly.
+> > >
+> > > I did some preliminary investigation for this. If I patch out the
+> > > dependency on CONFIG_KEXEC the kernel builds just fine for x86
+> > > (without CONFIG_CRASH_HOTPLUG - which is probably another issue) - so
+> > > this was the previous behaviour. I can see that the reported error is
+> > > for arm architecture and was able to reproduce it with a simple cross
+> > > compiler in Debian. However, I think it is still somehow related to
+> > > this patchset as the previous kernels (up to 6.5) build fine with just
+> > > CONFIG_CRASH_DUMP and without CONFIG_KEXEC for arm as well. So even
+> > > for arm it was introduced in 6.6.
+> >
+> > Thanks for the information.
+> >
+> > I haven't run the reproducer of issue reported on Eric's old patchset,
+> > while checkout to kernel 6.1, only s390 selected KEXEC for CRASH_DUMP
+> > already. And with the ARM building breakage, the simplest idea is
+> > to select KEXEC only for ARM or S390 CRASH_DUMP. I plan to try the
+> > reproducer later. If you have any idea or draft patch, please feel free
+> > to post.
+> 
+> The thing is - before 6.6 even ARM did not require KEXEC for
+> CRASH_DUMP (at least to successfully compile), so I think we should
+> understand what changed first before adding a dependency for ARM. I'll
+> try to investigate more, if I have time.
 
-I can apply this if it gets ACKs from the maintainers of the affected
-architectures.
+I did a cross compiling of arm on x86_64, it clearly requires KEXEC for
+CRASH_DUMP if the select of KEXEC for CRASH_DUMP is removed and
+CONFIG_KEXEC=n is set.
 
-> ---
-> Changes since RFC:
->  * Expanded conditions to avoid ACPI_HOTPLUG_CPU being enabled when
->    HOTPLUG_CPU isn't.
-> Changes since RFC v3:
->  * Dropped ia64 changes
-> ---
->  arch/loongarch/Kconfig        |  1 +
->  arch/x86/Kconfig              |  1 +
->  drivers/acpi/Kconfig          |  1 -
->  drivers/acpi/acpi_processor.c | 18 ------------------
->  4 files changed, 2 insertions(+), 19 deletions(-)
->
-> diff --git a/arch/loongarch/Kconfig b/arch/loongarch/Kconfig
-> index ee123820a476..331becb2cb4f 100644
-> --- a/arch/loongarch/Kconfig
-> +++ b/arch/loongarch/Kconfig
-> @@ -5,6 +5,7 @@ config LOONGARCH
->         select ACPI
->         select ACPI_GENERIC_GSI if ACPI
->         select ACPI_MCFG if ACPI
-> +       select ACPI_HOTPLUG_CPU if ACPI_PROCESSOR && HOTPLUG_CPU
->         select ACPI_PPTT if ACPI
->         select ACPI_SYSTEM_POWER_STATES_SUPPORT if ACPI
->         select ARCH_BINFMT_ELF_STATE
-> diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-> index 3762f41bb092..dbdcfc708369 100644
-> --- a/arch/x86/Kconfig
-> +++ b/arch/x86/Kconfig
-> @@ -59,6 +59,7 @@ config X86
->         #
->         select ACPI_LEGACY_TABLES_LOOKUP        if ACPI
->         select ACPI_SYSTEM_POWER_STATES_SUPPORT if ACPI
-> +       select ACPI_HOTPLUG_CPU                 if ACPI_PROCESSOR && HOTP=
-LUG_CPU
->         select ARCH_32BIT_OFF_T                 if X86_32
->         select ARCH_CLOCKSOURCE_INIT
->         select ARCH_CORRECT_STACKTRACE_ON_KRETPROBE
-> diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
-> index f819e760ff19..a3acfc750fce 100644
-> --- a/drivers/acpi/Kconfig
-> +++ b/drivers/acpi/Kconfig
-> @@ -310,7 +310,6 @@ config ACPI_HOTPLUG_CPU
->         bool
->         depends on ACPI_PROCESSOR && HOTPLUG_CPU
->         select ACPI_CONTAINER
-> -       default y
->
->  config ACPI_PROCESSOR_AGGREGATOR
->         tristate "Processor Aggregator"
-> diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processor.=
-c
-> index 0f5218e361df..4fe2ef54088c 100644
-> --- a/drivers/acpi/acpi_processor.c
-> +++ b/drivers/acpi/acpi_processor.c
-> @@ -184,24 +184,6 @@ static void __init acpi_pcc_cpufreq_init(void) {}
->
->  /* Initialization */
->  #ifdef CONFIG_ACPI_HOTPLUG_CPU
-> -int __weak acpi_map_cpu(acpi_handle handle,
-> -               phys_cpuid_t physid, u32 acpi_id, int *pcpu)
-> -{
-> -       return -ENODEV;
-> -}
-> -
-> -int __weak acpi_unmap_cpu(int cpu)
-> -{
-> -       return -ENODEV;
-> -}
-> -
-> -int __weak arch_register_cpu(int cpu)
-> -{
-> -       return -ENODEV;
-> -}
-> -
-> -void __weak arch_unregister_cpu(int cpu) {}
-> -
->  static int acpi_processor_hotadd_init(struct acpi_processor *pr)
->  {
->         unsigned long long sta;
-> --
-> 2.30.2
->
+1) building error, only copy the first one:
+==========================================
+In file included from ../include/linux/ima.h:13,
+                 from ../security/keys/key.c:16:
+../include/linux/kexec.h:38:2: error: #error KEXEC_SOURCE_MEMORY_LIMIT not defined
+   38 | #error KEXEC_SOURCE_MEMORY_LIMIT not defined
+      |  ^~~~~
+../include/linux/kexec.h:42:2: error: #error KEXEC_DESTINATION_MEMORY_LIMIT not defined
+   42 | #error KEXEC_DESTINATION_MEMORY_LIMIT not defined
+      |  ^~~~~
+../include/linux/kexec.h:46:2: error: #error KEXEC_CONTROL_MEMORY_LIMIT not defined
+   46 | #error KEXEC_CONTROL_MEMORY_LIMIT not defined
+      |  ^~~~~
+../include/linux/kexec.h:54:2: error: #error KEXEC_CONTROL_PAGE_SIZE not defined
+   54 | #error KEXEC_CONTROL_PAGE_SIZE not defined
+      |  ^~~~~
+../include/linux/kexec.h:58:2: error: #error KEXEC_ARCH not defined
+   58 | #error KEXEC_ARCH not defined
+      |  ^~~~~
+In file included from ../drivers/misc/pvpanic/pvpanic.c:13:
+
+2) Kconfig items I enabled:
+====
+CONFIG_CRASH_CORE=y
+CONFIG_KEXEC_CORE=y
+# CONFIG_KEXEC is not set
+CONFIG_CRASH_DUMP=y
+
+
+
+3) KEXEC select is dropped so as not to enable KEXEC automatically:
+=====
+diff --git a/kernel/Kconfig.kexec b/kernel/Kconfig.kexec
+index 7aff28ded2f4..1cc3b1c595d7 100644
+--- a/kernel/Kconfig.kexec
++++ b/kernel/Kconfig.kexec
+@@ -97,7 +97,6 @@ config CRASH_DUMP
+        depends on ARCH_SUPPORTS_KEXEC
+        select CRASH_CORE
+        select KEXEC_CORE
+-       select KEXEC
+        help
+          Generate crash dump after being started by kexec.
+          This should be normally only set in special crash dump kernels
+> 
+> > diff --git a/kernel/Kconfig.kexec b/kernel/Kconfig.kexec
+> > index 7aff28ded2f4..382dcd8d7a9d 100644
+> > --- a/kernel/Kconfig.kexec
+> > +++ b/kernel/Kconfig.kexec
+> > @@ -97,7 +97,7 @@ config CRASH_DUMP
+> >         depends on ARCH_SUPPORTS_KEXEC
+> >         select CRASH_CORE
+> >         select KEXEC_CORE
+> > -       select KEXEC
+> > +       select KEXEC if (ARM || S390)
+> >
+> >
+> > arch/s390/Kconfig in kernel 6.1:
+> > config CRASH_DUMP
+> >         bool "kernel crash dumps"
+> >         select KEXEC
+> >         help
+> >           Generate crash dump after being started by kexec.
+> >           Crash dump kernels are loaded in the main kernel with kexec-tools
+> >           into a specially reserved region and then later executed after
+> >           a crash by kdump/kexec.
+> >           Refer to <file:Documentation/s390/zfcpdump.rst> for more details on this.
+> >           This option also enables s390 zfcpdump.
+> >           See also <file:Documentation/s390/zfcpdump.rst>
+> >
+> > >
+> > > > > And besides, the newly added CONFIG_CRASH_HOTPLUG also needs
+> > > > > CONFIG_KEXEC if the elfcorehdr is allowed to be manipulated when
+> > > > > cpu/memory hotplug hapened.
+> > > >
+> > > > This still feels like a regression to me: any crash dump support
+> > > > should be independent of KEXEC syscalls being present. While probably
+> > > > the common case (including us) that the crashing kernel and recovery
+> > > > kernel are the same, they don't have to be. We need kexec syscall in
+> > > > the crashing kernel, but crashdump support in the recovery kernel (but
+> > > > the recovery kernel not having the kexec syscalls should be totally
+> > > > fine). If we do require some code definitions from kexec - at most we
+> > > > should put them under CONFIG_KEXEC_CORE.
+> > > >
+> > > > > Thanks
+> > > > > Baoquan
+> > > > >
+> > >
+> > > Ignat
+> > >
+> >
+> 
+
