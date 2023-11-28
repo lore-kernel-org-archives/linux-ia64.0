@@ -1,39 +1,37 @@
 Authentication-Results: smtp.subspace.kernel.org; dkim=none
 Received: from frasgout.his.huawei.com (frasgout.his.huawei.com [185.176.79.56])
-	by lindbergh.monkeyblade.net (Postfix) with ESMTPS id DE909B5;
-	Tue, 28 Nov 2023 05:55:40 -0800 (PST)
-Received: from mail.maildlp.com (unknown [172.18.186.216])
-	by frasgout.his.huawei.com (SkyGuard) with ESMTP id 4SfkVd4WZ8z6JB96;
-	Tue, 28 Nov 2023 21:55:21 +0800 (CST)
+	by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 9849418D;
+	Tue, 28 Nov 2023 06:37:26 -0800 (PST)
+Received: from mail.maildlp.com (unknown [172.18.186.31])
+	by frasgout.his.huawei.com (SkyGuard) with ESMTP id 4SflPL4T8Rz688jJ;
+	Tue, 28 Nov 2023 22:35:50 +0800 (CST)
 Received: from lhrpeml500005.china.huawei.com (unknown [7.191.163.240])
-	by mail.maildlp.com (Postfix) with ESMTPS id 774E61400C9;
-	Tue, 28 Nov 2023 21:55:38 +0800 (CST)
+	by mail.maildlp.com (Postfix) with ESMTPS id 39FB114025A;
+	Tue, 28 Nov 2023 22:37:24 +0800 (CST)
 Received: from localhost (10.202.227.76) by lhrpeml500005.china.huawei.com
  (7.191.163.240) with Microsoft SMTP Server (version=TLS1_2,
  cipher=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256) id 15.1.2507.35; Tue, 28 Nov
- 2023 13:55:37 +0000
-Date: Tue, 28 Nov 2023 13:55:36 +0000
+ 2023 14:37:23 +0000
+Date: Tue, 28 Nov 2023 14:37:22 +0000
 From: Jonathan Cameron <Jonathan.Cameron@Huawei.com>
-To: "Russell King (Oracle)" <linux@armlinux.org.uk>
-CC: Gavin Shan <gshan@redhat.com>, <linux-pm@vger.kernel.org>,
-	<loongarch@lists.linux.dev>, <linux-acpi@vger.kernel.org>,
-	<linux-arch@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, <linux-riscv@lists.infradead.org>,
-	<kvmarm@lists.linux.dev>, <x86@kernel.org>, <linux-csky@vger.kernel.org>,
-	<linux-doc@vger.kernel.org>, <linux-ia64@vger.kernel.org>,
-	<linux-parisc@vger.kernel.org>, Salil Mehta <salil.mehta@huawei.com>,
-	Jean-Philippe Brucker <jean-philippe@linaro.org>, <jianyong.wu@arm.com>,
-	<justin.he@arm.com>, James Morse <james.morse@arm.com>, Greg Kroah-Hartman
-	<gregkh@linuxfoundation.org>, "Rafael J. Wysocki" <rafael@kernel.org>
-Subject: Re: [PATCH RFC 10/22] drivers: base: Move cpu_dev_init() after
- node_dev_init()
-Message-ID: <20231128135536.00002ab9@Huawei.com>
-In-Reply-To: <ZVywLPwhILp083Jk@shell.armlinux.org.uk>
+To: Russell King <rmk+kernel@armlinux.org.uk>
+CC: <linux-pm@vger.kernel.org>, <loongarch@lists.linux.dev>,
+	<linux-acpi@vger.kernel.org>, <linux-arch@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
+	<linux-riscv@lists.infradead.org>, <kvmarm@lists.linux.dev>,
+	<x86@kernel.org>, <linux-csky@vger.kernel.org>, <linux-doc@vger.kernel.org>,
+	<linux-ia64@vger.kernel.org>, <linux-parisc@vger.kernel.org>, Salil Mehta
+	<salil.mehta@huawei.com>, Jean-Philippe Brucker <jean-philippe@linaro.org>,
+	<jianyong.wu@arm.com>, <justin.he@arm.com>, James Morse
+	<james.morse@arm.com>, Sudeep Holla <sudeep.holla@arm.com>, Greg
+ Kroah-Hartman <gregkh@linuxfoundation.org>, "Rafael J. Wysocki"
+	<rafael@kernel.org>
+Subject: Re: [PATCH RFC 01/22] arch_topology: Make
+ register_cpu_capacity_sysctl() tolerant to late CPUs
+Message-ID: <20231128143722.000032db@Huawei.com>
+In-Reply-To: <E1r0JKl-00CTwT-Hx@rmk-PC.armlinux.org.uk>
 References: <ZUoRY33AAHMc5ThW@shell.armlinux.org.uk>
-	<E1r0JLV-00CTxS-QB@rmk-PC.armlinux.org.uk>
-	<095c2d24-735b-4ce2-ba2e-9ec2164f2237@redhat.com>
-	<ZVHXk9JG7gUjtERt@shell.armlinux.org.uk>
-	<ZVywLPwhILp083Jk@shell.armlinux.org.uk>
+	<E1r0JKl-00CTwT-Hx@rmk-PC.armlinux.org.uk>
 Organization: Huawei Technologies Research and Development (UK) Ltd.
 X-Mailer: Claws Mail 4.1.0 (GTK 3.24.33; x86_64-w64-mingw32)
 Precedence: bulk
@@ -44,55 +42,38 @@ List-Unsubscribe: <mailto:linux-ia64+unsubscribe@vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-X-ClientProxiedBy: lhrpeml100006.china.huawei.com (7.191.160.224) To
+X-ClientProxiedBy: lhrpeml500006.china.huawei.com (7.191.161.198) To
  lhrpeml500005.china.huawei.com (7.191.163.240)
 
-On Tue, 21 Nov 2023 13:27:08 +0000
-"Russell King (Oracle)" <linux@armlinux.org.uk> wrote:
+On Tue, 07 Nov 2023 10:29:23 +0000
+Russell King <rmk+kernel@armlinux.org.uk> wrote:
 
-> On Mon, Nov 13, 2023 at 08:00:19AM +0000, Russell King (Oracle) wrote:
-> > On Mon, Nov 13, 2023 at 10:58:46AM +1000, Gavin Shan wrote:  
-> > > 
-> > > 
-> > > On 11/7/23 20:30, Russell King (Oracle) wrote:  
-> > > > From: James Morse <james.morse@arm.com>
-> > > > 
-> > > > NUMA systems require the node descriptions to be ready before CPUs are
-> > > > registered. This is so that the node symlinks can be created in sysfs.
-> > > > 
-> > > > Currently no NUMA platform uses GENERIC_CPU_DEVICES, meaning that CPUs
-> > > > are registered by arch code, instead of cpu_dev_init().
-> > > > 
-> > > > Move cpu_dev_init() after node_dev_init() so that NUMA architectures
-> > > > can use GENERIC_CPU_DEVICES.
-> > > > 
-> > > > Signed-off-by: James Morse <james.morse@arm.com>
-> > > > Signed-off-by: Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
-> > > > ---
-> > > > Note: Jonathan's comment still needs addressing - see
-> > > >    https://lore.kernel.org/r/20230914121612.00006ac7@Huawei.com
-> > > > ---
-> > > >   drivers/base/init.c | 2 +-
-> > > >   1 file changed, 1 insertion(+), 1 deletion(-)
-> > > >   
-> > > 
-> > > With Jonathan's comments addressed:  
-> > 
-> > That needs James' input, which is why I made the note on the patch.  
+> From: James Morse <james.morse@arm.com>
 > 
-> I'm going to be posting the series without RFC soon, and it will be
-> with Jonathan's comment unaddressed - because as I've said several
-> times it needs James' input and we have sadly not yet received that.
+> register_cpu_capacity_sysctl() adds a property to sysfs that describes
+> the CPUs capacity. This is done from a subsys_initcall() that assumes
+> all possible CPUs are registered.
 > 
-> Short of waiting until James can respond, I don't think there are
-> any other alternatives.
+> With CPU hotplug, possible CPUs aren't registered until they become
+> present, (or for arm64 enabled). This leads to messages during boot:
+> | register_cpu_capacity_sysctl: too early to get CPU1 device!
+> and once these CPUs are added to the system, the file is missing.
+> 
+> Move this to a cpuhp callback, so that the file is created once
+> CPUs are brought online. This covers CPUs that are added late by
+> mechanisms like hotplug.
+> One observable difference is the file is now missing for offline CPUs.
+> 
+> Signed-off-by: James Morse <james.morse@arm.com>
+> ---
+> If the offline CPUs thing is a problem for the tools that consume
+> this value, we'd need to move cpu_capacity to be part of cpu.c's
+> common_cpu_attr_groups.
 
-In the interests of expediency I'm fine with that.  (To be honest I'd
-forgotten I even made that comment ;)
+I'm not keen on squirting sysfs files in from code so
+might be nice to do that anyway and use is_visible() / sysfs_update_group()
+but that would be a job for another day if at all.
 
-Jonathan
+Reviewed-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
 
-> 
-> I do hope we can get this queued up for v6.8 though.
-> 
 
