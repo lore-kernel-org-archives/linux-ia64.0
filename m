@@ -1,18 +1,18 @@
 Authentication-Results: smtp.subspace.kernel.org; dkim=none
 Received: from frasgout.his.huawei.com (frasgout.his.huawei.com [185.176.79.56])
-	by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 6FCB81A4;
-	Thu, 30 Nov 2023 08:50:14 -0800 (PST)
-Received: from mail.maildlp.com (unknown [172.18.186.231])
-	by frasgout.his.huawei.com (SkyGuard) with ESMTP id 4Sh2Fc0L5mz6K95t;
-	Fri,  1 Dec 2023 00:48:36 +0800 (CST)
+	by lindbergh.monkeyblade.net (Postfix) with ESMTPS id 010BF10E4;
+	Thu, 30 Nov 2023 08:50:59 -0800 (PST)
+Received: from mail.maildlp.com (unknown [172.18.186.31])
+	by frasgout.his.huawei.com (SkyGuard) with ESMTP id 4Sh2Bz2mHDz67GqC;
+	Fri,  1 Dec 2023 00:46:19 +0800 (CST)
 Received: from lhrpeml500005.china.huawei.com (unknown [7.191.163.240])
-	by mail.maildlp.com (Postfix) with ESMTPS id A71D514058E;
-	Fri,  1 Dec 2023 00:50:12 +0800 (CST)
+	by mail.maildlp.com (Postfix) with ESMTPS id 2F69E1404F4;
+	Fri,  1 Dec 2023 00:50:58 +0800 (CST)
 Received: from localhost (10.202.227.76) by lhrpeml500005.china.huawei.com
  (7.191.163.240) with Microsoft SMTP Server (version=TLS1_2,
  cipher=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256) id 15.1.2507.35; Thu, 30 Nov
- 2023 16:50:11 +0000
-Date: Thu, 30 Nov 2023 16:50:11 +0000
+ 2023 16:50:57 +0000
+Date: Thu, 30 Nov 2023 16:50:56 +0000
 From: Jonathan Cameron <Jonathan.Cameron@Huawei.com>
 To: Russell King <rmk+kernel@armlinux.org.uk>
 CC: <linux-pm@vger.kernel.org>, <loongarch@lists.linux.dev>,
@@ -24,14 +24,15 @@ CC: <linux-pm@vger.kernel.org>, <loongarch@lists.linux.dev>,
 	<salil.mehta@huawei.com>, Jean-Philippe Brucker <jean-philippe@linaro.org>,
 	<jianyong.wu@arm.com>, <justin.he@arm.com>, James Morse
 	<james.morse@arm.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"Rafael J. Wysocki" <rafael@kernel.org>, Thomas Gleixner
-	<tglx@linutronix.de>, Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH 07/21] drivers: base: Allow parts of GENERIC_CPU_DEVICES
- to be overridden
-Message-ID: <20231130165011.0000703f@Huawei.com>
-In-Reply-To: <E1r5R3B-00Csz6-Uh@rmk-PC.armlinux.org.uk>
+	"Rafael J. Wysocki" <rafael@kernel.org>, Paul Walmsley
+	<paul.walmsley@sifive.com>, "Palmer Dabbelt" <palmer@dabbelt.com>, Albert Ou
+	<aou@eecs.berkeley.edu>
+Subject: Re: [PATCH 08/21] drivers: base: Implement weak
+ arch_unregister_cpu()
+Message-ID: <20231130165056.0000781f@Huawei.com>
+In-Reply-To: <E1r5R3H-00CszC-2n@rmk-PC.armlinux.org.uk>
 References: <ZVyz/Ve5pPu8AWoA@shell.armlinux.org.uk>
-	<E1r5R3B-00Csz6-Uh@rmk-PC.armlinux.org.uk>
+	<E1r5R3H-00CszC-2n@rmk-PC.armlinux.org.uk>
 Organization: Huawei Technologies Research and Development (UK) Ltd.
 X-Mailer: Claws Mail 4.1.0 (GTK 3.24.33; x86_64-w64-mingw32)
 Precedence: bulk
@@ -45,23 +46,17 @@ Content-Transfer-Encoding: 7bit
 X-ClientProxiedBy: lhrpeml100005.china.huawei.com (7.191.160.25) To
  lhrpeml500005.china.huawei.com (7.191.163.240)
 
-On Tue, 21 Nov 2023 13:44:25 +0000
+On Tue, 21 Nov 2023 13:44:31 +0000
 Russell King <rmk+kernel@armlinux.org.uk> wrote:
 
 > From: James Morse <james.morse@arm.com>
 > 
-> Architectures often have extra per-cpu work that needs doing
-> before a CPU is registered, often to determine if a CPU is
-> hotpluggable.
+> Add arch_unregister_cpu() to allow the ACPI machinery to call
+> unregister_cpu(). This is enough for arm64, riscv and loongarch, but
+> needs to be overridden by x86 and ia64 who need to do more work.
 > 
-> To allow the ACPI architectures to use GENERIC_CPU_DEVICES, move
-> the cpu_register() call into arch_register_cpu(), which is made __weak
-> so architectures with extra work can override it.
-> This aligns with the way x86, ia64 and loongarch register hotplug CPUs
-> when they become present.
-> 
+> CC: Jean-Philippe Brucker <jean-philippe@linaro.org>
 > Signed-off-by: James Morse <james.morse@arm.com>
 > Reviewed-by: Shaoqin Huang <shahuang@redhat.com>
-> Reviewed-by: Gavin Shan <gshan@redhat.com>
 > Signed-off-by: Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
 Reviewed-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
