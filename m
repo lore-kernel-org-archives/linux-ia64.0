@@ -1,207 +1,101 @@
-Received: from cloudserver094114.home.pl (cloudserver094114.home.pl [79.96.170.134])
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-1.web.codeaurora.org [10.30.226.201])
 	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id B8E104184B;
-	Fri, 15 Dec 2023 19:47:34 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=rjwysocki.net
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=rjwysocki.net
-Received: from localhost (127.0.0.1) (HELO v370.home.net.pl)
- by /usr/run/smtp (/usr/run/postfix/private/idea_relay_lmtp) via UNIX with SMTP (IdeaSmtpServer 5.4.0)
- id 2539e6c80012c5e6; Fri, 15 Dec 2023 20:47:32 +0100
-Received: from kreacher.localnet (unknown [195.136.19.94])
-	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
-	 key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256)
-	(No client certificate requested)
-	by cloudserver094114.home.pl (Postfix) with ESMTPSA id C96C5668B59;
-	Fri, 15 Dec 2023 20:47:31 +0100 (CET)
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-To: "Russell King (Oracle)" <linux@armlinux.org.uk>, Jonathan Cameron <Jonathan.Cameron@huawei.com>
-Cc: "Rafael J. Wysocki" <rafael@kernel.org>, linux-pm@vger.kernel.org, loongarch@lists.linux.dev, linux-acpi@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-riscv@lists.infradead.org, kvmarm@lists.linux.dev, x86@kernel.org, acpica-devel@lists.linuxfoundation.org, linux-csky@vger.kernel.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, Salil Mehta <salil.mehta@huawei.com>, Jean-Philippe Brucker <jean-philippe@linaro.org>, jianyong.wu@arm.com, justin.he@arm.com, James Morse <james.morse@arm.com>
-Subject: Re: [PATCH RFC v3 01/21] ACPI: Only enumerate enabled (or functional) devices
-Date: Fri, 15 Dec 2023 20:47:31 +0100
-Message-ID: <5760569.DvuYhMxLoT@kreacher>
-In-Reply-To: <20231215161539.00000940@Huawei.com>
-References: <ZXmn46ptis59F0CO@shell.armlinux.org.uk> <ZXxxa+XZjPZtNfJ+@shell.armlinux.org.uk> <20231215161539.00000940@Huawei.com>
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 786BC12B61;
+	Mon, 18 Dec 2023 09:23:27 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b="RJud1fJD"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id 17966C433C8;
+	Mon, 18 Dec 2023 09:23:21 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=kernel.org;
+	s=k20201202; t=1702891407;
+	bh=GHAwRyvzYMoO5t9DJy2L/vZFGZ5Dq9mWQeMLRWVKZx0=;
+	h=Date:From:To:Cc:Subject:References:In-Reply-To:From;
+	b=RJud1fJDL22h4rushErpJMmUrhO3xcrslPsqJRk6uc2IzcXDtSELA0otvbONR8FTW
+	 L6MBy2qAm1/d885aKTGZ52miElldnk4dux1oGBB7Qwie/Jstp0/xoF4pir4VX06dNl
+	 WBVzRRDgFKNRb1ghAyxl6IzWv7qEoMD3t69caobPE1s/iGljqRMHYLRBOTapLw3KLN
+	 qQ9il4M5nD24gxNHN3ub9/SXuLvIsqeY9z0yA+LkYmcU+y7TMSg6l78d29OVQGPo/H
+	 beQmrNVxT0E83mkzpMD1ZcGj9HNmeZcG2UZcZu57S7oyla7BogUN1qFgJvr6HKhaxE
+	 r6nP6bW7hsUFw==
+Date: Mon, 18 Dec 2023 10:23:18 +0100
+From: Lorenzo Pieralisi <lpieralisi@kernel.org>
+To: "Russell King (Oracle)" <linux@armlinux.org.uk>
+Cc: Jonathan Cameron <Jonathan.Cameron@huawei.com>,
+	linux-pm@vger.kernel.org, loongarch@lists.linux.dev,
+	linux-acpi@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-riscv@lists.infradead.org, kvmarm@lists.linux.dev,
+	x86@kernel.org, acpica-devel@lists.linuxfoundation.org,
+	linux-csky@vger.kernel.org, linux-doc@vger.kernel.org,
+	linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org,
+	Salil Mehta <salil.mehta@huawei.com>,
+	Jean-Philippe Brucker <jean-philippe@linaro.org>,
+	jianyong.wu@arm.com, justin.he@arm.com,
+	James Morse <james.morse@arm.com>
+Subject: Re: [PATCH RFC v3 13/21] ACPICA: Add new MADT GICC flags fields
+Message-ID: <ZYAPhlwPUT/7dN4n@lpieralisi>
+References: <ZXmn46ptis59F0CO@shell.armlinux.org.uk>
+ <E1rDOgs-00Dvko-6t@rmk-PC.armlinux.org.uk>
+ <20231215162322.00007391@Huawei.com>
+ <ZXyEiHLFBsoUkfNI@shell.armlinux.org.uk>
 Precedence: bulk
 X-Mailing-List: linux-ia64@vger.kernel.org
 List-Id: <linux-ia64.vger.kernel.org>
 List-Subscribe: <mailto:linux-ia64+subscribe@vger.kernel.org>
 List-Unsubscribe: <mailto:linux-ia64+unsubscribe@vger.kernel.org>
 MIME-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain; charset="UTF-8"
-X-CLIENT-IP: 195.136.19.94
-X-CLIENT-HOSTNAME: 195.136.19.94
-X-VADE-SPAMSTATE: clean
-X-VADE-SPAMCAUSE: gggruggvucftvghtrhhoucdtuddrgedvkedrvddtvddguddvkecutefuodetggdotefrodftvfcurfhrohhfihhlvgemucfjqffogffrnfdpggftiffpkfenuceurghilhhouhhtmecuudehtdenucesvcftvggtihhpihgvnhhtshculddquddttddmnecujfgurhephffvvefufffkjghfggfgtgesthhqredttddtjeenucfhrhhomhepfdftrghfrggvlhculfdrucghhihsohgtkhhifdcuoehrjhifsehrjhifhihsohgtkhhirdhnvghtqeenucggtffrrghtthgvrhhnpedtvdefgeelvdefvdevveehvdetfeefhedvueeiudekieeltdetgfdviefhgfetteenucfkphepudelhedrudefiedrudelrdelgeenucevlhhushhtvghrufhiiigvpedtnecurfgrrhgrmhepihhnvghtpeduleehrddufeeirdduledrleegpdhhvghlohepkhhrvggrtghhvghrrdhlohgtrghlnhgvthdpmhgrihhlfhhrohhmpedftfgrfhgrvghlucflrdcuhgihshhotghkihdfuceorhhjfiesrhhjfiihshhotghkihdrnhgvtheqpdhnsggprhgtphhtthhopedvvddprhgtphhtthhopehlihhnuhigsegrrhhmlhhinhhugidrohhrghdruhhkpdhrtghpthhtoheplfhonhgrthhhrghnrdevrghmvghrohhnsehhuhgrfigvihdrtghomhdprhgtphhtthhopehrrghfrggvlheskhgvrhhnvghlrdhorhhgpdhrtghpthhtoheplhhinhhugidqphhmsehvghgvrhdrkhgvrhhnvghlrdhorhhgpdhrtghpthhtoheplhhoohhnghgrrhgthheslhhishhtshdrlhhinhhugidruggvvhdprhgtphhtthhopehlihhnuhigqdgrtghpihesvhhgvghrrdhkvghrnhgvlhdrohhrgh
-X-DCC--Metrics: v370.home.net.pl 1024; Body=22 Fuz1=22 Fuz2=22
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+In-Reply-To: <ZXyEiHLFBsoUkfNI@shell.armlinux.org.uk>
 
-On Friday, December 15, 2023 5:15:39 PM CET Jonathan Cameron wrote:
-> On Fri, 15 Dec 2023 15:31:55 +0000
-> "Russell King (Oracle)" <linux@armlinux.org.uk> wrote:
->=20
-> > On Thu, Dec 14, 2023 at 07:37:10PM +0100, Rafael J. Wysocki wrote:
-> > > On Thu, Dec 14, 2023 at 7:16=E2=80=AFPM Rafael J. Wysocki <rafael@ker=
-nel.org> wrote: =20
-> > > >
-> > > > On Thu, Dec 14, 2023 at 7:10=E2=80=AFPM Russell King (Oracle)
-> > > > <linux@armlinux.org.uk> wrote: =20
-> > > > > I guess we need something like:
-> > > > >
-> > > > >         if (device->status.present)
-> > > > >                 return device->device_type !=3D ACPI_BUS_TYPE_PRO=
-CESSOR ||
-> > > > >                        device->status.enabled;
-> > > > >         else
-> > > > >                 return device->status.functional;
-> > > > >
-> > > > > so we only check device->status.enabled for processor-type device=
-s? =20
-> > > >
-> > > > Yes, something like this. =20
-> > >=20
-> > > However, that is not sufficient, because there are
-> > > ACPI_BUS_TYPE_DEVICE devices representing processors.
-> > >=20
-> > > I'm not sure about a clean way to do it ATM. =20
-> >=20
-> > Ok, how about:
-> >=20
-> > static bool acpi_dev_is_processor(const struct acpi_device *device)
-> > {
-> > 	struct acpi_hardware_id *hwid;
-> >=20
-> > 	if (device->device_type =3D=3D ACPI_BUS_TYPE_PROCESSOR)
-> > 		return true;
-> >=20
-> > 	if (device->device_type !=3D ACPI_BUS_TYPE_DEVICE)
-> > 		return false;
-> >=20
-> > 	list_for_each_entry(hwid, &device->pnp.ids, list)
-> > 		if (!strcmp(ACPI_PROCESSOR_OBJECT_HID, hwid->id) ||
-> > 		    !strcmp(ACPI_PROCESSOR_DEVICE_HID, hwid->id))
-> > 			return true;
-> >=20
-> > 	return false;
-> > }
-> >=20
-> > and then:
-> >=20
-> > 	if (device->status.present)
-> > 		return !acpi_dev_is_processor(device) || device->status.enabled;
-> > 	else
-> > 		return device->status.functional;
-> >=20
-> > ?
-> >=20
-> Changing it to CPU only for now makes sense to me and I think this code s=
-nippet should do the
-> job.  Nice and simple.
+On Fri, Dec 15, 2023 at 04:53:28PM +0000, Russell King (Oracle) wrote:
+> On Fri, Dec 15, 2023 at 04:23:22PM +0000, Jonathan Cameron wrote:
+> > On Wed, 13 Dec 2023 12:50:18 +0000
+> > Russell King (Oracle) <rmk+kernel@armlinux.org.uk> wrote:
+> > 
+> > > From: James Morse <james.morse@arm.com>
+> > > 
+> > > Add the new flag field to the MADT's GICC structure.
+> > > 
+> > > 'Online Capable' indicates a disabled CPU can be enabled later. See
+> > > ACPI specification 6.5 Tabel 5.37: GICC CPU Interface Flags.
+> > > 
+> > > Signed-off-by: James Morse <james.morse@arm.com>
+> > > Tested-by: Miguel Luis <miguel.luis@oracle.com>
+> > > Tested-by: Vishnu Pajjuri <vishnu@os.amperecomputing.com>
+> > > Tested-by: Jianyong Wu <jianyong.wu@arm.com>
+> > > Signed-off-by: Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
+> > 
+> > I see there is an acpica pull request including this bit but with a different name
+> > For reference.
+> > https://github.com/acpica/acpica/pull/914/commits/453a5f67567786522021d5f6913f561f8b3cabf6
+> > 
+> > +CC Lorenzo who submitted that.
+> 
+> > > +#define ACPI_MADT_GICC_CPU_CAPABLE      (1<<3)	/* 03: CPU is online capable */
+> > 
+> > ACPI_MADT_GICC_ONLINE_CAPABLE
+> 
+> It's somewhat disappointing, but no big deal. It's easy enough to change
+> "irqchip/gic-v3: Add support for ACPI's disabled but 'online capable' CPUs"
+> to use Lorenzo's name when that patch hits - and it becomes one less
+> patch in this patch set when Lorenzo's change eventually hits mainline.
+> 
+> Does anyone know how long it may take for Lorenzo's change to get into
+> mainline? Would it be by the 6.8 merge window or the following one?
 
-Well, except that it does checks that are done elsewhere slightly
-differently, which from the maintenance POV is not nice.
+I wish I knew. I submitted ACPICA changes for the online capable bit
+since I had to add additional flags on top (ie DMA coherent) and it
+would not make sense to submit the latter without the former.
 
-Maybe something like the appended patch (untested).
+I'd be great if the ACPICA headers can make it into Linux for the upcoming
+merge window, not sure what I can do to fasttrack the process though
+(I shall ping the maintainers).
 
-=2D--
- drivers/acpi/acpi_processor.c |   11 +++++++++++
- drivers/acpi/internal.h       |    3 +++
- drivers/acpi/scan.c           |   24 +++++++++++++++++++++++-
- 3 files changed, 37 insertions(+), 1 deletion(-)
+Lorenzo
 
-Index: linux-pm/drivers/acpi/acpi_processor.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-=2D-- linux-pm.orig/drivers/acpi/acpi_processor.c
-+++ linux-pm/drivers/acpi/acpi_processor.c
-@@ -644,6 +644,17 @@ static struct acpi_scan_handler processo
- 	},
- };
-=20
-+bool acpi_device_is_processor(const struct acpi_device *adev)
-+{
-+	if (adev->device_type =3D=3D ACPI_BUS_TYPE_PROCESSOR)
-+		return true;
-+
-+	if (adev->device_type !=3D ACPI_BUS_TYPE_DEVICE)
-+		return false;
-+
-+	return acpi_scan_check_handler(adev, &processor_handler);
-+}
-+
- static int acpi_processor_container_attach(struct acpi_device *dev,
- 					   const struct acpi_device_id *id)
- {
-Index: linux-pm/drivers/acpi/internal.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-=2D-- linux-pm.orig/drivers/acpi/internal.h
-+++ linux-pm/drivers/acpi/internal.h
-@@ -62,6 +62,8 @@ void acpi_sysfs_add_hotplug_profile(stru
- int acpi_scan_add_handler_with_hotplug(struct acpi_scan_handler *handler,
- 				       const char *hotplug_profile_name);
- void acpi_scan_hotplug_enabled(struct acpi_hotplug_profile *hotplug, bool =
-val);
-+bool acpi_scan_check_handler(const struct acpi_device *adev,
-+			     struct acpi_scan_handler *handler);
-=20
- #ifdef CONFIG_DEBUG_FS
- extern struct dentry *acpi_debugfs_dir;
-@@ -133,6 +135,7 @@ int acpi_bus_register_early_device(int t
- const struct acpi_device *acpi_companion_match(const struct device *dev);
- int __acpi_device_uevent_modalias(const struct acpi_device *adev,
- 				  struct kobj_uevent_env *env);
-+bool acpi_device_is_processor(const struct acpi_device *adev);
-=20
- /* -----------------------------------------------------------------------=
-=2D--
-                                   Power Resource
-Index: linux-pm/drivers/acpi/scan.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-=2D-- linux-pm.orig/drivers/acpi/scan.c
-+++ linux-pm/drivers/acpi/scan.c
-@@ -1938,6 +1938,19 @@ static bool acpi_scan_handler_matching(s
- 	return false;
- }
-=20
-+bool acpi_scan_check_handler(const struct acpi_device *adev,
-+			     struct acpi_scan_handler *handler)
-+{
-+	struct acpi_hardware_id *hwid;
-+
-+	list_for_each_entry(hwid, &adev->pnp.ids, list) {
-+		if (acpi_scan_handler_matching(handler, hwid->id, NULL))
-+			return true;
-+	}
-+
-+	return false;
-+}
-+
- static struct acpi_scan_handler *acpi_scan_match_handler(const char *idstr,
- 					const struct acpi_device_id **matchid)
- {
-@@ -2410,7 +2423,16 @@ bool acpi_dev_ready_for_enumeration(cons
- 	if (device->flags.honor_deps && device->dep_unmet)
- 		return false;
-=20
-=2D	return acpi_device_is_present(device);
-+	if (device->status.functional)
-+		return true;
-+
-+	if (!device->status.present)
-+		return false;
-+
-+	if (device->status.enabled)
-+		return true; /* Fast path. */
-+
-+	return !acpi_device_is_processor(device);
- }
- EXPORT_SYMBOL_GPL(acpi_dev_ready_for_enumeration);
-=20
-
-
-
+> Thanks.
+> 
+> -- 
+> RMK's Patch system: https://www.armlinux.org.uk/developer/patches/
+> FTTP is here! 80Mbps down 10Mbps up. Decent connectivity at last!
