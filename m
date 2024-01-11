@@ -1,159 +1,276 @@
-Received: from pandora.armlinux.org.uk (pandora.armlinux.org.uk [78.32.30.218])
+Received: from frasgout.his.huawei.com (frasgout.his.huawei.com [185.176.79.56])
 	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 937293D541;
-	Tue,  9 Jan 2024 19:27:36 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=armlinux.org.uk
-Authentication-Results: smtp.subspace.kernel.org; spf=none smtp.mailfrom=armlinux.org.uk
-Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=armlinux.org.uk header.i=@armlinux.org.uk header.b="MU44z6ma"
-DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
-	d=armlinux.org.uk; s=pandora-2019; h=Sender:In-Reply-To:Content-Type:
-	MIME-Version:References:Message-ID:Subject:Cc:To:From:Date:Reply-To:
-	Content-Transfer-Encoding:Content-ID:Content-Description:Resent-Date:
-	Resent-From:Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:List-Id:
-	List-Help:List-Unsubscribe:List-Subscribe:List-Post:List-Owner:List-Archive;
-	bh=L5q9G4EH+GvNtL+Wb8XKMCOl8tTep7D40VZuegMyoOA=; b=MU44z6maYlvs7GL6v/GT26fHEs
-	JywflQgaRGHzndkpt+lSurBg+ao2mQxU+/oGRSPRiPNkKcdcrWFvi+6rItnyaLc7f+FPAYo7I83W5
-	d2s5ZugUXxshlJZGVGdrzrlIPCvqO/paJ1S3aBQEm5m9WcY0LPaxU5tR2kGwmEZzaY4deEjqCqu4u
-	DArVZFITrAPbLhv9xLhr/UgPtS73DxSn0SkJEK4PDTSMy+YZBXGTEYK/DtGROgF9J5QMkTF/3HvTA
-	umaXB+rcdQQpV3GgnIh74H38yrte9HF9bmmSsTVhQfTau7kl/lzJA4JTLkbtSQEyuHbASkLLoClqJ
-	gOO/RXgQ==;
-Received: from shell.armlinux.org.uk ([fd8f:7570:feb6:1:5054:ff:fe00:4ec]:56366)
-	by pandora.armlinux.org.uk with esmtpsa  (TLS1.3) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	(Exim 4.96)
-	(envelope-from <linux@armlinux.org.uk>)
-	id 1rNHkv-0004Ud-0B;
-	Tue, 09 Jan 2024 19:27:21 +0000
-Received: from linux by shell.armlinux.org.uk with local (Exim 4.94.2)
-	(envelope-from <linux@shell.armlinux.org.uk>)
-	id 1rNHku-0004Wn-DT; Tue, 09 Jan 2024 19:27:20 +0000
-Date: Tue, 9 Jan 2024 19:27:20 +0000
-From: "Russell King (Oracle)" <linux@armlinux.org.uk>
-To: Jonathan Cameron <Jonathan.Cameron@huawei.com>
-Cc: linux-pm@vger.kernel.org, loongarch@lists.linux.dev,
-	linux-acpi@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-riscv@lists.infradead.org, kvmarm@lists.linux.dev,
-	x86@kernel.org, acpica-devel@lists.linuxfoundation.org,
-	linux-csky@vger.kernel.org, linux-doc@vger.kernel.org,
-	linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org,
-	Salil Mehta <salil.mehta@huawei.com>,
-	Jean-Philippe Brucker <jean-philippe@linaro.org>,
-	jianyong.wu@arm.com, justin.he@arm.com,
-	James Morse <james.morse@arm.com>
-Subject: Re: [PATCH RFC v3 14/21] irqchip/gic-v3: Don't return errors from
- gic_acpi_match_gicc()
-Message-ID: <ZZ2eGLwlkqZrh0In@shell.armlinux.org.uk>
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 50C801426C;
+	Thu, 11 Jan 2024 10:19:59 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=quarantine dis=none) header.from=Huawei.com
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=huawei.com
+Received: from mail.maildlp.com (unknown [172.18.186.31])
+	by frasgout.his.huawei.com (SkyGuard) with ESMTP id 4T9gZf0gDvz6K8Kq;
+	Thu, 11 Jan 2024 18:17:14 +0800 (CST)
+Received: from lhrpeml500005.china.huawei.com (unknown [7.191.163.240])
+	by mail.maildlp.com (Postfix) with ESMTPS id 3C7501400CD;
+	Thu, 11 Jan 2024 18:19:51 +0800 (CST)
+Received: from localhost (10.202.227.76) by lhrpeml500005.china.huawei.com
+ (7.191.163.240) with Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256) id 15.1.2507.35; Thu, 11 Jan
+ 2024 10:19:50 +0000
+Date: Thu, 11 Jan 2024 10:19:49 +0000
+From: Jonathan Cameron <Jonathan.Cameron@Huawei.com>
+To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+CC: "Russell King (Oracle)" <linux@armlinux.org.uk>, "Rafael J. Wysocki"
+	<rafael@kernel.org>, <linux-pm@vger.kernel.org>, <loongarch@lists.linux.dev>,
+	<linux-acpi@vger.kernel.org>, <linux-arch@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
+	<linux-riscv@lists.infradead.org>, <kvmarm@lists.linux.dev>,
+	<x86@kernel.org>, <acpica-devel@lists.linuxfoundation.org>,
+	<linux-csky@vger.kernel.org>, <linux-doc@vger.kernel.org>,
+	<linux-ia64@vger.kernel.org>, <linux-parisc@vger.kernel.org>, Salil Mehta
+	<salil.mehta@huawei.com>, Jean-Philippe Brucker <jean-philippe@linaro.org>,
+	<jianyong.wu@arm.com>, <justin.he@arm.com>, James Morse <james.morse@arm.com>
+Subject: Re: [PATCH RFC v3 01/21] ACPI: Only enumerate enabled (or
+ functional) devices
+Message-ID: <20240111101949.000075dc@Huawei.com>
+In-Reply-To: <20240102143925.00004361@Huawei.com>
 References: <ZXmn46ptis59F0CO@shell.armlinux.org.uk>
- <E1rDOgx-00Dvkv-Bb@rmk-PC.armlinux.org.uk>
- <20231215163301.0000183a@Huawei.com>
+	<ZXxxa+XZjPZtNfJ+@shell.armlinux.org.uk>
+	<20231215161539.00000940@Huawei.com>
+	<5760569.DvuYhMxLoT@kreacher>
+	<20240102143925.00004361@Huawei.com>
+Organization: Huawei Technologies Research and Development (UK) Ltd.
+X-Mailer: Claws Mail 4.1.0 (GTK 3.24.33; x86_64-w64-mingw32)
 Precedence: bulk
 X-Mailing-List: linux-ia64@vger.kernel.org
 List-Id: <linux-ia64.vger.kernel.org>
 List-Subscribe: <mailto:linux-ia64+subscribe@vger.kernel.org>
 List-Unsubscribe: <mailto:linux-ia64+unsubscribe@vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-In-Reply-To: <20231215163301.0000183a@Huawei.com>
-Sender: Russell King (Oracle) <linux@armlinux.org.uk>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+X-ClientProxiedBy: lhrpeml100002.china.huawei.com (7.191.160.241) To
+ lhrpeml500005.china.huawei.com (7.191.163.240)
 
-On Fri, Dec 15, 2023 at 04:33:01PM +0000, Jonathan Cameron wrote:
-> On Wed, 13 Dec 2023 12:50:23 +0000
-> Russell King (Oracle) <rmk+kernel@armlinux.org.uk> wrote:
-> 
-> > From: James Morse <james.morse@arm.com>
-> > 
-> > gic_acpi_match_gicc() is only called via gic_acpi_count_gicr_regions().
-> > It should only count the number of enabled redistributors, but it
-> > also tries to sanity check the GICC entry, currently returning an
-> > error if the Enabled bit is set, but the gicr_base_address is zero.
-> > 
-> > Adding support for the online-capable bit to the sanity check
-> > complicates it, for no benefit. The existing check implicitly
-> > depends on gic_acpi_count_gicr_regions() previous failing to find
-> > any GICR regions (as it is valid to have gicr_base_address of zero if
-> > the redistributors are described via a GICR entry).
-> > 
-> > Instead of complicating the check, remove it. Failures that happen
-> > at this point cause the irqchip not to register, meaning no irqs
-> > can be requested. The kernel grinds to a panic() pretty quickly.
-> > 
-> > Without the check, MADT tables that exhibit this problem are still
-> > caught by gic_populate_rdist(), which helpfully also prints what
-> > went wrong:
-> > | CPU4: mpidr 100 has no re-distributor!
-> > 
-> > Signed-off-by: James Morse <james.morse@arm.com>
-> > Reviewed-by: Gavin Shan <gshan@redhat.com>
-> > Tested-by: Miguel Luis <miguel.luis@oracle.com>
-> > Tested-by: Vishnu Pajjuri <vishnu@os.amperecomputing.com>
-> > Tested-by: Jianyong Wu <jianyong.wu@arm.com>
-> > Signed-off-by: Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
+On Tue, 2 Jan 2024 14:39:25 +0000
+Jonathan Cameron <Jonathan.Cameron@Huawei.com> wrote:
+
+> On Fri, 15 Dec 2023 20:47:31 +0100
+> "Rafael J. Wysocki" <rjw@rjwysocki.net> wrote:
+>=20
+> > On Friday, December 15, 2023 5:15:39 PM CET Jonathan Cameron wrote: =20
+> > > On Fri, 15 Dec 2023 15:31:55 +0000
+> > > "Russell King (Oracle)" <linux@armlinux.org.uk> wrote:
+> > >    =20
+> > > > On Thu, Dec 14, 2023 at 07:37:10PM +0100, Rafael J. Wysocki wrote: =
+  =20
+> > > > > On Thu, Dec 14, 2023 at 7:16=E2=80=AFPM Rafael J. Wysocki <rafael=
+@kernel.org> wrote:     =20
+> > > > > >
+> > > > > > On Thu, Dec 14, 2023 at 7:10=E2=80=AFPM Russell King (Oracle)
+> > > > > > <linux@armlinux.org.uk> wrote:     =20
+> > > > > > > I guess we need something like:
+> > > > > > >
+> > > > > > >         if (device->status.present)
+> > > > > > >                 return device->device_type !=3D ACPI_BUS_TYPE=
+_PROCESSOR ||
+> > > > > > >                        device->status.enabled;
+> > > > > > >         else
+> > > > > > >                 return device->status.functional;
+> > > > > > >
+> > > > > > > so we only check device->status.enabled for processor-type de=
+vices?     =20
+> > > > > >
+> > > > > > Yes, something like this.     =20
+> > > > >=20
+> > > > > However, that is not sufficient, because there are
+> > > > > ACPI_BUS_TYPE_DEVICE devices representing processors.
+> > > > >=20
+> > > > > I'm not sure about a clean way to do it ATM.     =20
+> > > >=20
+> > > > Ok, how about:
+> > > >=20
+> > > > static bool acpi_dev_is_processor(const struct acpi_device *device)
+> > > > {
+> > > > 	struct acpi_hardware_id *hwid;
+> > > >=20
+> > > > 	if (device->device_type =3D=3D ACPI_BUS_TYPE_PROCESSOR)
+> > > > 		return true;
+> > > >=20
+> > > > 	if (device->device_type !=3D ACPI_BUS_TYPE_DEVICE)
+> > > > 		return false;
+> > > >=20
+> > > > 	list_for_each_entry(hwid, &device->pnp.ids, list)
+> > > > 		if (!strcmp(ACPI_PROCESSOR_OBJECT_HID, hwid->id) ||
+> > > > 		    !strcmp(ACPI_PROCESSOR_DEVICE_HID, hwid->id))
+> > > > 			return true;
+> > > >=20
+> > > > 	return false;
+> > > > }
+> > > >=20
+> > > > and then:
+> > > >=20
+> > > > 	if (device->status.present)
+> > > > 		return !acpi_dev_is_processor(device) || device->status.enabled;
+> > > > 	else
+> > > > 		return device->status.functional;
+> > > >=20
+> > > > ?
+> > > >    =20
+> > > Changing it to CPU only for now makes sense to me and I think this co=
+de snippet should do the
+> > > job.  Nice and simple.   =20
+> >=20
+> > Well, except that it does checks that are done elsewhere slightly
+> > differently, which from the maintenance POV is not nice.
+> >=20
+> > Maybe something like the appended patch (untested). =20
+>=20
+> Hi Rafael,
+>=20
+> As far as I can see that's functionally equivalent, so looks good to me.
+> I'm not set up to test this today though, so will defer to Russell on whe=
+ther
+> there is anything missing
+>=20
+> Thanks for putting this together.
+
+This is rather embarrassing...
+
+I span this up on a QEMU instance with some prints to find out we need
+the !acpi_device_is_processor() restriction.
+On my 'random' test setup it fails on one device. ACPI0017 - which I
+happen to know rather well. It's the weird pseudo device that lets
+a CXL aware OS know there is a CEDT table to probe.
+
+Whilst I really don't like that hack (it is all about making software
+distribution of out of tree modules easier rather than something
+fundamental), I'm the CXL QEMU maintainer :(
+
+Will fix that, but it shows there is at least one broken firmware out
+there.
+
+On plus side, Rafael's code seems to work as expected and lets that
+buggy firwmare carry on working :) So lets pretend the bug in qemu
+is a deliberate test case!
+
+Jonathan
+
+p.s. My test setup blows up later for an unrelated reason with latest
+kernel, so I'll be off debugging that for a while :(
+
+
+>=20
+> Jonathan
+>=20
+> >=20
 > > ---
-> >  drivers/irqchip/irq-gic-v3.c | 18 ++++++------------
-> >  1 file changed, 6 insertions(+), 12 deletions(-)
-> > 
-> > diff --git a/drivers/irqchip/irq-gic-v3.c b/drivers/irqchip/irq-gic-v3.c
-> > index 98b0329b7154..ebecd4546830 100644
-> > --- a/drivers/irqchip/irq-gic-v3.c
-> > +++ b/drivers/irqchip/irq-gic-v3.c
-> > @@ -2420,21 +2420,15 @@ static int __init gic_acpi_match_gicc(union acpi_subtable_headers *header,
-> >  
-> >  	/*
-> >  	 * If GICC is enabled and has valid gicr base address, then it means
-> > -	 * GICR base is presented via GICC
-> > +	 * GICR base is presented via GICC. The redistributor is only known to
-> > +	 * be accessible if the GICC is marked as enabled. If this bit is not
-> > +	 * set, we'd need to add the redistributor at runtime, which isn't
-> > +	 * supported.
-> >  	 */
-> > -	if (acpi_gicc_is_usable(gicc) && gicc->gicr_base_address) {
-> > +	if (gicc->flags & ACPI_MADT_ENABLED && gicc->gicr_base_address)
-> 
-> I was very vague in previous review.  I think the reasons you are switching
-> from acpi_gicc_is_useable(gicc) to the gicc->flags & ACPI_MADT_ENABLED
-> needs calling out as I'm fairly sure that this point in the series at least
-> acpi_gicc_is_usable is same as current upstream:
-> 
-> static inline bool acpi_gicc_is_usable(struct acpi_madt_generic_interrupt *gicc)
-> {
-> 	return gicc->flags & ACPI_MADT_ENABLED;
-> }
+> >  drivers/acpi/acpi_processor.c |   11 +++++++++++
+> >  drivers/acpi/internal.h       |    3 +++
+> >  drivers/acpi/scan.c           |   24 +++++++++++++++++++++++-
+> >  3 files changed, 37 insertions(+), 1 deletion(-)
+> >=20
+> > Index: linux-pm/drivers/acpi/acpi_processor.c
+> > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> > --- linux-pm.orig/drivers/acpi/acpi_processor.c
+> > +++ linux-pm/drivers/acpi/acpi_processor.c
+> > @@ -644,6 +644,17 @@ static struct acpi_scan_handler processo
+> >  	},
+> >  };
+> > =20
+> > +bool acpi_device_is_processor(const struct acpi_device *adev)
+> > +{
+> > +	if (adev->device_type =3D=3D ACPI_BUS_TYPE_PROCESSOR)
+> > +		return true;
+> > +
+> > +	if (adev->device_type !=3D ACPI_BUS_TYPE_DEVICE)
+> > +		return false;
+> > +
+> > +	return acpi_scan_check_handler(adev, &processor_handler);
+> > +}
+> > +
+> >  static int acpi_processor_container_attach(struct acpi_device *dev,
+> >  					   const struct acpi_device_id *id)
+> >  {
+> > Index: linux-pm/drivers/acpi/internal.h
+> > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> > --- linux-pm.orig/drivers/acpi/internal.h
+> > +++ linux-pm/drivers/acpi/internal.h
+> > @@ -62,6 +62,8 @@ void acpi_sysfs_add_hotplug_profile(stru
+> >  int acpi_scan_add_handler_with_hotplug(struct acpi_scan_handler *handl=
+er,
+> >  				       const char *hotplug_profile_name);
+> >  void acpi_scan_hotplug_enabled(struct acpi_hotplug_profile *hotplug, b=
+ool val);
+> > +bool acpi_scan_check_handler(const struct acpi_device *adev,
+> > +			     struct acpi_scan_handler *handler);
+> > =20
+> >  #ifdef CONFIG_DEBUG_FS
+> >  extern struct dentry *acpi_debugfs_dir;
+> > @@ -133,6 +135,7 @@ int acpi_bus_register_early_device(int t
+> >  const struct acpi_device *acpi_companion_match(const struct device *de=
+v);
+> >  int __acpi_device_uevent_modalias(const struct acpi_device *adev,
+> >  				  struct kobj_uevent_env *env);
+> > +bool acpi_device_is_processor(const struct acpi_device *adev);
+> > =20
+> >  /* -------------------------------------------------------------------=
+-------
+> >                                    Power Resource
+> > Index: linux-pm/drivers/acpi/scan.c
+> > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> > --- linux-pm.orig/drivers/acpi/scan.c
+> > +++ linux-pm/drivers/acpi/scan.c
+> > @@ -1938,6 +1938,19 @@ static bool acpi_scan_handler_matching(s
+> >  	return false;
+> >  }
+> > =20
+> > +bool acpi_scan_check_handler(const struct acpi_device *adev,
+> > +			     struct acpi_scan_handler *handler)
+> > +{
+> > +	struct acpi_hardware_id *hwid;
+> > +
+> > +	list_for_each_entry(hwid, &adev->pnp.ids, list) {
+> > +		if (acpi_scan_handler_matching(handler, hwid->id, NULL))
+> > +			return true;
+> > +	}
+> > +
+> > +	return false;
+> > +}
+> > +
+> >  static struct acpi_scan_handler *acpi_scan_match_handler(const char *i=
+dstr,
+> >  					const struct acpi_device_id **matchid)
+> >  {
+> > @@ -2410,7 +2423,16 @@ bool acpi_dev_ready_for_enumeration(cons
+> >  	if (device->flags.honor_deps && device->dep_unmet)
+> >  		return false;
+> > =20
+> > -	return acpi_device_is_present(device);
+> > +	if (device->status.functional)
+> > +		return true;
+> > +
+> > +	if (!device->status.present)
+> > +		return false;
+> > +
+> > +	if (device->status.enabled)
+> > +		return true; /* Fast path. */
+> > +
+> > +	return !acpi_device_is_processor(device);
+> >  }
+> >  EXPORT_SYMBOL_GPL(acpi_dev_ready_for_enumeration);
+> > =20
+> >=20
+> >=20
+> >  =20
+>=20
+>=20
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
 
-In a previous patch adding acpi_gicc_is_usable() c54e52f84d7a ("arm64,
-irqchip/gic-v3, ACPI: Move MADT GICC enabled check into a helper") this
-was:
-
--       if ((gicc->flags & ACPI_MADT_ENABLED) && gicc->gicr_base_address) {
-+       if (acpi_gicc_is_usable(gicc) && gicc->gicr_base_address) {
-
-so effectively this is undoing that particular change, which raises in
-my mind why the change was made in the first place if it's just going
-to be reverted in a later patch (because in a following patch,
-acpi_gicc_is_usable() has an additional condition added to it that
-isn't applicable here.) which effectively makes acpi_gicc_is_usable()
-return true if either ACPI_MADT_ENABLED _or_
-ACPI_MADT_GICC_ONLINE_CAPABLE (as it is now known) are set.
-
-However, if ACPI_MADT_GICC_ONLINE_CAPABLE is set, does that actually
-mean that the GICC is usable? I'm not sure it does. ACPI v6.5 says that
-this bit indicates that the system supports enabling this processor
-later. Is the GICC of a currently disabled processor "usable"...
-
-Clearly, the intention of this change is not to count this GICC entry
-if it is marked ACPI_MADT_GICC_ONLINE_CAPABLE, but I feel that isn't
-described in the commit message.
-
-Moreover, I am getting the feeling that there are _two_ changes going
-on here - there's the change that's talked about in the commit message
-(the complex validation that seems unnecessary) and then there's the
-preparation for the change to acpi_gicc_is_usable() - which maybe
-should be in the following patch where it would be less confusing.
-
-Would you agree?
-
--- 
-RMK's Patch system: https://www.armlinux.org.uk/developer/patches/
-FTTP is here! 80Mbps down 10Mbps up. Decent connectivity at last!
