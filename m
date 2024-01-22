@@ -1,146 +1,444 @@
-Received: from pandora.armlinux.org.uk (pandora.armlinux.org.uk [78.32.30.218])
+Received: from us-smtp-delivery-124.mimecast.com (us-smtp-delivery-124.mimecast.com [170.10.129.124])
 	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 8C43628DD1;
-	Mon, 15 Jan 2024 11:06:34 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=armlinux.org.uk
-Authentication-Results: smtp.subspace.kernel.org; spf=none smtp.mailfrom=armlinux.org.uk
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 960FF10A16
+	for <linux-ia64@vger.kernel.org>; Mon, 22 Jan 2024 07:31:16 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=170.10.129.124
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1705908678; cv=none; b=izIIhoPGQaanyug0WK8g/vQbmoh1IAdPFDjezPxqCxfcF3IMmbQdK1pkXSgy/uxY2dM179lTr5YZNvSgQRfSf26G4wvDNlJM0Zp5YoqkjRH2LKOjdEs7Hn8TPpDrSoGtqM1Imdm/uP0RhtYDtKQk0n7QtCVpMPmXnx+htoVv3LY=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1705908678; c=relaxed/simple;
+	bh=Llzbm9oUkBIrng0jHN+0KXkIbMGgbqqoOcPr8oYO5Og=;
+	h=Message-ID:Date:MIME-Version:Subject:To:Cc:References:From:
+	 In-Reply-To:Content-Type; b=iSY0BckRSxD0XpFlOVC2TxmQZgkNhu+JnY0dRPRE7l1ejyO3SRMWfmcB03LpS2abFp9m31W79ye+i50hB9peL4E/8kOf7sDjAOWLoX5L9eQYLdISHgCE7ELPPwJ5DxXBuymfhWOcALiemI0eT2lPF3OxZzMni8qbuKyBTjHXaBg=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=redhat.com; spf=pass smtp.mailfrom=redhat.com; dkim=pass (1024-bit key) header.d=redhat.com header.i=@redhat.com header.b=LuEZI05F; arc=none smtp.client-ip=170.10.129.124
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=redhat.com
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=redhat.com
 Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=armlinux.org.uk header.i=@armlinux.org.uk header.b="If4u5sBw"
-DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
-	d=armlinux.org.uk; s=pandora-2019; h=Sender:In-Reply-To:
-	Content-Transfer-Encoding:Content-Type:MIME-Version:References:Message-ID:
-	Subject:Cc:To:From:Date:Reply-To:Content-ID:Content-Description:Resent-Date:
-	Resent-From:Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:List-Id:
-	List-Help:List-Unsubscribe:List-Subscribe:List-Post:List-Owner:List-Archive;
-	bh=B8snCTk6m/S/IySGz0MUr7RGvF9ztHAy1wNv3isU/8A=; b=If4u5sBwSs6B37nBXDgiTbTUGN
-	lDo8qxPOFMMLR9tdUyLFo9NhxhiAei6ak3C/e+2MynMriUcITyfJLZRCR7Ly9EwLVRyTpXgvcUB3V
-	dwGg8WGAGKz7K/mPA9CiHN8UfYztvfbPPXOI0b0S+WLTsoNs8EV0O1R9IOUUphih0SDSGEtoXqkyc
-	uB4sWSh8b+qMXC/2xsfM+PilLtcS9vlGpghLJvk9GXVZXiWY3hrSNwUQ65+M5e30MzDBuRHWV1QU/
-	jXo3DcbVxcVsJSrnfHOPq2fWintWikuBFLjvQHJE8GaX60F8EKAbY9S+jDwY+ZggmQThypOLb+Xcb
-	DtnjfwcQ==;
-Received: from shell.armlinux.org.uk ([fd8f:7570:feb6:1:5054:ff:fe00:4ec]:60190)
-	by pandora.armlinux.org.uk with esmtpsa  (TLS1.3) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	(Exim 4.96)
-	(envelope-from <linux@armlinux.org.uk>)
-	id 1rPKnW-0002Kh-1U;
-	Mon, 15 Jan 2024 11:06:30 +0000
-Received: from linux by shell.armlinux.org.uk with local (Exim 4.94.2)
-	(envelope-from <linux@shell.armlinux.org.uk>)
-	id 1rPKnV-0002tb-9h; Mon, 15 Jan 2024 11:06:29 +0000
-Date: Mon, 15 Jan 2024 11:06:29 +0000
-From: "Russell King (Oracle)" <linux@armlinux.org.uk>
-To: "Rafael J. Wysocki" <rafael@kernel.org>
-Cc: linux-pm@vger.kernel.org, loongarch@lists.linux.dev,
-	linux-acpi@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-riscv@lists.infradead.org, kvmarm@lists.linux.dev,
-	x86@kernel.org, acpica-devel@lists.linuxfoundation.org,
-	linux-csky@vger.kernel.org, linux-doc@vger.kernel.org,
-	linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org,
-	Salil Mehta <salil.mehta@huawei.com>,
-	Jean-Philippe Brucker <jean-philippe@linaro.org>,
-	jianyong.wu@arm.com, justin.he@arm.com,
-	James Morse <james.morse@arm.com>
-Subject: Re: [PATCH RFC v3 03/21] ACPI: processor: Register CPUs that are
- online, but not described in the DSDT
-Message-ID: <ZaURtUvWQyjYfiiO@shell.armlinux.org.uk>
-References: <ZXmn46ptis59F0CO@shell.armlinux.org.uk>
- <E1rDOg2-00Dvjk-RI@rmk-PC.armlinux.org.uk>
- <CAJZ5v0ju1JHgpjuFLHZVs4NZiARG6iBZN_wza6c2e0kDhZjK0w@mail.gmail.com>
+	dkim=pass (1024-bit key) header.d=redhat.com header.i=@redhat.com header.b="LuEZI05F"
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=redhat.com;
+	s=mimecast20190719; t=1705908675;
+	h=from:from:reply-to:subject:subject:date:date:message-id:message-id:
+	 to:to:cc:cc:mime-version:mime-version:content-type:content-type:
+	 content-transfer-encoding:content-transfer-encoding:
+	 in-reply-to:in-reply-to:references:references;
+	bh=q7h2DVEhrlBFS3xqWaYiNz0NtwDtYA/pt6g+Gnzcrd4=;
+	b=LuEZI05F2vFXflPGPUWq0IU81b1zqC0kHo+vkOsL9ZFAPElF2tuaNtGVfrqdG03EfyGZKe
+	/IA/30j9oqlxYIRuS6XMM0KcS10FjyHDJX0OY+FMaNbKRbfJubqis3sFl9WW6tmfioMVL6
+	vSu1c8/cX5dqpdx3I39v+leaOKTBDnE=
+Received: from mail-pj1-f70.google.com (mail-pj1-f70.google.com
+ [209.85.216.70]) by relay.mimecast.com with ESMTP with STARTTLS
+ (version=TLSv1.3, cipher=TLS_AES_256_GCM_SHA384) id
+ us-mta-201-0rFANfEDNs6TPEUg7EPgtw-1; Mon, 22 Jan 2024 02:31:13 -0500
+X-MC-Unique: 0rFANfEDNs6TPEUg7EPgtw-1
+Received: by mail-pj1-f70.google.com with SMTP id 98e67ed59e1d1-28e65698071so1227995a91.3
+        for <linux-ia64@vger.kernel.org>; Sun, 21 Jan 2024 23:31:13 -0800 (PST)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1705908672; x=1706513472;
+        h=content-transfer-encoding:in-reply-to:from:references:cc:to
+         :content-language:subject:user-agent:mime-version:date:message-id
+         :x-gm-message-state:from:to:cc:subject:date:message-id:reply-to;
+        bh=q7h2DVEhrlBFS3xqWaYiNz0NtwDtYA/pt6g+Gnzcrd4=;
+        b=kKavzg4PsRhkicYR9Mxk2n1dD5T5z+spLcAIjFKRfLO0CS+vTHve/EINyIP3NG+dPE
+         78avXVXdfgI3LfKklrpSYMDvajaHypx8afFQjzxNmTLBgqju5RXyDmMW2njP6vq3YSXc
+         2dr5nfAIRz30UJKQgFh0MAZ0nopuhzAHdeYz+runTJlP7qRAsgJA5UhFxsjHPckpIzsZ
+         6cLILOFLLRCTxjhZqBeq8fJK8YXTAJYBfhFWN7V+K/C8HUbVuiwbDBZ4pa47ULuqK7XE
+         Yvyyq1RiNaqrFhJomWPZzYXJFejU+oXY5CVPmQMzi6Sutrg/21MJ1eR4I886xuuedXpG
+         OkZg==
+X-Gm-Message-State: AOJu0YyevmNrAGWAD1XRidypQuJXg7UfOj0ofEOy0+woYwTXul6Xdhsc
+	4fGM/FXtnnfMIpN+DYOXSOMzuvEmnj+AGQz6dHqR6a5BECAaCJXtol6BNNkfJvNdtxMpbhWmKZB
+	aXp/VlTPSW45z5+NqZI7BBPVlR83Ii3Orsg0k9XETDwcV703AfuAa00dIg8Q=
+X-Received: by 2002:a17:90a:b903:b0:28e:88d9:c314 with SMTP id p3-20020a17090ab90300b0028e88d9c314mr1170547pjr.11.1705908672214;
+        Sun, 21 Jan 2024 23:31:12 -0800 (PST)
+X-Google-Smtp-Source: AGHT+IHDCgmKu6d5PIapALN9UiADEjI2hUkrZBK0fyw5g8iUtS6EUbQqGF86PDL0wCSAJC+g9XfSAg==
+X-Received: by 2002:a17:90a:b903:b0:28e:88d9:c314 with SMTP id p3-20020a17090ab90300b0028e88d9c314mr1170530pjr.11.1705908671822;
+        Sun, 21 Jan 2024 23:31:11 -0800 (PST)
+Received: from [10.72.112.63] ([43.228.180.230])
+        by smtp.gmail.com with ESMTPSA id li9-20020a17090b48c900b0028b3539cd97sm8995232pjb.20.2024.01.21.23.31.03
+        (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);
+        Sun, 21 Jan 2024 23:31:11 -0800 (PST)
+Message-ID: <38d6eed5-05ff-4019-bc82-fc7356013c40@redhat.com>
+Date: Mon, 22 Jan 2024 17:31:00 +1000
 Precedence: bulk
 X-Mailing-List: linux-ia64@vger.kernel.org
 List-Id: <linux-ia64.vger.kernel.org>
 List-Subscribe: <mailto:linux-ia64+subscribe@vger.kernel.org>
 List-Unsubscribe: <mailto:linux-ia64+unsubscribe@vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
+User-Agent: Mozilla Thunderbird
+Subject: Re: [PATCH RFC v3 01/21] ACPI: Only enumerate enabled (or functional)
+ devices
+Content-Language: en-US
+To: "Russell King (Oracle)" <linux@armlinux.org.uk>,
+ Jonathan Cameron <Jonathan.Cameron@huawei.com>
+Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>,
+ "Rafael J. Wysocki" <rafael@kernel.org>, linux-pm@vger.kernel.org,
+ loongarch@lists.linux.dev, linux-acpi@vger.kernel.org,
+ linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org, linux-riscv@lists.infradead.org,
+ kvmarm@lists.linux.dev, x86@kernel.org,
+ acpica-devel@lists.linuxfoundation.org, linux-csky@vger.kernel.org,
+ linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org,
+ linux-parisc@vger.kernel.org, Salil Mehta <salil.mehta@huawei.com>,
+ Jean-Philippe Brucker <jean-philippe@linaro.org>, jianyong.wu@arm.com,
+ justin.he@arm.com, James Morse <james.morse@arm.com>
+References: <ZXmn46ptis59F0CO@shell.armlinux.org.uk>
+ <ZXxxa+XZjPZtNfJ+@shell.armlinux.org.uk> <20231215161539.00000940@Huawei.com>
+ <5760569.DvuYhMxLoT@kreacher> <20240102143925.00004361@Huawei.com>
+ <20240111101949.000075dc@Huawei.com> <ZZ/CR/6Voec066DR@shell.armlinux.org.uk>
+From: Gavin Shan <gshan@redhat.com>
+In-Reply-To: <ZZ/CR/6Voec066DR@shell.armlinux.org.uk>
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 8bit
-In-Reply-To: <CAJZ5v0ju1JHgpjuFLHZVs4NZiARG6iBZN_wza6c2e0kDhZjK0w@mail.gmail.com>
-Sender: Russell King (Oracle) <linux@armlinux.org.uk>
 
-On Mon, Dec 18, 2023 at 09:22:03PM +0100, Rafael J. Wysocki wrote:
-> On Wed, Dec 13, 2023 at 1:49 PM Russell King <rmk+kernel@armlinux.org.uk> wrote:
-> >
-> > From: James Morse <james.morse@arm.com>
-> >
-> > ACPI has two descriptions of CPUs, one in the MADT/APIC table, the other
-> > in the DSDT. Both are required. (ACPI 6.5's 8.4 "Declaring Processors"
-> > says "Each processor in the system must be declared in the ACPI
-> > namespace"). Having two descriptions allows firmware authors to get
-> > this wrong.
-> >
-> > If CPUs are described in the MADT/APIC, they will be brought online
-> > early during boot. Once the register_cpu() calls are moved to ACPI,
-> > they will be based on the DSDT description of the CPUs. When CPUs are
-> > missing from the DSDT description, they will end up online, but not
-> > registered.
-> >
-> > Add a helper that runs after acpi_init() has completed to register
-> > CPUs that are online, but weren't found in the DSDT. Any CPU that
-> > is registered by this code triggers a firmware-bug warning and kernel
-> > taint.
-> >
-> > Qemu TCG only describes the first CPU in the DSDT, unless cpu-hotplug
-> > is configured.
+On 1/11/24 20:26, Russell King (Oracle) wrote:
+> On Thu, Jan 11, 2024 at 10:19:49AM +0000, Jonathan Cameron wrote:
+>> On Tue, 2 Jan 2024 14:39:25 +0000
+>> Jonathan Cameron <Jonathan.Cameron@Huawei.com> wrote:
+>>
+>>> On Fri, 15 Dec 2023 20:47:31 +0100
+>>> "Rafael J. Wysocki" <rjw@rjwysocki.net> wrote:
+>>>
+>>>> On Friday, December 15, 2023 5:15:39 PM CET Jonathan Cameron wrote:
+>>>>> On Fri, 15 Dec 2023 15:31:55 +0000
+>>>>> "Russell King (Oracle)" <linux@armlinux.org.uk> wrote:
+>>>>>      
+>>>>>> On Thu, Dec 14, 2023 at 07:37:10PM +0100, Rafael J. Wysocki wrote:
+>>>>>>> On Thu, Dec 14, 2023 at 7:16 PM Rafael J. Wysocki <rafael@kernel.org> wrote:
+>>>>>>>>
+>>>>>>>> On Thu, Dec 14, 2023 at 7:10 PM Russell King (Oracle)
+>>>>>>>> <linux@armlinux.org.uk> wrote:
+>>>>>>>>> I guess we need something like:
+>>>>>>>>>
+>>>>>>>>>          if (device->status.present)
+>>>>>>>>>                  return device->device_type != ACPI_BUS_TYPE_PROCESSOR ||
+>>>>>>>>>                         device->status.enabled;
+>>>>>>>>>          else
+>>>>>>>>>                  return device->status.functional;
+>>>>>>>>>
+>>>>>>>>> so we only check device->status.enabled for processor-type devices?
+>>>>>>>>
+>>>>>>>> Yes, something like this.
+>>>>>>>
+>>>>>>> However, that is not sufficient, because there are
+>>>>>>> ACPI_BUS_TYPE_DEVICE devices representing processors.
+>>>>>>>
+>>>>>>> I'm not sure about a clean way to do it ATM.
+>>>>>>
+>>>>>> Ok, how about:
+>>>>>>
+>>>>>> static bool acpi_dev_is_processor(const struct acpi_device *device)
+>>>>>> {
+>>>>>> 	struct acpi_hardware_id *hwid;
+>>>>>>
+>>>>>> 	if (device->device_type == ACPI_BUS_TYPE_PROCESSOR)
+>>>>>> 		return true;
+>>>>>>
+>>>>>> 	if (device->device_type != ACPI_BUS_TYPE_DEVICE)
+>>>>>> 		return false;
+>>>>>>
+>>>>>> 	list_for_each_entry(hwid, &device->pnp.ids, list)
+>>>>>> 		if (!strcmp(ACPI_PROCESSOR_OBJECT_HID, hwid->id) ||
+>>>>>> 		    !strcmp(ACPI_PROCESSOR_DEVICE_HID, hwid->id))
+>>>>>> 			return true;
+>>>>>>
+>>>>>> 	return false;
+>>>>>> }
+>>>>>>
+>>>>>> and then:
+>>>>>>
+>>>>>> 	if (device->status.present)
+>>>>>> 		return !acpi_dev_is_processor(device) || device->status.enabled;
+>>>>>> 	else
+>>>>>> 		return device->status.functional;
+>>>>>>
+>>>>>> ?
+>>>>>>      
+>>>>> Changing it to CPU only for now makes sense to me and I think this code snippet should do the
+>>>>> job.  Nice and simple.
+>>>>
+>>>> Well, except that it does checks that are done elsewhere slightly
+>>>> differently, which from the maintenance POV is not nice.
+>>>>
+>>>> Maybe something like the appended patch (untested).
+>>>
+>>> Hi Rafael,
+>>>
+>>> As far as I can see that's functionally equivalent, so looks good to me.
+>>> I'm not set up to test this today though, so will defer to Russell on whether
+>>> there is anything missing
+>>>
+>>> Thanks for putting this together.
+>>
+>> This is rather embarrassing...
+>>
+>> I span this up on a QEMU instance with some prints to find out we need
+>> the !acpi_device_is_processor() restriction.
+>> On my 'random' test setup it fails on one device. ACPI0017 - which I
+>> happen to know rather well. It's the weird pseudo device that lets
+>> a CXL aware OS know there is a CEDT table to probe.
+>>
+>> Whilst I really don't like that hack (it is all about making software
+>> distribution of out of tree modules easier rather than something
+>> fundamental), I'm the CXL QEMU maintainer :(
+>>
+>> Will fix that, but it shows there is at least one broken firmware out
+>> there.
+>>
+>> On plus side, Rafael's code seems to work as expected and lets that
+>> buggy firwmare carry on working :) So lets pretend the bug in qemu
+>> is a deliberate test case!
 > 
-> So why is this a kernel problem?
-
-So what are you proposing should be the behaviour here? What this
-statement seems to be saying is that QEMU as it exists today only
-describes the first CPU in DSDT.
-
-As this patch series changes when arch_register_cpu() gets called (as
-described in the paragraph above) we obviously need to preserve the
-_existing_ behaviour to avoid causing regressions. So, if changing the
-kernel causes user visible regressions (e.g. sysfs entries to
-disappear) then it obviously _is_ a kernel problem that needs to be
-solved.
-
-We can't say "well fix QEMU then" without invoking the wrath of Linus.
-
-> > Signed-off-by: James Morse <james.morse@arm.com>
-> > Reviewed-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
-> > Reviewed-by: Gavin Shan <gshan@redhat.com>
-> > Tested-by: Miguel Luis <miguel.luis@oracle.com>
-> > Tested-by: Vishnu Pajjuri <vishnu@os.amperecomputing.com>
-> > Tested-by: Jianyong Wu <jianyong.wu@arm.com>
-> > Signed-off-by: Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
-> > ---
-> >  drivers/acpi/acpi_processor.c | 19 +++++++++++++++++++
-> >  1 file changed, 19 insertions(+)
-> >
-> > diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processor.c
-> > index 6a542e0ce396..0511f2bc10bc 100644
-> > --- a/drivers/acpi/acpi_processor.c
-> > +++ b/drivers/acpi/acpi_processor.c
-> > @@ -791,6 +791,25 @@ void __init acpi_processor_init(void)
-> >         acpi_pcc_cpufreq_init();
-> >  }
-> >
-> > +static int __init acpi_processor_register_missing_cpus(void)
-> > +{
-> > +       int cpu;
-> > +
-> > +       if (acpi_disabled)
-> > +               return 0;
-> > +
-> > +       for_each_online_cpu(cpu) {
-> > +               if (!get_cpu_device(cpu)) {
-> > +                       pr_err_once(FW_BUG "CPU %u has no ACPI namespace description!\n", cpu);
-> > +                       add_taint(TAINT_FIRMWARE_WORKAROUND, LOCKDEP_STILL_OK);
-> > +                       arch_register_cpu(cpu);
+> Lol, thanks for a test case and showing that Rafael's approach is
+> indeed necessary.
 > 
-> Which part of this code is related to ACPI?
+> Would your test quality for a tested-by for this? For reference, this
+> is my current version below with Rafael's update:
+> 
+> 8<====
+> From: Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
+> Subject: [PATCH] ACPI: Only enumerate enabled (or functional) processor
+>   devices
+> 
+> From: James Morse <james.morse@arm.com>
+> 
+> Today the ACPI enumeration code 'visits' all devices that are present.
+> 
+> This is a problem for arm64, where CPUs are always present, but not
+> always enabled. When a device-check occurs because the firmware-policy
+> has changed and a CPU is now enabled, the following error occurs:
+> | acpi ACPI0007:48: Enumeration failure
+> 
+> This is ultimately because acpi_dev_ready_for_enumeration() returns
+> true for a device that is not enabled. The ACPI Processor driver
+> will not register such CPUs as they are not 'decoding their resources'.
+> 
+> ACPI allows a device to be functional instead of maintaining the
+> present and enabled bit, but we can't simply check the enabled bit
+> for all devices since firmware can be buggy.
+> 
+> If ACPI indicates that the device is present and enabled, then all well
+> and good, we can enumate it. However, if the device is present and not
+> enabled, then we also check whether the device is a processor device
+> to limit the impact of this new check to just processor devices.
+> 
+> This avoids enumerating present && functional processor devices that
+> are not enabled.
+> 
+> Signed-off-by: James Morse <james.morse@arm.com>
+> Co-developed-by: Rafael J. Wysocki <rjw@rjwysocki.net>
+> Signed-off-by: Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
+> ---
+> Changes since RFC v2:
+>   * Incorporate comment suggestion by Gavin Shan.
+> Changes since RFC v3:
+>   * Fixed "sert" typo.
+> Changes since RFC v3 (smaller series):
+>   * Restrict checking the enabled bit to processor devices, update
+>     commit comments.
+>   * Use Rafael's suggestion in
+>     https://lore.kernel.org/r/5760569.DvuYhMxLoT@kreacher
+> ---
+>   drivers/acpi/acpi_processor.c | 11 ++++++++
+>   drivers/acpi/device_pm.c      |  2 +-
+>   drivers/acpi/device_sysfs.c   |  2 +-
+>   drivers/acpi/internal.h       |  4 ++-
+>   drivers/acpi/property.c       |  2 +-
+>   drivers/acpi/scan.c           | 49 ++++++++++++++++++++++++++++-------
+>   6 files changed, 56 insertions(+), 14 deletions(-)
+> 
+> diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processor.c
+> index 4fe2ef54088c..cf7c1cca69dd 100644
+> --- a/drivers/acpi/acpi_processor.c
+> +++ b/drivers/acpi/acpi_processor.c
+> @@ -626,6 +626,17 @@ static struct acpi_scan_handler processor_handler = {
+>   	},
+>   };
+>   
+> +bool acpi_device_is_processor(const struct acpi_device *adev)
+> +{
+> +	if (adev->device_type == ACPI_BUS_TYPE_PROCESSOR)
+> +		return true;
+> +
+> +	if (adev->device_type != ACPI_BUS_TYPE_DEVICE)
+> +		return false;
+> +
+> +	return acpi_scan_check_handler(adev, &processor_handler);
+> +}
+> +
+>   static int acpi_processor_container_attach(struct acpi_device *dev,
+>   					   const struct acpi_device_id *id)
+>   {
+> diff --git a/drivers/acpi/device_pm.c b/drivers/acpi/device_pm.c
+> index 3b4d048c4941..e3c80f3b3b57 100644
+> --- a/drivers/acpi/device_pm.c
+> +++ b/drivers/acpi/device_pm.c
+> @@ -313,7 +313,7 @@ int acpi_bus_init_power(struct acpi_device *device)
+>   		return -EINVAL;
+>   
+>   	device->power.state = ACPI_STATE_UNKNOWN;
+> -	if (!acpi_device_is_present(device)) {
+> +	if (!acpi_dev_ready_for_enumeration(device)) {
+>   		device->flags.initialized = false;
+>   		return -ENXIO;
+>   	}
+> diff --git a/drivers/acpi/device_sysfs.c b/drivers/acpi/device_sysfs.c
+> index 23373faa35ec..a0256d2493a7 100644
+> --- a/drivers/acpi/device_sysfs.c
+> +++ b/drivers/acpi/device_sysfs.c
+> @@ -141,7 +141,7 @@ static int create_pnp_modalias(const struct acpi_device *acpi_dev, char *modalia
+>   	struct acpi_hardware_id *id;
+>   
+>   	/* Avoid unnecessarily loading modules for non present devices. */
+> -	if (!acpi_device_is_present(acpi_dev))
+> +	if (!acpi_dev_ready_for_enumeration(acpi_dev))
+>   		return 0;
+>   
+>   	/*
+> diff --git a/drivers/acpi/internal.h b/drivers/acpi/internal.h
+> index 866c7c4ed233..9388d4c8674a 100644
+> --- a/drivers/acpi/internal.h
+> +++ b/drivers/acpi/internal.h
+> @@ -62,6 +62,8 @@ void acpi_sysfs_add_hotplug_profile(struct acpi_hotplug_profile *hotplug,
+>   int acpi_scan_add_handler_with_hotplug(struct acpi_scan_handler *handler,
+>   				       const char *hotplug_profile_name);
+>   void acpi_scan_hotplug_enabled(struct acpi_hotplug_profile *hotplug, bool val);
+> +bool acpi_scan_check_handler(const struct acpi_device *adev,
+> +			     struct acpi_scan_handler *handler);
+>   
+>   #ifdef CONFIG_DEBUG_FS
+>   extern struct dentry *acpi_debugfs_dir;
+> @@ -107,7 +109,6 @@ int acpi_device_setup_files(struct acpi_device *dev);
+>   void acpi_device_remove_files(struct acpi_device *dev);
+>   void acpi_device_add_finalize(struct acpi_device *device);
+>   void acpi_free_pnp_ids(struct acpi_device_pnp *pnp);
+> -bool acpi_device_is_present(const struct acpi_device *adev);
+>   bool acpi_device_is_battery(struct acpi_device *adev);
+>   bool acpi_device_is_first_physical_node(struct acpi_device *adev,
+>   					const struct device *dev);
+> @@ -119,6 +120,7 @@ int acpi_bus_register_early_device(int type);
+>   const struct acpi_device *acpi_companion_match(const struct device *dev);
+>   int __acpi_device_uevent_modalias(const struct acpi_device *adev,
+>   				  struct kobj_uevent_env *env);
+> +bool acpi_device_is_processor(const struct acpi_device *adev);
+>   
+>   /* --------------------------------------------------------------------------
+>                                     Power Resource
+> diff --git a/drivers/acpi/property.c b/drivers/acpi/property.c
+> index 6979a3f9f90a..14d6948fd88a 100644
+> --- a/drivers/acpi/property.c
+> +++ b/drivers/acpi/property.c
+> @@ -1420,7 +1420,7 @@ static bool acpi_fwnode_device_is_available(const struct fwnode_handle *fwnode)
+>   	if (!is_acpi_device_node(fwnode))
+>   		return false;
+>   
+> -	return acpi_device_is_present(to_acpi_device_node(fwnode));
+> +	return acpi_dev_ready_for_enumeration(to_acpi_device_node(fwnode));
+>   }
+>   
+>   static const void *
+> diff --git a/drivers/acpi/scan.c b/drivers/acpi/scan.c
+> index 02bb2cce423f..f94d1f744bcc 100644
+> --- a/drivers/acpi/scan.c
+> +++ b/drivers/acpi/scan.c
+> @@ -304,7 +304,7 @@ static int acpi_scan_device_check(struct acpi_device *adev)
+>   	int error;
+>   
+>   	acpi_bus_get_status(adev);
+> -	if (acpi_device_is_present(adev)) {
+> +	if (acpi_dev_ready_for_enumeration(adev)) {
+>   		/*
+>   		 * This function is only called for device objects for which
+>   		 * matching scan handlers exist.  The only situation in which
+> @@ -338,7 +338,7 @@ static int acpi_scan_bus_check(struct acpi_device *adev, void *not_used)
+>   	int error;
+>   
+>   	acpi_bus_get_status(adev);
+> -	if (!acpi_device_is_present(adev)) {
+> +	if (!acpi_dev_ready_for_enumeration(adev)) {
+>   		acpi_scan_device_not_enumerated(adev);
+>   		return 0;
+>   	}
+> @@ -1913,11 +1913,6 @@ static bool acpi_device_should_be_hidden(acpi_handle handle)
+>   	return true;
+>   }
+>   
+> -bool acpi_device_is_present(const struct acpi_device *adev)
+> -{
+> -	return adev->status.present || adev->status.functional;
+> -}
+> -
+>   static bool acpi_scan_handler_matching(struct acpi_scan_handler *handler,
+>   				       const char *idstr,
+>   				       const struct acpi_device_id **matchid)
+> @@ -1938,6 +1933,18 @@ static bool acpi_scan_handler_matching(struct acpi_scan_handler *handler,
+>   	return false;
+>   }
+>   
+> +bool acpi_scan_check_handler(const struct acpi_device *adev,
+> +			     struct acpi_scan_handler *handler)
+> +{
+> +	struct acpi_hardware_id *hwid;
+> +
+> +	list_for_each_entry(hwid, &adev->pnp.ids, list)
+> +		if (acpi_scan_handler_matching(handler, hwid->id, NULL))
+> +			return true;
+> +
+> +	return false;
+> +}
+> +
+>   static struct acpi_scan_handler *acpi_scan_match_handler(const char *idstr,
+>   					const struct acpi_device_id **matchid)
+>   {
+> @@ -2381,16 +2388,38 @@ EXPORT_SYMBOL_GPL(acpi_dev_clear_dependencies);
+>    * acpi_dev_ready_for_enumeration - Check if the ACPI device is ready for enumeration
+>    * @device: Pointer to the &struct acpi_device to check
+>    *
+> - * Check if the device is present and has no unmet dependencies.
+> + * Check if the device is functional or enabled and has no unmet dependencies.
+>    *
+> - * Return true if the device is ready for enumeratino. Otherwise, return false.
+> + * Return true if the device is ready for enumeration. Otherwise, return false.
+>    */
+>   bool acpi_dev_ready_for_enumeration(const struct acpi_device *device)
+>   {
+>   	if (device->flags.honor_deps && device->dep_unmet)
+>   		return false;
+>   
+> -	return acpi_device_is_present(device);
+> +	/*
+> +	 * ACPI 6.5's 6.3.7 "_STA (Device Status)" allows firmware to return
+> +	 * (!present && functional) for certain types of devices that should be
+> +	 * enumerated. Note that the enabled bit should not be set unless the
+> +	 * present bit is set.
+> +	 *
+> +	 * However, limit this only to processor devices to reduce possible
+> +	 * regressions with firmware.
+> +	 */
+> +	if (device->status.functional)
+> +		return true;
+> +
+> +	if (!device->status.present)
+> +		return false;
+> +
+> +	/*
+> +	 * Fast path - if enabled is set, avoid the more expensive test to
+> +	 * check whether this device is a processor.
+> +	 */
+> +	if (device->status.enabled)
+> +		return true;
+> +
 
-That's a good question, and I suspect it would be more suited to being
-placed in drivers/base/cpu.c except for the problem that the error
-message refers to ACPI.
+It may be worthy to replace 'if enabled is set' with 'if the enabled bit is set',
+to be consistent with the terminologies used in the above comments.
 
-As long as we keep the acpi_disabled test, I guess that's fine.
-cpu_dev_register_generic() there already tests acpi_disabled.
+Apart from it, the patch itself looks good to me.
 
--- 
-RMK's Patch system: https://www.armlinux.org.uk/developer/patches/
-FTTP is here! 80Mbps down 10Mbps up. Decent connectivity at last!
+> +	return !acpi_device_is_processor(device);
+>   }
+>   EXPORT_SYMBOL_GPL(acpi_dev_ready_for_enumeration);
+>   
+
+Thanks,
+Gavin
+
