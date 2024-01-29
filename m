@@ -1,216 +1,142 @@
-Received: from frasgout.his.huawei.com (frasgout.his.huawei.com [185.176.79.56])
+Received: from pandora.armlinux.org.uk (pandora.armlinux.org.uk [78.32.30.218])
 	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 57795627E5;
-	Mon, 29 Jan 2024 13:03:59 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=185.176.79.56
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id B4E7D152E1A;
+	Mon, 29 Jan 2024 14:55:41 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=78.32.30.218
 ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1706533442; cv=none; b=jJjV3NWEqLWsYgcvUYko8/sJNs+W3LbyvN/MipSd2Xb3/CkzmUBJix8MyG1lYJtv78nma+SOqBk38aOr0szq0a1HmJN0ZO1Gn/qpjBmo6pRfrTG2uHesU6MKADlB+fdRljvRNSijJu5/BZr8tO1J0S1a7wrtVqzPRWiO+6k+g7A=
+	t=1706540144; cv=none; b=ZnTLyDBY9qGNtnV5HI1KpfrW9xx3jvALLy93RJ6VPfwGvD1HwkpABbxx16IPUAw/P1+tTSjeJMtoIUm5DuJAxs7l/tORM009G54JWHnucUwA3YM8eyPoWGeSFbeYgYkM5LN7durqk1mWZUvo7XCqs2Ev//yiwbfOj/ueapQPN4w=
 ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1706533442; c=relaxed/simple;
-	bh=MW5KypFg1nPfOH+4Z7+YG9/XkLK+cVPVSXFwwG/gf9E=;
-	h=Date:From:To:CC:Subject:Message-ID:In-Reply-To:References:
-	 MIME-Version:Content-Type; b=Hl2CS7t2n56jw+0eeN2dUSa7casXH90d43P9jwfty0SuDl2nEQx4vl2QIh9jVYJYPow71gpQ9jlYCaCd8+r2YZFla0GK4qcDlwLBvpfYCCHdhV15xhKGkRJASD9hYmZ6MkRn6BbHnOOOs1OBIv9aa8R6I8oRSgJTCqe+z6q9cDM=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=quarantine dis=none) header.from=Huawei.com; spf=pass smtp.mailfrom=huawei.com; arc=none smtp.client-ip=185.176.79.56
-Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=quarantine dis=none) header.from=Huawei.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=huawei.com
-Received: from mail.maildlp.com (unknown [172.18.186.31])
-	by frasgout.his.huawei.com (SkyGuard) with ESMTP id 4TNpM75yZdz6K9JK;
-	Mon, 29 Jan 2024 21:00:51 +0800 (CST)
-Received: from lhrpeml500005.china.huawei.com (unknown [7.191.163.240])
-	by mail.maildlp.com (Postfix) with ESMTPS id 8F10A140A1B;
-	Mon, 29 Jan 2024 21:03:55 +0800 (CST)
-Received: from localhost (10.202.227.76) by lhrpeml500005.china.huawei.com
- (7.191.163.240) with Microsoft SMTP Server (version=TLS1_2,
- cipher=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256) id 15.1.2507.35; Mon, 29 Jan
- 2024 13:03:54 +0000
-Date: Mon, 29 Jan 2024 13:03:54 +0000
-From: Jonathan Cameron <Jonathan.Cameron@Huawei.com>
-To: "Russell King (Oracle)" <linux@armlinux.org.uk>
-CC: "Rafael J. Wysocki" <rafael@kernel.org>, <linux-pm@vger.kernel.org>,
-	<loongarch@lists.linux.dev>, <linux-acpi@vger.kernel.org>,
-	<linux-arch@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, <linux-riscv@lists.infradead.org>,
-	<kvmarm@lists.linux.dev>, <x86@kernel.org>,
-	<acpica-devel@lists.linuxfoundation.org>, <linux-csky@vger.kernel.org>,
-	<linux-doc@vger.kernel.org>, <linux-ia64@vger.kernel.org>,
-	<linux-parisc@vger.kernel.org>, Salil Mehta <salil.mehta@huawei.com>,
-	Jean-Philippe Brucker <jean-philippe@linaro.org>, <jianyong.wu@arm.com>,
-	<justin.he@arm.com>, James Morse <james.morse@arm.com>,
-	<vishnu@os.amperecomputing.com>, <miguel.luis@oracle.com>
-Subject: Re: [PATCH RFC v3 03/21] ACPI: processor: Register CPUs that are
- online, but not described in the DSDT
-Message-ID: <20240129130354.0000042b@Huawei.com>
-In-Reply-To: <20240123092725.00004382@Huawei.com>
+	s=arc-20240116; t=1706540144; c=relaxed/simple;
+	bh=N1VX0f01FK+lMbnRSIPKyBtfZOPatHcFypn75HDFeM4=;
+	h=Date:From:To:Cc:Subject:Message-ID:References:MIME-Version:
+	 Content-Type:Content-Disposition:In-Reply-To; b=c4JhHawlGg0ehqrr1PZPNqSfMwpllSQvyrY5UwO62VHeyHu7fAWLEKyUWIzBeSfyfOM36Pw+fNsRdqQZHrZsghsrJJZNjAZ4YxbDRq/PraelWXY0wcEkAuV0N1R18LBiUaE6hpTfAQGAU4Xw4hlLmGhzAop3EO0d7YMCLbTX4oo=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=armlinux.org.uk; spf=none smtp.mailfrom=armlinux.org.uk; dkim=pass (2048-bit key) header.d=armlinux.org.uk header.i=@armlinux.org.uk header.b=zshAlN5d; arc=none smtp.client-ip=78.32.30.218
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=armlinux.org.uk
+Authentication-Results: smtp.subspace.kernel.org; spf=none smtp.mailfrom=armlinux.org.uk
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=armlinux.org.uk header.i=@armlinux.org.uk header.b="zshAlN5d"
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
+	d=armlinux.org.uk; s=pandora-2019; h=Sender:In-Reply-To:Content-Type:
+	MIME-Version:References:Message-ID:Subject:Cc:To:From:Date:Reply-To:
+	Content-Transfer-Encoding:Content-ID:Content-Description:Resent-Date:
+	Resent-From:Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:List-Id:
+	List-Help:List-Unsubscribe:List-Subscribe:List-Post:List-Owner:List-Archive;
+	bh=M1dyK4/mPjmXezB9OECra+eUv49q0u5KCO/rCTgyWjo=; b=zshAlN5dO4KSpCUyuhnHvqGFw5
+	Gh7/mHP6cgVBHrE5nMDsXFPalTDr1ZzFPzRd+TI3s6neNq9Af58Vp3/mYT3mH1KRmbTzeAaN4hL6H
+	fwQhoOIa1yKFj+i7nMitwQv1yOG0Pz0nUWKhd2M/o536j+TlvQga+8v5LJ3avKX49iZjAYE3R321y
+	O2ps7v/NwXnLCZBPRDhB722lFSCJPiCiWdXOhGxpRCt+7PfqIGluNFkn4mXrYxw2Koq2c9Rr4ObDV
+	7YwmV/eFjDI793/wrAU7O0xFV+v50tPaN/a1bIX95nRfhzCTLPIOqUuhcS09c50fU0hLrjkOGJEos
+	mD5qTJTg==;
+Received: from shell.armlinux.org.uk ([fd8f:7570:feb6:1:5054:ff:fe00:4ec]:60316)
+	by pandora.armlinux.org.uk with esmtpsa  (TLS1.3) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+	(Exim 4.96)
+	(envelope-from <linux@armlinux.org.uk>)
+	id 1rUT2l-0000YR-0u;
+	Mon, 29 Jan 2024 14:55:27 +0000
+Received: from linux by shell.armlinux.org.uk with local (Exim 4.94.2)
+	(envelope-from <linux@shell.armlinux.org.uk>)
+	id 1rUT2f-0004dh-CJ; Mon, 29 Jan 2024 14:55:21 +0000
+Date: Mon, 29 Jan 2024 14:55:21 +0000
+From: "Russell King (Oracle)" <linux@armlinux.org.uk>
+To: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	"Rafael J. Wysocki" <rafael@kernel.org>, linux-pm@vger.kernel.org,
+	loongarch@lists.linux.dev, linux-acpi@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	linux-riscv@lists.infradead.org, kvmarm@lists.linux.dev,
+	x86@kernel.org, acpica-devel@lists.linuxfoundation.org,
+	linux-csky@vger.kernel.org, linux-doc@vger.kernel.org,
+	linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org,
+	Salil Mehta <salil.mehta@huawei.com>,
+	Jean-Philippe Brucker <jean-philippe@linaro.org>,
+	jianyong.wu@arm.com, justin.he@arm.com,
+	James Morse <james.morse@arm.com>
+Subject: Re: [PATCH RFC v3 01/21] ACPI: Only enumerate enabled (or
+ functional) devices
+Message-ID: <Zbe8WQRASx6D6RaG@shell.armlinux.org.uk>
 References: <ZXmn46ptis59F0CO@shell.armlinux.org.uk>
-	<E1rDOg2-00Dvjk-RI@rmk-PC.armlinux.org.uk>
-	<CAJZ5v0ju1JHgpjuFLHZVs4NZiARG6iBZN_wza6c2e0kDhZjK0w@mail.gmail.com>
-	<ZaURtUvWQyjYfiiO@shell.armlinux.org.uk>
-	<20240122160227.00002d83@Huawei.com>
-	<CAJZ5v0hamuXJ_w-TSmVb=5jGide=Lb7sCjbzzNb_rFuPrvkgxQ@mail.gmail.com>
-	<Za6mHRJVjb6M1mun@shell.armlinux.org.uk>
-	<20240123092725.00004382@Huawei.com>
-Organization: Huawei Technologies Research and Development (UK) Ltd.
-X-Mailer: Claws Mail 4.1.0 (GTK 3.24.33; x86_64-w64-mingw32)
+ <ZXxxa+XZjPZtNfJ+@shell.armlinux.org.uk>
+ <20231215161539.00000940@Huawei.com>
+ <5760569.DvuYhMxLoT@kreacher>
+ <20240102143925.00004361@Huawei.com>
+ <20240111101949.000075dc@Huawei.com>
+ <ZZ/CR/6Voec066DR@shell.armlinux.org.uk>
+ <20240112115205.000043b0@Huawei.com>
 Precedence: bulk
 X-Mailing-List: linux-ia64@vger.kernel.org
 List-Id: <linux-ia64.vger.kernel.org>
 List-Subscribe: <mailto:linux-ia64+subscribe@vger.kernel.org>
 List-Unsubscribe: <mailto:linux-ia64+unsubscribe@vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-X-ClientProxiedBy: lhrpeml100006.china.huawei.com (7.191.160.224) To
- lhrpeml500005.china.huawei.com (7.191.163.240)
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+In-Reply-To: <20240112115205.000043b0@Huawei.com>
+Sender: Russell King (Oracle) <linux@armlinux.org.uk>
 
-On Tue, 23 Jan 2024 09:27:25 +0000
-Jonathan Cameron <Jonathan.Cameron@Huawei.com> wrote:
+Hi Jonathan,
 
-> On Mon, 22 Jan 2024 17:30:05 +0000
+On Fri, Jan 12, 2024 at 11:52:05AM +0000, Jonathan Cameron wrote:
+> On Thu, 11 Jan 2024 10:26:15 +0000
 > "Russell King (Oracle)" <linux@armlinux.org.uk> wrote:
->=20
-> > On Mon, Jan 22, 2024 at 05:22:46PM +0100, Rafael J. Wysocki wrote: =20
-> > > On Mon, Jan 22, 2024 at 5:02=E2=80=AFPM Jonathan Cameron
-> > > <Jonathan.Cameron@huawei.com> wrote:   =20
-> > > >
-> > > > On Mon, 15 Jan 2024 11:06:29 +0000
-> > > > "Russell King (Oracle)" <linux@armlinux.org.uk> wrote:
-> > > >   =20
-> > > > > On Mon, Dec 18, 2023 at 09:22:03PM +0100, Rafael J. Wysocki wrote=
-:   =20
-> > > > > > On Wed, Dec 13, 2023 at 1:49=E2=80=AFPM Russell King <rmk+kerne=
-l@armlinux.org.uk> wrote:   =20
-> > > > > > >
-> > > > > > > From: James Morse <james.morse@arm.com>
-> > > > > > >
-> > > > > > > ACPI has two descriptions of CPUs, one in the MADT/APIC table=
-, the other
-> > > > > > > in the DSDT. Both are required. (ACPI 6.5's 8.4 "Declaring Pr=
-ocessors"
-> > > > > > > says "Each processor in the system must be declared in the AC=
-PI
-> > > > > > > namespace"). Having two descriptions allows firmware authors =
-to get
-> > > > > > > this wrong.
-> > > > > > >
-> > > > > > > If CPUs are described in the MADT/APIC, they will be brought =
-online
-> > > > > > > early during boot. Once the register_cpu() calls are moved to=
- ACPI,
-> > > > > > > they will be based on the DSDT description of the CPUs. When =
-CPUs are
-> > > > > > > missing from the DSDT description, they will end up online, b=
-ut not
-> > > > > > > registered.
-> > > > > > >
-> > > > > > > Add a helper that runs after acpi_init() has completed to reg=
-ister
-> > > > > > > CPUs that are online, but weren't found in the DSDT. Any CPU =
-that
-> > > > > > > is registered by this code triggers a firmware-bug warning an=
-d kernel
-> > > > > > > taint.
-> > > > > > >
-> > > > > > > Qemu TCG only describes the first CPU in the DSDT, unless cpu=
--hotplug
-> > > > > > > is configured.   =20
-> > > > > >
-> > > > > > So why is this a kernel problem?   =20
-> > > > >
-> > > > > So what are you proposing should be the behaviour here? What this
-> > > > > statement seems to be saying is that QEMU as it exists today only
-> > > > > describes the first CPU in DSDT.   =20
-> > > >
-> > > > This confuses me somewhat, because I'm far from sure which machines=
- this
-> > > > is true for in QEMU.  I'm guessing it's a legacy thing with
-> > > > some old distro version of QEMU - so we'll have to paper over it an=
-yway
-> > > > but for current QEMU I'm not sure it's true.
-> > > >
-> > > > Helpfully there are a bunch of ACPI table tests so I've been checki=
-ng
-> > > > through all the multi CPU cases.
-> > > >
-> > > > CPU hotplug not enabled.
-> > > > pc/DSDT.dimmpxm  - 4x Processor entries.  -smp 4
-> > > > pc/DSDT.acpihmat - 2x Processor entries.  -smp 2
-> > > > q35/DSDT.acpihmat - 2x Processor entries. -smp 2
-> > > > virt/DSDT.acpihmatvirt - 4x ACPI0007 entries -smp 4
-> > > > q35/DSDT.acpihmat-noinitiator - 4 x Processor () entries -smp 4
-> > > > virt/DSDT.topology - 8x ACPI0007 entries
-> > > >
-> > > > I've also looked at the code and we have various types of
-> > > > CPU hotplug on x86 but they all build appropriate numbers of
-> > > > Processor() entries in DSDT.
-> > > > Arm likewise seems to build the right number of ACPI0007 entries
-> > > > (and doesn't yet have CPU HP support).
-> > > >
-> > > > If anyone can add a reference on why this is needed that would be v=
-ery
-> > > > helpful.   =20
-> > >=20
-> > > Yes, it would.
-> > >=20
-> > > Personally, I would prefer to assume that it is not necessary until it
-> > > turns out that (1) there is firmware with this issue actually in use
-> > > and (2) updating the firmware in question to follow the specification
-> > > is not practical.
-> > >=20
-> > > Otherwise, we'd make it easier to ship non-compliant firmware for no
-> > > good reason.   =20
-> >=20
-> > If Salil can't come up with a reason, then I'm in favour of dropping
-> > the patch like already done for patch 2. If the code change serves no
-> > useful purpose, there's no point in making the change.
-> >  =20
->=20
-> Salil's out today, but I've messaged him to follow up later in the week.
->=20
-> It 'might' be the odd cold plug path where QEMU half comes up, then extra
-> CPUs are added, then it boots. (used by some orchestration frameworks)
+> > @@ -2381,16 +2388,38 @@ EXPORT_SYMBOL_GPL(acpi_dev_clear_dependencies);
+> >   * acpi_dev_ready_for_enumeration - Check if the ACPI device is ready for enumeration
+> >   * @device: Pointer to the &struct acpi_device to check
+> >   *
+> > - * Check if the device is present and has no unmet dependencies.
+> > + * Check if the device is functional or enabled and has no unmet dependencies.
+> >   *
+> > - * Return true if the device is ready for enumeratino. Otherwise, return false.
+> > + * Return true if the device is ready for enumeration. Otherwise, return false.
+> >   */
+> >  bool acpi_dev_ready_for_enumeration(const struct acpi_device *device)
+> >  {
+> >  	if (device->flags.honor_deps && device->dep_unmet)
+> >  		return false;
+> >  
+> > -	return acpi_device_is_present(device);
+> > +	/*
+> > +	 * ACPI 6.5's 6.3.7 "_STA (Device Status)" allows firmware to return
+> > +	 * (!present && functional) for certain types of devices that should be
+> > +	 * enumerated. Note that the enabled bit should not be set unless the
+> > +	 * present bit is set.
+> > +	 *
+> > +	 * However, limit this only to processor devices to reduce possible
+> > +	 * regressions with firmware.
+> > +	 */
+> > +	if (device->status.functional)
+> > +		return true;
 
-I poked this on x86 - it only applies with hotplug enabled anyway so
-same result as doing the hotplug later - All possible Processor() entries
-already exist in DSDT. Hence this isn't the source of the mysterious
-broken configuration.
+I have a report from within Oracle that this causes testing failures
+with QEMU using -smp cpus=2,maxcpus=4. I think it needs to be:
 
-If anyone does poke this path, the old discussion between James
-and Salil provides some instructions (mostly the thread is about
-another issue).
-https://op-lists.linaro.org/archives/list/linaro-open-discussions@op-lists.=
-linaro.org/thread/DNAGB2FB5ALVLV2BYWYOCLKGNF77PNXS/
+	if (!device->status.present)
+		return device->status.functional;
 
-Also on x86 a test involving smp 2,max-cpus=3D4 and adding cpu-id 3
-(so skipping 2) doesn't boot. (this is without Salil's QEMU patches).
-I guess there are some well known rules in there that I don't know about
-and QEMU isn't preventing people shooting themselves in the foot.
+	if (device->status.enabled)
+		return true;
 
-As I'm concerned, drop this patch.
-If there are platforms out there doing this wrong they'll surface once
-we get this into more test farms (so linux-next).  If we need this
-'fix' we can apply it when we have a problem firmware to point at.
+	return !acpi_device_is_processor(device);
 
-Thanks,
+So we can better understand the history here, let's list it as a
+truth table. P=present, F=functional, E=enabled, Orig=how the code
+is in mainline, James=James' original proposal, Rafael=the proposed
+replacement but seems to be buggy, Rmk=the fixed version that passes
+tests:
 
-Jonathan
+P F E	Orig	James	Rafael		Rmk
+0 0 0	0	0	0		0
+0 0 1	0	0	0		0
+0 1 0	1	1	1		1
+0 1 1	1	0	1		1
+1 0 0	1	0	!processor	!processor
+1 0 1	1	1	1		1
+1 1 0	1	0	1		!processor
+1 1 1	1	1	1		1
 
-> I don't have a set up for that and I won't get to creating one today anyw=
-ay
-> (we all love start of the year planning workshops!)
+Any objections to this?
 
->=20
-> I've +CC'd a few people have run tests on the various iterations of this
-> work in the past.  Maybe one of them can shed some light on this?
->=20
-> Jonathan
->=20
->=20
->=20
->=20
->=20
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-
+-- 
+RMK's Patch system: https://www.armlinux.org.uk/developer/patches/
+FTTP is here! 80Mbps down 10Mbps up. Decent connectivity at last!
