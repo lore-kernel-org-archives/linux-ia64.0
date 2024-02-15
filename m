@@ -1,192 +1,182 @@
-Received: from frasgout.his.huawei.com (frasgout.his.huawei.com [185.176.79.56])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+Received: from mail-ot1-f54.google.com (mail-ot1-f54.google.com [209.85.210.54])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 9FA8E148FF0;
-	Fri,  2 Feb 2024 17:04:18 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=185.176.79.56
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id A3B9113699A;
+	Thu, 15 Feb 2024 19:22:41 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.210.54
 ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1706893461; cv=none; b=VsdUsCftPhVRBYsewDY7aKRD2pBliwUZFx/brhk6kU9uwbslADsXTbwXFTUkt2mYH6a22gaDEhGTMSc19/M+bFw5KOAmjk11xBzVI2nBW2Om11aR3vKEdDE1aFWkIx08QNF99p2yrxE0ACUXOMhj0+x3MHSEEIqCSc2rRnermE8=
+	t=1708024963; cv=none; b=X28GDQojdEgXZ6/Uy+yFWD1QO9QmT3EtTAOUdmNhh1diIwMwloFkl8pd5h6FiE4JCd94VqEaTHqtMlL0i0vZWpBhHsiHOVZHeCYOIuUslTiY/RnwLwdQbEmXecPOHDGNllVtB0vIn+3n0KnYookX2BD/lUDmyltVGBVZ3zbKZ5U=
 ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1706893461; c=relaxed/simple;
-	bh=+6PX3jMjQrHTOGNXA5nPZT3qkryf5lBqoyw4ViAwdas=;
-	h=Date:From:To:CC:Subject:Message-ID:In-Reply-To:References:
-	 MIME-Version:Content-Type; b=qMJNc3ggIgSTtivM/VQGoBlUKanWt+y3otX2f/FbG6Vx839/D/GcS5nSZh4f0hTniBFw8FAzs0qnwhMmsDcQOUN7sH1qKP/WndVtA6GkcD9VSk1+cZsSxzt5OaBDP34Waib2aoN8Vvhjnx8pUvvkDoBvJ/TJJZGGYmrdHO7nZ6c=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=quarantine dis=none) header.from=Huawei.com; spf=pass smtp.mailfrom=huawei.com; arc=none smtp.client-ip=185.176.79.56
-Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=quarantine dis=none) header.from=Huawei.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=huawei.com
-Received: from mail.maildlp.com (unknown [172.18.186.216])
-	by frasgout.his.huawei.com (SkyGuard) with ESMTP id 4TRMV93hsYz6J9h8;
-	Sat,  3 Feb 2024 01:00:49 +0800 (CST)
-Received: from lhrpeml500005.china.huawei.com (unknown [7.191.163.240])
-	by mail.maildlp.com (Postfix) with ESMTPS id 69A141400CD;
-	Sat,  3 Feb 2024 01:04:15 +0800 (CST)
-Received: from localhost (10.202.227.76) by lhrpeml500005.china.huawei.com
- (7.191.163.240) with Microsoft SMTP Server (version=TLS1_2,
- cipher=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256) id 15.1.2507.35; Fri, 2 Feb
- 2024 17:04:14 +0000
-Date: Fri, 2 Feb 2024 17:04:13 +0000
-From: Jonathan Cameron <Jonathan.Cameron@Huawei.com>
-To: "Russell King (Oracle)" <rmk+kernel@armlinux.org.uk>
-CC: <linux-pm@vger.kernel.org>, <loongarch@lists.linux.dev>,
-	<linux-acpi@vger.kernel.org>, <linux-arch@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
-	<linux-riscv@lists.infradead.org>, <kvmarm@lists.linux.dev>,
-	<x86@kernel.org>, <acpica-devel@lists.linuxfoundation.org>,
-	<linux-csky@vger.kernel.org>, <linux-doc@vger.kernel.org>,
-	<linux-ia64@vger.kernel.org>, <linux-parisc@vger.kernel.org>, Salil Mehta
-	<salil.mehta@huawei.com>, Jean-Philippe Brucker <jean-philippe@linaro.org>,
-	<jianyong.wu@arm.com>, <justin.he@arm.com>, James Morse
-	<james.morse@arm.com>, "Rafael J. Wysocki" <rafael@kernel.org>
-Subject: Re: [PATCH RFC v4 14/15] arm64: document virtual CPU hotplug's
- expectations
-Message-ID: <20240202170413.0000154e@Huawei.com>
-In-Reply-To: <E1rVDnU-0027Zf-GF@rmk-PC.armlinux.org.uk>
-References: <Zbp5xzmFhKDAgHws@shell.armlinux.org.uk>
-	<E1rVDnU-0027Zf-GF@rmk-PC.armlinux.org.uk>
-Organization: Huawei Technologies Research and Development (UK) Ltd.
-X-Mailer: Claws Mail 4.1.0 (GTK 3.24.33; x86_64-w64-mingw32)
+	s=arc-20240116; t=1708024963; c=relaxed/simple;
+	bh=gCJhOtMnRU8UWRkUPUSVOlRb9/TApbJfHXnwR2CW2HQ=;
+	h=MIME-Version:References:In-Reply-To:From:Date:Message-ID:Subject:
+	 To:Cc:Content-Type; b=NmGPgXXC4zRaPFVcF0GYC39c6mcnrKAExCMOxLeCU0Ep87Z0fWuwPuT7q2Z5Ygh9m7BTDUP5Gf8Z1yCUb5O4WxIR1c/zPJT53Q7OtuhIiBfffGl3FpuqW4raU3jeT8PlodfSJ1bS+loNQ/4LvSNX24kAmosOqUhnmfEEsRTYdfQ=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=fail (p=none dis=none) header.from=kernel.org; spf=pass smtp.mailfrom=gmail.com; arc=none smtp.client-ip=209.85.210.54
+Authentication-Results: smtp.subspace.kernel.org; dmarc=fail (p=none dis=none) header.from=kernel.org
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=gmail.com
+Received: by mail-ot1-f54.google.com with SMTP id 46e09a7af769-6e2f6c7e623so142059a34.1;
+        Thu, 15 Feb 2024 11:22:41 -0800 (PST)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1708024960; x=1708629760;
+        h=content-transfer-encoding:cc:to:subject:message-id:date:from
+         :in-reply-to:references:mime-version:x-gm-message-state:from:to:cc
+         :subject:date:message-id:reply-to;
+        bh=atg7WI78HsTq5644XbnZluXts4d5OR/FFe0QfcIw1Ag=;
+        b=LD5KmZ/ub5r7pzqKRFVE0hPX3wJ4C13NOakKTw+4RR6ZrGdFx3Uk8QArcDbQZPPhGK
+         znxYzjj/NhLT/xisBkREF87qLw37ckwWLQPkm7hX2x4egNm3zYI1Z8n/q70AsEvUV1pf
+         SNn1eCKPCcsRsRhJlFyhS96ikm65rBNerz5UUCv1b+XEZQMl8loRUnFeHeQNW5J9lIv9
+         IGHGE/eg5lehrfoTP8DDKtuTLpqLVqzP/dPcZpPEsvFF3iPe9v7szUhMdu4tJODpwGOt
+         smyBV/krU/wgrNgyeWesXAv6NHD0PDBSFeTtbKT5VenTmy0t02jAJJF1qQvO+QiFp+Zo
+         hicA==
+X-Forwarded-Encrypted: i=1; AJvYcCX95oqFx5SPRBC1R71HfnWTOuHkTmkoAtNyXc6waEK6Gd6BhWP1mZ6P2wAbtHNqseNLytMA4Ddm8zmkFur+mq3oJGC3e0tj8lsHHuN+3JMdFsfKOt+mG2v+W6iElZlNsBXqDOPJWCAe1ApVVIToS1Q/8oebxQD+AdlGcIey9jFiUBML9apv//T0lb3IvDCwXfxWcWGi9mz7ZGRcd6DpIUdbHMS6De1MnD1fcramzepqYCHEzC1uMCUuhWU7cw9BbL7FO0W7XYAb9QSsSwIR+G5heSMfW63k/MlQ7noJuz6xAYvIYCQOwRMbgFTTgy4BrGWPIV8gDw==
+X-Gm-Message-State: AOJu0YwcPIrHfe5K3FnvwO4AYkBOryDotGVy5phuXX96dGxeiskM5B8r
+	2iajjG8sbl/+DqvR9AZbwdDtVEsxFYHXRuyw38evylrdJfmIfW7jS5GUe68Z7fKPz0VczDq8cyT
+	IZY5AwOfb6zyJSdCltfIudYnO/MYlcLbmxWI=
+X-Google-Smtp-Source: AGHT+IGH9nzxfJPZ0b9LL7NeSQVmLFmBC+x3c+fnaZmT/Dcf6w2GoSt64Z11xwqZfq7drVdSJDbhPxjptv1uaDnhYPo=
+X-Received: by 2002:a05:6820:1f8d:b0:59c:d8cd:ecee with SMTP id
+ eq13-20020a0568201f8d00b0059cd8cdeceemr110694oob.1.1708024960621; Thu, 15 Feb
+ 2024 11:22:40 -0800 (PST)
 Precedence: bulk
 X-Mailing-List: linux-ia64@vger.kernel.org
 List-Id: <linux-ia64.vger.kernel.org>
 List-Subscribe: <mailto:linux-ia64+subscribe@vger.kernel.org>
 List-Unsubscribe: <mailto:linux-ia64+unsubscribe@vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-X-ClientProxiedBy: lhrpeml100006.china.huawei.com (7.191.160.224) To
- lhrpeml500005.china.huawei.com (7.191.163.240)
+References: <Zbp5xzmFhKDAgHws@shell.armlinux.org.uk> <E1rVDmU-0027YP-Jz@rmk-PC.armlinux.org.uk>
+In-Reply-To: <E1rVDmU-0027YP-Jz@rmk-PC.armlinux.org.uk>
+From: "Rafael J. Wysocki" <rafael@kernel.org>
+Date: Thu, 15 Feb 2024 20:22:29 +0100
+Message-ID: <CAJZ5v0iiJpUWq5GMSnKFWQTzn_bdwoQz9m=hDaXNg4Lj_ePF4g@mail.gmail.com>
+Subject: Re: [PATCH RFC v4 02/15] ACPI: processor: Register all CPUs from acpi_processor_get_info()
+To: Russell King <rmk+kernel@armlinux.org.uk>
+Cc: linux-pm@vger.kernel.org, loongarch@lists.linux.dev, 
+	linux-acpi@vger.kernel.org, linux-arch@vger.kernel.org, 
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
+	linux-riscv@lists.infradead.org, kvmarm@lists.linux.dev, x86@kernel.org, 
+	acpica-devel@lists.linuxfoundation.org, linux-csky@vger.kernel.org, 
+	linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, 
+	linux-parisc@vger.kernel.org, Salil Mehta <salil.mehta@huawei.com>, 
+	Jean-Philippe Brucker <jean-philippe@linaro.org>, jianyong.wu@arm.com, justin.he@arm.com, 
+	James Morse <james.morse@arm.com>, Jonathan Cameron <Jonathan.Cameron@huawei.com>, 
+	"Rafael J. Wysocki" <rafael@kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-On Wed, 31 Jan 2024 16:50:48 +0000
-Russell King (Oracle) <rmk+kernel@armlinux.org.uk> wrote:
-
+On Wed, Jan 31, 2024 at 5:50=E2=80=AFPM Russell King <rmk+kernel@armlinux.o=
+rg.uk> wrote:
+>
 > From: James Morse <james.morse@arm.com>
-> 
-> Add a description of physical and virtual CPU hotplug, explain the
-> differences and elaborate on what is required in ACPI for a working
-> virtual hotplug system.
-> 
+>
+> To allow ACPI to skip the call to arch_register_cpu() when the _STA
+> value indicates the CPU can't be brought online right now, move the
+> arch_register_cpu() call into acpi_processor_get_info().
+>
+> Systems can still be booted with 'acpi=3Doff', or not include an
+> ACPI description at all. For these, the CPUs continue to be
+> registered by cpu_dev_register_generic().
+>
+> This moves the CPU register logic back to a subsys_initcall(),
+> while the memory nodes will have been registered earlier.
+>
 > Signed-off-by: James Morse <james.morse@arm.com>
+> Reviewed-by: Gavin Shan <gshan@redhat.com>
+> Tested-by: Miguel Luis <miguel.luis@oracle.com>
+> Tested-by: Vishnu Pajjuri <vishnu@os.amperecomputing.com>
+> Tested-by: Jianyong Wu <jianyong.wu@arm.com>
 > Reviewed-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
 > Signed-off-by: Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
 > ---
-> Outstanding comment:
->  https://lore.kernel.org/r/20230914174137.00000a62@Huawei.com
-
-Outstanding but an ACPI Spec question rather than one about this description.
-I've finally regained access to Mantis etc so can follow that up at some point.
-
-If we get clarify on how to tell that CPUs that are present and enabled at boot
-can be removed later we can relax this text to allow for that.
-
-
->  https://lore.kernel.org/r/20231215170428.00000d81@Huawei.com
-That's a comment on the above comment to say I'm fine with it as is :)
-
-This @Huawei guy is really annoying ;)
-
-Jonathan
-
+> Changes since RFC v2:
+>  * Fixup comment in acpi_processor_get_info() (Gavin Shan)
+>  * Add comment in cpu_dev_register_generic() (Gavin Shan)
 > ---
->  Documentation/arch/arm64/cpu-hotplug.rst | 79 ++++++++++++++++++++++++
->  Documentation/arch/arm64/index.rst       |  1 +
->  2 files changed, 80 insertions(+)
->  create mode 100644 Documentation/arch/arm64/cpu-hotplug.rst
-> 
-> diff --git a/Documentation/arch/arm64/cpu-hotplug.rst b/Documentation/arch/arm64/cpu-hotplug.rst
-> new file mode 100644
-> index 000000000000..76ba8d932c72
-> --- /dev/null
-> +++ b/Documentation/arch/arm64/cpu-hotplug.rst
-> @@ -0,0 +1,79 @@
-> +.. SPDX-License-Identifier: GPL-2.0
-> +.. _cpuhp_index:
+>  drivers/acpi/acpi_processor.c | 12 ++++++++++++
+>  drivers/base/cpu.c            |  6 +++++-
+>  2 files changed, 17 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processor.=
+c
+> index cf7c1cca69dd..a68c475cdea5 100644
+> --- a/drivers/acpi/acpi_processor.c
+> +++ b/drivers/acpi/acpi_processor.c
+> @@ -314,6 +314,18 @@ static int acpi_processor_get_info(struct acpi_devic=
+e *device)
+>                         cpufreq_add_device("acpi-cpufreq");
+>         }
+>
+> +       /*
+> +        * Register CPUs that are present. get_cpu_device() is used to sk=
+ip
+> +        * duplicate CPU descriptions from firmware.
+> +        */
+> +       if (!invalid_logical_cpuid(pr->id) && cpu_present(pr->id) &&
+> +           !get_cpu_device(pr->id)) {
+> +               int ret =3D arch_register_cpu(pr->id);
 > +
-> +====================
-> +CPU Hotplug and ACPI
-> +====================
+> +               if (ret)
+> +                       return ret;
+> +       }
 > +
-> +CPU hotplug in the arm64 world is commonly used to describe the kernel taking
-> +CPUs online/offline using PSCI. This document is about ACPI firmware allowing
-> +CPUs that were not available during boot to be added to the system later.
-> +
-> +``possible`` and ``present`` refer to the state of the CPU as seen by linux.
-> +
-> +
-> +CPU Hotplug on physical systems - CPUs not present at boot
-> +----------------------------------------------------------
-> +
-> +Physical systems need to mark a CPU that is ``possible`` but not ``present`` as
-> +being ``present``. An example would be a dual socket machine, where the package
-> +in one of the sockets can be replaced while the system is running.
-> +
-> +This is not supported.
-> +
-> +In the arm64 world CPUs are not a single device but a slice of the system.
-> +There are no systems that support the physical addition (or removal) of CPUs
-> +while the system is running, and ACPI is not able to sufficiently describe
-> +them.
-> +
-> +e.g. New CPUs come with new caches, but the platform's cache toplogy is
-> +described in a static table, the PPTT. How caches are shared between CPUs is
-> +not discoverable, and must be described by firmware.
-> +
-> +e.g. The GIC redistributor for each CPU must be accessed by the driver during
-> +boot to discover the system wide supported features. ACPI's MADT GICC
-> +structures can describe a redistributor associated with a disabled CPU, but
-> +can't describe whether the redistributor is accessible, only that it is not
-> +'always on'.
-> +
-> +arm64's ACPI tables assume that everything described is ``present``.
-> +
-> +
-> +CPU Hotplug on virtual systems - CPUs not enabled at boot
-> +---------------------------------------------------------
-> +
-> +Virtual systems have the advantage that all the properties the system will
-> +ever have can be described at boot. There are no power-domain considerations
-> +as such devices are emulated.
-> +
-> +CPU Hotplug on virtual systems is supported. It is distinct from physical
-> +CPU Hotplug as all resources are described as ``present``, but CPUs may be
-> +marked as disabled by firmware. Only the CPU's online/offline behaviour is
-> +influenced by firmware. An example is where a virtual machine boots with a
-> +single CPU, and additional CPUs are added once a cloud orchestrator deploys
-> +the workload.
-> +
-> +For a virtual machine, the VMM (e.g. Qemu) plays the part of firmware.
-> +
-> +Virtual hotplug is implemented as a firmware policy affecting which CPUs can be
-> +brought online. Firmware can enforce its policy via PSCI's return codes. e.g.
-> +``DENIED``.
-> +
-> +The ACPI tables must describe all the resources of the virtual machine. CPUs
-> +that firmware wishes to disable either from boot (or later) should not be
-> +``enabled`` in the MADT GICC structures, but should have the ``online capable``
-> +bit set, to indicate they can be enabled later. The boot CPU must be marked as
-> +``enabled``.  The 'always on' GICR structure must be used to describe the
-> +redistributors.
-> +
-> +CPUs described as ``online capable`` but not ``enabled`` can be set to enabled
-> +by the DSDT's Processor object's _STA method. On virtual systems the _STA method
-> +must always report the CPU as ``present``. Changes to the firmware policy can
-> +be notified to the OS via device-check or eject-request.
-> +
-> +CPUs described as ``enabled`` in the static table, should not have their _STA
-> +modified dynamically by firmware. Soft-restart features such as kexec will
-> +re-read the static properties of the system from these static tables, and
-> +may malfunction if these no longer describe the running system. Linux will
-> +re-discover the dynamic properties of the system from the _STA method later
-> +during boot.
-> diff --git a/Documentation/arch/arm64/index.rst b/Documentation/arch/arm64/index.rst
-> index d08e924204bf..78544de0a8a9 100644
-> --- a/Documentation/arch/arm64/index.rst
-> +++ b/Documentation/arch/arm64/index.rst
-> @@ -13,6 +13,7 @@ ARM64 Architecture
->      asymmetric-32bit
->      booting
->      cpu-feature-registers
-> +    cpu-hotplug
->      elf_hwcaps
->      hugetlbpage
->      kdump
+>         /*
+>          *  Extra Processor objects may be enumerated on MP systems with
+>          *  less than the max # of CPUs. They should be ignored _iff
 
+This is interesting, because right below there is the following code:
+
+    if (invalid_logical_cpuid(pr->id) || !cpu_present(pr->id)) {
+        int ret =3D acpi_processor_hotadd_init(pr);
+
+        if (ret)
+            return ret;
+    }
+
+and acpi_processor_hotadd_init() essentially calls arch_register_cpu()
+with some extra things around it (more about that below).
+
+I do realize that acpi_processor_hotadd_init() is defined under
+CONFIG_ACPI_HOTPLUG_CPU, so for the sake of the argument let's
+consider an architecture where CONFIG_ACPI_HOTPLUG_CPU is set.
+
+So why are the two conditionals that almost contradict each other both
+needed?  It looks like the new code could be combined with
+acpi_processor_hotadd_init() to do the right thing in all cases.
+
+Now, acpi_processor_hotadd_init() does some extra things that look
+like they should be done by the new code too.
+
+1. It checks invalid_phys_cpuid() which appears to be a good idea to me.
+
+2. It uses locking around arch_register_cpu() which doesn't seem
+unreasonable either.
+
+3. It calls acpi_map_cpu() and I'm not sure why this is not done by
+the new code.
+
+The only thing that can be dropped from it is the _STA check AFAICS,
+because acpi_processor_add() won't even be called if the CPU is not
+present (and not enabled after the first patch).
+
+So why does the code not do 1 - 3 above?
+
+> diff --git a/drivers/base/cpu.c b/drivers/base/cpu.c
+> index 47de0f140ba6..13d052bf13f4 100644
+> --- a/drivers/base/cpu.c
+> +++ b/drivers/base/cpu.c
+> @@ -553,7 +553,11 @@ static void __init cpu_dev_register_generic(void)
+>  {
+>         int i, ret;
+>
+> -       if (!IS_ENABLED(CONFIG_GENERIC_CPU_DEVICES))
+> +       /*
+> +        * When ACPI is enabled, CPUs are registered via
+> +        * acpi_processor_get_info().
+> +        */
+> +       if (!IS_ENABLED(CONFIG_GENERIC_CPU_DEVICES) || !acpi_disabled)
+>                 return;
+
+Honestly, this looks like a quick hack to me and it absolutely
+requires an ACK from the x86 maintainers to go anywhere.
+
+>
+>         for_each_present_cpu(i) {
+> --
