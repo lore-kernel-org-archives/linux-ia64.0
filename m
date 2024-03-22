@@ -1,137 +1,260 @@
-Received: from mout.web.de (mout.web.de [212.227.15.14])
+Received: from frasgout.his.huawei.com (frasgout.his.huawei.com [185.176.79.56])
 	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 96369481DB;
-	Wed, 13 Mar 2024 19:31:28 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=212.227.15.14
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id E7D5D74407;
+	Fri, 22 Mar 2024 18:53:37 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=185.176.79.56
 ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1710358291; cv=none; b=pGSvGVnlS8s1upKIJRCFouXDmM/JryFJPsDfTNrX1+T9QlegxYcz9riZWtLapWBWLoZiMiqv/Kr5ZTmNPdmFs5sqbJatpfj2nCf87Z5KOYo82Tc5E2FXtE18gFeR6TwRvavc3z/Hu1Zl9IFOT4ygfuwhdwGdzftRQlsPNoWAQYE=
+	t=1711133621; cv=none; b=doptbeJHyqnBlXt8H8WQ+busEPM3L20lQ3ez15Wg5MYVNisLKAJb0M4rmsofVkkxPbDA/uDgg6OBGRAfTxvxTGxe8H1PkDXV40d6d5S1tPKg2NmTtApRsHHjyt1xtg6Ic6mDkgtcLytSpgcfzxqirfqB09w8/h+uW0x+0+Rj6kk=
 ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1710358291; c=relaxed/simple;
-	bh=Pe930XdgTBF50NCZ5d+nfgQQhAAhVzRcfDqGqQfxZ1I=;
-	h=Message-ID:Date:MIME-Version:To:Cc:References:Subject:From:
-	 In-Reply-To:Content-Type; b=kMl6Tv7SGmf2tG358mj7Tk7CPNJEAUzyWCjR7JmPVlQVoJsbf5zfEnZjZhT/5xU8uUc0RkpcNim7ylTiVzLSWzZQSf9f40KG+/c9as4Jxmjpuqp0PAX3hWb3eIFLghXVGjDdN/xbkjs52KFoYJ+CQXbFa+ls4vUTTjO/maoQOc8=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=quarantine dis=none) header.from=web.de; spf=pass smtp.mailfrom=web.de; dkim=pass (2048-bit key) header.d=web.de header.i=frank.scheiner@web.de header.b=gYvpRxVQ; arc=none smtp.client-ip=212.227.15.14
-Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=quarantine dis=none) header.from=web.de
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=web.de
-Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=web.de header.i=frank.scheiner@web.de header.b="gYvpRxVQ"
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=web.de; s=s29768273;
-	t=1710358248; x=1710963048; i=frank.scheiner@web.de;
-	bh=Pe930XdgTBF50NCZ5d+nfgQQhAAhVzRcfDqGqQfxZ1I=;
-	h=X-UI-Sender-Class:Date:To:Cc:References:Subject:From:
-	 In-Reply-To;
-	b=gYvpRxVQt3E92dxoWQpVRM+EGNa/YPzqI692XGzDRlLkooUonI76aOl7XB3qmYsV
-	 BVw83lxlQCMDaOmx96AE41pP6MBDTy8izelNXq+E9GzCZNLp7cALdTWzWstLEoI5l
-	 RzpluS6Ke/1xcG0R37DJ4e2geIe2gLKt1SZQTGaFajqls5+m37rw8EHjAp8Hc6dWT
-	 4YrqIaVPLGobIxlJzXlnkU3jbyInheOIVPQLlbpUpxZ3O3sKu1cJK4ioySBZqiVUg
-	 qOJcBQyn0/U1y+t9IbJB4dvXS1SFZpmKJfZ36r/By79RcQQ24VATGhrz00/4QX5b1
-	 nZBUL43d7js3hXu33w==
-X-UI-Sender-Class: 814a7b36-bfc1-4dae-8640-3722d8ec6cd6
-Received: from [192.168.178.30] ([79.200.223.110]) by smtp.web.de (mrweb005
- [213.165.67.108]) with ESMTPSA (Nemesis) id 1MZB49-1rFIN43FLt-00V29G; Wed, 13
- Mar 2024 20:30:47 +0100
-Message-ID: <145da253-b3bc-43da-a262-a3ebdfbea5a2@web.de>
-Date: Wed, 13 Mar 2024 20:30:46 +0100
+	s=arc-20240116; t=1711133621; c=relaxed/simple;
+	bh=82RQYANYJuMNTPGQtKxqLwhxuDAzIWGQjTW9EV+4+ZU=;
+	h=Date:From:To:CC:Subject:Message-ID:In-Reply-To:References:
+	 MIME-Version:Content-Type; b=hBjDL9TNQ2+rJrPEdlXzeWkxPF/Le6azpM9YTsUxfkVhf898oCy99X/gMOVjaartQm9urUFn0cweyjBzGmLtxkryI38OMxddWQHnl3DTQWROWXX0mMjegnKfDOi6bfu1RIH6Fouii0rE7Q8TatONa8Y1cnrn+I8SlaQtffFSEag=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=quarantine dis=none) header.from=Huawei.com; spf=pass smtp.mailfrom=huawei.com; arc=none smtp.client-ip=185.176.79.56
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=quarantine dis=none) header.from=Huawei.com
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=huawei.com
+Received: from mail.maildlp.com (unknown [172.18.186.31])
+	by frasgout.his.huawei.com (SkyGuard) with ESMTP id 4V1Wfp02xRz6K62w;
+	Sat, 23 Mar 2024 02:52:50 +0800 (CST)
+Received: from lhrpeml500005.china.huawei.com (unknown [7.191.163.240])
+	by mail.maildlp.com (Postfix) with ESMTPS id 2A1251400CF;
+	Sat, 23 Mar 2024 02:53:29 +0800 (CST)
+Received: from localhost (10.202.227.76) by lhrpeml500005.china.huawei.com
+ (7.191.163.240) with Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.1.2507.35; Fri, 22 Mar
+ 2024 18:53:28 +0000
+Date: Fri, 22 Mar 2024 18:53:27 +0000
+From: Jonathan Cameron <Jonathan.Cameron@Huawei.com>
+To: "Rafael J. Wysocki" <rafael@kernel.org>
+CC: Russell King <rmk+kernel@armlinux.org.uk>, <linux-pm@vger.kernel.org>,
+	<loongarch@lists.linux.dev>, <linux-acpi@vger.kernel.org>,
+	<linux-arch@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <linux-riscv@lists.infradead.org>,
+	<kvmarm@lists.linux.dev>, <x86@kernel.org>,
+	<acpica-devel@lists.linuxfoundation.org>, <linux-csky@vger.kernel.org>,
+	<linux-doc@vger.kernel.org>, <linux-ia64@vger.kernel.org>,
+	<linux-parisc@vger.kernel.org>, Salil Mehta <salil.mehta@huawei.com>,
+	Jean-Philippe Brucker <jean-philippe@linaro.org>, <jianyong.wu@arm.com>,
+	<justin.he@arm.com>, James Morse <james.morse@arm.com>
+Subject: Re: [PATCH RFC v4 02/15] ACPI: processor: Register all CPUs from
+ acpi_processor_get_info()
+Message-ID: <20240322185327.00002416@Huawei.com>
+In-Reply-To: <CAJZ5v0iiJpUWq5GMSnKFWQTzn_bdwoQz9m=hDaXNg4Lj_ePF4g@mail.gmail.com>
+References: <Zbp5xzmFhKDAgHws@shell.armlinux.org.uk>
+	<E1rVDmU-0027YP-Jz@rmk-PC.armlinux.org.uk>
+	<CAJZ5v0iiJpUWq5GMSnKFWQTzn_bdwoQz9m=hDaXNg4Lj_ePF4g@mail.gmail.com>
+Organization: Huawei Technologies Research and Development (UK) Ltd.
+X-Mailer: Claws Mail 4.1.0 (GTK 3.24.33; x86_64-w64-mingw32)
 Precedence: bulk
 X-Mailing-List: linux-ia64@vger.kernel.org
 List-Id: <linux-ia64.vger.kernel.org>
 List-Subscribe: <mailto:linux-ia64+subscribe@vger.kernel.org>
 List-Unsubscribe: <mailto:linux-ia64+unsubscribe@vger.kernel.org>
 MIME-Version: 1.0
-User-Agent: Mozilla Thunderbird
-To: torvalds@linux-foundation.org
-Cc: =?UTF-8?B?VG9tw6HFoSBHbG96YXI=?= <tglozar@gmail.com>,
- Sergei Trofimovich <slyich@gmail.com>, gregkh@linuxfoundation.org,
- linux-kernel@vger.kernel.org, Linux-Arch <linux-arch@vger.kernel.org>,
- linux-ia64@vger.kernel.org, debian-ia64 <debian-ia64@lists.debian.org>,
- t2@t2sde.org
-References: <CAHk-=wiehc0DfPtL6fC2=bFuyzkTnuiuYSQrr6JTQxQao6pq1Q@mail.gmail.com>
-Subject: Re: Linux 6.8
-Content-Language: en-US
-From: Frank Scheiner <frank.scheiner@web.de>
-In-Reply-To: <CAHk-=wiehc0DfPtL6fC2=bFuyzkTnuiuYSQrr6JTQxQao6pq1Q@mail.gmail.com>
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
-X-Provags-ID: V03:K1:HjAvP5dWM1MULtpFSlHsjsaqS9+nE6xoed922SsSkss51KuEXDl
- Egi6UIJlglIIXmnCuguqN30pYXRmo5iVTfQn00uWCGJ2pe5JkDcayoSBDefcC9MbbAkZQSV
- oPlbBHiOV6GCwsjdCEcrwvbPvMKpB5lXx/TybLYl//qDnVnyaQs+mCNjAPDVGIUAwmehZuX
- PMVjhNSrMmx8uMjthnk2w==
-X-Spam-Flag: NO
-UI-OutboundReport: notjunk:1;M01:P0:OM4F6wbf9W0=;nMhuKSUvrg9qTOvWr4nAegC67Li
- UZ/7ATF4PdaELPJ878xoId16VnysjAG5018nyjlSsED0CHoD9S8bQVOo/ILZ9lRGFg68E4TSB
- HzEtSogYnVxQaWTdTvRRKgYd1CYugkqDQzdS1tNxo+0MVmNmJcakY6aduf2DM9U5UY+qIikR3
- mSZo46X6/lmrWKwmyO9KXa1EXBd6rVnkmTkBnjAuN1jpL/5+zEQnkNfRZcT1wW5A2NgXIzEaX
- AEIUIdH8/v28PDPf+KBa6hiGXleyxMgG5XBmJMJ99e83CVvsGb3aYfeMoBxjHjA7KQhe/j5sX
- Y/ryfb1YP+LnL3HluRshUMLkGDcrPhfWhBijLpVW7eUOZ4N/M4yiH2WbGoiBbBWYF4UlcyMsN
- BhHlE51G3zqQ7LzU8TeBryHenNGBkcHEOK6wz0T0v8WZhggtZHV8JyrmsGEww+8Pbk0Y4CJpn
- yp2X4jGWRjv3vGGxbu1inVomhGqSSf9HgMIiw24E7UeQnEF+nPQLMEYIMi3fKkIQupTpuCyts
- 8e9sCs3A4mCPmV71R7WzYeGTUK8mtOcoznz6cALFQQZoWNepIqe2ZGyeXAI5UCFac8IlhDph/
- SvThGMxhApX2tlTAJqSXAfF18PQbu0YKarlcP9xK1+rguPvz1oeWV2qkHSGpoYYfApanSBCjm
- hIU6rGp0CB+UhpgqjilNRaIQMgvk+nfFX38qh7RqzlbTCsUCW3ho6UB6nfrRielD+hdpndAJo
- vHqK4pVYtc93blg7y9sQpUJp4d0kCKVoMnKRM4K3dK2wo2xtoZXTTPzaWpEe/nV/+/VFAuT9x
- d2zOjez56PNaH+abeVgEm1/4MNsLvU+oVGoaFoK62TYII=
+X-ClientProxiedBy: lhrpeml100004.china.huawei.com (7.191.162.219) To
+ lhrpeml500005.china.huawei.com (7.191.163.240)
 
-Dear all,
+On Thu, 15 Feb 2024 20:22:29 +0100
+"Rafael J. Wysocki" <rafael@kernel.org> wrote:
 
-as usual, an update for Linux/ia64:
+> On Wed, Jan 31, 2024 at 5:50=E2=80=AFPM Russell King <rmk+kernel@armlinux=
+.org.uk> wrote:
+> >
+> > From: James Morse <james.morse@arm.com>
+> >
+> > To allow ACPI to skip the call to arch_register_cpu() when the _STA
+> > value indicates the CPU can't be brought online right now, move the
+> > arch_register_cpu() call into acpi_processor_get_info().
+> >
+> > Systems can still be booted with 'acpi=3Doff', or not include an
+> > ACPI description at all. For these, the CPUs continue to be
+> > registered by cpu_dev_register_generic().
+> >
+> > This moves the CPU register logic back to a subsys_initcall(),
+> > while the memory nodes will have been registered earlier.
+> >
+> > Signed-off-by: James Morse <james.morse@arm.com>
+> > Reviewed-by: Gavin Shan <gshan@redhat.com>
+> > Tested-by: Miguel Luis <miguel.luis@oracle.com>
+> > Tested-by: Vishnu Pajjuri <vishnu@os.amperecomputing.com>
+> > Tested-by: Jianyong Wu <jianyong.wu@arm.com>
+> > Reviewed-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+> > Signed-off-by: Russell King (Oracle) <rmk+kernel@armlinux.org.uk>
+> > ---
+> > Changes since RFC v2:
+> >  * Fixup comment in acpi_processor_get_info() (Gavin Shan)
+> >  * Add comment in cpu_dev_register_generic() (Gavin Shan)
+> > ---
+> >  drivers/acpi/acpi_processor.c | 12 ++++++++++++
+> >  drivers/base/cpu.c            |  6 +++++-
+> >  2 files changed, 17 insertions(+), 1 deletion(-)
+> >
+> > diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processo=
+r.c
+> > index cf7c1cca69dd..a68c475cdea5 100644
+> > --- a/drivers/acpi/acpi_processor.c
+> > +++ b/drivers/acpi/acpi_processor.c
+> > @@ -314,6 +314,18 @@ static int acpi_processor_get_info(struct acpi_dev=
+ice *device)
+> >                         cpufreq_add_device("acpi-cpufreq");
+> >         }
+> >
+> > +       /*
+> > +        * Register CPUs that are present. get_cpu_device() is used to =
+skip
+> > +        * duplicate CPU descriptions from firmware.
+> > +        */
+> > +       if (!invalid_logical_cpuid(pr->id) && cpu_present(pr->id) &&
+> > +           !get_cpu_device(pr->id)) {
+> > +               int ret =3D arch_register_cpu(pr->id);
+> > +
+> > +               if (ret)
+> > +                       return ret;
+> > +       }
+> > +
+> >         /*
+> >          *  Extra Processor objects may be enumerated on MP systems with
+> >          *  less than the max # of CPUs. They should be ignored _iff =20
+>=20
+> This is interesting, because right below there is the following code:
+>=20
+>     if (invalid_logical_cpuid(pr->id) || !cpu_present(pr->id)) {
+>         int ret =3D acpi_processor_hotadd_init(pr);
+>=20
+>         if (ret)
+>             return ret;
+>     }
+>=20
+> and acpi_processor_hotadd_init() essentially calls arch_register_cpu()
+> with some extra things around it (more about that below).
+>=20
+> I do realize that acpi_processor_hotadd_init() is defined under
+> CONFIG_ACPI_HOTPLUG_CPU, so for the sake of the argument let's
+> consider an architecture where CONFIG_ACPI_HOTPLUG_CPU is set.
+>=20
+> So why are the two conditionals that almost contradict each other both
+> needed?  It looks like the new code could be combined with
+> acpi_processor_hotadd_init() to do the right thing in all cases.
 
-As far as I can tell, the v6.8 development cycle for us looked not much
-different to the v6.7 one: The ia64 patch set ([1]) was extended where
-need was identified. All ia64 machines we have available for testing
-continue to work, no system support was lost during this cycle. No, we
-even got another "system" back: the HP Sim platform - up to mainline,
-that is. Together with Ski [2], thankfully kept together and updated by
-Sergei Trofimovich, this allows to run ia64 kernels and (light) ia64
-userland software on for example x86_64 hosts. Like it's done for the
-recently established auto-builds for Linux stable RCs and releases on
-GitHub. Have a look on [3] for example: all building, all working (in
-Ski). For the manual testing of the Linux mainline RCs and releases some
-changes were introduced. Mainly that compilation always happens with the
-latest gcc-14 snapshot starting with v6.8-rc1 - so far no surprises -
-and recently, the enabling of LRA for the compiler.
+I jumped on to the end of this series to look at this as the two legs
+look more similar at that point. I'll figure out how to drive
+any changes through the series once the end goal is clear.
 
-[1]: https://github.com/lenticularis39/linux-ia64
+To make testing easy I made the acpi_process_make_enabled() look as
+much like acpi_process_make_present() as possible.
 
-[2]: https://github.com/trofi/ski
+>=20
+> Now, acpi_processor_hotadd_init() does some extra things that look
+> like they should be done by the new code too.
+>=20
+> 1. It checks invalid_phys_cpuid() which appears to be a good idea to me.
 
-[3]:
-https://github.com/johnny-mnemonic/linux-stable-rc/actions/runs/8258902207
+Indeed that is sensible. Not sure there is a path to here where it fails,
+but defense in depth is good.
 
-Unfortunately there's one difference to v6.7 with v6.8 (actually
-beginning with v6.8-rc1 as we found out later during the cycle): there
-is a userland regression present that leads to segfaults with v6.8 where
-it does not with v6.7. We collected the following examples for this
-regression (if they are all related):
+>=20
+> 2. It uses locking around arch_register_cpu() which doesn't seem
+> unreasonable either.
 
-* Debian: apt(-get) segfaults (though not immediately) and is affected
-to a different degree depending on non-usrmerged or usrmerged root FS
-* Gentoo: segfaults happen when emerging different packages
-* T2: compiling a specific Perl source code file with gcc leads it to
-segfault
+Seems reasonable, though exactly what this protecting is unclear to me
+- is the arch_register_cpu() and/or the acpi_map_cpu().
+Whilst it would be nice to be sure, appears harmless, so let us
+take it for consistency if nothing else.
 
-...and hope to find the cause of it and a solution. Before you ask, no,
-this is not due to enabling LRA for the compiler, it already happened
-before that was done.
+The cpu_maps_update_begin()/end() calls though aren't necessary as
+we aren't touching the cpu_present or cpu_online masks.
 
-****
 
-This time no new distributions for ia64, but unfortunately one less
-soon: Debian will close shop on ia64 ([4]). As much as this make me sad,
-because this was the distribution that got me going on ia64 nearly ten
-years ago, better switch to another option sooner than later. I am
-switching to T2 ([5]) for example for future testing. For network boot
-this was really simple to set up, similar to how you can create an
-OpenBSD root FS by unpacking a list of tarballs plus some manual
-configuration afterwards.
+>=20
+> 3. It calls acpi_map_cpu() and I'm not sure why this is not done by
+> the new code.
 
-[4]: https://lists.debian.org/debian-ia64/2024/02/msg00002.html
+Doesn't exist except on x86 and longarch as Russell mentioned. So let's
+see what it does (on x86)  So we are into the realm of interfaces that
+look generic but really aren't :(  I particularly like the
+generic_processor_info() which isn't particularly generic.
 
-[5]: https://t2sde.org/
+1. cpu =3D acpi_register_lapic()
 
-****
+Docs say: Register a local apic and generates a logic cpu number
 
-Thank you all for your hard work on Linux!
+2. generic_processor_info() in arch/x86/kernel/acpi/acpi.c
 
-Cheers,
-Frank at al
+Checks against nr_cpus_ids - maybe that bit is useful
+
+Allocate_logical_cpuid().
+Digging in, it seems to do similar to setting __cpu_logical_map on arm64.
+That's done in acpi_map_gic_cpu_interface, which happens when MADT is
+parsed and I believe it's one of the the things we need to do whether
+or not the CPU is enabled at boot. So already done.
+
+acpi_processor_set_pdc() -- configure _PDC support (which I'd never heard
+of before now).  Deprecated in ACPI 3.0. Given we are using stuff only added
+in 6.5 we can probably skip that even if it would be harmless.
+
+acpi_map_cpu2node() -- evalulate _PXM and set __apicid_to_node[]
+entry. That is only used from x86 code. Not sure what equivalent would be.
+Also numa_set_node(cpu, nid);  Which again sounds a lot more generic than
+it is. Load of x86 specific stuff + set_cpu_numa_node() which is generic
+and for ARM64 (and anything using CONFIG_GENERIC_ARCH_NUMA) is called
+by numa_store_cpu_info() either from early_map_cpu_to_node() or smp_prepare=
+_cpus()
+which is called for_each_possible_cpu() and hence has already been done.
+
+So conclusion on this one is there doesn't seem to be anything to do.
+We could provide a __weak function or an ARM64 specific one that does
+nothing or gate it on an appropriate config variable.  However, given
+I presume 'future' ARM64 support for CPU hotplug will want to do something
+in these calls, perhaps a better bet is to pass a bool into the function
+to indicate these should be skipped if present is not changing.
+
+Having done that, we end up with code that is messy enough we are
+better off keeping them as separate functions, though they may
+look a little more similar than in this version.
+
+There is a final thing in here you didn't mention
+setting pr->flags.need_hotplug_init
+which causes extra stuff to occur in processor_driver.c
+The extra stuff doesn't seem to be necessary for the enable case
+despite being needed for change of present status.
+I haven't figured this bit out yet (I need to mess around on x86
+to understand what goes wrong if you don't use that flag).
+
+
+>=20
+> The only thing that can be dropped from it is the _STA check AFAICS,
+> because acpi_processor_add() won't even be called if the CPU is not
+> present (and not enabled after the first patch).
+>=20
+> So why does the code not do 1 - 3 above?
+I agree with 1 and 2, reasoning for 3 given above.
+
+>=20
+> > diff --git a/drivers/base/cpu.c b/drivers/base/cpu.c
+> > index 47de0f140ba6..13d052bf13f4 100644
+> > --- a/drivers/base/cpu.c
+> > +++ b/drivers/base/cpu.c
+> > @@ -553,7 +553,11 @@ static void __init cpu_dev_register_generic(void)
+> >  {
+> >         int i, ret;
+> >
+> > -       if (!IS_ENABLED(CONFIG_GENERIC_CPU_DEVICES))
+> > +       /*
+> > +        * When ACPI is enabled, CPUs are registered via
+> > +        * acpi_processor_get_info().
+> > +        */
+> > +       if (!IS_ENABLED(CONFIG_GENERIC_CPU_DEVICES) || !acpi_disabled)
+> >                 return; =20
+>=20
+> Honestly, this looks like a quick hack to me and it absolutely
+> requires an ACK from the x86 maintainers to go anywhere.
+Will address this separately.
+
+>=20
+> >
+> >         for_each_present_cpu(i) {
+> > -- =20
+
