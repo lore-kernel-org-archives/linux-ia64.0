@@ -1,187 +1,97 @@
-Received: from flow3-smtp.messagingengine.com (flow3-smtp.messagingengine.com [103.168.172.138])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+Received: from mail-lj1-f177.google.com (mail-lj1-f177.google.com [209.85.208.177])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id BE42D145B0F;
-	Fri, 26 Apr 2024 17:38:44 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=103.168.172.138
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 07A9C15E85
+	for <linux-ia64@vger.kernel.org>; Mon, 29 Apr 2024 15:36:37 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.208.177
 ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1714153127; cv=none; b=X7a+K6UN4mK0LsKHo0IzL9llPspgTIUJZ8Fe1AjXmUnlu1sn0/Tk/3jqR/oncj07+KBsLX1FIdN56fHw/cLhcvUr4bl9ydfXxUWcBwhht1ZCBJnIV6kbTD08P9a9jiVF1xVV1jy8u3jIAtoya66iSxNSXTFXoNUg6KVzioJ/lvU=
+	t=1714404999; cv=none; b=bs4AG2yDywPaHEMs7PovsHQ5ZLn/IsEltvjBcMrPeVr/Plv+Lg6xWNvzUiBxHAH9YX2HY2e/1HVQ7CwmYjMS4glhqykCfOCTBvlYP2TlBxsF0HcLPdArh2/uebqbINZJGfaU1pFEC5z4po2kRXxaHzu8QJW+xjAZ6QPz2B4KX1Q=
 ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1714153127; c=relaxed/simple;
-	bh=wl2WeNXK9401gewnNEkP62crFh93PXjbpWk6KFoepOg=;
-	h=MIME-Version:Message-Id:In-Reply-To:References:Date:From:To:Cc:
-	 Subject:Content-Type; b=Y8SGQ32kfI8Kwf0xVrYeacufgyssYCHjxU+kKAQBk4O4/QvJlD8VtfHb2AJUZ2py1HDAxRBaykGIPwuP7dSTM2LxdxIy4pBG3OsLoyhD+DzAklo7ThJQvmGICvw0XbXkF0s4x4+4raW4th9GGKZO9ZPvoNvzYyqoMJTHSMh+FRQ=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=arndb.de; spf=pass smtp.mailfrom=arndb.de; dkim=pass (2048-bit key) header.d=arndb.de header.i=@arndb.de header.b=pE1T08Fu; dkim=pass (2048-bit key) header.d=messagingengine.com header.i=@messagingengine.com header.b=aqFcdXIb; arc=none smtp.client-ip=103.168.172.138
-Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=arndb.de
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=arndb.de
+	s=arc-20240116; t=1714404999; c=relaxed/simple;
+	bh=/MEHGX1x3HuvGrlg1scB17bYHXUuGpaIRKOiwd6rFkU=;
+	h=MIME-Version:From:Date:Message-ID:Subject:To:Cc:Content-Type; b=Xx+BoHbEt+5+20CgXzCcp8xDgMCHcCeuUMcrHA8JQ2aut3oJb59xQfCDBYB1d44CZ3xEsypCFpWytPTwY4gtF4B8Rg2aIwMP2OFmJ229h0qz3B4DH9F4XbJxmi+bLYbJI4YpCNRqk7hdEoPyOjvbp+mLQ+vZavAeximTWUfSZYw=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=gmail.com; spf=pass smtp.mailfrom=gmail.com; dkim=pass (2048-bit key) header.d=gmail.com header.i=@gmail.com header.b=d20OgCce; arc=none smtp.client-ip=209.85.208.177
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=gmail.com
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=gmail.com
 Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=arndb.de header.i=@arndb.de header.b="pE1T08Fu";
-	dkim=pass (2048-bit key) header.d=messagingengine.com header.i=@messagingengine.com header.b="aqFcdXIb"
-Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
-	by mailflow.nyi.internal (Postfix) with ESMTP id BDA42200567;
-	Fri, 26 Apr 2024 13:38:43 -0400 (EDT)
-Received: from imap51 ([10.202.2.101])
-  by compute5.internal (MEProxy); Fri, 26 Apr 2024 13:38:43 -0400
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=arndb.de; h=cc
-	:cc:content-transfer-encoding:content-type:content-type:date
-	:date:from:from:in-reply-to:in-reply-to:message-id:mime-version
-	:references:reply-to:subject:subject:to:to; s=fm2; t=1714153123;
-	 x=1714160323; bh=LvCKd10h8SxIpHH2VnKSem369EuCERsZx0vTF5ejpQk=; b=
-	pE1T08FuMVdjjQLWiDkQO7xl56PeI7A1H3IWG3+rFD9emD//4B5RuAiqikq3csH2
-	HcrEwfg47R7YMmaz8Ciyl2cvIz4VVX096uNe1CYFtwsais2/erVg/FW25ZTMJvXr
-	zpR/9AJQ+kMYwmkwNH/UDIyDG/M/RiXZfW1Gpp3WoGzKEMmORD8LrQExf4Uw72vT
-	cf90JKVFYzecW30Y+7oynhwhYveQbKpD0A+7InyVTw6kiDVyu6WAufjR97YB+AAf
-	0ZE2OG1WQzxkmWcmeCmxI8V9AL9FQ/NFoFlVnxKbEzgyPDaqo7Ijv+GlzReYpZG8
-	UpsdbHxgZ38tWGTiNz9nEw==
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=
-	messagingengine.com; h=cc:cc:content-transfer-encoding
-	:content-type:content-type:date:date:feedback-id:feedback-id
-	:from:from:in-reply-to:in-reply-to:message-id:mime-version
-	:references:reply-to:subject:subject:to:to:x-me-proxy:x-me-proxy
-	:x-me-sender:x-me-sender:x-sasl-enc; s=fm3; t=1714153123; x=
-	1714160323; bh=LvCKd10h8SxIpHH2VnKSem369EuCERsZx0vTF5ejpQk=; b=a
-	qFcdXIb7SbWdXzU54WGeWh/iceHLfbpvJPUdGWHPNnK5IEK/9AtOR5J2UG7I0kdd
-	gA+bX/lBwFYGTyhrH0iOL1YwgOqj4CO02fhLgSpzb0errJKY1KqMkKtdiEMGW0IU
-	avALV8VE2nPoBWWc5kPZjknu85rpxsTco30NFcpJL3ouXip8e9tY6t5C0m3yG4DV
-	i9SMC7BAXFVXlTkQ12jergSGdPKhcHmwu/rclcCs4OnoitPkDQ5s/pDGcdD2HxtV
-	6evA3UfMGPMVusCn1+pAQOhpgJIj12adXuHnNCAk7/cjvkYwvImsSZiLSUZbVdMm
-	WuinBDiPHs317sdol2J0w==
-X-ME-Sender: <xms:ouYrZlQDaCE-0s0WHFCeHepar9j_x9KR9n-h0TbsH_sTOOeSUGEhag>
-    <xme:ouYrZuz-rN1jLTr59v2lbblMmuUk9xavewvaecIEfqOvR0end1N-WP7C8qOmizXin
-    NZnEkLDPhLks8tH0J0>
-X-ME-Proxy-Cause: gggruggvucftvghtrhhoucdtuddrgedvledrudelledgudduhecutefuodetggdotefrod
-    ftvfcurfhrohhfihhlvgemucfhrghsthforghilhdpqfgfvfdpuffrtefokffrpgfnqfgh
-    necuuegrihhlohhuthemuceftddtnecusecvtfgvtghiphhivghnthhsucdlqddutddtmd
-    enucfjughrpefofgggkfgjfhffhffvvefutgfgsehtqhertderreejnecuhfhrohhmpedf
-    tehrnhguuceuvghrghhmrghnnhdfuceorghrnhgusegrrhhnuggsrdguvgeqnecuggftrf
-    grthhtvghrnhepgeefjeehvdelvdffieejieejiedvvdfhleeivdelveehjeelteegudek
-    tdfgjeevnecuvehluhhsthgvrhfuihiivgeptdenucfrrghrrghmpehmrghilhhfrhhomh
-    eprghrnhgusegrrhhnuggsrdguvg
-X-ME-Proxy: <xmx:ouYrZq3qoHAOs6UtEYzZ6Kv2th-k72ltAmHA5-EvubaY_DFzTZHiZA>
-    <xmx:ouYrZtDFuilIk3W0hJ0M4DWNRr0ldDoQ2Q3XrafF-t-T9hsqUZG79w>
-    <xmx:ouYrZujdQoqwaHSJ1S_IBnSUNzyXxkERFFQZf5-Uajue3KXw-499-Q>
-    <xmx:ouYrZhqInTTtQzq1IvTwSb8HCKj4UX1i6i_KpDS_TtRK6OBmlMiQ4w>
-    <xmx:o-YrZpX13ubRldSgrPH3yzrzP3OzJ7dh3_1MWs-FrW6tvLtURlDPgFda>
-Feedback-ID: i56a14606:Fastmail
-Received: by mailuser.nyi.internal (Postfix, from userid 501)
-	id 324F9B60099; Fri, 26 Apr 2024 13:38:42 -0400 (EDT)
-X-Mailer: MessagingEngine.com Webmail Interface
-User-Agent: Cyrus-JMAP/3.11.0-alpha0-386-g4cb8e397f9-fm-20240415.001-g4cb8e397
+	dkim=pass (2048-bit key) header.d=gmail.com header.i=@gmail.com header.b="d20OgCce"
+Received: by mail-lj1-f177.google.com with SMTP id 38308e7fff4ca-2e060d49f87so8917271fa.0
+        for <linux-ia64@vger.kernel.org>; Mon, 29 Apr 2024 08:36:37 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=gmail.com; s=20230601; t=1714404996; x=1715009796; darn=vger.kernel.org;
+        h=content-transfer-encoding:cc:to:subject:message-id:date:from
+         :mime-version:from:to:cc:subject:date:message-id:reply-to;
+        bh=/MEHGX1x3HuvGrlg1scB17bYHXUuGpaIRKOiwd6rFkU=;
+        b=d20OgCcemU23BV3Napt/CmBusgdGCkXgwgCab04BRJlg85BUuIopaLEjXLsf5XBFTq
+         7a4SD0+mgDdORu4Q/HSxZ7Y7m/lPPgJbDI1yDtNl8mckk81XR+/0q/wtuSlaFvS1A7Cl
+         T/bPXhBi48CHtpsw8ELUuTcYUPWLbu96VaLEH9RrCyfD6nXCoKZQSVUdEX94S0Cb7ace
+         0VROUkJOg7P9Laq4EeZQ0I6Gbg/X2IRPemSx3RCMAaLNTanUW6Y864LTIZ+jYSZA9N0j
+         Fq35gayngRmQgcHuZ5MfGcHxZFJAsxmunAXPUFHq8ObHm/zcgb4UCBkhLWRDjaWOsoDc
+         rIdg==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1714404996; x=1715009796;
+        h=content-transfer-encoding:cc:to:subject:message-id:date:from
+         :mime-version:x-gm-message-state:from:to:cc:subject:date:message-id
+         :reply-to;
+        bh=/MEHGX1x3HuvGrlg1scB17bYHXUuGpaIRKOiwd6rFkU=;
+        b=qaq2SHTjNuLyI+x6ZhA/NGV4ATBy5b9QMumSBB6To5RhBfhxTYzdeTxAMkkNSUJJWg
+         LD9tx1eD8owaVYVZfnLwyPlKetjAHKu/OtXXDxlbZ2I5NoI3Xtq7Gpvh+ikPUquWSYSU
+         9gHIKbyGq2Qrh+iLXM6I1QViWl3x2EJHkLI0ZTXTGnZnVniHObKlLVVq8C13fLg1cFKi
+         GWu6LQplBJj8VaGNWwg2xFU65MlDfEl8I29FVzDsOMUEU47fcnbVRyKzhRD7Xi3Nyt3u
+         NDG+lfThWc6Sh7CQz4/4g83O9cGWQKwt06TDUVQLP8wcsNYB4fVKQwCZhPqdK+8H5Yrq
+         X2OA==
+X-Gm-Message-State: AOJu0YyYWnCNqXTKHgbfrybIeuXCN8yaj2ebrbNZgVXz2+ILxIRcSsfd
+	3JfpJB+lZ8Um4Q+X9lHOcmoOIeUoVgNCAp7gdFKwQysB9HBQQeV9Mq6VCVvTd0R0d6CIYtYz7ls
+	PkhYl5dTVNHetFj6U69+H8FxACW5J8Rir
+X-Google-Smtp-Source: AGHT+IHHc1gTYWb6c2BqQePeU2BYnIxYUvD5I3QrOcvjkwMFcapSix0o4Sq86uGQHo5haF3iyKRqjts4cGh1P3mAWSo=
+X-Received: by 2002:a05:651c:333:b0:2e0:bccc:80ae with SMTP id
+ b19-20020a05651c033300b002e0bccc80aemr2920ljp.10.1714404995927; Mon, 29 Apr
+ 2024 08:36:35 -0700 (PDT)
 Precedence: bulk
 X-Mailing-List: linux-ia64@vger.kernel.org
 List-Id: <linux-ia64.vger.kernel.org>
 List-Subscribe: <mailto:linux-ia64+subscribe@vger.kernel.org>
 List-Unsubscribe: <mailto:linux-ia64+unsubscribe@vger.kernel.org>
 MIME-Version: 1.0
-Message-Id: <63ae53af-023d-444c-9571-8aef9e87ebc0@app.fastmail.com>
-In-Reply-To: <20240426162042.191916-1-cgoettsche@seltendoof.de>
-References: <20240426162042.191916-1-cgoettsche@seltendoof.de>
-Date: Fri, 26 Apr 2024 19:38:18 +0200
-From: "Arnd Bergmann" <arnd@arndb.de>
-To: cgzones@googlemail.com
-Cc: x86@kernel.org, linux-alpha@vger.kernel.org,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org,
- linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org,
- linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org,
- linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
- linux-fsdevel@vger.kernel.org, audit@vger.kernel.org,
- Linux-Arch <linux-arch@vger.kernel.org>, linux-api@vger.kernel.org,
- linux-security-module@vger.kernel.org, selinux@vger.kernel.org,
- "Richard Henderson" <richard.henderson@linaro.org>,
- "Ivan Kokshaysky" <ink@jurassic.park.msu.ru>,
- "Matt Turner" <mattst88@gmail.com>,
- "Russell King" <linux@armlinux.org.uk>,
- "Catalin Marinas" <catalin.marinas@arm.com>,
- "Will Deacon" <will@kernel.org>,
- "Geert Uytterhoeven" <geert@linux-m68k.org>,
- "Michal Simek" <monstr@monstr.eu>,
- "Thomas Bogendoerfer" <tsbogend@alpha.franken.de>,
- "James E . J . Bottomley" <James.Bottomley@HansenPartnership.com>,
- "Helge Deller" <deller@gmx.de>, "Michael Ellerman" <mpe@ellerman.id.au>,
- "Nicholas Piggin" <npiggin@gmail.com>,
- "Christophe Leroy" <christophe.leroy@csgroup.eu>,
- "Aneesh Kumar K.V" <aneesh.kumar@kernel.org>,
- "Naveen N. Rao" <naveen.n.rao@linux.ibm.com>,
- "Heiko Carstens" <hca@linux.ibm.com>,
- "Vasily Gorbik" <gor@linux.ibm.com>,
- "Alexander Gordeev" <agordeev@linux.ibm.com>,
- "Christian Borntraeger" <borntraeger@linux.ibm.com>,
- "Sven Schnelle" <svens@linux.ibm.com>,
- "Yoshinori Sato" <ysato@users.sourceforge.jp>,
- "Rich Felker" <dalias@libc.org>,
- "John Paul Adrian Glaubitz" <glaubitz@physik.fu-berlin.de>,
- "David S . Miller" <davem@davemloft.net>,
- "Andreas Larsson" <andreas@gaisler.com>,
- "Andy Lutomirski" <luto@kernel.org>,
- "Thomas Gleixner" <tglx@linutronix.de>, "Ingo Molnar" <mingo@redhat.com>,
- "Borislav Petkov" <bp@alien8.de>,
- "Dave Hansen" <dave.hansen@linux.intel.com>,
- "H. Peter Anvin" <hpa@zytor.com>, "Chris Zankel" <chris@zankel.net>,
- "Max Filippov" <jcmvbkbc@gmail.com>,
- "Alexander Viro" <viro@zeniv.linux.org.uk>,
- "Christian Brauner" <brauner@kernel.org>, "Jan Kara" <jack@suse.cz>,
- "Paul Moore" <paul@paul-moore.com>, "Eric Paris" <eparis@redhat.com>,
- "Jens Axboe" <axboe@kernel.dk>,
- "Pavel Begunkov" <asml.silence@gmail.com>,
- "Peter Zijlstra" <peterz@infradead.org>,
- "Sohil Mehta" <sohil.mehta@intel.com>,
- "Palmer Dabbelt" <palmer@sifive.com>,
- "Miklos Szeredi" <mszeredi@redhat.com>, "Nhat Pham" <nphamcs@gmail.com>,
- "Casey Schaufler" <casey@schaufler-ca.com>,
- "Florian Fainelli" <florian.fainelli@broadcom.com>,
- "Kees Cook" <keescook@chromium.org>,
- "Rick Edgecombe" <rick.p.edgecombe@intel.com>,
- "Mark Rutland" <mark.rutland@arm.com>, io-uring@vger.kernel.org
-Subject: Re: [PATCH v3 2/2] fs/xattr: add *at family syscalls
-Content-Type: text/plain;charset=utf-8
+From: =?UTF-8?B?VG9tw6HFoSBHbG96YXI=?= <tglozar@gmail.com>
+Date: Mon, 29 Apr 2024 17:36:24 +0200
+Message-ID: <CAHtyXDdy5Lub_UeMQRgr8O_G-XK0_XRD3J7wVB9t9rRD5x6d4g@mail.gmail.com>
+Subject: [ANNOUNCE] Linux v6.9-rc6-epic1
+To: linux-ia64@vger.kernel.org
+Cc: Frank Scheiner <frank.scheiner@web.de>
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Fri, Apr 26, 2024, at 18:20, Christian G=C3=B6ttsche wrote:
-> From: Christian G=C3=B6ttsche <cgzones@googlemail.com>
->
-> Add the four syscalls setxattrat(), getxattrat(), listxattrat() and
-> removexattrat().  Those can be used to operate on extended attributes,
-> especially security related ones, either relative to a pinned directory
-> or on a file descriptor without read access, avoiding a
-> /proc/<pid>/fd/<fd> detour, requiring a mounted procfs.
->
-> One use case will be setfiles(8) setting SELinux file contexts
-> ("security.selinux") without race conditions and without a file
-> descriptor opened with read access requiring SELinux read permission.
->
-> Use the do_{name}at() pattern from fs/open.c.
->
-> Pass the value of the extended attribute, its length, and for
-> setxattrat(2) the command (XATTR_CREATE or XATTR_REPLACE) via an added
-> struct xattr_args to not exceed six syscall arguments and not
-> merging the AT_* and XATTR_* flags.
->
-> Signed-off-by: Christian G=C3=B6ttsche <cgzones@googlemail.com>
-> CC: x86@kernel.org
-> CC: linux-alpha@vger.kernel.org
-> CC: linux-kernel@vger.kernel.org
-> CC: linux-arm-kernel@lists.infradead.org
-> CC: linux-ia64@vger.kernel.org
-> CC: linux-m68k@lists.linux-m68k.org
-> CC: linux-mips@vger.kernel.org
-> CC: linux-parisc@vger.kernel.org
-> CC: linuxppc-dev@lists.ozlabs.org
-> CC: linux-s390@vger.kernel.org
-> CC: linux-sh@vger.kernel.org
-> CC: sparclinux@vger.kernel.org
-> CC: linux-fsdevel@vger.kernel.org
-> CC: audit@vger.kernel.org
-> CC: linux-arch@vger.kernel.org
-> CC: linux-api@vger.kernel.org
-> CC: linux-security-module@vger.kernel.org
-> CC: selinux@vger.kernel.org
+Hello linux-ia64!
 
-I checked that the syscalls are all well-formed regarding
-argument types, number of arguments and (absence of)
-compat handling, and that they are wired up correctly
-across architectures
+We are announcing the first release of the linux-ia64 patchset v6.9-rc6-epi=
+c.
 
-I did not look at the actual implementation in detail.
+We have been maintaining an out-of-tree patch with Itanium support for
+the Linux kernel since support was removed in November 2023 and
+effective since Linux 6.7. After some time of successfully rebasing to
+upstream master periodically, we have decided to adopt a model similar
+to PREEMPT_RT and make formal releases for the patch, with the version
+suffix -epic.
 
-Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+This is the first release of this format. At the same time, the
+repository was also re-organized to mimic linux-rt: the master branch
+is now master-epic, and future branches will be named linux-a.b.y-epic
+(e.g. linux-6.9.y-epic).
+
+Known issues:
+
+- Kernel boot hangs when CONFIG_NR_CPUS is higher than 64.
+
+Fixes (compared to 6.6-stable):
+
+- Kernel now boots on rx6600 machines again after fixing a bug in the
+mm subsystem.
+
+The release may be obtained from GitHub:
+
+https://github.com/linux-ia64/linux-ia64/tree/linux-6.9.y-epic
+https://github.com/linux-ia64/linux-ia64/releases/download/v6.9-rc6-epic1/p=
+atch-6.9-epic1.patch.gz
+
+Tom=C3=A1=C5=A1 Glozar
