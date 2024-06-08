@@ -1,132 +1,113 @@
-Received: from mout.web.de (mout.web.de [212.227.17.11])
+Received: from mgamail.intel.com (mgamail.intel.com [192.198.163.10])
 	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id BB27D136983;
-	Wed, 15 May 2024 13:45:35 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=212.227.17.11
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id C3F938BF8
+	for <linux-ia64@vger.kernel.org>; Sat,  8 Jun 2024 03:19:04 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=192.198.163.10
 ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1715780738; cv=none; b=CAVwoQsqN7HHBHMPSg117U/H2w3FnbnsFUcKCgoNfqhDgKO7qAQVBAKtfpcqJxF5SHnWPv08VtZLILpsqJO85w7oqAv5dpLtieEROu6OyOBAal0fT6pgFeHqOhAiHBPnqGwHEAp8xsZTnn9chYq4ldNAjQAfarqV08GePY1OT4M=
+	t=1717816748; cv=none; b=mOrIe05K0bw8riebcwYoi0E4PTOz9FV8voQF2WzTNIXvOvLJZKjaYIh69wLZySLD7Fgkxdiyg/YjD/Ve552R2Yoi1S6iLvVquh7CfFNjf/9TZpYzHWtEUi4jPV8C90ttYXk63fZPLvIVQGsNRvEh0TKQ/gjIcG2le/C/q9Y+3I0=
 ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1715780738; c=relaxed/simple;
-	bh=YE7mdJ69I1zEoXQBaNcngBx75+rQO1q57VLEI4yySyM=;
-	h=Message-ID:Date:MIME-Version:From:Subject:To:Cc:References:
-	 In-Reply-To:Content-Type; b=G+b045Sax4wq+etayFKOvi/IyAwpOBvdElFW9uhgEq5AGuPFVZSDMXRlQJRQ6t5rXSOYkbtASMP4iBo/2c3JmTvblpEf+ap0Wt3KjO4UtGmuG2t6preLsh+fgHWWffyzJallFFVsVJXWGNxdXgXir0kQBgYM95DwkrPD9yNXVpE=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=quarantine dis=none) header.from=web.de; spf=pass smtp.mailfrom=web.de; dkim=pass (2048-bit key) header.d=web.de header.i=frank.scheiner@web.de header.b=CP+A1NYe; arc=none smtp.client-ip=212.227.17.11
-Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=quarantine dis=none) header.from=web.de
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=web.de
+	s=arc-20240116; t=1717816748; c=relaxed/simple;
+	bh=xpMAhnQiTZJG7oZr2EwPnjx9QF5iRv6ISf5vU/K3ruk=;
+	h=Date:From:To:Cc:Subject:Message-ID:MIME-Version:Content-Type:
+	 Content-Disposition; b=IHyD/v4wpZqASKPCubXC9St4/60GbXVgnXJAgAsjGB+hfXoROLTLPicbzV5vYaBi9S/yLhztIWov+VdGP4yf5p5dbsVRIv63mqZkW3SBi0mmeS1Wge9H+vU95EUcoaAroVdPUeS5hR7tOgNjuompAsd0GC2Fg9JFtEHSHUdCpNY=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=intel.com; spf=pass smtp.mailfrom=intel.com; dkim=pass (2048-bit key) header.d=intel.com header.i=@intel.com header.b=Bgl/+a5u; arc=none smtp.client-ip=192.198.163.10
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=intel.com
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=intel.com
 Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=web.de header.i=frank.scheiner@web.de header.b="CP+A1NYe"
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=web.de;
-	s=s29768273; t=1715780688; x=1716385488; i=frank.scheiner@web.de;
-	bh=YE7mdJ69I1zEoXQBaNcngBx75+rQO1q57VLEI4yySyM=;
-	h=X-UI-Sender-Class:Message-ID:Date:MIME-Version:From:Subject:To:
-	 Cc:References:In-Reply-To:Content-Type:Content-Transfer-Encoding:
-	 cc:content-transfer-encoding:content-type:date:from:message-id:
-	 mime-version:reply-to:subject:to;
-	b=CP+A1NYeKHy13DD7flBGsl0mfI+mkdiE2QcY76l2iMUPcSvPhVYl1XBPTTQAN4um
-	 w9mUTYH+FB/PrfJfDwu7MrBP2lhwSOCMzlyg/rseJ6ZZO1xKzOZsxjgci6MdvbUe2
-	 wzRIIk0OT/gwUWEH3aQHqwWrO/yHqIAbw9qOTntXdD7LCcR9m0H1RKXLZLctoTaPh
-	 9pcGRdY0aiEEQT7EStyGQdaDIGjuM49Yt486DnsOV2QEYuxF7jl3UjAdUrtTjp8+x
-	 dW35GPzHmYyewo+XVkBRdnvbjTQmJ+tdEZs98i8TlhlTNwECqp2aytBNz4LgWCbQy
-	 h+Yql96IKjck/jMGDA==
-X-UI-Sender-Class: 814a7b36-bfc1-4dae-8640-3722d8ec6cd6
-Received: from [192.168.178.30] ([84.152.252.20]) by smtp.web.de (mrweb105
- [213.165.67.124]) with ESMTPSA (Nemesis) id 1Mty5u-1sPrDg21mu-016P9E; Wed, 15
- May 2024 15:44:48 +0200
-Message-ID: <d308ad95-bee4-4401-a6f5-27bcf5bcc52d@web.de>
-Date: Wed, 15 May 2024 15:44:47 +0200
+	dkim=pass (2048-bit key) header.d=intel.com header.i=@intel.com header.b="Bgl/+a5u"
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple;
+  d=intel.com; i=@intel.com; q=dns/txt; s=Intel;
+  t=1717816745; x=1749352745;
+  h=date:from:to:cc:subject:message-id:mime-version;
+  bh=xpMAhnQiTZJG7oZr2EwPnjx9QF5iRv6ISf5vU/K3ruk=;
+  b=Bgl/+a5uS+MXuC608JmvnmtKKRoJj2/22K1DJdw7EHKBqpedikeSjiYr
+   PGAif/Dd643XKGTd98JyPUOfl0ieRZ37GFD6uEvSv39yo+SPRiPFqtGMT
+   OR/G9SDlC5/mWFySb27TwZPNwoGOy7GOfThhLgBLEXNbqPqMZnsA5CphV
+   T/rui6KsyJuK61D+jrycNlObY/5wlmk1YQIDTQY/45uRXeb2pV1zT3Uqu
+   bpLWGfYQF9cwdDS8jDVJyRMqqV0ajiStDVWFB1i73GioN6iDvauvq2GjK
+   x/UaUwbfFQ8fmUZ/DjEGwXOudJlgQ0Yc2OchQcJzsZpWF7E4WlF5T+5up
+   A==;
+X-CSE-ConnectionGUID: zPlKtB0HQl6N6V0VwXTSnw==
+X-CSE-MsgGUID: 3X/m678JQfqpfAa5hWEnQg==
+X-IronPort-AV: E=McAfee;i="6600,9927,11096"; a="25958543"
+X-IronPort-AV: E=Sophos;i="6.08,222,1712646000"; 
+   d="scan'208";a="25958543"
+Received: from orviesa009.jf.intel.com ([10.64.159.149])
+  by fmvoesa104.fm.intel.com with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 07 Jun 2024 20:19:04 -0700
+X-CSE-ConnectionGUID: ge5xRtnwTdaf3hoRiLhVyA==
+X-CSE-MsgGUID: Y8Axy22YSDuEunDJuoXG+g==
+X-ExtLoop1: 1
+X-IronPort-AV: E=Sophos;i="6.08,222,1712646000"; 
+   d="scan'208";a="38597317"
+Received: from lkp-server01.sh.intel.com (HELO 472b94a103a1) ([10.239.97.150])
+  by orviesa009.jf.intel.com with ESMTP; 07 Jun 2024 20:19:02 -0700
+Received: from kbuild by 472b94a103a1 with local (Exim 4.96)
+	(envelope-from <lkp@intel.com>)
+	id 1sFmbb-0000u6-23;
+	Sat, 08 Jun 2024 03:18:59 +0000
+Date: Sat, 8 Jun 2024 11:18:24 +0800
+From: kernel test robot <lkp@intel.com>
+To: Tony Luck <tony.luck@intel.com>
+Cc: oe-kbuild-all@lists.linux.dev, linux-ia64@vger.kernel.org,
+	Reinette Chatre <reinette.chatre@intel.com>
+Subject: [aegl:get_cpu_cacheinfo_level 2/3] include/linux/cpuhplock.h:39:58:
+ error: 'EPERM' undeclared
+Message-ID: <202406081130.r7jZwCC5-lkp@intel.com>
 Precedence: bulk
 X-Mailing-List: linux-ia64@vger.kernel.org
 List-Id: <linux-ia64.vger.kernel.org>
 List-Subscribe: <mailto:linux-ia64+subscribe@vger.kernel.org>
 List-Unsubscribe: <mailto:linux-ia64+unsubscribe@vger.kernel.org>
 MIME-Version: 1.0
-User-Agent: Mozilla Thunderbird
-From: Frank Scheiner <frank.scheiner@web.de>
-Subject: Re: Linux 6.9
-To: torvalds@linux-foundation.org
-Cc: =?UTF-8?B?VG9tw6HFoSBHbG96YXI=?= <tglozar@gmail.com>,
- linux-kernel@vger.kernel.org, Linux-Arch <linux-arch@vger.kernel.org>,
- linux-ia64@vger.kernel.org, debian-ia64 <debian-ia64@lists.debian.org>,
- t2@t2sde.org
-References: <CAHk-=whnKYL-WARzrZhVTZ8RP3WZc24C9_DT7JMJooONNT2udQ@mail.gmail.com>
-Content-Language: en-US
-In-Reply-To: <CAHk-=whnKYL-WARzrZhVTZ8RP3WZc24C9_DT7JMJooONNT2udQ@mail.gmail.com>
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: quoted-printable
-X-Provags-ID: V03:K1:PpT30J7xl4RRoKLU5DgYkRSnzhpsr3kgxmbWkAflkk40x0/SdOt
- UDqnmRjYK1Mg44M02VHNgpo8Pli6mru6Kt1mORjv30zVXZxHSxFQ9J76SszJXOBbzrtW2Ki
- 6JIqo5DIQTdBrPUf29CSvMRzIarPttcDWEnvZmLoax6AnLie4lLj9uJykvxXexGH9Y9yRlE
- A7JfGJs84BymHzrSqAXiA==
-X-Spam-Flag: NO
-UI-OutboundReport: notjunk:1;M01:P0:loiOJGidEi4=;IIpzaHGk0bUhcjcdXTYEUKBLt3K
- TUajYuU82VbE1GlP8e3BTtxtpMcXcDOvDeCk6hUjyy51aIny9taA0L3JDxC+Fmbl0t73XonV3
- Ig386hiUYscgI0YZuHWFc3bhe8l1UkG2EbUqtBlo9gOnZIaxmgj063Y+TaOBA5E+pIFavhK26
- ifAjejU6duXKAtFX3DW9X52jArTIyN7HQX0E3ufW3KNPBt0U7lCEFiyERUq0gc6ETcCknSCgY
- YFqXgYDc1kZczYiSBn5kKshGikrP248vKf7gO/syXIpFE+Da1mwzqnjR7EtjAvpDqGxCTLNec
- Xe/rdPtnAHGsp5T05Tq5FRGw1tZbMwhGtsZoGwkhTESvD7UW2jEEkMXb9CGANrVjjuG/83PIA
- MSTTRljiiB0+Nk2dPBqBfAgPzuPnfX6KjK3YFKKuy6PSuzeTzVI6g1siIEufZuZLQ0CrIdGU9
- WB/Z6h7P64YMSri1/pv2Jiu67sye/xWNaQag9AtQvduqa6LSec+Nryl25OaBVEe52BynaYdi4
- hqY1CYyzHiYQ2gEGPdtXxlrnF+UQldoylU43kBcygaqTnACmeG4MedlAYlRon6+502AIPwoYU
- zgCFBWnU78p1VMXOsPGjcVRGNHMzMAnMWXlmlB3wYNessY6SD7IVVgON/8C993tJRB//JjuX2
- bWSNs/dtHOB6+NfsvEDmSS68TIp8pm/bPA7XJZ0AUehbIkIsB4f/2kmhcldFN/te6uTJDrkKW
- 5Ao5ETNkLCjHULSAIv28Sa2CF6bhIp/LWjFMhofr0FUrXqNNgFVevjRNbBjj46bIXFzZ+2rAW
- lQUT/S1SgeWIiElcpV62a7VAqbw99hWqGeMc6hrvjFOH8=
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Dear all,
+tree:   https://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git get_cpu_cacheinfo_level
+head:   1c9e9c336edc795736b7f42999bfed1cfa94724e
+commit: 476529e56cba3ab0efd64bca5e40d7e4b8b2085c [2/3] cacheinfo: Add function to get cacheinfo for a given (cpu, cachelevel)
+config: x86_64-randconfig-102-20240608 (https://download.01.org/0day-ci/archive/20240608/202406081130.r7jZwCC5-lkp@intel.com/config)
+compiler: gcc-13 (Ubuntu 13.2.0-4ubuntu3) 13.2.0
+reproduce (this is a W=1 build): (https://download.01.org/0day-ci/archive/20240608/202406081130.r7jZwCC5-lkp@intel.com/reproduce)
 
-here comes the usual update on Linux/ia64:
+If you fix the issue in a separate patch/commit (i.e. not just a new version of
+the same patch/commit), kindly add following tags
+| Reported-by: kernel test robot <lkp@intel.com>
+| Closes: https://lore.kernel.org/oe-kbuild-all/202406081130.r7jZwCC5-lkp@intel.com/
 
-The reason for the userland regression we mentioned last time (in [1])
-was found and fixed shortly after the release of v6.8.
+All errors (new ones prefixed by >>):
 
-[1]:
-https://lore.kernel.org/all/145da253-b3bc-43da-a262-a3ebdfbea5a2@web.de/
+   In file included from include/linux/cacheinfo.h:6,
+                    from arch/x86/kernel/cpu/resctrl/rdtgroup.c:15:
+   include/linux/cpuhplock.h: In function 'remove_cpu':
+>> include/linux/cpuhplock.h:39:58: error: 'EPERM' undeclared (first use in this function)
+      39 | static inline int remove_cpu(unsigned int cpu) { return -EPERM; }
+         |                                                          ^~~~~
+   include/linux/cpuhplock.h:39:58: note: each undeclared identifier is reported only once for each function it appears in
 
-Furthermore there were no new hard regressions detected in addition to
-what was reported in [2] already. If you have an ia64 machine with more
-than 64 hardware threads and want to run Linux on it, get in touch with
-us. :-)
 
-[2]:
-https://lore.kernel.org/linux-ia64/CAHtyXDdy5Lub_UeMQRgr8O_G-XK0_XRD3J7wVB=
-9t9rRD5x6d4g@mail.gmail.com/
+vim +/EPERM +39 include/linux/cpuhplock.h
 
-Again all ia64 machines (see [3] for a list) and platforms (HP Sim on
-Ski) we have available for testing continue to work, no system support
-was lost during this cycle.
+c0bea3bea7eb17 Tony Luck 2024-06-07  30  
+c0bea3bea7eb17 Tony Luck 2024-06-07  31  static inline void cpus_write_lock(void) { }
+c0bea3bea7eb17 Tony Luck 2024-06-07  32  static inline void cpus_write_unlock(void) { }
+c0bea3bea7eb17 Tony Luck 2024-06-07  33  static inline void cpus_read_lock(void) { }
+c0bea3bea7eb17 Tony Luck 2024-06-07  34  static inline void cpus_read_unlock(void) { }
+c0bea3bea7eb17 Tony Luck 2024-06-07  35  static inline int  cpus_read_trylock(void) { return true; }
+c0bea3bea7eb17 Tony Luck 2024-06-07  36  static inline void lockdep_assert_cpus_held(void) { }
+c0bea3bea7eb17 Tony Luck 2024-06-07  37  static inline void cpu_hotplug_disable(void) { }
+c0bea3bea7eb17 Tony Luck 2024-06-07  38  static inline void cpu_hotplug_enable(void) { }
+c0bea3bea7eb17 Tony Luck 2024-06-07 @39  static inline int remove_cpu(unsigned int cpu) { return -EPERM; }
+c0bea3bea7eb17 Tony Luck 2024-06-07  40  static inline void smp_shutdown_nonboot_cpus(unsigned int primary_cpu) { }
+c0bea3bea7eb17 Tony Luck 2024-06-07  41  #endif	/* !CONFIG_HOTPLUG_CPU */
+c0bea3bea7eb17 Tony Luck 2024-06-07  42  
 
-[3]:
-https://lore.kernel.org/all/fe5f6e9b-02a2-42e9-8151-ae4b6fdba7e3@web.de/
+:::::: The code at line 39 was first introduced by commit
+:::::: c0bea3bea7eb1701c38f23c8ae2d0a49fd35cbbd cpu: Move CPU hotplug function declarations into their own header
 
-In the meantime gcc-14 was released, meaning that the regular
-compilation and testing of Linux mainline release (candidates) switched
-to gcc-15 snapshots now (starting with v6.9-rc6). Enabling LRA for the
-cross-compiler continues to make **no problems** for ia64 kernels. The
-same is true with the switch to binutils 2.42 since v6.9-rc2.
+:::::: TO: Tony Luck <tony.luck@intel.com>
+:::::: CC: Tony Luck <tony.luck@intel.com>
 
-****
-
-Last time ([1]) we had to report about an approaching decrease in the
-number of available Linux distributions with support for ia64. This was
-sad to report, also because options are important.
-
-But don't worry, the distro options for your ia64 gear just have
-increased again:
-
-Enter **EPIC Slack** ([4]) - an unofficial "port" of Slackware for ia64
-that was started recently and - though still work in progress - is
-already network booting on all test machines available to us. If you're
-too young to know what Slackware is, head over to [5] and learn more
-about it (-;.
-
-[4]: http://epic-slack.org/
-
-[5]: http://www.slackware.com/
-
-****
-
-Thank you all for your hard work on Linux!
-
-Cheers,
-Frank et al
+-- 
+0-DAY CI Kernel Test Service
+https://github.com/intel/lkp-tests/wiki
