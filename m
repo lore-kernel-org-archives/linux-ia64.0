@@ -1,313 +1,130 @@
-Received: from mgamail.intel.com (mgamail.intel.com [192.198.163.9])
+Received: from mout.kundenserver.de (mout.kundenserver.de [212.227.126.135])
 	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 509951667FA
-	for <linux-ia64@vger.kernel.org>; Sat,  8 Jun 2024 04:57:11 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=192.198.163.9
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id F0C448C06;
+	Thu, 18 Jul 2024 10:12:37 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=212.227.126.135
 ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1717822634; cv=none; b=fNnaPM+hkBDQ5VNvn3lt+WjIIYKuk1sZcPqdiay0v2PSdI/SI78B/nN+Nmz/JiSxN/c6L5VGW+hBn1KDznUtduxCulqkvK2yDk8UtIsg8pjCeDY238Dk7tzHXapVM/DqyqUNlWx2dOeyTxHXtkEEUoq2UWvRtmF0wyGbs9WYj54=
+	t=1721297560; cv=none; b=Z99vQC0w1s5iwCvCECWTTEGivL6i+IwNsjRrLhAnpOpI/nV44nCEqzAwa2P8sjZqNKCq9y/WT3CyJTjxxdB1sISf7cDJZI3pwxADux/BTV0Tt7sHPOPY+SiHZAhP4xdYVj+qbCRQXN9wGUGptdPIlepESuxiIAY6Iu6cddCFZqQ=
 ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1717822634; c=relaxed/simple;
-	bh=4mXhgcby4QJyQYvjz0ooyRFwMPxU736tAMECixop3pI=;
-	h=Date:From:To:Cc:Subject:Message-ID:MIME-Version:Content-Type:
-	 Content-Disposition; b=Z/IMP2rgVTdlNQAbkOMVPRbmJ3yHOlWliKTVfF6L9BTkpmeTS8vVxCI2ckCid5gYLqcrbJCjE5BJoYGbpozKCN4DPKKPJ25b1V9lZjUEvXaOdySWFgtJaBajNWmlM3lartMTSrJaxa8rENq/+qAeu0TiyiuItAq9lUjcJG4qx/Q=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=intel.com; spf=pass smtp.mailfrom=intel.com; dkim=pass (2048-bit key) header.d=intel.com header.i=@intel.com header.b=Uxxoz2zk; arc=none smtp.client-ip=192.198.163.9
-Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=intel.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=intel.com
+	s=arc-20240116; t=1721297560; c=relaxed/simple;
+	bh=KY9GmeigUT2A3/Vsw1Iw7TBh+WH4pXgIITVAi38kpRc=;
+	h=Message-ID:Date:MIME-Version:To:Cc:References:Subject:From:
+	 In-Reply-To:Content-Type; b=cHH+lvto//sxM9hPRgSF+3JbgfB9BrQi3bP8uA6RSkS9+3hROSBKfWXnDOATKf7Q7k5Wkkh81oQHqwwARGNRGirS0zPZ/MUwNEPjYuaeEWn/FaUAhSS9R+H9DTO47LpL2wxkPxrOqh6zy4HKvFjPnI4xZyvhewiUDgX6wZx+GNw=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=online.de; spf=pass smtp.mailfrom=online.de; dkim=pass (2048-bit key) header.d=online.de header.i=frank.scheiner@online.de header.b=Gt2sJXq+; arc=none smtp.client-ip=212.227.126.135
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=online.de
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=online.de
 Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=intel.com header.i=@intel.com header.b="Uxxoz2zk"
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple;
-  d=intel.com; i=@intel.com; q=dns/txt; s=Intel;
-  t=1717822631; x=1749358631;
-  h=date:from:to:cc:subject:message-id:mime-version;
-  bh=4mXhgcby4QJyQYvjz0ooyRFwMPxU736tAMECixop3pI=;
-  b=Uxxoz2zkuTwtAOtRNXkJVXTQOvma7qduycB0ZgV6IZ7J2DQlxQpJmz4p
-   GK+raDdcTS8yq35Df7pskTCUIFzjRtmZhj4korhExKTzQuhPhQottsylC
-   or4gED/ej6vj6pvWHMfMdy9GRLD6Qc928bkwcT2xwbgtDuboTZsUy4Dgy
-   /eupQdxGcoyD9XMrR8MITD3psZ9U99xsZBSgCNttmdZo/IIQPdfHXyuCB
-   LllGxlAEZoSIAQXXkGAdu1FCBEH0Z4pcUea8lUnv2MunSNqO/gDRWiL04
-   eRx+XTHe7n+pmduS/ZXughUyrIx+rHLhJKwdLutNuPR9yggW5fElmPqqe
-   Q==;
-X-CSE-ConnectionGUID: gLP8Vb7TT/+xITnoZ1cWbA==
-X-CSE-MsgGUID: kG66EPgLS5iFxJlliuCrdw==
-X-IronPort-AV: E=McAfee;i="6600,9927,11096"; a="25211586"
-X-IronPort-AV: E=Sophos;i="6.08,222,1712646000"; 
-   d="scan'208";a="25211586"
-Received: from fmviesa009.fm.intel.com ([10.60.135.149])
-  by fmvoesa103.fm.intel.com with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 07 Jun 2024 21:57:09 -0700
-X-CSE-ConnectionGUID: YQ0YKM5yS86iXAtS2D1dVQ==
-X-CSE-MsgGUID: AKWAgStQSeSiDDjGCJ/DRw==
-X-ExtLoop1: 1
-X-IronPort-AV: E=Sophos;i="6.08,222,1712646000"; 
-   d="scan'208";a="38651184"
-Received: from lkp-server01.sh.intel.com (HELO 472b94a103a1) ([10.239.97.150])
-  by fmviesa009.fm.intel.com with ESMTP; 07 Jun 2024 21:57:08 -0700
-Received: from kbuild by 472b94a103a1 with local (Exim 4.96)
-	(envelope-from <lkp@intel.com>)
-	id 1sFo8Y-000122-0M;
-	Sat, 08 Jun 2024 04:57:06 +0000
-Date: Sat, 8 Jun 2024 12:56:18 +0800
-From: kernel test robot <lkp@intel.com>
-To: Tony Luck <tony.luck@intel.com>
-Cc: oe-kbuild-all@lists.linux.dev, linux-ia64@vger.kernel.org,
-	Reinette Chatre <reinette.chatre@intel.com>
-Subject: [aegl:get_cpu_cacheinfo_level 2/3] include/linux/cpuhplock.h:39:58:
- error: use of undeclared identifier 'EPERM'
-Message-ID: <202406081215.5IP0JQSs-lkp@intel.com>
+	dkim=pass (2048-bit key) header.d=online.de header.i=frank.scheiner@online.de header.b="Gt2sJXq+"
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=online.de;
+	s=s42582890; t=1721297553; x=1721902353;
+	i=frank.scheiner@online.de;
+	bh=KY9GmeigUT2A3/Vsw1Iw7TBh+WH4pXgIITVAi38kpRc=;
+	h=X-UI-Sender-Class:Message-ID:Date:MIME-Version:To:Cc:References:
+	 Subject:From:In-Reply-To:Content-Type:Content-Transfer-Encoding:
+	 cc:content-transfer-encoding:content-type:date:from:message-id:
+	 mime-version:reply-to:subject:to;
+	b=Gt2sJXq+CWgB0cuaWN+i1WdPz4OBu0Bi0JMFuFeYFcFwdTy/ARHjLE7yTcUoJrhW
+	 BsfoWGjRPnIWx3oqp4c1luYxjgntudJtnrHA2oKJ9jFoJOD5rB+xnjl+rwS/p/q1j
+	 f1vzuuRJokJcQZLxs8C/OCLFmgsxAJjRCQ7TW5dCtZBDy2v3iQ60Gk8q8e+Fose6d
+	 t402+cCguZppHe8GbEq2zpKaJR9I2Jzb4OY3ehbAhrp2zqWNUyzzq5gCKxqP8m0+u
+	 8IoUw9ze9qn3rcy1Kmvb5fF2wJ1KmId5YGJAGe3eHkbVfzPDil96q+NCSqSslCG5Z
+	 eEX+4b3/9nzvENcbDw==
+X-UI-Sender-Class: 6003b46c-3fee-4677-9b8b-2b628d989298
+Received: from [192.168.178.30] ([79.200.220.73]) by mrelayeu.kundenserver.de
+ (mreue012 [212.227.15.167]) with ESMTPSA (Nemesis) id
+ 1MHmuE-1saQRE04H8-00HCUb; Thu, 18 Jul 2024 12:06:15 +0200
+Message-ID: <8dcb5d36-fc38-46f3-bb97-0e4e335c313b@online.de>
+Date: Thu, 18 Jul 2024 12:06:12 +0200
 Precedence: bulk
 X-Mailing-List: linux-ia64@vger.kernel.org
 List-Id: <linux-ia64.vger.kernel.org>
 List-Subscribe: <mailto:linux-ia64+subscribe@vger.kernel.org>
 List-Unsubscribe: <mailto:linux-ia64+unsubscribe@vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+User-Agent: Mozilla Thunderbird
+To: torvalds@linux-foundation.org
+Cc: =?UTF-8?B?VG9tw6HFoSBHbG96YXI=?= <tglozar@gmail.com>,
+ linux-kernel@vger.kernel.org, Linux-Arch <linux-arch@vger.kernel.org>,
+ linux-ia64@vger.kernel.org, t2@t2sde.org,
+ debian-ia64 <debian-ia64@lists.debian.org>
+References: <CAHk-=wjV_O2g_K19McjGKrxFxMFDqex+fyGcKc3uac1ft_O2gg@mail.gmail.com>
+Subject: Re: Linux 6.10
+Content-Language: en-US
+From: Frank Scheiner <frank.scheiner@online.de>
+In-Reply-To: <CAHk-=wjV_O2g_K19McjGKrxFxMFDqex+fyGcKc3uac1ft_O2gg@mail.gmail.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: quoted-printable
+X-Provags-ID: V03:K1:Q/HDgBgt8vDzzKiEs0Tdykgw+sZKbcEH1kFFE/a65ijK2jI80cH
+ zTh5iWQbCSmiM8XcL/O63E9j+yedh9EJ/aMm6PJDu1C3vka8pgo+bY/e6q3+vvgaJIjLJxr
+ BLzRcAxMHzIhFfomRkxeNEsUuHcUS9BEmimMeLj7kAHJtj08zcDoUlOujWbMgMbHneoFP3q
+ qCFngMfJZNhlKzXrImEtA==
+X-Spam-Flag: NO
+UI-OutboundReport: notjunk:1;M01:P0:fq/vFAUCl5E=;nEruqZeqr+KGt9a5kffg276cqpV
+ NNYciQi2b9nwc5NIi50N5qBnRaJG+Snhm+1x9qK8oA5u55+AjmOpUMq1at/cBLWPm8GdrRgEr
+ Z/DPFRSTO4AaGPEiK+lktc9fN4U/j1Tm3AFwDYouXVjLjqpuLJu/OZhHGtqbJQ2EE4+uQ73hl
+ BUE0h9AC9/30XfTKdfgjZsOGNUb5NWG2Li6xUrfI9TiKNyJ3EB2/yZBsjp0CvP46l9+3pIYj4
+ RWyLj6v2EQKXxs5tu+3W+d5rkkrtdzF3TGilKirve5eZY472cv8mAzSXivKytMzL3wIkmsvZA
+ BWqadfUvR52mBY1rudUHyCCobauMBbDrYU7/avb9Hb76NHYJpBgTOrk1OY8lfCf9nmHsOMJIz
+ xOa5oPdHpqmcDeiLWKO53OtMSEkCM0zKE/WSk5odOpo3Jc/ZMtFWSVJOqiGeqhtej2lTMMmI1
+ 4dtskTrR5zaK91eaDBktRe3bqLusWMuGJJ4cEzIPzoi0Qf3S0l66Bla80AoY5GsiBorsqQL1z
+ GBFb1QSXwvnEQfnnfjX2BbOxmQo1H82dc/E6KqwnsjbySJ+JT4TQGXn2Ro4jMlQbKZarvNovh
+ nhutqg2hN92n31keEsvcygl/qFfZRf7abuZ746SU1lE3COqcxKotj+bU34dVhYV4JTuDS/NSg
+ M3VyPicauCdhcRsODzZ6lhtol2sLo42wsxksFCd4ymSm0A2Fj4eZ//pG9VI8rZZcD4fE7ARX+
+ LpEfaDOhOWyXO/Zui7KNOCv8XdDuugOVw==
 
-tree:   https://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git get_cpu_cacheinfo_level
-head:   1c9e9c336edc795736b7f42999bfed1cfa94724e
-commit: 476529e56cba3ab0efd64bca5e40d7e4b8b2085c [2/3] cacheinfo: Add function to get cacheinfo for a given (cpu, cachelevel)
-config: x86_64-randconfig-104-20240608 (https://download.01.org/0day-ci/archive/20240608/202406081215.5IP0JQSs-lkp@intel.com/config)
-compiler: clang version 18.1.5 (https://github.com/llvm/llvm-project 617a15a9eac96088ae5e9134248d8236e34b91b1)
-reproduce (this is a W=1 build): (https://download.01.org/0day-ci/archive/20240608/202406081215.5IP0JQSs-lkp@intel.com/reproduce)
+Dear all,
 
-If you fix the issue in a separate patch/commit (i.e. not just a new version of
-the same patch/commit), kindly add following tags
-| Reported-by: kernel test robot <lkp@intel.com>
-| Closes: https://lore.kernel.org/oe-kbuild-all/202406081215.5IP0JQSs-lkp@intel.com/
+a little later than usual, here comes the update on Linux/ia64 for v6.10:
 
-All errors (new ones prefixed by >>):
+Well, nothing special to report in this cycle compared to the last cycle
+(see last update on [1] for details).
 
-   In file included from arch/x86/kernel/cpu/resctrl/rdtgroup.c:15:
-   In file included from include/linux/cacheinfo.h:6:
->> include/linux/cpuhplock.h:39:58: error: use of undeclared identifier 'EPERM'
-      39 | static inline int remove_cpu(unsigned int cpu) { return -EPERM; }
-         |                                                          ^
-   In file included from arch/x86/kernel/cpu/resctrl/rdtgroup.c:16:
-   In file included from include/linux/cpu.h:17:
-   In file included from include/linux/node.h:18:
-   In file included from include/linux/device.h:32:
-   In file included from include/linux/device/driver.h:21:
-   In file included from include/linux/module.h:19:
-   In file included from include/linux/elf.h:6:
-   In file included from arch/x86/include/asm/elf.h:10:
-   In file included from arch/x86/include/asm/ia32.h:7:
-   In file included from include/linux/compat.h:17:
-   In file included from include/linux/fs.h:33:
-   In file included from include/linux/percpu-rwsem.h:7:
-   In file included from include/linux/rcuwait.h:6:
-   In file included from include/linux/sched/signal.h:6:
-   include/linux/signal.h:98:11: warning: array index 3 is past the end of the array (that has type 'unsigned long[1]') [-Warray-bounds]
-      98 |                 return (set->sig[3] | set->sig[2] |
-         |                         ^        ~
-   arch/x86/include/asm/signal.h:24:2: note: array 'sig' declared here
-      24 |         unsigned long sig[_NSIG_WORDS];
-         |         ^
-   In file included from arch/x86/kernel/cpu/resctrl/rdtgroup.c:16:
-   In file included from include/linux/cpu.h:17:
-   In file included from include/linux/node.h:18:
-   In file included from include/linux/device.h:32:
-   In file included from include/linux/device/driver.h:21:
-   In file included from include/linux/module.h:19:
-   In file included from include/linux/elf.h:6:
-   In file included from arch/x86/include/asm/elf.h:10:
-   In file included from arch/x86/include/asm/ia32.h:7:
-   In file included from include/linux/compat.h:17:
-   In file included from include/linux/fs.h:33:
-   In file included from include/linux/percpu-rwsem.h:7:
-   In file included from include/linux/rcuwait.h:6:
-   In file included from include/linux/sched/signal.h:6:
-   include/linux/signal.h:98:25: warning: array index 2 is past the end of the array (that has type 'unsigned long[1]') [-Warray-bounds]
-      98 |                 return (set->sig[3] | set->sig[2] |
-         |                                       ^        ~
-   arch/x86/include/asm/signal.h:24:2: note: array 'sig' declared here
-      24 |         unsigned long sig[_NSIG_WORDS];
-         |         ^
-   In file included from arch/x86/kernel/cpu/resctrl/rdtgroup.c:16:
-   In file included from include/linux/cpu.h:17:
-   In file included from include/linux/node.h:18:
-   In file included from include/linux/device.h:32:
-   In file included from include/linux/device/driver.h:21:
-   In file included from include/linux/module.h:19:
-   In file included from include/linux/elf.h:6:
-   In file included from arch/x86/include/asm/elf.h:10:
-   In file included from arch/x86/include/asm/ia32.h:7:
-   In file included from include/linux/compat.h:17:
-   In file included from include/linux/fs.h:33:
-   In file included from include/linux/percpu-rwsem.h:7:
-   In file included from include/linux/rcuwait.h:6:
-   In file included from include/linux/sched/signal.h:6:
-   include/linux/signal.h:99:4: warning: array index 1 is past the end of the array (that has type 'unsigned long[1]') [-Warray-bounds]
-      99 |                         set->sig[1] | set->sig[0]) == 0;
-         |                         ^        ~
-   arch/x86/include/asm/signal.h:24:2: note: array 'sig' declared here
-      24 |         unsigned long sig[_NSIG_WORDS];
-         |         ^
-   In file included from arch/x86/kernel/cpu/resctrl/rdtgroup.c:16:
-   In file included from include/linux/cpu.h:17:
-   In file included from include/linux/node.h:18:
-   In file included from include/linux/device.h:32:
-   In file included from include/linux/device/driver.h:21:
-   In file included from include/linux/module.h:19:
-   In file included from include/linux/elf.h:6:
-   In file included from arch/x86/include/asm/elf.h:10:
-   In file included from arch/x86/include/asm/ia32.h:7:
-   In file included from include/linux/compat.h:17:
-   In file included from include/linux/fs.h:33:
-   In file included from include/linux/percpu-rwsem.h:7:
-   In file included from include/linux/rcuwait.h:6:
-   In file included from include/linux/sched/signal.h:6:
-   include/linux/signal.h:101:11: warning: array index 1 is past the end of the array (that has type 'unsigned long[1]') [-Warray-bounds]
-     101 |                 return (set->sig[1] | set->sig[0]) == 0;
-         |                         ^        ~
-   arch/x86/include/asm/signal.h:24:2: note: array 'sig' declared here
-      24 |         unsigned long sig[_NSIG_WORDS];
-         |         ^
-   In file included from arch/x86/kernel/cpu/resctrl/rdtgroup.c:16:
-   In file included from include/linux/cpu.h:17:
-   In file included from include/linux/node.h:18:
-   In file included from include/linux/device.h:32:
-   In file included from include/linux/device/driver.h:21:
-   In file included from include/linux/module.h:19:
-   In file included from include/linux/elf.h:6:
-   In file included from arch/x86/include/asm/elf.h:10:
-   In file included from arch/x86/include/asm/ia32.h:7:
-   In file included from include/linux/compat.h:17:
-   In file included from include/linux/fs.h:33:
-   In file included from include/linux/percpu-rwsem.h:7:
-   In file included from include/linux/rcuwait.h:6:
-   In file included from include/linux/sched/signal.h:6:
-   include/linux/signal.h:114:11: warning: array index 3 is past the end of the array (that has type 'const unsigned long[1]') [-Warray-bounds]
-     114 |                 return  (set1->sig[3] == set2->sig[3]) &&
-         |                          ^         ~
-   arch/x86/include/asm/signal.h:24:2: note: array 'sig' declared here
---
-   In file included from arch/x86/kernel/cpu/resctrl/pseudo_lock.c:14:
-   In file included from include/linux/cacheinfo.h:6:
->> include/linux/cpuhplock.h:39:58: error: use of undeclared identifier 'EPERM'
-      39 | static inline int remove_cpu(unsigned int cpu) { return -EPERM; }
-         |                                                          ^
-   In file included from arch/x86/kernel/cpu/resctrl/pseudo_lock.c:15:
-   In file included from include/linux/cpu.h:17:
-   In file included from include/linux/node.h:18:
-   In file included from include/linux/device.h:32:
-   In file included from include/linux/device/driver.h:21:
-   In file included from include/linux/module.h:19:
-   In file included from include/linux/elf.h:6:
-   In file included from arch/x86/include/asm/elf.h:10:
-   In file included from arch/x86/include/asm/ia32.h:7:
-   In file included from include/linux/compat.h:17:
-   In file included from include/linux/fs.h:33:
-   In file included from include/linux/percpu-rwsem.h:7:
-   In file included from include/linux/rcuwait.h:6:
-   In file included from include/linux/sched/signal.h:6:
-   include/linux/signal.h:98:11: warning: array index 3 is past the end of the array (that has type 'unsigned long[1]') [-Warray-bounds]
-      98 |                 return (set->sig[3] | set->sig[2] |
-         |                         ^        ~
-   arch/x86/include/asm/signal.h:24:2: note: array 'sig' declared here
-      24 |         unsigned long sig[_NSIG_WORDS];
-         |         ^
-   In file included from arch/x86/kernel/cpu/resctrl/pseudo_lock.c:15:
-   In file included from include/linux/cpu.h:17:
-   In file included from include/linux/node.h:18:
-   In file included from include/linux/device.h:32:
-   In file included from include/linux/device/driver.h:21:
-   In file included from include/linux/module.h:19:
-   In file included from include/linux/elf.h:6:
-   In file included from arch/x86/include/asm/elf.h:10:
-   In file included from arch/x86/include/asm/ia32.h:7:
-   In file included from include/linux/compat.h:17:
-   In file included from include/linux/fs.h:33:
-   In file included from include/linux/percpu-rwsem.h:7:
-   In file included from include/linux/rcuwait.h:6:
-   In file included from include/linux/sched/signal.h:6:
-   include/linux/signal.h:98:25: warning: array index 2 is past the end of the array (that has type 'unsigned long[1]') [-Warray-bounds]
-      98 |                 return (set->sig[3] | set->sig[2] |
-         |                                       ^        ~
-   arch/x86/include/asm/signal.h:24:2: note: array 'sig' declared here
-      24 |         unsigned long sig[_NSIG_WORDS];
-         |         ^
-   In file included from arch/x86/kernel/cpu/resctrl/pseudo_lock.c:15:
-   In file included from include/linux/cpu.h:17:
-   In file included from include/linux/node.h:18:
-   In file included from include/linux/device.h:32:
-   In file included from include/linux/device/driver.h:21:
-   In file included from include/linux/module.h:19:
-   In file included from include/linux/elf.h:6:
-   In file included from arch/x86/include/asm/elf.h:10:
-   In file included from arch/x86/include/asm/ia32.h:7:
-   In file included from include/linux/compat.h:17:
-   In file included from include/linux/fs.h:33:
-   In file included from include/linux/percpu-rwsem.h:7:
-   In file included from include/linux/rcuwait.h:6:
-   In file included from include/linux/sched/signal.h:6:
-   include/linux/signal.h:99:4: warning: array index 1 is past the end of the array (that has type 'unsigned long[1]') [-Warray-bounds]
-      99 |                         set->sig[1] | set->sig[0]) == 0;
-         |                         ^        ~
-   arch/x86/include/asm/signal.h:24:2: note: array 'sig' declared here
-      24 |         unsigned long sig[_NSIG_WORDS];
-         |         ^
-   In file included from arch/x86/kernel/cpu/resctrl/pseudo_lock.c:15:
-   In file included from include/linux/cpu.h:17:
-   In file included from include/linux/node.h:18:
-   In file included from include/linux/device.h:32:
-   In file included from include/linux/device/driver.h:21:
-   In file included from include/linux/module.h:19:
-   In file included from include/linux/elf.h:6:
-   In file included from arch/x86/include/asm/elf.h:10:
-   In file included from arch/x86/include/asm/ia32.h:7:
-   In file included from include/linux/compat.h:17:
-   In file included from include/linux/fs.h:33:
-   In file included from include/linux/percpu-rwsem.h:7:
-   In file included from include/linux/rcuwait.h:6:
-   In file included from include/linux/sched/signal.h:6:
-   include/linux/signal.h:101:11: warning: array index 1 is past the end of the array (that has type 'unsigned long[1]') [-Warray-bounds]
-     101 |                 return (set->sig[1] | set->sig[0]) == 0;
-         |                         ^        ~
-   arch/x86/include/asm/signal.h:24:2: note: array 'sig' declared here
-      24 |         unsigned long sig[_NSIG_WORDS];
-         |         ^
-   In file included from arch/x86/kernel/cpu/resctrl/pseudo_lock.c:15:
-   In file included from include/linux/cpu.h:17:
-   In file included from include/linux/node.h:18:
-   In file included from include/linux/device.h:32:
-   In file included from include/linux/device/driver.h:21:
-   In file included from include/linux/module.h:19:
-   In file included from include/linux/elf.h:6:
-   In file included from arch/x86/include/asm/elf.h:10:
-   In file included from arch/x86/include/asm/ia32.h:7:
-   In file included from include/linux/compat.h:17:
-   In file included from include/linux/fs.h:33:
-   In file included from include/linux/percpu-rwsem.h:7:
-   In file included from include/linux/rcuwait.h:6:
-   In file included from include/linux/sched/signal.h:6:
-   include/linux/signal.h:114:11: warning: array index 3 is past the end of the array (that has type 'const unsigned long[1]') [-Warray-bounds]
-     114 |                 return  (set1->sig[3] == set2->sig[3]) &&
-         |                          ^         ~
-   arch/x86/include/asm/signal.h:24:2: note: array 'sig' declared here
+[1]:
+https://lore.kernel.org/lkml/d308ad95-bee4-4401-a6f5-27bcf5bcc52d@web.de/
 
+No new regressions were detected on any of the tested ia64 machines and
+platforms (HP Sim on Ski) we have available for testing. Again no system
+support was lost during this cycle. Everything works as expected.
 
-vim +/EPERM +39 include/linux/cpuhplock.h
+Tomas maintains the ia64 patchset for Linux on [2] and is currently
+working on some EPIC updates. Please note the new URL. You can always
+find the per Linux release (candidate) source code used for regular
+testing on [3]. Please use the `[...]-w-ia64` branches.
 
-c0bea3bea7eb170 Tony Luck 2024-06-07  30  
-c0bea3bea7eb170 Tony Luck 2024-06-07  31  static inline void cpus_write_lock(void) { }
-c0bea3bea7eb170 Tony Luck 2024-06-07  32  static inline void cpus_write_unlock(void) { }
-c0bea3bea7eb170 Tony Luck 2024-06-07  33  static inline void cpus_read_lock(void) { }
-c0bea3bea7eb170 Tony Luck 2024-06-07  34  static inline void cpus_read_unlock(void) { }
-c0bea3bea7eb170 Tony Luck 2024-06-07  35  static inline int  cpus_read_trylock(void) { return true; }
-c0bea3bea7eb170 Tony Luck 2024-06-07  36  static inline void lockdep_assert_cpus_held(void) { }
-c0bea3bea7eb170 Tony Luck 2024-06-07  37  static inline void cpu_hotplug_disable(void) { }
-c0bea3bea7eb170 Tony Luck 2024-06-07  38  static inline void cpu_hotplug_enable(void) { }
-c0bea3bea7eb170 Tony Luck 2024-06-07 @39  static inline int remove_cpu(unsigned int cpu) { return -EPERM; }
-c0bea3bea7eb170 Tony Luck 2024-06-07  40  static inline void smp_shutdown_nonboot_cpus(unsigned int primary_cpu) { }
-c0bea3bea7eb170 Tony Luck 2024-06-07  41  #endif	/* !CONFIG_HOTPLUG_CPU */
-c0bea3bea7eb170 Tony Luck 2024-06-07  42  
+[2]: https://github.com/linux-ia64/linux-ia64/
 
-:::::: The code at line 39 was first introduced by commit
-:::::: c0bea3bea7eb1701c38f23c8ae2d0a49fd35cbbd cpu: Move CPU hotplug function declarations into their own header
+[3]: https://github.com/johnny-mnemonic/linux-ia64/
 
-:::::: TO: Tony Luck <tony.luck@intel.com>
-:::::: CC: Tony Luck <tony.luck@intel.com>
+****
 
--- 
-0-DAY CI Kernel Test Service
-https://github.com/intel/lkp-tests/wiki
+In an earlier report I already mentioned our autobuilder that
+cross-builds Linux stable releases and release candidates on x86 for
+ia64 and also tests HP-Sim kernels within Ski (see [4] for an example
+run). This continues to be helpful in detecting issues in stable kernels
+early on and even catched two issues recently. But those two also were
+the only ones found so far in the roughly 6 months this has been
+established.
+
+[4]: https://github.com/linux-ia64/linux-stable-rc/actions/runs/9984893242
+
+To also better cover the new developments outside of the kernel, this
+now got a commpanion autobuilder that cross-builds ia64 toolchain parts
+for us with T2 based on the regular snapshots of binutils, gcc and glibc
+(see [5] for an example run).
+
+[5]:
+https://github.com/johnny-mnemonic/toolchain-autobuilds/actions/runs/99849=
+83546
+
+****
+
+No new additions to the selection of Linux distributions for ia64 this
+time. In the meantime Debian on ia64 became history. Farewell.
+
+****
+
+Thank you all for your hard work on Linux!
+
+Cheers,
+Frank et al
