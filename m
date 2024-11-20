@@ -1,75 +1,140 @@
-Received: from mail-pj1-f46.google.com (mail-pj1-f46.google.com [209.85.216.46])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+Received: from mout.web.de (mout.web.de [212.227.15.3])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id BBF2D80BEC
-	for <linux-ia64@vger.kernel.org>; Sat, 16 Nov 2024 15:40:32 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.216.46
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 980034B5C1;
+	Wed, 20 Nov 2024 15:30:24 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=212.227.15.3
 ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1731771634; cv=none; b=eeqAFhM3JmGRTS6eTKCzu8yDLEco6q7wsaYr/lZZ1f5dC/ALKKWbMGzVBcuMWAn+ugJjwOCgpKS3frx1E0deUsZKlRjde10BtoyEkuObj5Alh9EfYVKzf1gIqX4siGQPtbvVZOZk04FnKdFBBbclzReHyD6evMzOBkrr/CjeFPM=
+	t=1732116627; cv=none; b=HIl0zhmTmecopKwSjNP4a5iwpSFKV8+onBuIyfw8uqyWLbVGmJrys9l/Ra3V4VgdezUyh9gbKme/wLBL7VooG2e+iXz3TAZADg78WZoEpYnsZEzsgUFPsGP5HEQT2faX6zOXlfnBj1cJlNJ4fh/rt/fls0O0aIpQNBwah4XlZgQ=
 ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1731771634; c=relaxed/simple;
-	bh=Wd+7kLQISUZlzyPvYmSUTVOb8NV4Vyd3OpsFXw6X7a0=;
-	h=From:Message-ID:To:Subject:Date:MIME-Version:Content-Type; b=nmoDJoG4bChfwpLuV7ccx2c+OJ2o7I2m1VsYszYQJ9150qoOS2GQ7jfC+1D2raGgSDwvcoYVuvYentK0kpYFHWLHYaCoLsfJZXvaUtH6e5LpYdT74pT2tW0mZQcdYBvfaxkAIbUja3eR1MFDwvS6D24D9MmJD8/TToPeYh3uhTo=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=gmail.com; spf=pass smtp.mailfrom=gmail.com; dkim=pass (2048-bit key) header.d=gmail.com header.i=@gmail.com header.b=fWj0p+5p; arc=none smtp.client-ip=209.85.216.46
-Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=gmail.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=gmail.com
+	s=arc-20240116; t=1732116627; c=relaxed/simple;
+	bh=j4CtSxksIEIQ1zyrX4HyLd+iQzjRfcoZC/JH6Pc12A0=;
+	h=Message-ID:Date:MIME-Version:From:Subject:To:Cc:References:
+	 In-Reply-To:Content-Type; b=FHcw1PfETiA1fP+eu1E1u9brJJk1b7CcU+erl8MoQ3/1tIHcF9yHZUoFOfQbaaB+6xHq5hcqW/X3TVoD5e3lHS+leOyJEFJQpWVFY0MyKKAD30AbaWuTJEleTvSsiBNXP/pkZyHHnG/jO8a0jkUmqWj0za6WgLPS4lcDDvMFB7g=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=quarantine dis=none) header.from=web.de; spf=pass smtp.mailfrom=web.de; dkim=pass (2048-bit key) header.d=web.de header.i=frank.scheiner@web.de header.b=LCeu9V1q; arc=none smtp.client-ip=212.227.15.3
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=quarantine dis=none) header.from=web.de
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=web.de
 Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=gmail.com header.i=@gmail.com header.b="fWj0p+5p"
-Received: by mail-pj1-f46.google.com with SMTP id 98e67ed59e1d1-2ea45dac86eso217975a91.3
-        for <linux-ia64@vger.kernel.org>; Sat, 16 Nov 2024 07:40:32 -0800 (PST)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=gmail.com; s=20230601; t=1731771631; x=1732376431; darn=vger.kernel.org;
-        h=mime-version:date:subject:to:reply-to:message-id:from:from:to:cc
-         :subject:date:message-id:reply-to;
-        bh=XHEOkgJ64rwJ+cv0sVIqPUmbc8l+iTifR7HzGzNced0=;
-        b=fWj0p+5phbcac8yPETfDAOtGGfSqGlRqz6mRQhYfP+69LoPHN311Fso+mazPH02wmH
-         iflwVPVF13jCnYx9vVqwd6L02hHCyWDvW/8p2Zl2pb+E66YAanxoRBpZnLrdCw7wcGZA
-         xBiEgaQQe+OQVtHl5QbkfrOjuLm5gT97R/G8iX0mOO6l3sMhGigx0sxeMAcHtRQEcPUq
-         PTy1/JOBoJTKPxu2pCIY4YzcDu7ac2rALAhFWVyidrbpD3bO0nJSWqnhJdw6lriyfUxt
-         M8aqjq0Pkbs91ehM9TuHHYUodq4yfoL+lSz+JxC1Vue2p1T7F4vm/MPCoU2vZf7GPXHU
-         sgfQ==
-X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20230601; t=1731771631; x=1732376431;
-        h=mime-version:date:subject:to:reply-to:message-id:from
-         :x-gm-message-state:from:to:cc:subject:date:message-id:reply-to;
-        bh=XHEOkgJ64rwJ+cv0sVIqPUmbc8l+iTifR7HzGzNced0=;
-        b=tyJzscRjmZllYNC5Ts6NgmVFaY1NHD41z8DTJMhpYnyTIkzDmuCg2HC/rEluE4tBU7
-         NO54nl3A0opu9D1Oh5oSu/uaDRzj30dYuqynRUvxiwHq/kTaj1nodJt1zwfxSQf9eSjp
-         3xXyiyd723LAb+qXZwpeZaY3rXwuNcrfvnPOUJq0lydDXNMviM6ZO2cNSpS+84BatqZJ
-         HtZq9pZxW/LnoODy7yjC0Hmajdq5d0KcR6X2X9TLc1/PzsFzF7hLhDI7EmB6vC5Din5j
-         biG6OyHrs5M1E+Zv+alXlsX/2diQ/JPknSESo+PD6AsXhygd4EeWUfyY3IckMm9n1cpt
-         SHTA==
-X-Gm-Message-State: AOJu0YxTpQykm4lXCkd2jk8ucAaxCC9d9Qz3dLVDCzqFxFGi/kgpl9uq
-	tFc5vRUHmoYKrcVOG3F2cK5/5VOeLFwgw3EUb/v4UWK+g5RB5BZHQAXWFA==
-X-Google-Smtp-Source: AGHT+IHBFLX5XpCPZ0ExezsAOeUz6anUgaCk7CpzP1Z9f79vPiXYyMejyaW8tU0Y5DpuQ3GHSYW8cQ==
-X-Received: by 2002:a17:90b:3bc5:b0:2ea:5083:6b6c with SMTP id 98e67ed59e1d1-2ea50836cf3mr497408a91.12.1731771631279;
-        Sat, 16 Nov 2024 07:40:31 -0800 (PST)
-Received: from [103.67.163.162] ([103.67.163.162])
-        by smtp.gmail.com with ESMTPSA id 98e67ed59e1d1-2ea0c1a918bsm4108175a91.22.2024.11.16.07.40.28
-        for <linux-ia64@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-ECDSA-AES128-GCM-SHA256 bits=128/128);
-        Sat, 16 Nov 2024 07:40:29 -0800 (PST)
-From: "Van. HR" <carlonowell008@gmail.com>
-X-Google-Original-From: "Van. HR" <infodesk@information.com>
-Message-ID: <0adf78ff24f8074c89daac667ce89dbe09645c06f891952d48b407ebd2727246@mx.google.com>
-Reply-To: dirofdptvancollin@gmail.com
-To: linux-ia64@vger.kernel.org
-Subject: Nov:16:24
-Date: Sat, 16 Nov 2024 10:40:26 -0500
+	dkim=pass (2048-bit key) header.d=web.de header.i=frank.scheiner@web.de header.b="LCeu9V1q"
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=web.de;
+	s=s29768273; t=1732116601; x=1732721401; i=frank.scheiner@web.de;
+	bh=j4CtSxksIEIQ1zyrX4HyLd+iQzjRfcoZC/JH6Pc12A0=;
+	h=X-UI-Sender-Class:Message-ID:Date:MIME-Version:From:Subject:To:
+	 Cc:References:In-Reply-To:Content-Type:Content-Transfer-Encoding:
+	 cc:content-transfer-encoding:content-type:date:from:message-id:
+	 mime-version:reply-to:subject:to;
+	b=LCeu9V1quWWPcfyi4M4cbuPy6RfVhszMT4CoS9YV//WcRsdVE78CocFNkIXsdKqz
+	 fxEc2e9OdV4iF5/LyCYxMWpVwWtrv784tdYMEqHO0ki1brq3jZwDt0CHpbZ5cgDWX
+	 RA8uLa7g5tTNa9EimzZDP9GjyJWwQyeVhu0J2WZhWFXJ3rCpbaR4dlzcvA6sI+vcW
+	 gKghPS+XiBFMfDleAdYhxgf07AEPJFsTAaCc5xWZjiiDGwETWlcr8CecvDD1XYh9d
+	 Ib62eKOMqGs/iS2j9mAzlmH1/JokL56eOOFzoptyZx21y60UMALCbEB62vq33Rcj1
+	 hVxVP+QYCp1zt3VBsA==
+X-UI-Sender-Class: 814a7b36-bfc1-4dae-8640-3722d8ec6cd6
+Received: from [192.168.178.30] ([79.200.222.179]) by smtp.web.de (mrweb005
+ [213.165.67.108]) with ESMTPSA (Nemesis) id 1MhFhe-1tiBmk3ya2-00fs21; Wed, 20
+ Nov 2024 16:30:01 +0100
+Message-ID: <775f2bd5-5567-4da2-9b79-8f2e7fc9b38a@web.de>
+Date: Wed, 20 Nov 2024 16:29:59 +0100
 Precedence: bulk
 X-Mailing-List: linux-ia64@vger.kernel.org
 List-Id: <linux-ia64.vger.kernel.org>
 List-Subscribe: <mailto:linux-ia64+subscribe@vger.kernel.org>
 List-Unsubscribe: <mailto:linux-ia64+unsubscribe@vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+User-Agent: Mozilla Thunderbird
+From: Frank Scheiner <frank.scheiner@web.de>
+Subject: Re: Linux 6.12
+To: torvalds@linux-foundation.org
+Cc: =?UTF-8?B?VG9tw6HFoSBHbG96YXI=?= <tglozar@gmail.com>,
+ Sergei Trofimovich <slyich@gmail.com>, linux-kernel@vger.kernel.org,
+ Linux-Arch <linux-arch@vger.kernel.org>, linux-ia64@vger.kernel.org,
+ t2@t2sde.org
+References: <CAHk-=wgtGkHshfvaAe_O2ntnFBH3EprNk1juieLmjcF2HBwBgQ@mail.gmail.com>
+Content-Language: en-US
+In-Reply-To: <CAHk-=wgtGkHshfvaAe_O2ntnFBH3EprNk1juieLmjcF2HBwBgQ@mail.gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+X-Provags-ID: V03:K1:xOzZJ5tRyFkvfKBxbt7nBXwHvuyAkdxlFiNel3j6c45R0SIxgw2
+ WhByoy/IWm3Ua9ZjPC5ayNsN8lxpt5RrkGiPf+HzHG5kDpkHSWqLFVDpHmJzkS6BMf6uemP
+ qRol1Rw4qKxWARMCe0oyStLniuRF04HSaFIFyegypRCimWJv2LnFQIfpkMYQ51LMIWG6Hq4
+ q6K2z+N+ZJ5P0LVe31QMQ==
+X-Spam-Flag: NO
+UI-OutboundReport: notjunk:1;M01:P0:qG0oXz7UEGQ=;LnaInnpYYmBF6D5xWf4W5rc7ol/
+ xYpB5Z8upXqUQN24aS875AGYwMg7Vmcp7OMqtvP6Plz4XGQqOkLIJmbqT0qxwWhIb6dnz5ZMz
+ vCNKmMsLRUQnTn51ttIc7b7tSPEzDc5eMUF/cAEOnoi0wkqqwX+gy6ymJmBHW61gIo5+wfOZ0
+ 08nJh7vsqW6WF12DPQoLiEqnW6RewIXkoKTL19neh38UY6HrpHFHiTcwZFLWnPW3Y9Ao+bKzV
+ zhHVAt1OrWMqNVKrSobI+GTLKZjeQ83+1RPOJcARMw8aj5G8HkR8Dxbi1catSWlOWAR5VSD4R
+ Ja3Gkwbkx07afgaD5biKmyUu/WoXWVNMkcLcK/fSI3VxsQfaJLDkUxL4CMsDUfTjy0SbOXe6I
+ oEWoUF4b3F+kTFQCutLt9ZPyr8ZGLL33rjjCmd6JqT2oiv8FPdric6pHVq29/zjubmsyuxEZf
+ ZEOpTpJ5Cl9jG8hYUFzv7ukyyzIZ77ruUS9kVoeHUNSFrgZ27YK7PAKNHZRqP5IAnwV9BaRlp
+ 1n7XWwfRU6BXGf+JyMd6b8L8AvN/6lux8Mxmfcr4E5iRzcNuxq/I5Gzw+TxtvH2Cs2RNbuZPD
+ ht6XofMozlkOBD1IJ+SAt/itlt3prKu/aEG+vweVphtmyigILndn0wpKxmcQlvbnaBrkDprrD
+ kKi/w7mv/0olL+7vaebOkjxdS1CLznoRo+EKF3bI2rFHsXFbHbU9rPJOXXKbNkGb9nnEFGHR3
+ HA5NXpr6L19ErBsLY0euUl/W9k61UT3p4BotcaQctXFmQHNc2mTugskPPGPJL0tvmO6dryENi
+ 7cNa/WbtGIy0f6o4Yi4pRAffvGj5P6RK6yHvPlYuZGX0tMkoJIKNJvp3lg2hG2+QF+nJ2VkWy
+ duJdYy6+wZoQ3xyiuvmFi3xeiIt5Q3v7vfMoE1bDoo4L4xvyPM1scnsFqE/1DaSaEeKBmTKeU
+ jYK6vffuuRMoXGE4A87SkbqBxRjxdGProlw3245erUmEIJ6GVQnoM/WbU+VGH0+cI0lrEZIIQ
+ wUY9EjDlIPEAQY18DdksvMNjCkSKiceL6S28jDW1qMUpYEMadwC7wYqYfzAslSNd4qtrIfJET
+ nEkq9IGEEM4d3xvokJPiaYX0gTc1Il
 
-Hello,
-I am a private investment consultant representing the interest of a multinational  conglomerate that wishes to place funds into a trust management portfolio.
+Dear all,
 
-Please indicate your interest for additional information.
+here comes the usual update on Linux/ia64 for v6.12:
 
-Regards,
+We're already past mid November, so it looks like we're doing this now
+since over a year actually. Maybe a good occasion to go through some of
+the highlights during this time frame:
 
-Van Collin.
+* Six mainline releases v6.7 - v6.12, all running on the ia64 hardware
+we have available for testing ([1]). Not to speak of all the RCs and
+test builds during merge windows tested in between. To have a
+forward-look on possible build problems between RCs and during merge
+windows an auto-builder for Linux mainline was set up, that builds
+mainline for ia64 each day. This also shortens the time frame for us to
+check for a cause when problems arise.
 
+[1]: http://epic-linux.org/#!testing-effort/tested-kernels-table.md
+
+
+* The hp-sim platform was reinstated for Linux up to mainline, allowing
+everybody to run ia64 software (kernels and userland) on non-ia64
+hardware, thanks to ski maintained by Sergei Trofimovich. This is for
+example used for our Linux stable R(C) auto-builder to test-boot each
+kernel after it was built and run some userland tools for a test. By
+involving ski for this auto-builder it can not only demonstrate build
+problems, but also problems during runtime, as shown already in the
+corresponding issues ([2]).
+
+[2]: https://github.com/linux-ia64/linux-stable-rc/issues
+
+
+* Two Linux distributions keep support for ia64: T2/SDE ([3]) and EPIC
+Slack [(4)].
+
+[3]: https://t2sde.org/
+
+[4]: http://epic-slack.org/
+
+
+* Also http://epic-linux.org/ was established to allow interested people
+to find current and relevant information about Linux/ia64 at a central
+place.
+
+
+Maybe someone can help me here with the history, but was there another
+architecture that has been kicked out of the kernel, that received that
+level of continuation afterwards?
+
+We'll see where this goes.
+
+
+Find the last Linux/ia64 update on [5].
+
+[5]: https://lore.kernel.org/lkml/5d1b5880-9bdc-4b04-81dc-341df7b02177@web.de/
+
+****
+
+Thank you all for your hard work on Linux!
+
+Cheers,
+Frank et al
