@@ -1,40 +1,40 @@
-Received: from mout.web.de (mout.web.de [212.227.17.11])
+Received: from mout.web.de (mout.web.de [212.227.15.14])
 	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 2839425D8E1;
-	Wed, 26 Feb 2025 22:29:06 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=212.227.17.11
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id B13DC2206BE;
+	Fri, 21 Mar 2025 10:53:35 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=212.227.15.14
 ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1740608949; cv=none; b=IzXLeRod3lW/4gkskjOu7ETC9vXOrtIWrFOzTiQz0N64LaYsF5VC5PA8co5DKbBL0/Vp0Aaqm1wdOwPYtgiHvIjSkCz/uzTQXLa8Fgq9U1ghKBtlGTe+WJI1fhGTc4iK9eP2eQnDl7Yapxh/fbfvpGHKI7W4LEq9fZmbdzuYRhw=
+	t=1742554417; cv=none; b=SI/IsXXtfIvX5a2nqKriYj+V5cBZESPXb/vJgaGaVeVdMDSyFOsnnnFu5Sa0rBFIykRvq98/eu9ZvD/KEkliSTcqR6WonQ8gd6eVlDGONF6tcQcD2mEbGGlxrcX4ux0Ur932CVXcHj2BHj4JsR/dekW1EpXx4CAiFYQVoIWDnsI=
 ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1740608949; c=relaxed/simple;
-	bh=EbxbCoPO3gifEVQZd/Bb2pSeoxgFSSRiRoVwtNkOz2c=;
+	s=arc-20240116; t=1742554417; c=relaxed/simple;
+	bh=AAb0Rqht8NtXcQ8HqvSZghQDhlfn2elQnUndnHkGw8o=;
 	h=Message-ID:Date:MIME-Version:To:Cc:References:Subject:From:
-	 In-Reply-To:Content-Type; b=WHkSWMxZ3HfWc2PJVwCTxJBrigCnOQa4x7LHxDZJHyi6XCamfjffnEgCStTyx68DlFox30MBt5soa9R1D764sRdwrdQerMU+2xoG3yl+K8Cp30kiWR9mrT4wlf5GOkTRyEYazQQMH+/eNglwej5N917lLBd/FUU+jWr8klafvSw=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=quarantine dis=none) header.from=web.de; spf=pass smtp.mailfrom=web.de; dkim=pass (2048-bit key) header.d=web.de header.i=frank.scheiner@web.de header.b=HSJZq6M0; arc=none smtp.client-ip=212.227.17.11
+	 In-Reply-To:Content-Type; b=GWKQJrzLvVQ6PgAytTpasE3tdGHES3jtRZ5R2byahsdAEKzOoTxf51vwVtRHvJ+69QYlfPU7jMBONtwnChrexk5l2t7y5xm+U4jc94b6pORv+ufK4bU+7s3eKhs08+0spX6ncw62SqCeEm2w/n5jg6LgoVVRd/VX4PQkjqEb06Q=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=quarantine dis=none) header.from=web.de; spf=pass smtp.mailfrom=web.de; dkim=pass (2048-bit key) header.d=web.de header.i=frank.scheiner@web.de header.b=K97B5S5B; arc=none smtp.client-ip=212.227.15.14
 Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=quarantine dis=none) header.from=web.de
 Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=web.de
 Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=web.de header.i=frank.scheiner@web.de header.b="HSJZq6M0"
+	dkim=pass (2048-bit key) header.d=web.de header.i=frank.scheiner@web.de header.b="K97B5S5B"
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=web.de;
-	s=s29768273; t=1740608937; x=1741213737; i=frank.scheiner@web.de;
-	bh=EbxbCoPO3gifEVQZd/Bb2pSeoxgFSSRiRoVwtNkOz2c=;
+	s=s29768273; t=1742554376; x=1743159176; i=frank.scheiner@web.de;
+	bh=lj+ks7erNgDIgdRVjnC5pt2bxvom2mserscxEkZYLa4=;
 	h=X-UI-Sender-Class:Message-ID:Date:MIME-Version:To:Cc:References:
 	 Subject:From:In-Reply-To:Content-Type:Content-Transfer-Encoding:
 	 cc:content-transfer-encoding:content-type:date:from:message-id:
 	 mime-version:reply-to:subject:to;
-	b=HSJZq6M0ZoRwepZB7hxDSQBPCQODVXF7C9/SmXkolsuOqKcmYj0OVHlUg8+JbwqG
-	 QjI0r5DeZYrKNSbGvNGK1A7fgk6XYYNIFwrBleCHl8MUqONjStYDjDMFBUq4O2we/
-	 0k3FqPffRJhkDzx/Yik07VYWpOx3RgMw8E/S0euJi3g7iYlsiK5pj6PnIWW6Di21F
-	 jOLrIaLfUaNY1hjKE0w46KPkd0Tz6t0jVsZhtXK8zkoRgRG0fjTdJ53CSmjRl9FXb
-	 js2NmZU14rTM/kPPSjUi34hPXqu3o3FCdK3Ypyh8h6tFkkgie4lq/uTpDwG10kuOy
-	 C/tfrpTFgBnq/VdP3w==
+	b=K97B5S5BXSv5Ih4r6ioaV3lxtpwB1bu0OQnZaHSWyU+mj/sX6PW8GpDtT0kiG6WC
+	 UksG/EkEfr0/Kxj5i3ewqgYp6F1Kl4NP93QojFUtneDdTHXW4Clm0Aqim7pLfrNKk
+	 dX6o5SQwcYoEh9S1ry/zyFlKKH0zau8ogjaRSNp7zuPIUGOrQCPvbY95tK2Ox5Pmx
+	 ofCiCfwqBaaTVF0AFyREG+07wTak3d6Jye1uZGSsOXHo3M4+gvgeExgfkV16jEBx+
+	 k2o+dR9OvYrcLFnX6Mw8SVucTz0YHpCC0Jev9pj0pqOqaoHEVizhBzArZOFKZNNQh
+	 h7RTUa91Rg2IoNr6gg==
 X-UI-Sender-Class: 814a7b36-bfc1-4dae-8640-3722d8ec6cd6
-Received: from [192.168.178.30] ([84.152.249.245]) by smtp.web.de (mrweb106
- [213.165.67.124]) with ESMTPSA (Nemesis) id 1MjxiM-1t37mD2WTo-00ZLQl; Wed, 26
- Feb 2025 23:28:57 +0100
-Message-ID: <ee286bf3-efa5-46f1-8edd-cc689954a533@web.de>
-Date: Wed, 26 Feb 2025 23:28:56 +0100
+Received: from [192.168.178.30] ([79.200.218.204]) by smtp.web.de (mrweb006
+ [213.165.67.108]) with ESMTPSA (Nemesis) id 1MZB01-1ti5Un189h-00XrJt; Fri, 21
+ Mar 2025 11:52:56 +0100
+Message-ID: <9cafd34b-60b0-47d8-bfc8-1caa210bb20a@web.de>
+Date: Fri, 21 Mar 2025 11:52:54 +0100
 Precedence: bulk
 X-Mailing-List: linux-ia64@vger.kernel.org
 List-Id: <linux-ia64.vger.kernel.org>
@@ -42,62 +42,75 @@ List-Subscribe: <mailto:linux-ia64+subscribe@vger.kernel.org>
 List-Unsubscribe: <mailto:linux-ia64+unsubscribe@vger.kernel.org>
 MIME-Version: 1.0
 User-Agent: Mozilla Thunderbird
-To: torvalds@linux-foundation.org
-Cc: linux-kernel@vger.kernel.org, =?UTF-8?B?VG9tw6HFoSBHbG96YXI=?=
- <tglozar@gmail.com>, linux-ia64@vger.kernel.org
-References: <CAHk-=wi9Aa_sgCjSncJ7odZX_f=v5WZwWm+GuwXmVy1O+wiBsw@mail.gmail.com>
-Subject: Re: Linux 6.14-rc4
+To: gregkh@linuxfoundation.org
+Cc: akpm@linux-foundation.org, broonie@kernel.org, conor@kernel.org,
+ f.fainelli@gmail.com, hargar@microsoft.com, jonathanh@nvidia.com,
+ linux-kernel@vger.kernel.org, linux@roeck-us.net,
+ lkft-triage@lists.linaro.org, patches@kernelci.org, patches@lists.linux.dev,
+ pavel@denx.de, rwarsow@gmx.de, shuah@kernel.org, srw@sladewatkins.net,
+ stable@vger.kernel.org, sudipm.mukherjee@gmail.com,
+ torvalds@linux-foundation.org, linux-ia64@vger.kernel.org
+References: <20250320165654.807128435@linuxfoundation.org>
+Subject: Re: [PATCH 6.6 000/166] 6.6.84-rc2 review
 Content-Language: en-US
 From: Frank Scheiner <frank.scheiner@web.de>
-In-Reply-To: <CAHk-=wi9Aa_sgCjSncJ7odZX_f=v5WZwWm+GuwXmVy1O+wiBsw@mail.gmail.com>
+In-Reply-To: <20250320165654.807128435@linuxfoundation.org>
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
-X-Provags-ID: V03:K1:zdxllv0rZkQpaODpIhWTBjWiW5U5ArYZdJdcuE92STasKYe72hh
- G1VDb4Bl7xWJ4B6qXc74NqJY1GF25AUGBA2+byoc579atAqEaBdZB21uPu/5SYeY+/9lpMx
- 8CmO5rXiXGkANyGQlv6MCpz798V90CTHeD7Zm9UjxkLxkzuamfwQ7rRUKA2giuUgxOPzJ2z
- GxZUskiDw7EroQGbfJSNA==
+X-Provags-ID: V03:K1:FZOMuxYWfkGNPUx+egv2Is+x3xkGsYHfthlaElf7yQ6ILZTFjll
+ m1CR2/m6A79XWR1FkXzoA5BI4UO68rFwQlhL645Q26Ci5NO3/yQMGHdx9YZ6/ZZVb7IfQJt
+ CsN0tH8kM7TyBZgKUsZGH2UOXiLfRAL7tZ12AyMWLR4kGXExibRpGiWFcYO8hXrjwaTv81I
+ t0yhHpTez1+MzG8r/LFZw==
 X-Spam-Flag: NO
-UI-OutboundReport: notjunk:1;M01:P0:K8BurCISCgc=;/xd2F4Rv5cmJgnMcXij9uv1Me/9
- LfvlSTKSK4URUvqSn4U8ipGnuvqDG5xh93fJBR3h29ShMw25W2Yk2fWdzOzfcocb1lmLYEbxP
- wH/LWPFEJJdkiaUxQEgHgjiOAqah+H/q1i3bovsqBFxi6N1W3iLZmj4Pr7TfEmMu4hBnclf46
- CYKLuiC2HA1v4Pew2Ce2gHgDwgnvKMhMY+om1HiXxDa3RvrJP4ourO4ORu/KmIQudNoV0ih4i
- ZqDeBRalEc8bjAZrVfzAydSEmHg6y40j8b4adAA3V5ZI/tftGN0sfnezUZTK9i0KknaO+HcwL
- BCitB5btvXNIPJelNeFhyxMQiYkuO5pGasbeL8bVlNQaoRMEInOTNSwEJftDKYEheznGTXQkt
- FWJNEdOY5MWUtmU0P3DaNDGHLADCQ2ndA+g5sF+VCG6sVwm/nyhetESC+t4FAjToXjpx4IfAM
- 1VX/RDxnAHXPcr7NxQPemM7ASgNeKVvt6jB+1/HQFK03dIyBlaWvQYfgMRXj7O+65BiCBARvL
- gF5tZ8Lx/PdR2v7GcgKAJV8emej4laEvHdK1e38RraaqhBYEVK445pNqWBHDkHTnwWfLIjtJH
- amXlwDpfWFLdqZ3esmY5zSxAWAQkVENj7HALiF9qbWQ+dunOS7XD74ZqthCS8TSlCCGxPTu7r
- i1x8xYw77VQVyXAc4nApo8FSqKBVFwtiMzgqKj6PDhrFCaMXRX5Ke8PhF2QQ+7/cP0Zk/WGzM
- /2Lv+JU39EmYAPaaB8UumWdCgJFHblhq/LL+LcJ+MPhsK7v9g1CvdoAXuhw2ohbiTASQUE7Sv
- rKSirldQSW0KvaqWMc4ufS35Pd10+ZK/AUa8jigLqtA12t2z1ErJI1H1Qc3KP01Gg9MQjijSG
- 3B8Ay3ROI5OncpV7wkfvhXHQQ2xOxHIEZL1iBh8VKezk+6gWDeIvD3ItkUzo5Yt4wpFWr4P4f
- GA/0qZnX6XcWApxoIH6mkO986xIIRV6Ejyxy1GDov9Jv8W6zxCPvw69kH5fxGk2n5+JvJykJM
- h4QhLKJHs5oTSgpOqvm7Q7JElzNaq2xsrSEmTwOIcVsMWrEkcsj87VbL0QXavIX7kqgjWq5nd
- tK5GLOURFWqco1nMWjp6rzAwFfxBnYJe7mhXNoYQDjmAroFOC0cR0nsofVRoBL5+hRVIhC+aE
- 2/2KO7/bGWTvxfElfI/VScd8GupVCJ54wcJu8q/+D5DNMLvJJfqH1/s/1VnxQJX7pgnBZ7Dj5
- lswOwCZjp1I12iKcAjVpewBXE8EQpHvLKkMNHrw8GDQHx1dpKPqHcUBJoNLRFGBRYNPIYVn6w
- 4JS4jVHwXvMUcJ7p7uLDJyKN+mK4U+6f5UMdsWbC9U3CcRULbA98Uu18QdCyt+p+nNB9kP9Cu
- +UshojNOUZzKq3X+EwSEzHcj0Fr6TRv0L9o1/Lxd3GPVdK7mpao62oVMBh
+UI-OutboundReport: notjunk:1;M01:P0:RBEAxNVhH8M=;GaZqruuE+5pIFIvaV7pKOvz8OFd
+ StQ0iwX7b3KewJZOz7s9dJ9bnbXqIdVR1wLo/RKMbEwJSdvTCbBSd6WhlVASxX5IXZqGZFo6r
+ 9ivIVUYxaj9juaQw5OJT4NYjuUEnx8xWP8Qnv6PqN2LfjXmsgrzOMOB80GtVUBFLWKj5aXvrK
+ CtOD6bWfjc2TKO47mBa5KXqKKeoPyJT0eO4fzDIQe0RDjuh1WkdHDYQej0Fu9m196A10Bo6vI
+ yH0g2PNS7IMq0gS32LGHiNfCTD8GkXteRgicH+baYGjCfAh9vYgrkCzZzPNA8FTsrz64v09NC
+ H8FSc6VDEvVSXeKhqp/vgb+YaYGVISXF5I7IKKFFhn8wU6uHp1+a6Nq+wQRLGbBcx24uu35Ns
+ XsKH5cegroxMaiYx7vSQCGCD0PRGvYv5PFXClnXs3uKArrrA28d1is1DadcN8K3KTNdmOXvMI
+ 1JRIJ/Zj+vL2qYVtGfodvWBva67kuspSc9aqOwEiqVhq+jQ78Sy0f4RKzjpIS6BG4rTLMC5IS
+ 4DEluZkPAgr7AxvfoYG/fTdon2JE16+iRHC5UbFlS7HSvTVtkZhEt9ksOBSAaxKuPBR8QWUh4
+ PHGZG+xwzDnCerFqzIPxYNviaDM9R0iZ2Z984pN/Kth8JIQuIblV/8dmrR4FvX+oxOwHY2xCG
+ u4slgJqKUrx460TYK/mCL6jDXUEwVaehbtI/WIG8Qt2hAN7DzplgdDpkA80US4Hx8SlL3QxTi
+ CAOoHTRAQn+HFRdT5QBJ4DvzQk1llGn5vMCfTTpM0St2yekuOs4f5MlvR3TfFGhqDrceplazY
+ 0/ovx7CNW3pkrji4oTEbUvjX1UpIH2x/DlqsqMYUXKc7nhxHttbwdWjQ1HKf1V+esgEnzTjVM
+ LdZ21R4X7Jh9sMsPrhRWHN9z34eKzRTg6IEJz7uvioEAo4m4rpNe1rL27kh6/QQMDWWuthEnY
+ G7MDyZ4OxzRhyYUpRxmyVeAGkPsuUUI52v3k/mKz9DEfNy6j2jvtTKLYaDbQue+bEIx7NtPbi
+ jnmLimhgQiSxVmGh4wv4paI9pzdqXDXsFyFg/QG6wnD0ZBwg2qMy6VvQl3Jihxh1cnSuAFY0n
+ gEx1ZnrHEHMK4bH27C8VycCRyqpgnve9MNvRhBNsoiK17hr/c3lQ+TAUQzGSCRm5PogMdJXhh
+ V5g/Bbm1FowUjzIB66k8P1E6k91FYImGE0yl3vdQ7gWtrIBkg2u5wwsAHePkHk18gIf/3gpSy
+ q8bL5Uqs3ROdieluuTV2u32cxR09CUtoxEhu0bfFF4sCzBFzBKVsJh2Nr8+HFBJwXtPCfRqVq
+ KZj4BKcfAtc5yfpuXY7a/TY7HcHKf9iJUudNpqvjI50POP1fjUNliKzrnylbQkyVos3Pn3veI
+ kYW9Bb2lBViNY+QschEUiUP6xd0w7PdtJad6mmyRYYxJz5BHEOp8YIVJ0rNWNNMQXxtUR0TXr
+ Rkhu5a08XygD603TbmhpxNR9wwc98HmhSFUbPphU/IKKk26v8
 
-> This continues to be the right kind of "boring" release: nothing in
-> particular stands out in rc4.
-
-Yeah, also nothing special to report on ia64 for this RC. Apart from
-we are still here, things are still working, etc.
-
-> [...]
-> So - knock wood - 6.14 looks to be on track, with everything looking goo=
-d.
+> This is the start of the stable review cycle for the 6.6.84 release.
+> There are 166 patches in this series, all will be posted as a response
+> to this one.  If anyone has any issues with these being applied, please
+> let me know.
 >
-> Please keep testing,
+> Responses should be made by Sat, 22 Mar 2025 16:56:28 +0000.
+> Anything received after that time might be too late.
+>
+> The whole patch series can be found in one patch at:
+> 	https://www.kernel.org/pub/linux/kernel/v6.x/stable-review/patch-6.6.84=
+-rc2.gz
+> or in the git tree and branch at:
+> 	git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable-rc.gi=
+t linux-6.6.y
+> and the diffstat can be found below.
+>
+> thanks,
+>
+> greg k-h
 
-Will do. Now also on a new test system: a BL860c - a nice little ia64
-SBC ;-) that I finally put to work for our cause, thanks to the example
-of a forerunner in our community.
+Cross-builds for ia64/hp-sim and runs fine in Ski ([1]).
 
-As usual all details can be found on [1].
+[1]: https://github.com/linux-ia64/linux-stable-rc/actions/runs/1398396707=
+8#summary-39154720796
 
-[1]: http://epic-linux.org/#!testing-effort/log.md
+Tested-by: Frank Scheiner <frank.scheiner@web.de>
 
 Cheers,
 Frank
