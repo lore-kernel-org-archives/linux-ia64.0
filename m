@@ -1,59 +1,60 @@
-Received: from mgamail.intel.com (mgamail.intel.com [192.198.163.19])
+Received: from mgamail.intel.com (mgamail.intel.com [198.175.65.19])
 	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 700592356BE
-	for <linux-ia64@vger.kernel.org>; Wed, 21 May 2025 07:56:33 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=192.198.163.19
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 6F6593C2F
+	for <linux-ia64@vger.kernel.org>; Fri, 27 Jun 2025 07:36:28 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=198.175.65.19
 ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1747814195; cv=none; b=EXZwa++u/sOJ6Wq2EdGpujd1kZiyl+2B3Dems0VVBJ4wZefQgz+YcfqKRse8f3yyQg66eZr9QUDNoHrPb0nmJz0+Y8LDFBm+Je2d0ceFAiB/qonZDZ3QUiScSxEbsZbQ+mSf7qS71E+GDUHhbz/WietfM4qARaM9em807mjeuns=
+	t=1751009791; cv=none; b=MgZmjsKTGdxtHYo1Br7CFMzD35qDmL/U0OvVa0v2+/iABUzjlJTfNXIQws7WIx2Z95WT6rRsMXMGoTmGKIS06O/H1GUt4Ziukhr/B/LOTJs4TfBNkkb3t4+XPGg5xCIHv1omRy4FHjc08UOQ0XjQnb1jzMylA11b2huAxrbNpow=
 ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1747814195; c=relaxed/simple;
-	bh=80nRHTJWLlNZ/VcWl/U+9b9fQyUYhOYH1kH1PAu1CvE=;
+	s=arc-20240116; t=1751009791; c=relaxed/simple;
+	bh=hNVftWQ63rFf3Ee+kqeNtyEvtbH+AVjgbBrH7OnWLLM=;
 	h=Date:From:To:Cc:Subject:Message-ID:MIME-Version:Content-Type:
-	 Content-Disposition; b=AvafGtku44Z5F7qKRPEj3mOxfVHutk2ssNCZCKMqihgFxkGIu0liNXNXb8rQqGyyVItrQd96foVuzfm86rVFhgb9+bi8dBtPbivqnO1sw46Of4fSUWI8NSNnuf7vhn/hpWvL3hcREVqEQidlbcMNCPHpXViiBxKbMoI79CAoaDQ=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=intel.com; spf=pass smtp.mailfrom=intel.com; dkim=pass (2048-bit key) header.d=intel.com header.i=@intel.com header.b=WANpHWFW; arc=none smtp.client-ip=192.198.163.19
+	 Content-Disposition; b=MYWGOxSQtoLzwuTvaotsW52PyB8hkXr26xrgmUY5Tkjr8qeiLKjE9BSLx+G4FmRLssI5BMJWVe9OLkhBdMf/ktRkEsxr5gwoTYl9gMr/MrCKSqOUquQj50lK+n1CWlJCI80bFYiIrIHKOj96MYlzSOzR39C2cSMshXyw8GPzNvU=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=intel.com; spf=pass smtp.mailfrom=intel.com; dkim=pass (2048-bit key) header.d=intel.com header.i=@intel.com header.b=F9ATPWsl; arc=none smtp.client-ip=198.175.65.19
 Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=intel.com
 Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=intel.com
 Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=intel.com header.i=@intel.com header.b="WANpHWFW"
+	dkim=pass (2048-bit key) header.d=intel.com header.i=@intel.com header.b="F9ATPWsl"
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple;
   d=intel.com; i=@intel.com; q=dns/txt; s=Intel;
-  t=1747814193; x=1779350193;
+  t=1751009789; x=1782545789;
   h=date:from:to:cc:subject:message-id:mime-version;
-  bh=80nRHTJWLlNZ/VcWl/U+9b9fQyUYhOYH1kH1PAu1CvE=;
-  b=WANpHWFW6AgGti2UjPIsjmFk0UIz1pN+9+pmkt5yw7UQw50NrppnmUrC
-   pWIvhdxzmvSrz3a64XwHMOw3HKX+PmaJees79v4z5gTPXdBGkCMkwKkq/
-   L04WJscE5ZXc4v+6Bw5zmtCFb98I7Er6og3Afh1iy4WO5T0F7GtOQYK0+
-   Twwd+U5GE+GsWYuhAw7C6DrystB0/lRW4I7kGXMCfEUzCow3TCwOBOPzQ
-   9zWEdvLzvmTwF3d+GyzCnPURu8lCJVZOn8P/9eI2ICcz2bFR4z4w5kWW4
-   XMVngGY+KandwBqzbPzuhF171z7h8fQWAaXYPuHKP0Cf4XHY+/lG4uK8d
-   w==;
-X-CSE-ConnectionGUID: IsxEiiA9SOmFW+fgMOC+gg==
-X-CSE-MsgGUID: r7B5rIJ8SP+QrpHAxGxz3Q==
-X-IronPort-AV: E=McAfee;i="6700,10204,11439"; a="48897921"
-X-IronPort-AV: E=Sophos;i="6.15,303,1739865600"; 
-   d="scan'208";a="48897921"
-Received: from fmviesa004.fm.intel.com ([10.60.135.144])
-  by fmvoesa113.fm.intel.com with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 21 May 2025 00:56:32 -0700
-X-CSE-ConnectionGUID: 9i3Bfrw5RSmYd+TshRMIJg==
-X-CSE-MsgGUID: ACWTSoI+SsCEVSZaYpY0BQ==
+  bh=hNVftWQ63rFf3Ee+kqeNtyEvtbH+AVjgbBrH7OnWLLM=;
+  b=F9ATPWslcPc344cRCXuJuio7Rd9Xy1q35WyddENcsTO1w9ZM6Ffue/cw
+   kdmBOG+b23pdKIrHOzVSDs+zzj+sH9oMyG3itmNzLT8q7qdkI+Du/3dKd
+   4P1JlqntlD7dP0C8rqc4AMuEtUGOqMTs1NMZW6EMfoNafTSj2almCTtCR
+   IkAJHiY0G6zF2RBePrd6xWwcj1uGRQNK/Ty5kekOJqnKfOzwMX1UxJ+9Y
+   CZ8cnkXKkhfqQWNREKLCWx1Fbat/Cka1D0zPrl7i8zKIyDwXb/ep5gYjT
+   Fvg25qIQ/sgdigPihnU17RX1dN3Hb1TasfmdIkCI093pmsbPbeYVQgCcF
+   g==;
+X-CSE-ConnectionGUID: B1Mb0s89QL+5Wo+0cxq0Zw==
+X-CSE-MsgGUID: Ae2OKUoqTxqlk0maHEGDVQ==
+X-IronPort-AV: E=McAfee;i="6800,10657,11476"; a="53190630"
+X-IronPort-AV: E=Sophos;i="6.16,269,1744095600"; 
+   d="scan'208";a="53190630"
+Received: from fmviesa008.fm.intel.com ([10.60.135.148])
+  by orvoesa111.jf.intel.com with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 27 Jun 2025 00:36:28 -0700
+X-CSE-ConnectionGUID: o3bktFEcTtm9W/DXCZaF6Q==
+X-CSE-MsgGUID: 8G8zR2RDTcSE2e8mjx5iFw==
 X-ExtLoop1: 1
-X-IronPort-AV: E=Sophos;i="6.15,303,1739865600"; 
-   d="scan'208";a="145196689"
-Received: from lkp-server01.sh.intel.com (HELO 1992f890471c) ([10.239.97.150])
-  by fmviesa004.fm.intel.com with ESMTP; 21 May 2025 00:56:32 -0700
-Received: from kbuild by 1992f890471c with local (Exim 4.96)
+X-IronPort-AV: E=Sophos;i="6.16,269,1744095600"; 
+   d="scan'208";a="153256706"
+Received: from lkp-server01.sh.intel.com (HELO e8142ee1dce2) ([10.239.97.150])
+  by fmviesa008.fm.intel.com with ESMTP; 27 Jun 2025 00:36:26 -0700
+Received: from kbuild by e8142ee1dce2 with local (Exim 4.96)
 	(envelope-from <lkp@intel.com>)
-	id 1uHeJR-000O0S-1f;
-	Wed, 21 May 2025 07:56:29 +0000
-Date: Wed, 21 May 2025 15:55:40 +0800
+	id 1uV3dI-000VvX-0e;
+	Fri, 27 Jun 2025 07:36:24 +0000
+Date: Fri, 27 Jun 2025 15:35:58 +0800
 From: kernel test robot <lkp@intel.com>
 To: Tony Luck <tony.luck@intel.com>
-Cc: oe-kbuild-all@lists.linux.dev, linux-ia64@vger.kernel.org
-Subject: [aegl:rdt-aet-v5 28/29]
- arch/x86/kernel/cpu/resctrl/intel_aet.c:288:63: sparse: sparse: incorrect
- type in initializer (different address spaces)
-Message-ID: <202505211506.gIuGNQZ7-lkp@intel.com>
+Cc: Paul Gazzillo <paul@pgazz.com>,
+	Necip Fazil Yildiran <fazilyildiran@gmail.com>,
+	oe-kbuild-all@lists.linux.dev, linux-ia64@vger.kernel.org
+Subject: [aegl:rdt-aet-v6 32/45] kismet: WARNING: unmet direct dependencies
+ detected for INTEL_RAPL_CORE when selected by INTEL_RAPL_TPMI
+Message-ID: <202506271542.l76jdSsw-lkp@intel.com>
 Precedence: bulk
 X-Mailing-List: linux-ia64@vger.kernel.org
 List-Id: <linux-ia64.vger.kernel.org>
@@ -63,54 +64,28 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-tree:   https://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git rdt-aet-v5
-head:   a0273c92f4de70daf85926f88e122a66de5bf943
-commit: 113e20da9990a521c6106188f9c662fc9f745bb3 [28/29] x86/resctrl: Add info/PERF_PKG_MON/status file
-config: x86_64-randconfig-121-20250521 (https://download.01.org/0day-ci/archive/20250521/202505211506.gIuGNQZ7-lkp@intel.com/config)
-compiler: gcc-12 (Debian 12.2.0-14) 12.2.0
-reproduce (this is a W=1 build): (https://download.01.org/0day-ci/archive/20250521/202505211506.gIuGNQZ7-lkp@intel.com/reproduce)
+tree:   https://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git rdt-aet-v6
+head:   453022799f324c7f532802ec2fd27a72c32bd4be
+commit: d1d8a56c5343bbc768611ca1757528d36130acfc [32/45] x86/resctrl: Discover hardware telemetry events
+config: x86_64-kismet-CONFIG_INTEL_RAPL_CORE-CONFIG_INTEL_RAPL_TPMI-0-0 (https://download.01.org/0day-ci/archive/20250627/202506271542.l76jdSsw-lkp@intel.com/config)
+reproduce: (https://download.01.org/0day-ci/archive/20250627/202506271542.l76jdSsw-lkp@intel.com/reproduce)
 
 If you fix the issue in a separate patch/commit (i.e. not just a new version of
 the same patch/commit), kindly add following tags
 | Reported-by: kernel test robot <lkp@intel.com>
-| Closes: https://lore.kernel.org/oe-kbuild-all/202505211506.gIuGNQZ7-lkp@intel.com/
+| Closes: https://lore.kernel.org/oe-kbuild-all/202506271542.l76jdSsw-lkp@intel.com/
 
-sparse warnings: (new ones prefixed by >>)
->> arch/x86/kernel/cpu/resctrl/intel_aet.c:288:63: sparse: sparse: incorrect type in initializer (different address spaces) @@     expected void *[noderef] __iomem info @@     got void [noderef] __iomem * @@
-   arch/x86/kernel/cpu/resctrl/intel_aet.c:288:63: sparse:     expected void *[noderef] __iomem info
-   arch/x86/kernel/cpu/resctrl/intel_aet.c:288:63: sparse:     got void [noderef] __iomem *
->> arch/x86/kernel/cpu/resctrl/intel_aet.c:292:31: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected void const volatile [noderef] __iomem *addr @@     got void * @@
-   arch/x86/kernel/cpu/resctrl/intel_aet.c:292:31: sparse:     expected void const volatile [noderef] __iomem *addr
-   arch/x86/kernel/cpu/resctrl/intel_aet.c:292:31: sparse:     got void *
-   arch/x86/kernel/cpu/resctrl/intel_aet.c:294:31: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected void const volatile [noderef] __iomem *addr @@     got void * @@
-   arch/x86/kernel/cpu/resctrl/intel_aet.c:294:31: sparse:     expected void const volatile [noderef] __iomem *addr
-   arch/x86/kernel/cpu/resctrl/intel_aet.c:294:31: sparse:     got void *
-   arch/x86/kernel/cpu/resctrl/intel_aet.c:296:31: sparse: sparse: incorrect type in argument 1 (different address spaces) @@     expected void const volatile [noderef] __iomem *addr @@     got void * @@
-   arch/x86/kernel/cpu/resctrl/intel_aet.c:296:31: sparse:     expected void const volatile [noderef] __iomem *addr
-   arch/x86/kernel/cpu/resctrl/intel_aet.c:296:31: sparse:     got void *
-   arch/x86/kernel/cpu/resctrl/intel_aet.c:292:26: sparse: sparse: dereference of noderef expression
-   arch/x86/kernel/cpu/resctrl/intel_aet.c:292:26: sparse: sparse: dereference of noderef expression
-   arch/x86/kernel/cpu/resctrl/intel_aet.c:294:26: sparse: sparse: dereference of noderef expression
-   arch/x86/kernel/cpu/resctrl/intel_aet.c:294:26: sparse: sparse: dereference of noderef expression
-   arch/x86/kernel/cpu/resctrl/intel_aet.c:296:26: sparse: sparse: dereference of noderef expression
-   arch/x86/kernel/cpu/resctrl/intel_aet.c:296:26: sparse: sparse: dereference of noderef expression
-
-vim +288 arch/x86/kernel/cpu/resctrl/intel_aet.c
-
-   285	
-   286	static void show_debug(struct seq_file *s, struct event_group *e, int pkg, int instance)
-   287	{
- > 288		void *info __iomem = e->pkginfo[pkg]->addrs[instance] + e->mmio_size;
-   289	
-   290		/* Information registers are the last three qwords in MMIO space */
-   291		seq_printf(s, "%s %d:%d agg_data_loss_count = %llu\n", e->name, pkg, instance,
- > 292			   readq(info - 24));
-   293		seq_printf(s, "%s %d:%d agg_data_loss_timestamp = %llu\n", e->name, pkg, instance,
-   294			   readq(info - 16));
-   295		seq_printf(s, "%s %d:%d last_update_timestamp = %llu\n", e->name, pkg, instance,
-   296			   readq(info - 8));
-   297	}
-   298	
+kismet warnings: (new ones prefixed by >>)
+>> kismet: WARNING: unmet direct dependencies detected for INTEL_RAPL_CORE when selected by INTEL_RAPL_TPMI
+   WARNING: unmet direct dependencies detected for INTEL_VSEC
+     Depends on [n]: X86_PLATFORM_DEVICES [=y] && PCI [=n]
+     Selected by [y]:
+     - X86_CPU_RESCTRL [=y] && X86 [=y] && (CPU_SUP_INTEL [=y] || CPU_SUP_AMD [=y]) && MISC_FILESYSTEMS [=y]
+   
+   WARNING: unmet direct dependencies detected for INTEL_RAPL_CORE
+     Depends on [n]: POWERCAP [=y] && PCI [=n]
+     Selected by [y]:
+     - INTEL_RAPL_TPMI [=y] && POWERCAP [=y] && X86 [=y] && INTEL_TPMI [=y]
 
 -- 
 0-DAY CI Kernel Test Service
