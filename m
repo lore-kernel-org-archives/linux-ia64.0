@@ -1,60 +1,60 @@
-Received: from mgamail.intel.com (mgamail.intel.com [192.198.163.11])
+Received: from mgamail.intel.com (mgamail.intel.com [192.198.163.8])
 	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id E9E41264F87
-	for <linux-ia64@vger.kernel.org>; Tue,  1 Jul 2025 09:27:03 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=192.198.163.11
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id D16AE1D63F2
+	for <linux-ia64@vger.kernel.org>; Wed,  2 Jul 2025 03:15:05 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=192.198.163.8
 ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1751362025; cv=none; b=YWOQoidw+I7FSPBDww8jA9q9XXrsSkx54wE1vpO44BQJ/3MxSTkg8a00Iow8ZdANEySsuEWI+9Up7FO4WUcn+hcBKJCdIn9q4SnIlDg2t2voHycyo7HY5yn2ljjQuNOpL+sDQIBqVlDLDmhkInT3AY8pAAq1UCmk7J7ZLUYMaVk=
+	t=1751426107; cv=none; b=nqHihfEISbxG6RPi6mhojqJZc9AjbEPEO0VHbI3ffK70sdDFfxziqjmV1i1KTQufZIYjAlfLzCBPeiqXptCAPEePax4oS1eJczeFIHbzmK5Ok9Q931Vlf0nePS0ihBAboOTeOwRPlug8HoILTpTZcIIYL0sqnENvzlXuYjT7dWo=
 ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1751362025; c=relaxed/simple;
-	bh=7LJS3CBA8LET/cy8Pby9VvnMFR9KiVJjxldTSSd2KhQ=;
+	s=arc-20240116; t=1751426107; c=relaxed/simple;
+	bh=NdlgYueXNf/Tks57qwBLRtG5CLTvvJ7AlOmh82a2JCI=;
 	h=Date:From:To:Cc:Subject:Message-ID:MIME-Version:Content-Type:
-	 Content-Disposition; b=o3fx7STtRYKYd6qza5WwbBK69fxeUkNvfoNCOxaZ0yo60dB+bwA9fDE4RxQj1kBq+a8PglZgHKrLoivEG8CVczokBQqZva/UNiFLanzYilEnOTG4RVV8ON378sThJEI8hf0ICyUialQ0XhXEBDK6SlASucYuJyiDy/N6ELGcI2A=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=intel.com; spf=pass smtp.mailfrom=intel.com; dkim=pass (2048-bit key) header.d=intel.com header.i=@intel.com header.b=MQKXZAq5; arc=none smtp.client-ip=192.198.163.11
+	 Content-Disposition; b=NnbP6Tm31+RUaXCwK3TQJ8kjIGCdqMLB2qqs1RLfjjEzmI66sGNWGOOOGITBQirVbOeYGKPM0K/0+cZqRzyAs7YigKQv3mXtLCJ3uY7j8kLhA6NvDvOFOvfax+anedNXnsQSj6Lz+PMLd7lf5tRMp69fKGLSFzaYmfLnrcJfrf0=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=intel.com; spf=pass smtp.mailfrom=intel.com; dkim=pass (2048-bit key) header.d=intel.com header.i=@intel.com header.b=Qchizwac; arc=none smtp.client-ip=192.198.163.8
 Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=intel.com
 Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=intel.com
 Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=intel.com header.i=@intel.com header.b="MQKXZAq5"
+	dkim=pass (2048-bit key) header.d=intel.com header.i=@intel.com header.b="Qchizwac"
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple;
   d=intel.com; i=@intel.com; q=dns/txt; s=Intel;
-  t=1751362024; x=1782898024;
+  t=1751426106; x=1782962106;
   h=date:from:to:cc:subject:message-id:mime-version;
-  bh=7LJS3CBA8LET/cy8Pby9VvnMFR9KiVJjxldTSSd2KhQ=;
-  b=MQKXZAq5o6NR41neuMcTci1v+24DV6ISITNoSQmpQxKqMAdFqh2UQL1Y
-   hNhssqy+0dKWsbOmQJT4BYg607PJGEUrQpCotxR+30daE+vzWFLNdUQ74
-   TlCzF0uX8YfBJHoqlClErY/T1357MHoWw5E3sJ7xZyQJ0ndcJw0asIZkp
-   0mxLn5zhHKcTrUXo4u6souHbJyeSjKe2lx6z+tKsnyt4n0V73654QaEtZ
-   XbEM3LLkB+1NvCTY7czSjyx2XUUSwwgzWcRvlMnkfEivljxu82HfNtxI2
-   8BhuR0KC8X8zM4UOetZuJwqGdra4rHWJEHiiqN5WD6intP59GF5CoquqF
-   g==;
-X-CSE-ConnectionGUID: e9XkLcOtQB67eFeX0YC5xA==
-X-CSE-MsgGUID: K/JzlxpMSBCtx4yPd2HEmQ==
-X-IronPort-AV: E=McAfee;i="6800,10657,11480"; a="64220777"
-X-IronPort-AV: E=Sophos;i="6.16,279,1744095600"; 
-   d="scan'208";a="64220777"
-Received: from orviesa005.jf.intel.com ([10.64.159.145])
-  by fmvoesa105.fm.intel.com with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 01 Jul 2025 02:27:03 -0700
-X-CSE-ConnectionGUID: e9S9wjriR7iNLbDydL1h3Q==
-X-CSE-MsgGUID: o8M2ufxYSsukqDUz7wGabg==
+  bh=NdlgYueXNf/Tks57qwBLRtG5CLTvvJ7AlOmh82a2JCI=;
+  b=QchizwacRYmqLgwqE+9c8ZiFE1eA0/Ob9L1aeX/y0gkTmYmMru4uPwG+
+   lZEAP5Z/PBeeh/jerHt+4eD6n7bbGQr6qD9RqC/Sdo4IE1YoK47jkSTso
+   OtIP0OfvBGCgzEvTfGRbeMrl4BraS+mA/YYJ1WrZCuBKj7lK3SfQVsI6/
+   VBmOL3k9vVW8Kmaig/dxKw1GXkVEHxFb89G/fHkYylAFoL0sxF2FHMGJE
+   1ZzOeYfX+hnoXGAHKoQJJ/jWHLn9rFui7sPXcDbYdKJGxC7UkRqXsXQYh
+   NWrxRP5ZvNb51ewPcbR2mbtEZrU1yHnTMJa2tjLzAUrnO8AW355G9tKcM
+   w==;
+X-CSE-ConnectionGUID: w0vTTsdgSoO58or3s0zAeA==
+X-CSE-MsgGUID: cx8+T1qnSBOuwNcmtQyipQ==
+X-IronPort-AV: E=McAfee;i="6800,10657,11481"; a="71275784"
+X-IronPort-AV: E=Sophos;i="6.16,280,1744095600"; 
+   d="scan'208";a="71275784"
+Received: from orviesa001.jf.intel.com ([10.64.159.141])
+  by fmvoesa102.fm.intel.com with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 01 Jul 2025 20:15:05 -0700
+X-CSE-ConnectionGUID: yyw+nOxfRLm0WA410SBHxQ==
+X-CSE-MsgGUID: W6gdL+8lRgCjKUuideYQMA==
 X-ExtLoop1: 1
-X-IronPort-AV: E=Sophos;i="6.16,279,1744095600"; 
-   d="scan'208";a="159431601"
-Received: from igk-lkp-server01.igk.intel.com (HELO 030a839a1121) ([10.91.175.65])
-  by orviesa005.jf.intel.com with ESMTP; 01 Jul 2025 02:27:01 -0700
-Received: from kbuild by 030a839a1121 with local (Exim 4.96)
+X-IronPort-AV: E=Sophos;i="6.16,280,1744095600"; 
+   d="scan'208";a="191124942"
+Received: from lkp-server01.sh.intel.com (HELO 0b2900756c14) ([10.239.97.150])
+  by orviesa001.jf.intel.com with ESMTP; 01 Jul 2025 20:15:04 -0700
+Received: from kbuild by 0b2900756c14 with local (Exim 4.96)
 	(envelope-from <lkp@intel.com>)
-	id 1uWXGV-000017-1q;
-	Tue, 01 Jul 2025 09:26:59 +0000
-Date: Tue, 1 Jul 2025 11:26:57 +0200
+	id 1uWnw5-00005q-2y;
+	Wed, 02 Jul 2025 03:15:01 +0000
+Date: Wed, 2 Jul 2025 11:14:57 +0800
 From: kernel test robot <lkp@intel.com>
 To: Tony Luck <tony.luck@intel.com>
 Cc: llvm@lists.linux.dev, oe-kbuild-all@lists.linux.dev,
 	linux-ia64@vger.kernel.org
-Subject: [aegl:rdt-aet-v5.5 32/45] drivers/platform/x86/intel/vsec.c:486:9:
+Subject: [aegl:rdt-aet-v6 32/45] drivers/platform/x86/intel/vsec.c:486:9:
  error: call to undeclared function 'pci_find_next_ext_capability'; ISO C99
  and later do not support implicit function declarations
-Message-ID: <202507011128.eWtHft5k-lkp@intel.com>
+Message-ID: <202507021136.1p4476rf-lkp@intel.com>
 Precedence: bulk
 X-Mailing-List: linux-ia64@vger.kernel.org
 List-Id: <linux-ia64.vger.kernel.org>
@@ -64,17 +64,17 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-tree:   https://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git rdt-aet-v5.5
-head:   453022799f324c7f532802ec2fd27a72c32bd4be
-commit: d1d8a56c5343bbc768611ca1757528d36130acfc [32/45] x86/resctrl: Discover hardware telemetry events
-config: x86_64-buildonly-randconfig-2003-20250701 (https://download.01.org/0day-ci/archive/20250701/202507011128.eWtHft5k-lkp@intel.com/config)
+tree:   https://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git rdt-aet-v6
+head:   61fe13fdf97168d6695d6b1229e10053c1de27f0
+commit: 216036ff9ddd573d89566851307be872a7e17a32 [32/45] x86/resctrl: Discover hardware telemetry events
+config: x86_64-buildonly-randconfig-004-20250702 (https://download.01.org/0day-ci/archive/20250702/202507021136.1p4476rf-lkp@intel.com/config)
 compiler: clang version 20.1.7 (https://github.com/llvm/llvm-project 6146a88f60492b520a36f8f8f3231e15f3cc6082)
-reproduce (this is a W=1 build): (https://download.01.org/0day-ci/archive/20250701/202507011128.eWtHft5k-lkp@intel.com/reproduce)
+reproduce (this is a W=1 build): (https://download.01.org/0day-ci/archive/20250702/202507021136.1p4476rf-lkp@intel.com/reproduce)
 
 If you fix the issue in a separate patch/commit (i.e. not just a new version of
 the same patch/commit), kindly add following tags
 | Reported-by: kernel test robot <lkp@intel.com>
-| Closes: https://lore.kernel.org/oe-kbuild-all/202507011128.eWtHft5k-lkp@intel.com/
+| Closes: https://lore.kernel.org/oe-kbuild-all/202507021136.1p4476rf-lkp@intel.com/
 
 All errors (new ones prefixed by >>):
 
@@ -101,7 +101,7 @@ Kconfig warnings: (for reference only)
    WARNING: unmet direct dependencies detected for INTEL_VSEC
    Depends on [n]: X86_PLATFORM_DEVICES [=y] && PCI [=n]
    Selected by [y]:
-   - X86_CPU_RESCTRL [=y] && X86 [=y] && (CPU_SUP_INTEL [=y] || CPU_SUP_AMD [=n]) && MISC_FILESYSTEMS [=y]
+   - X86_CPU_RESCTRL [=y] && X86 [=y] && (CPU_SUP_INTEL [=y] || CPU_SUP_AMD [=y]) && MISC_FILESYSTEMS [=y]
 
 
 vim +/pci_find_next_ext_capability +486 drivers/platform/x86/intel/vsec.c
