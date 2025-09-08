@@ -1,169 +1,102 @@
-Received: from mgamail.intel.com (mgamail.intel.com [192.198.163.8])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+Received: from mail-yb1-f178.google.com (mail-yb1-f178.google.com [209.85.219.178])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id D16AE1D63F2
-	for <linux-ia64@vger.kernel.org>; Wed,  2 Jul 2025 03:15:05 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=192.198.163.8
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 8583B20C001
+	for <linux-ia64@vger.kernel.org>; Mon,  8 Sep 2025 21:24:35 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.219.178
 ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1751426107; cv=none; b=nqHihfEISbxG6RPi6mhojqJZc9AjbEPEO0VHbI3ffK70sdDFfxziqjmV1i1KTQufZIYjAlfLzCBPeiqXptCAPEePax4oS1eJczeFIHbzmK5Ok9Q931Vlf0nePS0ihBAboOTeOwRPlug8HoILTpTZcIIYL0sqnENvzlXuYjT7dWo=
+	t=1757366677; cv=none; b=siaNlAQB44Oo6G4v6gAz7e9/aRUvx1ldrBOG7MimbULVtu9DHZOWBawKUf7F7BamVDadc+NHlugP9ZsGhBiGWE7YzFkQhWLKalaUlcfGAdvz0uOUTDe0FnnISKpmwNisT9frdkgPKZvvlMUECqMoobLI/JzpjWGlNolfDp3+TDc=
 ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1751426107; c=relaxed/simple;
-	bh=NdlgYueXNf/Tks57qwBLRtG5CLTvvJ7AlOmh82a2JCI=;
-	h=Date:From:To:Cc:Subject:Message-ID:MIME-Version:Content-Type:
-	 Content-Disposition; b=NnbP6Tm31+RUaXCwK3TQJ8kjIGCdqMLB2qqs1RLfjjEzmI66sGNWGOOOGITBQirVbOeYGKPM0K/0+cZqRzyAs7YigKQv3mXtLCJ3uY7j8kLhA6NvDvOFOvfax+anedNXnsQSj6Lz+PMLd7lf5tRMp69fKGLSFzaYmfLnrcJfrf0=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=intel.com; spf=pass smtp.mailfrom=intel.com; dkim=pass (2048-bit key) header.d=intel.com header.i=@intel.com header.b=Qchizwac; arc=none smtp.client-ip=192.198.163.8
-Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=intel.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=intel.com
+	s=arc-20240116; t=1757366677; c=relaxed/simple;
+	bh=MkGEfeXPcmLX1hVuxSY9NPc6nmq1i9+sy+AgfyPmxeQ=;
+	h=MIME-Version:From:Date:Message-ID:Subject:To:Cc:Content-Type; b=MS+qXuPKkMLBS+YZX/Caq64D7QOddkgJiJzTR0HYLvse6NvjWtoyV2VdoLYevQEA4D+HDdfuxBdSXAgTmWuHYLKyliQ8kszabRU6Y/LYZ4DrxXadw6AHt0vpUxlY+9pjmaCBujUrgxDzMBPxR9dwZvveNnHhPqx/ygz56PZIfPU=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=gmail.com; spf=pass smtp.mailfrom=gmail.com; dkim=pass (2048-bit key) header.d=gmail.com header.i=@gmail.com header.b=HzFSF87J; arc=none smtp.client-ip=209.85.219.178
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=gmail.com
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=gmail.com
 Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=intel.com header.i=@intel.com header.b="Qchizwac"
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple;
-  d=intel.com; i=@intel.com; q=dns/txt; s=Intel;
-  t=1751426106; x=1782962106;
-  h=date:from:to:cc:subject:message-id:mime-version;
-  bh=NdlgYueXNf/Tks57qwBLRtG5CLTvvJ7AlOmh82a2JCI=;
-  b=QchizwacRYmqLgwqE+9c8ZiFE1eA0/Ob9L1aeX/y0gkTmYmMru4uPwG+
-   lZEAP5Z/PBeeh/jerHt+4eD6n7bbGQr6qD9RqC/Sdo4IE1YoK47jkSTso
-   OtIP0OfvBGCgzEvTfGRbeMrl4BraS+mA/YYJ1WrZCuBKj7lK3SfQVsI6/
-   VBmOL3k9vVW8Kmaig/dxKw1GXkVEHxFb89G/fHkYylAFoL0sxF2FHMGJE
-   1ZzOeYfX+hnoXGAHKoQJJ/jWHLn9rFui7sPXcDbYdKJGxC7UkRqXsXQYh
-   NWrxRP5ZvNb51ewPcbR2mbtEZrU1yHnTMJa2tjLzAUrnO8AW355G9tKcM
-   w==;
-X-CSE-ConnectionGUID: w0vTTsdgSoO58or3s0zAeA==
-X-CSE-MsgGUID: cx8+T1qnSBOuwNcmtQyipQ==
-X-IronPort-AV: E=McAfee;i="6800,10657,11481"; a="71275784"
-X-IronPort-AV: E=Sophos;i="6.16,280,1744095600"; 
-   d="scan'208";a="71275784"
-Received: from orviesa001.jf.intel.com ([10.64.159.141])
-  by fmvoesa102.fm.intel.com with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 01 Jul 2025 20:15:05 -0700
-X-CSE-ConnectionGUID: yyw+nOxfRLm0WA410SBHxQ==
-X-CSE-MsgGUID: W6gdL+8lRgCjKUuideYQMA==
-X-ExtLoop1: 1
-X-IronPort-AV: E=Sophos;i="6.16,280,1744095600"; 
-   d="scan'208";a="191124942"
-Received: from lkp-server01.sh.intel.com (HELO 0b2900756c14) ([10.239.97.150])
-  by orviesa001.jf.intel.com with ESMTP; 01 Jul 2025 20:15:04 -0700
-Received: from kbuild by 0b2900756c14 with local (Exim 4.96)
-	(envelope-from <lkp@intel.com>)
-	id 1uWnw5-00005q-2y;
-	Wed, 02 Jul 2025 03:15:01 +0000
-Date: Wed, 2 Jul 2025 11:14:57 +0800
-From: kernel test robot <lkp@intel.com>
-To: Tony Luck <tony.luck@intel.com>
-Cc: llvm@lists.linux.dev, oe-kbuild-all@lists.linux.dev,
-	linux-ia64@vger.kernel.org
-Subject: [aegl:rdt-aet-v6 32/45] drivers/platform/x86/intel/vsec.c:486:9:
- error: call to undeclared function 'pci_find_next_ext_capability'; ISO C99
- and later do not support implicit function declarations
-Message-ID: <202507021136.1p4476rf-lkp@intel.com>
+	dkim=pass (2048-bit key) header.d=gmail.com header.i=@gmail.com header.b="HzFSF87J"
+Received: by mail-yb1-f178.google.com with SMTP id 3f1490d57ef6-ea0150ee46dso1634278276.1
+        for <linux-ia64@vger.kernel.org>; Mon, 08 Sep 2025 14:24:35 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=gmail.com; s=20230601; t=1757366674; x=1757971474; darn=vger.kernel.org;
+        h=content-transfer-encoding:cc:to:subject:message-id:date:from
+         :mime-version:from:to:cc:subject:date:message-id:reply-to;
+        bh=MkGEfeXPcmLX1hVuxSY9NPc6nmq1i9+sy+AgfyPmxeQ=;
+        b=HzFSF87JEjjqfLflgadePHi+yZh7OR0i4TvgVONdQmkWROBhkosoTBL96CwSDj7GBE
+         8xHfwuwZjYmZClk8jJHt0Gp8FsrXZdDaR6TxPtgvlr1RiCCLWVwAHCWuOOfcWyh55o0c
+         qcVK+yFN07pzWesNssgW+MfV3rMKj3OBnBG80X7TLY1IA5dHmeLUy1jScbQ5Z6tfjJ8s
+         HEpTcWPI9Ssyq2kuAgjlWaa+Ct4itjbwF792pPi16rjVpUE4f+1yK2/JLZVjIUHriirG
+         0reyE7JiQZDAK7XtMzCNmAW5Qh3UkM7cyOTXAsFy23vyRkCJ4E8FXRHyb0PjtEpsZcGT
+         NRBg==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1757366674; x=1757971474;
+        h=content-transfer-encoding:cc:to:subject:message-id:date:from
+         :mime-version:x-gm-message-state:from:to:cc:subject:date:message-id
+         :reply-to;
+        bh=MkGEfeXPcmLX1hVuxSY9NPc6nmq1i9+sy+AgfyPmxeQ=;
+        b=sxZLYS4RzLnFm87AbEYrIpcNKGj3CLD6FeY4h7LLj+gmDAhDmI1ZSfsw92WnKD6EAD
+         teM7gBshyM7a0vy/CSdoK2giKKTEcfRPzkTNDFjoIRTE3MlCvwl6eUXgv7c8a23nkdkA
+         k74S9RQGWVQH+z/3afgfoxxfiurc4xraoXr/H4sVG8d9MxSRBrMtnUaX7nPa0YC2Guun
+         FpraUONzdQ6rW+vfcG+qvfrjv6Y3Wt6D1DPAX7aoS1LYS4pQHuB8Mcy7n0BZ+O34T8Qq
+         0RoexAVj9xT1h85nxpe9bXnuWqAOJI07mqcMui6Tm3OrFbLyh/DqiYoij5IPTnx4RPU0
+         ty3g==
+X-Gm-Message-State: AOJu0Yy9otTiLyLAvgiIe1nL65HmYanEoCgf0LZET71IrhVrnV7l8BOY
+	2Rw3kyv7GKdDQnfXFKY26IG8l/eKrTsrmwKig+nvuhMDnyF7RHTfzZFHaYJDizaB4He0YicycAM
+	Z8xRAILLrshvPeA5tbiIurtXRwdtJIWm21Q31Y9o=
+X-Gm-Gg: ASbGnctf3IHBw8mBLL+xqusWwAXnmY31qSfZNq089x7+jFm7V93KL4HPIfKTS3sWDa+
+	0bIHGap9z6YCaGd6x5X/+7wd16BIohSD72EQ4ZKCoW0iqV3v0VXVQ9b+czrvSv/RAEyBg3tmaUE
+	2YAZoyr5e1gz1M+5rLqsMv00GJCQfkRTGg1momQ0fPdDqJcXTKxg6b3muOJbyS1jxlt777c5tCq
+	GzfZY7coaFVuVQwiX1NPzyqBDFEwmYvr5stC54fYgokmB+8VQ==
+X-Google-Smtp-Source: AGHT+IFUt8UpsvpZEL7JqInfgP/oRjE9Z14h7btKqBmXWM8KrPwbzkTvmPwxnebuYOQk1k6NgWKFsaIzwwgz/gFmmd4=
+X-Received: by 2002:a05:690c:490a:b0:71f:b944:103f with SMTP id
+ 00721157ae682-727f5541763mr94996177b3.48.1757366674222; Mon, 08 Sep 2025
+ 14:24:34 -0700 (PDT)
 Precedence: bulk
 X-Mailing-List: linux-ia64@vger.kernel.org
 List-Id: <linux-ia64.vger.kernel.org>
 List-Subscribe: <mailto:linux-ia64+subscribe@vger.kernel.org>
 List-Unsubscribe: <mailto:linux-ia64+unsubscribe@vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+From: =?UTF-8?B?VG9tw6HFoSBHbG96YXI=?= <tglozar@gmail.com>
+Date: Mon, 8 Sep 2025 23:24:23 +0200
+X-Gm-Features: AS18NWDLUFBD-PFynAajrcCVk5XeFBrDZ8_gZqcXgEC_f34QNvf6IWdHAxtOql4
+Message-ID: <CAHtyXDernSaNUtXas_nO+VR8NiBghoJgn=bfcta7fGpJDOiVOg@mail.gmail.com>
+Subject: [ANNOUNCE] Linux v6.16-epic1
+To: linux-ia64@vger.kernel.org
+Cc: Frank Scheiner <frank.scheiner@web.de>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-tree:   https://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git rdt-aet-v6
-head:   61fe13fdf97168d6695d6b1229e10053c1de27f0
-commit: 216036ff9ddd573d89566851307be872a7e17a32 [32/45] x86/resctrl: Discover hardware telemetry events
-config: x86_64-buildonly-randconfig-004-20250702 (https://download.01.org/0day-ci/archive/20250702/202507021136.1p4476rf-lkp@intel.com/config)
-compiler: clang version 20.1.7 (https://github.com/llvm/llvm-project 6146a88f60492b520a36f8f8f3231e15f3cc6082)
-reproduce (this is a W=1 build): (https://download.01.org/0day-ci/archive/20250702/202507021136.1p4476rf-lkp@intel.com/reproduce)
+Hello linux-ia64!
 
-If you fix the issue in a separate patch/commit (i.e. not just a new version of
-the same patch/commit), kindly add following tags
-| Reported-by: kernel test robot <lkp@intel.com>
-| Closes: https://lore.kernel.org/oe-kbuild-all/202507021136.1p4476rf-lkp@intel.com/
+It's time to bump up the version, and get the EPIC code up to date
+with latest upstream! Of course, reverts of some bits and pieces of
+code that is needed by Itanium still have to be done, but they are
+sparse at this point, and the process is mostly painless: four whole
+upstream versions were successfully merged over an extended weekend,
+with some minimal help from parallel johnny-mnemonic fork.
 
-All errors (new ones prefixed by >>):
+With this release, a new commit model is adopted: upstream is merged
+into the fork at relevant tags. This allows to push normally into the
+master-epic branch, and track which linux-ia64 patches were applied
+after the merge of which upstream release. New branches will no longer
+be created for upstream releases.
 
->> drivers/platform/x86/intel/vsec.c:486:9: error: call to undeclared function 'pci_find_next_ext_capability'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
-     486 |                 pos = pci_find_next_ext_capability(pdev, pos, PCI_EXT_CAP_ID_DVSEC);
-         |                       ^
-   drivers/platform/x86/intel/vsec.c:486:9: note: did you mean 'pci_find_next_capability'?
-   include/linux/pci.h:2060:18: note: 'pci_find_next_capability' declared here
-    2060 | static inline u8 pci_find_next_capability(struct pci_dev *dev, u8 post, int cap)
-         |                  ^
-   drivers/platform/x86/intel/vsec.c:535:9: error: call to undeclared function 'pci_find_next_ext_capability'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
-     535 |                 pos = pci_find_next_ext_capability(pdev, pos, PCI_EXT_CAP_ID_VNDR);
-         |                       ^
->> drivers/platform/x86/intel/vsec.c:844:1: error: type specifier missing, defaults to 'int'; ISO C99 and later do not support implicit int [-Wimplicit-int]
-     844 | module_pci_driver(intel_vsec_pci_driver);
-         | ^
-         | int
->> drivers/platform/x86/intel/vsec.c:844:19: error: a parameter list without types is only allowed in a function definition
-     844 | module_pci_driver(intel_vsec_pci_driver);
-         |                   ^
-   4 errors generated.
+Known issues:
 
-Kconfig warnings: (for reference only)
-   WARNING: unmet direct dependencies detected for INTEL_VSEC
-   Depends on [n]: X86_PLATFORM_DEVICES [=y] && PCI [=n]
-   Selected by [y]:
-   - X86_CPU_RESCTRL [=y] && X86 [=y] && (CPU_SUP_INTEL [=y] || CPU_SUP_AMD [=y]) && MISC_FILESYSTEMS [=y]
+- See https://github.com/linux-ia64/linux-ia64/issues
 
+Fixes:
 
-vim +/pci_find_next_ext_capability +486 drivers/platform/x86/intel/vsec.c
+- None
 
-a3c8f906ed5fc1 David E. Box 2021-12-07  473  
-f21c179e1206e8 David E. Box 2022-06-29  474  static bool intel_vsec_walk_dvsec(struct pci_dev *pdev,
-f21c179e1206e8 David E. Box 2022-06-29  475  				  struct intel_vsec_platform_info *info)
-a3c8f906ed5fc1 David E. Box 2021-12-07  476  {
-a3c8f906ed5fc1 David E. Box 2021-12-07  477  	bool have_devices = false;
-a3c8f906ed5fc1 David E. Box 2021-12-07  478  	int pos = 0;
-a3c8f906ed5fc1 David E. Box 2021-12-07  479  
-a3c8f906ed5fc1 David E. Box 2021-12-07  480  	do {
-a3c8f906ed5fc1 David E. Box 2021-12-07  481  		struct intel_vsec_header header;
-a3c8f906ed5fc1 David E. Box 2021-12-07  482  		u32 table, hdr;
-a3c8f906ed5fc1 David E. Box 2021-12-07  483  		u16 vid;
-a3c8f906ed5fc1 David E. Box 2021-12-07  484  		int ret;
-a3c8f906ed5fc1 David E. Box 2021-12-07  485  
-a3c8f906ed5fc1 David E. Box 2021-12-07 @486  		pos = pci_find_next_ext_capability(pdev, pos, PCI_EXT_CAP_ID_DVSEC);
-a3c8f906ed5fc1 David E. Box 2021-12-07  487  		if (!pos)
-a3c8f906ed5fc1 David E. Box 2021-12-07  488  			break;
-a3c8f906ed5fc1 David E. Box 2021-12-07  489  
-a3c8f906ed5fc1 David E. Box 2021-12-07  490  		pci_read_config_dword(pdev, pos + PCI_DVSEC_HEADER1, &hdr);
-a3c8f906ed5fc1 David E. Box 2021-12-07  491  		vid = PCI_DVSEC_HEADER1_VID(hdr);
-a3c8f906ed5fc1 David E. Box 2021-12-07  492  		if (vid != PCI_VENDOR_ID_INTEL)
-a3c8f906ed5fc1 David E. Box 2021-12-07  493  			continue;
-a3c8f906ed5fc1 David E. Box 2021-12-07  494  
-a3c8f906ed5fc1 David E. Box 2021-12-07  495  		/* Support only revision 1 */
-a3c8f906ed5fc1 David E. Box 2021-12-07  496  		header.rev = PCI_DVSEC_HEADER1_REV(hdr);
-a3c8f906ed5fc1 David E. Box 2021-12-07  497  		if (header.rev != 1) {
-a3c8f906ed5fc1 David E. Box 2021-12-07  498  			dev_info(&pdev->dev, "Unsupported DVSEC revision %d\n", header.rev);
-a3c8f906ed5fc1 David E. Box 2021-12-07  499  			continue;
-a3c8f906ed5fc1 David E. Box 2021-12-07  500  		}
-a3c8f906ed5fc1 David E. Box 2021-12-07  501  
-a3c8f906ed5fc1 David E. Box 2021-12-07  502  		header.length = PCI_DVSEC_HEADER1_LEN(hdr);
-a3c8f906ed5fc1 David E. Box 2021-12-07  503  
-a3c8f906ed5fc1 David E. Box 2021-12-07  504  		pci_read_config_byte(pdev, pos + INTEL_DVSEC_ENTRIES, &header.num_entries);
-a3c8f906ed5fc1 David E. Box 2021-12-07  505  		pci_read_config_byte(pdev, pos + INTEL_DVSEC_SIZE, &header.entry_size);
-a3c8f906ed5fc1 David E. Box 2021-12-07  506  		pci_read_config_dword(pdev, pos + INTEL_DVSEC_TABLE, &table);
-a3c8f906ed5fc1 David E. Box 2021-12-07  507  
-a3c8f906ed5fc1 David E. Box 2021-12-07  508  		header.tbir = INTEL_DVSEC_TABLE_BAR(table);
-a3c8f906ed5fc1 David E. Box 2021-12-07  509  		header.offset = INTEL_DVSEC_TABLE_OFFSET(table);
-a3c8f906ed5fc1 David E. Box 2021-12-07  510  
-a3c8f906ed5fc1 David E. Box 2021-12-07  511  		pci_read_config_dword(pdev, pos + PCI_DVSEC_HEADER2, &hdr);
-a3c8f906ed5fc1 David E. Box 2021-12-07  512  		header.id = PCI_DVSEC_HEADER2_ID(hdr);
-a3c8f906ed5fc1 David E. Box 2021-12-07  513  
-7e734fc397c852 David E. Box 2025-06-16  514  		ret = intel_vsec_register_device(pdev, &header, info);
-a3c8f906ed5fc1 David E. Box 2021-12-07  515  		if (ret)
-a3c8f906ed5fc1 David E. Box 2021-12-07  516  			continue;
-a3c8f906ed5fc1 David E. Box 2021-12-07  517  
-a3c8f906ed5fc1 David E. Box 2021-12-07  518  		have_devices = true;
-a3c8f906ed5fc1 David E. Box 2021-12-07  519  	} while (true);
-a3c8f906ed5fc1 David E. Box 2021-12-07  520  
-a3c8f906ed5fc1 David E. Box 2021-12-07  521  	return have_devices;
-a3c8f906ed5fc1 David E. Box 2021-12-07  522  }
-a3c8f906ed5fc1 David E. Box 2021-12-07  523  
+Some changes in tools/ and scripts/ had Itanium-specific code removed.
+This is not addressed yet in this release. Also, unimplemented
+syscalls are piling up, so it's nearly time for to make that up to
+date.
 
-:::::: The code at line 486 was first introduced by commit
-:::::: a3c8f906ed5fc1d4895b5e1a5c6ad6e942d6c0ca platform/x86/intel: Move intel_pmt from MFD to Auxiliary Bus
+As always, the release can be obtained in patch or whole source code
+from our repo, at:
+https://github.com/linux-ia64/linux-ia64/releases/tag/v6.16-epic1
 
-:::::: TO: David E. Box <david.e.box@linux.intel.com>
-:::::: CC: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-
--- 
-0-DAY CI Kernel Test Service
-https://github.com/intel/lkp-tests/wiki
+Tom=C3=A1=C5=A1
